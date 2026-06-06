@@ -682,11 +682,12 @@ plan before coding.
   local-source rows, including scoped logical `OR` over admitted qualified scalar leaves. Current
   GAR-RUNTIME-IMPL-6D evidence also admits scoped feature-gated Arrow list/large-list/
   fixed-size-list and struct source decoding into JSONL and CSV JSON-text result boundaries, plus
-  scoped typed nested compatibility sink preservation through Parquet, Arrow IPC, and Avro when one
-  stable nested Arrow dtype can be inferred. All-null typed nested structured sinks without
-  child-schema evidence now fail closed with `typed_complex_child_schema_not_admitted`; complex
-  accessors, casts, subquery membership, broad nested ordering, ORC nested output, Vortex nested
-  output, complex-key joins, broader non-scalar join predicates, and broader variant/union
+  scoped typed nested compatibility sink preservation through Parquet, Arrow IPC, Avro, and scoped
+  local Vortex when one stable nested Arrow dtype can be inferred. All-null typed nested structured
+  sinks without child-schema evidence now fail closed with
+  `typed_complex_child_schema_not_admitted`; complex accessors, casts, subquery membership, broad
+  nested ordering, ORC nested output, all-null typed nested Vortex output without child-schema
+  evidence, complex-key joins, broader non-scalar join predicates, and broader variant/union
   semantics still fail before fallback.
 - [x] Parent `GAR-RUNTIME-IMPL-4D`/`GAR-RUNTIME-IMPL-5G` is complete for admitted local expression/
   operator scope, including bounded local scalar IN-subquery/HAVING subquery closeout; residual
@@ -913,12 +914,14 @@ plan before coding.
   `encoded_predicate_provider_encoded_native_claim_allowed=false`, `fallback_attempted=false`, and
   `external_engine_invoked=false`. This was the prerequisite for scoped selected-metric
   aggregation, not a broad encoded-native predicate claim.
-- [x] GAR-0026-V consumes the admitted conjunctive bridge selection vector for the scoped
-  prepared/native `selective filter` metric aggregation. Rows can now report
-  `encoded_predicate_provider_status=reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted`,
-  `encoded_predicate_provider_selected_metric_aggregation_status=selection_vector_consumed`,
-  selected row count, selected metric sum, scan split count, and decode/materialization boundary
-  fields while preserving `encoded_predicate_provider_operator_execution_class=residual_native`,
+- [x] GAR-0026-V scoped the conjunctive bridge selection-vector metric aggregation proof, then the
+  all-features route evidence was narrowed back to the claim boundary the reopened reader can
+  actually prove. Current CSV/JSON prepared/native `selective filter` rows report primitive reopened
+  reader chunks with
+  `encoded_predicate_provider_status=blocked_until_reader_generated_kernel_input_certificate`;
+  selection-vector-backed metric aggregation remains a scoped fixture/direct-kernel proof until a
+  generated encoded-kernel input certificate is present. Rows preserve
+  `encoded_predicate_provider_operator_execution_class=residual_native`,
   `encoded_predicate_provider_encoded_native_claim_allowed=false`, `fallback_attempted=false`, and
   `external_engine_invoked=false`.
 - [x] Scoped prepared/native `partition pruning` uses Vortex scan projection/filter pushdown over
@@ -1734,8 +1737,9 @@ plan before coding.
   - [x] GAR-FLOW-2I reuses one per-batch dimension-label lookup state for hash-join and
         join-aggregate child scenarios inside `traditional-analytics-vortex-batch-run`. The batch
         envelope emits `source_state_reuse_*`, `source_state_prepare_micros`, and
-        `source_state_prepare_timing_scope=batch_shared_pre_scenario` so shared setup remains
-        visible. This closes scoped join-dimension source-state reuse only; broader row-state reuse,
+        `source_state_prepare_timing_scope=batch_shared_session_open_only_deferred_family_build_reported_separately`
+        so shared setup remains visible while deferred family build timing is reported separately.
+        This closes scoped join-dimension source-state reuse only; broader row-state reuse,
         encoded-native operator claims, persistent daemon/service runtime, performance claims,
         SQL/DataFrame, object-store/lakehouse, Spark-displacement, and production claims remain
         blocked.

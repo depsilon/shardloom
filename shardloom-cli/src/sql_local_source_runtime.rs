@@ -519,8 +519,8 @@ impl SqlOutputLayoutWriteAdvisorReport {
         self
     }
 
-    fn fields(&self) -> [(&'static str, String); 10] {
-        [
+    fn fields(&self) -> Vec<(&'static str, String)> {
+        let mut fields = vec![
             (
                 "output_layout_write_advisor_schema_version",
                 self.schema_version.to_string(),
@@ -552,7 +552,28 @@ impl SqlOutputLayoutWriteAdvisorReport {
                 self.metadata_preservation_map.clone(),
             ),
             ("output_metadata_loss", self.metadata_loss.clone()),
-        ]
+        ];
+        if let Some(advisor) = &self.vortex_writer_advisor {
+            fields.extend([
+                (
+                    "output_layout_vortex_writer_provider_kind",
+                    advisor.writer_provider_kind.clone(),
+                ),
+                (
+                    "output_layout_vortex_writer_provider_surface",
+                    advisor.writer_provider_surface.clone(),
+                ),
+                (
+                    "output_layout_vortex_writer_materialization_boundary_status",
+                    advisor.materialization_boundary_status.clone(),
+                ),
+                (
+                    "output_layout_vortex_writer_decode_boundary_status",
+                    advisor.decode_boundary_status.clone(),
+                ),
+            ]);
+        }
+        fields
     }
 
     fn vortex_writer_advisor(&self) -> Option<&shardloom_vortex::VortexLayoutWriteAdvisorReport> {
@@ -1205,7 +1226,9 @@ impl SqlLocalSourceOutputFormat {
                 "flat_scalar_or_inferable_typed_nested_row_bridge_required_no_text_rendering"
             }
             Self::Orc => "flat_scalar_row_bridge_required_no_text_rendering_nested_blocked",
-            Self::Vortex => "flat_scalar_vortex_writer_bridge_required_no_text_rendering",
+            Self::Vortex => {
+                "flat_scalar_or_inferable_typed_nested_vortex_writer_bridge_required_no_text_rendering"
+            }
         }
     }
 
@@ -1233,11 +1256,10 @@ impl SqlLocalSourceOutputFormat {
         match self {
             Self::InlineJsonl => "logical_values_including_nested_json_boundary",
             Self::Csv => "flat_scalar_and_nested_json_text_values_null_as_empty_boundary",
-            Self::Parquet | Self::ArrowIpc | Self::Avro => {
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Vortex => {
                 "flat_scalar_nullable_and_inferable_typed_nested_nullable_values_supported"
             }
             Self::Orc => "flat_scalar_nullable_values_required",
-            Self::Vortex => "flat_scalar_nullable_values_required_for_current_vortex_writer",
         }
     }
 
@@ -1301,7 +1323,7 @@ impl SqlLocalSourceOutputFormat {
     const fn output_metadata_preservation_map(self) -> &'static str {
         match self {
             Self::Vortex => {
-                "schema=preserved,dtypes=preserved,row_count=reopen_verified,statistics=writer_default,layout_intent=writer_default_vortex"
+                "schema=flat_scalar_or_inferable_typed_nested_preserved,dtypes=preserved,row_count=reopen_verified,statistics=writer_default,layout_intent=writer_default_vortex"
             }
             Self::Parquet | Self::ArrowIpc | Self::Avro => {
                 "schema=flat_scalar_or_inferable_typed_nested_preserved,nullability=preserved,row_count=digest_replay_verified,vortex_layout_intent=dropped"
@@ -1320,7 +1342,7 @@ impl SqlLocalSourceOutputFormat {
 
     const fn output_metadata_loss(self) -> &'static str {
         match self {
-            Self::Vortex => "none_for_scoped_flat_scalar_vortex_output",
+            Self::Vortex => "none_for_scoped_flat_scalar_or_typed_nested_vortex_output",
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
                 "vortex_layout_encoding_statistics_intent_not_claimed"
             }
@@ -1338,8 +1360,13 @@ impl SqlLocalSourceOutputFormat {
         )
     }
 
-    const fn preserves_typed_complex(self) -> bool {
+    fn preserves_typed_complex(self) -> bool {
         matches!(self, Self::Parquet | Self::ArrowIpc | Self::Avro)
+            || (matches!(self, Self::Vortex)
+                && cfg!(all(
+                    feature = "vortex-write",
+                    feature = "universal-format-io"
+                )))
     }
 
     fn render_batch(self, batch: &SqlResultBatchState) -> Result<Vec<u8>, ShardLoomError> {
@@ -13579,6 +13606,20 @@ fn plan_sql_output_layout_write_advisor_prewrite(
     } else {
         "compatibility_targets_advisory_only_no_writer_knob_applied"
     };
+    let (writer_provider_kind, writer_provider_surface, writer_materialization_boundary) =
+        if has_vortex_sink && batch.contains_complex_values() {
+            (
+                "vortex_array_kernel",
+                "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream)",
+                "result_batch_state_materialized_to_arrow_record_batch_before_vortex_output_write",
+            )
+        } else {
+            (
+                "shardloom_kernel",
+                "shardloom_scalar_rows_to_vortex_struct;VortexSession::write_options().write(ArrayStream)",
+                "result_batch_state_materialized_before_vortex_output_write",
+            )
+        };
     let vortex_writer_advisor = has_vortex_sink.then(|| {
         shardloom_vortex::evaluate_vortex_layout_write_advisor(
             shardloom_vortex::VortexLayoutWriteAdvisorInput {
@@ -13599,14 +13640,11 @@ fn plan_sql_output_layout_write_advisor_prewrite(
                 segmentation_strategy: "single_segment_local_fixture".to_string(),
                 dictionary_strategy: "writer_default_no_dictionary_claim".to_string(),
                 statistics_policy: "writer_default_statistics_no_pruning_claim".to_string(),
-                writer_provider_kind: "shardloom_kernel".to_string(),
-                writer_provider_surface:
-                    "shardloom_scalar_rows_to_vortex_struct;VortexSession::write_options().write(ArrayStream)"
-                        .to_string(),
+                writer_provider_kind: writer_provider_kind.to_string(),
+                writer_provider_surface: writer_provider_surface.to_string(),
                 writer_admission_policy: "scoped_local_vortex_ingest_prepare_once".to_string(),
                 write_reopen_verification_depth: "write_digest_reopen_row_count".to_string(),
-                materialization_boundary_status:
-                    "result_batch_state_materialized_before_vortex_output_write".to_string(),
+                materialization_boundary_status: writer_materialization_boundary.to_string(),
                 decode_boundary_status: "no_additional_decode_after_result_batch_state"
                     .to_string(),
                 expected_read_tradeoff: "not_claimed_requires_benchmark_refresh".to_string(),
@@ -14368,7 +14406,7 @@ fn output_fidelity_status(format: SqlLocalSourceOutputFormat) -> &'static str {
             "flat_scalar_or_inferable_typed_nested_schema_replay_verified"
         }
         SqlLocalSourceOutputFormat::Orc => "flat_scalar_schema_replay_verified_nested_blocked",
-        SqlLocalSourceOutputFormat::Vortex => "vortex_flat_scalar_reopen_verified",
+        SqlLocalSourceOutputFormat::Vortex => "vortex_flat_scalar_or_typed_nested_reopen_verified",
     }
 }
 
@@ -14389,7 +14427,7 @@ fn output_fidelity_loss(format: SqlLocalSourceOutputFormat) -> &'static str {
             "flat_scalar_only_nested_blocked_no_full_metadata_fidelity_claim"
         }
         SqlLocalSourceOutputFormat::Vortex => {
-            "flat_scalar_only_no_broad_vortex_writer_fidelity_claim"
+            "no_broad_vortex_writer_fidelity_claim_beyond_scoped_flat_scalar_or_inferable_typed_nested"
         }
     }
 }
@@ -27603,7 +27641,11 @@ impl SqlLocalSourceReport {
         {
             "parquet,arrow_ipc,avro,orc,vortex".to_string()
         } else if self.result_batch_state.contains_complex_values() {
-            "orc,vortex".to_string()
+            if SqlLocalSourceOutputFormat::Vortex.preserves_typed_complex() {
+                "orc".to_string()
+            } else {
+                "orc,vortex".to_string()
+            }
         } else {
             "none".to_string()
         }
@@ -37184,7 +37226,7 @@ fn validate_flat_scalar_result_batch(
         && !format.preserves_typed_complex()
     {
         return Err(unsupported_sql_error(&format!(
-            "local {} output does not yet admit typed complex preservation; ARRAY and STRUCT projection values are admitted through the JSONL result boundary, CSV JSON-text output boundary, and feature-gated Parquet/Arrow IPC/Avro typed nested result boundaries when a nested Arrow schema can be inferred",
+            "local {} output does not yet admit typed complex preservation; ARRAY and STRUCT projection values are admitted through the JSONL result boundary, CSV JSON-text output boundary, feature-gated Parquet/Arrow IPC/Avro typed nested result boundaries, and feature-gated local Vortex typed nested output when a nested Arrow schema can be inferred",
             format.sink_format()
         )));
     }
@@ -37210,7 +37252,7 @@ fn validate_sql_output_plan_sink(
             format.sink_format()
         ))),
         Some("typed_complex_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
-            "output_plan_conversion_blocker=typed_complex_preservation_not_admitted; local {} output does not yet admit typed complex preservation; ARRAY and STRUCT projection values are admitted through the JSONL result boundary, CSV JSON-text output boundary, and feature-gated Parquet/Arrow IPC/Avro typed nested result boundaries when a nested Arrow schema can be inferred",
+            "output_plan_conversion_blocker=typed_complex_preservation_not_admitted; local {} output does not yet admit typed complex preservation; ARRAY and STRUCT projection values are admitted through the JSONL result boundary, CSV JSON-text output boundary, feature-gated Parquet/Arrow IPC/Avro typed nested result boundaries, and feature-gated local Vortex typed nested output when a nested Arrow schema can be inferred",
             format.sink_format()
         ))),
         Some("typed_decimal128_preservation_not_admitted") => Err(unsupported_sql_error(&format!(
@@ -40521,6 +40563,74 @@ mod tests {
         fs::remove_file(&output_path).expect("remove csv output");
     }
 
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    #[test]
+    fn runs_scoped_complex_projection_vortex_output_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        let output_path = sql_local_source_test_path("vortex");
+        fs::write(&path, "id,label,amount\n1,alpha,8\n2,beta,\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: None,
+            statement: format!(
+                "SELECT id,ARRAY[1,2,NULL] AS values,STRUCT(label, amount) AS payload FROM '{}' ORDER BY id LIMIT 2",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::Vortex,
+            output_path: Some(output_path.clone()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("write complex vortex output");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"values\":[1,2,null],\"payload\":{\"label\":\"alpha\",\"amount\":8}}\n{\"id\":2,\"values\":[1,2,null],\"payload\":{\"label\":\"beta\",\"amount\":null}}\n"
+        );
+        assert_field_eq(&fields, "output_format", "vortex");
+        assert_field_eq(&fields, "output_plan_conversion_blocker", "none");
+        assert_field_eq(
+            &fields,
+            "complex_projection_output_boundary",
+            "typed_nested_compatibility_sink_with_result_jsonl_evidence",
+        );
+        assert_field_eq(
+            &fields,
+            "typed_nested_child_schema_evidence_status",
+            "present_from_non_null_nested_values_or_source_schema",
+        );
+        assert_field_eq(
+            &fields,
+            "typed_nested_child_schema_blocked_sink_formats",
+            "orc",
+        );
+        assert_field_eq(&fields, "vortex_output_runtime_execution", "true");
+        assert_field_eq(&fields, "vortex_output_reopen_verified", "true");
+        assert_field_eq(
+            &fields,
+            "vortex_output_column_families",
+            "id:int64,values:list,payload:struct",
+        );
+        assert_field_eq(
+            &fields,
+            "output_layout_vortex_writer_provider_kind",
+            "vortex_array_kernel",
+        );
+        assert_field_eq(
+            &fields,
+            "output_layout_vortex_writer_provider_surface",
+            "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream)",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert!(output_path.exists());
+
+        fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&output_path).expect("remove vortex output");
+    }
+
     #[test]
     fn runs_zero_row_complex_projection_csv_output_without_fallback() {
         let path = sql_local_source_test_path("csv");
@@ -40617,7 +40727,7 @@ mod tests {
     }
 
     #[test]
-    fn complex_projection_result_batch_admits_typed_nested_compatibility_sinks_and_blocks_orc_vortex_without_fallback()
+    fn complex_projection_result_batch_admits_typed_nested_compatibility_sinks_and_blocks_unadmitted_sinks_without_fallback()
      {
         let complex_batch = SqlResultBatchState::from_rows_with_dtypes(
             &["values".to_string()],
@@ -40652,17 +40762,20 @@ mod tests {
                 format.sink_format()
             );
         }
-        for format in [
-            SqlLocalSourceOutputFormat::Orc,
-            SqlLocalSourceOutputFormat::Vortex,
-        ] {
-            assert_eq!(
-                sql_output_plan_conversion_blocker(format, &complex_batch),
-                Some("typed_complex_preservation_not_admitted"),
-                "expected {} to keep blocking complex batches",
-                format.sink_format()
-            );
-        }
+        assert_eq!(
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Orc, &complex_batch),
+            Some("typed_complex_preservation_not_admitted"),
+            "expected ORC to keep blocking complex batches"
+        );
+        assert_eq!(
+            sql_output_plan_conversion_blocker(SqlLocalSourceOutputFormat::Vortex, &complex_batch),
+            if SqlLocalSourceOutputFormat::Vortex.preserves_typed_complex() {
+                None
+            } else {
+                Some("typed_complex_preservation_not_admitted")
+            },
+            "Vortex typed nested preservation is admitted only when vortex-write and universal-format-io are enabled"
+        );
 
         validate_shared_fanout_materialization_formats(
             &[

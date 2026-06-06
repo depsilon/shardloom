@@ -16,6 +16,76 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped local Vortex typed nested output
+  - Date: 2026-06-06
+  - Branch/PR: `codex/compute-engine-6d-sql-vortex-nested-output` / PR pending.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` remaining typed structured sink
+      row in `docs/architecture/phased-execution-plan.md`.
+    - Vortex-first provider check for upstream `ArrayRef::from_arrow(RecordBatch)` as a
+      ShardLoom-admitted native array-build provider before the existing Vortex file writer/reopen
+      proof.
+  - Scope:
+    - Admitted scoped local Vortex typed nested output for inferable `List` / `Struct` SQL result
+      columns by converting ShardLoom materialized scalar rows into an Arrow `RecordBatch`, then
+      into a Vortex array through `ArrayRef::from_arrow(RecordBatch)`.
+    - Preserved the existing Vortex writer/reopen proof and layout/write advisor admission by
+      reporting the full writer-provider chain:
+      `ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream)`.
+    - Updated SQL, Python, DataFrame parity, admitted-semantics, global-architecture, and phase-plan
+      surfaces so typed nested compatibility sinks now include Parquet, Arrow IPC, Avro, and scoped
+      local Vortex.
+    - Kept ORC nested output, all-null typed nested output without child-schema evidence, nested
+      accessors/casts, complex subquery membership, broad nested ordering, complex-key joins,
+      production SQL nested parity, and performance claims outside the claim boundary.
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features vortex-write,universal-format-io local_flat_scalar_typed_nested_rows_write_via_vortex_arrow_provider -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --features vortex-write,universal-format-io runs_scoped_complex_projection_vortex_output_without_fallback -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --features vortex-write,universal-format-io complex_projection_result_batch_admits_typed_nested_compatibility_sinks_and_blocks_unadmitted_sinks_without_fallback -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder python.tests.test_sql_python_dataframe_parity python.tests.test_cli_client.ShardLoomClientTests.test_context_front_door_parity_matrix_exposes_broad_gaps`
+      passed with 219 tests.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-vortex-typed-nested.json`
+      passed with `row_count=11`, `admitted_row_count=7`, `remaining_gap_count=4`,
+      `scoped_local_front_door_parity_supported=true`, and
+      `all_no_fallback_no_external_engine=true`.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-vortex-typed-nested.json`
+      passed with `matrix_row_count=123`, `executable_fixture_count=99`,
+      `diagnostic_case_count=22`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-vortex-typed-nested.json`
+      passed with `fallback_attempted=false` and `external_engine_invoked=false`.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `cargo check --workspace --all-features` passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_analytics::tests --lib -- --nocapture`
+      passed with 86 tests after the all-features traditional-analytics evidence realignment.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 480 tests
+      and 2 skips.
+    - `cargo fmt --all -- --check` and `git diff --check` passed.
+    - `python3 scripts/check_compute_engine_completion_gate.py --output target/compute-engine-completion-gate-vortex-typed-nested.json`
+      still fails closed with `completion_claim_allowed=false`, `phase_plan_unchecked_count=31`,
+      `global_review_unchecked_count=38`, `top_level_blocker_count=600`, and
+      `residual_blocker_count=3000`.
+  - Claim boundary:
+    - Scoped local Vortex typed nested output only for inferable `List` / `Struct` result columns
+      with stable child-schema evidence. This does not admit ORC nested output, all-null nested
+      child-schema inference, nested accessors/casts, complex subquery membership, broad nested
+      ordering, complex-key joins, production SQL nested parity, Spark-replacement claims,
+      performance claims, package/release claims, or public production readiness.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution is introduced.
+  - All-features benchmark evidence boundary:
+    - CSV/JSON prepared/native `selective filter` rows now report primitive reopened reader chunks
+      and keep `encoded_predicate_provider_status=blocked_until_reader_generated_kernel_input_certificate`
+      until generated encoded-kernel input certificates are present.
+    - Dictionary group-by fixture setup now writes a real Vortex dictionary array for the grouping
+      key. Split-operator evidence remains blocked when imported primitive filter columns cannot
+      prove selection-vector-backed runtime admission.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D generated-output object-store recovery replay integration
   - Date: 2026-06-06
   - Branch/PR: `codex/compute-engine-completion-batch` / PR pending.
@@ -23697,7 +23767,7 @@ phase plan first.
           while preserving per-scenario scan/operator/result-sink evidence.
     - [x] Emit batch-level `source_state_reuse_*` fields plus
           `source_state_prepare_micros` and
-          `source_state_prepare_timing_scope=batch_shared_pre_scenario`.
+          `source_state_prepare_timing_scope=batch_shared_session_open_only_deferred_family_build_reported_separately`.
     - [x] Propagate source-state reuse fields into comparative benchmark rows.
     - [x] Update compute-flow and benchmark docs so shared setup timing is explicit and cannot be
           read as a hidden fast mode or public performance claim.
@@ -24780,8 +24850,12 @@ phase plan first.
       generalization, SIMD dispatch, Vortex query-engine integration, performance superiority
       claims, or production compressed-execution claims.
   - Evidence:
-    - Prepared/native `selective filter` rows can report
-      `encoded_predicate_provider_status=reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted`.
+    - Current all-features CSV/JSON prepared/native `selective filter` rows report
+      `encoded_predicate_provider_status=blocked_until_reader_generated_kernel_input_certificate`;
+      the previous
+      `reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted` status is
+      confined to scoped fixture/direct-kernel evidence until generated encoded-kernel input
+      certificates are present.
     - Selected metric fields include
       `encoded_predicate_provider_selected_metric_aggregation_status=selection_vector_consumed`,
       `encoded_predicate_provider_selected_metric_selection_vector_consumed=true`,

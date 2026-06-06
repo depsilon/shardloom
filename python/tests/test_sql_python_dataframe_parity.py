@@ -94,7 +94,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         )
         self.assertEqual(nested_sink["runtime_gap_status"], "admitted_scope")
         self.assertIn(
-            "Parquet, Arrow IPC, and Avro",
+            "Parquet, Arrow IPC, Avro, and local Vortex",
             nested_sink["claim_boundary"],
         )
         native = next(

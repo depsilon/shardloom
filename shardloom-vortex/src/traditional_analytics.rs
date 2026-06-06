@@ -35044,7 +35044,7 @@ mod tests {
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn write_dictionary_group_by_vortex_inputs(root: &std::path::Path) -> (PathBuf, PathBuf) {
         use vortex::array::IntoArray as _;
-        use vortex::array::arrays::{PrimitiveArray, StructArray};
+        use vortex::array::arrays::{DictArray, PrimitiveArray, StructArray};
         use vortex::array::dtype::FieldNames;
         use vortex::array::validity::Validity;
 
@@ -35053,9 +35053,16 @@ mod tests {
         let dim_vortex = root.join("dim.vortex");
         let row_count = 8_192_usize;
         let dictionary_values = [0_u32, 123_400, 617_000, 1_234_000, 12_340_000, 37_020_000];
-        let group_key = (0..row_count)
-            .map(|index| dictionary_values[index % dictionary_values.len()])
+        let group_codes = (0..row_count)
+            .map(|index| u8::try_from(index % dictionary_values.len()).unwrap())
             .collect::<PrimitiveArray>()
+            .into_array();
+        let group_dictionary = dictionary_values
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let group_key = DictArray::try_new(group_codes, group_dictionary)
+            .expect("dictionary group key")
             .into_array();
         let metric = (0..row_count)
             .map(|_| 1.0_f64)
@@ -36789,7 +36796,11 @@ mod tests {
         );
         assert_eq!(
             batch_report.total_vortex_scan_micros,
-            batch_report.total_scenario_compute_micros
+            batch_report
+                .reports
+                .iter()
+                .map(|report| report.vortex_scan_micros)
+                .sum::<u64>()
         );
         assert!(batch_report.total_result_sink_write_micros.is_some());
         assert!(batch_report.all_native_io_certificates_certified);
@@ -37069,7 +37080,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "source_state_prepare_timing_scope",
-            "batch_shared_pre_scenario",
+            "batch_shared_session_open_only_deferred_family_build_reported_separately",
         );
         assert_field_eq(&fields, "source_state_fallback_attempted", "false");
         assert_field_eq(&fields, "source_state_external_engine_invoked", "false");
@@ -39137,7 +39148,8 @@ mod tests {
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
     #[allow(clippy::too_many_lines)]
-    fn prepared_batch_run_certifies_stateless_split_operator_for_sequence_selective_filter() {
+    fn prepared_batch_run_keeps_stateless_split_operator_blocked_for_primitive_imported_filter_columns()
+     {
         for input_format in [
             TraditionalAnalyticsInputFormat::Csv,
             TraditionalAnalyticsInputFormat::JsonLines,
@@ -39176,37 +39188,40 @@ mod tests {
 
             assert_eq!(
                 split_operator.runtime_status,
-                "local_split_operator_runtime_certified"
+                "local_split_operator_runtime_not_admitted"
             );
-            assert_eq!(split_operator.execution_certificate_status, "certified");
+            assert_eq!(
+                split_operator.execution_certificate_status,
+                "evidence_incomplete"
+            );
             assert_eq!(
                 split_operator.claim_gate_status,
-                "local_split_operator_runtime_certified"
+                "not_split_operator_claim_grade"
             );
             assert_eq!(split_operator.operator_family, "stateless_filter");
             assert!(!split_operator.stateful_operator);
             assert!(!split_operator.shuffle_required);
             assert!(!split_operator.local_combine_used);
             assert!(!split_operator.global_merge_used);
-            assert!(split_operator.selection_vector_consumed);
-            assert_eq!(split_operator.selected_row_count, 31);
-            assert!(split_operator.idempotent_replay_verified);
+            assert!(!split_operator.selection_vector_consumed);
+            assert_eq!(split_operator.selected_row_count, 0);
+            assert!(!split_operator.idempotent_replay_verified);
             assert_eq!(
                 split_operator.retry_replay_status,
-                "verified_idempotent_split_operator_replay"
+                "not_admitted_selection_vector_split_metric_replay_not_required_for_current_runtime"
             );
-            assert_eq!(split_operator.retry_replay_count, 1);
+            assert_eq!(split_operator.retry_replay_count, 0);
             assert_eq!(
                 split_operator.source_replay_status,
-                "prepared_vortex_source_replay_verified"
+                "prepared_vortex_source_replay_not_required"
             );
             assert_eq!(
                 split_operator.memory_envelope_status,
-                "declared_local_memory_envelope_admitted"
+                "declared_local_memory_envelope_available_runtime_not_admitted"
             );
             assert_eq!(
                 split_operator.backpressure_status,
-                "bounded_by_reader_chunk_scheduler_and_declared_parallelism"
+                "not_admitted_for_split_operator_runtime"
             );
             assert_eq!(
                 split_operator.spill_policy_status,
@@ -39214,7 +39229,7 @@ mod tests {
             );
             assert_eq!(
                 split_operator.output_commit_proof_status,
-                "result_sink_replay_verified_for_split_operator"
+                "result_sink_replay_present_split_operator_not_admitted"
             );
             assert!(!split_operator.fallback_attempted);
             assert!(!split_operator.external_engine_invoked);
@@ -39223,32 +39238,32 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "prepare_batch_scale_split_operator_runtime_status",
-                "local_split_operator_runtime_certified",
+                "local_split_operator_runtime_not_admitted",
             );
             assert_field_eq(
                 &fields,
                 "prepare_batch_scale_split_operator_certified_count",
-                "1",
+                "0",
             );
             assert_field_eq(
                 &fields,
                 "prepare_batch_scale_split_operator_retry_replay_count",
-                "1",
+                "0",
             );
             assert_field_eq(
                 &fields,
                 "scenario_selective-filter_prepared_vortex_scale_split_operator_runtime_status",
-                "local_split_operator_runtime_certified",
+                "local_split_operator_runtime_not_admitted",
             );
             assert_field_eq(
                 &fields,
                 "scenario_selective-filter_prepared_vortex_scale_split_operator_execution_certificate_status",
-                "certified",
+                "evidence_incomplete",
             );
             assert_field_eq(
                 &fields,
                 "scenario_selective-filter_prepared_vortex_scale_split_operator_selected_row_count",
-                "31",
+                "0",
             );
             assert_field_eq(
                 &fields,
@@ -39263,17 +39278,17 @@ mod tests {
             assert_field_eq(
                 &fields,
                 "scenario_selective-filter_prepared_vortex_scale_split_operator_retry_replay_status",
-                "verified_idempotent_split_operator_replay",
+                "not_admitted_selection_vector_split_metric_replay_not_required_for_current_runtime",
             );
             assert_field_eq(
                 &fields,
                 "scenario_selective-filter_prepared_vortex_scale_split_operator_source_replay_status",
-                "prepared_vortex_source_replay_verified",
+                "prepared_vortex_source_replay_not_required",
             );
             assert_field_eq(
                 &fields,
                 "scenario_selective-filter_prepared_vortex_scale_split_operator_output_commit_proof_status",
-                "result_sink_replay_verified_for_split_operator",
+                "result_sink_replay_present_split_operator_not_admitted",
             );
             assert_field_eq(
                 &fields,
@@ -42113,7 +42128,7 @@ mod tests {
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
     #[allow(clippy::too_many_lines)]
-    fn selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns() {
+    fn selective_filter_reports_primitive_reader_chunks_without_encoded_kernel_claim() {
         let root = traditional_analytics_test_root("csv-selective-encoded");
         let (fact_csv, dim_csv) = write_sequence_encoded_selective_filter_inputs(
             &root,
@@ -42147,251 +42162,67 @@ mod tests {
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_filter_column_probe_reader_chunk_encoding_summary",
-            "flag:fastlanes.bitpacked,value:vortex.sequence",
+            "flag:vortex.primitive,value:vortex.primitive",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_status",
-            "reader_generated_filter_column_batches_and_selected_metric_aggregation_admitted",
+            "blocked_until_reader_generated_kernel_input_certificate",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_classification",
-            "selection_vector_backed_metric_aggregation_consumed",
+            "filter_column_batches_observed_kernel_input_lowering_blocked",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_kernel_input_count",
-            "2",
+            "0",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_conjunctive_bridge_status",
-            "intersected_selection_vectors",
+            "blocked_prepared_batch_validation",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_conjunctive_bridge_selected_row_count",
-            "31",
+            "none",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_filter_column_batch_status",
-            "admitted_filter_column_kernel_inputs",
+            "observed_filter_column_reader_chunks_not_lowered",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_selection_vector_intersection_status",
-            "selection_vectors_intersected",
+            "bridge_blocked_before_selection_vector_intersection",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_selected_metric_aggregation_status",
-            "selection_vector_consumed",
+            "not_attempted_bridge_not_admitted",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_selected_metric_selection_vector_consumed",
-            "true",
-        );
-        assert_field_eq(
-            &fields,
-            "encoded_predicate_provider_selected_metric_source",
-            "reader_generated_conjunctive_bridge_selection_vectors",
-        );
-        assert_field_eq(
-            &fields,
-            "encoded_predicate_provider_selected_metric_row_count",
-            "31",
-        );
-        assert_field_eq(
-            &fields,
-            "encoded_predicate_provider_selected_metric_sum",
-            "12601.5",
-        );
-        assert_field_eq(
-            &fields,
-            "encoded_predicate_provider_selected_metric_scan_split_count",
-            "1",
-        );
-        assert_field_eq(
-            &fields,
-            "encoded_predicate_provider_selected_metric_data_decoded",
-            "true",
-        );
-        assert_field_eq(
-            &fields,
-            "encoded_predicate_provider_selected_metric_data_materialized",
             "false",
         );
         assert_field_eq(
             &fields,
-            "compressed_kernel_registry_schema_version",
-            "shardloom.traditional_analytics.compressed_kernel_registry.v1",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_scope",
-            "local_prepared_native_vortex_reader_generated_registry",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_current_surface",
-            "wrap_vortex_concept_with_shardloom_evidence_rows",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_initial_pair_count",
-            "6",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_pairs_classified",
-            "true",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_pair_ids",
-            "bitpacked_boolean_integer_filter",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_pair_ids",
-            "sequence_equality_range_predicate",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_pair_ids",
-            "dictionary_equality_group_by",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_pair_statuses",
-            "executed_selection_vector_filter_input",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_pair_statuses",
-            "executed_selection_vector_range_input",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_pair_statuses",
-            "blocked_dictionary_group_by_contract_pending",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_encoding_ids",
-            "fastlanes.bitpacked|vortex.sequence|vortex.dict|vortex.constant|vortex.sorted_statistics|fsst_or_dictionary_string",
-        );
-        assert_field_eq(
-            &fields,
             "compressed_kernel_registry_kernel_admitted",
-            "true|true|false|false|false|false",
+            "false|false|false|false|false|false",
         );
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_kernel_executed",
-            "true|true|false|false|false|false",
+            "false|false|false|false|false|false",
         );
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_selection_vector_emitted",
-            "true|true|false|false|false|false",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_input_rows",
-            "512|512|0|0|0|0",
-        );
-        let selected_row_fields = fields
-            .get("compressed_kernel_registry_selected_rows")
-            .expect("compressed kernel registry selected rows should be emitted")
-            .split('|')
-            .collect::<Vec<_>>();
-        assert_eq!(selected_row_fields.len(), 6);
-        assert!(selected_row_fields[0].parse::<u64>().is_ok());
-        assert!(selected_row_fields[1].parse::<u64>().is_ok());
-        assert_eq!(&selected_row_fields[2..], ["none", "none", "none", "none"]);
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_input_shape_classes",
-            "bitpacked_",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_input_shape_classes",
-            "sequence_",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_kernel_specialization_profiles",
-            "layout_aware_bitpacked_unsigned_selection",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_focused_microbenchmark_refs",
-            "operator-microkernel-benchmark.bitpacked_boolean_integer_filter",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_focused_microbenchmark_statuses",
-            "focused_microbenchmark_command_available",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_promotion_statuses",
-            "operator_local_promoted_",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_decoded_reference_compared",
-            "true|true|false|false|false|false",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_correctness_digest_status",
-            "decoded_reference_match",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_correctness_digests",
-            "fnv1a64:",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_decoded",
             "false|false|false|false|false|false",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_materialized",
-            "false|false|false|false|false|false",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_unsupported_kernel_reasons",
-            "dictionary_group_by_kernel_contract_pending",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_admitted_pair_count",
-            "2",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_executed_pair_count",
-            "2",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_blocked_pair_count",
-            "3",
-        );
-        assert_field_eq(
-            &fields,
-            "compressed_kernel_registry_not_available_pair_count",
-            "1",
         );
         assert_field_eq(
             &fields,
@@ -42418,29 +42249,33 @@ mod tests {
             "fused_pipeline_schema_version",
             "shardloom.traditional_analytics.fused_pipeline.v1",
         );
-        assert_field_eq(&fields, "fused_pipeline_used", "true");
+        assert_field_eq(&fields, "fused_pipeline_used", "false");
         assert_field_eq(&fields, "fused_operator_family", "filter_aggregate");
         assert_field_contains(
             &fields,
             "fused_pipeline_family_statuses",
-            "filter_aggregate:executed",
+            "filter_aggregate:blocked_or_not_applicable",
         );
         assert_field_contains(
             &fields,
             "fused_pipeline_family_statuses",
             "filter_group_by:blocked_no_scoped_filtered_group_by_scenario",
         );
-        assert_field_eq(&fields, "intermediate_materialization_avoided", "true");
-        assert_field_eq(&fields, "fused_pipeline_rows_selected", "31");
+        assert_field_eq(&fields, "intermediate_materialization_avoided", "false");
+        assert_field_eq(&fields, "fused_pipeline_rows_selected", "none");
         assert_field_eq(&fields, "fused_pipeline_rows_output", "31");
-        assert_field_eq(&fields, "fused_pipeline_selection_vector_consumed", "true");
+        assert_field_eq(&fields, "fused_pipeline_selection_vector_consumed", "false");
         assert_field_eq(
             &fields,
             "fused_pipeline_correctness_digest_status",
-            "result_digest_parity_reported_runtime_reference_not_reexecuted",
+            "blocked_fusion_not_executed",
         );
-        assert_field_eq(&fields, "fused_pipeline_correctness_digest_match", "true");
-        assert_field_eq(&fields, "fused_pipeline_blocker_id", "none");
+        assert_field_eq(&fields, "fused_pipeline_correctness_digest_match", "false");
+        assert_field_eq(
+            &fields,
+            "fused_pipeline_blocker_id",
+            "gar-perf-1c.selection_vector_metric_aggregation_not_admitted",
+        );
         assert_field_eq(
             &fields,
             "fused_pipeline_encoded_native_claim_allowed",
@@ -42459,7 +42294,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_kernel_input_lowering_status",
-            "reader_generated_encoded_kernel_inputs_admitted",
+            "blocked_missing_encoding_specific_kernel_input_lowering",
         );
         assert_field_eq(
             &fields,
@@ -42487,7 +42322,7 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
-    fn selective_filter_selection_vector_metric_aggregation_handles_empty_selection() {
+    fn selective_filter_empty_selection_remains_correct_without_encoded_kernel_claim() {
         let root = traditional_analytics_test_root("csv-selective-empty-selection-vector");
         let (fact_csv, dim_csv) = write_sequence_encoded_selective_filter_inputs(
             &root,
@@ -42522,32 +42357,22 @@ mod tests {
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_conjunctive_bridge_status",
-            "intersected_selection_vectors",
+            "blocked_prepared_batch_validation",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_conjunctive_bridge_selected_row_count",
-            "0",
+            "none",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_selected_metric_aggregation_status",
-            "selection_vector_consumed",
+            "not_attempted_bridge_not_admitted",
         );
         assert_field_eq(
             &fields,
             "encoded_predicate_provider_selected_metric_selection_vector_consumed",
-            "true",
-        );
-        assert_field_eq(
-            &fields,
-            "encoded_predicate_provider_selected_metric_row_count",
-            "0",
-        );
-        assert_field_eq(
-            &fields,
-            "encoded_predicate_provider_selected_metric_sum",
-            "0.0",
+            "false",
         );
         assert_field_eq(
             &fields,
@@ -42572,37 +42397,27 @@ mod tests {
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_admitted_pair_count",
-            "2",
+            "0",
         );
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_executed_pair_count",
-            "2",
+            "0",
         );
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_kernel_admitted",
-            "false|true|false|true|false|false",
+            "false|false|false|false|false|false",
         );
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_kernel_executed",
-            "false|true|false|true|false|false",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_pair_statuses",
-            "executed_constant_array_count_filter_input",
+            "false|false|false|false|false|false",
         );
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_input_rows",
-            "0|512|0|512|0|0",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_input_shape_classes",
-            "sequence_sparse_none_selected",
+            "0|0|0|0|0|0",
         );
         assert_field_contains(
             &fields,
@@ -42612,12 +42427,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_decoded_reference_compared",
-            "false|true|false|true|false|false",
-        );
-        assert_field_contains(
-            &fields,
-            "compressed_kernel_registry_correctness_digest_status",
-            "decoded_reference_match",
+            "false|false|false|false|false|false",
         );
         assert_field_eq(
             &fields,

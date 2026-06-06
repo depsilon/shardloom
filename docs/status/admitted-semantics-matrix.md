@@ -209,11 +209,13 @@ decoding now admits Arrow list/large-list/fixed-size-list and struct arrays into
 JSON-text output cells, with Arrow IPC CLI smoke evidence and shared materializer coverage for the
 admitted Arrow array families surfaced by local Parquet/Arrow IPC/Avro/ORC readers. Broad ANSI
 nested ordering, nested accessors/casts, complex subquery membership materialization, complex-key
-joins, broader non-scalar join predicates, ORC nested output, and Vortex nested output remain
-outside the claim boundary. All-null typed nested sink columns without child-schema evidence fail
+joins, broader non-scalar join predicates, and ORC nested output remain outside the claim
+boundary. All-null typed nested sink columns without child-schema evidence fail
 closed with `typed_complex_child_schema_not_admitted` before structured writer conversion.
-Feature-gated Parquet/Arrow IPC/Avro typed nested compatibility sinks are admitted only when one
-stable Arrow nested dtype can be inferred from non-null `List` / `Struct` values.
+Feature-gated Parquet/Arrow IPC/Avro and scoped local Vortex typed nested compatibility sinks are
+admitted only when one stable Arrow nested dtype can be inferred from non-null `List` / `Struct`
+values; local Vortex uses `ArrayRef::from_arrow(RecordBatch)` before the existing Vortex
+writer/reopen proof.
 Scoped `decimal128` add/subtract/multiply projections over same-scale and mixed-scale decimal
 operands plus integer operands are executable through the same generic-expression local-source
 runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparisons and exact

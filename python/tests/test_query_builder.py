@@ -8863,7 +8863,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "complex_projection_output_boundary", "value": "typed_nested_compatibility_sink_with_result_jsonl_evidence"},
                         {"key": "typed_nested_child_schema_evidence_status", "value": "present_from_non_null_nested_values_or_source_schema"},
                         {"key": "typed_nested_child_schema_blocker", "value": "none"},
-                        {"key": "typed_nested_child_schema_blocked_sink_formats", "value": "orc,vortex"},
+                        {"key": "typed_nested_child_schema_blocked_sink_formats", "value": "orc"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"}
@@ -8914,11 +8914,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertEqual(
             report.complex_projection_typed_nested_sink_formats,
-            ("parquet", "arrow_ipc", "avro"),
+            ("parquet", "arrow_ipc", "avro", "vortex"),
         )
         self.assertEqual(
             report.complex_projection_blocked_typed_nested_sink_formats,
-            ("orc", "vortex"),
+            ("orc",),
         )
         self.assertEqual(
             report.typed_nested_child_schema_evidence_status,
@@ -8927,7 +8927,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsNone(report.typed_nested_child_schema_blocker)
         self.assertEqual(
             report.typed_nested_child_schema_blocked_sink_formats,
-            ("orc", "vortex"),
+            ("orc",),
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -11439,7 +11439,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "complex_projection_output_boundary", "value": "typed_nested_compatibility_sink_with_result_jsonl_evidence"},
                         {"key": "typed_nested_child_schema_evidence_status", "value": "present_from_non_null_nested_values_or_source_schema"},
                         {"key": "typed_nested_child_schema_blocker", "value": "none"},
-                        {"key": "typed_nested_child_schema_blocked_sink_formats", "value": "orc,vortex"},
+                        {"key": "typed_nested_child_schema_blocked_sink_formats", "value": "orc"},
                         {"key": "output_path", "value": "target/nested.parquet"},
                         {"key": "output_format", "value": "parquet"},
                         {"key": "output_row_count", "value": "1"},
@@ -11489,11 +11489,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertEqual(
             report.complex_projection_typed_nested_sink_formats,
-            ("parquet", "arrow_ipc", "avro"),
+            ("parquet", "arrow_ipc", "avro", "vortex"),
         )
         self.assertEqual(
             report.complex_projection_blocked_typed_nested_sink_formats,
-            ("orc", "vortex"),
+            ("orc",),
         )
         self.assertEqual(
             report.typed_nested_child_schema_evidence_status,
@@ -11502,7 +11502,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsNone(report.typed_nested_child_schema_blocker)
         self.assertEqual(
             report.typed_nested_child_schema_blocked_sink_formats,
-            ("orc", "vortex"),
+            ("orc",),
         )
         self.assertEqual(
             report.output_plan_materialization_required,

@@ -971,7 +971,7 @@ fn flat_rows_to_record_batch(
     flat_rows_to_record_batch_with_dtypes(columns, &column_dtypes, rows, context)
 }
 
-fn flat_rows_to_record_batch_with_dtypes(
+pub(crate) fn flat_rows_to_record_batch_with_dtypes(
     columns: &[String],
     column_dtypes: &[Option<LogicalDType>],
     rows: &[Vec<(String, ScalarValue)>],

@@ -2449,11 +2449,9 @@ fn sql_local_source_smoke_blocks_all_null_nested_source_structured_sink_without_
     assert!(stdout.contains("\"status\":\"error\""), "{stdout}");
     assert!(stdout.contains("\"code\":\"SL_INVALID_INPUT\""), "{stdout}");
     assert!(
-        stdout.contains("output_plan_conversion_blocker=nested_sink_schema_inference_required")
+        stdout.contains("output_plan_conversion_blocker=typed_complex_child_schema_not_admitted")
     );
-    assert!(stdout.contains(
-        "all values are NULL and the logical dtype hint list does not carry nested child schema"
-    ));
+    assert!(stdout.contains("all-null typed nested sink columns without child-schema evidence"));
     assert!(stdout.contains("\"attempted\":false"));
     assert!(stdout.contains("external_engine_invoked=false"));
     assert!(
@@ -5556,7 +5554,7 @@ fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
     )));
     assert!(stdout.contains(&field(
         "output_layout_write_advisor_selected_strategy",
-        "csv:advisory_only_no_runtime_write_knob_applied,vortex:single_local_vortex_artifact"
+        "single_local_vortex_artifact"
     )));
     assert!(stdout.contains(&field(
         "output_layout_write_advisor_runtime_decision_applied",
@@ -5571,9 +5569,9 @@ fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
         "\"output_layout_write_advisor_strategy_decision_digest\",\"value\":\"vortex:fnv64:"
     ));
     assert!(stdout.contains(
-        "vortex:schema=preserved,dtypes=preserved,row_count=reopen_verified,statistics=writer_default,layout_intent=writer_default_vortex"
+        "vortex:schema=flat_scalar_or_inferable_typed_nested_preserved,dtypes=preserved,row_count=reopen_verified,statistics=writer_default,layout_intent=writer_default_vortex"
     ));
-    assert!(stdout.contains("vortex:none_for_scoped_flat_scalar_vortex_output"));
+    assert!(stdout.contains("vortex:none_for_scoped_flat_scalar_or_typed_nested_vortex_output"));
     assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains(&field("result_replay_verified", "true")));
@@ -5581,7 +5579,9 @@ fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
         "output_replay_status",
         "verified_local_sink_artifacts"
     )));
-    assert!(stdout.contains("vortex:flat_scalar_only_no_broad_vortex_writer_fidelity_claim"));
+    assert!(stdout.contains(
+        "vortex:no_broad_vortex_writer_fidelity_claim_beyond_scoped_flat_scalar_or_inferable_typed_nested"
+    ));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
     assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
     assert!(stdout.contains(&field("object_store_io", "false")));
@@ -5698,7 +5698,7 @@ fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
     assert!(stdout.contains(&field("fanout_output_formats", "csv,vortex")));
     assert!(stdout.contains(&field(
         "output_plan_materialization_required",
-        "csv:terminal_text_materialization_required,vortex:flat_scalar_vortex_writer_bridge_required_no_text_rendering"
+        "csv:terminal_text_materialization_required,vortex:flat_scalar_or_inferable_typed_nested_vortex_writer_bridge_required_no_text_rendering"
     )));
     assert!(stdout.contains(&field("output_plan_required_columns", "id,label,amount")));
     assert!(stdout.contains(&field(
@@ -5743,12 +5743,12 @@ fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
         "csv:csv_streaming_text_chunk_advisory,vortex:vortex_single_local_artifact_writer_default_stats_reopen"
     ));
     assert!(stdout.contains(
-        "csv:static_types_nullability_and_vortex_layout_metadata_lost,vortex:none_for_scoped_flat_scalar_vortex_output"
+        "csv:static_types_nullability_nested_type_metadata_and_vortex_layout_metadata_lost_json_text_values_preserved,vortex:none_for_scoped_flat_scalar_or_typed_nested_vortex_output"
     ));
     assert!(stdout.contains(&field("result_replay_verified", "true")));
     assert!(stdout.contains("csv:verified_local_file_digest"));
     assert!(stdout.contains("vortex:verified_vortex_reopen_row_count"));
-    assert!(stdout.contains("vortex:vortex_flat_scalar_reopen_verified"));
+    assert!(stdout.contains("vortex:vortex_flat_scalar_or_typed_nested_reopen_verified"));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
     assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
@@ -6145,7 +6145,7 @@ fn sql_local_source_smoke_preserves_all_null_binary_source_schema_sinks() {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 #[test]
-fn sql_local_source_smoke_blocks_all_null_binary_vortex_output_before_writer() {
+fn sql_local_source_smoke_writes_all_null_binary_vortex_output_with_source_schema() {
     let source_path = unique_path("sql-local-source-all-null-binary-vortex-source", "arrow");
     let output_path = unique_path("sql-local-source-all-null-binary-vortex-output", "vortex");
     write_all_null_binary_arrow_ipc_smoke_source(&source_path);
@@ -6166,23 +6166,25 @@ fn sql_local_source_smoke_blocks_all_null_binary_vortex_output_before_writer() {
         .expect("sql-local-source-smoke command runs");
 
     assert!(
-        !output.status.success(),
+        output.status.success(),
         "stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    assert!(
+        output_path.exists(),
+        "all-null binary Vortex output was written"
+    );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"status\":\"error\""));
-    assert!(
-        stdout.contains("output_plan_conversion_blocker=vortex_non_null_scalar_values_required")
-    );
-    assert!(
-        stdout.contains("nullable/all-null binary and other NULL values remain blocked before Vortex writer conversion")
-    );
-    assert!(stdout.contains("external_engine_invoked=false"));
-    assert!(!output_path.exists());
+    assert!(stdout.contains(&field("output_format", "vortex")));
+    assert!(stdout.contains(&field("output_plan_conversion_blocker", "none")));
+    assert!(stdout.contains(&field("vortex_output_column_families", "payload:binary")));
+    assert!(stdout.contains(&field("vortex_output_reopen_verified", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
     fs::remove_file(source_path).expect("remove all-null binary source arrow");
+    fs::remove_file(output_path).expect("remove all-null binary vortex output");
 }
 
 #[cfg(not(feature = "universal-format-io"))]

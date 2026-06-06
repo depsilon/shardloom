@@ -6482,7 +6482,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(typed_nested.write_io)
         self.assertTrue(typed_nested.materialization_required)
         self.assertIsNone(typed_nested.blocker_id)
-        self.assertIn("Parquet, Arrow IPC, and Avro", typed_nested.claim_boundary)
+        self.assertIn("Parquet, Arrow IPC, Avro, and local Vortex", typed_nested.claim_boundary)
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
         self.assertTrue(broad.broad_gap)
         self.assertEqual(broad.parity_status, "front_door_gap")
