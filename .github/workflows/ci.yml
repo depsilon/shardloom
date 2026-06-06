@@ -184,12 +184,12 @@ jobs:
         with:
           python-version: "3.11"
       - name: Reuse dependency/security evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dependency-security-evidence
           path: target/downloads/dependency-security-evidence
       - name: Reuse local package smoke evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-local-smoke-evidence
           path: target/downloads/release-local-smoke-evidence
@@ -232,7 +232,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Reuse local package smoke evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-local-smoke-evidence
           path: target/downloads/release-local-smoke-evidence
@@ -316,42 +316,42 @@ jobs:
         with:
           python-version: "3.11"
       - name: Reuse CI gate matrix evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ci-gate-matrix-report
           path: target/downloads/ci-gate-matrix-report
       - name: Reuse dependency/security evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dependency-security-evidence
           path: target/downloads/dependency-security-evidence
       - name: Reuse local package smoke evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-local-smoke-evidence
           path: target/downloads/release-local-smoke-evidence
       - name: Reuse runtime core evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-runtime-core-evidence
           path: target/downloads/release-runtime-core-evidence
       - name: Reuse package/governance evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-package-governance-evidence
           path: target/downloads/release-package-governance-evidence
       - name: Reuse user-surface evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-user-surface-evidence
           path: target/downloads/release-user-surface-evidence
       - name: Reuse benchmark claim evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-benchmark-claim-evidence
           path: target/downloads/release-benchmark-claim-evidence
       - name: Reuse website/docs evidence
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: website-docs-evidence
           path: target/downloads/website-docs-evidence
