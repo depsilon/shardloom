@@ -93,10 +93,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         lane_id="release_readiness_reports",
         job_id="release-readiness",
         commands=(
-            "python scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report.json",
-            "python scripts/check_security_posture.py",
             "python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda",
-            "python scripts/check_release_security_gate.py",
             "python scripts/check_contribution_governance.py",
             "python scripts/check_package_channel_readiness.py --require-local-evidence",
             "python scripts/check_golden_workflows.py",
@@ -113,7 +110,6 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "python scripts/check_user_route_capability_report.py",
             "python scripts/check_pre_5j_dependency_freshness.py",
             "python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json",
-            "python scripts/check_ci_gate_matrix.py",
             "python scripts/check_release_readiness.py",
         ),
         artifact_refs=(
@@ -160,7 +156,16 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "pre-5J dependency freshness gate",
             "benchmark publication claim gate",
         ),
-        workflow_markers=("continue-on-error: true",),
+        workflow_markers=(
+            "needs:",
+            "dependency-security",
+            "ci-gate-matrix",
+            "actions/download-artifact@v7",
+            "dependency-security-evidence",
+            "ci-gate-matrix-report",
+            "path: target",
+            "continue-on-error: true",
+        ),
     ),
     CiLane(
         lane_id="website_docs_validation",
@@ -182,6 +187,12 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         artifact_refs=("target/ci-gate-matrix-report.json",),
         release_blocker_refs=("CI matrix drift contract",),
     ),
+)
+
+WORKFLOW_POLICY_MARKERS = (
+    "concurrency:",
+    "cancel-in-progress: true",
+    "actions: read",
 )
 
 
@@ -295,6 +306,11 @@ def main() -> int:
     ]:
         if required not in doc:
             blockers.append(f"doc missing marker: {required}")
+    for marker in WORKFLOW_POLICY_MARKERS:
+        if marker not in workflow:
+            blockers.append(f"workflow missing policy marker: {marker}")
+        if marker not in doc:
+            blockers.append(f"doc missing policy marker: {marker}")
 
     lane_rows = [lane_status(lane, workflow, doc) for lane in REQUIRED_LANES]
     blockers.extend(

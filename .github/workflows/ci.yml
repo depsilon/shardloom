@@ -5,7 +5,12 @@ on:
     branches: ["main"]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
+  actions: read
   contents: read
 
 env:
@@ -130,26 +135,28 @@ jobs:
   release-readiness:
     name: Release readiness reports
     runs-on: ubuntu-latest
+    needs:
+      - dependency-security
+      - ci-gate-matrix
     steps:
       - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Install release tooling
-        run: |
-          python -m pip install --upgrade pip build pip-audit==2.10.0
-          cargo install cargo-deny --locked --version 0.19.6
-          cargo install cargo-audit --locked --version 0.22.1
-      - name: Dependency audit report
-        run: python scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report.json
-      - name: Security posture report
-        run: python scripts/check_security_posture.py
+        run: python -m pip install --upgrade pip build
+      - name: Reuse dependency/security evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: dependency-security-evidence
+          path: target
+      - name: Reuse CI gate matrix evidence
+        uses: actions/download-artifact@v7
+        with:
+          name: ci-gate-matrix-report
+          path: target
       - name: Package smoke and provenance evidence
         run: python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda
-      - name: Release security gate
-        run: python scripts/check_release_security_gate.py
       - name: Contribution governance
         run: python scripts/check_contribution_governance.py
       - name: Package-channel readiness
@@ -183,8 +190,6 @@ jobs:
       - name: Benchmark publication claim gate
         continue-on-error: true
         run: python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git
-      - name: CI gate matrix contract
-        run: python scripts/check_ci_gate_matrix.py
       - name: Hard release readiness gate
         continue-on-error: true
         run: python scripts/check_release_readiness.py
