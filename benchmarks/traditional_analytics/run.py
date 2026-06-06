@@ -4448,12 +4448,15 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             raise BenchmarkUnsupported(
                 "ShardLoom native Vortex setup did not produce fact/dim .vortex files"
             )
+        preparation_wall_millis = round(preparation_millis, 4)
         prepared_paths[data_format] = {
             "fact": fact_vortex,
             "dim": dim_vortex,
-            "preparation_millis": round(preparation_millis, 4),
+            "preparation_millis": preparation_engine_millis(
+                fields, preparation_wall_millis
+            ),
             "preparation_cli_process_wall_millis": completed.get(
-                "process_wall_millis", preparation_millis
+                "process_wall_millis", preparation_wall_millis
             ),
             "fact_digest": fields.get("fact_vortex_digest", ""),
             "dim_digest": fields.get("dim_vortex_digest", ""),
@@ -4463,6 +4466,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             "source_native_io_certificate_id": fields.get(
                 "native_io_certificate_id", ""
             ),
+            **preparation_stage_timing_fields(fields),
             **capillary_preparation_fields(fields),
         }
 
@@ -4515,13 +4519,16 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             raise BenchmarkUnsupported(
                 "ShardLoom CDC Vortex setup did not produce cdc_delta.vortex"
             )
+        cdc_preparation_wall_millis = round(cdc_preparation_millis, 4)
         prepared.update(
             {
                 "cdc_delta": cdc_delta_vortex,
                 "cdc_delta_digest": fields.get("cdc_delta_vortex_digest", ""),
-                "cdc_delta_preparation_millis": round(cdc_preparation_millis, 4),
+                "cdc_delta_preparation_millis": preparation_engine_millis(
+                    fields, cdc_preparation_wall_millis
+                ),
                 "cdc_delta_preparation_cli_process_wall_millis": completed.get(
-                    "process_wall_millis", cdc_preparation_millis
+                    "process_wall_millis", cdc_preparation_wall_millis
                 ),
                 **capillary_preparation_fields(fields),
             }
@@ -4768,6 +4775,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "persistent_runner_status": PERSISTENT_RUNNER_STATUS,
             }
         )
+        for key, value in preparation_stage_timing_fields(prepared).items():
+            fields.setdefault(key, value)
         attach_prepared_capillary_fields(fields, prepared)
         return {
             "__benchmark_result": json.loads(result_json),
@@ -5558,6 +5567,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
             }
         )
+        for key, value in preparation_stage_timing_fields(prepared).items():
+            fields.setdefault(key, value)
         attach_prepared_capillary_fields(fields, prepared)
         for prepare_key, value in batch_fields.items():
             if prepare_key.startswith("prepare_batch_"):
@@ -6032,6 +6043,66 @@ def shardloom_cli_warmup(binary: Path, root: Path, env: dict[str, str]) -> None:
     fallback = payload.get("fallback") or {}
     if fallback.get("attempted") is not False:
         raise BenchmarkUnsupported("ShardLoom CLI warmup reported fallback execution")
+
+
+PREPARATION_STAGE_TIMING_FIELDS = (
+    "source_read_micros",
+    "source_parse_micros",
+    "compatibility_parse_micros",
+    "source_to_columnar_micros",
+    "compatibility_to_vortex_import_micros",
+    "compatibility_to_vortex_import_timing_scope",
+    "inclusive_compatibility_to_vortex_import_micros",
+    "inclusive_compatibility_to_vortex_import_timing_scope",
+    "vortex_array_build_micros",
+    "vortex_array_build_provider_kind",
+    "vortex_array_build_provider_surface",
+    "vortex_array_build_strategy",
+    "vortex_array_build_input_layout",
+    "vortex_array_build_record_batch_count",
+    "vortex_array_build_manual_scalar_copy_avoided",
+    "vortex_write_micros",
+    "vortex_digest_micros",
+    "vortex_reopen_verify_micros",
+    "exclusive_stage_timing_schema_version",
+    "exclusive_stage_timing_status",
+    "exclusive_stage_timing_scope",
+    "exclusive_stage_included_stage_ids",
+    "exclusive_source_admission_micros",
+    "exclusive_source_read_micros",
+    "exclusive_source_parse_or_decode_micros",
+    "exclusive_source_to_vortex_array_micros",
+    "exclusive_vortex_write_micros",
+    "exclusive_vortex_digest_micros",
+    "exclusive_vortex_reopen_verify_micros",
+    "exclusive_stage_sum_micros",
+    "exclusive_stage_residual_micros",
+    "exclusive_stage_total_delta_micros",
+    "exclusive_stage_timing_claim_boundary",
+)
+
+
+def preparation_stage_timing_fields(fields: dict[str, Any]) -> dict[str, str]:
+    return {
+        field: str(fields[field])
+        for field in PREPARATION_STAGE_TIMING_FIELDS
+        if field in fields and fields[field] not in (None, "", "none")
+    }
+
+
+def preparation_engine_millis(fields: dict[str, Any], fallback_millis: float) -> float:
+    for field in (
+        "total_runtime_micros",
+        "compatibility_to_vortex_import_micros",
+    ):
+        value = fields.get(field)
+        if value in (None, "", "none"):
+            continue
+        try:
+            return round(float(value) / 1000.0, 4)
+        except (TypeError, ValueError):
+            continue
+    return round(fallback_millis, 4)
 
 
 def round_float(value: Any) -> float:

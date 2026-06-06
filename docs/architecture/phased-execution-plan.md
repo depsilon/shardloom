@@ -327,12 +327,24 @@ completed base slice, while unchecked rows define the remaining optimization wor
       triage artifact `target/codex-perf-runtime-optimization-warm.json` moved the one-time
       `shardloom-vortex` parquet setup spike from `preparation_millis` into startup/warmup while
       preserving sub-ms warm query/operator timings.
-    - [ ] Remaining: after this harness attribution fix merges, rerun a clean non-dirty benchmark
-      artifact, compare against the pre-`PERF-INNOV-5` baseline, and continue reducing any refreshed
-      warm/native route totals, startup/process harness cells, preparation cells, or
-      operator-kernel rows still above 10 ms. Current checked-in evidence cannot support a
-      performance claim because the latest published artifact records dirty ShardLoom lane versions
-      and mismatched lane/manifest SHAs.
+    - [x] A clean post-merge scoped rerun on `3c45befb`
+      (`target/codex-perf-postmerge-clean.json`) preserved sub-ms warm query/operator/scan timings
+      across parquet/jsonl/avro group-by, distinct, and hash-join rows, while isolating the
+      remaining above-10 ms cells to startup/process harness and compatibility preparation rather
+      than warm scan/operator execution.
+    - [x] Pending branch `codex/perf-preparation-attribution` changes non-batch prepared/native
+      benchmark rows to report preparation-command engine timing in `preparation_millis`, keep
+      `preparation_cli_process_wall_millis` as the separate process-wall field, and propagate
+      compatibility import/write substages from the preparation command. Dirty verification artifact
+      `target/codex-perf-prep-attribution.json` shows warm query/operator/scan timings still sub-ms
+      and identifies the remaining non-batch preparation hotspot as native Vortex write/import
+      (`vortex_write_millis` roughly `20-32 ms`) plus process harness overhead.
+    - [ ] Remaining: after the preparation-attribution patch merges, rerun a clean non-dirty
+      benchmark artifact, compare against the pre-`PERF-INNOV-5` baseline, and continue reducing
+      remaining above-10 ms native Vortex write/import, startup/process harness, preparation, or
+      operator-kernel rows. Current checked-in evidence still cannot support a performance claim
+      because the latest published artifact records dirty ShardLoom lane versions and mismatched
+      lane/manifest SHAs.
   - Runtime enablement: prepared/native Vortex scan route -> file/source metadata reuse decision ->
     scan/chunk/operator/finalization substage evidence -> benchmark optimization readiness.
   - Objective: explain and then reduce per-row scan/operator outliers above 10 ms without

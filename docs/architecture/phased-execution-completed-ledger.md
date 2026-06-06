@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-5 post-merge preparation attribution and optimization triage
+  - Date: 2026-06-06
+  - Branch/PR: `codex/perf-preparation-attribution` / pending PR.
+  - Source:
+    - Clean post-merge scoped artifact `target/codex-perf-postmerge-clean.json` on `3c45befb`.
+    - Dirty verification artifact `target/codex-perf-prep-attribution.json`.
+    - Direct preparation probes against parquet/jsonl/avro inputs under
+      `target/codex-perf-postmerge-clean-data`.
+    - `benchmarks/traditional_analytics/run.py` and `python/tests/test_release_scripts.py`.
+  - Scope:
+    - Confirmed the clean post-merge artifact preserved sub-ms warm query, operator, scan, and
+      evidence-render timings across parquet/jsonl/avro group-by, distinct-count, and hash-join
+      prepared/native rows.
+    - Isolated remaining above-10 ms cells to startup/process harness overhead and compatibility
+      preparation, not warm native scan/operator execution.
+    - Changed non-batch prepared/native benchmark rows to use preparation-command engine timing for
+      `preparation_millis`, keep `preparation_cli_process_wall_millis` as the separate process-wall
+      field, and propagate compatibility import/write substage evidence from the preparation
+      command into the scenario rows.
+  - Evidence:
+    - Clean post-merge `target/codex-perf-postmerge-clean.json` on `3c45befb` reported
+      `shardloom-vortex` query/operator/scan geomeans of about `0.6239 ms`, `0.3330 ms`, and
+      `0.1611 ms`; `shardloom-prepared-vortex` reported about `0.6093 ms`, `0.3292 ms`, and
+      `0.1575 ms`; `shardloom-prepare-batch` reported about `0.5917 ms`, `0.3267 ms`, and
+      `0.1451 ms`.
+    - Direct preparation probes showed compatibility preparation around `24-28 ms` of engine time,
+      dominated by Vortex write around `19-22 ms`, with `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+    - Dirty verification artifact `target/codex-perf-prep-attribution.json` reduced non-batch
+      `preparation_millis` geomeans from CLI-wall-only `41.1980 ms`/`31.6304 ms` to engine
+      preparation `31.0962 ms`/`24.7448 ms` for `shardloom-vortex`/`shardloom-prepared-vortex`,
+      while preserving sub-ms warm query/operator/scan timings.
+    - Focused unittest coverage for preparation engine timing, preparation-stage field propagation,
+      ShardLoom CLI warmup no-fallback validation, and scan-chunk timing alias canonicalization
+      passed.
+  - Benchmark boundary:
+    - The dirty attribution artifact is optimization triage evidence only and cannot update public
+      benchmark rows or support a performance claim.
+  - Claim boundary:
+    - Claim is limited to preparation timing attribution and hotspot identification. Performance
+      superiority, Spark-displacement, production readiness, package-release, and public benchmark
+      publication claims remain blocked until a clean post-merge artifact is generated and claim
+      gates pass.
+  - Fallback boundary:
+    - The change records ShardLoom-native preparation evidence only. No external query engine or
+      Vortex query-engine integration executed unsupported ShardLoom work as fallback.
+
 - [x] Session label: PERF-INNOV-5 clean timing rerun and ShardLoom CLI warmup attribution
   - Date: 2026-06-06
   - Branch/PR: `codex/perf-runtime-optimization` / pending PR.
