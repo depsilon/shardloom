@@ -4542,14 +4542,17 @@ class ReleaseScriptTests(unittest.TestCase):
             "open_dependabot_check_status": "loaded_from_file",
             "open_dependabot_check_error": None,
             "open_dependabot_prs": [
+                self._dependabot_pr(1149, "Bump actions/download-artifact from 7 to 8"),
                 self._dependabot_pr(
-                    979,
-                    "Bump vortex from 0.72.0 to 0.73.0 in the vortex-upstream group",
+                    1150,
+                    "Bump vortex from 0.73.0 to 0.74.0 in the vortex-upstream group",
                 ),
-                self._dependabot_pr(980, "Bump rusqlite from 0.37.0 to 0.40.0"),
+                self._dependabot_pr(1151, "Bump serde_json from 1.0.149 to 1.0.150"),
+                self._dependabot_pr(1152, "Bump sha2 from 0.10.9 to 0.11.0"),
+                self._dependabot_pr(1153, "Bump rusqlite from 0.40.0 to 0.40.1"),
             ],
-            "open_dependabot_pr_count": 2,
-            "admitted_open_dependabot_prs": [979, 980],
+            "open_dependabot_pr_count": 5,
+            "admitted_open_dependabot_prs": [1149, 1150, 1151, 1152, 1153],
             "unknown_open_dependabot_prs": [],
             "benchmark_refresh_dependency_gate_status": "passed",
             "benchmark_refresh_allowed": True,
@@ -4599,18 +4602,24 @@ class ReleaseScriptTests(unittest.TestCase):
         report = module.build_report(
             repo_root=REPO_ROOT,
             open_prs=[
+                self._dependabot_pr(1149, "Bump actions/download-artifact from 7 to 8"),
                 self._dependabot_pr(
-                    979,
-                    "Bump vortex from 0.72.0 to 0.73.0 in the vortex-upstream group",
+                    1150,
+                    "Bump vortex from 0.73.0 to 0.74.0 in the vortex-upstream group",
                 ),
-                self._dependabot_pr(980, "Bump rusqlite from 0.37.0 to 0.40.0"),
+                self._dependabot_pr(1151, "Bump serde_json from 1.0.149 to 1.0.150"),
+                self._dependabot_pr(1152, "Bump sha2 from 0.10.9 to 0.11.0"),
+                self._dependabot_pr(1153, "Bump rusqlite from 0.40.0 to 0.40.1"),
             ],
             open_prs_status="loaded_from_file",
             require_live_github=True,
         )
 
         self.assertEqual(report["status"], "passed", report["blockers"])
-        self.assertEqual(report["admitted_open_dependabot_prs"], [979, 980])
+        self.assertEqual(
+            report["admitted_open_dependabot_prs"],
+            [1149, 1150, 1151, 1152, 1153],
+        )
         self.assertTrue(report["benchmark_refresh_allowed"])
         self.assertFalse(report["benchmark_run_performed"])
         self.assertFalse(report["fallback_attempted"])
@@ -4643,28 +4652,28 @@ class ReleaseScriptTests(unittest.TestCase):
             cli_manifest.parent.mkdir(parents=True)
             cli_manifest.write_text(
                 "[dependencies]\n"
-                'rusqlite = { version = "0.40.0", default-features = false, features = ["bundled"] }\n',
+                'rusqlite = { version = "0.40.1", default-features = false, features = ["bundled"] }\n',
                 encoding="utf-8",
             )
             vortex_manifest = root / "shardloom-vortex" / "Cargo.toml"
             vortex_manifest.parent.mkdir(parents=True)
             vortex_manifest.write_text(
                 "[dependencies]\n"
-                'vortex = { version = "0.73", optional = true }\n',
+                'vortex = { version = "0.74", optional = true }\n',
                 encoding="utf-8",
             )
             (root / "Cargo.lock").write_text(
                 "[[package]]\n"
                 'name = "vortex"\n'
-                'version = "0.73.0"\n'
+                'version = "0.74.0"\n'
                 "\n"
                 "[[package]]\n"
                 'name = "rusqlite"\n'
-                'version = "0.40.0"\n'
+                'version = "0.40.1"\n'
                 "\n"
                 "[[package]]\n"
                 'name = "libsqlite3-sys"\n'
-                'version = "0.38.0"\n',
+                'version = "0.38.1"\n',
                 encoding="utf-8",
             )
 
@@ -4683,12 +4692,12 @@ class ReleaseScriptTests(unittest.TestCase):
 
         self.assertEqual(
             rusqlite,
-            {"version": "0.40.0", "default-features": False, "features": ["bundled"]},
+            {"version": "0.40.1", "default-features": False, "features": ["bundled"]},
         )
-        self.assertEqual(vortex, {"version": "0.73", "optional": True})
-        self.assertEqual(lock_versions["vortex"], "0.73.0")
-        self.assertEqual(lock_versions["rusqlite"], "0.40.0")
-        self.assertEqual(lock_versions["libsqlite3-sys"], "0.38.0")
+        self.assertEqual(vortex, {"version": "0.74", "optional": True})
+        self.assertEqual(lock_versions["vortex"], "0.74.0")
+        self.assertEqual(lock_versions["rusqlite"], "0.40.1")
+        self.assertEqual(lock_versions["libsqlite3-sys"], "0.38.1")
 
     def test_pre_5j_dependency_freshness_blocks_stale_vortex_provider_surfaces(self) -> None:
         module = self._load_script_module(
@@ -4731,7 +4740,7 @@ class ReleaseScriptTests(unittest.TestCase):
         report = module.build_report(
             repo_root=REPO_ROOT,
             open_prs=[
-                self._dependabot_pr(979, "Bump vortex"),
+                self._dependabot_pr(1150, "Bump vortex"),
                 self._dependabot_pr(981, "Bump unexpected-package from 1.0.0 to 2.0.0"),
             ],
             open_prs_status="loaded_from_file",

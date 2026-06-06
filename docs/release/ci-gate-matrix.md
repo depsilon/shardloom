@@ -95,7 +95,7 @@ The release hard-gate stack is split into parallel producers and a short final a
   `ci-gate-matrix-report`, `dependency-security-evidence`, `release-local-smoke-evidence`,
   `release-runtime-core-evidence`, `release-package-governance-evidence`,
   `release-user-surface-evidence`, `release-benchmark-claim-evidence`, and
-  `website-docs-evidence` with `actions/download-artifact@v7` under `target/downloads`, runs
+  `website-docs-evidence` with `actions/download-artifact@v8` under `target/downloads`, runs
   `Merge downloaded release evidence` through `python scripts/merge_release_evidence_artifacts.py`,
   then runs `Verify downloaded release evidence` before the aggregate gates. The production and
   hard-readiness aggregate scripts consume the precomputed benchmark completeness/publication

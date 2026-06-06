@@ -83,6 +83,7 @@ Covered fixture rows:
 - `decimal_cast_projection_predicate`
 - `decimal_arithmetic_projection`
 - `binary_helper_projection`
+- `binary_helper_predicate`
 - `in_predicate_literal_null_semantics`
 - `row_value_in_predicate_semantics`
 - `row_value_in_subquery_semantics`

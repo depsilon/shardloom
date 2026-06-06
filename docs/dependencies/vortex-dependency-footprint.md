@@ -5,17 +5,46 @@ ShardLoom is auditing the upstream Vortex dependency graph before deeper integra
 builds stay lightweight while preserving a controlled path to upstream Vortex capability work.
 
 ## Current state
-- Current direct dependency in `shardloom-vortex`: optional umbrella `vortex = 0.73`.
-- Latest upstream intake note: `vortex = 0.73.0` was reviewed in
-  `docs/architecture/vortex-public-api-inventory.md`; the prior `0.72` and detailed `0.71`
-  release-note intake sections remain historical background.
+- Current direct dependency in `shardloom-vortex`: optional umbrella `vortex = 0.74`.
+- Latest upstream intake note: `vortex = 0.74.0` was reviewed in
+  `docs/architecture/vortex-public-api-inventory.md`; the prior `0.73`, `0.72`, and detailed
+  `0.71` release-note intake sections remain historical background.
 - Umbrella `vortex` crate is still used for upstream opt-in builds.
 - Default build (`default = []`) does not enable upstream Vortex.
 - Existing feature-gated Vortex file/local primitive/write paths remain explicitly scoped and
   claim-gated; the version bump does not broaden runtime support.
 - Fallback execution engines are not present.
 
+## Vortex 0.74 dependency bump proof
+
+`GAR-DEPENDENCY-INTAKE-1` incorporates Dependabot PR
+[#1150](https://github.com/depsilon/shardloom/pull/1150), updating the optional upstream Vortex
+dependency family from `0.73.0` to `0.74.0`.
+
+Compatibility posture:
+
+- `shardloom-vortex/Cargo.toml` requires optional `vortex = "0.74"`.
+- `Cargo.lock` resolves the upstream Vortex crate family to `0.74.0`.
+- `cargo info vortex@0.74.0` reports license `Apache-2.0` and Rust version `1.91.0`.
+- Default builds still keep upstream Vortex optional and disabled by default.
+- ShardLoom provider-version evidence has been refreshed from `0.73` to `0.74` for the existing
+  approved/scoped Vortex evidence surfaces only.
+- The upstream FFI `vx_file` scan removal in 0.74.0 is outside ShardLoom's admitted runtime
+  boundary.
+- No `vortex-datafusion`, DuckDB, Spark, Polars, Velox, or other external query-engine fallback
+  dependency is introduced.
+
+Claim boundary:
+
+- The bump proves optional dependency compatibility only.
+- It does not admit new Vortex runtime APIs, TurboQuant execution, vector search, GPU execution,
+  external engines, object-store/table support, SQL/DataFrame support, performance claims, package
+  claims, or production readiness.
+
 ## Vortex 0.73 dependency bump proof
+
+Historical note; superseded by the Vortex 0.74 dependency bump proof above for current dependency
+status.
 
 `GAR-DEPENDENCY-INTAKE-1` incorporates Dependabot PR
 [#979](https://github.com/depsilon/shardloom/pull/979), updating the optional upstream Vortex

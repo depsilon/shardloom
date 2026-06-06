@@ -334,14 +334,19 @@ Each item below uses the same sub-checklist shape:
       scalar-left multi-column subqueries, and unbound source aliases outside admitted
       source-qualified surfaces now have matrix-backed deterministic diagnostics rather than open
       diagnostic work.
+    - [x] Scoped `UNHEX(<utf8-column>)` / `FROM_BASE64(<utf8-column>)` binary helper predicates
+      compare decoded bytes against explicit `X'<hex>'`, `BINARY '<utf8>'`, or `BLOB '<utf8>'`
+      literals through the local-source runtime and Python query-builder bytes-literal surface,
+      with helper-predicate evidence fields kept separate from direct binary source predicates.
     - [x] Common table expression syntax now has a precise parser-bound deterministic blocker:
       `WITH` / `WITH RECURSIVE` statements fail before bind/plan/runtime with `cte_plan_nodes`,
       catalog-scope, recursive-policy, execution-certificate, and no-fallback evidence
       requirements.
     - [ ] Remaining: ORC nested output, ORC typed decimal sinks, broad ANSI
       decimal coercion beyond exact exponent normalization, broader binary execution/preservation
-      beyond scoped source projection/predicate/order plus explicit casts/helpers, and broad ANSI
-      subquery parity beyond the admitted bounded local families remain outside the claim boundary.
+      beyond scoped source projection/predicate/order, explicit casts/helpers, and helper
+      predicates, and broad ANSI subquery parity beyond the admitted bounded local families remain
+      outside the claim boundary.
   - Runtime enablement: public route facade -> SQL parse/bind request -> ShardLoom capability
     admission -> native runtime lowering or deterministic unsupported diagnostic -> no-fallback
     evidence row.

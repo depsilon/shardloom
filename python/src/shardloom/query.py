@@ -8242,10 +8242,12 @@ def _sql_literal(value: object) -> str:
         return f"TIMESTAMP '{_normalize_timestamp_literal(value)}'"
     if isinstance(value, date):
         return f"DATE '{value.isoformat()}'"
+    if isinstance(value, (bytes, bytearray)):
+        return f"X'{bytes(value).hex()}'"
     if isinstance(value, str):
         return _sql_string_literal(value)
     raise TypeError(
-        "SQL predicate literals must be bool, int, float, str, date, datetime, or None"
+        "SQL predicate literals must be bool, int, float, str, bytes, date, datetime, or None"
     )
 
 

@@ -2944,6 +2944,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("payload_hex").unhex()), "UNHEX(payload_hex)")
         self.assertEqual(str(sl.unhex(sl.col("payload_hex"))), "UNHEX(payload_hex)")
         self.assertEqual(
+            str(sl.col("payload_hex").unhex() == b"\x00\xff\x10"),
+            "UNHEX(payload_hex) = X'00ff10'",
+        )
+        self.assertEqual(
             str(sl.col("payload_b64").from_base64()), "FROM_BASE64(payload_b64)"
         )
         self.assertEqual(
@@ -7171,6 +7175,81 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 {"id": 3, "payload_hex": None, "payload_b64": None},
             ),
         )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_binary_helper_predicate_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id FROM 'target/input.csv' WHERE UNHEX(hex_payload) = X'00ff10' LIMIT 5",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source binary helper predicate",
+                    "human_text": "sql local source binary helper predicate",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_filter_limit"},
+                        {"key": "predicate_operator_family", "value": "binary_helper_predicate"},
+                        {"key": "filter_runtime_execution", "value": "true"},
+                        {"key": "binary_helper_predicate_runtime_execution", "value": "true"},
+                        {"key": "binary_helper_predicate_operator", "value": "unhex"},
+                        {"key": "binary_helper_predicate_comparison_operator", "value": "eq"},
+                        {"key": "binary_helper_predicate_source_column", "value": "hex_payload"},
+                        {"key": "binary_helper_predicate_literal_hex_value", "value": "00ff10"},
+                        {"key": "binary_helper_predicate_null_semantics", "value": "null_propagating_utf8_decode_then_sql_where_true_only"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .where(sl.col("hex_payload").unhex() == b"\x00\xff\x10")
+            .limit(5)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "binary_helper_predicate")
+        self.assertTrue(report.filter_runtime_execution)
+        self.assertTrue(report.binary_helper_predicate_runtime_execution)
+        self.assertEqual(report.binary_helper_predicate_operator, ("unhex",))
+        self.assertEqual(report.binary_helper_predicate_comparison_operator, ("eq",))
+        self.assertEqual(
+            report.binary_helper_predicate_source_columns, ("hex_payload",)
+        )
+        self.assertEqual(
+            report.binary_helper_predicate_literal_hex_values, ("00ff10",)
+        )
+        self.assertEqual(
+            report.binary_helper_predicate_null_semantics,
+            "null_propagating_utf8_decode_then_sql_where_true_only",
+        )
+        self.assertEqual(report.result_rows, ({"id": 1},))
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
