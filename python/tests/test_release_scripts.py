@@ -2197,6 +2197,86 @@ class ReleaseScriptTests(unittest.TestCase):
             benchmark_run.VORTEX_SCAN_SPLIT_MICROS_FIELDS,
         )
 
+    def test_benchmark_runner_warms_shardloom_cli_with_status_command(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        calls: list[tuple[list[str], Path, dict[str, str]]] = []
+
+        def fake_subprocess_run(
+            command: list[str], cwd: Path, env: dict[str, str]
+        ) -> dict[str, object]:
+            calls.append((command, cwd, env))
+            return {
+                "returncode": 0,
+                "stdout": json.dumps(
+                    {
+                        "schema_version": "shardloom.output.v2",
+                        "command": "status",
+                        "status": "success",
+                        "fallback": {"attempted": False},
+                    }
+                ),
+                "stderr": "",
+                "process_wall_millis": 12.5,
+            }
+
+        previous = benchmark_run.subprocess_run
+        try:
+            benchmark_run.subprocess_run = fake_subprocess_run
+            benchmark_run.shardloom_cli_warmup(
+                Path("/repo/target/release/shardloom"),
+                Path("/repo"),
+                {"RUSTUP_TOOLCHAIN": "stable"},
+            )
+        finally:
+            benchmark_run.subprocess_run = previous
+
+        self.assertEqual(len(calls), 1)
+        command, cwd, env = calls[0]
+        self.assertEqual(
+            command,
+            [
+                "/repo/target/release/shardloom",
+                "status",
+                "--format",
+                "json",
+            ],
+        )
+        self.assertEqual(cwd, Path("/repo"))
+        self.assertEqual(env["RUSTUP_TOOLCHAIN"], "stable")
+
+    def test_benchmark_runner_rejects_fallback_during_shardloom_cli_warmup(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        def fake_subprocess_run(
+            command: list[str], cwd: Path, env: dict[str, str]
+        ) -> dict[str, object]:
+            return {
+                "returncode": 0,
+                "stdout": json.dumps(
+                    {
+                        "schema_version": "shardloom.output.v2",
+                        "command": "status",
+                        "status": "success",
+                        "fallback": {"attempted": True},
+                    }
+                ),
+                "stderr": "",
+                "process_wall_millis": 12.5,
+            }
+
+        previous = benchmark_run.subprocess_run
+        try:
+            benchmark_run.subprocess_run = fake_subprocess_run
+            with self.assertRaises(benchmark_run.BenchmarkUnsupported):
+                benchmark_run.shardloom_cli_warmup(
+                    Path("/repo/target/release/shardloom"),
+                    Path("/repo"),
+                    {},
+                )
+        finally:
+            benchmark_run.subprocess_run = previous
+
     def test_full_local_external_lanes_have_required_scenario_handlers(self) -> None:
         required_modules = ("pandas", "polars", "duckdb", "datafusion", "dask")
         missing_modules = [
