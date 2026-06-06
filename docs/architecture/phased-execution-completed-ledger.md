@@ -39624,6 +39624,74 @@ the current queue; promote any actionable unfinished work into Planned before im
       persistent cache promotion, package publication, benchmark execution, performance claims, and
       production claims gated. No new dependency, fallback engine, external engine invocation, or
       benchmark workload was added.
+- [x] GAR-RUNTIME-IMPL-6D schema-declared DataFrame projection transforms are runtime-backed for
+      local-source workflows with explicit schemas. `LazyFrame.rename(...)` /
+      `rename_columns(...)` now rewrite declared local-source projections into SQL aliases such as
+      `amount AS order_amount`, and `LazyFrame.drop(...)` / `drop_columns(...)` rewrite declared
+      projections to exclude selected columns before `collect` or local writes. Duplicate rename
+      outputs, unknown declared/projection columns, dropping all columns, inferred-schema sources,
+      joins, aggregates, windows, expressions, and other unsafe shapes remain fail-closed without
+      pandas, Polars, external DataFrame backends, or fallback execution. The DataFrame capability
+      matrix now marks the four methods as `fixture_smoke_supported` with
+      `declared_schema_projection_rewrite`, execution-certificate, Native I/O, and no-fallback
+      evidence requirements. The Python user-surface completion gate and runtime-gap inventory no
+      longer classify these scoped rows as unsupported front-door gaps, while broad DataFrame parity
+      remains gated.
+- [x] GAR-RUNTIME-IMPL-6D scoped DataFrame `value_counts(...)` now lowers to an admitted grouped
+      count route instead of being blocker-only. For local-source workflows with at most one
+      existing predicate, `LazyFrame.value_counts(columns, sort=True, dropna=True)` builds
+      `GROUP BY <columns>` plus `count(*) AS rows`, combines an `IS NOT NULL` predicate for each
+      counted column when `dropna=True`, and applies rows-desc ordering when `sort=True`. Unsafe
+      shapes, existing projections/limits/aggregates/sorts/joins, non-identifier columns, broad
+      pandas normalize/bin/axis semantics, production summary claims, benchmark execution, package
+      publication, and external DataFrame engines remain gated. The DataFrame capability matrix,
+      Python completion gate, runtime-gap inventory, Python README, and parity docs now classify
+      this scoped summary row as `fixture_smoke_supported` with grouped-count, dropna, ordering,
+      execution-certificate, and no-fallback evidence.
+- [x] GAR-RUNTIME-IMPL-6D scoped row-wise DataFrame `concat(...)` now lowers to the admitted SQL
+      set-operation route instead of being blocker-only. The Python method admits exactly two
+      local-source branches with explicit matching projected bare columns and produces a
+      `UNION ALL` `SqlWorkflow`; implicit schema union/alignment, axis=1 column combine,
+      multi-branch concat, path-string targets, mismatched projections, production concat claims,
+      benchmark execution, package publication, and pandas/Polars/external backend execution remain
+      blocked. The DataFrame capability matrix, Python completion gate, runtime-gap inventory,
+      Python README, and parity docs now classify this scoped combine row as
+      `fixture_smoke_supported` with schema-alignment, set-operation, execution-certificate,
+      Native I/O, and no-fallback evidence.
+- [x] GAR-RUNTIME-IMPL-6D scoped explicit-key DataFrame `merge(...)` now lowers to the admitted
+      ShardLoom join route instead of being blocker-only. `LazyFrame.merge(other, on=..., how=...)`
+      admits local-source equi-key joins through the same `join(...)` lowering and evidence fields;
+      implicit common-column inference, `left_on`/`right_on`, suffix handling, right-side
+      operations, broad pandas merge result-shape semantics, production merge claims, benchmark
+      execution, package publication, and pandas/Polars/external backend execution remain blocked.
+      The DataFrame capability matrix, Python completion gate, runtime-gap inventory, Python
+      README, and parity docs now classify this scoped combine row as `fixture_smoke_supported`
+      with join-alias, key-resolution, join-operator, execution-certificate, Native I/O, and
+      no-fallback evidence.
+- [x] GAR-RUNTIME-IMPL-6D scoped one-column DataFrame `nunique(..., dropna=True)` now lowers to the
+      admitted `count(DISTINCT column)` aggregate route instead of being blocker-only. The Python
+      method admits local-source workflows with at most one existing predicate and one bare column,
+      preserving SQL count-distinct null semantics (`dropna=True`). Multi-column distinct-count
+      result shapes, `dropna=False`, axis semantics, existing projections/limits/aggregates/sorts/
+      joins, production summary claims, benchmark execution, package publication, and pandas/Polars/
+      external backend execution remain blocked. The DataFrame capability matrix, Python completion
+      gate, runtime-gap inventory, Python README, and parity docs now classify this scoped summary
+      row as `fixture_smoke_supported` with distinct-count, dropna-policy, aggregate-operator,
+      execution-certificate, and no-fallback evidence.
+- [x] GAR-RUNTIME-IMPL-6D scoped DataFrame null cleanup and null-mask methods now lower to admitted
+      local-source projection routes instead of being blocker-only where schema evidence exists.
+      `LazyFrame.fillna(...)` / `fill_null(...)` admit schema-declared local-source scalar or
+      per-column literal fill values by rewriting projections to `COALESCE(column, literal) AS
+      column`. `LazyFrame.isna(...)` / `isnull(...)` and `notna(...)` / `notnull(...)` admit
+      schema-declared local-source boolean mask projections using `IS NULL` / `IS NOT NULL` over
+      explicit or declared columns. Inferred-schema sources, unknown columns, aggregate/join/window/
+      expression shapes, unsupported literals, method/axis/limit pandas fill semantics, broad
+      pandas mask result-shape parity, production DataFrame claims, benchmark execution, package
+      publication, and pandas/Polars/external backend execution remain blocked. The DataFrame
+      capability matrix, Python completion gate, runtime-gap inventory, Python README, and parity
+      docs now classify these null rows as `fixture_smoke_supported` with null-fill/null-mask,
+      dtype/coercion, projection-shape, three-valued logic, execution-certificate, and no-fallback
+      evidence.
 - [x] GAR-RUNTIME-IMPL-6D Python/DataFrame alias breadth slice lowers familiar method names to
       existing ShardLoom runtime routes without adding fallback or artificial helper execution.
       `LazyFrame.project`, `with_columns`, `assign`, `groupby`, `order_by`, `sort_by`, and

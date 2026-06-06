@@ -107,29 +107,41 @@ REQUIRED_MATERIALIZATION_METHODS = [
     "display",
 ]
 
-REQUIRED_UNSUPPORTED_METHODS = [
+REQUIRED_TRANSFORM_RUNTIME_METHODS = [
     "rename",
     "rename_columns",
     "drop",
     "drop_columns",
-    "sample",
-    "explode",
-    "merge",
-    "concat",
-    "pivot",
-    "pivot_table",
-    "melt",
-    "rolling",
-    "tail",
-    "describe",
+]
+
+REQUIRED_SUMMARY_RUNTIME_METHODS = [
     "nunique",
     "value_counts",
+]
+
+REQUIRED_COMBINE_RUNTIME_METHODS = [
+    "merge",
+    "concat",
+]
+
+REQUIRED_NULL_RUNTIME_METHODS = [
     "fillna",
     "fill_null",
     "isna",
     "isnull",
     "notna",
     "notnull",
+]
+
+REQUIRED_UNSUPPORTED_METHODS = [
+    "sample",
+    "explode",
+    "pivot",
+    "pivot_table",
+    "melt",
+    "rolling",
+    "tail",
+    "describe",
     "apply",
     "map",
     "map_rows",
@@ -202,6 +214,14 @@ REQUIRED_TEST_MARKERS = {
         "test_context_sql_local_source_collect_invokes_sql_smoke",
         "test_context_sql_local_source_write_invokes_sql_smoke",
         "test_context_sql_source_free_write_invokes_generated_source_sql_smoke",
+        "test_schema_declared_dataframe_rename_lowers_to_projection_alias",
+        "test_schema_declared_dataframe_drop_lowers_to_projection_rewrite",
+        "test_local_csv_query_builder_value_counts_lowers_to_grouped_count",
+        "test_local_csv_query_builder_concat_lowers_to_union_all",
+        "test_local_csv_query_builder_merge_lowers_to_join",
+        "test_local_csv_query_builder_nunique_lowers_to_count_distinct",
+        "test_schema_declared_dataframe_fillna_lowers_to_coalesce_projection",
+        "test_schema_declared_dataframe_null_masks_lower_to_boolean_projections",
         "test_missing_dataframe_affordances_return_report_only_unsupported",
         "workflow.rename({\"amount\": \"order_amount\"})",
         "workflow.drop(columns=[\"unused\"])",
@@ -473,6 +493,10 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         *REQUIRED_GENERATED_METHODS,
         "sql",
         *REQUIRED_MATERIALIZATION_METHODS,
+        *REQUIRED_TRANSFORM_RUNTIME_METHODS,
+        *REQUIRED_SUMMARY_RUNTIME_METHODS,
+        *REQUIRED_COMBINE_RUNTIME_METHODS,
+        *REQUIRED_NULL_RUNTIME_METHODS,
         *REQUIRED_UNSUPPORTED_METHODS,
     ]:
         if method not in by_method:
@@ -493,6 +517,10 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         *REQUIRED_QUERY_BUILDER_METHODS,
         *REQUIRED_ALIAS_METHODS,
         *REQUIRED_GENERATED_METHODS,
+        *REQUIRED_TRANSFORM_RUNTIME_METHODS,
+        *REQUIRED_SUMMARY_RUNTIME_METHODS,
+        *REQUIRED_COMBINE_RUNTIME_METHODS,
+        *REQUIRED_NULL_RUNTIME_METHODS,
         "sql",
     ]:
         row = by_method.get(method)
@@ -503,6 +531,97 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             blockers.append(f"{method}: must not be an unsupported row")
         if support_status == "fixture_smoke_supported" and not row.get("required_evidence"):
             blockers.append(f"{method}: fixture support requires evidence names")
+
+    for method in REQUIRED_TRANSFORM_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "fixture_smoke_supported":
+            blockers.append(f"{method}: scoped transform support must be fixture_smoke_supported")
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: scoped transform support requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: scoped transform support requires data_read true")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: scoped transform row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        if "declared_schema_projection_rewrite" not in required_evidence:
+            blockers.append(
+                f"{method}: scoped transform row missing declared_schema_projection_rewrite"
+            )
+
+    for method in REQUIRED_SUMMARY_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "fixture_smoke_supported":
+            blockers.append(f"{method}: scoped summary support must be fixture_smoke_supported")
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: scoped summary support requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: scoped summary support requires data_read true")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: scoped summary row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        expected_evidence = (
+            ["distinct_count_semantics", "dropna_policy"]
+            if method == "nunique"
+            else ["grouped_count_semantics", "ordering_contract"]
+        )
+        for evidence in expected_evidence:
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: scoped summary row missing {evidence}")
+
+    for method in REQUIRED_COMBINE_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "fixture_smoke_supported":
+            blockers.append(f"{method}: scoped combine support must be fixture_smoke_supported")
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: scoped combine support requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: scoped combine support requires data_read true")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: scoped combine row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        expected_evidence = (
+            ["join_alias_semantics", "join_operator_capability"]
+            if method == "merge"
+            else ["schema_alignment_contract", "set_operation_semantics"]
+        )
+        for evidence in expected_evidence:
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: scoped combine row missing {evidence}")
+
+    for method in REQUIRED_NULL_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "fixture_smoke_supported":
+            blockers.append(f"{method}: scoped null support must be fixture_smoke_supported")
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: scoped null support requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: scoped null support requires data_read true")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: scoped null row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        expected_evidence = (
+            ["null_fill_semantics", "projection_rewrite_semantics"]
+            if method in {"fillna", "fill_null"}
+            else ["projection_result_shape", "three_valued_logic_policy"]
+        )
+        expected_evidence.append(
+            "not_null_mask_semantics"
+            if method in {"notna", "notnull"}
+            else "null_mask_semantics"
+            if method in {"isna", "isnull"}
+            else "dtype_coercion_policy"
+        )
+        for evidence in expected_evidence:
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: scoped null row missing {evidence}")
 
     for method in REQUIRED_MATERIALIZATION_METHODS:
         row = by_method.get(method)
@@ -575,6 +694,50 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
             status_when_passed="scoped_materialization_rows_present",
+        ),
+        _row(
+            "schema_declared_transforms",
+            "schema-declared DataFrame projection transforms",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_TRANSFORM_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
+        ),
+        _row(
+            "scoped_summary_methods",
+            "scoped DataFrame summary methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_SUMMARY_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
+        ),
+        _row(
+            "scoped_combine_methods",
+            "scoped DataFrame combine methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_COMBINE_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
+        ),
+        _row(
+            "scoped_null_methods",
+            "scoped DataFrame null cleanup and mask methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_NULL_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
         ),
         _row(
             "unsupported_paths",

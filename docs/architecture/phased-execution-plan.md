@@ -396,23 +396,37 @@ Each item below uses the same sub-checklist shape:
       nested compatibility sink formats; the front-door parity matrix now includes
       `typed_nested_compatibility_sink` as a seventh admitted scoped row for Parquet, Arrow IPC, and
       Avro.
-    - [x] Common DataFrame transform affordances now exist as deterministic no-fallback blockers:
-      `rename(...)` / `rename_columns(...)`, `drop(...)` / `drop_columns(...)`, `sample(...)`, and
-      `explode(...)` route through `workflow-unsupported-plan` with stable schema/rewrite,
-      sampling, or nested-expansion blocker IDs instead of missing Python attributes or
+    - [x] Schema-declared local-source `rename(...)` / `rename_columns(...)` and `drop(...)` /
+      `drop_columns(...)` lower to admitted ShardLoom SQL projection alias/rewrite routes, with
+      duplicate, unknown, non-declared, and unsafe shapes failing closed without pandas/Polars
+      execution.
+    - [x] Remaining common DataFrame transform affordances now exist as deterministic no-fallback
+      blockers: `sample(...)` and `explode(...)` route through `workflow-unsupported-plan` with
+      stable sampling or nested-expansion blocker IDs instead of missing Python attributes or
       pandas/Polars execution.
-    - [x] Common DataFrame combine/reshape/window affordances now exist as deterministic
-      no-fallback blockers: `merge(...)`, `concat(...)`, `pivot(...)`, `pivot_table(...)`,
-      `melt(...)`, and `rolling(...)` route through `workflow-unsupported-plan` with stable
-      join-alias, union-alignment, reshape, aggregate-reshape, unpivot, and rolling-window blocker
-      IDs instead of missing Python attributes or pandas/Polars execution.
-    - [x] Common DataFrame inspection, summary, null-handling, and Python-callable affordances now
-      exist as deterministic no-fallback blockers: `tail(...)`, `describe(...)`, `nunique(...)`,
-      `value_counts(...)`, `fillna(...)` / `fill_null(...)`, `isna(...)` / `isnull(...)`,
-      `notna(...)` / `notnull(...)`, `apply(...)`, `map(...)`, and `map_rows(...)` route through
-      `workflow-unsupported-plan` with stable source-order, summary-statistics, distinct-count,
-      grouped-count, null-fill, null-mask, and Python-callable blocker IDs instead of missing Python
-      attributes or hidden pandas/Polars execution.
+    - [x] Scoped row-wise `concat(...)` lowers to `UNION ALL` when two local-source branches have
+      explicit matching projected columns.
+    - [x] Scoped explicit-key `merge(on=..., how=...)` lowers to the admitted ShardLoom join route.
+    - [x] Remaining common DataFrame combine/reshape/window affordances now exist as deterministic
+      no-fallback blockers: `pivot(...)`, `pivot_table(...)`, `melt(...)`, and `rolling(...)`
+      route through `workflow-unsupported-plan` with stable reshape, aggregate-reshape, unpivot, and
+      rolling-window blocker IDs instead of missing Python attributes or pandas/Polars execution.
+    - [x] Scoped local-source `value_counts(...)` lowers to the admitted grouped `count(*)` route
+      with optional `IS NOT NULL` dropna filtering and rows-desc ordering, while broad pandas
+      summary parity remains gated.
+    - [x] Scoped one-column `nunique(..., dropna=True)` lowers to the admitted
+      `count(DISTINCT column)` aggregate route, while broad pandas result-shape parity remains
+      gated.
+    - [x] Schema-declared local-source `fillna(...)` / `fill_null(...)` lower to admitted
+      ShardLoom `COALESCE` projection rewrites for scalar or per-column literal fills.
+    - [x] Schema-declared local-source `isna(...)` / `isnull(...)` and `notna(...)` /
+      `notnull(...)` lower to admitted ShardLoom `IS NULL` / `IS NOT NULL` boolean projection
+      rewrites over explicit or declared columns.
+    - [x] Common DataFrame inspection, summary, and Python-callable affordances now exist as
+      deterministic no-fallback blockers: `tail(...)`, `describe(...)`, `apply(...)`, `map(...)`,
+      and `map_rows(...)` route through `workflow-unsupported-plan` with stable source-order,
+      summary-statistics, and Python-callable blocker IDs instead of missing Python attributes or
+      hidden pandas/Polars execution.
     - [ ] Remaining: broad DataFrame parity remains gated.
   - Runtime enablement: Python/DataFrame-style API call -> shared public route facade ->
     deterministic ShardLoom query lowering -> admitted runtime route or explicit unsupported
