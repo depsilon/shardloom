@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-6 scan-iteration alias canonicalization and slowdown triage
+  - Date: 2026-06-06
+  - Branch/PR: `codex/perf-timing-attribution-optimization` / pending PR.
+  - Source:
+    - User report that recent timing changes looked roughly 50% slower.
+    - PR `#1128` scan chunk timing alias comments and PR `#1129` merged timing provenance work.
+    - Local artifacts `target/codex-perf-current.json`, `target/codex-perf-origin-main.json`,
+      `target/codex-perf-groupby-clean.json`, and `target/codex-perf-groupby-origin-main.json`.
+    - `benchmarks/traditional_analytics/run.py`, `scripts/promote_benchmark_artifact.py`, and
+      `python/tests/test_release_scripts.py`.
+  - Scope:
+    - Rechecked current-versus-origin local timing artifacts after PR `#1129` merged and found no
+      broad 50% runtime regression: query/runtime geomean remained about parity while scan iteration
+      increased from zero because prior main undercounted iterator advancement.
+    - Reproduced the largest saved Avro prepare-batch group-by ratio with a fresh focused run; the
+      route came back faster than both saved current and origin rows, so the saved 1.47x row is local
+      run noise rather than a confirmed hot-path regression.
+    - Canonicalized benchmark runner and promoter output so legacy
+      `vortex_chunk_iteration_micros` is accepted as an input alias but normalized/public benchmark
+      rows emit only canonical `scan_chunk_iter_micros`, preventing downstream double-counting.
+  - Evidence:
+    - Local artifact comparison showed `query_runtime_millis` geomean `0.998x` current/origin and
+      `cli_process_wall_millis` geomean `1.007x` current/origin across the saved broad scoped rows.
+    - Focused repro:
+      `benchmarks/traditional_analytics/run.py --rows 20000 --dim-rows 1000 --iterations 5 --engines shardloom-prepare-batch --formats avro --scenario "group by aggregation" --dataset-profile narrow_fact_dim --shardloom-build-profile release --regenerate --data-dir target/codex-perf-avro-groupby-repro-data --output target/codex-perf-avro-groupby-repro.json --no-markdown`
+      produced `query_runtime_millis=0.5224` for the Avro prepare-batch group-by row.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_runner_canonicalizes_scan_chunk_iteration_alias python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_normalizes_scan_chunk_iteration_alias_once python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_keeps_query_runtime_as_warm_route_stage`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_release_scripts`
+      passed with 77 tests.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`
+      passed while reporting lane provenance as unenforced under the explicit allow flags.
+    - Tiny runner smoke wrote `target/codex-perf-alias-smoke.json` with
+      `scan_chunk_iter_micros=83`, no `vortex_chunk_iteration_micros` metric, and
+      `query_runtime_millis=0.379`.
+  - Benchmark boundary:
+    - Local benchmark runs are triage evidence only. They do not refresh the checked-in public
+      benchmark artifact or create a clean claim-readiness rerun.
+  - Claim boundary:
+    - Claim is limited to removing an alias double-counting hazard and narrowing the reported
+      slowdown to timing attribution/provenance plus local run variance. Performance superiority,
+      Spark-displacement, production readiness, package-release, and public benchmark publication
+      claims remain blocked.
+  - Fallback boundary:
+    - Benchmark and promotion work stayed within ShardLoom-native benchmark tooling. External
+      engines remain comparison baselines only; no external query engine or Vortex query-engine
+      integration executed ShardLoom work as fallback.
+
 - [x] Session label: PERF-INNOV-5/6 promoter preservation and bounded hot-operator triage
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-innov-operator-outliers` / pending PR.

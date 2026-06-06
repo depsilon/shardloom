@@ -1770,6 +1770,69 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(stage_fields["route_timing_exclusive_stage_sum_ms"], 6.0)
         self.assertEqual(stage_fields["route_timing_exclusive_residual_ms"], 0.0)
 
+    def test_benchmark_promoter_normalizes_scan_chunk_iteration_alias_once(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_scan_chunk_alias_once_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-vortex",
+            "route_lane_id": "native_vortex_query",
+            "status": "success",
+            "scenario_name": "alias scan",
+            "scenario_id": "alias_scan",
+            "storage_format": "vortex",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "vortex_chunk_iteration_micros": 20_000,
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "total_runtime_millis": 1.0,
+                "result_sink_write_millis": 0.0,
+                "evidence_render_millis": 0.0,
+                "vortex_scan_open_micros": 10_000,
+                "scan_chunk_iter_micros": 20_000,
+                "vortex_chunk_iteration_micros": 20_000,
+                "vortex_projected_field_extract_micros": 5_000,
+                "vortex_encoded_kernel_evidence_micros": 15_000,
+                "operator_kernel_micros": 75_000,
+                "operator_finalize_micros": 0,
+                "result_assembly_micros": 0,
+            },
+        }
+
+        stage_fields = module.route_stage_fields_for_row(row)
+        normalized = module.timing_normalization_fields_for_row(row, stage_fields)
+
+        self.assertEqual(normalized["scan_chunk_iter_micros"], 20_000)
+        self.assertNotIn("vortex_chunk_iteration_micros", normalized)
+        self.assertEqual(stage_fields["vortex_scan_ms"], 50.0)
+        [published] = module.published_rows_with_current_route_timing_ledger([row])
+        self.assertEqual(published["scan_chunk_iter_micros"], 20_000)
+        self.assertNotIn("vortex_chunk_iteration_micros", published)
+
+        legacy_only_row = {
+            **row,
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "total_runtime_millis": 1.0,
+                "result_sink_write_millis": 0.0,
+                "evidence_render_millis": 0.0,
+                "vortex_scan_open_micros": 10_000,
+                "vortex_projected_field_extract_micros": 5_000,
+                "vortex_encoded_kernel_evidence_micros": 15_000,
+                "operator_kernel_micros": 75_000,
+                "operator_finalize_micros": 0,
+                "result_assembly_micros": 0,
+            },
+        }
+        [legacy_published] = module.published_rows_with_current_route_timing_ledger(
+            [legacy_only_row]
+        )
+        self.assertEqual(legacy_published["scan_chunk_iter_micros"], 20_000)
+        self.assertNotIn("vortex_chunk_iteration_micros", legacy_published)
+
     def test_benchmark_promoter_derives_evidence_render_proof_fields(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",
@@ -2119,6 +2182,20 @@ class ReleaseScriptTests(unittest.TestCase):
             ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"),
         )
         self.assertNotIn("pyspark", benchmark_run.CLAIM_READINESS_RERUN_ENGINES)
+
+    def test_benchmark_runner_canonicalizes_scan_chunk_iteration_alias(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        metrics = benchmark_run.vortex_scan_attribution_stage_metrics(
+            {"vortex_chunk_iteration_micros": "42"}
+        )
+
+        self.assertEqual(metrics["scan_chunk_iter_micros"], 42)
+        self.assertNotIn("vortex_chunk_iteration_micros", metrics)
+        self.assertNotIn(
+            "vortex_chunk_iteration_micros",
+            benchmark_run.VORTEX_SCAN_SPLIT_MICROS_FIELDS,
+        )
 
     def test_full_local_external_lanes_have_required_scenario_handlers(self) -> None:
         required_modules = ("pandas", "polars", "duckdb", "datafusion", "dask")

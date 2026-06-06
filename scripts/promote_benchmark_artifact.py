@@ -244,7 +244,6 @@ WEBSITE_ROW_KEYS = (
     "vortex_open_footer_micros",
     "scan_open_micros",
     "scan_chunk_iter_micros",
-    "vortex_chunk_iteration_micros",
     "vortex_projected_field_extract_micros",
     "vortex_encoded_kernel_evidence_micros",
     "operator_kernel_micros",
@@ -1511,7 +1510,6 @@ def timing_normalization_fields_for_row(
             millis_keys=("vortex_scan_open_millis", "vortex_scan_open_ms"),
         ),
         "scan_chunk_iter_micros": scan_chunk_iter_micros,
-        "vortex_chunk_iteration_micros": scan_chunk_iter_micros,
         "vortex_projected_field_extract_micros": first_numeric_micros(
             fields,
             micros_keys=("vortex_projected_field_extract_micros",),
@@ -7076,6 +7074,7 @@ def published_rows_with_current_route_timing_ledger(
         )
         updated.update(timing_ledger)
         updated.update(timing_normalization_fields_for_row(updated, route_stage_fields))
+        updated.pop("vortex_chunk_iteration_micros", None)
         updated.update(
             route_timing_stage_inclusion_fields_for_row(
                 updated,
