@@ -1243,6 +1243,20 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["exclusive_source_parse_or_decode_ms"], 16.0)
         self.assertEqual(published["vortex_scan_ms"], 1.0)
         self.assertEqual(published["operator_compute_ms"], 2.0)
+        self.assertIn(
+            "vortex_scan_ms", published["route_timing_excluded_stage_ids"]
+        )
+        self.assertIn(
+            "operator_compute_ms", published["route_timing_excluded_stage_ids"]
+        )
+        self.assertIn(
+            "vortex_scan:diagnostic_only",
+            published["route_timing_stage_inclusion_classes"],
+        )
+        self.assertIn(
+            "operator_compute:diagnostic_only",
+            published["route_timing_stage_inclusion_classes"],
+        )
         self.assertEqual(published["route_timing_exclusive_stage_sum_ms"], 125.0)
         self.assertEqual(published["route_timing_exclusive_residual_ms"], 5.0)
         self.assertEqual(published["source_pressure_profile"], "many_small_files_pressure")
@@ -1257,6 +1271,108 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertEqual(published["total_route_ms"], 130.0)
         self.assertFalse(published["performance_claim_allowed"])
+
+    def test_benchmark_repromotion_preserves_writer_context_ms_fields(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_repromoted_writer_context_for_test",
+        )
+
+        row = {
+            "engine": "shardloom",
+            "storage_format": "csv",
+            "scenario_name": "repromoted writer context row",
+            "status": "success",
+            "selected_execution_mode": "compatibility_import_certified",
+            "requested_execution_mode": "compatibility_import_certified",
+            "timing_scope": "cold_certified_end_to_end",
+            "compatibility_import_included": True,
+            "claim_gate_status": "not_claim_grade",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": ["fixture_not_claim_grade"],
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "vortex_writer_context_schema_version": (
+                "shardloom.traditional_analytics.vortex_writer_context.v1"
+            ),
+            "vortex_writer_context_status": "reported",
+            "vortex_writer_context_open_ms": 1.25,
+            "vortex_writer_context_write_count": 2,
+            "vortex_writer_context_reuse_hit_count": 1,
+            "vortex_writer_context_reuse_status": (
+                "single_vortex_runtime_session_reused_across_artifacts"
+            ),
+            "vortex_segment_write_ms": 3.5,
+            "vortex_workspace_stage_ms": 4.75,
+            "vortex_write_plan_context_open_ms": 1.25,
+            "vortex_write_plan_segment_write_ms": 3.5,
+            "vortex_write_plan_workspace_stage_ms": 4.75,
+            "metrics": {
+                "source_read_millis": 1.0,
+                "compatibility_parse_millis": 1.0,
+                "compatibility_to_vortex_import_millis": 1.0,
+                "vortex_write_millis": 1.0,
+                "vortex_reopen_verify_millis": 1.0,
+                "operator_compute_millis": 1.0,
+                "total_runtime_millis": 10.0,
+                "cli_process_wall_millis": 10.5,
+            },
+        }
+
+        [published] = module.published_rows_with_current_route_timing_ledger([row])
+
+        self.assertEqual(published["vortex_writer_context_open_ms"], 1.25)
+        self.assertEqual(published["vortex_segment_write_ms"], 3.5)
+        self.assertEqual(published["vortex_workspace_stage_ms"], 4.75)
+        self.assertEqual(published["vortex_write_plan_context_open_ms"], 1.25)
+        self.assertEqual(published["vortex_write_plan_segment_write_ms"], 3.5)
+        self.assertEqual(published["vortex_write_plan_workspace_stage_ms"], 4.75)
+
+    def test_benchmark_repromotion_requires_replay_timing_for_replay_tier(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_repromoted_replay_tier_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-prepared-vortex",
+            "storage_format": "vortex",
+            "scenario_name": "legacy replay proof without replay timing",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "requested_execution_mode": "prepared_vortex",
+            "timing_scope": "warm_prepared_query",
+            "claim_gate_status": "not_claim_grade",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": ["fixture_not_claim_grade"],
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "requested_evidence_tier": "auto",
+            "actual_evidence_tier": "full_vortex_replay",
+            "selected_evidence_tier": "full_vortex_replay",
+            "sink_tier": "full_vortex_replay",
+            "computed_result_sink_replay_verified": True,
+            "computed_result_sink_write_micros": 2500,
+            "result_sink_replay_micros": None,
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "result_sink_write_millis": 2.5,
+                "operator_compute_millis": 0.4,
+                "total_runtime_millis": 3.5,
+                "cli_process_wall_millis": 3.8,
+            },
+        }
+
+        [published] = module.published_rows_with_current_route_timing_ledger([row])
+
+        self.assertEqual(published["actual_evidence_tier"], "metadata_sink")
+        self.assertEqual(published["selected_evidence_tier"], "metadata_sink")
+        self.assertEqual(published["sink_tier"], "metadata_sink")
+        self.assertFalse(published["evidence_tier_result_sink_replay_required"])
+        self.assertEqual(
+            published["result_sink_replay_skip_reason"],
+            "skipped_metadata_sink_tier_digest_count_path_proof_without_replay",
+        )
 
     def test_benchmark_promoter_keeps_source_state_prepare_out_of_source_admission(
         self,
@@ -1637,6 +1753,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 "evidence_render_millis": 3.0,
                 "vortex_scan_open_micros": 10_000,
                 "scan_chunk_iter_micros": 20_000,
+                "vortex_chunk_iteration_micros": 20_000,
                 "vortex_projected_field_extract_micros": 5_000,
                 "vortex_encoded_kernel_evidence_micros": 15_000,
                 "operator_kernel_micros": 75_000,
@@ -2498,6 +2615,40 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn(
             "benchmark artifact cannot be current while the worktree is dirty",
             blockers,
+        )
+
+    def test_benchmark_publication_claim_gate_blocks_dirty_lane_versions(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_lane_versions_for_test",
+        )
+
+        blockers: list[str] = []
+        report = module.validate_shardloom_lane_version_provenance(
+            {
+                "benchmark_git_sha": "9835ae15633587307d7ab2e710a44bf2970ea883",
+                "shardloom_git_sha": "9835ae15633587307d7ab2e710a44bf2970ea883",
+                "lane_versions": {
+                    "pandas": "2.2.3",
+                    "shardloom": "workspace-local-release-d94d30b0-dirty",
+                    "shardloom-vortex": "workspace-local-release-9835ae1",
+                },
+            },
+            blockers,
+            enforce_current_artifact=True,
+        )
+
+        self.assertEqual(report["checked_shardloom_lane_count"], 2)
+        self.assertEqual(report["dirty_shardloom_lanes"], ["shardloom"])
+        self.assertEqual(report["sha_mismatched_shardloom_lanes"], ["shardloom"])
+        self.assertTrue(
+            any("lane_versions['shardloom'] is dirty" in blocker for blocker in blockers)
+        )
+        self.assertTrue(
+            any(
+                "lane_versions['shardloom'] sha 'd94d30b0' does not match" in blocker
+                for blocker in blockers
+            )
         )
 
     def test_benchmark_publication_claim_gate_requires_claim_grade_capillary_rows(self) -> None:

@@ -16,6 +16,204 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-5/6 promoter preservation and bounded hot-operator triage
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-operator-outliers` / pending PR.
+  - Source:
+    - Unresolved Codex review sweep for PRs `#1090` through `#1128`.
+    - PR `#1121` benchmark writer-context promotion comments.
+    - PR `#1124` replay-tier promotion comment.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `python/tests/test_release_scripts.py`.
+    - Bounded local artifact `target/codex-perf-hot-operator.json`.
+  - Scope:
+    - Fixed benchmark re-promotion so already-promoted writer-context `*_ms` fields are preserved
+      instead of being dropped when raw `*_micros` fields are absent.
+    - Required numeric result-sink replay timing before auto-selecting or preserving auto-derived
+      `full_vortex_replay` or `publication_full` evidence tiers.
+    - Added release-script regressions for both re-promotion contracts.
+    - Ran a bounded fresh hot-operator rerun for Arrow IPC/Parquet group-by, multi-key group-by,
+      and clean/cast/filter/write routes across `shardloom-vortex` and
+      `shardloom-prepared-vortex`.
+  - Evidence:
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_repromotion_preserves_writer_context_ms_fields python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_repromotion_requires_replay_timing_for_replay_tier`
+      passed with 2 tests.
+    - `python3 -m unittest python.tests.test_release_scripts` passed with 75 tests and 2 skipped.
+    - `python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `python3 -m unittest discover -s python/tests` passed with 442 tests and 2 skipped.
+    - `python3 -m build python` passed.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`
+      passed while still reporting dirty/mismatched ShardLoom lane provenance as unenforced.
+    - The first attempt to run the bounded hot-operator benchmark with system `python3` failed
+      because `pyarrow` was unavailable; rerunning with the bundled workspace Python succeeded and
+      wrote `target/codex-perf-hot-operator.json`.
+    - In the bounded rerun, successful Arrow IPC/Parquet group-by operator kernels were about
+      0.77-0.80 ms, scan timing was below 0.5 ms, and route query totals were about 1.3 ms for
+      group-by; the stale public artifact's 30 ms warm/native operator outliers did not reproduce.
+  - Benchmark boundary:
+    - The bounded artifact is optimization triage evidence only. It is not a clean full-local
+      publication rerun and does not update checked-in benchmark rows.
+    - Temp re-promotion of the current public artifact showed writer-context timing cells are now
+      preserved on re-promotion, but it does not create new nonzero writer-context evidence.
+  - Claim boundary:
+    - Claim is limited to preserving benchmark timing evidence on re-promotion and narrowing the
+      reported slowdown to stale/public-artifact attribution versus fresh bounded hot-route timing.
+      Performance superiority, Spark-displacement, production readiness, package-release, and
+      public benchmark publication claims remain blocked.
+  - Fallback boundary:
+    - Benchmark runs used ShardLoom native/prepared Vortex lanes only. No external engine or Vortex
+      query-engine integration executed unsupported ShardLoom work as fallback.
+
+- [x] Session label: PERF-INNOV-5/6 follow-up timing, low-cardinality group-by, and reuse P1 closeout
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-operator-outliers` / pending PR.
+  - Source:
+    - Unresolved Codex review sweep for PRs `#1090` through `#1128`.
+    - `scripts/promote_benchmark_artifact.py`.
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `python/src/shardloom/prepared_route.py`.
+    - Local bounded benchmark artifacts under `target/codex-perf-*.json`.
+  - Scope:
+    - Fixed the PR `#1128` timing comments by treating `scan_chunk_iter_micros` and
+      `vortex_chunk_iteration_micros` as aliases during benchmark promotion and by starting Vortex
+      scan chunk timing before advancing the iterator.
+    - Recovered the low-cardinality numeric group-by path by using ordered `u32` group maps for
+      plain group aggregation while retaining the interned hash path for string/category-heavy
+      grouping.
+    - Fixed the PR `#1118` P1 prepared-route reuse issue by including local file content digests in
+      source reuse fingerprints and adding a regression test that preserves file size and mtime
+      while changing contents.
+  - Evidence:
+    - PR comment sweep confirmed `#1128` had the timing P1/P2 pair and `#1118` had the remaining
+      P1 prepared-state reuse fingerprint issue; both are addressed locally in this branch.
+    - Clean bounded group-by benchmark comparison:
+      `target/codex-perf-groupby-clean.json` (`workspace-local-release-bbcc3abd`) versus
+      `target/codex-perf-groupby-origin-main.json` (`workspace-local-release-9fa200bd`) showed
+      `query_runtime_millis` geomean `0.994x` current/main and `operator_kernel` geomean `0.985x`
+      current/main across the scoped `group by aggregation` rows. `vortex_scan_ms` increased as
+      expected because main undercounted iterator advancement before the timing fix.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_prepared_route_reuses_workspace_manifest_without_reprepare`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_cli_client`
+      passed with 145 tests.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s python/tests`
+      passed with 440 tests.
+    - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace --all-targets`, and `git diff --check` passed.
+  - Benchmark boundary:
+    - Bounded local artifacts are optimization triage evidence only. They are not a full
+      claim-readiness rerun and do not update the checked-in public benchmark artifact.
+  - Claim boundary:
+    - Claim is limited to fixing timing attribution, restoring scoped low-cardinality group-by
+      query/kernel parity in local bounded evidence, and preventing stale prepared-state reuse.
+      Performance superiority, Spark-displacement, production readiness, package-release, and
+      public benchmark publication claims remain blocked.
+  - Fallback boundary:
+    - All execution remains within admitted ShardLoom/Vortex benchmark and Python reuse paths with
+      `fallback_attempted=false` and `external_engine_invoked=false`; no external query engine or
+      Vortex query-engine integration is introduced as fallback.
+
+- [x] Session label: PERF-INNOV-6 timing provenance and route-stage inclusion guardrails
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-operator-outliers` / pending PR.
+  - Source:
+    - `scripts/promote_benchmark_artifact.py`.
+    - `scripts/check_benchmark_publication_claim_gate.py`.
+    - `python/tests/test_release_scripts.py`.
+    - Current promoted benchmark manifest and row chunks.
+  - Scope:
+    - Corrected route stage inclusion classification so measured detail child stages listed in
+      `route_timing_excluded_stage_ids` are emitted as diagnostic-only instead of being labeled as
+      directly included in `total_route_ms`.
+    - Added ShardLoom lane-version provenance checks to the publication claim gate. Current-mode
+      validation now blocks dirty ShardLoom lane versions and ShardLoom lane short SHAs that do not
+      match the manifest `shardloom_git_sha`.
+    - Preserved historical/stale artifact inspection by keeping the provenance report visible but
+      not enforced when `--allow-stale-git --allow-dirty-worktree` is used.
+    - Diagnosed the current static `full_local` artifact as not clean-comparable for performance
+      claims because ShardLoom lanes report `workspace-local-release-d94d30b0-dirty` while the
+      manifest records `9835ae15633587307d7ab2e710a44bf2970ea883`.
+  - Evidence:
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publication_claim_gate_blocks_dirty_lane_versions python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_emits_cold_bottleneck_fields`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_release_scripts`
+      passed with 73 tests.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json`
+      blocked with the expected stale HEAD, dirty worktree, dirty ShardLoom lane, and SHA-mismatch
+      diagnostics.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`
+      passed while reporting the dirty/mismatched lane provenance as not enforced.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m build python`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s python/tests`
+      passed with 440 tests.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda`
+      passed.
+    - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace --all-targets`, and `git diff --check` passed.
+  - Benchmark boundary:
+    - No benchmark suite rerun was performed. This closeout improves timing/provenance
+      interpretation and claim gating only; it does not assert that ShardLoom is faster.
+  - Claim boundary:
+    - Claim is limited to benchmark publication integrity and route-stage attribution correctness.
+      Performance, superiority, Spark-displacement, production, SQL/DataFrame, object-store,
+      package-release, and Foundry claims remain blocked.
+  - Fallback boundary:
+    - Timing provenance checks are static artifact validation only. They do not invoke pandas,
+      Polars, DuckDB, DataFusion, Spark, Velox, Dask, external query engines, or Vortex
+      query-engine integrations as ShardLoom execution fallback.
+
+- [x] Session label: PERF-INNOV-5 residual operator outlier reduction pass
+  - Date: 2026-06-05
+  - Branch/PR: `codex/perf-innov-operator-outliers` / pending PR.
+  - Source:
+    - `shardloom-vortex/src/traditional_analytics.rs`.
+    - `docs/architecture/phased-execution-plan.md`.
+    - Current promoted benchmark rows and PERF-INNOV timing attribution fields.
+  - Scope:
+    - Reworked residual-native grouping, distinct, dirty-input, nullable/date, and dictionary
+      evidence paths to avoid avoidable owned string materialization in hot loops.
+    - Introduced scoped string interning for category/group-category aggregation state, borrowed
+      Vortex byte reads for UTF-8 fields, byte-oriented generated timestamp checks, and typed
+      dictionary evidence keys for dictionary group-by pair validation.
+    - Preserved deterministic output by sorting only during result assembly rather than maintaining
+      ordered maps on every hot update.
+    - Added explicit operator finalization and result assembly timing accumulation so remaining
+      outliers can be separated from scan/open/chunk/projection timing.
+  - Evidence:
+    - Focused `shardloom-vortex` tests passed for compatibility import timing, CDC delta import,
+      operator microkernel benchmark coverage, expanded taxonomy scenarios, prepared/native
+      category and group-category source-state reuse, multi-key/group-by prepared native scans, and
+      dictionary group-by pair prepared Vortex execution.
+    - `cargo clippy -p shardloom-vortex --all-targets --features vortex-traditional-analytics-benchmark -- -D warnings`
+      passed.
+    - Broad gates passed: `cargo fmt --all -- --check`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, and
+      `cargo test --workspace --all-targets`.
+    - Python/package gates with bundled Python 3.12 passed:
+      `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`,
+      `python -m build python`, `python -m unittest discover -s python/tests`, and
+      `python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda`.
+  - Benchmark boundary:
+    - This is a code-level outlier reduction pass with correctness and local package validation.
+      A clean non-dirty benchmark rerun is still required before interpreting route-total
+      performance deltas or claiming recovery from the reported slowdown.
+  - Claim boundary:
+    - Claim is limited to scoped hot-loop allocation/evidence reduction and improved substage
+      timing evidence. No encoded-native, performance superiority, production readiness,
+      Spark-displacement, or package-release claim is made.
+  - Fallback boundary:
+    - All execution remains ShardLoom-native within the admitted Vortex benchmark feature
+      boundary. No pandas, Polars, DuckDB, DataFusion, Spark, Velox, Dask, external query engine,
+      or Vortex query-engine integration executes unsupported ShardLoom work.
+
 - [x] Session label: PERF-INNOV-4 compact evidence and tiered result-sink modes for hot lanes
   - Date: 2026-06-05
   - Branch/PR: `codex/perf-innov-prepared-state-contract` / current benchmark optimization PR

@@ -137,6 +137,7 @@ impl LocalSourceReadPlan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SqlLocalSourceRequest {
     statement: String,
+    source_format_override: Option<LocalSourceFormat>,
     output_format: SqlLocalSourceOutputFormat,
     output_path: Option<PathBuf>,
     fanout_outputs: Vec<SqlLocalSourceOutputTarget>,
@@ -2617,6 +2618,19 @@ enum LocalSourceFormat {
 }
 
 impl LocalSourceFormat {
+    fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().replace('_', "-").as_str() {
+            "csv" => Some(Self::Csv),
+            "json" => Some(Self::Json),
+            "jsonl" | "ndjson" => Some(Self::JsonLines),
+            "parquet" => Some(Self::Parquet),
+            "arrow-ipc" | "arrow" | "ipc" | "feather" => Some(Self::ArrowIpc),
+            "avro" => Some(Self::Avro),
+            "orc" => Some(Self::Orc),
+            _ => None,
+        }
+    }
+
     fn from_extension(extension: &str) -> Option<Self> {
         match extension.to_ascii_lowercase().as_str() {
             "csv" => Some(Self::Csv),
@@ -2745,6 +2759,13 @@ impl LocalSourceFormat {
 struct LocalInputAdapterSelection {
     source_format: LocalSourceFormat,
     source_extension: String,
+    selection_kind: LocalInputAdapterSelectionKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LocalInputAdapterSelectionKind {
+    PathExtension,
+    DeclaredInputFormat,
 }
 
 impl LocalInputAdapterSelection {
@@ -2763,23 +2784,65 @@ impl LocalInputAdapterSelection {
         Ok(Self {
             source_format,
             source_extension: normalized_extension,
+            selection_kind: LocalInputAdapterSelectionKind::PathExtension,
         })
     }
 
-    const fn inference_kind() -> &'static str {
-        "path_extension"
+    fn select(
+        path: &Path,
+        source_format_override: Option<LocalSourceFormat>,
+    ) -> Result<Self, ShardLoomError> {
+        source_format_override.map_or_else(
+            || Self::infer_from_path(path),
+            |source_format| {
+                Ok(Self {
+                    source_format,
+                    source_extension: "not_applicable".to_string(),
+                    selection_kind: LocalInputAdapterSelectionKind::DeclaredInputFormat,
+                })
+            },
+        )
     }
 
-    const fn inference_registry_route() -> &'static str {
-        "local_path_extension_adapter_registry"
+    const fn source_format_inferred(&self) -> bool {
+        matches!(
+            self.selection_kind,
+            LocalInputAdapterSelectionKind::PathExtension
+        )
     }
 
-    const fn selection_reason() -> &'static str {
-        "inferred_at_read_ingest_boundary"
+    const fn inference_kind(&self) -> &'static str {
+        match self.selection_kind {
+            LocalInputAdapterSelectionKind::PathExtension => "path_extension",
+            LocalInputAdapterSelectionKind::DeclaredInputFormat => "declared_input_format",
+        }
+    }
+
+    const fn inference_registry_route(&self) -> &'static str {
+        match self.selection_kind {
+            LocalInputAdapterSelectionKind::PathExtension => {
+                "local_path_extension_adapter_registry"
+            }
+            LocalInputAdapterSelectionKind::DeclaredInputFormat => {
+                "explicit_public_workflow_input_format"
+            }
+        }
+    }
+
+    const fn selection_reason(&self) -> &'static str {
+        match self.selection_kind {
+            LocalInputAdapterSelectionKind::PathExtension => "inferred_at_read_ingest_boundary",
+            LocalInputAdapterSelectionKind::DeclaredInputFormat => {
+                "declared_by_public_workflow_facade"
+            }
+        }
     }
 
     fn source_extension_field(&self) -> String {
-        format!(".{}", self.source_extension)
+        match self.selection_kind {
+            LocalInputAdapterSelectionKind::PathExtension => format!(".{}", self.source_extension),
+            LocalInputAdapterSelectionKind::DeclaredInputFormat => "not_applicable".to_string(),
+        }
     }
 }
 
@@ -2950,7 +3013,7 @@ impl CsvSourceData {
             "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             self.source_format.as_str(),
             self.source_adapter.source_extension,
-            LocalInputAdapterSelection::inference_kind(),
+            self.source_adapter.inference_kind(),
             self.source_digest,
             source_schema_digest,
             self.rows.len(),
@@ -3104,7 +3167,7 @@ impl VortexIngestSourceData {
             "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             self.source_format.as_str(),
             self.source_adapter.source_extension,
-            LocalInputAdapterSelection::inference_kind(),
+            self.source_adapter.inference_kind(),
             self.source_digest,
             source_schema_digest,
             self.row_count,
@@ -3481,6 +3544,7 @@ struct SqlUnionComputedOutput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct VortexIngestRequest {
     source_path: PathBuf,
+    source_format_override: Option<LocalSourceFormat>,
     target_path: PathBuf,
     allow_overwrite: bool,
     certification_level: shardloom_vortex::VortexIngestCertificationLevel,
@@ -3558,7 +3622,7 @@ pub(crate) fn handle_sql_local_source_smoke_with_facade(
 ) -> ExitCode {
     let Some(statement_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {COMMAND} <sql-statement> [--output-format inline-jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--output local.jsonl|local.csv|local.parquet|local.arrow|local.avro|local.orc|local.vortex] [--fanout-output format=local-path]... [--allow-overwrite] [--format text|json]"
+            "usage: shardloom {COMMAND} <sql-statement> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--output-format inline-jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--output local.jsonl|local.csv|local.parquet|local.arrow|local.avro|local.orc|local.vortex] [--fanout-output format=local-path]... [--allow-overwrite] [--format text|json]"
         );
         return ExitCode::from(2);
     };
@@ -3607,12 +3671,25 @@ fn parse_sql_local_source_request(
     statement: String,
     mut args: impl Iterator<Item = String>,
 ) -> Result<SqlLocalSourceRequest, ShardLoomError> {
+    let mut source_format_override = None;
     let mut output_format = SqlLocalSourceOutputFormat::InlineJsonl;
     let mut output_path = None;
     let mut fanout_outputs = Vec::new();
     let mut allow_overwrite = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--input-format" | "--source-format" => {
+                let Some(value) = args.next() else {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "{arg} requires csv, json, jsonl, parquet, arrow-ipc, avro, or orc"
+                    )));
+                };
+                source_format_override = Some(LocalSourceFormat::parse(&value).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "unsupported SQL local-source input format: {value}; no fallback execution was attempted"
+                    ))
+                })?);
+            }
             "--output-format" => {
                 let Some(value) = args.next() else {
                     return Err(ShardLoomError::InvalidOperation(
@@ -3652,6 +3729,7 @@ fn parse_sql_local_source_request(
 
     Ok(SqlLocalSourceRequest {
         statement,
+        source_format_override,
         output_format,
         output_path,
         fanout_outputs,
@@ -3676,17 +3754,18 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
 ) -> ExitCode {
     let Some(source_path_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
+            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
         );
         return ExitCode::from(2);
     };
     let Some(target_path_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
+            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--input-format csv|json|jsonl|parquet|arrow-ipc|avro|orc] [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
         );
         return ExitCode::from(2);
     };
     let mut allow_overwrite = false;
+    let mut source_format_override = None;
     let mut certification_level = shardloom_vortex::VortexIngestCertificationLevel::IngestCertified;
     let mut delta_source_path = None;
     let mut delta_target_path = None;
@@ -3694,6 +3773,31 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--allow-overwrite" => allow_overwrite = true,
+            "--input-format" | "--source-format" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        emit_command,
+                        format,
+                        "vortex_ingest smoke failed",
+                        &ShardLoomError::InvalidOperation(format!(
+                            "{arg} requires csv, json, jsonl, parquet, arrow-ipc, avro, or orc"
+                        )),
+                    );
+                };
+                source_format_override = match LocalSourceFormat::parse(&value) {
+                    Some(format) => Some(format),
+                    None => {
+                        return emit_error(
+                            emit_command,
+                            format,
+                            "vortex_ingest smoke failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "unsupported vortex_ingest input format: {value}; no fallback execution was attempted"
+                            )),
+                        );
+                    }
+                };
+            }
             "--certification-level" => {
                 let Some(value) = args.next() else {
                     return emit_error(
@@ -3829,6 +3933,7 @@ pub(crate) fn handle_vortex_ingest_smoke_with_facade(
     };
     let request = VortexIngestRequest {
         source_path,
+        source_format_override,
         target_path,
         allow_overwrite,
         certification_level,
@@ -4012,6 +4117,7 @@ fn run_vortex_ingest_smoke(
         })?;
         let delta_report = run_vortex_ingest_prepare_once_without_reuse(VortexIngestRequest {
             source_path: delta.source_path.clone(),
+            source_format_override: base_report.request.source_format_override,
             target_path: delta.target_path.clone(),
             allow_overwrite: base_report.request.allow_overwrite,
             certification_level: base_report.request.certification_level,
@@ -4059,7 +4165,8 @@ fn preflight_vortex_ingest_differential_request(
 fn run_vortex_ingest_prepare_once(
     request: VortexIngestRequest,
 ) -> Result<VortexIngestOutcome, ShardLoomError> {
-    let source_adapter = LocalInputAdapterSelection::infer_from_path(&request.source_path)?;
+    let source_adapter =
+        LocalInputAdapterSelection::select(&request.source_path, request.source_format_override)?;
     let reuse_start = Instant::now();
     let reuse_request = vortex_ingest_prepared_state_reuse_request(&request, &source_adapter)?;
     let reuse_decision = shardloom_vortex::evaluate_vortex_prepared_state_reuse(&reuse_request)?;
@@ -4153,6 +4260,7 @@ fn run_vortex_ingest_append_only_refinement(
     )?;
     let delta_report = run_vortex_ingest_prepare_once_without_reuse(VortexIngestRequest {
         source_path: delta_source_path,
+        source_format_override: request.source_format_override,
         target_path: delta_target_path,
         allow_overwrite: true,
         certification_level: request.certification_level,
@@ -4239,7 +4347,8 @@ fn ensure_automatic_append_only_refinement_admitted(
 fn run_vortex_ingest_prepare_once_without_reuse(
     request: VortexIngestRequest,
 ) -> Result<VortexIngestReport, ShardLoomError> {
-    let source_adapter = LocalInputAdapterSelection::infer_from_path(&request.source_path)?;
+    let source_adapter =
+        LocalInputAdapterSelection::select(&request.source_path, request.source_format_override)?;
     run_vortex_ingest_prepare_once_with_adapter(request, source_adapter)
 }
 
@@ -4259,7 +4368,7 @@ fn run_vortex_ingest_prepare_once_with_adapter(
             return run_columnar_vortex_ingest_smoke(request, source_adapter);
         }
     }
-    run_scalar_vortex_ingest_smoke(request)
+    run_scalar_vortex_ingest_smoke(request, source_adapter)
 }
 
 fn vortex_ingest_prepared_state_reuse_request(
@@ -5012,9 +5121,14 @@ fn copy_buffer_family(source: &VortexIngestSourceData) -> &'static str {
 
 fn run_scalar_vortex_ingest_smoke(
     request: VortexIngestRequest,
+    source_adapter: LocalInputAdapterSelection,
 ) -> Result<VortexIngestReport, ShardLoomError> {
     let prepare_start = Instant::now();
-    let source = read_local_source(&request.source_path)?;
+    let source = read_local_source_with_plan_and_adapter(
+        &request.source_path,
+        &LocalSourceReadPlan::full("full_vortex_ingest_source_state"),
+        source_adapter,
+    )?;
     let source_evidence = VortexIngestSourceData::from_scalar_source(source.clone());
     let source_schema_digest = fnv64_digest(&source_evidence.header.join(","));
     let source_state_id = source_state_id_for_source(&source_evidence);
@@ -5463,10 +5577,16 @@ impl VortexIngestReport {
                 "source_format".to_string(),
                 self.source.source_format.as_str().to_string(),
             ),
-            ("source_format_inferred".to_string(), "true".to_string()),
+            (
+                "source_format_inferred".to_string(),
+                self.source
+                    .source_adapter
+                    .source_format_inferred()
+                    .to_string(),
+            ),
             (
                 "source_format_inference_kind".to_string(),
-                LocalInputAdapterSelection::inference_kind().to_string(),
+                self.source.source_adapter.inference_kind().to_string(),
             ),
             (
                 "source_format_inference_extension".to_string(),
@@ -5474,7 +5594,10 @@ impl VortexIngestReport {
             ),
             (
                 "source_format_inference_registry_route".to_string(),
-                LocalInputAdapterSelection::inference_registry_route().to_string(),
+                self.source
+                    .source_adapter
+                    .inference_registry_route()
+                    .to_string(),
             ),
             (
                 "source_adapter_id".to_string(),
@@ -5502,7 +5625,7 @@ impl VortexIngestReport {
             ),
             (
                 "source_adapter_selection_reason".to_string(),
-                LocalInputAdapterSelection::selection_reason().to_string(),
+                self.source.source_adapter.selection_reason().to_string(),
             ),
             (
                 "source_adapter_blocker_id".to_string(),
@@ -6140,10 +6263,13 @@ impl VortexPreparedStateReuseCliReport {
                 "source_format".to_string(),
                 self.source_adapter.source_format.as_str().to_string(),
             ),
-            ("source_format_inferred".to_string(), "true".to_string()),
+            (
+                "source_format_inferred".to_string(),
+                self.source_adapter.source_format_inferred().to_string(),
+            ),
             (
                 "source_format_inference_kind".to_string(),
-                LocalInputAdapterSelection::inference_kind().to_string(),
+                self.source_adapter.inference_kind().to_string(),
             ),
             (
                 "source_format_inference_extension".to_string(),
@@ -6151,7 +6277,7 @@ impl VortexPreparedStateReuseCliReport {
             ),
             (
                 "source_format_inference_registry_route".to_string(),
-                LocalInputAdapterSelection::inference_registry_route().to_string(),
+                self.source_adapter.inference_registry_route().to_string(),
             ),
             (
                 "source_adapter_id".to_string(),
@@ -6188,7 +6314,7 @@ impl VortexPreparedStateReuseCliReport {
             ),
             (
                 "source_adapter_selection_reason".to_string(),
-                LocalInputAdapterSelection::selection_reason().to_string(),
+                self.source_adapter.selection_reason().to_string(),
             ),
             (
                 "source_adapter_blocker_id".to_string(),
@@ -6530,10 +6656,13 @@ impl VortexPreparedStateRefinementCliReport {
                 "source_format".to_string(),
                 self.source_adapter.source_format.as_str().to_string(),
             ),
-            ("source_format_inferred".to_string(), "true".to_string()),
+            (
+                "source_format_inferred".to_string(),
+                self.source_adapter.source_format_inferred().to_string(),
+            ),
             (
                 "source_format_inference_kind".to_string(),
-                LocalInputAdapterSelection::inference_kind().to_string(),
+                self.source_adapter.inference_kind().to_string(),
             ),
             (
                 "source_format_inference_extension".to_string(),
@@ -6541,7 +6670,7 @@ impl VortexPreparedStateRefinementCliReport {
             ),
             (
                 "source_format_inference_registry_route".to_string(),
-                LocalInputAdapterSelection::inference_registry_route().to_string(),
+                self.source_adapter.inference_registry_route().to_string(),
             ),
             (
                 "source_adapter_id".to_string(),
@@ -6578,7 +6707,7 @@ impl VortexPreparedStateRefinementCliReport {
             ),
             (
                 "source_adapter_selection_reason".to_string(),
-                LocalInputAdapterSelection::selection_reason().to_string(),
+                self.source_adapter.selection_reason().to_string(),
             ),
             (
                 "source_adapter_blocker_id".to_string(),
@@ -7151,8 +7280,11 @@ fn vortex_ingest_scout_blocked_fields(
     let error_text = error.to_string();
     let classifier = classify_vortex_ingest_scout_error(&error_text)?;
     let blocked_request = vortex_ingest_scout_blocked_request(request, &error_text);
-    let source_adapter =
-        LocalInputAdapterSelection::infer_from_path(&blocked_request.source_path).ok();
+    let source_adapter = LocalInputAdapterSelection::select(
+        &blocked_request.source_path,
+        blocked_request.source_format_override,
+    )
+    .ok();
     let source_format = source_adapter
         .as_ref()
         .map_or("unknown".to_string(), |adapter| {
@@ -7346,6 +7478,7 @@ fn vortex_ingest_scout_blocked_request(
         if let Some(delta) = request.delta.as_ref() {
             return VortexIngestRequest {
                 source_path: delta.source_path.clone(),
+                source_format_override: request.source_format_override,
                 target_path: delta.target_path.clone(),
                 allow_overwrite: request.allow_overwrite,
                 certification_level: request.certification_level,
@@ -7917,7 +8050,7 @@ fn run_sql_local_source_smoke_single(
 ) -> Result<SqlLocalSourceReport, ShardLoomError> {
     let total_start = Instant::now();
     let parsed = parse_sql_local_source_statement(&request.statement)?;
-    let prepared = prepare_sql_local_source_evaluation(parsed)?;
+    let prepared = prepare_sql_local_source_evaluation(parsed, request.source_format_override)?;
     let SqlLocalSourcePreparedEvaluation {
         parsed,
         source,
@@ -8009,30 +8142,45 @@ fn run_sql_local_source_smoke_single(
 
 fn prepare_sql_local_source_evaluation(
     mut parsed: ParsedSqlLocalSource,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<SqlLocalSourcePreparedEvaluation, ShardLoomError> {
     let source_read_plan = source_read_plan_for_sql(&parsed);
-    let mut source = read_local_source_with_plan(&parsed.source_path, &source_read_plan)?;
+    let mut source = read_local_source_with_plan_and_format(
+        &parsed.source_path,
+        &source_read_plan,
+        source_format_override,
+    )?;
     let mut right_source = parsed
         .join
         .as_ref()
-        .map(|join| read_local_source(&join.right_source_path))
+        .map(|join| {
+            read_local_source_with_plan_and_format(
+                &join.right_source_path,
+                &LocalSourceReadPlan::full("full_right_source_state_join"),
+                source_format_override,
+            )
+        })
         .transpose()?;
     bind_sql_local_source(
         &parsed,
         &source.header,
         right_source.as_ref().map(|source| source.header.as_slice()),
     )?;
-    materialize_in_subquery_predicates(&mut parsed.predicate)?;
-    materialize_in_subquery_predicates(&mut parsed.having)?;
-    materialize_projection_subquery_predicates(&mut parsed)?;
+    materialize_in_subquery_predicates(&mut parsed.predicate, source_format_override)?;
+    materialize_in_subquery_predicates(&mut parsed.having, source_format_override)?;
+    materialize_projection_subquery_predicates(&mut parsed, source_format_override)?;
     apply_temporal_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
     resolve_conditional_projection_branch_dtypes(&mut parsed, &source)?;
     validate_null_coalesce_projection_values(&parsed, &source, right_source.as_ref())?;
     validate_nullif_projection_values(&parsed, &source, right_source.as_ref())?;
 
     let compute_start = Instant::now();
-    let evaluated_output =
-        evaluate_sql_local_source_output(&parsed, &source, right_source.as_ref())?;
+    let evaluated_output = evaluate_sql_local_source_output(
+        &parsed,
+        &source,
+        right_source.as_ref(),
+        source_format_override,
+    )?;
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
     Ok(SqlLocalSourcePreparedEvaluation {
@@ -8049,7 +8197,7 @@ fn run_sql_local_source_union_smoke(
 ) -> Result<SqlLocalSourceUnionReport, ShardLoomError> {
     let total_start = Instant::now();
     let parsed = parse_sql_local_source_union_statement(&request.statement)?;
-    let branch_reports = run_sql_union_branch_reports(&parsed)?;
+    let branch_reports = run_sql_union_branch_reports(&parsed, request.source_format_override)?;
     validate_sql_union_branch_boundaries(&branch_reports)?;
 
     let compute_start = Instant::now();
@@ -8171,12 +8319,14 @@ fn compute_sql_union_output(
 
 fn run_sql_union_branch_reports(
     parsed: &ParsedSqlLocalSourceUnion,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<Vec<SqlLocalSourceReport>, ShardLoomError> {
     parsed
         .branch_statements
         .iter()
         .map(|statement| {
             let branch_request = SqlLocalSourceRequest {
+                source_format_override,
                 statement: statement.clone(),
                 output_format: SqlLocalSourceOutputFormat::InlineJsonl,
                 output_path: None,
@@ -8440,9 +8590,11 @@ fn evaluate_sql_local_source_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
     right_source: Option<&CsvSourceData>,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<SqlLocalSourceEvaluationOutput, ShardLoomError> {
     if let Some(right_source) = right_source {
-        let join_output = evaluate_join_output(parsed, source, right_source)?;
+        let join_output =
+            evaluate_join_output(parsed, source, right_source, source_format_override)?;
         Ok(SqlLocalSourceEvaluationOutput {
             selected_row_count: join_output.selected_row_count,
             having_input_row_count: join_output.having_input_row_count,
@@ -8457,7 +8609,7 @@ fn evaluate_sql_local_source_output(
             output_rows: join_output.output_rows,
         })
     } else {
-        let non_join_output = evaluate_non_join_output(parsed, source)?;
+        let non_join_output = evaluate_non_join_output(parsed, source, source_format_override)?;
         Ok(SqlLocalSourceEvaluationOutput {
             selected_row_count: non_join_output.selected_row_count,
             having_input_row_count: non_join_output.having_input_row_count,
@@ -8512,8 +8664,9 @@ fn sql_source_digest(source: &CsvSourceData, right_source: Option<&CsvSourceData
 fn evaluate_non_join_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<NonJoinEvaluationOutput, ShardLoomError> {
-    let selected_row_indexes = selected_row_indexes(parsed, source)?;
+    let selected_row_indexes = selected_row_indexes(parsed, source, source_format_override)?;
     let (
         having_input_row_count,
         having_selected_row_count,
@@ -8522,7 +8675,8 @@ fn evaluate_non_join_output(
         output_rows,
     ) = if parsed.is_grouped_aggregate() {
         let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
-        let aggregate = evaluate_grouped_aggregate_output(parsed, &selected_rows)?;
+        let aggregate =
+            evaluate_grouped_aggregate_output(parsed, &selected_rows, source_format_override)?;
         let (distinct_projection_input_row_count, output_rows) =
             apply_distinct_projection_limit(parsed, aggregate.rows);
         (
@@ -8534,7 +8688,8 @@ fn evaluate_non_join_output(
         )
     } else if parsed.is_aggregate() {
         let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
-        let aggregate = evaluate_scalar_aggregate_output(parsed, &selected_rows)?;
+        let aggregate =
+            evaluate_scalar_aggregate_output(parsed, &selected_rows, source_format_override)?;
         let (distinct_projection_input_row_count, output_rows) =
             apply_distinct_projection_limit(parsed, aggregate.rows);
         (
@@ -8550,8 +8705,12 @@ fn evaluate_non_join_output(
             apply_distinct_projection_limit(parsed, output_rows);
         (0, 0, distinct_projection_input_row_count, 0, output_rows)
     } else if parsed.has_computed_projection() && parsed.order_by.is_some() {
-        let projection_output =
-            evaluate_computed_projection_ordered_output(parsed, source, &selected_row_indexes)?;
+        let projection_output = evaluate_computed_projection_ordered_output(
+            parsed,
+            source,
+            &selected_row_indexes,
+            source_format_override,
+        )?;
         (
             0,
             0,
@@ -8562,7 +8721,12 @@ fn evaluate_non_join_output(
     } else {
         let ordered_row_indexes =
             ordered_projection_row_indexes(parsed, source, &selected_row_indexes)?;
-        let projection_output = evaluate_projection_output(parsed, source, &ordered_row_indexes)?;
+        let projection_output = evaluate_projection_output(
+            parsed,
+            source,
+            &ordered_row_indexes,
+            source_format_override,
+        )?;
         (
             0,
             0,
@@ -8583,6 +8747,7 @@ fn evaluate_non_join_output(
 
 fn materialize_in_subquery_predicates(
     predicate: &mut ParsedPredicate,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     match predicate {
         ParsedPredicate::InSubquery { subquery, .. }
@@ -8590,28 +8755,30 @@ fn materialize_in_subquery_predicates(
             if subquery.uses_outer_correlation() {
                 Ok(())
             } else {
-                materialize_in_subquery(subquery)
+                materialize_in_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::RowValueInSubquery { subquery, .. } => {
             if subquery.uses_outer_correlation() {
                 Ok(())
             } else {
-                materialize_row_value_in_subquery(subquery)
+                materialize_row_value_in_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::ExistsSubquery { subquery } => {
             if subquery.uses_outer_correlation() {
                 Ok(())
             } else {
-                materialize_exists_subquery(subquery)
+                materialize_exists_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::Logical { left, right, .. } => {
-            materialize_in_subquery_predicates(left)?;
-            materialize_in_subquery_predicates(right)
+            materialize_in_subquery_predicates(left, source_format_override)?;
+            materialize_in_subquery_predicates(right, source_format_override)
         }
-        ParsedPredicate::Not { inner } => materialize_in_subquery_predicates(inner),
+        ParsedPredicate::Not { inner } => {
+            materialize_in_subquery_predicates(inner, source_format_override)
+        }
         ParsedPredicate::All
         | ParsedPredicate::Compare { .. }
         | ParsedPredicate::ColumnCompare { .. }
@@ -8638,12 +8805,13 @@ fn materialize_in_subquery_predicates(
 
 fn materialize_projection_subquery_predicates(
     parsed: &mut ParsedSqlLocalSource,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     for projection in &mut parsed.conditional_projections {
-        materialize_in_subquery_predicates(&mut projection.predicate)?;
+        materialize_in_subquery_predicates(&mut projection.predicate, source_format_override)?;
     }
     for projection in &mut parsed.predicate_projections {
-        materialize_in_subquery_predicates(&mut projection.predicate)?;
+        materialize_in_subquery_predicates(&mut projection.predicate, source_format_override)?;
     }
     Ok(())
 }
@@ -8651,12 +8819,21 @@ fn materialize_projection_subquery_predicates(
 fn materialize_correlated_projection_subquery_predicates(
     parsed: &mut ParsedSqlLocalSource,
     outer_row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     for projection in &mut parsed.conditional_projections {
-        materialize_correlated_subquery_predicates(&mut projection.predicate, outer_row)?;
+        materialize_correlated_subquery_predicates(
+            &mut projection.predicate,
+            outer_row,
+            source_format_override,
+        )?;
     }
     for projection in &mut parsed.predicate_projections {
-        materialize_correlated_subquery_predicates(&mut projection.predicate, outer_row)?;
+        materialize_correlated_subquery_predicates(
+            &mut projection.predicate,
+            outer_row,
+            source_format_override,
+        )?;
     }
     Ok(())
 }
@@ -8664,36 +8841,45 @@ fn materialize_correlated_projection_subquery_predicates(
 fn materialize_correlated_subquery_predicates(
     predicate: &mut ParsedPredicate,
     outer_row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     match predicate {
         ParsedPredicate::InSubquery { subquery, .. }
         | ParsedPredicate::QuantifiedSubquery { subquery, .. } => {
             if subquery.uses_outer_correlation() {
-                materialize_in_subquery_for_outer_row(subquery, outer_row)
+                materialize_in_subquery_for_outer_row(subquery, outer_row, source_format_override)
             } else {
-                materialize_in_subquery(subquery)
+                materialize_in_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::RowValueInSubquery { subquery, .. } => {
             if subquery.uses_outer_correlation() {
-                materialize_row_value_in_subquery_for_outer_row(subquery, outer_row)
+                materialize_row_value_in_subquery_for_outer_row(
+                    subquery,
+                    outer_row,
+                    source_format_override,
+                )
             } else {
-                materialize_row_value_in_subquery(subquery)
+                materialize_row_value_in_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::ExistsSubquery { subquery } => {
             if subquery.uses_outer_correlation() {
-                materialize_exists_subquery_for_outer_row(subquery, outer_row)
+                materialize_exists_subquery_for_outer_row(
+                    subquery,
+                    outer_row,
+                    source_format_override,
+                )
             } else {
-                materialize_exists_subquery(subquery)
+                materialize_exists_subquery(subquery, source_format_override)
             }
         }
         ParsedPredicate::Logical { left, right, .. } => {
-            materialize_correlated_subquery_predicates(left, outer_row)?;
-            materialize_correlated_subquery_predicates(right, outer_row)
+            materialize_correlated_subquery_predicates(left, outer_row, source_format_override)?;
+            materialize_correlated_subquery_predicates(right, outer_row, source_format_override)
         }
         ParsedPredicate::Not { inner } => {
-            materialize_correlated_subquery_predicates(inner, outer_row)
+            materialize_correlated_subquery_predicates(inner, outer_row, source_format_override)
         }
         ParsedPredicate::All
         | ParsedPredicate::Compare { .. }
@@ -8722,6 +8908,7 @@ fn materialize_correlated_subquery_predicates(
 fn materialize_in_subquery_for_outer_row(
     subquery: &mut ParsedInSubquery,
     outer_row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let mut scoped = subquery.clone();
     scoped.predicate = Box::new(rewrite_outer_correlated_predicate(
@@ -8734,7 +8921,7 @@ fn materialize_in_subquery_for_outer_row(
     scoped.input_row_count = 0;
     scoped.filtered_row_count = 0;
     scoped.values.clear();
-    materialize_in_subquery(&mut scoped)?;
+    materialize_in_subquery(&mut scoped, source_format_override)?;
     *subquery = scoped;
     Ok(())
 }
@@ -8742,6 +8929,7 @@ fn materialize_in_subquery_for_outer_row(
 fn materialize_row_value_in_subquery_for_outer_row(
     subquery: &mut ParsedRowValueInSubquery,
     outer_row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let mut scoped = subquery.clone();
     scoped.predicate = Box::new(rewrite_outer_correlated_predicate(
@@ -8754,7 +8942,7 @@ fn materialize_row_value_in_subquery_for_outer_row(
     scoped.input_row_count = 0;
     scoped.filtered_row_count = 0;
     scoped.tuples.clear();
-    materialize_row_value_in_subquery(&mut scoped)?;
+    materialize_row_value_in_subquery(&mut scoped, source_format_override)?;
     *subquery = scoped;
     Ok(())
 }
@@ -8762,6 +8950,7 @@ fn materialize_row_value_in_subquery_for_outer_row(
 fn materialize_exists_subquery_for_outer_row(
     subquery: &mut ParsedExistsSubquery,
     outer_row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let mut scoped = subquery.clone();
     scoped.predicate = Box::new(rewrite_outer_correlated_predicate(
@@ -8775,7 +8964,7 @@ fn materialize_exists_subquery_for_outer_row(
     scoped.filtered_row_count = 0;
     scoped.bounded_row_count = 0;
     scoped.exists = false;
-    materialize_exists_subquery(&mut scoped)?;
+    materialize_exists_subquery(&mut scoped, source_format_override)?;
     *subquery = scoped;
     Ok(())
 }
@@ -8950,19 +9139,26 @@ fn outer_correlation_ref_column(column: &str) -> Option<String> {
     (qualified.alias == OUTER_CORRELATION_ALIAS).then_some(qualified.column)
 }
 
-fn materialize_in_subquery(subquery: &mut ParsedInSubquery) -> Result<(), ShardLoomError> {
+fn materialize_in_subquery(
+    subquery: &mut ParsedInSubquery,
+    source_format_override: Option<LocalSourceFormat>,
+) -> Result<(), ShardLoomError> {
     if subquery.source_format.is_some() {
         return Ok(());
     }
     if subquery.projected_plan.is_some() {
-        return materialize_projected_in_subquery(subquery);
+        return materialize_projected_in_subquery(subquery, source_format_override);
     }
-    materialize_in_subquery_predicates(&mut subquery.predicate)?;
+    materialize_in_subquery_predicates(&mut subquery.predicate, source_format_override)?;
     let source_read_plan = LocalSourceReadPlan::required(
         in_subquery_required_columns(subquery),
         "in_subquery_required_source_columns",
     );
-    let mut source = read_local_source_with_plan(&subquery.source_path, &source_read_plan)?;
+    let mut source = read_local_source_with_plan_and_format(
+        &subquery.source_path,
+        &source_read_plan,
+        source_format_override,
+    )?;
     validate_in_subquery_source_columns(subquery, &source.header)?;
     apply_in_subquery_temporal_literal_column_coercions(&subquery.predicate, &mut source)?;
 
@@ -9002,13 +9198,14 @@ fn materialize_in_subquery(subquery: &mut ParsedInSubquery) -> Result<(), ShardL
 
 fn materialize_projected_in_subquery(
     subquery: &mut ParsedInSubquery,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let plan = subquery.projected_plan.take().ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "projected scalar IN subquery materializer called without a projected plan".to_string(),
         )
     })?;
-    let prepared = prepare_sql_local_source_evaluation(*plan)?;
+    let prepared = prepare_sql_local_source_evaluation(*plan, source_format_override)?;
     let SqlLocalSourcePreparedEvaluation {
         parsed,
         source,
@@ -9055,19 +9252,24 @@ fn materialize_projected_in_subquery(
 
 fn materialize_row_value_in_subquery(
     subquery: &mut ParsedRowValueInSubquery,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     if subquery.source_format.is_some() {
         return Ok(());
     }
     if subquery.projected_plan.is_some() {
-        return materialize_projected_row_value_in_subquery(subquery);
+        return materialize_projected_row_value_in_subquery(subquery, source_format_override);
     }
-    materialize_in_subquery_predicates(&mut subquery.predicate)?;
+    materialize_in_subquery_predicates(&mut subquery.predicate, source_format_override)?;
     let source_read_plan = LocalSourceReadPlan::required(
         row_value_in_subquery_required_columns(subquery),
         "row_value_in_subquery_required_source_columns",
     );
-    let mut source = read_local_source_with_plan(&subquery.source_path, &source_read_plan)?;
+    let mut source = read_local_source_with_plan_and_format(
+        &subquery.source_path,
+        &source_read_plan,
+        source_format_override,
+    )?;
     validate_row_value_in_subquery_source_columns(subquery, &source.header)?;
     apply_in_subquery_temporal_literal_column_coercions(&subquery.predicate, &mut source)?;
 
@@ -9112,6 +9314,7 @@ fn materialize_row_value_in_subquery(
 
 fn materialize_projected_row_value_in_subquery(
     subquery: &mut ParsedRowValueInSubquery,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let plan = subquery.projected_plan.take().ok_or_else(|| {
         ShardLoomError::InvalidOperation(
@@ -9119,7 +9322,7 @@ fn materialize_projected_row_value_in_subquery(
                 .to_string(),
         )
     })?;
-    let prepared = prepare_sql_local_source_evaluation(*plan)?;
+    let prepared = prepare_sql_local_source_evaluation(*plan, source_format_override)?;
     let SqlLocalSourcePreparedEvaluation {
         parsed,
         source,
@@ -9155,19 +9358,26 @@ fn materialize_projected_row_value_in_subquery(
     Ok(())
 }
 
-fn materialize_exists_subquery(subquery: &mut ParsedExistsSubquery) -> Result<(), ShardLoomError> {
+fn materialize_exists_subquery(
+    subquery: &mut ParsedExistsSubquery,
+    source_format_override: Option<LocalSourceFormat>,
+) -> Result<(), ShardLoomError> {
     if subquery.source_format.is_some() {
         return Ok(());
     }
     if subquery.projected_plan.is_some() {
-        return materialize_projected_exists_subquery(subquery);
+        return materialize_projected_exists_subquery(subquery, source_format_override);
     }
-    materialize_in_subquery_predicates(&mut subquery.predicate)?;
+    materialize_in_subquery_predicates(&mut subquery.predicate, source_format_override)?;
     let source_read_plan = LocalSourceReadPlan::required(
         exists_subquery_required_columns(subquery),
         "exists_subquery_required_source_columns",
     );
-    let mut source = read_local_source_with_plan(&subquery.source_path, &source_read_plan)?;
+    let mut source = read_local_source_with_plan_and_format(
+        &subquery.source_path,
+        &source_read_plan,
+        source_format_override,
+    )?;
     validate_exists_subquery_source_columns(subquery, &source.header)?;
     apply_in_subquery_temporal_literal_column_coercions(&subquery.predicate, &mut source)?;
 
@@ -9188,13 +9398,14 @@ fn materialize_exists_subquery(subquery: &mut ParsedExistsSubquery) -> Result<()
 
 fn materialize_projected_exists_subquery(
     subquery: &mut ParsedExistsSubquery,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(), ShardLoomError> {
     let plan = subquery.projected_plan.take().ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "projected EXISTS subquery materializer called without a projected plan".to_string(),
         )
     })?;
-    let prepared = prepare_sql_local_source_evaluation(*plan)?;
+    let prepared = prepare_sql_local_source_evaluation(*plan, source_format_override)?;
     let SqlLocalSourcePreparedEvaluation {
         parsed,
         source,
@@ -9660,11 +9871,13 @@ fn apply_in_subquery_timestamp_literal_column_coercions(
 fn selected_row_indexes(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<Vec<usize>, ShardLoomError> {
     selected_predicate_row_indexes(
         &parsed.predicate,
         &source.rows,
         "SQL local-source predicate evaluation failed",
+        source_format_override,
     )
 }
 
@@ -9672,12 +9885,18 @@ fn selected_predicate_row_indexes(
     predicate: &ParsedPredicate,
     rows: &[ExpressionInputRow],
     diagnostic_context: &str,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<Vec<usize>, ShardLoomError> {
     if predicate.is_all() {
         return Ok((0..rows.len()).collect());
     }
     if predicate.uses_outer_correlation() {
-        return selected_correlated_predicate_row_indexes(predicate, rows, diagnostic_context);
+        return selected_correlated_predicate_row_indexes(
+            predicate,
+            rows,
+            diagnostic_context,
+            source_format_override,
+        );
     }
     let predicate_expression = predicate.to_expression()?;
     let filter = evaluate_filter(&predicate_expression, rows);
@@ -9701,11 +9920,16 @@ fn selected_correlated_predicate_row_indexes(
     predicate: &ParsedPredicate,
     rows: &[ExpressionInputRow],
     diagnostic_context: &str,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<Vec<usize>, ShardLoomError> {
     let mut selected = Vec::new();
     for (row_index, row) in rows.iter().enumerate() {
         let mut row_predicate = predicate.clone();
-        materialize_correlated_subquery_predicates(&mut row_predicate, row)?;
+        materialize_correlated_subquery_predicates(
+            &mut row_predicate,
+            row,
+            source_format_override,
+        )?;
         let predicate_expression = row_predicate.to_expression()?;
         let filter = evaluate_filter(&predicate_expression, std::slice::from_ref(row));
         if filter.has_errors() {
@@ -9772,6 +9996,7 @@ fn evaluate_projection_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
     selected_row_indexes: &[usize],
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<ProjectionEvaluationOutput, ShardLoomError> {
     if parsed.limit == 0 {
         return Ok(ProjectionEvaluationOutput {
@@ -9794,8 +10019,13 @@ fn evaluate_projection_output(
         if parsed.has_correlated_projection_predicate() {
             correlated_projection_outer_row_evaluation_count += 1;
         }
-        let output_row =
-            evaluate_sql_projection_row(parsed, source, projection_expressions.as_deref(), row)?;
+        let output_row = evaluate_sql_projection_row(
+            parsed,
+            source,
+            projection_expressions.as_deref(),
+            row,
+            source_format_override,
+        )?;
         if parsed.has_distinct_projection() && !distinct_keys.insert(row_distinct_key(&output_row))
         {
             continue;
@@ -9815,6 +10045,7 @@ fn evaluate_computed_projection_ordered_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
     selected_row_indexes: &[usize],
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<ProjectionEvaluationOutput, ShardLoomError> {
     let order_by = parsed.order_by.as_ref().ok_or_else(|| {
         ShardLoomError::InvalidOperation(
@@ -9836,8 +10067,13 @@ fn evaluate_computed_projection_ordered_output(
         if parsed.has_correlated_projection_predicate() {
             correlated_projection_outer_row_evaluation_count += 1;
         }
-        let output_row =
-            evaluate_sql_projection_row(parsed, source, projection_expressions.as_deref(), row)?;
+        let output_row = evaluate_sql_projection_row(
+            parsed,
+            source,
+            projection_expressions.as_deref(),
+            row,
+            source_format_override,
+        )?;
         let output_index = projected_rows.len();
         let values = sort_values_for_projected_or_source_row(row, &output_row, order_by)?;
         projected_rows.push(output_row);
@@ -10229,12 +10465,17 @@ fn evaluate_sql_projection_row(
     source: &CsvSourceData,
     prebuilt_projection_expressions: Option<&[Expression]>,
     row: &ExpressionInputRow,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
     if let Some(projection_expressions) = prebuilt_projection_expressions {
         return evaluate_projection_row(projection_expressions, row);
     }
     let mut scoped = parsed.clone();
-    materialize_correlated_projection_subquery_predicates(&mut scoped, row)?;
+    materialize_correlated_projection_subquery_predicates(
+        &mut scoped,
+        row,
+        source_format_override,
+    )?;
     let projection_expressions = projection_expressions(&scoped, source)?;
     evaluate_projection_row(&projection_expressions, row)
 }
@@ -10938,6 +11179,7 @@ fn evaluate_join_output(
     parsed: &ParsedSqlLocalSource,
     left_source: &CsvSourceData,
     right_source: &CsvSourceData,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<JoinEvaluationOutput, ShardLoomError> {
     let join = parsed.join.as_ref().ok_or_else(|| {
         ShardLoomError::InvalidOperation("join evaluation requested without join plan".to_string())
@@ -10992,7 +11234,12 @@ fn evaluate_join_output(
         having_input_row_count,
         having_selected_row_count,
         distinct_projection_input_row_count,
-    ) = evaluate_join_selected_output_rows(parsed, &projection_expressions, &accumulator.rows)?;
+    ) = evaluate_join_selected_output_rows(
+        parsed,
+        &projection_expressions,
+        &accumulator.rows,
+        source_format_override,
+    )?;
 
     Ok(JoinEvaluationOutput {
         joined_row_count: accumulator.joined_row_count,
@@ -11267,10 +11514,15 @@ fn evaluate_join_selected_output_rows(
     parsed: &ParsedSqlLocalSource,
     projection_expressions: &[Expression],
     selected_join_rows: &[ExpressionInputRow],
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(SqlOutputRows, usize, usize, usize), ShardLoomError> {
     let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
     if parsed.is_grouped_aggregate() {
-        let aggregate = evaluate_grouped_aggregate_output(parsed, &selected_join_row_refs)?;
+        let aggregate = evaluate_grouped_aggregate_output(
+            parsed,
+            &selected_join_row_refs,
+            source_format_override,
+        )?;
         let (distinct_projection_input_row_count, output_rows) =
             apply_distinct_projection_limit(parsed, aggregate.rows);
         return Ok((
@@ -11281,7 +11533,11 @@ fn evaluate_join_selected_output_rows(
         ));
     }
     if parsed.is_aggregate() {
-        let aggregate = evaluate_scalar_aggregate_output(parsed, &selected_join_row_refs)?;
+        let aggregate = evaluate_scalar_aggregate_output(
+            parsed,
+            &selected_join_row_refs,
+            source_format_override,
+        )?;
         let (distinct_projection_input_row_count, output_rows) =
             apply_distinct_projection_limit(parsed, aggregate.rows);
         return Ok((
@@ -12548,6 +12804,7 @@ fn qualified_join_right_only_row(
 fn evaluate_scalar_aggregate_output(
     parsed: &ParsedSqlLocalSource,
     rows: &[&ExpressionInputRow],
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<AggregateEvaluationOutput, ShardLoomError> {
     if parsed.limit == 0 {
         return Ok(AggregateEvaluationOutput {
@@ -12561,7 +12818,7 @@ fn evaluate_scalar_aggregate_output(
     append_aggregate_values(&mut row, &parsed.aggregates, rows, &row_indexes)?;
     append_aggregate_values(&mut row, &parsed.having_aggregates, rows, &row_indexes)?;
     let (having_input_row_count, having_selected_row_count, mut output_rows) =
-        apply_having_filter(parsed, vec![row])?;
+        apply_having_filter(parsed, vec![row], source_format_override)?;
     strip_having_aggregate_columns(parsed, &mut output_rows);
     if !parsed.has_distinct_projection() {
         output_rows.truncate(parsed.limit);
@@ -12576,6 +12833,7 @@ fn evaluate_scalar_aggregate_output(
 fn evaluate_grouped_aggregate_output(
     parsed: &ParsedSqlLocalSource,
     rows: &[&ExpressionInputRow],
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<AggregateEvaluationOutput, ShardLoomError> {
     if parsed.limit == 0 {
         return Ok(AggregateEvaluationOutput {
@@ -12619,7 +12877,7 @@ fn evaluate_grouped_aggregate_output(
         output_rows.push(row);
     }
     let (having_input_row_count, having_selected_row_count, mut output_rows) =
-        apply_having_filter(parsed, output_rows)?;
+        apply_having_filter(parsed, output_rows, source_format_override)?;
     strip_having_aggregate_columns(parsed, &mut output_rows);
     if let Some(order_by) = parsed.order_by.as_ref() {
         let ordered_indexes =
@@ -12647,6 +12905,7 @@ fn evaluate_grouped_aggregate_output(
 fn apply_having_filter(
     parsed: &ParsedSqlLocalSource,
     output_rows: SqlOutputRows,
+    source_format_override: Option<LocalSourceFormat>,
 ) -> Result<(usize, usize, SqlOutputRows), ShardLoomError> {
     let input_row_count = output_rows.len();
     if !parsed.has_having() {
@@ -12660,6 +12919,7 @@ fn apply_having_filter(
         &parsed.having,
         &expression_rows,
         "SQL local-source HAVING evaluation failed",
+        source_format_override,
     )?;
     let mut selected_rows = Vec::with_capacity(selected_row_indexes.len());
     for row_index in selected_row_indexes {
@@ -24698,10 +24958,16 @@ impl SqlLocalSourceReport {
                 "source_format".to_string(),
                 self.source.source_format.as_str().to_string(),
             ),
-            ("source_format_inferred".to_string(), "true".to_string()),
+            (
+                "source_format_inferred".to_string(),
+                self.source
+                    .source_adapter
+                    .source_format_inferred()
+                    .to_string(),
+            ),
             (
                 "source_format_inference_kind".to_string(),
-                LocalInputAdapterSelection::inference_kind().to_string(),
+                self.source.source_adapter.inference_kind().to_string(),
             ),
             (
                 "source_format_inference_extension".to_string(),
@@ -24709,7 +24975,10 @@ impl SqlLocalSourceReport {
             ),
             (
                 "source_format_inference_registry_route".to_string(),
-                LocalInputAdapterSelection::inference_registry_route().to_string(),
+                self.source
+                    .source_adapter
+                    .inference_registry_route()
+                    .to_string(),
             ),
             (
                 "source_kind".to_string(),
@@ -24741,7 +25010,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "source_adapter_selection_reason".to_string(),
-                LocalInputAdapterSelection::selection_reason().to_string(),
+                self.source.source_adapter.selection_reason().to_string(),
             ),
             (
                 "source_adapter_blocker_id".to_string(),
@@ -24947,7 +25216,9 @@ impl SqlLocalSourceReport {
                 "right_source_format_inferred".to_string(),
                 self.right_source
                     .as_ref()
-                    .map_or_else(String::new, |_source| "true".to_string()),
+                    .map_or_else(String::new, |source| {
+                        source.source_adapter.source_format_inferred().to_string()
+                    }),
             ),
             (
                 "right_source_format_inference_extension".to_string(),
@@ -27805,19 +28076,21 @@ impl SqlLocalSourceReport {
     }
 }
 
-fn read_local_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
-    read_local_source_with_plan(
-        path,
-        &LocalSourceReadPlan::full("full_source_state_default"),
-    )
-}
-
-fn read_local_source_with_plan(
+fn read_local_source_with_plan_and_format(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
+    source_format_override: Option<LocalSourceFormat>,
+) -> Result<CsvSourceData, ShardLoomError> {
+    let source_adapter = LocalInputAdapterSelection::select(path, source_format_override)?;
+    read_local_source_with_plan_and_adapter(path, read_plan, source_adapter)
+}
+
+fn read_local_source_with_plan_and_adapter(
+    path: &Path,
+    read_plan: &LocalSourceReadPlan,
+    source_adapter: LocalInputAdapterSelection,
 ) -> Result<CsvSourceData, ShardLoomError> {
     reject_remote_source_path(path)?;
-    let source_adapter = LocalInputAdapterSelection::infer_from_path(path)?;
     let source_format = source_adapter.source_format;
     let read_start = Instant::now();
     let bytes = fs::read(path).map_err(|error| {
@@ -32325,8 +32598,6 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
     };
     let (source_path, left_alias) = parse_aliased_source(left_raw, "left")?;
     let (right_source_path, right_alias) = parse_aliased_source(right_raw, "right")?;
-    let _left_adapter = LocalInputAdapterSelection::infer_from_path(&source_path)?;
-    let _right_adapter = LocalInputAdapterSelection::infer_from_path(&right_source_path)?;
     if left_alias == right_alias {
         return Err(unsupported_sql_error(
             "JOIN smoke requires distinct left and right aliases",
@@ -32569,7 +32840,6 @@ fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
         raw.to_string()
     };
     let path = PathBuf::from(path);
-    let _source_adapter = LocalInputAdapterSelection::infer_from_path(&path)?;
     Ok(path)
 }
 
@@ -35180,7 +35450,6 @@ fn parse_local_subquery_source_ref(
     }
     let (source_path_raw, explicit_alias) = parse_optional_local_subquery_alias(source_raw)?;
     let source_path = parse_source_path(&source_path_raw)?;
-    let _source_adapter = LocalInputAdapterSelection::infer_from_path(&source_path)?;
     let qualifier = if let Some(alias) = explicit_alias {
         Some(alias)
     } else {
@@ -37014,6 +37283,21 @@ mod tests {
         path
     }
 
+    fn sql_local_source_extensionless_test_path(label: &str) -> PathBuf {
+        let mut path = std::env::temp_dir();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos();
+        let counter =
+            SQL_LOCAL_SOURCE_TEST_PATH_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        path.push(format!(
+            "shardloom-sql-local-source-{label}-{}-{nanos}-{counter}",
+            std::process::id(),
+        ));
+        path
+    }
+
     fn field_map(fields: Vec<(String, String)>) -> BTreeMap<String, String> {
         fields.into_iter().collect()
     }
@@ -37179,6 +37463,7 @@ mod tests {
     ) -> VortexIngestRequest {
         VortexIngestRequest {
             source_path,
+            source_format_override: None,
             target_path,
             allow_overwrite,
             certification_level: shardloom_vortex::VortexIngestCertificationLevel::IngestCertified,
@@ -37400,6 +37685,7 @@ mod tests {
         fs::write(&path, bytes).expect("write arrow ipc source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id FROM '{}' WHERE amount >= 10 LIMIT 1",
                 path.display()
@@ -37491,6 +37777,7 @@ mod tests {
         writer.finish().expect("finish ipc writer");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,payload FROM '{}' ORDER BY id ASC LIMIT 3",
                 path.display()
@@ -37586,6 +37873,7 @@ mod tests {
         writer.finish().expect("finish ipc writer");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,payload FROM '{}' WHERE payload >= X'01' ORDER BY payload ASC LIMIT 4",
                 path.display()
@@ -39835,6 +40123,7 @@ mod tests {
         .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE amount >= 10 ORDER BY amount DESC,id ASC LIMIT 3",
                 path.display()
@@ -39862,6 +40151,7 @@ mod tests {
         assert_field_eq(&fields, "external_engine_invoked", "false");
 
         let comma_request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE label LIKE 'al,%%' ESCAPE ',' LIMIT 10",
                 path.display()
@@ -39896,6 +40186,7 @@ mod tests {
         fs::write(&path, "id,label\n1,alpha\n2,beta\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,X'00ff10' AS payload FROM '{}' LIMIT 2",
                 path.display()
@@ -39938,6 +40229,7 @@ mod tests {
             .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,ARRAY[1,2,NULL] AS values,STRUCT(label, amount) AS payload FROM '{}' WHERE id <= 2 LIMIT 10",
                 path.display()
@@ -39993,6 +40285,7 @@ mod tests {
             .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,STRUCT(label, amount) AS payload FROM '{}' ORDER BY payload ASC LIMIT 10",
                 path.display()
@@ -40044,6 +40337,7 @@ mod tests {
         fs::write(&path, "id,label,amount\n1,alpha,8\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,ARRAY[1,2] AS values,STRUCT(label, amount) AS payload FROM '{}' LIMIT 1",
                 path.display()
@@ -40106,6 +40400,7 @@ mod tests {
         fs::write(&path, "id,label\n1,alpha\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,ARRAY[1,2] AS values FROM '{}' WHERE id < 0 LIMIT 10",
                 path.display()
@@ -40147,6 +40442,7 @@ mod tests {
         fs::write(&path, "id,label\n1,alpha\n2,beta\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,ARRAY[1,2] AS values,STRUCT(label) AS payload FROM '{}' LIMIT 2",
                 path.display()
@@ -40284,6 +40580,7 @@ mod tests {
         .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS decimal(10,2)) AS raw_decimal FROM '{}' WHERE CAST(amount AS numeric(10,2)) >= 10.00 LIMIT 10",
                 path.display()
@@ -40364,6 +40661,7 @@ mod tests {
             .expect("write decimal predicate source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id FROM '{}' WHERE CAST(amount AS decimal128(20,0)) = 9007199254740993.00 LIMIT 10",
                 path.display()
@@ -40396,6 +40694,7 @@ mod tests {
         .expect("write decimal exponent source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS numeric(10,2)) AS raw_decimal FROM '{}' WHERE CAST(amount AS decimal128(10,2)) >= 1e3 ORDER BY id LIMIT 10",
                 path.display()
@@ -40439,6 +40738,7 @@ mod tests {
         fs::write(&path, "id,amount\n1,1e-3\n").expect("write inexact decimal exponent source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal FROM '{}' LIMIT 1",
                 path.display()
@@ -40584,6 +40884,7 @@ mod tests {
             path.display()
         );
         let parquet_request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: statement.clone(),
             output_format: SqlLocalSourceOutputFormat::Parquet,
             output_path: Some(parquet_output.clone()),
@@ -40594,6 +40895,7 @@ mod tests {
             .expect("write parquet all-null computed decimal");
 
         let arrow_request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: statement.clone(),
             output_format: SqlLocalSourceOutputFormat::ArrowIpc,
             output_path: Some(arrow_output.clone()),
@@ -40604,6 +40906,7 @@ mod tests {
             .expect("write arrow all-null computed decimal");
 
         let avro_request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: statement.clone(),
             output_format: SqlLocalSourceOutputFormat::Avro,
             output_path: Some(avro_output.clone()),
@@ -40638,6 +40941,7 @@ mod tests {
         output_path: &Path,
     ) -> SqlLocalSourceRequest {
         SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal,TRY_CAST(raw_amount AS decimal128(10,2)) AS invalid_decimal FROM '{}' ORDER BY id LIMIT 2",
                 path.display()
@@ -40855,6 +41159,7 @@ mod tests {
         fs::write(&path, "id,amount\n1,12.34\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal FROM '{}' LIMIT 1",
                 path.display()
@@ -40908,6 +41213,7 @@ mod tests {
         );
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,TRY_CAST(amount AS decimal128(10,2)) AS amount_decimal FROM '{}' ORDER BY id LIMIT 2",
                 path.display()
@@ -41004,6 +41310,7 @@ mod tests {
         fs::write(&path, "id,label\n1,\n2,\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,TRY_CAST(label AS binary) AS payload FROM '{}' ORDER BY id LIMIT 2",
                 path.display()
@@ -41045,6 +41352,7 @@ mod tests {
         .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,TRY_CAST(raw_int AS int64) AS int_null,TRY_CAST(raw_float AS float64) AS float_null,CAST(raw_text AS utf8) AS text_null,TRY_CAST(raw_date AS date32) AS date_null,TRY_CAST(raw_ts AS timestamp_micros) AS ts_null FROM '{}' ORDER BY id LIMIT 2",
                 path.display()
@@ -41098,6 +41406,7 @@ mod tests {
         fs::write(&path, "id,amount,raw_amount\n1,,\n2,,\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,CAST(amount AS decimal128(10,2)) + CAST(raw_amount AS decimal128(10,2)) AS adjusted FROM '{}' LIMIT 2",
                 path.display()
@@ -41133,6 +41442,7 @@ mod tests {
         fs::write(&path, "id,amount\n1,not-decimal\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal FROM '{}' LIMIT 1",
                 path.display()
@@ -41168,6 +41478,7 @@ mod tests {
         fs::write(&path, "id,label,amount\n1,alpha,42\n2,beta,7\n").expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,CAST(label AS binary) AS label_bytes,TRY_CAST(amount AS blob) AS amount_bytes,BINARY 'ok' AS marker,BLOB 'raw' AS blob_payload FROM '{}' WHERE CAST(label AS binary) = X'616c706861' LIMIT 2",
                 path.display()
@@ -41232,6 +41543,7 @@ mod tests {
             .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,CAST(label AS binary) AS label_bytes FROM '{}' WHERE CAST(label AS binary) > BINARY 'alpha' ORDER BY id ASC LIMIT 10",
                 path.display()
@@ -41275,6 +41587,7 @@ mod tests {
         .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,UNHEX(hex_payload) AS payload_hex,FROM_BASE64(b64_payload) AS payload_b64 FROM '{}' LIMIT 3",
                 path.display()
@@ -41341,6 +41654,7 @@ mod tests {
             let path = sql_local_source_test_path("csv");
             fs::write(&path, source_text).expect("write csv source");
             let request = SqlLocalSourceRequest {
+                source_format_override: None,
                 statement: statement.replace("{}", &path.display().to_string()),
                 output_format: SqlLocalSourceOutputFormat::InlineJsonl,
                 output_path: None,
@@ -41369,6 +41683,7 @@ mod tests {
         .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE label LIKE 'al!_%' ESCAPE '!' LIMIT 10",
                 path.display()
@@ -42094,6 +42409,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) IN (SELECT allowed_id,allowed_label FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 3) LIMIT 10",
                 source_path.display(),
@@ -42175,6 +42491,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT id FROM '{}' WHERE active IS TRUE ORDER BY score ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -42235,6 +42552,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT allowed_id,allowed_label FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -42318,6 +42636,7 @@ mod tests {
     fn runs_scoped_quantified_any_subquery_csv_statement() {
         let (source_path, allowed_path, thresholds_path) = write_quantified_subquery_csv_fixtures();
         let any_request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id = ANY (SELECT allowed_id FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 3) LIMIT 10",
                 source_path.display(),
@@ -42405,6 +42724,7 @@ mod tests {
     fn runs_scoped_quantified_all_subquery_csv_statement() {
         let (source_path, allowed_path, thresholds_path) = write_quantified_subquery_csv_fixtures();
         let all_request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE amount > ALL (SELECT threshold FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) LIMIT 10",
                 source_path.display(),
@@ -42471,6 +42791,7 @@ mod tests {
         .expect("write threshold csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,event_date FROM '{}' WHERE event_date = ANY (SELECT allowed_date FROM '{}' WHERE allowed_date >= DATE '2026-01-02' ORDER BY score ASC LIMIT 2) LIMIT 10",
                 source_path.display(),
@@ -42525,6 +42846,7 @@ mod tests {
         .expect("write threshold csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,event_ts FROM '{}' WHERE event_ts > ALL (SELECT threshold_ts FROM '{}' WHERE threshold_ts >= TIMESTAMP '2026-01-01T00:00:05Z' ORDER BY score ASC LIMIT 2) LIMIT 10",
                 source_path.display(),
@@ -42619,6 +42941,7 @@ mod tests {
         .expect("write nested csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id IN (SELECT allowed_id FROM '{}' WHERE allowed_id IN (SELECT id FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) ORDER BY priority DESC LIMIT 3) LIMIT 10",
                 source_path.display(),
@@ -42687,6 +43010,7 @@ mod tests {
         .expect("write nested csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,event_date FROM '{}' WHERE event_date IN (SELECT allowed_date FROM '{}' WHERE allowed_date IN (SELECT event_date FROM '{}' WHERE active IS TRUE AND event_date >= DATE '2026-01-02' ORDER BY score DESC LIMIT 2) ORDER BY priority DESC LIMIT 3) LIMIT 10",
                 source_path.display(),
@@ -42744,6 +43068,7 @@ mod tests {
         .expect("write nested csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,event_ts FROM '{}' WHERE event_ts IN (SELECT allowed_ts FROM '{}' WHERE allowed_ts IN (SELECT event_ts FROM '{}' WHERE active IS TRUE AND event_ts >= TIMESTAMP '2026-01-01T00:00:10Z' ORDER BY score DESC LIMIT 2) ORDER BY priority DESC LIMIT 3) LIMIT 10",
                 source_path.display(),
@@ -42795,6 +43120,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id IN (SELECT a.id FROM '{}' AS s INNER JOIN '{}' AS a ON s.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -42855,6 +43181,7 @@ mod tests {
             .expect("write grouped csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id IN (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 ORDER BY id ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -42921,6 +43248,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT region,sum(amount) AS total FROM '{}' GROUP BY region HAVING total NOT IN (SELECT allowed.min_amount FROM '{}' AS allowed WHERE allowed.enabled IS TRUE ORDER BY allowed.min_amount ASC LIMIT 10) ORDER BY region ASC LIMIT 10",
                 source_path.display(),
@@ -42999,6 +43327,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT region,sum(amount) AS total FROM '{}' GROUP BY region HAVING NOT EXISTS (SELECT allowed.region FROM '{}' AS allowed WHERE allowed.enabled IS TRUE AND allowed.region = outer.region ORDER BY allowed.min_amount ASC LIMIT 10) ORDER BY region ASC LIMIT 10",
                 source_path.display(),
@@ -43089,6 +43418,7 @@ mod tests {
             write_having_row_value_subquery_csv_fixtures("in-subquery");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT region,label,sum(amount) AS total FROM '{}' GROUP BY region,label HAVING (region,label) IN (SELECT allowed.region,allowed.label FROM '{}' AS allowed WHERE allowed.enabled IS TRUE ORDER BY allowed.min_amount ASC LIMIT 10) ORDER BY region ASC LIMIT 10",
                 source_path.display(),
@@ -43164,6 +43494,7 @@ mod tests {
             write_having_row_value_subquery_csv_fixtures("not-in-subquery");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT region,label,sum(amount) AS total FROM '{}' GROUP BY region,label HAVING (region,label) NOT IN (SELECT allowed.region,allowed.label FROM '{}' AS allowed WHERE allowed.enabled IS TRUE ORDER BY allowed.min_amount ASC LIMIT 10) ORDER BY region ASC LIMIT 10",
                 source_path.display(),
@@ -43248,6 +43579,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT region,sum(amount) AS total FROM '{}' GROUP BY region HAVING total > ALL (SELECT allowed.min_amount FROM '{}' AS allowed WHERE allowed.region = outer.region ORDER BY allowed.min_amount ASC LIMIT 10) ORDER BY region ASC LIMIT 10",
                 source_path.display(),
@@ -43353,6 +43685,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) IN (SELECT s.id,s.label FROM '{}' AS s INNER JOIN '{}' AS a ON s.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -43421,6 +43754,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE amount > ALL (SELECT t.threshold FROM '{}' AS t INNER JOIN '{}' AS a ON t.threshold_id = a.threshold_id WHERE a.enabled IS TRUE ORDER BY t.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -43480,6 +43814,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE EXISTS (SELECT c.id FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -43536,6 +43871,7 @@ mod tests {
             .expect("write candidates csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE EXISTS (SELECT id FROM '{}' WHERE active IS TRUE ORDER BY id ASC LIMIT 1) LIMIT 10",
                 source_path.display(),
@@ -43573,6 +43909,7 @@ mod tests {
             .expect("write grouped csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE EXISTS (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 ORDER BY id ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -43672,6 +44009,7 @@ mod tests {
             write_joined_projected_negative_subquery_csv_fixtures("not-in");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT a.id FROM '{}' AS s INNER JOIN '{}' AS a ON s.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -43725,6 +44063,7 @@ mod tests {
             write_grouped_projected_negative_subquery_csv_fixtures("not-in");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 ORDER BY id ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -43781,6 +44120,7 @@ mod tests {
             write_joined_projected_negative_subquery_csv_fixtures("row-value-not-in");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT s.id,s.label FROM '{}' AS s INNER JOIN '{}' AS a ON s.id = a.id WHERE a.active IS TRUE ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -43831,6 +44171,7 @@ mod tests {
             write_grouped_projected_negative_subquery_csv_fixtures("row-value-not-in");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT id,label FROM '{}' GROUP BY id,label HAVING count(*) >= 2 ORDER BY id ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -43884,6 +44225,7 @@ mod tests {
             write_joined_projected_negative_subquery_csv_fixtures("not-exists");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT a.id FROM '{}' AS s INNER JOIN '{}' AS a ON s.id = a.id WHERE a.active IS TRUE AND a.score > 100 ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -43938,6 +44280,7 @@ mod tests {
             write_grouped_projected_negative_subquery_csv_fixtures("not-exists");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 3 ORDER BY id ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44041,6 +44384,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id IN (SELECT c.id FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44114,6 +44458,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) IN (SELECT c.id,c.label FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44189,6 +44534,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE amount > ALL (SELECT t.threshold FROM '{}' AS t INNER JOIN '{}' AS a ON t.threshold_id = a.threshold_id WHERE a.enabled IS TRUE AND t.id = outer.id ORDER BY t.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44263,6 +44609,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE EXISTS (SELECT c.id FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44324,6 +44671,7 @@ mod tests {
             write_correlated_joined_projected_negative_subquery_csv_fixtures("not-in");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT c.id FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44382,6 +44730,7 @@ mod tests {
             write_correlated_joined_projected_negative_subquery_csv_fixtures("row-value-not-in");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT c.id,c.label FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44437,6 +44786,7 @@ mod tests {
             write_correlated_joined_projected_negative_subquery_csv_fixtures("not-exists");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT c.id FROM '{}' AS c INNER JOIN '{}' AS a ON c.id = a.id WHERE a.active IS TRUE AND c.id = outer.id AND c.min_amount <= outer.amount ORDER BY a.score DESC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44533,6 +44883,7 @@ mod tests {
             write_correlated_grouped_projected_subquery_csv_fixtures("in");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id IN (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount ORDER BY id ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44594,6 +44945,7 @@ mod tests {
             write_correlated_grouped_projected_subquery_csv_fixtures("row-value-in");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) IN (SELECT id,label FROM '{}' GROUP BY id,label HAVING count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount ORDER BY id ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44657,6 +45009,7 @@ mod tests {
             write_correlated_grouped_projected_subquery_csv_fixtures("quantified");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE amount > ALL (SELECT threshold FROM '{}' GROUP BY threshold HAVING min(id) = outer.id AND count(*) >= 1 ORDER BY threshold ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44719,6 +45072,7 @@ mod tests {
             write_correlated_grouped_projected_subquery_csv_fixtures("exists");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE EXISTS (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount ORDER BY id ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44781,6 +45135,7 @@ mod tests {
             write_correlated_grouped_projected_subquery_csv_fixtures("not-in");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount ORDER BY id ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44846,6 +45201,7 @@ mod tests {
             write_correlated_grouped_projected_subquery_csv_fixtures("row-value-not-in");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT id,label FROM '{}' GROUP BY id,label HAVING count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount ORDER BY id ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44908,6 +45264,7 @@ mod tests {
             write_correlated_grouped_projected_subquery_csv_fixtures("not-exists");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT id FROM '{}' GROUP BY id HAVING count(*) >= 2 AND id = outer.id AND min(min_amount) <= outer.amount ORDER BY id ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -44983,6 +45340,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id IN (SELECT id FROM '{}' WHERE id = outer.id AND active IS TRUE AND outer.amount >= min_amount ORDER BY min_amount ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -45041,6 +45399,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id IN (SELECT allowed.id FROM '{}' AS allowed WHERE allowed.id = outer.id AND allowed.active IS TRUE AND outer.amount >= allowed.min_amount ORDER BY allowed.min_amount ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -45091,6 +45450,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) IN (SELECT allowed.id,allowed.label FROM '{}' AS allowed WHERE allowed.id = outer.id AND allowed.active IS TRUE AND outer.amount >= allowed.min_amount ORDER BY allowed.min_amount ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -45162,6 +45522,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE id NOT IN (SELECT allowed.id FROM '{}' AS allowed WHERE allowed.active IS TRUE AND outer.amount >= allowed.min_amount ORDER BY allowed.min_amount ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -45230,6 +45591,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) NOT IN (SELECT allowed.id,allowed.label FROM '{}' AS allowed WHERE allowed.active IS TRUE AND outer.amount >= allowed.min_amount ORDER BY allowed.min_amount ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -45299,6 +45661,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE EXISTS (SELECT allowed.id FROM '{}' AS allowed WHERE allowed.id = outer.id AND allowed.active IS TRUE AND allowed.min_amount <= outer.amount ORDER BY allowed.min_amount ASC LIMIT 1) LIMIT 10",
                 source_path.display(),
@@ -45363,6 +45726,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT allowed.id FROM '{}' AS allowed WHERE allowed.id = outer.id AND allowed.active IS TRUE AND allowed.min_amount <= outer.amount LIMIT 1) LIMIT 10",
                 source_path.display(),
@@ -45426,6 +45790,7 @@ mod tests {
         .expect("write thresholds csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE amount > ALL (SELECT thresholds.min_amount FROM '{}' AS thresholds WHERE thresholds.id = outer.id ORDER BY thresholds.min_amount ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -45494,6 +45859,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,id IN (SELECT id FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 10) AS matched FROM '{}' ORDER BY id ASC LIMIT 4",
                 allowed_path.display(),
@@ -45536,6 +45902,61 @@ mod tests {
     }
 
     #[test]
+    fn runs_projected_subquery_on_declared_extensionless_csv_sources_without_fallback() {
+        let source_path =
+            sql_local_source_extensionless_test_path("predicate-projection-declared-source");
+        let allowed_path =
+            sql_local_source_extensionless_test_path("predicate-projection-declared-allowed");
+        fs::write(
+            &source_path,
+            "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+        )
+        .expect("write extensionless source csv");
+        fs::write(
+            &allowed_path,
+            "id,active,score\n1,true,9\n3,true,8\n4,false,7\n",
+        )
+        .expect("write extensionless allowed csv");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: Some(LocalSourceFormat::Csv),
+            statement: format!(
+                "SELECT id,id IN (SELECT id FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 10) AS matched FROM '{}' ORDER BY id ASC LIMIT 4",
+                allowed_path.display(),
+                source_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke_single(&request)
+            .expect("run declared-format projected subquery smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"matched\":true}\n{\"id\":2,\"matched\":false}\n{\"id\":3,\"matched\":true}\n{\"id\":4,\"matched\":false}\n"
+        );
+        assert_field_eq(&fields, "source_format", "csv");
+        assert_field_eq(&fields, "source_format_inferred", "false");
+        assert_field_eq(&fields, "predicate_projection_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "predicate_projection_predicate_family",
+            "in_subquery",
+        );
+        assert_field_eq(&fields, "in_subquery_runtime_execution", "true");
+        assert_field_eq(&fields, "in_subquery_source_format", "csv");
+        assert_field_eq(&fields, "in_subquery_filter_runtime_execution", "true");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&source_path).expect("remove extensionless source csv");
+        fs::remove_file(&allowed_path).expect("remove extensionless allowed csv");
+    }
+
+    #[test]
     fn runs_correlated_subquery_projection_csv_statement_without_fallback() {
         let source_path = sql_local_source_test_path("correlated-projection-source.csv");
         let allowed_path = sql_local_source_test_path("correlated-projection-allowed.csv");
@@ -45551,6 +45972,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,id IN (SELECT id FROM '{}' WHERE id = outer.id AND active IS TRUE AND outer.amount >= min_amount ORDER BY min_amount ASC LIMIT 10) AS matched,CASE WHEN id IN (SELECT id FROM '{}' WHERE id = outer.id AND active IS TRUE AND outer.amount >= min_amount ORDER BY min_amount ASC LIMIT 10) THEN 'allowed' ELSE 'blocked' END AS status FROM '{}' ORDER BY id ASC LIMIT 4",
                 allowed_path.display(),
@@ -45660,6 +46082,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE EXISTS (SELECT * FROM '{}' WHERE id = outer.id AND active IS TRUE AND min_amount <= outer.amount LIMIT 1) LIMIT 10",
                 source_path.display(),
@@ -45713,6 +46136,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE NOT EXISTS (SELECT * FROM '{}' WHERE id = outer.id AND active IS TRUE AND min_amount <= outer.amount LIMIT 1) LIMIT 10",
                 source_path.display(),
@@ -45780,6 +46204,7 @@ mod tests {
         .expect("write allowed csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE (id,label) IN (SELECT id,label FROM '{}' WHERE id = outer.id AND active IS TRUE AND min_amount <= outer.amount ORDER BY min_amount ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -45838,6 +46263,7 @@ mod tests {
         .expect("write thresholds csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE amount > ALL (SELECT min_amount FROM '{}' WHERE id = outer.id ORDER BY min_amount ASC LIMIT 10) LIMIT 10",
                 source_path.display(),
@@ -46613,6 +47039,7 @@ mod tests {
             .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT DISTINCT label,STRUCT(label, amount) AS payload,ARRAY[1,2,NULL] AS values FROM '{}' LIMIT 10",
                 path.display()
@@ -46766,6 +47193,7 @@ mod tests {
         fs::write(&right, "id\n").expect("write empty right csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id FROM '{}' UNION SELECT id FROM '{}' ORDER BY missing LIMIT 10",
                 left.display(),
@@ -46802,6 +47230,7 @@ mod tests {
         fs::write(&right, "id\nalpha\n").expect("write right csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id FROM '{}' WHERE id < 0 UNION SELECT id FROM '{}' LIMIT 10",
                 left.display(),
@@ -46838,6 +47267,7 @@ mod tests {
         fs::write(&right, "id,label\n1,alpha\n3,gamma\n").expect("write right csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,ARRAY[1] AS values,STRUCT(label) AS payload FROM '{}' UNION SELECT id,ARRAY[1] AS values,STRUCT(label) AS payload FROM '{}' ORDER BY payload DESC LIMIT 10",
                 left.display(),
@@ -46898,6 +47328,7 @@ mod tests {
         .expect("write right csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' WHERE amount >= 10 UNION SELECT id,label FROM '{}' WHERE amount >= 10 ORDER BY id ASC LIMIT 10",
                 left.display(),
@@ -46945,6 +47376,7 @@ mod tests {
         fs::write(&right, "id,label\n2,beta\n3,gamma\n").expect("write right csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' UNION ALL SELECT id,label FROM '{}' LIMIT 10",
                 left.display(),
@@ -46981,6 +47413,47 @@ mod tests {
     }
 
     #[test]
+    fn runs_scoped_sql_union_all_declared_extensionless_csv_sources_without_fallback() {
+        let left = sql_local_source_extensionless_test_path("union-declared-format-left");
+        let right = sql_local_source_extensionless_test_path("union-declared-format-right");
+        fs::write(&left, "id,label\n1,alpha\n2,beta\n").expect("write extensionless left csv");
+        fs::write(&right, "id,label\n2,beta\n3,gamma\n").expect("write extensionless right csv");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: Some(LocalSourceFormat::Csv),
+            statement: format!(
+                "SELECT id,label FROM '{}' UNION ALL SELECT id,label FROM '{}' LIMIT 10",
+                left.display(),
+                right.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke(&request).expect("run declared-format union smoke");
+        let SqlLocalSourceRunReport::Union(report) = report else {
+            panic!("expected union report");
+        };
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":2,\"label\":\"beta\"}\n{\"id\":3,\"label\":\"gamma\"}\n"
+        );
+        assert_field_eq(&fields, "source_format", "csv,csv");
+        assert_field_eq(&fields, "source_formats", "csv,csv");
+        assert_field_eq(&fields, "sql_union_mode", "all");
+        assert_field_eq(&fields, "sql_union_input_row_count", "4");
+        assert_field_eq(&fields, "sql_union_output_row_count", "4");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(left).expect("remove extensionless left csv");
+        fs::remove_file(right).expect("remove extensionless right csv");
+    }
+
+    #[test]
     fn runs_scoped_sql_intersect_distinct_csv_statement() {
         let left = sql_local_source_test_path("csv");
         let mut right = sql_local_source_test_path("csv");
@@ -46991,6 +47464,7 @@ mod tests {
         fs::write(&right, "id,label\n2,beta\n3,gamma\n4,delta\n").expect("write right csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' INTERSECT SELECT id,label FROM '{}' ORDER BY id ASC LIMIT 10",
                 left.display(),
@@ -47042,6 +47516,7 @@ mod tests {
         fs::write(&right, "id,label\n2,beta\n4,delta\n").expect("write right csv");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,label FROM '{}' EXCEPT SELECT id,label FROM '{}' ORDER BY id ASC LIMIT 10",
                 left.display(),
@@ -47092,6 +47567,7 @@ mod tests {
         .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT id,CAST(event_ts AS timestamp_micros) AS event_ts_utc FROM '{}' WHERE CAST(event_ts AS timestamp_micros) >= TIMESTAMP '2026-05-19T12:34:56-05:00' ORDER BY id ASC LIMIT 10",
                 path.display()
@@ -47260,6 +47736,61 @@ mod tests {
     }
 
     #[test]
+    fn runs_scoped_join_on_declared_extensionless_csv_sources_without_fallback() {
+        let fact_path = sql_local_source_extensionless_test_path("join-declared-format-fact");
+        let dim_path = sql_local_source_extensionless_test_path("join-declared-format-dim");
+        fs::write(
+            &fact_path,
+            "id,customer_id,amount\n1,10,8\n2,20,15\n3,30,21\n",
+        )
+        .expect("write extensionless fact source");
+        fs::write(&dim_path, "customer_id,segment\n20,gold\n30,platinum\n")
+            .expect("write extensionless dim source");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: Some(LocalSourceFormat::Csv),
+            statement: format!(
+                "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
+                fact_path.display(),
+                dim_path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run declared-format join smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"f.id\":2,\"d.segment\":\"gold\"}\n{\"f.id\":3,\"d.segment\":\"platinum\"}\n"
+        );
+        assert_field_eq(&fields, "source_format", "csv");
+        assert_field_eq(&fields, "source_format_inferred", "false");
+        assert_field_eq(
+            &fields,
+            "source_format_inference_kind",
+            "declared_input_format",
+        );
+        assert_field_eq(&fields, "right_source_format", "csv");
+        assert_field_eq(&fields, "right_source_format_inferred", "false");
+        assert_field_eq(
+            &fields,
+            "right_source_format_inference_extension",
+            "not_applicable",
+        );
+        assert_field_eq(&fields, "join_source_formats", "csv,csv");
+        assert_field_eq(&fields, "join_runtime_execution", "true");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(fact_path).expect("remove extensionless fact source");
+        fs::remove_file(dim_path).expect("remove extensionless dim source");
+    }
+
+    #[test]
     fn runs_scoped_join_scalar_expression_on_csv_statement_without_fallback() {
         let fact_path = sql_local_source_test_path("join-expression-fact.csv");
         let dim_path = sql_local_source_test_path("join-expression-dim.csv");
@@ -47267,6 +47798,7 @@ mod tests {
         fs::write(&dim_path, "segment,discount\nsmall,4\nlarge,10\n").expect("write dim source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT f.id,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.amount + d.discount >= 25 LIMIT 10",
                 fact_path.display(),
@@ -47359,6 +47891,7 @@ mod tests {
         .expect("write dim source");
 
         let request = SqlLocalSourceRequest {
+            source_format_override: None,
             statement: format!(
                 "SELECT f.id,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id OR f.region = d.region LIMIT 10",
                 fact_path.display(),

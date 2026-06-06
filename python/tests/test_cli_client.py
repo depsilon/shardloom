@@ -3603,7 +3603,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 second.batch.field(
                     "prepare_batch_source_admission_digest_policy_status"
                 ),
-                "metadata_fingerprint_reuse_hit",
+                "content_digest_fingerprint_reuse_hit",
             )
             self.assertEqual(
                 second.batch.field("prepare_batch_prepared_state_index_schema_version"),
@@ -3636,7 +3636,7 @@ class ShardLoomClientTests(unittest.TestCase):
                 second.batch.field(
                     "prepare_batch_source_admission_full_content_digest_requested"
                 ),
-                "false",
+                "true",
             )
             self.assertEqual(second.batch.field("prepare_batch_preparation_micros"), "0")
             self.assertEqual(second.batch.field("prepare_batch_prepared_state_created"), "false")
@@ -3668,10 +3668,15 @@ class ShardLoomClientTests(unittest.TestCase):
             )
             self.assertTrue((workspace / ".shardloom" / "prepared-state-index.json").exists())
 
+            original_stat = fact.stat()
             fact.write_text(
                 "id,group_key,dim_key,value,metric,flag,category\n"
                 "1,1,10,9,4.5,1,A\n",
                 encoding="utf-8",
+            )
+            os.utime(
+                fact,
+                ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
             )
             third = route.run_batch("selective filter")
             self.assertFalse(third.prepared_state_reuse_hit)

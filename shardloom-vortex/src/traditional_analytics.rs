@@ -1408,20 +1408,22 @@ impl TraditionalDimensionLabelState {
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
 struct TraditionalCategoryMetricState {
-    groups: std::collections::BTreeMap<String, TraditionalGroupAccum>,
+    groups: std::collections::HashMap<u32, TraditionalGroupAccum>,
+    category_interner: TraditionalStringInterner,
     stats: TraditionalStreamingScanStats,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalCategoryMetricState {
     fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
-        let mut groups = std::collections::BTreeMap::<String, TraditionalGroupAccum>::new();
+        let mut groups = std::collections::HashMap::<u32, TraditionalGroupAccum>::new();
+        let mut category_interner = TraditionalStringInterner::default();
         let stats = scan_fact_vortex_projected(
             fact_vortex,
             &["category", "metric"],
             None,
             |fields, chunk_rows| {
-                let categories = utf8_field(fields, "category")?;
+                let categories = varbin_view_field(fields, "category")?;
                 let metrics = primitive_field::<f64>(fields, "metric")?;
                 if categories.len() != chunk_rows || metrics.len() != chunk_rows {
                     return Err(ShardLoomError::InvalidOperation(format!(
@@ -1430,13 +1432,23 @@ impl TraditionalCategoryMetricState {
                         metrics.len()
                     )));
                 }
-                for (category, metric) in categories.into_iter().zip(metrics) {
-                    groups.entry(category).or_default().add(metric);
+                for (index, metric) in metrics.into_iter().enumerate() {
+                    let category_id = intern_utf8_value_at(
+                        &mut category_interner,
+                        &categories,
+                        "category",
+                        index,
+                    )?;
+                    groups.entry(category_id).or_default().add(metric);
                 }
                 Ok(())
             },
         )?;
-        Ok(Self { groups, stats })
+        Ok(Self {
+            groups,
+            category_interner,
+            stats,
+        })
     }
 }
 
@@ -1444,7 +1456,8 @@ impl TraditionalCategoryMetricState {
 #[derive(Debug, Clone, PartialEq)]
 struct TraditionalGroupCategoryMetricState {
     group_key_groups: std::collections::BTreeMap<u32, TraditionalGroupAccum>,
-    group_category_groups: std::collections::BTreeMap<(u32, String), TraditionalGroupAccum>,
+    group_category_groups: std::collections::HashMap<(u32, u32), TraditionalGroupAccum>,
+    category_interner: TraditionalStringInterner,
     stats: TraditionalStreamingScanStats,
 }
 
@@ -1453,14 +1466,15 @@ impl TraditionalGroupCategoryMetricState {
     fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
         let mut group_key_groups = std::collections::BTreeMap::<u32, TraditionalGroupAccum>::new();
         let mut group_category_groups =
-            std::collections::BTreeMap::<(u32, String), TraditionalGroupAccum>::new();
+            std::collections::HashMap::<(u32, u32), TraditionalGroupAccum>::new();
+        let mut category_interner = TraditionalStringInterner::default();
         let stats = scan_fact_vortex_projected(
             fact_vortex,
             &["group_key", "category", "metric"],
             None,
             |fields, chunk_rows| {
                 let group_keys = primitive_field::<u32>(fields, "group_key")?;
-                let categories = utf8_field(fields, "category")?;
+                let categories = varbin_view_field(fields, "category")?;
                 let metrics = primitive_field::<f64>(fields, "metric")?;
                 if group_keys.len() != chunk_rows
                     || categories.len() != chunk_rows
@@ -1473,12 +1487,17 @@ impl TraditionalGroupCategoryMetricState {
                         metrics.len()
                     )));
                 }
-                for ((group_key, category), metric) in
-                    group_keys.into_iter().zip(categories).zip(metrics)
+                for (index, (group_key, metric)) in group_keys.into_iter().zip(metrics).enumerate()
                 {
+                    let category_id = intern_utf8_value_at(
+                        &mut category_interner,
+                        &categories,
+                        "category",
+                        index,
+                    )?;
                     group_key_groups.entry(group_key).or_default().add(metric);
                     group_category_groups
-                        .entry((group_key, category))
+                        .entry((group_key, category_id))
                         .or_default()
                         .add(metric);
                 }
@@ -1488,6 +1507,7 @@ impl TraditionalGroupCategoryMetricState {
         Ok(Self {
             group_key_groups,
             group_category_groups,
+            category_interner,
             stats,
         })
     }
@@ -1680,9 +1700,9 @@ impl TraditionalDirtyInputState {
             &["raw_event_time", "dirty_numeric", "dirty_flag"],
             None,
             |fields, chunk_rows| {
-                let raw_event_times = utf8_field(fields, "raw_event_time")?;
-                let dirty_numeric = utf8_field(fields, "dirty_numeric")?;
-                let dirty_flags = utf8_field(fields, "dirty_flag")?;
+                let raw_event_times = varbin_view_field(fields, "raw_event_time")?;
+                let dirty_numeric = varbin_view_field(fields, "dirty_numeric")?;
+                let dirty_flags = varbin_view_field(fields, "dirty_flag")?;
                 if raw_event_times.len() != chunk_rows
                     || dirty_numeric.len() != chunk_rows
                     || dirty_flags.len() != chunk_rows
@@ -1694,22 +1714,26 @@ impl TraditionalDirtyInputState {
                         dirty_flags.len()
                     )));
                 }
-                for ((raw_event_time, dirty_numeric), dirty_flag) in raw_event_times
-                    .into_iter()
-                    .zip(dirty_numeric)
-                    .zip(dirty_flags)
-                {
+                for index in 0..chunk_rows {
+                    let raw_event_time = raw_event_times.bytes_at(index);
+                    let raw_event_time = raw_event_time.as_slice();
+                    let dirty_numeric_value = dirty_numeric.bytes_at(index);
+                    let dirty_numeric_value = dirty_numeric_value.as_slice();
+                    let dirty_flag = dirty_flags.bytes_at(index);
+                    let dirty_flag = dirty_flag.as_slice();
                     saw_raw_event_time |= !raw_event_time.is_empty();
-                    saw_dirty_numeric |= !dirty_numeric.is_empty();
+                    saw_dirty_numeric |= !dirty_numeric_value.is_empty();
                     saw_dirty_flag |= !dirty_flag.is_empty();
-                    if !generated_timestamp_shape_is_valid(&raw_event_time) {
+                    if !generated_timestamp_shape_bytes_is_valid(raw_event_time) {
                         continue;
                     }
-                    let Ok(value) = dirty_numeric.parse::<f64>() else {
+                    let Some(value) =
+                        parse_optional_utf8_f64_at(dirty_numeric_value, "dirty_numeric", index)?
+                    else {
                         continue;
                     };
                     malformed_timestamp_accum.add(value);
-                    if dirty_flag == "Y" && value >= 500.0 {
+                    if dirty_flag == b"Y" && value >= 500.0 {
                         clean_cast_accum.add(value);
                     }
                 }
@@ -1767,9 +1791,9 @@ impl TraditionalDateNullMetricState {
             &["event_date", "metric", "nullable_metric_00"],
             None,
             |fields, chunk_rows| {
-                let event_dates = utf8_field(fields, "event_date")?;
+                let event_dates = varbin_view_field(fields, "event_date")?;
                 let metrics = primitive_field::<f64>(fields, "metric")?;
-                let nullable_metrics = utf8_field(fields, "nullable_metric_00")?;
+                let nullable_metrics = varbin_view_field(fields, "nullable_metric_00")?;
                 if event_dates.len() != chunk_rows
                     || metrics.len() != chunk_rows
                     || nullable_metrics.len() != chunk_rows
@@ -1781,21 +1805,21 @@ impl TraditionalDateNullMetricState {
                         nullable_metrics.len()
                     )));
                 }
-                for ((event_date, metric), nullable_metric) in
-                    event_dates.into_iter().zip(metrics).zip(nullable_metrics)
-                {
+                for (index, metric) in metrics.into_iter().enumerate() {
+                    let event_date = event_dates.bytes_at(index);
+                    let event_date = event_date.as_slice();
+                    let nullable_metric = nullable_metrics.bytes_at(index);
+                    let nullable_metric = nullable_metric.as_slice();
                     saw_event_date |= !event_date.is_empty();
-                    if partition_pruning_date_range_contains(&event_date) {
+                    let event_date_text = utf8_bytes_at(event_date, "event_date", index)?;
+                    if partition_pruning_date_range_contains(event_date_text) {
                         partition_pruning_accum.add(metric);
                     }
                     if nullable_metric.is_empty() {
                         continue;
                     }
-                    let parsed_metric = nullable_metric.parse::<f64>().map_err(|error| {
-                        ShardLoomError::InvalidOperation(format!(
-                            "failed to parse nullable_metric_00 in batch date/null metric state: {error}"
-                        ))
-                    })?;
+                    let parsed_metric =
+                        parse_required_utf8_f64_at(nullable_metric, "nullable_metric_00", index)?;
                     null_heavy_accum.add(parsed_metric);
                 }
                 Ok(())
@@ -20364,6 +20388,19 @@ struct TraditionalStreamingScanStats {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalStreamingScanStats {
+    fn with_operator_finalize_micros(mut self, micros: u64) -> Result<Self> {
+        self.operator_finalize_micros = checked_u64_sum(self.operator_finalize_micros, micros)?;
+        Ok(self)
+    }
+
+    fn with_result_assembly_micros(mut self, micros: u64) -> Result<Self> {
+        self.result_assembly_micros = checked_u64_sum(self.result_assembly_micros, micros)?;
+        Ok(self)
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[allow(clippy::too_many_lines)]
 fn run_traditional_direct_transient_local_input_smoke_enabled(
     request: TraditionalAnalyticsRequest,
@@ -25367,6 +25404,35 @@ fn intern_utf8_value_at(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn utf8_bytes_at<'a>(bytes: &'a [u8], name: &str, index: usize) -> Result<&'a str> {
+    std::str::from_utf8(bytes).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "Vortex UTF-8 field '{name}' contained invalid UTF-8 at row {index}: {error}"
+        ))
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_required_utf8_f64_at(bytes: &[u8], name: &str, index: usize) -> Result<f64> {
+    let text = utf8_bytes_at(bytes, name, index)?;
+    text.parse::<f64>().map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to parse {name} in Vortex chunk at row {}: {error}",
+            index + 1
+        ))
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_optional_utf8_f64_at(bytes: &[u8], name: &str, index: usize) -> Result<Option<f64>> {
+    let text = utf8_bytes_at(bytes, name, index)?;
+    match text.parse::<f64>() {
+        Ok(value) => Ok(Some(value)),
+        Err(_) => Ok(None),
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn optional_utf8_field(
     fields: &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
     name: &str,
@@ -29977,13 +30043,14 @@ fn run_streaming_string_group_distinct_scenario_with_dim_rows(
     fact_path: &std::path::Path,
     dim_rows: u64,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut groups = std::collections::BTreeMap::<String, TraditionalGroupAccum>::new();
+    let mut groups = std::collections::HashMap::<u32, TraditionalGroupAccum>::new();
+    let mut category_interner = TraditionalStringInterner::default();
     let stats = scan_fact_vortex_projected(
         fact_path,
         &["category", "metric"],
         None,
         |fields, chunk_rows| {
-            let categories = utf8_field(fields, "category")?;
+            let categories = varbin_view_field(fields, "category")?;
             let metrics = primitive_field::<f64>(fields, "metric")?;
             if categories.len() != chunk_rows || metrics.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
@@ -29992,14 +30059,18 @@ fn run_streaming_string_group_distinct_scenario_with_dim_rows(
                     metrics.len()
                 )));
             }
-            for (category, metric) in categories.into_iter().zip(metrics) {
-                groups.entry(category).or_default().add(metric);
+            for (index, metric) in metrics.into_iter().enumerate() {
+                let category_id =
+                    intern_utf8_value_at(&mut category_interner, &categories, "category", index)?;
+                groups.entry(category_id).or_default().add(metric);
             }
             Ok(())
         },
     )?;
-    let result_json = string_group_distinct_json(groups);
+    let assembly_start = std::time::Instant::now();
+    let result_json = string_group_id_distinct_json(groups, &category_interner)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
         result_json,
         fact_rows: stats.source_row_count,
@@ -30017,8 +30088,13 @@ fn run_streaming_string_group_distinct_scenario_with_category_metric_state(
     category_state: &TraditionalCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
     let stats = category_state.stats.clone();
-    let result_json = string_group_distinct_json(category_state.groups.clone());
+    let assembly_start = std::time::Instant::now();
+    let result_json = string_group_id_distinct_json(
+        category_state.groups.clone(),
+        &category_state.category_interner,
+    )?;
     let rows_materialized = result_rows_materialized(&result_json)?;
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
         result_json,
         fact_rows: stats.source_row_count,
@@ -30056,7 +30132,7 @@ fn run_streaming_partition_pruning_scenario_with_dim_rows(
                     "partition pruning requires an event_date fixture column".to_string(),
                 ));
             }
-            let event_dates = utf8_field(fields, "event_date")?;
+            let event_dates = varbin_view_field(fields, "event_date")?;
             let metrics = primitive_field::<f64>(fields, "metric")?;
             if event_dates.len() != chunk_rows || metrics.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
@@ -30065,9 +30141,12 @@ fn run_streaming_partition_pruning_scenario_with_dim_rows(
                     metrics.len()
                 )));
             }
-            for (event_date, metric) in event_dates.into_iter().zip(metrics) {
+            for (index, metric) in metrics.into_iter().enumerate() {
+                let event_date = event_dates.bytes_at(index);
+                let event_date = event_date.as_slice();
                 has_non_empty_event_date |= !event_date.is_empty();
-                if partition_pruning_date_range_contains(&event_date) {
+                let event_date = utf8_bytes_at(event_date, "event_date", index)?;
+                if partition_pruning_date_range_contains(event_date) {
                     accum.add(metric);
                 }
             }
@@ -30079,8 +30158,11 @@ fn run_streaming_partition_pruning_scenario_with_dim_rows(
             "partition pruning requires an event_date fixture column".to_string(),
         ));
     }
+    let assembly_start = std::time::Instant::now();
+    let result_json = scalar_result_json(accum.row_count, accum.metric_sum);
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
-        result_json: scalar_result_json(accum.row_count, accum.metric_sum),
+        result_json,
         fact_rows: stats.source_row_count,
         dim_rows,
         cdc_delta_rows: 0,
@@ -30104,14 +30186,15 @@ fn run_streaming_multi_key_group_by_scenario_with_dim_rows(
     fact_path: &std::path::Path,
     dim_rows: u64,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut groups = std::collections::BTreeMap::<(u32, String), TraditionalGroupAccum>::new();
+    let mut groups = std::collections::HashMap::<(u32, u32), TraditionalGroupAccum>::new();
+    let mut category_interner = TraditionalStringInterner::default();
     let stats = scan_fact_vortex_projected(
         fact_path,
         &["group_key", "category", "metric"],
         None,
         |fields, chunk_rows| {
             let group_keys = primitive_field::<u32>(fields, "group_key")?;
-            let categories = utf8_field(fields, "category")?;
+            let categories = varbin_view_field(fields, "category")?;
             let metrics = primitive_field::<f64>(fields, "metric")?;
             if group_keys.len() != chunk_rows
                 || categories.len() != chunk_rows
@@ -30124,16 +30207,21 @@ fn run_streaming_multi_key_group_by_scenario_with_dim_rows(
                     metrics.len()
                 )));
             }
-            for ((group_key, category), metric) in
-                group_keys.into_iter().zip(categories).zip(metrics)
-            {
-                groups.entry((group_key, category)).or_default().add(metric);
+            for (index, (group_key, metric)) in group_keys.into_iter().zip(metrics).enumerate() {
+                let category_id =
+                    intern_utf8_value_at(&mut category_interner, &categories, "category", index)?;
+                groups
+                    .entry((group_key, category_id))
+                    .or_default()
+                    .add(metric);
             }
             Ok(())
         },
     )?;
-    let result_json = group_category_rows_json(groups);
+    let assembly_start = std::time::Instant::now();
+    let result_json = group_category_id_rows_json(groups, &category_interner)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
         result_json,
         fact_rows: stats.source_row_count,
@@ -30151,8 +30239,13 @@ fn run_streaming_multi_key_group_by_scenario_with_group_category_metric_state(
     group_state: &TraditionalGroupCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
     let stats = group_state.stats.clone();
-    let result_json = group_category_rows_json(group_state.group_category_groups.clone());
+    let assembly_start = std::time::Instant::now();
+    let result_json = group_category_id_rows_json(
+        group_state.group_category_groups.clone(),
+        &group_state.category_interner,
+    )?;
     let rows_materialized = result_rows_materialized(&result_json)?;
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
         result_json,
         fact_rows: stats.source_row_count,
@@ -30201,9 +30294,14 @@ fn run_streaming_group_by_aggregation_scenario_with_dim_rows(
             Ok(())
         },
     )?;
+    let finalize_start = std::time::Instant::now();
+    let kernel_pair_evidence = dictionary_group_by_pair.finish()?;
+    let stats =
+        stats.with_operator_finalize_micros(duration_to_micros(finalize_start.elapsed()))?;
+    let assembly_start = std::time::Instant::now();
     let result_json = numeric_group_rows_json(groups, "group_key");
     let rows_materialized = result_rows_materialized(&result_json)?;
-    let kernel_pair_evidence = dictionary_group_by_pair.finish()?;
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
         result_json,
         fact_rows: stats.source_row_count,
@@ -30224,8 +30322,10 @@ fn run_streaming_group_by_aggregation_scenario_with_group_category_metric_state(
     group_state: &TraditionalGroupCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
     let stats = group_state.stats.clone();
+    let assembly_start = std::time::Instant::now();
     let result_json = numeric_group_rows_json(group_state.group_key_groups.clone(), "group_key");
     let rows_materialized = result_rows_materialized(&result_json)?;
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
         result_json,
         fact_rows: stats.source_row_count,
@@ -30251,27 +30351,34 @@ fn run_streaming_distinct_count_scenario_with_dim_rows(
     fact_path: &std::path::Path,
     dim_rows: u64,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut distinct = std::collections::HashSet::<String>::new();
+    let mut distinct = std::collections::HashSet::<u32>::new();
+    let mut category_interner = TraditionalStringInterner::default();
     let stats = scan_fact_vortex_projected(
         fact_path,
         &["category"],
         None,
         |fields, chunk_rows| {
-            let categories = utf8_field(fields, "category")?;
+            let categories = varbin_view_field(fields, "category")?;
             if categories.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "distinct count Vortex chunk length mismatch: chunk_rows={chunk_rows}, category_len={}",
                     categories.len()
                 )));
             }
-            distinct.extend(categories);
+            for index in 0..chunk_rows {
+                let category_id =
+                    intern_utf8_value_at(&mut category_interner, &categories, "category", index)?;
+                distinct.insert(category_id);
+            }
             Ok(())
         },
     )?;
+    let assembly_start = std::time::Instant::now();
     let result_json = format!(
         "{{\"distinct_category_count\":{}}}",
         usize_to_u64(distinct.len())?
     );
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
         result_json,
         fact_rows: stats.source_row_count,
@@ -30289,10 +30396,12 @@ fn run_streaming_distinct_count_scenario_with_category_metric_state(
     category_state: &TraditionalCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
     let stats = category_state.stats.clone();
+    let assembly_start = std::time::Instant::now();
     let result_json = format!(
         "{{\"distinct_category_count\":{}}}",
         usize_to_u64(category_state.groups.len())?
     );
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
         result_json,
         fact_rows: stats.source_row_count,
@@ -30324,30 +30433,30 @@ fn run_streaming_null_heavy_aggregate_scenario_with_dim_rows(
         &["nullable_metric_00"],
         None,
         |fields, chunk_rows| {
-            let values = utf8_field(fields, "nullable_metric_00")?;
+            let values = varbin_view_field(fields, "nullable_metric_00")?;
             if values.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "null-heavy aggregate Vortex chunk length mismatch: chunk_rows={chunk_rows}, nullable_metric_00_len={}",
                     values.len()
                 )));
             }
-            for (index, value) in values.into_iter().enumerate() {
+            for index in 0..chunk_rows {
+                let value = values.bytes_at(index);
+                let value = value.as_slice();
                 if value.is_empty() {
                     continue;
                 }
-                let metric = value.parse::<f64>().map_err(|error| {
-                    ShardLoomError::InvalidOperation(format!(
-                        "failed to parse nullable_metric_00 in Vortex chunk at row {}: {error}",
-                        index + 1
-                    ))
-                })?;
+                let metric = parse_required_utf8_f64_at(value, "nullable_metric_00", index)?;
                 accum.add(metric);
             }
             Ok(())
         },
     )?;
+    let assembly_start = std::time::Instant::now();
+    let result_json = scalar_result_json(accum.row_count, accum.metric_sum);
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
-        result_json: scalar_result_json(accum.row_count, accum.metric_sum),
+        result_json,
         fact_rows: stats.source_row_count,
         dim_rows,
         cdc_delta_rows: 0,
@@ -30380,9 +30489,9 @@ fn run_streaming_clean_cast_filter_write_scenario_with_dim_rows(
         &["raw_event_time", "dirty_numeric", "dirty_flag"],
         None,
         |fields, chunk_rows| {
-            let raw_event_times = utf8_field(fields, "raw_event_time")?;
-            let dirty_numeric = utf8_field(fields, "dirty_numeric")?;
-            let dirty_flags = utf8_field(fields, "dirty_flag")?;
+            let raw_event_times = varbin_view_field(fields, "raw_event_time")?;
+            let dirty_numeric = varbin_view_field(fields, "dirty_numeric")?;
+            let dirty_flags = varbin_view_field(fields, "dirty_flag")?;
             if raw_event_times.len() != chunk_rows
                 || dirty_numeric.len() != chunk_rows
                 || dirty_flags.len() != chunk_rows
@@ -30394,18 +30503,22 @@ fn run_streaming_clean_cast_filter_write_scenario_with_dim_rows(
                     dirty_flags.len()
                 )));
             }
-            for ((raw_event_time, dirty_numeric), dirty_flag) in raw_event_times
-                .into_iter()
-                .zip(dirty_numeric)
-                .zip(dirty_flags)
-            {
+            for index in 0..chunk_rows {
+                let raw_event_time = raw_event_times.bytes_at(index);
+                let raw_event_time = raw_event_time.as_slice();
+                let dirty_numeric_value = dirty_numeric.bytes_at(index);
+                let dirty_numeric_value = dirty_numeric_value.as_slice();
+                let dirty_flag = dirty_flags.bytes_at(index);
+                let dirty_flag = dirty_flag.as_slice();
                 saw_raw_event_time |= !raw_event_time.is_empty();
-                saw_dirty_numeric |= !dirty_numeric.is_empty();
+                saw_dirty_numeric |= !dirty_numeric_value.is_empty();
                 saw_dirty_flag |= !dirty_flag.is_empty();
-                if dirty_flag != "Y" || !generated_timestamp_shape_is_valid(&raw_event_time) {
+                if dirty_flag != b"Y" || !generated_timestamp_shape_bytes_is_valid(raw_event_time) {
                     continue;
                 }
-                let Ok(value) = dirty_numeric.parse::<f64>() else {
+                let Some(value) =
+                    parse_optional_utf8_f64_at(dirty_numeric_value, "dirty_numeric", index)?
+                else {
                     continue;
                 };
                 if value >= 500.0 {
@@ -30421,8 +30534,11 @@ fn run_streaming_clean_cast_filter_write_scenario_with_dim_rows(
                 .to_string(),
         ));
     }
+    let assembly_start = std::time::Instant::now();
+    let result_json = scalar_result_json(accum.row_count, accum.metric_sum);
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
-        result_json: scalar_result_json(accum.row_count, accum.metric_sum),
+        result_json,
         fact_rows: stats.source_row_count,
         dim_rows,
         cdc_delta_rows: 0,
@@ -30454,8 +30570,8 @@ fn run_streaming_malformed_timestamp_dirty_csv_scenario_with_dim_rows(
         &["raw_event_time", "dirty_numeric"],
         None,
         |fields, chunk_rows| {
-            let raw_event_times = utf8_field(fields, "raw_event_time")?;
-            let dirty_numeric = utf8_field(fields, "dirty_numeric")?;
+            let raw_event_times = varbin_view_field(fields, "raw_event_time")?;
+            let dirty_numeric = varbin_view_field(fields, "dirty_numeric")?;
             if raw_event_times.len() != chunk_rows || dirty_numeric.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "malformed timestamp / dirty CSV Vortex chunk length mismatch: chunk_rows={chunk_rows}, raw_event_time_len={}, dirty_numeric_len={}",
@@ -30463,13 +30579,19 @@ fn run_streaming_malformed_timestamp_dirty_csv_scenario_with_dim_rows(
                     dirty_numeric.len()
                 )));
             }
-            for (raw_event_time, dirty_numeric) in raw_event_times.into_iter().zip(dirty_numeric) {
+            for index in 0..chunk_rows {
+                let raw_event_time = raw_event_times.bytes_at(index);
+                let raw_event_time = raw_event_time.as_slice();
+                let dirty_numeric_value = dirty_numeric.bytes_at(index);
+                let dirty_numeric_value = dirty_numeric_value.as_slice();
                 saw_raw_event_time |= !raw_event_time.is_empty();
-                saw_dirty_numeric |= !dirty_numeric.is_empty();
-                if !generated_timestamp_shape_is_valid(&raw_event_time) {
+                saw_dirty_numeric |= !dirty_numeric_value.is_empty();
+                if !generated_timestamp_shape_bytes_is_valid(raw_event_time) {
                     continue;
                 }
-                let Ok(value) = dirty_numeric.parse::<f64>() else {
+                let Some(value) =
+                    parse_optional_utf8_f64_at(dirty_numeric_value, "dirty_numeric", index)?
+                else {
                     continue;
                 };
                 accum.add(value);
@@ -30483,8 +30605,11 @@ fn run_streaming_malformed_timestamp_dirty_csv_scenario_with_dim_rows(
                 .to_string(),
         ));
     }
+    let assembly_start = std::time::Instant::now();
+    let result_json = scalar_result_json(accum.row_count, accum.metric_sum);
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
-        result_json: scalar_result_json(accum.row_count, accum.metric_sum),
+        result_json,
         fact_rows: stats.source_row_count,
         dim_rows,
         cdc_delta_rows: 0,
@@ -30558,20 +30683,23 @@ fn run_streaming_nested_json_field_scan_scenario_with_dim_rows(
         &["nested_payload"],
         None,
         |fields, chunk_rows| {
-            let nested_payloads = utf8_field(fields, "nested_payload")?;
+            let nested_payloads = varbin_view_field(fields, "nested_payload")?;
             if nested_payloads.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "nested JSON field scan Vortex chunk length mismatch: chunk_rows={chunk_rows}, nested_payload_len={}",
                     nested_payloads.len()
                 )));
             }
-            for (index, payload) in nested_payloads.into_iter().enumerate() {
+            for index in 0..chunk_rows {
+                let payload = nested_payloads.bytes_at(index);
+                let payload = payload.as_slice();
                 if payload.is_empty() {
                     continue;
                 }
                 saw_nested_payload = true;
                 let row_index = source_row_offset + index;
-                let nested_fields = generated_nested_payload_fields(&payload, row_index)?;
+                let payload = utf8_bytes_at(payload, "nested_payload", row_index)?;
+                let nested_fields = generated_nested_payload_fields(payload, row_index)?;
                 metric_sum += nested_fields.score;
                 if nested_fields.flag {
                     flagged += 1;
@@ -30591,11 +30719,14 @@ fn run_streaming_nested_json_field_scan_scenario_with_dim_rows(
             "nested JSON field scan requires nested_payload fixture column".to_string(),
         ));
     }
+    let assembly_start = std::time::Instant::now();
+    let result_json = format!(
+        "{{\"row_count\":{row_count},\"metric_sum\":{},\"flagged\":{flagged}}}",
+        json_float(metric_sum)
+    );
+    let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
-        result_json: format!(
-            "{{\"row_count\":{row_count},\"metric_sum\":{},\"flagged\":{flagged}}}",
-            json_float(metric_sum)
-        ),
+        result_json,
         fact_rows: stats.source_row_count,
         dim_rows,
         cdc_delta_rows: 0,
@@ -31781,10 +31912,46 @@ struct TraditionalDictionaryGroupByPairAccumulator {
     input_rows: u64,
     operator_kernel_micros: u64,
     decoded_reference_micros: u64,
-    encoded_counts: std::collections::BTreeMap<String, u64>,
-    decoded_counts: std::collections::BTreeMap<String, u64>,
+    encoded_counts: std::collections::BTreeMap<TraditionalDictionaryEvidenceKey, u64>,
+    decoded_counts: std::collections::BTreeMap<TraditionalDictionaryEvidenceKey, u64>,
     input_shape_classes: std::collections::BTreeSet<String>,
     observed_dictionary_input: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum TraditionalDictionaryEvidenceKey {
+    Null,
+    Boolean(bool),
+    Int64(i64),
+    UInt64(u64),
+    Float64(u64),
+    Utf8(String),
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalDictionaryEvidenceKey {
+    fn from_stat_value(value: Option<&StatValue>) -> Self {
+        match value {
+            Some(StatValue::Boolean(value)) => Self::Boolean(*value),
+            Some(StatValue::Int64(value)) => Self::Int64(*value),
+            Some(StatValue::UInt64(value)) => Self::UInt64(*value),
+            Some(StatValue::Float64(value)) => Self::Float64(value.to_bits()),
+            Some(StatValue::Utf8(value)) => Self::Utf8(value.clone()),
+            None => Self::Null,
+        }
+    }
+
+    fn evidence_key(&self) -> String {
+        match self {
+            Self::Null => "null".to_string(),
+            Self::Boolean(value) => format!("bool:{value}"),
+            Self::Int64(value) => format!("int64:{value}"),
+            Self::UInt64(value) => format!("uint64:{value}"),
+            Self::Float64(value) => format!("float64:{:?}", f64::from_bits(*value)),
+            Self::Utf8(value) => format!("utf8:{value}"),
+        }
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -31825,27 +31992,28 @@ impl TraditionalDictionaryGroupByPairAccumulator {
                 checked_u64_sum(self.input_rows, usize_to_u64(decoded_group_keys.len())?)?;
             self.input_shape_classes
                 .insert(encoded_value_input_shape_class(&input.batch.values, None));
+            let dictionary_keys = dictionary
+                .iter()
+                .map(|value| TraditionalDictionaryEvidenceKey::from_stat_value(value.as_ref()))
+                .collect::<Vec<_>>();
             let operator_kernel_start = std::time::Instant::now();
             for code in codes {
-                let value = match code {
+                let key = match code {
                     Some(code) => {
                         let code = usize::try_from(*code).map_err(|error| {
                             ShardLoomError::InvalidOperation(format!(
                                 "dictionary group-by code {code} did not fit usize: {error}; fallback execution was not attempted"
                             ))
                         })?;
-                        dictionary.get(code).ok_or_else(|| {
+                        dictionary_keys.get(code).ok_or_else(|| {
                             ShardLoomError::InvalidOperation(format!(
                                 "dictionary group-by code {code} was outside dictionary values; fallback execution was not attempted"
                             ))
-                        })?
+                        })?.clone()
                     }
-                    None => &None,
+                    None => TraditionalDictionaryEvidenceKey::Null,
                 };
-                increment_count(
-                    &mut self.encoded_counts,
-                    stat_value_evidence_key(value.as_ref()),
-                );
+                increment_dictionary_count(&mut self.encoded_counts, key);
             }
             self.operator_kernel_micros = checked_u64_sum(
                 self.operator_kernel_micros,
@@ -31853,9 +32021,9 @@ impl TraditionalDictionaryGroupByPairAccumulator {
             )?;
             let decoded_reference_start = std::time::Instant::now();
             for group_key in decoded_group_keys {
-                increment_count(
+                increment_dictionary_count(
                     &mut self.decoded_counts,
-                    stat_value_evidence_key(Some(&StatValue::UInt64(u64::from(*group_key)))),
+                    TraditionalDictionaryEvidenceKey::UInt64(u64::from(*group_key)),
                 );
             }
             self.decoded_reference_micros = checked_u64_sum(
@@ -31876,7 +32044,7 @@ impl TraditionalDictionaryGroupByPairAccumulator {
                     .to_string(),
             ));
         }
-        let count_summary = count_map_summary(&self.encoded_counts);
+        let count_summary = count_dictionary_map_summary(&self.encoded_counts);
         let correctness_digest = compressed_kernel_pair_digest(&[
             "dictionary_equality_group_by".to_string(),
             "executed_dictionary_equality_group_by_input".to_string(),
@@ -31920,7 +32088,10 @@ impl TraditionalDictionaryGroupByPairAccumulator {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn increment_count(counts: &mut std::collections::BTreeMap<String, u64>, key: String) {
+fn increment_dictionary_count(
+    counts: &mut std::collections::BTreeMap<TraditionalDictionaryEvidenceKey, u64>,
+    key: TraditionalDictionaryEvidenceKey,
+) {
     counts
         .entry(key)
         .and_modify(|count| *count = count.saturating_add(1))
@@ -31928,24 +32099,15 @@ fn increment_count(counts: &mut std::collections::BTreeMap<String, u64>, key: St
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn count_map_summary(counts: &std::collections::BTreeMap<String, u64>) -> String {
-    counts
+fn count_dictionary_map_summary(
+    counts: &std::collections::BTreeMap<TraditionalDictionaryEvidenceKey, u64>,
+) -> String {
+    let mut rows = counts
         .iter()
-        .map(|(key, count)| format!("{key}:{count}"))
-        .collect::<Vec<_>>()
-        .join(",")
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn stat_value_evidence_key(value: Option<&StatValue>) -> String {
-    match value {
-        Some(StatValue::Boolean(value)) => format!("bool:{value}"),
-        Some(StatValue::Int64(value)) => format!("int64:{value}"),
-        Some(StatValue::UInt64(value)) => format!("uint64:{value}"),
-        Some(StatValue::Float64(value)) => format!("float64:{value:?}"),
-        Some(StatValue::Utf8(value)) => format!("utf8:{value}"),
-        None => "null".to_string(),
-    }
+        .map(|(key, count)| format!("{}:{count}", key.evidence_key()))
+        .collect::<Vec<_>>();
+    rows.sort();
+    rows.join(",")
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -32640,6 +32802,7 @@ fn scan_fact_vortex_projected(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn scan_fact_vortex_projected_with_encoded_inputs(
     path: &std::path::Path,
     projected_columns: &[&'static str],
@@ -32679,7 +32842,7 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
     if projection_pushdown_applied {
         scan = scan.with_projection(select(projected_columns.to_vec(), root()));
     }
-    let scan_iter = scan.into_array_iter(&runtime).map_err(vortex_error)?;
+    let mut scan_iter = scan.into_array_iter(&runtime).map_err(vortex_error)?;
     let vortex_scan_open_micros = duration_to_micros(scan_open_start.elapsed());
     let source_uri = DatasetUri::new(path.display().to_string())?;
     let mut result_row_count = 0_u64;
@@ -32695,13 +32858,16 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
     let mut vortex_encoded_kernel_evidence_micros = 0_u64;
     let mut operator_kernel_micros = 0_u64;
     let scenario_scan_start = std::time::Instant::now();
-    for chunk in scan_iter {
+    loop {
         let chunk_iter_start = std::time::Instant::now();
-        let chunk = chunk.map_err(vortex_error)?;
+        let Some(chunk) = scan_iter.next() else {
+            break;
+        };
         scan_chunk_iter_micros = checked_u64_sum(
             scan_chunk_iter_micros,
             duration_to_micros(chunk_iter_start.elapsed()),
         )?;
+        let chunk = chunk.map_err(vortex_error)?;
         let chunk_rows = chunk.len();
         let split_ref = format!("vortex-local-scan-chunk-{arrays_read_count}");
         let encoded_evidence_start = std::time::Instant::now();
@@ -33321,7 +33487,11 @@ fn parse_generated_nested_flag(payload: &str, start: usize, row_index: usize) ->
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn generated_timestamp_shape_is_valid(value: &str) -> bool {
-    let bytes = value.as_bytes();
+    generated_timestamp_shape_bytes_is_valid(value.as_bytes())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn generated_timestamp_shape_bytes_is_valid(bytes: &[u8]) -> bool {
     if !(bytes.len() == 20
         && bytes[4] == b'-'
         && bytes[7] == b'-'
@@ -33392,9 +33562,11 @@ fn is_leap_year(year: u32) -> bool {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn numeric_group_rows_json(
-    groups: std::collections::BTreeMap<u32, TraditionalGroupAccum>,
+    groups: impl IntoIterator<Item = (u32, TraditionalGroupAccum)>,
     key: &str,
 ) -> String {
+    let mut groups = groups.into_iter().collect::<Vec<_>>();
+    groups.sort_by_key(|(group_key, _accum)| *group_key);
     let rows = groups
         .into_iter()
         .map(|(group_key, accum)| {
@@ -33411,9 +33583,11 @@ fn numeric_group_rows_json(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn string_group_rows_json(
-    groups: std::collections::BTreeMap<String, TraditionalGroupAccum>,
+    groups: impl IntoIterator<Item = (String, TraditionalGroupAccum)>,
     key: &str,
 ) -> String {
+    let mut groups = groups.into_iter().collect::<Vec<_>>();
+    groups.sort_by(|left, right| left.0.cmp(&right.0));
     let rows = groups
         .into_iter()
         .map(|(group_key, accum)| {
@@ -33471,8 +33645,15 @@ fn dim_key_group_rows_json(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn group_category_rows_json(
-    groups: std::collections::BTreeMap<(u32, String), TraditionalGroupAccum>,
+    groups: impl IntoIterator<Item = ((u32, String), TraditionalGroupAccum)>,
 ) -> String {
+    let mut groups = groups.into_iter().collect::<Vec<_>>();
+    groups.sort_by(|left, right| {
+        left.0
+            .0
+            .cmp(&right.0.0)
+            .then_with(|| left.0.1.cmp(&right.0.1))
+    });
     let rows = groups
         .into_iter()
         .map(|((group_key, category), accum)| {
@@ -33485,6 +33666,23 @@ fn group_category_rows_json(
         })
         .collect::<Vec<_>>();
     format!("[{}]", rows.join(","))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn group_category_id_rows_json(
+    groups: impl IntoIterator<Item = ((u32, u32), TraditionalGroupAccum)>,
+    category_interner: &TraditionalStringInterner,
+) -> Result<String> {
+    let mut category_groups = Vec::new();
+    for ((group_key, category_id), accum) in groups {
+        let category = category_interner.value(category_id).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "category label missing for grouped category id {category_id}; fallback execution was not attempted"
+            ))
+        })?;
+        category_groups.push(((group_key, category.to_string()), accum));
+    }
+    Ok(group_category_rows_json(category_groups))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -33607,8 +33805,10 @@ fn rank_rows_json(mut rows: Vec<(u32, u64, f64, u64)>) -> String {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn string_group_distinct_json(
-    groups: std::collections::BTreeMap<String, TraditionalGroupAccum>,
+    groups: impl IntoIterator<Item = (String, TraditionalGroupAccum)>,
 ) -> String {
+    let mut groups = groups.into_iter().collect::<Vec<_>>();
+    groups.sort_by(|left, right| left.0.cmp(&right.0));
     let distinct = groups.len();
     let rows = groups
         .into_iter()
@@ -33627,6 +33827,23 @@ fn string_group_distinct_json(
         distinct,
         rows.join(",")
     )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn string_group_id_distinct_json(
+    groups: impl IntoIterator<Item = (u32, TraditionalGroupAccum)>,
+    category_interner: &TraditionalStringInterner,
+) -> Result<String> {
+    let mut resolved_groups = Vec::new();
+    for (category_id, accum) in groups {
+        let category = category_interner.value(category_id).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "category label missing for distinct category id {category_id}; fallback execution was not attempted"
+            ))
+        })?;
+        resolved_groups.push((category.to_string(), accum));
+    }
+    Ok(string_group_distinct_json(resolved_groups))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]

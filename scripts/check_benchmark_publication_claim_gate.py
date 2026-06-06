@@ -119,6 +119,9 @@ LOCAL_PATH_RE = re.compile(
     r"(?P<posix>(?:/Users|/home|/tmp|/var/folders|/private/var|/workspace|/mnt|/Volumes)"
     r"[^|,;\"'\s]*)"
 )
+WORKSPACE_LOCAL_VERSION_RE = re.compile(
+    r"^workspace-local-(?P<profile>.+)-(?P<sha>[0-9a-f]{7,40})(?P<dirty>-dirty)?$"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -725,6 +728,52 @@ def validate_freshness(
     }
 
 
+def validate_shardloom_lane_version_provenance(
+    manifest: dict[str, Any],
+    blockers: list[str],
+    *,
+    enforce_current_artifact: bool,
+) -> dict[str, Any]:
+    lane_versions = manifest.get("lane_versions")
+    versions = lane_versions if isinstance(lane_versions, dict) else {}
+    expected_sha = str(
+        manifest.get("shardloom_git_sha") or manifest.get("benchmark_git_sha") or ""
+    )
+    dirty_lanes: list[str] = []
+    mismatched_lanes: list[str] = []
+    checked_lanes: list[str] = []
+    for lane, raw_version in sorted(versions.items()):
+        lane_name = str(lane)
+        if not lane_name.startswith("shardloom"):
+            continue
+        version = str(raw_version)
+        checked_lanes.append(lane_name)
+        match = WORKSPACE_LOCAL_VERSION_RE.match(version)
+        lane_sha = match.group("sha") if match else ""
+        is_dirty = version.endswith("-dirty") or bool(
+            match is not None and match.group("dirty")
+        )
+        if is_dirty:
+            dirty_lanes.append(lane_name)
+            if enforce_current_artifact:
+                blockers.append(
+                    f"benchmark manifest lane_versions[{lane_name!r}] is dirty: {version!r}"
+                )
+        if lane_sha and expected_sha and not expected_sha.startswith(lane_sha):
+            mismatched_lanes.append(lane_name)
+            if enforce_current_artifact:
+                blockers.append(
+                    f"benchmark manifest lane_versions[{lane_name!r}] sha {lane_sha!r} "
+                    f"does not match shardloom_git_sha {expected_sha!r}"
+                )
+    return {
+        "checked_shardloom_lane_count": len(checked_lanes),
+        "dirty_shardloom_lanes": dirty_lanes,
+        "sha_mismatched_shardloom_lanes": mismatched_lanes,
+        "enforced": enforce_current_artifact,
+    }
+
+
 def validate_profile_and_rows(
     manifest: dict[str, Any],
     payload: dict[str, Any] | None,
@@ -1325,6 +1374,11 @@ def validate_publication_claim_gate(
         current_git_sha=current_git_sha,
         worktree_status=worktree_status,
     )
+    lane_version_provenance = validate_shardloom_lane_version_provenance(
+        manifest,
+        blockers,
+        enforce_current_artifact=require_current_git,
+    )
     row_report = validate_profile_and_rows(manifest, payload, blockers)
     return {
         "schema_version": SCHEMA_VERSION,
@@ -1334,6 +1388,7 @@ def validate_publication_claim_gate(
         "artifact_status": manifest.get("artifact_status"),
         "pre_5j_dependency_freshness": pre_5j_dependency,
         "freshness": freshness,
+        "lane_version_provenance": lane_version_provenance,
         **row_report,
         "blockers": blockers,
         "benchmark_run_performed": False,
