@@ -370,7 +370,6 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "vortex_scenario_scan_millis",
     "vortex_scenario_scan_micros",
     "scan_chunk_iter_micros",
-    "vortex_chunk_iteration_micros",
     "vortex_projected_field_extract_micros",
     "vortex_encoded_kernel_evidence_micros",
     "exclusive_vortex_scan_millis",
@@ -501,7 +500,6 @@ VORTEX_SCAN_SPLIT_MICROS_FIELDS = (
     "vortex_scan_open_micros",
     "vortex_scenario_scan_micros",
     "scan_chunk_iter_micros",
-    "vortex_chunk_iteration_micros",
     "vortex_projected_field_extract_micros",
     "vortex_encoded_kernel_evidence_micros",
     "operator_kernel_micros",
@@ -6116,7 +6114,6 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         "vortex_open_footer_micros",
         "scan_open_micros",
         "scan_chunk_iter_micros",
-        "vortex_chunk_iteration_micros",
         "vortex_projected_field_extract_micros",
         "vortex_encoded_kernel_evidence_micros",
         "operator_kernel_micros",
@@ -18920,6 +18917,10 @@ def vortex_scan_attribution_stage_metrics(
             return micros_to_int(field)
         return parse_optional_int(evidence.get(field))
 
+    scan_chunk_iter_micros = micros("scan_chunk_iter_micros")
+    if scan_chunk_iter_micros is None:
+        scan_chunk_iter_micros = micros("vortex_chunk_iteration_micros")
+
     metrics = {
         "vortex_footer_open_millis": millis("vortex_footer_open_micros"),
         "vortex_footer_open_micros": micros("vortex_footer_open_micros"),
@@ -18929,8 +18930,7 @@ def vortex_scan_attribution_stage_metrics(
         "vortex_scan_open_micros": micros("vortex_scan_open_micros"),
         "vortex_scenario_scan_millis": millis("vortex_scenario_scan_micros"),
         "vortex_scenario_scan_micros": micros("vortex_scenario_scan_micros"),
-        "scan_chunk_iter_micros": micros("scan_chunk_iter_micros"),
-        "vortex_chunk_iteration_micros": micros("vortex_chunk_iteration_micros"),
+        "scan_chunk_iter_micros": scan_chunk_iter_micros,
         "vortex_projected_field_extract_micros": micros(
             "vortex_projected_field_extract_micros"
         ),
