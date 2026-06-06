@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-INNOV-5 clean timing rerun and ShardLoom CLI warmup attribution
+  - Date: 2026-06-06
+  - Branch/PR: `codex/perf-runtime-optimization` / pending PR.
+  - Source:
+    - User report that recent timing changes looked roughly 50% slower.
+    - Active `PERF-INNOV-5` requirement to rerun clean timing evidence and reduce refreshed
+      warm/native scan or operator outliers above 10 ms.
+    - Local artifacts `target/codex-perf-runtime-optimization.json` and
+      `target/codex-perf-runtime-optimization-warm.json`.
+    - `benchmarks/traditional_analytics/run.py` and `python/tests/test_release_scripts.py`.
+  - Scope:
+    - Ran a clean merged-main scoped benchmark on `efee336a` over parquet/jsonl/avro group-by,
+      distinct-count, and hash-join rows across `shardloom-vortex`,
+      `shardloom-prepared-vortex`, and `shardloom-prepare-batch`.
+    - Confirmed no warm query route, scan, operator, or evidence-render field exceeded 10 ms in
+      that scoped matrix; all successful ShardLoom query runtimes stayed below 1 ms.
+    - Identified the remaining visible spike as first ShardLoom CLI process cold-start overhead
+      contaminating the first preparation cell rather than a steady-state parquet preparation,
+      scan, or operator regression.
+    - Added a ShardLoom CLI runner warmup hook that executes side-effect-free
+      `status --format json` before benchmark preparation/query timing and rejects any warmup that
+      reports fallback execution.
+  - Evidence:
+    - Clean pre-change merged-main artifact `target/codex-perf-runtime-optimization.json`
+      reported query-runtime geomeans of `0.5916 ms` for `shardloom-vortex`, `0.5884 ms` for
+      `shardloom-prepared-vortex`, and `0.5769 ms` for `shardloom-prepare-batch`; scan and
+      operator geomeans were about `0.15 ms` and `0.32 ms`.
+    - The same clean artifact showed no warm route/operator/scan/evidence fields above 10 ms, but
+      showed first-run `shardloom-vortex` parquet `preparation_millis=866.8762`.
+    - Direct repeated preparation probes showed steady parquet compatibility preparation at about
+      `27-32 ms`, and direct command evidence decomposed parquet ingest to about `25 ms`
+      end-to-end with Vortex segment write around `22 ms`.
+    - Dirty post-change triage artifact `target/codex-perf-runtime-optimization-warm.json`
+      reduced `shardloom-vortex` preparation geomean from `126.6593 ms` to `41.3975 ms` and moved
+      the one-time cold cost into `startup_warmup_millis=803.6612`, with warm query/operator timings
+      still sub-ms.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_runner_warms_shardloom_cli_with_status_command python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_runner_rejects_fallback_during_shardloom_cli_warmup python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_runner_canonicalizes_scan_chunk_iteration_alias`
+      passed.
+  - Benchmark boundary:
+    - The clean merged-main rerun is scoped optimization triage evidence only. The post-change
+      rerun is dirty by design because it includes this unmerged harness change, so it cannot update
+      public benchmark rows or support a performance claim.
+  - Claim boundary:
+    - Claim is limited to identifying and fixing benchmark attribution of ShardLoom CLI cold
+      startup versus steady preparation/query timing. Performance superiority, Spark-displacement,
+      production readiness, package-release, and public benchmark publication claims remain
+      blocked until a clean post-merge artifact is generated and claim gates pass.
+  - Fallback boundary:
+    - The warmup command is side-effect-free status metadata and validates `fallback.attempted=false`.
+      Benchmark execution remains ShardLoom-native; no external query engine or Vortex query-engine
+      integration executed unsupported ShardLoom work as fallback.
+
 - [x] Session label: PERF-INNOV-6 scan-iteration alias canonicalization and slowdown triage
   - Date: 2026-06-06
   - Branch/PR: `codex/perf-timing-attribution-optimization` / pending PR.

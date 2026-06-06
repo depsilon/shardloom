@@ -4186,6 +4186,7 @@ def shardloom_runner() -> EngineRunner:
             for scenario in SHARDLOOM_EXECUTABLE_SCENARIOS
         },
         formats=FORMAT_ORDER,
+        warmup=lambda: shardloom_cli_warmup(binary, root, env),
         build_time_millis=SHARDLOOM_BUILD_TIMINGS.get(str(binary)),
     )
 
@@ -4369,6 +4370,7 @@ def shardloom_direct_transient_runner() -> EngineRunner:
             ),
         },
         formats=FORMAT_ORDER,
+        warmup=lambda: shardloom_cli_warmup(binary, root, env),
         build_time_millis=SHARDLOOM_BUILD_TIMINGS.get(str(binary)),
     )
 
@@ -5949,6 +5951,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         formats=FORMAT_ORDER,
         batch_scenarios=run_batch_scenarios,
         prepare=None if single_process_prepare_batch else prepare,
+        warmup=lambda: shardloom_cli_warmup(binary, root, env),
         build_time_millis=SHARDLOOM_BUILD_TIMINGS.get(str(binary)),
     )
 
@@ -6002,6 +6005,33 @@ def prepare_runner(
         startup_time_millis=runner.startup_time_millis,
         preparation_time_millis=round(prepare_time, 4),
     )
+
+
+def shardloom_cli_warmup(binary: Path, root: Path, env: dict[str, str]) -> None:
+    completed = subprocess_run(
+        [str(binary), "status", "--format", "json"],
+        root,
+        env,
+    )
+    if completed["returncode"] != 0:
+        raise BenchmarkUnsupported(
+            "ShardLoom CLI warmup failed before benchmark timing began: "
+            + (completed["stderr"] or completed["stdout"] or "unknown failure")
+        )
+    try:
+        payload = json.loads(completed["stdout"].splitlines()[0])
+    except (json.JSONDecodeError, IndexError) as exc:
+        raise BenchmarkUnsupported(
+            f"ShardLoom CLI warmup emitted invalid JSON: {exc}"
+        ) from exc
+    if payload.get("status") != "success":
+        raise BenchmarkUnsupported(
+            "ShardLoom CLI warmup did not report success: "
+            + str(payload.get("status", "missing"))
+        )
+    fallback = payload.get("fallback") or {}
+    if fallback.get("attempted") is not False:
+        raise BenchmarkUnsupported("ShardLoom CLI warmup reported fallback execution")
 
 
 def round_float(value: Any) -> float:

@@ -317,11 +317,22 @@ completed base slice, while unchecked rows define the remaining optimization wor
       and clean/cast/filter/write routes did not reproduce the stale public artifact's 30 ms
       operator rows: successful warm/native group-by operator kernels were below 0.8 ms, scan was
       below 0.5 ms, and the remaining visible cost was process/harness wall time around 15-18 ms.
-    - [ ] Remaining: rerun a clean benchmark artifact from a non-dirty workspace, compare against
-      the pre-`PERF-INNOV-5` baseline, and continue reducing any refreshed warm/native route
-      totals or operator-kernel rows still above 10 ms. Current checked-in evidence cannot support
-      a performance claim because the latest artifact records dirty ShardLoom lane versions and
-      mismatched lane/manifest SHAs.
+    - [x] A clean merged-main scoped rerun on `efee336a`
+      (`target/codex-perf-runtime-optimization.json`) over parquet/jsonl/avro group-by, distinct,
+      and hash-join rows found no warm route, scan, operator, or evidence-render field above 10 ms;
+      all successful ShardLoom query runtimes stayed below 1 ms.
+    - [x] The benchmark harness now runs a side-effect-free ShardLoom CLI `status --format json`
+      warmup before ShardLoom preparation/query timing, so first-process cold startup is visible in
+      `startup_warmup_millis` instead of contaminating the first preparation cell. Dirty post-change
+      triage artifact `target/codex-perf-runtime-optimization-warm.json` moved the one-time
+      `shardloom-vortex` parquet setup spike from `preparation_millis` into startup/warmup while
+      preserving sub-ms warm query/operator timings.
+    - [ ] Remaining: after this harness attribution fix merges, rerun a clean non-dirty benchmark
+      artifact, compare against the pre-`PERF-INNOV-5` baseline, and continue reducing any refreshed
+      warm/native route totals, startup/process harness cells, preparation cells, or
+      operator-kernel rows still above 10 ms. Current checked-in evidence cannot support a
+      performance claim because the latest published artifact records dirty ShardLoom lane versions
+      and mismatched lane/manifest SHAs.
   - Runtime enablement: prepared/native Vortex scan route -> file/source metadata reuse decision ->
     scan/chunk/operator/finalization substage evidence -> benchmark optimization readiness.
   - Objective: explain and then reduce per-row scan/operator outliers above 10 ms without
