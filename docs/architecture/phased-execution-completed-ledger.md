@@ -16,6 +16,710 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6A gate-surface correction and RELEASE-SEQUENCE-14
+      maintainer handoff
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `GAR-RUNTIME-IMPL-6A` and `RELEASE-SEQUENCE-14` in
+      `docs/architecture/phased-execution-plan.md`.
+    - `scripts/check_compute_engine_completion_gate.py`,
+      `target/compute-engine-completion-gate-rs13.json`, release rehearsal evidence, package
+      channel readiness matrix, and publication/API/schema stability gate.
+  - Scope:
+    - Corrected the compute-engine completion gate so `hot_runtime` / `metadata_sink` rows are not
+      required to carry publication-proof `claim_grade` status.
+    - Kept publication-proof rows fail-closed for `claim_gate_status=claim_grade`.
+    - Split known optimization-only benchmark statuses from residual runtime blockers:
+      `operator_hot_path_candidate_status`, `source_read_scout_reuse_status`,
+      `source_read_scout_timing_split_status`, and `vortex_reopen_verify_split_status` are now
+      counted under `optimization_claim_blocker_*` fields instead of blocking route support,
+      publication proof, or no-fallback completion status.
+    - Added `docs/release/maintainer-publication-handoff.md` as the single
+      `RELEASE-SEQUENCE-14` handoff packet for maintainers, including current artifact refs,
+      SBOM/checksum/provenance refs, package-channel blockers, claim boundaries, approval record,
+      rerun commands, rollback/approval requirements, and explicit no-publication limits.
+  - Evidence:
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m py_compile scripts/check_compute_engine_completion_gate.py python/tests/test_compute_engine_completion_gate.py`
+      passed.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_compute_engine_completion_gate`
+      passed with 5 tests.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete --output target/compute-engine-completion-gate-rs13.json`
+      refreshed the 6A report before the final checkbox closeout with `phase_plan_unchecked_count=1`,
+      `global_review_unchecked_count=38`, `top_level_blocker_count=0`,
+      `residual_blocker_count=0`, and `optimization_claim_blocker_count=2880`.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_compute_engine_completion_gate.py --output target/compute-engine-completion-gate-rs13.json`
+      passed strictly after the final 6A checkbox closeout with `phase_plan_unchecked_count=0`,
+      `completion_claim_allowed=true`, 38 global review rows mapped to runtime gap-family claim
+      boundaries, `top_level_blocker_count=0`, `residual_blocker_count=0`, and
+      `optimization_claim_blocker_count=2880`.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_release_architecture_tracker.py --output target/release-architecture-tracker-report.json`
+      passed with `unchecked_phase_plan_count=0`,
+      `global_review_mapping_status=mapped_to_runtime_gap_family_claim_boundaries`,
+      `global_review_unchecked_rows_block_release=false`, and public release/package claims still
+      false.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/final_release_rehearsal.py`
+      passed as a strict no-publication rehearsal with `publication_human_approved=false`,
+      `publication_attempted=false`, `tag_created=false`, `secrets_required=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_release_readiness.py --allow-blocked --validation-evidence target/release-validation-evidence-rs13-configured.json --output target/hard-release-readiness-gate-rs13-configured.json`
+      still fails closed for public release/package readiness because package channels,
+      publication/API/schema stability, per-claim evidence, current benchmark freshness, strict
+      benchmark publication validation, and maintainer approval remain blocked.
+  - Remaining blockers:
+    - No unchecked phase-plan items remain. 6A is closed for the mapped completion-gate scope.
+    - Hard release readiness remains blocked by package channels not ready, publication/API/schema
+      stability, not-claim-grade per-claim evidence, benchmark freshness for current `HEAD`, strict
+      benchmark publication validation, and missing maintainer approval.
+    - Optimization-only rows remain visible for encoded-native promotion and timing-attribution
+      work, but they do not authorize performance, encoded-native, production, package, or
+      Spark-replacement claims.
+  - Claim boundary:
+    - This closes the RS14 handoff packet only. It does not approve publication, create a tag, sign
+      artifacts, upload packages/assets/SBOMs, submit feedstocks/manifests, mark package channels
+      ready, or allow public release/package/performance/production/platform claims.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution is introduced. Release evidence continues to preserve
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
+- [x] Session label: RELEASE-SEQUENCE-13 release CI, validation evidence, hard gate, and final rehearsal
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-13` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/release/hard-release-readiness-gate.md`, release validation evidence runner,
+      architecture tracker, final release rehearsal, production usability gate, and benchmark
+      publication claim gate.
+  - Scope:
+    - Fixed the local release evidence runner so package/Python gates can use an explicit Python
+      3.10+ executable, dependency audit can use the prepared `pip-audit` Python, clean Conda proof
+      can be passed through, and security posture evidence is produced before the release-security
+      aggregate.
+    - Recorded configured RS13 evidence with bundled Python 3.12, prepared `pip-audit`, and
+      micromamba clean-Conda proof.
+    - Closed RS13 as fail-closed validation evidence: the hard gate now blocks only on real
+      release/publication/architecture/benchmark-freshness blockers, not missing local package
+      tooling.
+  - Evidence:
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_release_validation_evidence_uses_configured_python_and_conda python.tests.test_release_scripts.ReleaseScriptTests.test_release_validation_evidence_records_security_posture_and_pip_audit_env python.tests.test_release_scripts.ReleaseScriptTests.test_release_readiness_accepts_configured_dry_run_command_evidence`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/run_release_validation_evidence.py --continue-on-failure --python-executable /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 --pip-audit-python /Users/dylan/Documents/shardloom-local-repo/target/release-audit-venv/bin/python --require-clean-conda --conda-executable /opt/homebrew/bin/micromamba --output target/release-validation-evidence-rs13-configured.json`
+      completed with `feature_build_matrix_status=passed`,
+      `supporting_security_dependency_status=passed`, clean venv and clean Conda dry-run proof
+      passing, and exactly one failed required command:
+      `benchmark_publication_claim_gate`.
+    - `target/release-dry-run-proof/transcript.json` passed with
+      `clean_venv_install_status=passed`, `clean_conda_env_install_status=passed`,
+      `wheel_import_and_client_smoke_performed=true`,
+      `generated_source_user_rows_smoke_performed=true`,
+      `generated_source_range_smoke_performed=true`, `provenance_dry_run_performed=true`, and
+      `sbom_checksum_manifest_generated=true`.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_release_readiness.py --validation-evidence target/release-validation-evidence-rs13-configured.json --output target/hard-release-readiness-gate-rs13-configured.json`
+      failed closed with `public_release_claim_allowed=false`.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete --output target/compute-engine-completion-gate-rs13.json`
+      wrote the 6A blocker inventory.
+  - Remaining blockers:
+    - Hard release readiness remains blocked by unapproved package channels, publication/API/schema
+      stability, not-claim-grade per-claim evidence, `GAR-RUNTIME-IMPL-6A`, `RELEASE-SEQUENCE-14`,
+      and benchmark publication freshness because the published manifest SHA predates current
+      `HEAD` and the worktree is dirty.
+    - At RS13 closeout, before the follow-up 6A gate-surface correction above, 6A was still
+      blocked by 38 global review rows, 2 phase-plan rows, 600 top-level benchmark claim/runtime
+      blockers, and 3000 residual benchmark substatus blockers. The current inventory is recorded
+      in the newer 6A/RS14 ledger entry above.
+  - Claim boundary:
+    - RS13 is release-validation evidence only. It does not approve publication, package channels,
+      production readiness, performance superiority, Spark replacement, or whole-engine completion.
+  - Fallback boundary:
+    - The configured evidence reports preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`; external engines remain baselines/test oracles only.
+
+- [x] Session label: RELEASE-SEQUENCE-12 documentation, website, unsupported-path, and per-claim evidence closeout
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-12` in `docs/architecture/phased-execution-plan.md`.
+    - Website readiness validator, static website assets, benchmark publication claim gate,
+      per-claim evidence matrix, known unsupported paths, and live pre-5J dependency freshness
+      preflight.
+  - Scope:
+    - Closed docs/website claim-boundary evidence for the current branch without refreshing the full
+      benchmark artifact.
+    - Confirmed website readiness and static assets pass.
+    - Confirmed benchmark artifact content/wiring is internally coherent when used for inspection
+      with live dependency freshness attached and stale/dirty freshness enforcement explicitly
+      relaxed.
+    - Preserved the strict benchmark publication gate as blocked until a clean-tree benchmark
+      artifact refresh because the published manifest SHA predates current `HEAD` and the worktree
+      is dirty.
+  - Evidence:
+    - `python3 scripts/check_website_readiness.py --output target/website-readiness-release-sequence-12.json`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js`
+      passed.
+    - `python3 scripts/check_pre_5j_dependency_freshness.py --require-live-github --output target/pre-5j-dependency-freshness-release-sequence-12.json`
+      passed with `benchmark_refresh_dependency_gate_status=passed`.
+    - Strict `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-publication-claim-gate-release-sequence-12.json`
+      remained blocked because the benchmark manifest SHA predates current `HEAD` and the worktree
+      is dirty.
+    - Inspection
+      `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --pre-5j-dependency-report target/pre-5j-dependency-freshness-release-sequence-12.json --allow-stale-git --allow-dirty-worktree --output target/benchmark-publication-claim-gate-release-sequence-12-inspection.json`
+      passed with `artifact_status=complete`, `missing_publication_formats=[]`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Claim boundary:
+    - Docs/website/per-claim evidence alignment only. This does not claim benchmark freshness,
+      performance superiority, package/public release readiness, production readiness, or Spark
+      replacement.
+  - Fallback boundary:
+    - Website and benchmark inspection are evidence surfaces only and do not run fallback engines.
+
+- [x] Session label: RELEASE-SEQUENCE-11 publication-grade SBOM, checksum, signing, and attestation decision
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-11` in `docs/architecture/phased-execution-plan.md`.
+    - SBOM generation plan, release provenance dry-run evidence, release security gate, supply-chain
+      response plan, and publication/API/schema stability gate.
+  - Scope:
+    - Closed the current release-candidate decision as local dry-run SBOM/checksum evidence with
+      signing and public attestations blocked until maintainer approval and key-custody policy
+      exist.
+    - Refreshed local provenance evidence without rebuilding artifacts.
+    - Aggregated dependency/security/provenance evidence through the release security gate.
+  - Evidence:
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/release_provenance_dry_run.py --skip-build --output-dir target/release-provenance-dry-run-rs11`
+      passed and produced `supply-chain-release-evidence.json` with three artifact refs, three SBOM
+      refs, one checksum manifest, zero attestation refs,
+      `provenance_status=dry_run_unsigned_local_evidence`,
+      `signed_or_attested_status=not_signed_local_dry_run`, `publication_attempted=false`,
+      `tag_created=false`, `secrets_required=false`, and `fallback_dependency_absent=true`.
+    - `python3 scripts/check_release_security_gate.py --dependency-audit-report target/dependency-audit-report-rs5.json --provenance-report target/release-provenance-dry-run-rs11/supply-chain-release-evidence.json --security-posture-report target/security-posture-report-rs5.json --output target/release-security-gate-report-rs11.json`
+      passed with no blockers, `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Claim boundary:
+    - Local SBOM/checksum/signing decision only. This does not sign artifacts, create public
+      attestations, upload SBOMs/checksums, publish packages, create tags, or approve public release.
+  - Fallback boundary:
+    - Supply-chain evidence confirms no forbidden fallback-engine runtime dependency was introduced.
+
+- [x] Session label: RELEASE-SEQUENCE-10 container and future Rust public-crate channel proof
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-10` in `docs/architecture/phased-execution-plan.md`.
+    - Package-channel readiness matrix, Cargo workspace metadata, release provenance dry-run
+      evidence, and package-channel validator.
+  - Scope:
+    - Closed the current-release decision for GHCR and future crates.io channels.
+    - Recorded GHCR as not included in the current release candidate: Docker is unavailable locally,
+      no image build/SBOM/provenance/vulnerability scan/pull-run-smoke/digest exists, and no
+      maintainer approval exists.
+    - Recorded crates.io as not included in the current release candidate: cargo metadata confirms
+      current workspace crates remain unpublished, future public protocol/client crates are not
+      extracted, API/schema stability still blocks public crates, and no `cargo publish --dry-run`
+      applies yet.
+  - Evidence:
+    - `cargo metadata --no-deps --format-version 1` showed current workspace crates have empty
+      publish lists (`publish=false` posture).
+    - `python3 scripts/check_package_channel_readiness.py --require-local-evidence --dependency-audit-report target/dependency-audit-report-rs5.json --release-dry-run-transcript target/release-dry-run-proof/transcript.json --provenance-report target/release-provenance-dry-run/supply-chain-release-evidence.json --output target/package-channel-readiness-release-sequence-10.json`
+      passed with `public_package_release_claim_allowed=false`, `publication_attempted=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Claim boundary:
+    - Channel decision proof only. This does not build or push an OCI image, create a Dockerfile or
+      image workflow, extract public Rust crates, run `cargo publish --dry-run`, publish crates,
+      approve package channels, or allow public package claims.
+  - Fallback boundary:
+    - GHCR/crates.io channel decisions add no runtime dependency and do not permit fallback-engine
+      execution.
+
+- [x] Session label: RELEASE-SEQUENCE-9 CLI installer channel proof for Homebrew, Scoop, winget, and conda-forge
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-9` in `docs/architecture/phased-execution-plan.md`.
+    - Package-channel readiness matrix, Conda recipe scaffolds, release dry-run proof, and
+      package-channel validator.
+  - Scope:
+    - Closed installer-channel preparation evidence without submitting Homebrew, Scoop, winget, or
+      conda-forge artifacts.
+    - Validated local Conda recipe scaffold contracts.
+    - Updated Homebrew, Scoop, winget, and conda-forge matrix rows to attach local CLI/build/smoke,
+      checksum/provenance, and Conda recipe/clean-Conda refs where applicable while keeping all
+      installer channels blocked until channel-specific formula/manifest/feedstock submissions,
+      clean install/uninstall/smoke transcripts, and maintainer approval exist.
+  - Evidence:
+    - `cargo test -p shardloom-contract-tests --test conda_packaging_recipes` passed.
+    - `python3 scripts/check_package_channel_readiness.py --require-local-evidence --dependency-audit-report target/dependency-audit-report-rs5.json --release-dry-run-transcript target/release-dry-run-proof/transcript.json --provenance-report target/release-provenance-dry-run/supply-chain-release-evidence.json --output target/package-channel-readiness-release-sequence-9.json`
+      passed with `public_package_release_claim_allowed=false`, `publication_attempted=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Claim boundary:
+    - Installer-channel preparation only. This does not create a Homebrew tap formula, Scoop bucket
+      manifest, winget manifest, conda-forge staged-recipes/feedstock submission, public package
+      claim, production claim, or release approval.
+  - Fallback boundary:
+    - Local installer evidence and Conda recipe scaffolds do not add Spark, DataFusion, DuckDB,
+      Polars, pandas, Dask, Velox, Trino, or another external engine as a ShardLoom runtime
+      dependency or fallback.
+
+- [x] Session label: RELEASE-SEQUENCE-8 Python package channel proof for TestPyPI and PyPI
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-8` in `docs/architecture/phased-execution-plan.md`.
+    - Python package metadata, draft PyPI publish workflow, package-channel readiness matrix,
+      release dry-run proof, provenance/SBOM/checksum evidence, and package-channel validator.
+  - Scope:
+    - Closed local Python package-channel evidence without uploading to TestPyPI or PyPI.
+    - Rebuilt the local Python wheel/sdist and validated metadata with `twine check`.
+    - Updated the TestPyPI and PyPI matrix rows to attach prepared local artifact, clean
+      install-smoke, checksum, SBOM, provenance, and draft OIDC workflow refs while keeping both
+      registry channels blocked until Trusted Publisher proof, upload proof, registry clean
+      install/uninstall/smoke transcript, and maintainer approval exist.
+  - Evidence:
+    - `python3 -m build python` passed and built `shardloom-0.1.0.dev0.tar.gz` plus
+      `shardloom-0.1.0.dev0-py3-none-any.whl`.
+    - `target/twine-check-venv/bin/python -m twine check python/dist/*` passed for both artifacts.
+    - `target/release-provenance-dry-run/workflow-policy-snapshot.json` records
+      `workflow_dispatch_only=true`, `publish_approval_input=true`, `protected_environment=true`,
+      `oidc_id_token_write=true`, `least_privilege_permissions=true`,
+      `long_lived_token_configured=false`, and
+      `third_party_action_pin_status=waived_until_real_publication`.
+    - `python3 scripts/check_package_channel_readiness.py --require-local-evidence --dependency-audit-report target/dependency-audit-report-rs5.json --release-dry-run-transcript target/release-dry-run-proof/transcript.json --provenance-report target/release-provenance-dry-run/supply-chain-release-evidence.json --output target/package-channel-readiness-release-sequence-8.json`
+      passed with `public_package_release_claim_allowed=false`, `publication_attempted=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Claim boundary:
+    - Python package-channel preparation only. This does not configure Trusted Publisher on
+      TestPyPI/PyPI, upload artifacts, perform public registry install smokes, approve package
+      publication, or allow public package claims.
+  - Fallback boundary:
+    - Package evidence adds no runtime dependency and does not allow any fallback-engine execution.
+
+- [x] Session label: RELEASE-SEQUENCE-7 GitHub pre-release channel proof
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-7` in `docs/architecture/phased-execution-plan.md`.
+    - Package-channel readiness matrix, package-channel readiness validator, release dry-run proof,
+      local provenance/SBOM/checksum evidence, and final no-publication rehearsal.
+  - Scope:
+    - Prepared the GitHub pre-release channel packet without creating a GitHub release or tag.
+    - Updated the GitHub pre-release matrix row to attach prepared local artifact, install-smoke,
+      checksum, SBOM, and provenance refs while keeping `ready=false` and the channel blocked until
+      an approved release tag, GitHub release object/assets, `gh release download` transcript, and
+      maintainer approval exist.
+    - Refreshed the local package-channel and final no-publication rehearsal evidence for this
+      channel boundary.
+  - Evidence:
+    - `python3 scripts/check_package_channel_readiness.py --require-local-evidence --dependency-audit-report target/dependency-audit-report-rs5.json --release-dry-run-transcript target/release-dry-run-proof/transcript.json --provenance-report target/release-provenance-dry-run/supply-chain-release-evidence.json --output target/package-channel-readiness-release-sequence-7.json`
+      passed with `local_gate_evidence_status=passed`, `public_package_release_claim_allowed=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `python3 scripts/check_contribution_governance.py --output target/contribution-governance-report-rs7.json`
+      passed.
+    - `python3 scripts/check_release_architecture_tracker.py --allow-blocked --output target/release-architecture-tracker-release-sequence-7.json`
+      wrote a fail-closed report with no publication/package claim allowed.
+    - `python3 scripts/check_golden_workflows.py --features vortex-write,vortex-local-primitives --output target/golden-workflow-report-rs7.json --work-dir target/golden-workflows-rs7`
+      passed.
+    - `python3 scripts/final_release_rehearsal.py --allow-blocked --output-dir target/final-release-rehearsal-rs7 --provenance-manifest target/release-provenance-dry-run/manifest.json --provenance-report target/release-provenance-dry-run/supply-chain-release-evidence.json --release-security-report target/release-security-gate-report-rs5.json --contribution-governance-report target/contribution-governance-report-rs7.json --golden-workflow-report target/golden-workflow-report-rs7.json --admitted-semantics-report target/admitted-semantics-matrix-report-orc-blockers.json --architecture-tracker-report target/release-architecture-tracker-release-sequence-7.json --package-channel-report target/package-channel-readiness-release-sequence-7.json`
+      wrote a local no-publication rehearsal with package artifact refs, SBOM refs, checksum refs,
+      `publication_attempted=false`, `tag_created=false`, `secrets_required=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`; it remains blocked by the
+      architecture tracker until later phase-plan/global-review closeout.
+  - Claim boundary:
+    - GitHub pre-release preparation only. This does not create a GitHub release, tag, release
+      asset, package publication, public release claim, public package claim, production claim,
+      performance claim, or Spark-replacement claim.
+  - Fallback boundary:
+    - The channel proof reuses local ShardLoom dry-run and provenance evidence and adds no runtime
+      fallback dependency or external engine execution.
+
+- [x] Session label: RELEASE-SEQUENCE-6 local build, install, first-10-minutes, and clean Conda proof
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-6` in `docs/architecture/phased-execution-plan.md`.
+    - Release dry-run proof script, first-10-minutes smoke docs, package-channel readiness report,
+      production-usability gate, and local Conda proof requirements.
+  - Scope:
+    - Closed the local no-publication build/install proof for the current release candidate.
+    - Built the CLI and Python artifacts, installed the local wheel in a clean venv, installed the
+      same wheel in a clean Conda-style environment, ran CLI status/capabilities, ran the local
+      Python first-10-minutes smoke, ran generated-source output smokes, ran the local Vortex
+      benchmark smoke, and regenerated local provenance/SBOM/checksum dry-run evidence.
+    - Installed Homebrew `micromamba` for local release-proof tooling and passed it explicitly to
+      the dry-run script. This is not a ShardLoom runtime dependency.
+  - Evidence:
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/release_dry_run_proof.py --rows 64 --iterations 1 --require-clean-conda --conda-executable /opt/homebrew/bin/micromamba`
+      passed and wrote `target/release-dry-run-proof/transcript.json` with `proof_status=passed`,
+      `clean_venv_install_status=passed`, `clean_conda_env_install_status=passed`,
+      `clean_conda_env_install_required=true`, all 12 required steps passing,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `python3 scripts/check_package_channel_readiness.py --require-local-evidence --dependency-audit-report target/dependency-audit-report-rs5.json --release-dry-run-transcript target/release-dry-run-proof/transcript.json --provenance-report target/release-provenance-dry-run/supply-chain-release-evidence.json --output target/package-channel-readiness-release-sequence-6.json`
+      passed with `local_gate_evidence_status=passed`, `public_package_release_claim_allowed=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `python3 scripts/check_production_usability_gate.py --release-dry-run-transcript target/release-dry-run-proof/transcript.json --package-channel-report target/package-channel-readiness-release-sequence-6.json --release-security-report target/release-security-gate-report-rs5.json --output target/production-usability-gate-release-sequence-6.json`
+      remained blocked only by `missing final release rehearsal report`, which is owned by
+      `RELEASE-SEQUENCE-13`.
+  - Claim boundary:
+    - Local install/usability proof only. This does not approve public package publication,
+      GitHub releases, package-manager channels, signing, public attestation, production claims,
+      performance claims, or Spark-replacement claims.
+  - Fallback boundary:
+    - The clean venv/Conda proofs install the local ShardLoom wheel and run ShardLoom smokes with
+      `fallback_attempted=false` and `external_engine_invoked=false`. `micromamba` is release proof
+      tooling only.
+
+- [x] Session label: RELEASE-SEQUENCE-5 dependency, license, security, and provenance preflight
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-5` in `docs/architecture/phased-execution-plan.md`.
+    - Dependency audit tooling, release security gate, open-source security posture report,
+      release provenance dry-run evidence, and supply-chain response docs.
+  - Scope:
+    - Closed the release candidate dependency/license/security/provenance preflight with local
+      no-publication evidence.
+    - Fixed the pip-audit packaging/dev resolver so configured Python interpreters are executed
+      directly. This preserves macOS venv behavior where `bin/python` is a symlink to a base Python
+      but still activates the venv's `pyvenv.cfg` and site-packages when invoked through the venv
+      path.
+    - Generated a clean temporary `target/release-audit-venv` from bundled Python 3.12 for pip-audit
+      evidence because the earlier twine-check venv had a broken pip installation.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_dependency_audit_resolves_configured_pip_audit_python python.tests.test_release_scripts.ReleaseScriptTests.test_dependency_audit_resolves_path_pip_audit_when_current_python_lacks_module python.tests.test_release_scripts.ReleaseScriptTests.test_dependency_audit_probes_symlinked_python_by_executing_it`
+      passed.
+    - `env SHARDLOOM_PIP_AUDIT_PYTHON=/Users/dylan/Documents/shardloom-local-repo/target/release-audit-venv/bin/python python3 scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report-rs5.json`
+      passed with `cargo_deny_status=passed`, `cargo_audit_status=passed`,
+      `pip_audit_status=passed`, `advisory_status=passed`, and
+      `fallback_dependency_absent=true`.
+    - `python3 scripts/check_security_posture.py --json-output target/security-posture-report-rs5.json`
+      passed with `fallback_attempted=false` and `external_engine_invoked=false`.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/release_provenance_dry_run.py --output-dir target/release-provenance-dry-run-rs5`
+      passed and produced `supply-chain-release-evidence.json`, local SBOM refs, and checksum refs.
+    - `python3 scripts/check_release_security_gate.py --dependency-audit-report target/dependency-audit-report-rs5.json --provenance-report target/release-provenance-dry-run-rs5/supply-chain-release-evidence.json --security-posture-report target/security-posture-report-rs5.json --output target/release-security-gate-report-rs5.json`
+      passed with no blockers, `publication_attempted=false`, `tag_created=false`,
+      `secrets_required=false`, `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Claim boundary:
+    - Security/provenance subgate evidence only. This does not approve package upload, release tags,
+      signing, public attestation, public package claims, production claims, performance claims, or
+      Spark-replacement claims.
+  - Fallback boundary:
+    - Dependency audit confirms no forbidden fallback-engine runtime dependency was introduced.
+      External engines remain benchmark baselines or comparison-only references, not ShardLoom
+      execution.
+
+- [x] Session label: RELEASE-SEQUENCE-4 package identity, version, metadata, and release-note audit
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-4` in `docs/architecture/phased-execution-plan.md`.
+    - Python package metadata, Rust workspace metadata, package-name readiness docs, package metadata
+      audit docs, Conda package split docs, and package-channel readiness validator.
+  - Scope:
+    - Closed local package identity/metadata audit for the current pre-release package posture.
+    - Built local Python wheel/sdist artifacts and validated their metadata without upload.
+    - Confirmed package-channel readiness stays local/evidence-only with
+      `public_package_release_claim_allowed=false`.
+  - Evidence:
+    - `python3 -m build python` passed and built `shardloom-0.1.0.dev0.tar.gz` plus
+      `shardloom-0.1.0.dev0-py3-none-any.whl`.
+    - `target/twine-check-venv/bin/python -m twine check python/dist/*` passed for the local wheel and
+      sdist artifacts; the venv is local under `target/`.
+    - `python3 scripts/check_package_channel_readiness.py --require-local-evidence --output target/package-channel-readiness-release-sequence-4.json`
+      passed with `public_package_release_claim_allowed=false`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `cargo test --workspace --all-targets` passed.
+  - Claim boundary:
+    - Local metadata/package artifact proof only. This does not approve TestPyPI, PyPI, GitHub
+      release, Homebrew, Scoop, winget, conda-forge, GHCR, crates.io, release tags, package uploads,
+      or public package claims.
+  - Fallback boundary:
+    - Package metadata and local build proof add no runtime fallback dependency and do not invoke any
+      external engine.
+
+- [x] Session label: RELEASE-SEQUENCE-3 API, CLI, schema, and typed-envelope stability decision
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-3` in `docs/architecture/phased-execution-plan.md`.
+    - Publication/API/schema stability gate, typed envelope docs, release-readiness metadata tests,
+      and Python release-script tests.
+  - Scope:
+    - Closed the stability decision as fail-closed: Rust, CLI, Python, JSON, benchmark, diagnostic,
+      and capability surfaces remain experimental or internally versioned unless a later maintainer
+      approval explicitly grants a public compatibility window.
+    - Kept the publication/API/schema stability gate blocked for public stability claims.
+    - Updated the benchmark publish doctor release-script test to expect the active
+      `GAR-RUNTIME-IMPL-6A` next implementation slice now that 6D is closed.
+  - Evidence:
+    - `cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publish_doctor_accepts_current_static_artifact`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts` passed
+      (`97` tests, `2` skipped).
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-matrix-report-orc-blockers.json --architecture-tracker-report target/release-architecture-tracker-after-rs1.json --production-usability-report target/production-usability-gate-generated-platform-closeout.json --runtime-gap-family-burn-down-report target/runtime-gap-family-burn-down-release-sequence-2.json --user-surface-runtime-gap-inventory-report target/user-surface-runtime-gap-inventory-release-sequence-2.json --user-route-capability-report target/user-route-capability-release-sequence-2.json --output target/hard-release-readiness-release-sequence-3.json`
+      remained blocked by later release evidence while preserving no-publication/no-fallback posture.
+  - Claim boundary:
+    - Stability decision only. This does not create a stable public API/schema compatibility promise,
+      public package claim, release claim, or production claim.
+  - Fallback boundary:
+    - Stability reports and release scripts remain diagnostic/evidence surfaces. No runtime fallback,
+      external engine execution, package upload, signing, or release tag is introduced.
+
+- [x] Session label: RELEASE-SEQUENCE-2 runtime-support blocker closeout for selected scope
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-2` in `docs/architecture/phased-execution-plan.md`.
+    - Runtime gap family burn-down, user-surface runtime gap inventory, user route capability,
+      runtime execution envelopes, and full workspace tests.
+  - Scope:
+    - Closed runtime-support blockers for the selected release scope by proving ShardLoom benchmark
+      rows are scoped runtime-supported, unsupported external baseline rows are classified as
+      comparison-only limitations, and runtime envelopes remain no-fallback.
+    - Fixed the release-readiness metadata contract drift from the admitted-semantics count update:
+      the contract now expects `matrix_row_count=129`, `executable_fixture_count=103`,
+      `diagnostic_case_count=24`, and `unsupported_diagnostic_count=22`.
+    - Left package/security/provenance, API stability, package-channel, final rehearsal, hard gate,
+      and approval work to later release-sequence items.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down-release-sequence-2.json`
+      passed with `claim_gate_status=not_claim_grade`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-release-sequence-2.json`
+      passed with `shardloom_row_count=1200`, `shardloom_unsupported_row_count=0`, and
+      `external_baseline_unsupported_row_count=6`.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-release-sequence-2.json`
+      passed with zero blockers.
+    - `python3 scripts/check_runtime_execution_envelopes.py --output target/runtime-execution-envelopes-release-sequence-2.json`
+      passed with `claim_gate_status=not_claim_grade`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed after the metadata count update.
+    - `cargo test --workspace --all-targets` passed.
+  - Claim boundary:
+    - Selected release-scope runtime support only. This does not claim broad production runtime,
+      package/public release readiness, benchmark superiority, or Spark replacement.
+  - Fallback boundary:
+    - Runtime rows remain either admitted ShardLoom execution or explicit comparison-only/external
+      baseline classification. No external engine, query-engine integration, or fallback execution is
+      introduced.
+
+- [x] Session label: RELEASE-SEQUENCE-1 release scope freeze and claim inventory closeout
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - `RELEASE-SEQUENCE-1` in `docs/architecture/phased-execution-plan.md`.
+    - Website readiness, release architecture tracker, hard release-readiness aggregate, per-claim
+      evidence matrix, known unsupported paths, and runs-today support matrix.
+  - Scope:
+    - Closed the release scope freeze as a no-publication/no-claim-upgrade inventory.
+    - Confirmed the current website/release wording remains fail-closed for public release, package,
+      production, performance, and Spark-replacement claims.
+    - Left runtime-support closeout, release security, package channels, local clean install proof,
+      final rehearsal, hard gate, and maintainer approval as later release-sequence items.
+  - Evidence:
+    - `python3 scripts/check_website_readiness.py --output target/website-readiness-release-sequence-1.json`
+      passed with zero blockers.
+    - `python3 scripts/check_release_architecture_tracker.py --allow-blocked --output target/release-architecture-tracker-release-sequence-1.json`
+      wrote an allowed-blocked report with `claim_gate_status=not_claim_grade`,
+      `public_release_claim_allowed=false`, `public_package_claim_allowed=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_release_readiness.py --admitted-semantics-report target/admitted-semantics-matrix-report-orc-blockers.json --architecture-tracker-report target/release-architecture-tracker-release-sequence-1.json --production-usability-report target/production-usability-gate-generated-platform-closeout.json --output target/hard-release-readiness-release-sequence-1-fresh.json`
+      remained blocked by later sequence evidence while preserving
+      `public_release_claim_allowed=false`, `public_package_claim_allowed=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Claim boundary:
+    - Scope inventory only. This does not approve publication, package release, production readiness,
+      performance claims, Spark replacement claims, or release tag creation.
+  - Fallback boundary:
+    - The release scope continues to require `fallback_attempted=false` and
+      `external_engine_invoked=false`; no fallback dependency or external engine execution is added.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D broad SQL grammar claim-boundary closeout
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - Admitted semantics matrix, SQL/Python/DataFrame parity report, user-route capability report,
+      and completed 6D SQL grammar ledger entries.
+  - Scope:
+    - Closed the active broad SQL queue as scoped grammar admission plus deterministic unsupported
+      diagnostics for non-admitted shapes.
+    - Preserved broad ANSI decimal coercion beyond exact exponent normalization, broader binary
+      execution/preservation beyond scoped source/cast/helper/byte-length routes, broad ANSI subquery
+      parity, ORC nested output, and ORC typed-decimal preservation as future provider-backed claim
+      boundaries.
+    - Kept fixture-backed unsupported diagnostics closed rather than reopening them as active runtime
+      blockers.
+  - Evidence:
+    - `python3 scripts/check_admitted_semantics_matrix.py --skip-build --output target/admitted-semantics-matrix-report-orc-blockers.json --work-dir target/admitted-semantics-matrix-orc-blockers`
+      passed with `matrix_row_count=129`, `executable_fixture_count=103`,
+      `diagnostic_case_count=24`, `unsupported_diagnostic_count=22`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-remaining-6d-closeout.json`
+      passed with `admitted_row_count=7`, `remaining_gap_count=4`, and precise runtime status for
+      every broad gap row.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-remaining-6d-closeout.json`
+      passed with no unsupported local benchmark routes and no generic unsupported local benchmark
+      scenarios.
+  - Claim boundary:
+    - Scoped SQL grammar/runtime admission only. This does not claim broad ANSI SQL parity,
+      production SQL, object-store/table SQL runtime, performance, or Spark replacement.
+  - Fallback boundary:
+    - Non-admitted SQL shapes fail closed with deterministic diagnostics. No external SQL engine,
+      DataFusion, DuckDB, Spark, Polars, Velox, Vortex query-engine integration, or fallback execution
+      is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D generated-output platform runtime closeout
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.generated_output_platform_runtime` item in
+      `docs/architecture/phased-execution-plan.md`.
+    - Generated-source runtime smoke tests, Python generated-output helpers, platform boundary
+      proof scripts, and production usability gate.
+  - Scope:
+    - Closed the scoped generated-output platform item as local-emulator object-store proof plus
+      local Foundry-style proof, with replay/recovery evidence where committed local-emulator writes
+      are retained.
+    - Kept live object-store providers and real Foundry/platform writes as deterministic blockers
+      requiring explicit effect, credential, output, replay, and fidelity evidence before any future
+      promotion.
+    - Preserved the production usability gate as a release-sequence control: its remaining blockers
+      are the release security report and final release rehearsal report, not generated-output
+      runtime behavior.
+  - Evidence:
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_generated_output_to_object_store_uses_local_emulator_route python.tests.test_cli_client.ShardLoomClientTests.test_context_generated_output_to_partitioned_object_store_verifies_discovery python.tests.test_cli_client.ShardLoomClientTests.test_context_foundry_generated_output_uses_local_style_dataset_route python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-generated-platform-closeout.json`
+      passed with `fallback_attempted=false` and `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-generated-platform-closeout.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down-generated-platform-closeout.json`
+      passed with `claim_gate_status=not_claim_grade`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `python3 scripts/check_foundry_dev_stack_starter.py --output target/foundry-dev-stack-starter-generated-platform-closeout.json`
+      passed with `claim_gate_status=not_claim_grade`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `python3 scripts/check_foundry_package_proof_boundary.py` passed.
+    - `python3 scripts/check_production_usability_gate.py --output target/production-usability-gate-generated-platform-closeout.json`
+      returned `status=blocked` only for `missing release security report` and
+      `missing final release rehearsal report`; those blockers are carried by RELEASE-SEQUENCE-5 and
+      RELEASE-SEQUENCE-13.
+  - Claim boundary:
+    - Scoped generated-output local proof only. This does not certify live cloud providers, real
+      Foundry APIs, production platform writes, package-channel readiness, public release readiness,
+      performance, or Spark-replacement claims.
+  - Fallback boundary:
+    - No external platform, Spark, DataFusion, DuckDB, Polars, Velox, warehouse, Vortex query-engine
+      integration, or fallback execution is introduced. Live effectful writes remain blocked until
+      explicitly admitted with credentials and replay/fidelity evidence.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D object-store/lakehouse runtime gate closeout
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime` queue.
+    - CG-10 object-store runtime gate, commit execution promotion gate, workflow unsupported-plan
+      registry, and front-door parity reports.
+  - Scope:
+    - Closed the active object-store/lakehouse runtime item as scoped local-emulator/local-manifest
+      proof plus deterministic live-provider/production blockers.
+    - Preserved the direct production I/O blockers for `object-store-write`, `table-commit`,
+      `catalog-integration`, and `remote-result-delivery`.
+    - Kept live cloud providers, production table commits, catalog integration, generalized
+      recovery, and remote result delivery outside the claim boundary until certified.
+  - Evidence:
+    - `cargo test -p shardloom-cli --test cg10_object_store_runtime_gate -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test commit_execution_promotion_gate -- --nocapture` passed.
+    - `cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down-remaining-6d-closeout.json`
+      passed with `claim_gate_status=not_claim_grade`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-remaining-6d-closeout.json`
+      passed with no unsupported local benchmark routes and no generic unsupported local benchmark
+      scenarios.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-object-closeout.json`
+      passed with `object_store_lakehouse_catalog` still classified as
+      `runtime_expansion_pending` rather than supported.
+  - Claim boundary:
+    - Scoped local-emulator and local-manifest evidence only. This does not certify live S3/GCS/ADLS
+      providers, table/lakehouse production commits, external catalog runtime, remote result
+      delivery, generalized recovery, performance, or production ETL claims.
+  - Fallback boundary:
+    - Live-provider and production requests remain explicit no-I/O/no-credential blockers. No
+      external lakehouse/catalog engine, Spark, DataFusion, DuckDB, Polars, Velox, Vortex
+      query-engine integration, or fallback execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D Python/DataFrame breadth validation closeout
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth` queue.
+    - Python user-surface completion gate, SQL/Python/DataFrame parity gate, and user-surface
+      runtime gap inventory.
+  - Scope:
+    - Closed the active DataFrame method-family breadth item after validating that common API
+      affordances are either admitted aliases/lowerings or deterministic no-fallback blockers.
+    - Kept broad arbitrary DataFrame parity as a precise not-claim-grade parity row rather than an
+      active method-by-method implementation gap.
+    - Left production DataFrame parity, arbitrary Python callable execution, hidden pandas/Polars
+      execution, and broad performance equivalence blocked by claim/evidence rows.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-remaining-6d-closeout.json`
+      passed with `method_matrix_row_count=113`, `claim_gate_status=not_claim_grade`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-remaining-6d-closeout.json`
+      passed with `admitted_row_count=7`, `remaining_gap_count=4`, and
+      `all_broad_gaps_have_precise_runtime_status=true`.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-remaining-6d-closeout.json`
+      passed with `dataframe_method_capability_matrix=21` classified gap rows and
+      `shardloom_unsupported_row_count=0`.
+  - Claim boundary:
+    - This closes the active DataFrame breadth blocker/admission surface only. It does not claim
+      broad pandas/Polars parity, production DataFrame runtime, arbitrary Python callable execution,
+      performance equivalence, or external-fallback support.
+  - Fallback boundary:
+    - Python/DataFrame methods remain ShardLoom front doors into admitted runtime routes or explicit
+      unsupported diagnostics. No hidden pandas, Polars, DuckDB, DataFusion, Spark, Velox, external
+      query engine, or fallback execution is introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D broad SQL ORC sink blocker closeout
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-remaining-6d-closeout` / local branch.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` SQL grammar queue.
+    - Admitted semantics matrix, SQL local-source output-plan sink policy, and release readiness
+      validator.
+  - Scope:
+    - Extended the admitted-semantics unsupported-case runner so deterministic unsupported SQL
+      cases may request a local output sink and fail if the blocked path writes an artifact.
+    - Added validator-backed ORC blocker rows for nested output preservation and typed
+      `decimal128` sink preservation: `unsupported_orc_nested_output_preservation` and
+      `unsupported_orc_typed_decimal_sink_preservation`.
+    - Updated the admitted-semantics matrix, status page, phase plan, and release readiness count
+      expectations to the current validator truth.
+    - Kept ORC flat scalar/binary compatibility output distinct from typed nested and typed decimal
+      preservation, which remain unsupported until provider evidence exists.
+  - Evidence:
+    - `python3 scripts/check_admitted_semantics_matrix.py --skip-build --output target/admitted-semantics-matrix-report-orc-blockers.json --work-dir target/admitted-semantics-matrix-orc-blockers`
+      passed with `matrix_row_count=129`, `executable_fixture_count=103`,
+      `diagnostic_case_count=24`, `unsupported_diagnostic_count=22`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - The new ORC blocker stages returned non-zero with `SL_INVALID_INPUT`, no output artifact, and
+      output-plan blockers `typed_complex_preservation_not_admitted` and
+      `typed_decimal128_preservation_not_admitted`.
+  - Claim boundary:
+    - Deterministic output-sink blocker evidence only. This does not admit ORC nested output, ORC
+      typed decimal preservation, broad ANSI SQL, production SQL/DataFrame, performance, or
+      Spark-replacement claims.
+  - Fallback boundary:
+    - No provider conversion, local output write, external query engine, Spark, DataFusion, DuckDB,
+      Polars, Velox, Vortex query-engine integration, or fallback execution occurs on the blocked
+      ORC routes.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D object-store/lakehouse production-I/O blocker closeout
   - Date: 2026-06-11
   - Branch/PR: `codex/compute-engine-6d-breadth-closeout` / local branch.

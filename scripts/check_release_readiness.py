@@ -211,6 +211,19 @@ def check(name: str, ref: str, blockers: list[str]) -> dict[str, Any]:
     return {"name": name, "ref": ref, "status": "passed" if not blockers else "blocked", "blockers": blockers}
 
 
+def validation_command_passed(command_status: dict[Any, Any], expected: str) -> bool:
+    if command_status.get(expected) == "passed":
+        return True
+    if expected == "python scripts/release_dry_run_proof.py --rows 64 --iterations 1":
+        return any(
+            isinstance(command, str)
+            and command.startswith(expected)
+            and status == "passed"
+            for command, status in command_status.items()
+        )
+    return False
+
+
 def runtime_gap_family_burn_down_blockers(
     runtime_gap_family_burn_down: dict[str, Any] | None,
 ) -> list[str]:
@@ -614,17 +627,17 @@ def main() -> int:
             admitted_semantics_blockers.append(
                 "admitted semantics decoded_reference_differential_execution_performed missing"
             )
-        if admitted_semantics.get("executable_fixture_count") != 100:
+        if admitted_semantics.get("executable_fixture_count") != 103:
             admitted_semantics_blockers.append(
                 "admitted semantics executable_fixture_count="
                 + str(admitted_semantics.get("executable_fixture_count", "missing"))
             )
-        if admitted_semantics.get("diagnostic_case_count") != 22:
+        if admitted_semantics.get("diagnostic_case_count") != 24:
             admitted_semantics_blockers.append(
                 "admitted semantics diagnostic_case_count="
                 + str(admitted_semantics.get("diagnostic_case_count", "missing"))
             )
-        if admitted_semantics.get("unsupported_diagnostic_count") != 20:
+        if admitted_semantics.get("unsupported_diagnostic_count") != 22:
             admitted_semantics_blockers.append(
                 "admitted semantics unsupported_diagnostic_count="
                 + str(admitted_semantics.get("unsupported_diagnostic_count", "missing"))
@@ -1705,8 +1718,9 @@ def main() -> int:
         row.get("command"): row.get("status")
         for row in (validation_evidence or {}).get("required_validation_commands", [])
     }
+
     for command in validation_commands:
-        if command_status.get(command) != "passed":
+        if not validation_command_passed(command_status, command):
             validation_blockers.append(f"attach current run evidence for: {command}")
     checks.append(
         check(

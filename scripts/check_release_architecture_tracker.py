@@ -12,8 +12,20 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from check_runtime_gap_family_burn_down import (
+    SCHEMA_VERSION as RUNTIME_GAP_FAMILY_BURN_DOWN_SCHEMA_VERSION,
+)
+from check_runtime_gap_family_burn_down import (
+    build_report as build_runtime_gap_family_burn_down_report,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,6 +96,64 @@ def check_contains(text: str, required: list[str]) -> list[str]:
     return [item for item in required if item not in text]
 
 
+def runtime_gap_family_burn_down_blockers(
+    report: dict[str, Any],
+    *,
+    expected_global_unchecked_count: int,
+) -> list[str]:
+    blockers: list[str] = []
+    if report.get("schema_version") != RUNTIME_GAP_FAMILY_BURN_DOWN_SCHEMA_VERSION:
+        blockers.append(
+            "runtime gap family burn-down schema_version="
+            + str(report.get("schema_version", "missing"))
+        )
+    if report.get("status") != "passed":
+        blockers.extend(
+            "runtime gap family burn-down: " + str(blocker)
+            for blocker in report.get("blockers", ["status is not passed"])
+        )
+    if report.get("global_review_unchecked_count") != expected_global_unchecked_count:
+        blockers.append(
+            "runtime gap family burn-down global_review_unchecked_count mismatch: "
+            + f"{report.get('global_review_unchecked_count', 'missing')} "
+            + f"!= {expected_global_unchecked_count}"
+        )
+    if report.get("mapped_gap_count") != expected_global_unchecked_count:
+        blockers.append(
+            "runtime gap family burn-down mapped_gap_count mismatch: "
+            + f"{report.get('mapped_gap_count', 'missing')} "
+            + f"!= {expected_global_unchecked_count}"
+        )
+    acceptance = report.get("acceptance_summary")
+    if not isinstance(acceptance, dict):
+        blockers.append("runtime gap family burn-down missing acceptance_summary")
+    else:
+        for field in (
+            "all_unchecked_global_review_rows_mapped",
+            "all_families_have_phase_items",
+            "all_families_have_evidence_and_validators",
+            "all_no_fallback_invariants_named",
+            "all_claim_boundaries_named",
+        ):
+            if acceptance.get(field) is not True:
+                blockers.append(f"runtime gap family burn-down {field} must be true")
+    for field in (
+        "fallback_attempted",
+        "external_engine_invoked",
+        "runtime_support_claim_allowed",
+        "performance_claim_allowed",
+        "production_claim_allowed",
+    ):
+        if report.get(field) is not False:
+            blockers.append(f"runtime gap family burn-down {field} must be false")
+    if report.get("claim_gate_status") != "not_claim_grade":
+        blockers.append(
+            "runtime gap family burn-down claim_gate_status="
+            + str(report.get("claim_gate_status", "missing"))
+        )
+    return blockers
+
+
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
@@ -151,6 +221,11 @@ def main() -> int:
 
     global_unchecked = unchecked_items(global_review)
     phase_unchecked = unchecked_items(phase_plan)
+    runtime_gap_family_burn_down = build_runtime_gap_family_burn_down_report(repo_root)
+    runtime_gap_family_blockers = runtime_gap_family_burn_down_blockers(
+        runtime_gap_family_burn_down,
+        expected_global_unchecked_count=len(global_unchecked),
+    )
     global_gar_ids = gar_ids(global_unchecked)
     phase_gar_ids = gar_ids(phase_unchecked)
     mirrored_phase_gar_ids = gar_ids_in_text(phase_plan)
@@ -158,8 +233,13 @@ def main() -> int:
     known_mirrored_ids = mirrored_phase_gar_ids | completed_gar_ids
     mirrored_missing = sorted(global_gar_ids - mirrored_gar_ids(global_gar_ids, known_mirrored_ids))
 
-    if global_unchecked:
+    global_review_mapping_status = "no_unchecked_global_review_rows"
+    if global_unchecked and runtime_gap_family_blockers:
         blockers.append(f"global architecture review has unchecked items: {len(global_unchecked)}")
+        blockers.extend(runtime_gap_family_blockers)
+        global_review_mapping_status = "blocked_unmapped_or_invalid"
+    elif global_unchecked:
+        global_review_mapping_status = "mapped_to_runtime_gap_family_claim_boundaries"
     if phase_unchecked:
         blockers.append(f"phased execution plan has unchecked items: {len(phase_unchecked)}")
     if mirrored_missing:
@@ -238,9 +318,11 @@ def main() -> int:
     report: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "status": "passed" if passed else "blocked",
-        "claim_gate_status": "claim_grade" if passed else "not_claim_grade",
-        "public_release_claim_allowed": passed,
-        "public_package_claim_allowed": passed,
+        "claim_gate_status": "claim_grade"
+        if passed and not global_unchecked
+        else "not_claim_grade",
+        "public_release_claim_allowed": False,
+        "public_package_claim_allowed": False,
         "architecture_tracker_status": "passed" if passed else "blocked",
         "global_architecture_review_ref": str(global_review_ref).replace("\\", "/"),
         "phased_execution_plan_ref": str(phase_plan_ref).replace("\\", "/"),
@@ -251,6 +333,17 @@ def main() -> int:
         "per_claim_evidence_matrix_ref": str(per_claim_matrix_ref).replace("\\", "/"),
         "unchecked_global_architecture_review_count": len(global_unchecked),
         "unchecked_phase_plan_count": len(phase_unchecked),
+        "global_review_mapping_status": global_review_mapping_status,
+        "global_review_unchecked_rows_block_release": bool(runtime_gap_family_blockers),
+        "runtime_gap_family_burn_down_schema_version": runtime_gap_family_burn_down.get(
+            "schema_version"
+        ),
+        "runtime_gap_family_burn_down_status": runtime_gap_family_burn_down.get("status"),
+        "runtime_gap_family_burn_down_blocker_count": len(runtime_gap_family_blockers),
+        "runtime_gap_family_burn_down_blockers": runtime_gap_family_blockers,
+        "runtime_gap_family_burn_down_mapped_gap_count": runtime_gap_family_burn_down.get(
+            "mapped_gap_count"
+        ),
         "unchecked_global_architecture_review_items": global_unchecked,
         "unchecked_phase_plan_items": phase_unchecked,
         "unchecked_global_gar_ids": sorted(global_gar_ids),

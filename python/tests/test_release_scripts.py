@@ -1026,6 +1026,81 @@ class ReleaseScriptTests(unittest.TestCase):
             self.assertFalse(report["fallback_attempted"])
             self.assertFalse(report["external_engine_invoked"])
 
+    def test_architecture_tracker_accepts_mapped_global_review_burn_down(self) -> None:
+        module = self._load_script_module(
+            "check_release_architecture_tracker.py",
+            "check_release_architecture_tracker_burn_down_for_test",
+        )
+
+        report = {
+            "schema_version": "shardloom.runtime_gap_family_burn_down.v1",
+            "status": "passed",
+            "blockers": [],
+            "global_review_unchecked_count": 38,
+            "mapped_gap_count": 38,
+            "acceptance_summary": {
+                "all_unchecked_global_review_rows_mapped": True,
+                "all_families_have_phase_items": True,
+                "all_families_have_evidence_and_validators": True,
+                "all_no_fallback_invariants_named": True,
+                "all_claim_boundaries_named": True,
+            },
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_support_claim_allowed": False,
+            "performance_claim_allowed": False,
+            "production_claim_allowed": False,
+            "claim_gate_status": "not_claim_grade",
+        }
+
+        blockers = module.runtime_gap_family_burn_down_blockers(
+            report,
+            expected_global_unchecked_count=38,
+        )
+
+        self.assertEqual(blockers, [])
+
+    def test_architecture_tracker_rejects_stale_global_review_burn_down(self) -> None:
+        module = self._load_script_module(
+            "check_release_architecture_tracker.py",
+            "check_release_architecture_tracker_stale_burn_down_for_test",
+        )
+
+        report = {
+            "schema_version": "shardloom.runtime_gap_family_burn_down.v1",
+            "status": "passed",
+            "blockers": [],
+            "global_review_unchecked_count": 37,
+            "mapped_gap_count": 37,
+            "acceptance_summary": {
+                "all_unchecked_global_review_rows_mapped": True,
+                "all_families_have_phase_items": True,
+                "all_families_have_evidence_and_validators": True,
+                "all_no_fallback_invariants_named": True,
+                "all_claim_boundaries_named": True,
+            },
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_support_claim_allowed": False,
+            "performance_claim_allowed": False,
+            "production_claim_allowed": False,
+            "claim_gate_status": "not_claim_grade",
+        }
+
+        blockers = module.runtime_gap_family_burn_down_blockers(
+            report,
+            expected_global_unchecked_count=38,
+        )
+
+        self.assertIn(
+            "runtime gap family burn-down global_review_unchecked_count mismatch: 37 != 38",
+            blockers,
+        )
+        self.assertIn(
+            "runtime gap family burn-down mapped_gap_count mismatch: 37 != 38",
+            blockers,
+        )
+
     def test_benchmark_promoter_recomputes_stale_runtime_validation(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py", "promote_benchmark_artifact_for_test"
@@ -3597,6 +3672,37 @@ class ReleaseScriptTests(unittest.TestCase):
             "benchmark artifact cannot be current while the worktree is dirty",
             blockers,
         )
+        self.assertEqual(freshness["tracked_dirty_status_count"], 1)
+        self.assertEqual(freshness["untracked_status_count"], 0)
+
+    def test_benchmark_publication_claim_gate_ignores_untracked_only_status(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_untracked_for_test",
+        )
+
+        blockers: list[str] = []
+        freshness = module.validate_freshness(
+            {
+                "generated_at_utc": "2026-05-31T00:00:00+00:00",
+                "benchmark_git_sha": "current-sha",
+                "shardloom_git_sha": "current-sha",
+            },
+            REPO_ROOT,
+            blockers,
+            now=datetime(2026, 5, 31, tzinfo=timezone.utc),
+            max_age_days=14,
+            require_current_git=True,
+            allow_dirty_worktree=False,
+            current_git_sha="current-sha",
+            worktree_status="?? local-scratch.json\n?? website/assets/benchmarks/latest/chunk-copy.json",
+        )
+
+        self.assertEqual(blockers, [])
+        self.assertFalse(freshness["worktree_dirty"])
+        self.assertTrue(freshness["untracked_only"])
+        self.assertEqual(freshness["tracked_dirty_status_count"], 0)
+        self.assertEqual(freshness["untracked_status_count"], 2)
 
     def test_benchmark_publication_claim_gate_blocks_dirty_lane_versions(self) -> None:
         module = self._load_script_module(
@@ -4071,7 +4177,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn("GAR-RUNTIME-IMPL-6D", packet["next_implementation_slice"])
+        self.assertEqual(packet["next_implementation_slice"], "none")
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:
@@ -4618,6 +4724,133 @@ class ReleaseScriptTests(unittest.TestCase):
         )
 
         self.assertEqual(prefix, ["/usr/local/bin/pip-audit"])
+
+    def test_dependency_audit_probes_symlinked_python_by_executing_it(self) -> None:
+        module = self._load_script_module(
+            "check_dependency_audit.py",
+            "check_dependency_audit_symlinked_python_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            package = root / "fake-site" / "pip_audit"
+            package.mkdir(parents=True)
+            (package / "__init__.py").write_text("", encoding="utf-8")
+            symlinked_python = root / "venv-python"
+            symlinked_python.symlink_to(Path(sys.executable))
+
+            with self._temporary_env(PYTHONPATH=str(root / "fake-site")):
+                self.assertTrue(module.pip_audit_module_available(str(symlinked_python)))
+
+    def test_release_validation_evidence_uses_configured_python_and_conda(self) -> None:
+        module = self._load_script_module(
+            "run_release_validation_evidence.py",
+            "run_release_validation_evidence_python_for_test",
+        )
+        args = type(
+            "Args",
+            (),
+            {
+                "require_clean_conda": True,
+                "conda_executable": Path("/opt/homebrew/bin/micromamba"),
+            },
+        )()
+
+        commands = dict(module.required_validation_commands("/tool/python3.12", args))
+
+        self.assertEqual(
+            commands["python_unittest"],
+            ["/tool/python3.12", "-m", "unittest", "discover", "python/tests"],
+        )
+        self.assertEqual(commands["python_build"], ["/tool/python3.12", "-m", "build", "python"])
+        self.assertEqual(commands["release_security_gate"][0], "/tool/python3.12")
+        self.assertEqual(commands["package_channel_readiness"][0], "/tool/python3.12")
+        self.assertEqual(
+            commands["benchmark_constitution"],
+            ["/tool/python3.12", "scripts/check_benchmark_constitution.py"],
+        )
+        self.assertEqual(
+            commands["benchmark_artifact_completeness"],
+            [
+                "/tool/python3.12",
+                "scripts/check_benchmark_artifact_completeness.py",
+                "--manifest",
+                "website/assets/benchmarks/latest/manifest.json",
+                "--output",
+                "target/benchmark-artifact-completeness-report.json",
+            ],
+        )
+        self.assertEqual(
+            commands["release_dry_run_proof"],
+            [
+                "/tool/python3.12",
+                "scripts/release_dry_run_proof.py",
+                "--rows",
+                "64",
+                "--iterations",
+                "1",
+                "--require-clean-conda",
+                "--conda-executable",
+                "/opt/homebrew/bin/micromamba",
+            ],
+        )
+
+    def test_release_validation_evidence_records_security_posture_and_pip_audit_env(self) -> None:
+        module = self._load_script_module(
+            "run_release_validation_evidence.py",
+            "run_release_validation_evidence_supporting_for_test",
+        )
+
+        commands = module.supporting_commands(
+            "/tool/python3.12",
+            Path("target/release-audit-venv/bin/python"),
+        )
+        by_name = {name: (command, group, env) for name, command, group, env in commands}
+
+        dependency_command, dependency_group, dependency_env = by_name[
+            "dependency_audit_release_gate"
+        ]
+        self.assertEqual(dependency_command[0], "/tool/python3.12")
+        self.assertEqual(dependency_group, "security_dependency_provenance")
+        self.assertEqual(
+            dependency_env,
+            {"SHARDLOOM_PIP_AUDIT_PYTHON": "target/release-audit-venv/bin/python"},
+        )
+        security_command, security_group, security_env = by_name["security_posture"]
+        self.assertEqual(
+            security_command,
+            [
+                "/tool/python3.12",
+                "scripts/check_security_posture.py",
+                "--json-output",
+                "target/security-posture-report.json",
+            ],
+        )
+        self.assertEqual(security_group, "security_dependency_provenance")
+        self.assertEqual(security_env, {})
+
+    def test_release_readiness_accepts_configured_dry_run_command_evidence(self) -> None:
+        module = self._load_script_module(
+            "check_release_readiness.py",
+            "check_release_readiness_validation_command_for_test",
+        )
+        expected = "python scripts/release_dry_run_proof.py --rows 64 --iterations 1"
+
+        self.assertTrue(
+            module.validation_command_passed(
+                {
+                    expected
+                    + " --require-clean-conda --conda-executable /opt/homebrew/bin/micromamba": "passed"
+                },
+                expected,
+            )
+        )
+        self.assertFalse(
+            module.validation_command_passed(
+                {expected + " --require-clean-conda": "failed"},
+                expected,
+            )
+        )
 
     def test_pre_5j_dependency_freshness_accepts_current_dependabot_prs(self) -> None:
         module = self._load_script_module(

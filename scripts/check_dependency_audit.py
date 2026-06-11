@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import importlib.util
 import json
 import shutil
 import subprocess
@@ -352,13 +351,16 @@ def pip_audit_python_prefix(
 
 
 def pip_audit_module_available(python_executable: str) -> bool:
-    current = Path(sys.executable).resolve()
-    try:
-        candidate = Path(python_executable).resolve()
-    except OSError:
-        candidate = Path(python_executable)
-    if candidate == current:
-        return importlib.util.find_spec(PIP_AUDIT_MODULE) is not None
+    python_path = Path(python_executable)
+    if not python_path.exists():
+        resolved_executable = shutil.which(python_executable)
+        if resolved_executable is None:
+            return False
+        python_executable = resolved_executable
+
+    # Always execute the requested interpreter. macOS venvs commonly symlink
+    # bin/python to the base interpreter, but invoking the venv path is what
+    # activates its pyvenv.cfg and site-packages.
     if not Path(python_executable).exists():
         return False
     completed = subprocess.run(

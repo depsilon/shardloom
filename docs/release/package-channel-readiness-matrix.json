@@ -57,9 +57,10 @@
       "ready": false,
       "install_command": "gh release download <tag> --repo depsilon/shardloom --pattern shardloom-* --dir <install-dir>",
       "uninstall_command": "Remove-Item -LiteralPath <install-dir> -Recurse -Force",
-      "clean_install_proof_status": "missing",
-      "smoke_check_status": "missing",
-      "sbom_checksum_provenance_status": "missing_channel_specific_artifacts",
+      "channel_specific_proof_status": "blocked_until_approved_github_prerelease_exists",
+      "clean_install_proof_status": "local_release_dry_run_passed_channel_release_missing",
+      "smoke_check_status": "local_release_dry_run_passed_channel_download_smoke_missing",
+      "sbom_checksum_provenance_status": "local_refs_present_channel_attachment_missing",
       "rollback_yank_policy": "Delete or mark the GitHub pre-release as deprecated after maintainer approval; preserve checksums and publish an advisory if any users may have consumed it.",
       "auth_provenance_requirement": "Maintainer-approved GitHub release, attached checksums, SBOM, provenance, and no token secrets.",
       "trusted_publisher_required": false,
@@ -71,10 +72,25 @@
       "runtime_fallback_dependency_allowed": false,
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
+      "prepared_local_artifact_refs": [
+        "target/release-dry-run-proof/transcript.json",
+        "python/dist/shardloom-0.1.0.dev0-py3-none-any.whl",
+        "python/dist/shardloom-0.1.0.dev0.tar.gz",
+        "target/debug/shardloom"
+      ],
+      "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
+      "prepared_local_install_smoke_ref": "target/release-dry-run-proof/transcript.json",
+      "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
+      "prepared_local_sbom_refs": [
+        "target/release-provenance-dry-run/shardloom-rust-workspace.cdx.json",
+        "target/release-provenance-dry-run/shardloom-python-artifacts.cdx.json",
+        "target/release-provenance-dry-run/shardloom-cli-binary.cdx.json"
+      ],
       "current_blockers": [
         "no approved release tag",
-        "no channel-specific clean-install transcript",
-        "no attached release artifacts"
+        "no GitHub pre-release object or attached assets",
+        "no gh release download transcript from attached assets",
+        "maintainer approval missing"
       ],
       "claim_boundary": "GitHub pre-release access would be preview distribution only, not production readiness."
     },
@@ -86,9 +102,11 @@
       "ready": false,
       "install_command": "python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==<version>",
       "uninstall_command": "python -m pip uninstall -y shardloom",
-      "clean_install_proof_status": "missing",
-      "smoke_check_status": "missing",
-      "sbom_checksum_provenance_status": "missing_channel_specific_artifacts",
+      "python_artifact_metadata_status": "local_build_and_twine_check_passed",
+      "trusted_publisher_workflow_posture": "draft_oidc_workflow_present_not_channel_configured",
+      "clean_install_proof_status": "local_release_dry_run_passed_testpypi_upload_missing",
+      "smoke_check_status": "local_release_dry_run_passed_testpypi_smoke_missing",
+      "sbom_checksum_provenance_status": "local_refs_present_channel_attachment_missing",
       "rollback_yank_policy": "Use disposable versions; yank or delete only according to TestPyPI policy and document any consumed build.",
       "auth_provenance_requirement": "TestPyPI Trusted Publisher/OIDC or explicitly scoped human credential proof with no committed token.",
       "trusted_publisher_required": true,
@@ -100,10 +118,22 @@
       "runtime_fallback_dependency_allowed": false,
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
+      "prepared_local_artifact_refs": [
+        "python/dist/shardloom-0.1.0.dev0-py3-none-any.whl",
+        "python/dist/shardloom-0.1.0.dev0.tar.gz",
+        "target/release-dry-run-proof/transcript.json"
+      ],
+      "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
+      "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
+      "prepared_local_sbom_refs": [
+        "target/release-provenance-dry-run/shardloom-python-artifacts.cdx.json"
+      ],
+      "prepared_workflow_policy_ref": "target/release-provenance-dry-run/workflow-policy-snapshot.json",
       "current_blockers": [
         "no TestPyPI Trusted Publisher proof",
         "no TestPyPI upload proof",
-        "no clean TestPyPI install/uninstall/smoke transcript"
+        "no clean TestPyPI install/uninstall/smoke transcript",
+        "maintainer approval missing"
       ],
       "claim_boundary": "TestPyPI is packaging rehearsal only and does not imply public package release readiness."
     },
@@ -115,9 +145,11 @@
       "ready": false,
       "install_command": "python -m pip install shardloom==<version>",
       "uninstall_command": "python -m pip uninstall -y shardloom",
-      "clean_install_proof_status": "missing",
-      "smoke_check_status": "missing",
-      "sbom_checksum_provenance_status": "missing_channel_specific_artifacts",
+      "python_artifact_metadata_status": "local_build_and_twine_check_passed",
+      "trusted_publisher_workflow_posture": "draft_oidc_workflow_present_not_channel_configured",
+      "clean_install_proof_status": "local_release_dry_run_passed_pypi_upload_missing",
+      "smoke_check_status": "local_release_dry_run_passed_pypi_smoke_missing",
+      "sbom_checksum_provenance_status": "local_refs_present_channel_attachment_missing",
       "rollback_yank_policy": "Yank affected release where appropriate, publish an advisory, and keep immutable version history intact.",
       "auth_provenance_requirement": "PyPI Trusted Publisher/OIDC with GitHub environment protection; no long-lived upload token.",
       "trusted_publisher_required": true,
@@ -129,6 +161,17 @@
       "runtime_fallback_dependency_allowed": false,
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
+      "prepared_local_artifact_refs": [
+        "python/dist/shardloom-0.1.0.dev0-py3-none-any.whl",
+        "python/dist/shardloom-0.1.0.dev0.tar.gz",
+        "target/release-dry-run-proof/transcript.json"
+      ],
+      "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
+      "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
+      "prepared_local_sbom_refs": [
+        "target/release-provenance-dry-run/shardloom-python-artifacts.cdx.json"
+      ],
+      "prepared_workflow_policy_ref": "target/release-provenance-dry-run/workflow-policy-snapshot.json",
       "current_blockers": [
         "Trusted Publisher/OIDC proof missing",
         "maintainer approval missing",
@@ -145,9 +188,10 @@
       "ready": false,
       "install_command": "brew install depsilon/tap/shardloom",
       "uninstall_command": "brew uninstall shardloom",
-      "clean_install_proof_status": "missing",
-      "smoke_check_status": "missing",
-      "sbom_checksum_provenance_status": "missing_channel_specific_artifacts",
+      "local_cli_binary_build_status": "release_dry_run_passed",
+      "clean_install_proof_status": "local_release_dry_run_passed_homebrew_tap_missing",
+      "smoke_check_status": "local_release_dry_run_passed_homebrew_tap_smoke_missing",
+      "sbom_checksum_provenance_status": "local_refs_present_channel_checksum_missing",
       "rollback_yank_policy": "Revert the tap formula or deprecate/disable the formula after maintainer approval.",
       "auth_provenance_requirement": "Reviewed tap PR, versioned source or binary checksum, and maintainer-approved release artifact.",
       "trusted_publisher_required": false,
@@ -159,10 +203,17 @@
       "runtime_fallback_dependency_allowed": false,
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
+      "prepared_local_artifact_refs": [
+        "target/debug/shardloom",
+        "target/release-dry-run-proof/transcript.json"
+      ],
+      "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
+      "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
       "current_blockers": [
         "no tap repository or formula proof",
         "no versioned artifact checksum proof",
-        "no clean install/uninstall/smoke transcript"
+        "no clean Homebrew install/uninstall/smoke transcript",
+        "maintainer approval missing"
       ],
       "claim_boundary": "Homebrew distribution would be CLI access only and not a production platform claim."
     },
@@ -174,9 +225,10 @@
       "ready": false,
       "install_command": "scoop install shardloom",
       "uninstall_command": "scoop uninstall shardloom",
-      "clean_install_proof_status": "missing",
-      "smoke_check_status": "missing",
-      "sbom_checksum_provenance_status": "missing_channel_specific_artifacts",
+      "local_cli_binary_build_status": "release_dry_run_passed",
+      "clean_install_proof_status": "local_release_dry_run_passed_scoop_manifest_missing",
+      "smoke_check_status": "local_release_dry_run_passed_scoop_smoke_missing",
+      "sbom_checksum_provenance_status": "local_refs_present_channel_checksum_missing",
       "rollback_yank_policy": "Revert the bucket manifest or deprecate the version after maintainer approval.",
       "auth_provenance_requirement": "Reviewed bucket manifest, checksum, source artifact, and maintainer approval.",
       "trusted_publisher_required": false,
@@ -188,10 +240,17 @@
       "runtime_fallback_dependency_allowed": false,
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
+      "prepared_local_artifact_refs": [
+        "target/debug/shardloom",
+        "target/release-dry-run-proof/transcript.json"
+      ],
+      "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
+      "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
       "current_blockers": [
         "no bucket manifest proof",
         "no checksum proof",
-        "no clean install/uninstall/smoke transcript"
+        "no clean Scoop install/uninstall/smoke transcript",
+        "maintainer approval missing"
       ],
       "claim_boundary": "Scoop distribution would be Windows CLI access only, not production readiness."
     },
@@ -203,9 +262,10 @@
       "ready": false,
       "install_command": "winget install depsilon.shardloom",
       "uninstall_command": "winget uninstall depsilon.shardloom",
-      "clean_install_proof_status": "missing",
-      "smoke_check_status": "missing",
-      "sbom_checksum_provenance_status": "missing_channel_specific_artifacts",
+      "local_cli_binary_build_status": "release_dry_run_passed",
+      "clean_install_proof_status": "local_release_dry_run_passed_winget_manifest_missing",
+      "smoke_check_status": "local_release_dry_run_passed_winget_smoke_missing",
+      "sbom_checksum_provenance_status": "local_refs_present_channel_checksum_missing",
       "rollback_yank_policy": "Submit a manifest update/removal or deprecate the affected version after maintainer approval.",
       "auth_provenance_requirement": "Validated winget manifest, installer checksum, repository submission proof, and maintainer approval.",
       "trusted_publisher_required": false,
@@ -217,10 +277,17 @@
       "runtime_fallback_dependency_allowed": false,
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
+      "prepared_local_artifact_refs": [
+        "target/debug/shardloom",
+        "target/release-dry-run-proof/transcript.json"
+      ],
+      "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
+      "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
       "current_blockers": [
         "no winget manifest proof",
         "no installer artifact proof",
-        "no clean install/uninstall/smoke transcript"
+        "no clean winget install/uninstall/smoke transcript",
+        "maintainer approval missing"
       ],
       "claim_boundary": "winget distribution would be Windows package access only, not production readiness."
     },
@@ -232,9 +299,11 @@
       "ready": false,
       "install_command": "conda install -c conda-forge shardloom",
       "uninstall_command": "conda remove shardloom shardloom-cli shardloom-python",
-      "clean_install_proof_status": "missing",
-      "smoke_check_status": "missing",
-      "sbom_checksum_provenance_status": "missing_channel_specific_artifacts",
+      "local_conda_recipe_status": "scaffold_tests_passed",
+      "local_clean_conda_install_status": "release_dry_run_clean_conda_passed",
+      "clean_install_proof_status": "local_clean_conda_passed_conda_forge_feedstock_missing",
+      "smoke_check_status": "local_release_dry_run_passed_conda_forge_smoke_missing",
+      "sbom_checksum_provenance_status": "local_refs_present_feedstock_artifacts_missing",
       "rollback_yank_policy": "Coordinate feedstock rerender/patch, label broken packages where applicable, and publish an advisory.",
       "auth_provenance_requirement": "staged-recipes/feedstock review, checksums, maintainer approval, and clean Conda proof.",
       "trusted_publisher_required": false,
@@ -246,10 +315,19 @@
       "runtime_fallback_dependency_allowed": false,
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
+      "prepared_local_artifact_refs": [
+        "packaging/conda/shardloom-cli/meta.yaml",
+        "packaging/conda/shardloom-python/meta.yaml",
+        "packaging/conda/shardloom/meta.yaml",
+        "target/release-dry-run-proof/transcript.json"
+      ],
+      "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
+      "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
       "current_blockers": [
         "no staged-recipes submission proof",
         "clean_conda_env_install_status is local proof, not a conda-forge package proof",
-        "no feedstock install/uninstall/smoke transcript"
+        "no feedstock install/uninstall/smoke transcript",
+        "maintainer approval missing"
       ],
       "claim_boundary": "conda-forge package access would not imply production readiness or fallback-engine support."
     },
@@ -261,9 +339,11 @@
       "ready": false,
       "install_command": "docker pull ghcr.io/depsilon/shardloom:<tag>",
       "uninstall_command": "docker rmi ghcr.io/depsilon/shardloom:<tag>",
-      "clean_install_proof_status": "missing",
-      "smoke_check_status": "missing",
-      "sbom_checksum_provenance_status": "missing_channel_specific_artifacts",
+      "container_channel_decision": "not_included_in_current_release_candidate",
+      "container_tooling_status": "docker_missing_locally",
+      "clean_install_proof_status": "blocked_no_image_build",
+      "smoke_check_status": "blocked_no_pull_run_smoke",
+      "sbom_checksum_provenance_status": "local_non_container_refs_present_image_refs_missing",
       "rollback_yank_policy": "Delete or deprecate mutable tags, preserve digest evidence, and publish an advisory for consumed images.",
       "auth_provenance_requirement": "Reviewed Dockerfile/build workflow, pinned base image, SBOM, provenance, vulnerability scan, digest pin, and maintainer approval.",
       "trusted_publisher_required": false,
@@ -275,10 +355,16 @@
       "runtime_fallback_dependency_allowed": false,
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
+      "prepared_local_non_container_refs": [
+        "target/release-dry-run-proof/transcript.json",
+        "target/release-provenance-dry-run/supply-chain-release-evidence.json",
+        "target/release-provenance-dry-run/checksums.sha256"
+      ],
       "current_blockers": [
         "no container build proof",
         "no image SBOM/provenance/vulnerability scan",
-        "no pull/run/smoke transcript"
+        "no pull/run/smoke transcript",
+        "maintainer approval missing"
       ],
       "claim_boundary": "Container access would package existing local behavior only and not imply server, distributed, or production platform support."
     },
@@ -290,9 +376,11 @@
       "ready": false,
       "install_command": "cargo add shardloom-protocol@<version> shardloom-client@<version>",
       "uninstall_command": "cargo remove shardloom-protocol shardloom-client",
-      "clean_install_proof_status": "not_applicable_until_crates_exist",
-      "smoke_check_status": "missing",
-      "sbom_checksum_provenance_status": "missing_channel_specific_artifacts",
+      "public_crate_channel_decision": "not_included_in_current_release_candidate",
+      "workspace_crate_publish_status": "all_current_workspace_crates_publish_false",
+      "clean_install_proof_status": "blocked_no_public_crates",
+      "smoke_check_status": "blocked_no_cargo_add_smoke",
+      "sbom_checksum_provenance_status": "local_workspace_refs_present_public_crate_refs_missing",
       "rollback_yank_policy": "crates.io versions are permanent; yank only when necessary and publish an advisory.",
       "auth_provenance_requirement": "Extracted stable public crates, API/schema stability gate, cargo publish --dry-run, maintainer approval, and no internal crate publication.",
       "trusted_publisher_required": false,
@@ -304,11 +392,21 @@
       "runtime_fallback_dependency_allowed": false,
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
+      "prepared_local_workspace_refs": [
+        "Cargo.toml",
+        "shardloom-core/Cargo.toml",
+        "shardloom-plan/Cargo.toml",
+        "shardloom-exec/Cargo.toml",
+        "shardloom-vortex/Cargo.toml",
+        "shardloom-cli/Cargo.toml",
+        "shardloom-contract-tests/Cargo.toml"
+      ],
       "current_blockers": [
-        "candidate public crates are not extracted",
+        "future public protocol/client crates are not extracted",
+        "API/schema stability gate still blocks public crates",
         "current workspace crates remain publish=false",
-        "API/schema stability gate is not complete",
-        "cargo publish dry-run is not applicable yet"
+        "cargo publish dry-run is not applicable yet",
+        "maintainer approval missing"
       ],
       "claim_boundary": "crates.io is limited to future stable public protocol/client crates and cannot publish current internal crates."
     }

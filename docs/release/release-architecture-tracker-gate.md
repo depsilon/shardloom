@@ -31,7 +31,8 @@ shardloom.release_architecture_tracker_report.v1
 
 ## Gate Coverage
 
-The tracker checks that release claims are blocked when architecture evidence is still open across:
+The tracker checks whether architecture evidence is either closed or deliberately represented as a
+mapped runtime gap-family claim boundary across:
 
 - `docs/architecture/global-architecture-review.md`
 - `docs/architecture/phased-execution-plan.md`
@@ -41,16 +42,21 @@ The tracker checks that release claims are blocked when architecture evidence is
 - `docs/release/release-provenance-dry-run.md`
 - `docs/release/per-claim-evidence-attachment-matrix.md`
 - `docs/architecture/phased-execution-completed-ledger.md`
+- `docs/architecture/runtime-gap-family-burn-down.md`
 
 It records:
 
 ```text
-architecture_tracker_status=blocked
+architecture_tracker_status=passed|blocked
 claim_gate_status=not_claim_grade
 public_release_claim_allowed=false
 public_package_claim_allowed=false
 unchecked_global_architecture_review_count
 unchecked_phase_plan_count
+global_review_mapping_status
+global_review_unchecked_rows_block_release
+runtime_gap_family_burn_down_status
+runtime_gap_family_burn_down_mapped_gap_count
 unchecked_global_architecture_review_items
 unchecked_phase_plan_items
 traceability_matrix_present
@@ -67,33 +73,36 @@ external_engine_invoked=false
 
 ## Blocking Rules
 
-The tracker blocks public release/package claims when any unchecked Global Architecture Review item
-remains, any unchecked phased-plan item remains, required RFC traceability markers are missing,
-unsupported-path evidence is missing, security/provenance evidence refs are missing, or the per-claim
-evidence matrix is absent or incomplete.
+The tracker blocks when unchecked Global Architecture Review rows are not mapped by the runtime gap
+family burn-down, any unchecked phased-plan item remains, required RFC traceability markers are
+missing, unsupported-path evidence is missing, security/provenance evidence refs are missing, or the
+per-claim evidence matrix is absent or incomplete.
 
-Unchecked GAR IDs must be visible either in the active phase plan or in the completed ledger. This
-keeps broad review findings from disappearing into prose without an implementation slice or
-completed evidence block.
+Unchecked GAR IDs must be visible either in the active phase plan, the completed ledger, or the
+runtime gap-family burn-down report. This keeps broad review findings from disappearing into prose
+without an implementation slice, completed evidence block, or explicit claim-boundary mapping.
 
 ## Current Expected State
 
-The current expected state is blocked:
+The current expected state is architecture-tracker passed while public release/package claims remain
+disallowed:
 
 ```text
-status=blocked
-architecture_tracker_status=blocked
+status=passed
+architecture_tracker_status=passed
 claim_gate_status=not_claim_grade
 public_release_claim_allowed=false
 public_package_claim_allowed=false
+global_review_mapping_status=mapped_to_runtime_gap_family_claim_boundaries
+global_review_unchecked_rows_block_release=false
 ```
 
-That blocked state is correct while runtime, publication, package-channel, unsupported-path, and
-final attestation work remains open. The tracker is evidence for release discipline, not release
-approval.
+That passed tracker state means the architecture checklist is mapped and machine-readable. It is not
+release approval: package-channel, publication/API/schema, per-claim, benchmark freshness, and
+maintainer-approval gates still decide public release readiness.
 
 ## Non-Goals
 
 This gate does not publish packages, create release tags, sign artifacts, upload SBOMs, resolve
-credentials, invoke network services, run runtime workloads, or close unchecked architecture work.
-It only makes the remaining architecture/release state machine-readable for the hard release gate.
+credentials, invoke network services, run runtime workloads, or approve claims. It only makes the
+architecture/release state machine-readable for the hard release gate.

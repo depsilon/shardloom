@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -19,20 +20,6 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.release_validation_evidence.v1"
-
-SUPPORTING_COMMANDS = [
-    (
-        "dependency_audit_release_gate",
-        [
-            sys.executable,
-            "scripts/check_dependency_audit.py",
-            "--release-gate",
-            "--json-output",
-            "target/dependency-audit-report.json",
-        ],
-        "security_dependency_provenance",
-    ),
-]
 
 FEATURE_MATRIX_COMMANDS = [
     ("default_features", ["cargo", "check", "--workspace"], False),
@@ -63,109 +50,213 @@ FEATURE_MATRIX_COMMANDS = [
     ("future_foundry_optional", [], True),
 ]
 
-REQUIRED_VALIDATION_COMMANDS = [
-    ("cargo_fmt", ["cargo", "fmt", "--all", "--", "--check"]),
-    ("cargo_clippy_workspace", ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"]),
-    ("cargo_test_workspace", ["cargo", "test", "--workspace", "--all-targets"]),
-    ("python_unittest", [sys.executable, "-m", "unittest", "discover", "python/tests"]),
-    ("python_build", [sys.executable, "-m", "build", "python"]),
-    (
-        "release_dry_run_proof",
-        [sys.executable, "scripts/release_dry_run_proof.py", "--rows", "64", "--iterations", "1"],
-    ),
-    (
-        "global_architecture_gate",
-        ["cargo", "run", "-q", "-p", "shardloom-cli", "--", "global-architecture-gate", "--format", "json"],
-    ),
-    ("contribution_governance", [sys.executable, "scripts/check_contribution_governance.py"]),
-    ("ci_gate_matrix_contract", [sys.executable, "scripts/check_ci_gate_matrix.py"]),
-    ("release_security_gate", [sys.executable, "scripts/check_release_security_gate.py"]),
-    (
-        "release_architecture_tracker",
-        [sys.executable, "scripts/check_release_architecture_tracker.py", "--allow-blocked"],
-    ),
-    (
-        "package_channel_readiness",
-        [sys.executable, "scripts/check_package_channel_readiness.py", "--require-local-evidence"],
-    ),
-    ("golden_workflow_validator", [sys.executable, "scripts/check_golden_workflows.py"]),
-    ("admitted_semantics_matrix", [sys.executable, "scripts/check_admitted_semantics_matrix.py"]),
-    ("runtime_execution_envelopes", [sys.executable, "scripts/check_runtime_execution_envelopes.py"]),
-    ("website_readiness", [sys.executable, "scripts/check_website_readiness.py"]),
-    (
-        "benchmark_artifact_completeness",
-        [
-            sys.executable,
-            "scripts/check_benchmark_artifact_completeness.py",
-            "--manifest",
-            "website/assets/benchmarks/latest/manifest.json",
-        ],
-    ),
-    (
-        "pre_5j_dependency_freshness_gate",
-        [sys.executable, "scripts/check_pre_5j_dependency_freshness.py"],
-    ),
-    (
-        "benchmark_publication_claim_gate",
-        [
-            sys.executable,
-            "scripts/check_benchmark_publication_claim_gate.py",
-            "--manifest",
-            "website/assets/benchmarks/latest/manifest.json",
-        ],
-    ),
-    (
-        "front_door_benchmark_publication_gate",
-        [
-            sys.executable,
-            "scripts/check_front_door_benchmark_publication.py",
-            "--manifest",
-            "website/assets/benchmarks/latest/manifest.json",
-        ],
-    ),
-    (
-        "final_release_rehearsal",
-        [sys.executable, "scripts/final_release_rehearsal.py", "--allow-blocked"],
-    ),
-    ("production_usability_gate", [sys.executable, "scripts/check_production_usability_gate.py"]),
-    (
-        "python_user_surface_completion_gate",
-        [sys.executable, "scripts/check_python_user_surface_completion.py"],
-    ),
-    (
-        "sql_python_dataframe_parity_gate",
-        [sys.executable, "scripts/check_sql_python_dataframe_parity.py"],
-    ),
-    (
-        "user_surface_runtime_gap_inventory",
-        [sys.executable, "scripts/check_user_surface_runtime_gap_inventory.py"],
-    ),
-    (
-        "user_surface_graduation_matrix",
-        [sys.executable, "scripts/check_user_surface_graduation_matrix.py"],
-    ),
-    (
-        "runtime_gap_family_burn_down",
-        [sys.executable, "scripts/check_runtime_gap_family_burn_down.py"],
-    ),
-    (
-        "user_route_capability_report",
-        [sys.executable, "scripts/check_user_route_capability_report.py"],
-    ),
-]
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, default=ROOT)
     parser.add_argument("--output", type=Path, default=Path("target/release-validation-evidence.json"))
+    parser.add_argument(
+        "--python-executable",
+        type=Path,
+        help=(
+            "Python >=3.10 executable to use for package/Python release checks. "
+            "Defaults to the interpreter running this script."
+        ),
+    )
+    parser.add_argument(
+        "--pip-audit-python",
+        type=Path,
+        help="Python executable with pip-audit installed for the dependency audit gate.",
+    )
+    parser.add_argument(
+        "--require-clean-conda",
+        action="store_true",
+        help="Require clean Conda/mamba/micromamba install proof in release_dry_run_proof.",
+    )
+    parser.add_argument(
+        "--conda-executable",
+        type=Path,
+        help="Explicit conda, mamba, or micromamba executable for release_dry_run_proof.",
+    )
     parser.add_argument("--continue-on-failure", action="store_true")
     parser.add_argument("--skip-slow", action="store_true", help="Record only fast metadata for local inspection.")
     return parser.parse_args()
 
 
-def command_text(command: list[str]) -> str:
-    return " ".join(command).replace(sys.executable, "python")
+def release_python(args: argparse.Namespace) -> str:
+    return str(args.python_executable) if args.python_executable else sys.executable
+
+
+def command_text(command: list[str], python_executable: str | None = None) -> str:
+    text = " ".join(command)
+    if python_executable:
+        text = text.replace(python_executable, "python")
+    return text.replace(sys.executable, "python")
+
+
+def dependency_audit_env(pip_audit_python: Path | None) -> dict[str, str]:
+    if pip_audit_python is None:
+        return {}
+    return {"SHARDLOOM_PIP_AUDIT_PYTHON": str(pip_audit_python)}
+
+
+def supporting_commands(
+    python_executable: str,
+    pip_audit_python: Path | None,
+) -> list[tuple[str, list[str], str, dict[str, str]]]:
+    return [
+        (
+            "dependency_audit_release_gate",
+            [
+                python_executable,
+                "scripts/check_dependency_audit.py",
+                "--release-gate",
+                "--json-output",
+                "target/dependency-audit-report.json",
+            ],
+            "security_dependency_provenance",
+            dependency_audit_env(pip_audit_python),
+        ),
+        (
+            "security_posture",
+            [
+                python_executable,
+                "scripts/check_security_posture.py",
+                "--json-output",
+                "target/security-posture-report.json",
+            ],
+            "security_dependency_provenance",
+            {},
+        ),
+    ]
+
+
+def release_dry_run_command(python_executable: str, args: argparse.Namespace) -> list[str]:
+    command = [
+        python_executable,
+        "scripts/release_dry_run_proof.py",
+        "--rows",
+        "64",
+        "--iterations",
+        "1",
+    ]
+    if args.require_clean_conda:
+        command.append("--require-clean-conda")
+    if args.conda_executable:
+        command.extend(["--conda-executable", str(args.conda_executable)])
+    return command
+
+
+def required_validation_commands(
+    python_executable: str,
+    args: argparse.Namespace,
+) -> list[tuple[str, list[str]]]:
+    return [
+        ("cargo_fmt", ["cargo", "fmt", "--all", "--", "--check"]),
+        (
+            "cargo_clippy_workspace",
+            ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
+        ),
+        ("cargo_test_workspace", ["cargo", "test", "--workspace", "--all-targets"]),
+        ("python_unittest", [python_executable, "-m", "unittest", "discover", "python/tests"]),
+        ("python_build", [python_executable, "-m", "build", "python"]),
+        ("release_dry_run_proof", release_dry_run_command(python_executable, args)),
+        (
+            "global_architecture_gate",
+            [
+                "cargo",
+                "run",
+                "-q",
+                "-p",
+                "shardloom-cli",
+                "--",
+                "global-architecture-gate",
+                "--format",
+                "json",
+            ],
+        ),
+        ("contribution_governance", [python_executable, "scripts/check_contribution_governance.py"]),
+        ("ci_gate_matrix_contract", [python_executable, "scripts/check_ci_gate_matrix.py"]),
+        ("release_security_gate", [python_executable, "scripts/check_release_security_gate.py"]),
+        (
+            "release_architecture_tracker",
+            [python_executable, "scripts/check_release_architecture_tracker.py", "--allow-blocked"],
+        ),
+        (
+            "package_channel_readiness",
+            [
+                python_executable,
+                "scripts/check_package_channel_readiness.py",
+                "--require-local-evidence",
+            ],
+        ),
+        ("golden_workflow_validator", [python_executable, "scripts/check_golden_workflows.py"]),
+        ("admitted_semantics_matrix", [python_executable, "scripts/check_admitted_semantics_matrix.py"]),
+        ("runtime_execution_envelopes", [python_executable, "scripts/check_runtime_execution_envelopes.py"]),
+        ("website_readiness", [python_executable, "scripts/check_website_readiness.py"]),
+        ("benchmark_constitution", [python_executable, "scripts/check_benchmark_constitution.py"]),
+        (
+            "benchmark_artifact_completeness",
+            [
+                python_executable,
+                "scripts/check_benchmark_artifact_completeness.py",
+                "--manifest",
+                "website/assets/benchmarks/latest/manifest.json",
+                "--output",
+                "target/benchmark-artifact-completeness-report.json",
+            ],
+        ),
+        (
+            "pre_5j_dependency_freshness_gate",
+            [python_executable, "scripts/check_pre_5j_dependency_freshness.py"],
+        ),
+        (
+            "benchmark_publication_claim_gate",
+            [
+                python_executable,
+                "scripts/check_benchmark_publication_claim_gate.py",
+                "--manifest",
+                "website/assets/benchmarks/latest/manifest.json",
+            ],
+        ),
+        (
+            "front_door_benchmark_publication_gate",
+            [
+                python_executable,
+                "scripts/check_front_door_benchmark_publication.py",
+                "--manifest",
+                "website/assets/benchmarks/latest/manifest.json",
+            ],
+        ),
+        (
+            "final_release_rehearsal",
+            [python_executable, "scripts/final_release_rehearsal.py", "--allow-blocked"],
+        ),
+        ("production_usability_gate", [python_executable, "scripts/check_production_usability_gate.py"]),
+        (
+            "python_user_surface_completion_gate",
+            [python_executable, "scripts/check_python_user_surface_completion.py"],
+        ),
+        (
+            "sql_python_dataframe_parity_gate",
+            [python_executable, "scripts/check_sql_python_dataframe_parity.py"],
+        ),
+        (
+            "user_surface_runtime_gap_inventory",
+            [python_executable, "scripts/check_user_surface_runtime_gap_inventory.py"],
+        ),
+        (
+            "user_surface_graduation_matrix",
+            [python_executable, "scripts/check_user_surface_graduation_matrix.py"],
+        ),
+        (
+            "runtime_gap_family_burn_down",
+            [python_executable, "scripts/check_runtime_gap_family_burn_down.py"],
+        ),
+        (
+            "user_route_capability_report",
+            [python_executable, "scripts/check_user_route_capability_report.py"],
+        ),
+    ]
 
 
 def tail(text: str, limit: int = 4000) -> str:
@@ -174,15 +265,33 @@ def tail(text: str, limit: int = 4000) -> str:
     return text[-limit:]
 
 
-def run_command(repo_root: Path, name: str, command: list[str], group: str) -> dict[str, Any]:
+def run_command(
+    repo_root: Path,
+    name: str,
+    command: list[str],
+    group: str,
+    python_executable: str,
+    env_overrides: dict[str, str] | None = None,
+) -> dict[str, Any]:
     started = time.perf_counter()
-    completed = subprocess.run(command, cwd=repo_root, text=True, capture_output=True, check=False)
+    env = os.environ.copy()
+    if env_overrides:
+        env.update(env_overrides)
+    completed = subprocess.run(
+        command,
+        cwd=repo_root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
     elapsed = (time.perf_counter() - started) * 1000.0
     return {
         "name": name,
         "group": group,
-        "command": command_text(command),
+        "command": command_text(command, python_executable),
         "argv": command,
+        "env_overrides": sorted((env_overrides or {}).keys()),
         "returncode": completed.returncode,
         "status": "passed" if completed.returncode == 0 else "failed",
         "elapsed_millis": round(elapsed, 4),
@@ -195,20 +304,32 @@ def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
     output = args.output if args.output.is_absolute() else repo_root / args.output
+    python_executable = release_python(args)
     results: list[dict[str, Any]] = []
 
-    planned: list[tuple[str, list[str], str]] = []
-    planned.extend((name, command, group) for name, command, group in SUPPORTING_COMMANDS)
+    planned: list[tuple[str, list[str], str, dict[str, str]]] = []
+    planned.extend(supporting_commands(python_executable, args.pip_audit_python))
     planned.extend(
-        (name, command, "feature_build_matrix")
+        (name, command, "feature_build_matrix", {})
         for name, command, skip in FEATURE_MATRIX_COMMANDS
         if not skip
     )
+    required_commands = required_validation_commands(python_executable, args)
     if not args.skip_slow:
-        planned.extend((name, command, "required_validation") for name, command in REQUIRED_VALIDATION_COMMANDS)
+        planned.extend(
+            (name, command, "required_validation", {})
+            for name, command in required_commands
+        )
 
-    for name, command, group in planned:
-        result = run_command(repo_root, name, command, group)
+    for name, command, group, env_overrides in planned:
+        result = run_command(
+            repo_root,
+            name,
+            command,
+            group,
+            python_executable,
+            env_overrides,
+        )
         results.append(result)
         if result["returncode"] != 0 and not args.continue_on_failure:
             break
@@ -226,7 +347,7 @@ def main() -> int:
                 }
             )
             continue
-        text = command_text(command)
+        text = command_text(command, python_executable)
         feature_rows.append(
             {
                 "feature_set": name,
@@ -237,8 +358,8 @@ def main() -> int:
         )
 
     required_rows = []
-    for name, command in REQUIRED_VALIDATION_COMMANDS:
-        text = command_text(command)
+    for name, command in required_commands:
+        text = command_text(command, python_executable)
         required_rows.append(
             {
                 "name": name,
@@ -260,6 +381,10 @@ def main() -> int:
     report = {
         "schema_version": SCHEMA_VERSION,
         "status": "passed" if passed else "failed",
+        "python_executable": python_executable,
+        "pip_audit_python": str(args.pip_audit_python) if args.pip_audit_python else None,
+        "clean_conda_required": args.require_clean_conda,
+        "conda_executable": str(args.conda_executable) if args.conda_executable else None,
         "feature_build_matrix_status": "passed" if feature_matrix_passed else "failed",
         "required_validation_status": "skipped_slow"
         if args.skip_slow
