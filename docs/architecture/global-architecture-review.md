@@ -1188,6 +1188,11 @@ plan before coding.
   aggregations, windows, writes, schema/data-quality helpers, materialization/notebook display,
   input boundaries, SQL frontend posture, claim boundaries, required evidence, and
   no-fallback/no-external-engine posture.
+- [x] `GAR-RUNTIME-IMPL-6D` extends the DataFrame method matrix and query builder with scoped
+  pandas-style selection/dtype affordances: `query(...)`, schema-declared `dropna(...)`,
+  schema-declared `astype(...)`, and `nlargest(...)` / `nsmallest(...)` lower to existing
+  ShardLoom local-source routes, while duplicate-mask, conditional-replacement, and index-state
+  methods fail through deterministic no-fallback diagnostics.
 - [x] `GAR-0032-A` adds `docs/architecture/sql-parser-binder-readiness.md` and strengthens
   `workflow-unsupported-plan sql-parse|sql-bind|sql-plan|sql-execute --format json` with
   `support_status=unsupported`, `claim_gate_status=not_claim_grade`, `parser_executed=false`,
@@ -1263,6 +1268,10 @@ plan before coding.
 - [x] `GAR-0032-B` exposes method-level support status and claim boundaries for Python
   DataFrame/query-builder affordances without reading data, materializing rows, writing outputs,
   invoking external engines, or upgrading support to claim-grade runtime.
+- [x] Scoped DataFrame breadth now includes supported `query`, `dropna`, `astype`,
+  `nlargest`, and `nsmallest` routes plus deterministic blockers for duplicated-row masks,
+  conditional replacement, and index-state APIs. Broad pandas parity, production DataFrame
+  execution, and performance equivalence remain gated.
 - [x] Source-free generated-output workflows such as `ctx.from_rows(...).write(...)`,
   `ctx.from_rows(...).with_column(literal).write(...)`,
   `ctx.literal_table(...).write(...)`, `ctx.calendar(...).write(...)`, and

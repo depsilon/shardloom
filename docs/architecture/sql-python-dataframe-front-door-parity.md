@@ -242,8 +242,18 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   explicit-key `merge(on=..., how=...)` lowers to the admitted join route; implicit key inference,
   suffix handling, and sided-key pandas merge remain gated. Scoped one-column
   `nunique(..., dropna=True)` lowers to `count(DISTINCT column)` with SQL null semantics; broad
-  pandas result-shape semantics remain gated. Scoped schema-declared `fillna`/`fill_null` lowers to `COALESCE` projection rewrites, and scoped schema-declared `isna`/`isnull`/`notna`/`notnull` lowers to `IS NULL` / `IS NOT NULL` boolean projection rewrites; inferred-schema, broad pandas null-fill/mask result-shape, and unsafe shapes remain gated. Common
-  DataFrame inspection, summary, and Python-callable methods now fail closed through `workflow-unsupported-plan` diagnostics instead of missing attributes or hidden pandas/Polars execution. Arbitrary expression/DataFrame breadth remains pending until its runtime evidence lands.
+  pandas result-shape semantics remain gated. Scoped schema-declared `astype` lowers to `CAST`
+  projection rewrites, scoped schema-declared `dropna(how="any")` lowers to `IS NOT NULL`
+  filters, and `query(...)` aliases the admitted ShardLoom predicate path when no pandas
+  expression-engine kwargs are requested. Scoped `nlargest` / `nsmallest` lower to
+  `ORDER BY ... LIMIT` when `keep="first"` and the sort keys are admitted. Scoped schema-declared
+  `fillna`/`fill_null` lowers to `COALESCE` projection rewrites, and scoped schema-declared
+  `isna`/`isnull`/`notna`/`notnull` lowers to `IS NULL` / `IS NOT NULL` boolean projection rewrites;
+  inferred-schema, broad pandas null-fill/mask result-shape, and unsafe shapes remain gated. Common
+  DataFrame inspection, summary, duplicate-mask, conditional-replacement, index-state, and
+  Python-callable methods now fail closed through `workflow-unsupported-plan` diagnostics instead
+  of missing attributes or hidden pandas/Polars execution. Arbitrary expression/DataFrame breadth
+  remains pending until its runtime evidence lands.
 - `performance_equivalence`
   (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
   across front doors.

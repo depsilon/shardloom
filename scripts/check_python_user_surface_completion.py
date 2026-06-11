@@ -71,6 +71,7 @@ REQUIRED_QUERY_BUILDER_METHODS = [
 
 REQUIRED_ALIAS_METHODS = [
     "project",
+    "query",
     "with_columns",
     "assign",
     "groupby",
@@ -112,11 +113,17 @@ REQUIRED_TRANSFORM_RUNTIME_METHODS = [
     "rename_columns",
     "drop",
     "drop_columns",
+    "astype",
 ]
 
 REQUIRED_SUMMARY_RUNTIME_METHODS = [
     "nunique",
     "value_counts",
+]
+
+REQUIRED_TOP_N_RUNTIME_METHODS = [
+    "nlargest",
+    "nsmallest",
 ]
 
 REQUIRED_COMBINE_RUNTIME_METHODS = [
@@ -127,6 +134,7 @@ REQUIRED_COMBINE_RUNTIME_METHODS = [
 REQUIRED_NULL_RUNTIME_METHODS = [
     "fillna",
     "fill_null",
+    "dropna",
     "isna",
     "isnull",
     "notna",
@@ -142,6 +150,12 @@ REQUIRED_UNSUPPORTED_METHODS = [
     "rolling",
     "tail",
     "describe",
+    "duplicated",
+    "mask",
+    "replace",
+    "set_index",
+    "reset_index",
+    "sort_index",
     "apply",
     "map",
     "map_rows",
@@ -222,9 +236,14 @@ REQUIRED_TEST_MARKERS = {
         "test_local_csv_query_builder_nunique_lowers_to_count_distinct",
         "test_schema_declared_dataframe_fillna_lowers_to_coalesce_projection",
         "test_schema_declared_dataframe_null_masks_lower_to_boolean_projections",
+        "test_schema_declared_dataframe_query_dropna_astype_lowers_to_sql_smoke",
+        "test_local_csv_query_builder_top_n_dataframe_aliases_lower_to_sort_limit",
         "test_missing_dataframe_affordances_return_report_only_unsupported",
         "workflow.rename({\"amount\": \"order_amount\"})",
         "workflow.drop(columns=[\"unused\"])",
+        "workflow.astype({\"amount\": \"int64\"})",
+        "workflow.dropna(subset=[\"label\"])",
+        "source.nlargest(5, \"amount\")",
         "workflow.sample(n=5, seed=7)",
         "workflow.explode(\"items\")",
     ],
@@ -495,6 +514,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         *REQUIRED_MATERIALIZATION_METHODS,
         *REQUIRED_TRANSFORM_RUNTIME_METHODS,
         *REQUIRED_SUMMARY_RUNTIME_METHODS,
+        *REQUIRED_TOP_N_RUNTIME_METHODS,
         *REQUIRED_COMBINE_RUNTIME_METHODS,
         *REQUIRED_NULL_RUNTIME_METHODS,
         *REQUIRED_UNSUPPORTED_METHODS,
@@ -519,8 +539,8 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         *REQUIRED_GENERATED_METHODS,
         *REQUIRED_TRANSFORM_RUNTIME_METHODS,
         *REQUIRED_SUMMARY_RUNTIME_METHODS,
+        *REQUIRED_TOP_N_RUNTIME_METHODS,
         *REQUIRED_COMBINE_RUNTIME_METHODS,
-        *REQUIRED_NULL_RUNTIME_METHODS,
         "sql",
     ]:
         row = by_method.get(method)
@@ -572,6 +592,23 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             if evidence not in required_evidence:
                 blockers.append(f"{method}: scoped summary row missing {evidence}")
 
+    for method in REQUIRED_TOP_N_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "fixture_smoke_supported":
+            blockers.append(f"{method}: scoped top-N support must be fixture_smoke_supported")
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: scoped top-N support requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: scoped top-N support requires data_read true")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: scoped top-N row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        for evidence in ["sort_operator", "top_n_contract", "ordering_contract"]:
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: scoped top-N row missing {evidence}")
+
     for method in REQUIRED_COMBINE_RUNTIME_METHODS:
         row = by_method.get(method)
         if not row:
@@ -607,18 +644,30 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         if row.get("blocker_id"):
             blockers.append(f"{method}: scoped null row must not carry blocker_id")
         required_evidence = set(row.get("required_evidence") or [])
-        expected_evidence = (
-            ["null_fill_semantics", "projection_rewrite_semantics"]
-            if method in {"fillna", "fill_null"}
-            else ["projection_result_shape", "three_valued_logic_policy"]
-        )
-        expected_evidence.append(
-            "not_null_mask_semantics"
-            if method in {"notna", "notnull"}
-            else "null_mask_semantics"
-            if method in {"isna", "isnull"}
-            else "dtype_coercion_policy"
-        )
+        if method in {"fillna", "fill_null"}:
+            expected_evidence = [
+                "null_fill_semantics",
+                "projection_rewrite_semantics",
+                "dtype_coercion_policy",
+            ]
+        elif method == "dropna":
+            expected_evidence = [
+                "declared_schema_filter_rewrite",
+                "null_filter_semantics",
+                "projection_rewrite_semantics",
+            ]
+        elif method in {"notna", "notnull"}:
+            expected_evidence = [
+                "projection_result_shape",
+                "three_valued_logic_policy",
+                "not_null_mask_semantics",
+            ]
+        else:
+            expected_evidence = [
+                "projection_result_shape",
+                "three_valued_logic_policy",
+                "null_mask_semantics",
+            ]
         for evidence in expected_evidence:
             if evidence not in required_evidence:
                 blockers.append(f"{method}: scoped null row missing {evidence}")
@@ -713,6 +762,17 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_SUMMARY_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
+        ),
+        _row(
+            "scoped_top_n_methods",
+            "scoped DataFrame top-N selection methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_TOP_N_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
             status_when_passed="scoped_runtime_rows_present",
