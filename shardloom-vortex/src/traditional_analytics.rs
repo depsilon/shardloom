@@ -25874,28 +25874,8 @@ impl TraditionalFactTextColumnSelection {
             || self.dirty_flag
     }
 
-    const fn needs_after_nullable_metric_00(self) -> bool {
-        self.event_date
-            || self.nested_payload
-            || self.raw_event_time
-            || self.dirty_numeric
-            || self.dirty_flag
-    }
-
-    const fn needs_after_event_date(self) -> bool {
-        self.nested_payload || self.raw_event_time || self.dirty_numeric || self.dirty_flag
-    }
-
-    const fn needs_after_raw_event_time(self) -> bool {
-        self.nested_payload || self.dirty_numeric || self.dirty_flag
-    }
-
-    const fn needs_after_dirty_numeric(self) -> bool {
-        self.nested_payload || self.dirty_flag
-    }
-
-    const fn needs_after_dirty_flag(self) -> bool {
-        self.nested_payload
+    const fn selected_optional_mask(self) -> u32 {
+        self.decoded_mask() & SOURCE_READ_FACT_OPTIONAL_MASK
     }
 }
 
@@ -27046,208 +27026,89 @@ fn fact_row_from_fast_jsonl_values(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn parse_benchmark_fact_jsonl_tail<'a>(
-    mut cursor: &'a str,
+    cursor: &'a str,
     path: &std::path::Path,
     line_number: usize,
     column_selection: TraditionalFactTextColumnSelection,
 ) -> Result<Option<FastFactJsonlTail<'a>>> {
-    if fast_json_terminal_string_token(cursor) {
-        return Ok(Some(FastFactJsonlTail {
-            category_token: cursor,
-            event_date: None,
-            nullable_metric_00: None,
-            nested_payload: None,
-            raw_event_time: None,
-            dirty_numeric: None,
-            dirty_flag: None,
-        }));
-    }
     let Some((category_token, cursor_after_category)) =
-        split_fast_json_value_then(cursor, ",\"nullable_metric_00\":")
+        split_fast_json_first_value_then_tail(cursor)
     else {
         return Ok(None);
     };
+    let mut tail = fast_fact_jsonl_tail(category_token, None, None, None, None, None, None);
     if !column_selection.needs_after_category() {
-        return Ok(Some(fast_fact_jsonl_tail(
-            category_token,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )));
-    }
-    cursor = cursor_after_category;
-    let Some((nullable_metric_00_token, cursor_after_nullable_metric_00)) =
-        split_fast_json_value_then(cursor, ",\"nullable_metric_01\":")
-    else {
-        return Ok(None);
-    };
-    let nullable_metric_00 = if column_selection.nullable_metric_00 {
-        parse_fast_json_optional_string_token(
-            nullable_metric_00_token,
-            path,
-            line_number,
-            "nullable_metric_00",
-        )?
-    } else {
-        None
-    };
-    if !column_selection.needs_after_nullable_metric_00() {
-        return Ok(Some(fast_fact_jsonl_tail(
-            category_token,
-            None,
-            nullable_metric_00,
-            None,
-            None,
-            None,
-            None,
-        )));
-    }
-    let Some((_skipped_nullable_metrics, cursor_after_event_date_prefix)) =
-        split_fast_json_value_then(cursor_after_nullable_metric_00, ",\"event_date\":")
-    else {
-        return Ok(None);
-    };
-    cursor = cursor_after_event_date_prefix;
-    let Some((event_date_token, cursor_after_event_date)) =
-        split_fast_json_value_then(cursor, ",\"partition_year\":")
-    else {
-        return Ok(None);
-    };
-    let event_date = if column_selection.event_date {
-        parse_fast_json_optional_string_token(event_date_token, path, line_number, "event_date")?
-    } else {
-        None
-    };
-    if !column_selection.needs_after_event_date() {
-        return Ok(Some(fast_fact_jsonl_tail(
-            category_token,
-            event_date,
-            nullable_metric_00,
-            None,
-            None,
-            None,
-            None,
-        )));
-    }
-    parse_benchmark_fact_jsonl_tail_after_event_date(
-        category_token,
-        cursor_after_event_date,
-        event_date,
-        nullable_metric_00,
-        path,
-        line_number,
-        column_selection,
-    )
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn parse_benchmark_fact_jsonl_tail_after_event_date<'a>(
-    category_token: &'a str,
-    cursor_after_event_date: &'a str,
-    event_date: Option<String>,
-    nullable_metric_00: Option<String>,
-    path: &std::path::Path,
-    line_number: usize,
-    column_selection: TraditionalFactTextColumnSelection,
-) -> Result<Option<FastFactJsonlTail<'a>>> {
-    let Some((_skipped_partition_fields, cursor_after_raw_event_time_prefix)) =
-        split_fast_json_value_then(cursor_after_event_date, ",\"raw_event_time\":")
-    else {
-        return Ok(None);
-    };
-    let Some((raw_event_time_token, cursor_after_raw_event_time)) =
-        split_fast_json_value_then(cursor_after_raw_event_time_prefix, ",\"dirty_numeric\":")
-    else {
-        return Ok(None);
-    };
-    let raw_event_time = if column_selection.raw_event_time {
-        parse_fast_json_optional_string_token(
-            raw_event_time_token,
-            path,
-            line_number,
-            "raw_event_time",
-        )?
-    } else {
-        None
-    };
-    let tail = fast_fact_jsonl_tail(
-        category_token,
-        event_date,
-        nullable_metric_00,
-        None,
-        raw_event_time,
-        None,
-        None,
-    );
-    if !column_selection.needs_after_raw_event_time() {
         return Ok(Some(tail));
     }
-    parse_benchmark_fact_jsonl_tail_after_raw_event_time(
-        cursor_after_raw_event_time,
-        tail,
-        path,
-        line_number,
-        column_selection,
-    )
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn parse_benchmark_fact_jsonl_tail_after_raw_event_time<'a>(
-    cursor_after_raw_event_time: &'a str,
-    mut tail: FastFactJsonlTail<'a>,
-    path: &std::path::Path,
-    line_number: usize,
-    column_selection: TraditionalFactTextColumnSelection,
-) -> Result<Option<FastFactJsonlTail<'a>>> {
-    let Some((dirty_numeric_token, cursor_after_dirty_numeric)) =
-        split_fast_json_value_then(cursor_after_raw_event_time, ",\"dirty_flag\":")
-    else {
-        return Ok(None);
-    };
-    if column_selection.dirty_numeric {
-        tail.dirty_numeric = parse_fast_json_optional_string_token(
-            dirty_numeric_token,
-            path,
-            line_number,
-            "dirty_numeric",
-        )?;
-    }
-    if !column_selection.needs_after_dirty_numeric() {
+    let selected_mask = column_selection.selected_optional_mask();
+    let mut seen_selected_mask = 0_u32;
+    let Some(mut remaining) = cursor_after_category else {
         return Ok(Some(tail));
-    }
-    let Some((dirty_flag_token, cursor_after_dirty_flag)) =
-        split_fast_json_value_then(cursor_after_dirty_numeric, ",\"nested_payload\":")
-    else {
-        return Ok(None);
     };
-    if column_selection.dirty_flag {
-        tail.dirty_flag = parse_fast_json_optional_string_token(
-            dirty_flag_token,
-            path,
-            line_number,
-            "dirty_flag",
-        )?;
+    loop {
+        let Some((field, rest)) = split_fast_json_first_value_then_tail(remaining) else {
+            return Ok(None);
+        };
+        let Some((key, value)) = split_fast_json_field_key_value(field) else {
+            return Ok(None);
+        };
+        match key {
+            "\"event_date\"" if column_selection.event_date => {
+                tail.event_date =
+                    parse_fast_json_optional_string_token(value, path, line_number, "event_date")?;
+                seen_selected_mask |= SOURCE_READ_FACT_EVENT_DATE;
+            }
+            "\"nullable_metric_00\"" if column_selection.nullable_metric_00 => {
+                tail.nullable_metric_00 = parse_fast_json_optional_string_token(
+                    value,
+                    path,
+                    line_number,
+                    "nullable_metric_00",
+                )?;
+                seen_selected_mask |= SOURCE_READ_FACT_NULLABLE_METRIC_00;
+            }
+            "\"nested_payload\"" if column_selection.nested_payload => {
+                tail.nested_payload = parse_fast_json_optional_string_token(
+                    value,
+                    path,
+                    line_number,
+                    "nested_payload",
+                )?;
+                seen_selected_mask |= SOURCE_READ_FACT_NESTED_PAYLOAD;
+            }
+            "\"raw_event_time\"" if column_selection.raw_event_time => {
+                tail.raw_event_time = parse_fast_json_optional_string_token(
+                    value,
+                    path,
+                    line_number,
+                    "raw_event_time",
+                )?;
+                seen_selected_mask |= SOURCE_READ_FACT_RAW_EVENT_TIME;
+            }
+            "\"dirty_numeric\"" if column_selection.dirty_numeric => {
+                tail.dirty_numeric = parse_fast_json_optional_string_token(
+                    value,
+                    path,
+                    line_number,
+                    "dirty_numeric",
+                )?;
+                seen_selected_mask |= SOURCE_READ_FACT_DIRTY_NUMERIC;
+            }
+            "\"dirty_flag\"" if column_selection.dirty_flag => {
+                tail.dirty_flag =
+                    parse_fast_json_optional_string_token(value, path, line_number, "dirty_flag")?;
+                seen_selected_mask |= SOURCE_READ_FACT_DIRTY_FLAG;
+            }
+            _ => {}
+        }
+        if seen_selected_mask & selected_mask == selected_mask {
+            return Ok(Some(tail));
+        }
+        let Some(next) = rest else {
+            return Ok(Some(tail));
+        };
+        remaining = next;
     }
-    if !column_selection.needs_after_dirty_flag() {
-        return Ok(Some(tail));
-    }
-    let Some((nested_payload_token, _cursor_after_nested_payload)) =
-        split_fast_json_value_then(cursor_after_dirty_flag, ",\"nested_group\":")
-    else {
-        return Ok(None);
-    };
-    if column_selection.nested_payload {
-        tail.nested_payload = parse_fast_json_optional_string_token(
-            nested_payload_token,
-            path,
-            line_number,
-            "nested_payload",
-        )?;
-    }
-    Ok(Some(tail))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -27334,26 +27195,60 @@ fn benchmark_jsonl_object_inner(line: &str) -> Option<&str> {
         .strip_prefix('{')
         .and_then(|value| value.strip_suffix('}'))
 }
-
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn fast_json_terminal_string_token(value: &str) -> bool {
-    let trimmed = value.trim();
-    if !trimmed.starts_with('"') {
-        return true;
+fn split_fast_json_first_value_then_tail(cursor: &str) -> Option<(&str, Option<&str>)> {
+    let trimmed = cursor.trim();
+    if trimmed.is_empty() {
+        return None;
     }
     let mut escaped = false;
-    for (index, ch) in trimmed.char_indices().skip(1) {
+    let mut in_string = false;
+    for (index, byte) in trimmed.bytes().enumerate() {
         if escaped {
             escaped = false;
             continue;
         }
-        match ch {
-            '\\' => escaped = true,
-            '"' => return trimmed[index + ch.len_utf8()..].trim().is_empty(),
+        match byte {
+            b'\\' if in_string => escaped = true,
+            b'"' => in_string = !in_string,
+            b',' if !in_string => {
+                let value = trimmed[..index].trim();
+                let rest = trimmed[index + 1..].trim();
+                if value.is_empty() {
+                    return None;
+                }
+                return Some((value, (!rest.is_empty()).then_some(rest)));
+            }
             _ => {}
         }
     }
-    true
+    (!in_string && !escaped).then_some((trimmed, None))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn split_fast_json_field_key_value(field: &str) -> Option<(&str, &str)> {
+    let trimmed = field.trim();
+    if !trimmed.starts_with('"') {
+        return None;
+    }
+    let mut escaped = false;
+    for (index, byte) in trimmed.bytes().enumerate().skip(1) {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match byte {
+            b'\\' => escaped = true,
+            b'"' => {
+                let key = &trimmed[..=index];
+                let rest = trimmed[index + 1..].trim_start();
+                let value = rest.strip_prefix(':')?.trim();
+                return (!value.is_empty()).then_some((key, value));
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -27850,7 +27745,7 @@ fn parse_jsonl_object(
         )));
     };
     let mut fields = JsonlFieldMap::with_capacity(TRADITIONAL_FACT_COLUMN_COUNT);
-    for field in split_json_fields(inner, path, line_number, label)? {
+    visit_json_fields(inner, path, line_number, label, |field| {
         let (key, value) = split_json_key_value(field, path, line_number, label)?;
         let key = parse_json_string_token(key.trim(), path, line_number, "field name")?;
         if fields
@@ -27862,7 +27757,8 @@ fn parse_jsonl_object(
                 path.display()
             )));
         }
-    }
+        Ok(())
+    })?;
     Ok(fields)
 }
 
@@ -27885,11 +27781,11 @@ fn parse_jsonl_object_selected(
         )));
     };
     let mut fields = JsonlFieldMap::with_capacity(selected_fields.len());
-    for field in split_json_fields(inner, path, line_number, label)? {
+    visit_json_fields(inner, path, line_number, label, |field| {
         let (key, value) = split_json_key_value(field, path, line_number, label)?;
         let key = parse_json_string_token(key.trim(), path, line_number, "field name")?;
         if !selected_fields.contains(&key.as_str()) {
-            continue;
+            return Ok(());
         }
         if fields
             .insert(key.clone(), value.trim().to_string())
@@ -27900,18 +27796,51 @@ fn parse_jsonl_object_selected(
                 path.display()
             )));
         }
-    }
+        Ok(())
+    })?;
     Ok(fields)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn split_json_fields<'a>(
+fn visit_json_fields<'a, F>(
     inner: &'a str,
     path: &std::path::Path,
     line_number: usize,
     label: &str,
-) -> Result<Vec<&'a str>> {
-    split_json_top_level(inner, ',', path, line_number, label)
+    mut visit: F,
+) -> Result<()>
+where
+    F: FnMut(&'a str) -> Result<()>,
+{
+    let mut start = 0;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, ch) in inner.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match ch {
+            '\\' if in_string => escaped = true,
+            '"' => in_string = !in_string,
+            ',' if !in_string => {
+                visit(inner[start..index].trim())?;
+                start = index + ch.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    if in_string || escaped {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} '{}' line {line_number} contains an unterminated JSON string",
+            path.display()
+        )));
+    }
+    let tail = inner[start..].trim();
+    if !tail.is_empty() {
+        visit(tail)?;
+    }
+    Ok(())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -27965,46 +27894,6 @@ fn split_json_key_value<'a>(
         )));
     }
     Ok((key, value))
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn split_json_top_level<'a>(
-    value: &'a str,
-    delimiter: char,
-    path: &std::path::Path,
-    line_number: usize,
-    label: &str,
-) -> Result<Vec<&'a str>> {
-    let mut parts = Vec::with_capacity(TRADITIONAL_FACT_COLUMN_COUNT);
-    let mut start = 0;
-    let mut in_string = false;
-    let mut escaped = false;
-    for (index, ch) in value.char_indices() {
-        if escaped {
-            escaped = false;
-            continue;
-        }
-        match ch {
-            '\\' if in_string => escaped = true,
-            '"' => in_string = !in_string,
-            _ if ch == delimiter && !in_string => {
-                parts.push(value[start..index].trim());
-                start = index + ch.len_utf8();
-            }
-            _ => {}
-        }
-    }
-    if in_string || escaped {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "{label} '{}' line {line_number} contains an unterminated JSON string",
-            path.display()
-        )));
-    }
-    let tail = value[start..].trim();
-    if !tail.is_empty() {
-        parts.push(tail);
-    }
-    Ok(parts)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -34719,6 +34608,74 @@ mod tests {
 
     #[test]
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn benchmark_jsonl_fast_path_handles_profile_specific_tails() {
+        let path = PathBuf::from("fact.jsonl");
+        let core_tail = "{\"id\":10,\"group_key\":4,\"dim_key\":5,\"value\":84,\"metric\":2.5,\"flag\":0,\"category\":\"c10\",\"file_bucket\":3,\"event_date\":\"2024-03-01\"}";
+        let core = parse_benchmark_fact_jsonl_fast_with_selection(
+            core_tail,
+            &path,
+            1,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+            ),
+        )
+        .unwrap()
+        .expect("core-only selected decode should skip profile-specific tail fields");
+        assert_eq!(core.id, 10);
+        assert_eq!(core.category, "c10");
+        assert_eq!(core.event_date, None);
+        assert_eq!(core.nullable_metric_00, None);
+
+        let partition_tail = "{\"id\":11,\"group_key\":4,\"dim_key\":5,\"value\":84,\"metric\":2.5,\"flag\":0,\"category\":\"c11\",\"event_date\":\"2024-03-01\",\"partition_year\":2024,\"partition_month\":3}";
+        let partition = parse_benchmark_fact_jsonl_fast_with_selection(
+            partition_tail,
+            &path,
+            2,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::PartitionPruning,
+            ),
+        )
+        .unwrap()
+        .expect("partition profile tail should use the selected fast path");
+        assert_eq!(partition.event_date.as_deref(), Some("2024-03-01"));
+        assert_eq!(partition.nullable_metric_00, None);
+
+        let dirty_tail = "{\"id\":12,\"group_key\":4,\"dim_key\":5,\"value\":84,\"metric\":2.5,\"flag\":0,\"category\":\"c12\",\"raw_event_time\":\"not-a-timestamp\",\"dirty_numeric\":\"bad-number\",\"dirty_flag\":\"Y\"}";
+        let dirty = parse_benchmark_fact_jsonl_fast_with_selection(
+            dirty_tail,
+            &path,
+            3,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::CleanCastFilterWrite,
+            ),
+        )
+        .unwrap()
+        .expect("dirty profile tail should use the selected fast path");
+        assert_eq!(dirty.raw_event_time.as_deref(), Some("not-a-timestamp"));
+        assert_eq!(dirty.dirty_numeric.as_deref(), Some("bad-number"));
+        assert_eq!(dirty.dirty_flag.as_deref(), Some("Y"));
+        assert_eq!(dirty.event_date, None);
+
+        let nested_tail = "{\"id\":13,\"group_key\":4,\"dim_key\":5,\"value\":84,\"metric\":2.5,\"flag\":0,\"category\":\"c13\",\"nested_payload\":\"{\\\"event\\\":{\\\"date\\\":\\\"2024-03-01\\\"},\\\"metrics\\\":{\\\"value\\\":84}}\",\"nested_group\":\"g4\",\"nested_score\":2.5}";
+        let nested = parse_benchmark_fact_jsonl_fast_with_selection(
+            nested_tail,
+            &path,
+            4,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::NestedJsonFieldScan,
+            ),
+        )
+        .unwrap()
+        .expect("nested profile tail should use the selected fast path");
+        assert_eq!(
+            nested.nested_payload.as_deref(),
+            Some("{\"event\":{\"date\":\"2024-03-01\"},\"metrics\":{\"value\":84}}")
+        );
+        assert_eq!(nested.raw_event_time, None);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn benchmark_jsonl_generic_fallback_applies_optional_field_selection() {
         let path = PathBuf::from("fact.jsonl");
         let row = "{ \"id\":8, \"group_key\":4, \"dim_key\":5, \"value\":84, \"metric\":2.5, \"flag\":0, \"category\":\"c8\", \"nullable_metric_00\":\"\\u0031\" }";
@@ -34759,13 +34716,43 @@ mod tests {
             .is_err(),
             "selected malformed optional JSONL text must still fail deterministically"
         );
+
+        let duplicate_selected = "{ \"id\":8, \"id\":9, \"group_key\":4, \"dim_key\":5, \"value\":84, \"metric\":2.5, \"flag\":0, \"category\":\"c8\" }";
+        let mut duplicate_columns = TraditionalFactVortexColumns::with_capacity(1);
+        assert!(
+            extend_traditional_fact_jsonl_columns_from_content(
+                &path,
+                duplicate_selected,
+                &mut duplicate_columns,
+                TraditionalFactTextColumnSelection::for_scenario(
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                ),
+            )
+            .is_err(),
+            "selected JSONL duplicate fields must remain fail-closed"
+        );
+
+        let invalid_syntax = "{ \"id\":8,, \"group_key\":4, \"dim_key\":5, \"value\":84, \"metric\":2.5, \"flag\":0, \"category\":\"c8\" }";
+        let mut invalid_columns = TraditionalFactVortexColumns::with_capacity(1);
+        assert!(
+            extend_traditional_fact_jsonl_columns_from_content(
+                &path,
+                invalid_syntax,
+                &mut invalid_columns,
+                TraditionalFactTextColumnSelection::for_scenario(
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                ),
+            )
+            .is_err(),
+            "streaming selected JSONL fallback must preserve invalid-field diagnostics"
+        );
     }
 
     #[test]
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn benchmark_jsonl_fast_path_declines_generic_flat_rows() {
         let path = PathBuf::from("fact.jsonl");
-        let row_with_optional = "{\"id\":7,\"group_key\":2,\"dim_key\":3,\"value\":42,\"metric\":1.25,\"flag\":1,\"category\":\"c7\", \"event_date\":\"2024-03-01\"}";
+        let row_with_optional = "{ \"id\":7,\"group_key\":2,\"dim_key\":3,\"value\":42,\"metric\":1.25,\"flag\":1,\"category\":\"c7\",\"event_date\":\"2024-03-01\"}";
         assert!(
             parse_benchmark_fact_jsonl_fast(row_with_optional, &path, 1)
                 .unwrap()
