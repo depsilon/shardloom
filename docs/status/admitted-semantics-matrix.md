@@ -31,10 +31,10 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=126
-executable_fixture_count=102
-diagnostic_case_count=22
-unsupported_diagnostic_count=20
+matrix_row_count=129
+executable_fixture_count=103
+diagnostic_case_count=24
+unsupported_diagnostic_count=22
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
 property_lane_count=1
@@ -160,6 +160,8 @@ Covered fixture rows:
 - `unsupported_list_array_access_cast`
 - `unsupported_struct_access_cast`
 - `unsupported_complex_subquery_membership`
+- `unsupported_orc_nested_output_preservation`
+- `unsupported_orc_typed_decimal_sink_preservation`
 - `unsupported_variant_access`
 - `unsupported_union_dtype_cast`
 - `unsupported_arbitrary_interval_arithmetic`
@@ -213,13 +215,15 @@ JSON-text output cells, with Arrow IPC CLI smoke evidence and shared materialize
 admitted Arrow array families surfaced by local Parquet/Arrow IPC/Avro/ORC readers. Broad ANSI
 nested ordering, nested accessors/casts, complex subquery membership materialization, complex-key
 joins, broader non-scalar join predicates, and ORC nested output remain outside the claim
-boundary. All-null typed nested sink columns without child-schema evidence fail
+boundary. ORC nested output now has a validator-backed output-plan blocker,
+`typed_complex_preservation_not_admitted`, before provider conversion, local write, or fallback.
+All-null typed nested sink columns without child-schema evidence fail
 closed with `typed_complex_child_schema_not_admitted` before structured writer conversion.
 Feature-gated Parquet/Arrow IPC/Avro and scoped local Vortex typed nested compatibility sinks are
 admitted when one stable Arrow nested dtype can be inferred from non-null `List` / `Struct` values
 or carried from raw source-column child-schema evidence; local Vortex uses
 `ArrayRef::from_arrow(RecordBatch)` before the existing Vortex writer/reopen proof. ORC nested
-output remains blocked before provider conversion.
+output remains blocked before provider conversion with no artifact write.
 Scoped `decimal128` add/subtract/multiply projections over same-scale and mixed-scale decimal
 operands plus integer operands are executable through the same generic-expression local-source
 runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparisons and exact
@@ -228,7 +232,9 @@ normalizes to the declared `decimal128(p,s)` scale is admitted through the scope
 Non-exact decimal division, broad ANSI decimal coercion beyond that exact exponent normalization,
 decimal/float comparison, typed decimal sink preservation outside feature-gated Parquet/Arrow
 IPC/Avro compatibility outputs and scoped local Vortex known flat scalar output, and ORC typed
-decimal sinks remain outside the claim boundary.
+decimal sinks remain outside the claim boundary. ORC typed decimal sinks now have a
+validator-backed output-plan blocker, `typed_decimal128_preservation_not_admitted`, before provider
+conversion, local write, or fallback.
 Scoped ANSI interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
 `TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic now blocks with
@@ -275,7 +281,8 @@ comparisons are admitted, exact fixed-scale decimal division emits
 `decimal128(38,max(input_scales,6))` when the quotient is exact, and exact exponent notation is
 admitted when it normalizes to the declared target scale. Non-exact decimal division, broad ANSI
 decimal coercion beyond exact exponent normalization, decimal/float comparison, and ORC typed
-decimal sink preservation remain outside the claim boundary. Feature-gated Parquet/Arrow IPC/Avro
+decimal sink preservation remain outside the claim boundary with a validator-backed
+`typed_decimal128_preservation_not_admitted` output-plan blocker. Feature-gated Parquet/Arrow IPC/Avro
 compatibility sinks plus scoped local Vortex known flat scalar output preserve scoped
 `decimal128(p,s)` output columns, including nullable/all-null decimal columns with dtype evidence.
 Scoped UTF-8

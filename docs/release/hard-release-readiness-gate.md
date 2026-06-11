@@ -37,7 +37,8 @@ Producer evidence artifacts:
 - `dependency-security-evidence`: dependency audit, security posture, provenance dry run, and
   release security gate from `dependency-security`.
 - `release-runtime-core-evidence`: golden workflow, admitted semantics, and release architecture
-  tracker reports.
+  tracker reports. The tracker classifies unchecked global-review rows through the runtime
+  gap-family burn-down map instead of treating mapped claim-boundary rows as raw blockers.
 - `release-package-governance-evidence`: contribution governance and package-channel readiness.
 - `release-user-surface-evidence`: Python user-surface, SQL/DataFrame parity, runtime-gap,
   graduation, burn-down, and route-capability reports; produced after reusing the local dry-run
@@ -73,8 +74,9 @@ The gate aggregates:
 - package-channel readiness matrix and channel-specific install/smoke/provenance/rollback proof
 - per-claim evidence attachment matrix for release, package, performance, Spark-displacement,
   engine-replacement, production SQL/DataFrame, object-store/lakehouse, and Foundry/platform claims
-- release architecture tracker report for unchecked Global Architecture Review, phased-plan,
-  traceability, unsupported-path, security, provenance, and per-claim evidence blockers
+- release architecture tracker report for mapped Global Architecture Review claim boundaries,
+  phased-plan closure, traceability, unsupported-path, security, provenance, and per-claim evidence
+  blockers
 - final no-publication release rehearsal report for local artifact, checksum, SBOM, provenance,
   attestation-plan, package-channel, and human-approval blockers
 - Python user-surface completion report for import/context/session/SQL/DataFrame/generated-output
@@ -119,8 +121,16 @@ python scripts\final_release_rehearsal.py --allow-blocked
 The local evidence runner records the feature/build matrix and required validation command status:
 
 ```powershell
-python scripts\run_release_validation_evidence.py
+python scripts\run_release_validation_evidence.py `
+  --python-executable <python-3.10-or-newer> `
+  --pip-audit-python <python-with-pip-audit> `
+  --require-clean-conda `
+  --conda-executable <conda-or-mamba-or-micromamba>
 ```
+
+Use Python 3.10 or newer for package/Python release evidence. On macOS, the Command Line Tools
+`python3` can still be Python 3.9, which is not a supported ShardLoom package runtime and will fail
+the clean wheel install proof.
 
 It writes:
 
@@ -440,10 +450,10 @@ and the non-executing correctness-harness boundary, and intentionally reports:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=123
-executable_fixture_count=100
-diagnostic_case_count=22
-unsupported_diagnostic_count=20
+matrix_row_count=129
+executable_fixture_count=103
+diagnostic_case_count=24
+unsupported_diagnostic_count=22
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
 property_execution_performed=true
@@ -584,16 +594,20 @@ claim gate blocked.
 target/release-architecture-tracker-report.json
 ```
 
-The tracker is expected to remain blocked while unchecked Global Architecture Review or phased-plan
-items exist:
+The tracker may pass when unchecked Global Architecture Review rows are fully mapped to runtime
+gap-family claim boundaries and no phased-plan rows remain unchecked. It still does not authorize
+public release or package claims:
 
 ```text
-architecture_tracker_status=blocked
+architecture_tracker_status=passed|blocked
 claim_gate_status=not_claim_grade
 public_release_claim_allowed=false
 public_package_claim_allowed=false
 unchecked_global_architecture_review_count
 unchecked_phase_plan_count
+global_review_mapping_status
+global_review_unchecked_rows_block_release
+runtime_gap_family_burn_down_status
 traceability_matrix_present
 known_unsupported_paths_present
 release_security_refs_present

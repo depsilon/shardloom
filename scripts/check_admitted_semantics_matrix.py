@@ -86,6 +86,8 @@ class UnsupportedCase:
     statement_template: str
     diagnostic_code: str
     diagnostic_fragment: str
+    output_format: str | None = None
+    output_name: str | None = None
     support_state: str = "unsupported_diagnostic"
     oracle_boundary: str = "deterministic_unsupported_diagnostic"
     stage_kind: str = "unsupported_diagnostic"
@@ -4796,6 +4798,31 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_fragment="projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization",
         ),
         UnsupportedCase(
+            case_id="unsupported_orc_nested_output_preservation",
+            source_name="orc-nested-output-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id,ARRAY[1,2] AS values FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="output_plan_conversion_blocker=typed_complex_preservation_not_admitted",
+            output_format="orc",
+            output_name="nested.orc",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_orc_typed_decimal_sink_preservation",
+            source_name="orc-decimal-output-unsupported.csv",
+            source_text="id,amount\n1,12.34\n",
+            statement_template=(
+                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal "
+                "FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="output_plan_conversion_blocker=typed_decimal128_preservation_not_admitted",
+            output_format="orc",
+            output_name="decimal.orc",
+        ),
+        UnsupportedCase(
             case_id="unsupported_variant_access",
             source_name="variant-unsupported.csv",
             source_text="id,payload\n1,alpha\n",
@@ -5194,10 +5221,25 @@ def run_unsupported_case(
 ) -> dict[str, Any]:
     source_path = materialize_source(work_dir, case.case_id, case.source_name, case.source_text)
     statement = case.statement_template.format(source=source_path)
+    cli_args = ["sql-local-source-smoke", statement]
+    output_path: Path | None = None
+    if case.output_format is not None:
+        output_name = case.output_name or f"{case.case_id}.{case.output_format}"
+        output_path = work_dir / case.case_id / output_name
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        cli_args.extend(
+            [
+                "--output-format",
+                case.output_format,
+                "--output",
+                str(output_path),
+                "--allow-overwrite",
+            ]
+        )
     completed = run_cli_json(
         repo_root=repo_root,
         binary=binary,
-        args=["sql-local-source-smoke", statement],
+        args=cli_args,
     )
     payload, blockers = parse_json_output(completed, case.case_id)
     artifact_ref = work_dir / "artifacts" / f"{case.case_id}.json"
@@ -5213,6 +5255,8 @@ def run_unsupported_case(
     combined = completed.stdout + completed.stderr
     if completed.returncode == 0:
         blockers.append(f"{case.case_id}: unsupported case unexpectedly succeeded")
+    if output_path is not None and output_path.exists():
+        blockers.append(f"{case.case_id}: unsupported sink wrote output artifact")
     if payload:
         if payload.get("status") != "error":
             blockers.append(f"{case.case_id}: status={payload.get('status')!r}, expected 'error'")
@@ -5252,11 +5296,12 @@ def run_unsupported_case(
     return {
         "case_id": case.case_id,
         "kind": case.stage_kind,
-        "command": command_text([str(binary), "sql-local-source-smoke", statement, "--format", "json"]),
+        "command": command_text([str(binary), *cli_args, "--format", "json"]),
         "returncode": completed.returncode,
         "status": "passed" if not blockers else "failed",
         "artifact_ref": rel(repo_root, artifact_ref),
         "source_ref": rel(repo_root, source_path),
+        "output_ref": rel(repo_root, output_path) if output_path is not None else "",
         "diagnostic_code": case.diagnostic_code,
         "diagnostic_fragment": case.diagnostic_fragment,
         "fallback_attempted": False,

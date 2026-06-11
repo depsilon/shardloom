@@ -172,6 +172,19 @@ def git_text(repo_root: Path, args: list[str]) -> str:
     return completed.stdout.strip()
 
 
+def worktree_currentness_status(status: str | None) -> dict[str, Any]:
+    """Classify git status lines that can affect committed benchmark currentness."""
+    lines = [line for line in (status or "").splitlines() if line.strip()]
+    untracked_lines = [line for line in lines if line.startswith("?? ")]
+    tracked_dirty_lines = [line for line in lines if not line.startswith("?? ")]
+    return {
+        "tracked_dirty": bool(tracked_dirty_lines),
+        "tracked_dirty_status_count": len(tracked_dirty_lines),
+        "untracked_status_count": len(untracked_lines),
+        "untracked_only": bool(untracked_lines) and not tracked_dirty_lines,
+    }
+
+
 def parse_utc(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value.strip():
         return None
@@ -732,7 +745,8 @@ def validate_freshness(
                     f"{resolved_git_sha}"
                 )
 
-    worktree_dirty = bool(resolved_status)
+    worktree_status_report = worktree_currentness_status(resolved_status)
+    worktree_dirty = bool(worktree_status_report["tracked_dirty"])
     if require_current_git and worktree_dirty and not allow_dirty_worktree:
         blockers.append("benchmark artifact cannot be current while the worktree is dirty")
 
@@ -744,6 +758,7 @@ def validate_freshness(
         "benchmark_git_sha": manifest.get("benchmark_git_sha"),
         "shardloom_git_sha": manifest.get("shardloom_git_sha"),
         "worktree_dirty": worktree_dirty,
+        **worktree_status_report,
     }
 
 

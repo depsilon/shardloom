@@ -17,6 +17,10 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from check_benchmark_artifact_completeness import result_rows as benchmark_result_rows
+from check_release_architecture_tracker import runtime_gap_family_burn_down_blockers
+from check_runtime_gap_family_burn_down import (
+    build_report as build_runtime_gap_family_burn_down_report,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,6 +33,9 @@ BLOCKING_STATUS_MARKERS = (
     "fixture_smoke_only",
     "report_only",
 )
+NON_BLOCKING_STATUS_VALUES = {
+    "not_required_not_claim_grade",
+}
 IGNORED_STATUS_FIELD_SUFFIXES = (
     "_status_vocabulary",
     "_claim_boundary",
@@ -38,6 +45,12 @@ SHARDLOOM_READY_STATUS_FIELDS = {
     "status": "success",
     "claim_gate_status": "claim_grade",
     "runtime_execution_validation_status": "passed",
+}
+OPTIMIZATION_ONLY_STATUS_FIELDS = {
+    "operator_hot_path_candidate_status",
+    "source_read_scout_reuse_status",
+    "source_read_scout_timing_split_status",
+    "vortex_reopen_verify_split_status",
 }
 EXTERNAL_UNSUPPORTED_ROW_STATUSES = {"unsupported", "unsupported_format"}
 
@@ -119,7 +132,16 @@ def blocking_status(value: Any) -> str | None:
     if not text:
         return None
     lowered = text.lower()
-    if lowered in {"passed", "success", "claim_grade", "certified", "false", "0", "none"}:
+    if lowered in {
+        "passed",
+        "success",
+        "claim_grade",
+        "certified",
+        "false",
+        "0",
+        "none",
+        *NON_BLOCKING_STATUS_VALUES,
+    }:
         return None
     if lowered in {"true", "1"}:
         return None
@@ -127,6 +149,22 @@ def blocking_status(value: Any) -> str | None:
         if marker in lowered:
             return text
     return None
+
+
+def claim_gate_required(row: dict[str, Any]) -> bool:
+    """Only proof/publication timing surfaces carry public claim-grade row obligations."""
+    timing_surface = str(row.get("timing_surface") or "").strip()
+    evidence_tier = str(row.get("actual_evidence_tier") or "").strip()
+    if timing_surface == "hot_runtime" or evidence_tier == "metadata_sink":
+        return False
+    return True
+
+
+def row_ready_field_expectations(row: dict[str, Any]) -> dict[str, str]:
+    expectations = dict(SHARDLOOM_READY_STATUS_FIELDS)
+    if not claim_gate_required(row):
+        expectations.pop("claim_gate_status", None)
+    return expectations
 
 
 def row_identity(row: dict[str, Any], index: int) -> str:
@@ -222,11 +260,13 @@ def benchmark_gap_report(payload: dict[str, Any]) -> dict[str, Any]:
     top_level_blockers: list[dict[str, Any]] = []
     residual_blockers: list[dict[str, Any]] = []
     residual_field_counts: Counter[str] = Counter()
+    optimization_claim_blockers: list[dict[str, Any]] = []
+    optimization_claim_field_counts: Counter[str] = Counter()
     external_invocation_blockers: list[dict[str, Any]] = []
 
     for index, row in shardloom_rows:
         identity = row_identity(row, index)
-        for field, expected in SHARDLOOM_READY_STATUS_FIELDS.items():
+        for field, expected in row_ready_field_expectations(row).items():
             actual = row.get(field)
             if actual != expected:
                 top_level_blockers.append(
@@ -274,6 +314,18 @@ def benchmark_gap_report(payload: dict[str, Any]) -> dict[str, Any]:
             status = blocking_status(value)
             if status is None:
                 continue
+            if field in OPTIMIZATION_ONLY_STATUS_FIELDS:
+                optimization_claim_field_counts[field] += 1
+                if len(optimization_claim_blockers) < 200:
+                    optimization_claim_blockers.append(
+                        {
+                            "row": identity,
+                            "field": field,
+                            "actual": status,
+                            "claim_surface": "optimization_or_encoded_native_promotion_only",
+                        }
+                    )
+                continue
             residual_field_counts[field] += 1
             if len(residual_blockers) < 200:
                 residual_blockers.append(
@@ -294,6 +346,11 @@ def benchmark_gap_report(payload: dict[str, Any]) -> dict[str, Any]:
         "residual_blocker_count": sum(residual_field_counts.values()),
         "residual_blocker_field_counts": dict(sorted(residual_field_counts.items())),
         "residual_blocker_examples": residual_blockers[:50],
+        "optimization_claim_blocker_count": sum(optimization_claim_field_counts.values()),
+        "optimization_claim_blocker_field_counts": dict(
+            sorted(optimization_claim_field_counts.items())
+        ),
+        "optimization_claim_blocker_examples": optimization_claim_blockers[:50],
         "external_baseline_unsupported_report": external_baseline_unsupported_report(rows),
     }
 
@@ -303,17 +360,41 @@ def build_report(
     benchmark_results: Path,
     phase_plan: Path,
     global_review: Path,
+    repo_root: Path | None = None,
+    runtime_gap_family_burn_down_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     benchmark_payload = load_json(benchmark_results)
     benchmark_report = benchmark_gap_report(benchmark_payload)
     phase_unchecked = unchecked_markdown_items(read_text(phase_plan))
     review_unchecked = unchecked_markdown_items(read_text(global_review))
+    runtime_gap_family_blockers: list[str] = []
+    global_review_mapping_status = "no_unchecked_global_review_rows"
+    if review_unchecked:
+        if runtime_gap_family_burn_down_report is None and repo_root is not None:
+            runtime_gap_family_burn_down_report = build_runtime_gap_family_burn_down_report(
+                repo_root
+            )
+        if runtime_gap_family_burn_down_report is None:
+            runtime_gap_family_blockers.append(
+                "missing runtime gap family burn-down report"
+            )
+        else:
+            runtime_gap_family_blockers = runtime_gap_family_burn_down_blockers(
+                runtime_gap_family_burn_down_report,
+                expected_global_unchecked_count=len(review_unchecked),
+            )
+        global_review_mapping_status = (
+            "blocked_unmapped_or_invalid"
+            if runtime_gap_family_blockers
+            else "mapped_to_runtime_gap_family_claim_boundaries"
+        )
 
     blockers: list[str] = []
     if phase_unchecked:
         blockers.append(f"phase plan still has unchecked items: {len(phase_unchecked)}")
-    if review_unchecked:
+    if review_unchecked and runtime_gap_family_blockers:
         blockers.append(f"global architecture review still has unchecked items: {len(review_unchecked)}")
+        blockers.extend(runtime_gap_family_blockers)
     if benchmark_report["top_level_blocker_count"]:
         blockers.append(
             "published ShardLoom rows still have top-level runtime/claim blockers: "
@@ -348,6 +429,13 @@ def build_report(
         "phase_plan_unchecked_examples": phase_unchecked[:50],
         "global_review_unchecked_count": len(review_unchecked),
         "global_review_unchecked_examples": review_unchecked[:100],
+        "global_review_mapping_status": global_review_mapping_status,
+        "global_review_unchecked_rows_block_completion": bool(runtime_gap_family_blockers),
+        "runtime_gap_family_burn_down_status": (
+            runtime_gap_family_burn_down_report or {}
+        ).get("status"),
+        "runtime_gap_family_burn_down_blocker_count": len(runtime_gap_family_blockers),
+        "runtime_gap_family_burn_down_blockers": runtime_gap_family_blockers,
         "benchmark_gap_report": benchmark_report,
         "completion_claim_allowed": not blockers,
         "fallback_attempted": False,
@@ -362,6 +450,7 @@ def main() -> int:
         benchmark_results=resolve(repo_root, args.benchmark_results),
         phase_plan=resolve(repo_root, args.phase_plan),
         global_review=resolve(repo_root, args.global_review),
+        repo_root=repo_root,
     )
     text = json.dumps(report, indent=2, sort_keys=True)
     if args.output:
