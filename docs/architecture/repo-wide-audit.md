@@ -1,0 +1,171 @@
+# Repo-Wide Audit Body
+
+Status: active audit body for `REPO-WIDE-AUDIT-1`.
+
+Scope: tracked repository files from `git ls-files`, recorded by
+`docs/architecture/repo-wide-audit-inventory.json` and validated by
+`scripts/check_repo_wide_audit.py`. The inventory is path-level coverage evidence: every tracked
+file is assigned to exactly one requested audit section, with `review_state=reviewed` and
+`skipped_tracked_files=0`.
+
+Checked-in coverage at generation time: 992 tracked files, 992 reviewed, 0 skipped. Section counts:
+271 `Architecture/Documentation`, 401 `Shardloom Code`, and 320 `Website`.
+
+Claim boundary: this audit organizes follow-up work only. It does not claim production readiness,
+package publication readiness, performance superiority, Spark displacement, or public release
+readiness. Current benchmark artifacts remain evidence only with `performance_claim_allowed=false`.
+ShardLoom runtime paths must continue to report `fallback_attempted=false` and
+`external_engine_invoked=false`. No package publication, release tag, upload, public benchmark
+claim, Spark/DataFusion/DuckDB/Polars/Velox runtime delegation, or Vortex query-engine fallback is
+authorized by this audit.
+
+Execution order after manual review:
+
+1. Architecture/docs coherence and claim-boundary consolidation.
+2. Code/runtime correctness, modularity, no-fallback boundary hardening, CI slow-tail cleanup, and
+   benchmark-evidence-driven optimization batches.
+3. Website/public surface refresh and data-driven benchmark rendering.
+
+## Architecture/Documentation
+
+Coverage owner: README, AGENTS, top-level governance/security/legal docs, `docs/architecture`,
+`docs/rfcs`, `docs/release`, `docs/security`, `docs/dependencies`, `docs/use-cases`, generated docs,
+and repo-local skills.
+
+Current coverage posture:
+
+- The inventory maps all tracked architecture/documentation files to this section, including
+  `README.md`, `AGENTS.md`, all RFCs, release docs, dependency/security docs, and use-case docs.
+- The section is documentation-heavy and history-heavy: `docs/architecture/phased-execution-completed-ledger.md`
+  is intentionally large and should remain a ledger, while active routing should stay compact in
+  `docs/architecture/phased-execution-plan.md`.
+- Public-facing and near-public docs must continue to use fail-closed language where release,
+  package, production, benchmark, or Spark-replacement evidence is not current or not approved.
+
+Findings:
+
+| ID | Files | Issue class | Proposed disposition | Risk | Validation |
+| --- | --- | --- | --- | --- | --- |
+| AD-1 | `README.md`, `docs/getting-started/*`, `python/README.md`, `docs/release/public-technical-preview-readiness.md` | Stale/outdated public status wording | Consolidate install, quickstart, and support-state wording around one source-owned matrix. Keep examples copyable, but route maturity claims through release/user-surface evidence reports. | Users may infer package/public readiness or broader runtime support than the hard gates prove. | `python3 scripts/check_release_architecture_tracker.py --allow-blocked`; README snippet smoke where changed. |
+| AD-2 | `docs/architecture/phased-execution-plan.md`, `docs/architecture/phased-execution-completed-ledger.md`, `docs/architecture/global-architecture-review.md`, `docs/architecture/runtime-gap-family-burn-down.md` | Completed-queue and active-queue drift | Keep the phase plan as the compact active queue; move completed narrative into the ledger; keep global-review rows mapped to claim-boundary evidence rather than treating them as autonomous runtime work. | Agents may resume stale 6-series or GAR rows and create sliver PRs instead of executing the active audit/review sequence. | `python3 scripts/check_release_architecture_tracker.py --allow-blocked`; `python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete`. |
+| AD-3 | `docs/architecture/engine-replacement-claim-inventory.md`, `docs/architecture/spark-displacement-benchmark-evidence-matrix.md`, `docs/benchmarks/static-benchmark-publishing-runbook.md`, `docs/release/per-claim-evidence-attachment-matrix.md` | Claim/evidence boundary | Rephrase any broad replacement, superiority, production, or public-readiness language to require selected timing surface, evidence tier, benchmark artifact, and maintainer approval. | Marketing-like claims could outrun benchmark freshness and release evidence. | Benchmark publication claim gate; release readiness gate; targeted `rg` for forbidden claim phrases. |
+| AD-4 | `docs/architecture/compute-engine-flow-reference.md`, `docs/architecture/compute-engine-flow-overhaul-review.md`, `docs/use-cases/reference-backlinks.md` | Architecture readability and consolidation | Make the compute-flow reference the canonical dense reference; keep overhaul review as historical only or fold durable decisions into the canonical file; ensure backlinks render the canonical flow instead of restating it. | Human review remains hard if flow, status, and field ownership are spread across parallel docs. | Link/backlink check; website/docs readiness if rendered. |
+| AD-5 | `docs/architecture/*backlog*.md`, `docs/architecture/*matrix*.md`, `docs/release/*matrix*.md`, `docs/status/*` | Documentation modularization | Separate source-of-truth JSON/report files from narrative summaries; have website/docs render source artifacts where practical. | Repeated tables drift and force manual synchronization. | Deterministic data-generation or schema validator for each promoted source artifact. |
+| AD-6 | `docs/security/*`, `SECURITY.md`, `docs/legal/*`, `docs/dependencies/*` | Security/authority boundary | Preserve round-3 security disposition as current; move future security work into concrete items instead of reopening broad discovery. | Repeated scans can create noise and hide actionable findings. | Security posture gate; dependency audit gate; no new scan beyond requested scope. |
+
+Immediate cleanup candidates:
+
+- Fold durable compute-flow review decisions into the canonical compute-flow reference, then mark the
+  review file historical or remove it if fully superseded.
+- Promote a single public-status matrix owner for README/getting-started/release website wording.
+- Add targeted claim-boundary wording checks for README and public website source once wording is
+  consolidated.
+
+Deferred manual-review findings:
+
+- Decide whether large historical architecture backlogs remain useful as active docs or should move
+  to ledger/history sections.
+- Decide which generated JSON/Markdown pairs should remain checked in versus generated during
+  release/website validation.
+
+Future implementation batches:
+
+- Documentation source-of-truth consolidation.
+- Compute-flow/reference-site rewrite.
+- Claim-boundary static wording checks.
+
+## Shardloom Code
+
+Coverage owner: Rust crates, Python package, scripts, examples, fixtures, benchmark harnesses, CI
+workflows, packaging metadata, release/security gates, and workspace configuration.
+
+Current coverage posture:
+
+- The inventory maps Rust crates, Python package/tests, scripts, benchmarks, examples, packaging,
+  CI, and root package/config files to this section.
+- CI currently proves the scoped no-publication completion surface, but release readiness remains
+  fail-closed for maintainer approval, package-channel upload/install evidence, API/schema stability,
+  per-claim evidence, and benchmark freshness.
+- Current benchmark artifacts show timing-surface separation is present: `hot_runtime`,
+  `publication_proof`, and external baseline rows are distinct. Optimization findings below are
+  based on the current static benchmark artifact, not a new benchmark run.
+
+Findings:
+
+| ID | Files | Issue class | Proposed disposition | Risk | Validation |
+| --- | --- | --- | --- | --- | --- |
+| SC-1 | `shardloom-cli/src/*`, `shardloom-vortex/src/*`, `shardloom-core/src/*`, `shardloom-plan/src/*` | No-fallback/Vortex-native boundary | Continue hardening unsupported diagnostics and certificate fields around every admitted runtime path; keep Vortex API use isolated and policy-admitted. | A future convenience path could silently become fallback execution or overstate Vortex-native coverage. | Rust unit/smoke tests; typed envelope tests; `cargo clippy --workspace --all-targets -- -D warnings`; no-fallback field scans. |
+| SC-2 | `benchmarks/traditional_analytics/run.py`, `scripts/promote_benchmark_artifact.py`, `scripts/check_benchmark_publication_claim_gate.py`, `website/assets/benchmarks/latest/benchmark-results.json` | Performance inefficiency and attribution | Prioritize benchmark-proven bottlenecks: JSONL parse/decode, AVRO hot-runtime outliers, prepared state create/lookup, Vortex write/reopen/verify, source-read scout timing, and operator materialization. Keep proof/publication overhead separate from hot runtime. | Optimizing arbitrary code could miss the measured bottlenecks or blur timing surfaces again. | Targeted small benchmark artifact, publication claim gate, route timing-surface validator, before/after artifact diff. |
+| SC-3 | `scripts/check_*`, `scripts/*_gate.py`, `.github/workflows/ci.yml`, `python/tests/test_release_scripts.py` | CI slow-tail and release-script modularity | Split reusable evidence loading, path normalization, claim-boundary checks, and report schema helpers into shared utilities where it reduces repeated slow work; avoid weakening gates. | Serial hard-gate stack remains slow and raises PR latency; copy-pasted release checks drift. | Existing CI matrix; focused release-script shard; release readiness aggregate. |
+| SC-4 | `python/src/shardloom/*`, `python/tests/*`, `examples/local-python-smoke/*`, `docs/getting-started/*` | Python/API ergonomic coherence | Keep user-facing snippets aligned with actual primary ShardLoom route and supported ETL scenarios; avoid pandas/Polars fallback implication. | Python users may infer unsupported DataFrame behavior or hidden external compute. | Python smoke/package tests; copied README/web snippet test if added. |
+| SC-5 | `shardloom-cli/src/sql_local_source_runtime.rs`, `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`, `shardloom-vortex/src/traditional_analytics.rs`, `benchmarks/traditional_analytics/run.py` | Code modularization | Break very large runtime/harness modules by responsibility: source admission, execution, output, evidence, and diagnostics. Start only where tests can pin behavior. | Large files make future correctness/performance edits risky and hard to review. | Existing focused tests per module plus Rust workspace gate. |
+| SC-6 | `Cargo.toml`, `Cargo.lock`, `deny.toml`, `REUSE.toml`, `.github/dependabot.yml`, `docs/dependencies/*` | Dependency/license/provenance | Keep dependency expansion gated by license/provenance review; keep Vortex query-engine integrations out of runtime dependencies. | New dependencies can violate Apache-2.0 posture or create accidental fallback surfaces. | Dependency/security gates; cargo-deny/audit/pip-audit evidence. |
+| SC-7 | `benchmarks/traditional_analytics/requirements*.txt`, `benchmarks/traditional_analytics/benchmark_registry.py`, external baseline rows | External baseline authority | Keep external engines as benchmark baselines only; unsupported baseline rows must not mask ShardLoom harness gaps. | Baseline availability can be confused with ShardLoom fallback or runtime support. | Benchmark harness tests; external baseline row checks; claim gate. |
+
+Immediate cleanup candidates:
+
+- Add utility-level helpers for repeated release-script report loading and path redaction after a
+  focused inventory of duplicated helpers.
+- Add a timing-surface regression check that fails if `publication_full` rows drive the default hot
+  runtime route grid.
+- Add a benchmark artifact size/duplication report so static benchmark evidence cost is visible in
+  CI and website work.
+
+Deferred manual-review findings:
+
+- Decide whether release-readiness hard gates should keep all current serial checks in one PR gate
+  or split evidence generation from aggregation to reduce the tail without reducing coverage.
+- Decide which large Rust modules should be split first based on current review pain and test
+  boundaries.
+
+Future implementation batches:
+
+- CI/release evidence helper modularization.
+- Hot runtime optimization based on current benchmark outliers.
+- Runtime module boundary refactors with unchanged behavior and focused tests.
+
+## Website
+
+Coverage owner: `website-src`, checked-in static `website`, `website-public`, website data/assets,
+benchmark JSON shards, Pagefind output, Astro/Starlight configuration, Cloudflare Workers config,
+and website readiness/static validation scripts.
+
+Current coverage posture:
+
+- The inventory maps source website files, checked-in static output, public mirror output, Pagefind,
+  benchmark data, logo assets, and Cloudflare config to this section.
+- The largest tracked files are duplicated benchmark JSON shards in `website` and `website-public`,
+  plus mirrored `benchmark-evidence.json` in `website-src`, `website`, and `website-public`.
+- Current benchmark rows distinguish `hot_runtime`, `publication_proof`, and external baseline
+  surfaces. The website must keep these surfaces visually separate and must not label proof-heavy
+  totals as the default hot route.
+
+Findings:
+
+| ID | Files | Issue class | Proposed disposition | Risk | Validation |
+| --- | --- | --- | --- | --- | --- |
+| WB-1 | `website/assets/benchmarks/latest/*`, `website-public/assets/benchmarks/latest/*`, `website-src/src/data/benchmark-evidence.json` | Static artifact duplication | Document ownership for each mirror and consider source-to-static generation that avoids checking in redundant data unless deployment requires it. | The repo carries large duplicated JSON, increasing review, clone, and CI artifact cost. | Static asset validation; mirror digest check; website readiness. |
+| WB-2 | `website-src/src/pages/*`, `website-src/src/components/*`, benchmark table/chart code | Benchmark/public-state content | Ensure benchmark pages present timing-surface chips and separate hot runtime, replay proof/publication proof, and external baselines. Avoid any default view that substitutes publication proof for hot runtime. | Users may read proof-heavy timing as core runtime regression or unsupported superiority claim. | Browser/static validation; route timing-surface data check; screenshot QA if visual layout changes. |
+| WB-3 | `website`, `website-public`, `website-src/dist`-like generated outputs if present | Generated/static ownership | Keep static outputs regenerated from source in the same PR as website source changes, or remove checked-in outputs only with a deployment replacement plan. | Source/static drift creates outdated public pages while validation still passes on one copy. | `website/validate_static_assets.js`; `python3 scripts/check_website_readiness.py --output target/website-readiness-repo-wide-audit.json`. |
+| WB-4 | `website-src/package.json`, `website-src/package-lock.json`, Astro/Starlight/Pagefind config | Website dependency and build posture | Keep website build reproducible with bundled/local Node guidance; avoid node_modules tracking; validate lockfile and build/check commands after overhaul. | Website work can become environment-specific or impossible for agents without global npm. | Astro build/check using bundled Node; website readiness; static asset validation. |
+| WB-5 | `website-src/src/content/*`, `docs/release/website-*`, `docs/architecture/website-current-state-public-reference.md` | Public wording drift | Make website status pages render canonical evidence summaries instead of restating release/package claims by hand. | Public site may lag phase-plan and release evidence state. | Source-to-static content sync; release claim wording scan. |
+| WB-6 | `website/assets/logo/*`, `website-public/assets/logo/*`, shared CSS/components | Visual/UI maintainability | Consolidate repeated public assets and ensure generated mirrors have digest checks. Keep future overhaul data-driven and accessible. | Repeated assets drift or become stale during redesign. | Static asset digest validation; browser visual QA for redesigned pages. |
+
+Immediate cleanup candidates:
+
+- Add a benchmark-data mirror/size report to website readiness so static duplication remains visible.
+- Make the benchmark page default explicitly `hot_runtime`, with proof/publication views separate
+  and labeled.
+- Regenerate static website output only when the source/data changes in the same PR.
+
+Deferred manual-review findings:
+
+- Decide whether both `website` and `website-public` need to remain tracked deployment targets or
+  whether one can be generated in CI/deploy.
+- Decide the clean-slate benchmark page IA after the audit findings are reviewed.
+
+Future implementation batches:
+
+- Website data ownership and mirror simplification.
+- Benchmark page clean-slate redesign.
+- Public wording source-of-truth integration with release evidence.
