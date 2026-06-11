@@ -30,8 +30,8 @@ skipped_gate=real_publication
 The release evidence path is intentionally split. Producer jobs run independent checks in
 parallel; `release-readiness` downloads their artifacts and runs only the final aggregate gates.
 This keeps the hard gate strict without making every PR wait for a single serial evidence stack.
-Python unit/compile validation runs in a separate `python-tests` lane while the branch-protection
-compatible `Python and package smoke` check name is retained for the local package/dry-run lane.
+Python unit validation is split into parallel shards and then aggregated by the branch-protection
+compatible `Python tests` check. `Python and package smoke` remains the local package/dry-run lane.
 The workflow grants `pull-requests: read` and passes the scoped Actions token only to the live
 pre-5J dependency freshness step so the Dependabot PR query is authenticated without write scope or
 package/release authority.
@@ -40,7 +40,8 @@ package/release authority.
 | --- | --- | --- | --- | --- |
 | `rust_baseline` | `rust-baseline` | `cargo fmt --all -- --check`<br>`cargo clippy --workspace --all-targets -- -D warnings`<br>`cargo test --workspace --all-targets` | none | default Rust formatting, linting, and tests |
 | `rust_feature_matrix` | `rust-feature-matrix` | `cargo check --workspace`<br>`cargo check --workspace --all-features`<br>`cargo check --workspace --no-default-features`<br>`cargo check -p shardloom-vortex --features upstream-vortex`<br>`cargo check -p shardloom-vortex --features vortex-file-io`<br>`cargo check -p shardloom-vortex --features vortex-local-primitives`<br>`cargo check -p shardloom-vortex --features vortex-encoded-read-spike`<br>`cargo test -p shardloom-contract-tests --test conda_packaging_recipes`<br>`cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark` | none | workspace feature/build matrix |
-| `python_tests` | `python-tests` | `python -m unittest discover -s python/tests`<br>`python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics` | `target/python-test-evidence.json`<br>`python-test-evidence` | Python tests; Python compile check |
+| `python_test_shards` | `python-test-shards` | `python scripts/run_python_test_shard.py --shard ${{ matrix.shard }}` | `target/python-test-shards/${{ matrix.shard }}.json`<br>`python-test-shard-${{ matrix.shard }}` | Python test shards |
+| `python_tests` | `python-tests` | `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`<br>`python scripts/merge_python_test_shard_evidence.py` | `python-test-shard-*`<br>`target/python-test-evidence.json`<br>`python-test-evidence` | Python tests; Python compile check |
 | `python_package_smoke` | `python-package` | `python -m build python`<br>`python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda` | `python/dist`<br>`target/debug/shardloom`<br>`target/release-dry-run-proof`<br>`target/release-provenance-dry-run`<br>`release-local-smoke-evidence` | package/install smoke; local provenance dry run |
 | `dependency_security` | `dependency-security` | `python scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report.json`<br>`python scripts/check_security_posture.py`<br>`python scripts/release_provenance_dry_run.py`<br>`python scripts/check_release_security_gate.py` | `target/dependency-audit-report.json`<br>`target/security-posture-report.json`<br>`target/release-provenance-dry-run`<br>`target/release-security-gate-report.json` | dependency/license audit; security posture; release security gate |
 | `release_runtime_core_evidence` | `release-runtime-core` | `python scripts/check_golden_workflows.py`<br>`python scripts/check_admitted_semantics_matrix.py`<br>`python scripts/check_release_architecture_tracker.py --allow-blocked` | `target/golden-workflow-report.json`<br>`target/golden-workflows`<br>`target/admitted-semantics-matrix-report.json`<br>`target/admitted-semantics-matrix`<br>`target/release-architecture-tracker-report.json` | golden workflow validator; admitted semantics matrix; release architecture tracker |
@@ -69,9 +70,16 @@ scripts report a coherent blocked state with
 
 The release hard-gate stack is split into parallel producers and a short final aggregate:
 
-- `python-tests` emits `python-test-evidence` with `target/python-test-evidence.json` after Python
-  unit discovery and compileall pass. Keeping this lane separate lets package build/dry-run work
-  start immediately instead of waiting for the Python test-discovery tail.
+- `python-test-shards` runs `core`, `front_door_benchmark_publication`, and `release_scripts`
+  shards in parallel with `fail-fast: false`. The split isolates the two measured slow modules:
+  `python.tests.test_release_scripts` and `python.tests.test_front_door_benchmark_publication`.
+- `python-tests` depends on `python-test-shards`, uses `if: always()` so failed or missing shards
+  still produce a stable aggregate check, downloads `python-test-shard-*` with
+  `actions/download-artifact@v8` and `merge-multiple: true`, runs compileall, and emits the stable
+  `python-test-evidence` artifact with `target/python-test-evidence.json` through
+  `python scripts/merge_python_test_shard_evidence.py`. The merge script proves that discovered
+  `python/tests/test_*.py` modules are covered exactly once, so the aggregate check remains
+  equivalent to full discovery without requiring the slow modules to run serially.
 - `python-package` keeps the GitHub check name `Python and package smoke` for branch-protection
   continuity and emits `release-local-smoke-evidence` with the dry-run transcript, local
   provenance, `target/debug/shardloom`, and `python/dist` so the release path does not rerun
