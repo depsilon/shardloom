@@ -16,6 +16,74 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: SECURITY-DEEP-SCAN-R3-FOLLOWUP round-3 candidate burn-down
+  - Date: 2026-06-11
+  - Branch/PR: `codex/security-r3-followup` / #1167.
+  - Merge: `8925c186` (`Merge pull request #1167 from depsilon/codex/security-r3-followup`).
+  - Source:
+    - Codex Security deep scan bundle
+      `/tmp/codex-security-scans/shardloom-local-repo/dcdd1fbe4993_20260611T130604Z_deep`.
+    - Round-3 merge record
+      `/tmp/codex-security-scans/shardloom-local-repo/dcdd1fbe4993_20260611T130604Z_deep/artifacts/deep_discovery/round-03/round_merge_record.json`.
+    - Candidate-disposition matrix
+      `docs/security/deep-security-scan-round-3-disposition.md`.
+  - Scope:
+    - Validated and terminally disposed all `SL-DEEP-001` through `SL-DEEP-028` discovery
+      candidates without continuing discovery beyond round 3.
+    - Landed one cohesive path/workspace containment batch across spill payload/lifecycle,
+      object-store local emulator, table append rehearsal, generated-source, SQL/SQLite/Vortex
+      ingest, Foundry proof output, prepared-state sidecars, and release dry-run cleanup.
+    - Landed local-source/query-control checks for Python query-builder raw SQL breakout attempts
+      and terminally deferred less-trusted local-source authority to a future allow-root gate.
+    - Added resource budgets for SQL local-source, Vortex ingest, object-store read/write/recovery,
+      partition discovery, and SQLite local import/export smokes.
+    - Added URI/argv/path redaction and provenance controls for object-store evidence, Python
+      exceptions, release evidence merge outputs, prepared-state SHA-256 digests, and live-GitHub
+      dependency-freshness token routing.
+    - Hardened privileged CI workflows by pinning protected security and PyPI publishing actions,
+      splitting PyPI build work out of the OIDC publish job, and validating the workflow posture.
+  - Candidate disposition:
+    - `reportable_fixed`: `SL-DEEP-008`, `SL-DEEP-009`, `SL-DEEP-010`, `SL-DEEP-011`,
+      `SL-DEEP-012`, `SL-DEEP-013`, `SL-DEEP-014`, `SL-DEEP-015`, `SL-DEEP-017`,
+      `SL-DEEP-019`, `SL-DEEP-020`, `SL-DEEP-021`, `SL-DEEP-022`, `SL-DEEP-024`,
+      `SL-DEEP-027`, and `SL-DEEP-028`.
+    - `deferred_with_owner_and_gate`: `SL-DEEP-001`, `SL-DEEP-002`, `SL-DEEP-003`,
+      `SL-DEEP-004`, `SL-DEEP-005`, `SL-DEEP-006`, `SL-DEEP-007`, `SL-DEEP-016`,
+      `SL-DEEP-018`, `SL-DEEP-023`, `SL-DEEP-025`, and `SL-DEEP-026`.
+    - No `candidate_needs_validation` row remains in the current disposition matrix.
+  - Local evidence:
+    - `python3 -m compileall -q python/src scripts benchmarks` passed.
+    - `python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/query.py python/tests/test_cli_client.py python/tests/test_query_builder.py python/tests/test_release_scripts.py scripts/merge_release_evidence_artifacts.py scripts/release_dry_run_proof.py scripts/check_security_posture.py scripts/check_pre_5j_dependency_freshness.py scripts/check_benchmark_publish_doctor.py` passed.
+    - Focused Python security/regression tests in `python.tests.test_query_builder`,
+      `python.tests.test_cli_client`, and `python.tests.test_release_scripts` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - Focused Rust security/regression tests for Vortex ingest, generated-source Vortex output,
+      SQL local-source Vortex output, object-store runtime, SQLite local runtime, spill
+      symlink/path safety, staged Vortex output rollback, local table append commit rehearsal, and
+      object-store write symlink behavior passed.
+    - `python3 scripts/check_security_posture.py --repo-root . --json-output target/security-posture-r3.json`
+      passed.
+    - `python3 scripts/check_release_security_gate.py --repo-root . --allow-blocked --security-posture-report target/security-posture-r3.json --output target/release-security-gate-r3.json`
+      passed.
+    - `python3 scripts/check_ci_gate_matrix.py --repo-root .` passed.
+    - `git diff --check` and `git diff --cached --check` passed before commit.
+  - Remote evidence:
+    - PR #1167 merged only after all GitHub checks were green: Rust baseline, Rust feature matrix
+      lanes, Python shards and aggregate, dependency/security gates, release runtime core evidence,
+      release benchmark claim evidence, release package/governance evidence, release user-surface
+      evidence, release readiness reports, website/docs validation, CodeQL, and Workers build.
+  - Claim boundary:
+    - The item closes the round-3-bounded security candidate burn-down and supporting gates. It
+      does not prove deep-scan saturation, create public advisories, approve public package
+      publication, mark package channels ready, create tags/releases, or authorize production,
+      platform, benchmark superiority, or public security posture claims beyond the attached
+      candidate dispositions and release/security gates.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution was introduced. Runtime evidence remains bounded by
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: release CI Python shard tail split
   - Date: 2026-06-11
   - Branch/PR: `codex/ci-hard-gate-tail-optimization` / local branch.

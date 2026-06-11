@@ -179,105 +179,132 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-1. [ ] `SECURITY-DEEP-SCAN-R3-FOLLOWUP` - validate and burn down the round-3-bounded
-   Codex Security candidate inventory.
-   - Source: Codex Security deep scan
-     `/tmp/codex-security-scans/shardloom-local-repo/dcdd1fbe4993_20260611T130604Z_deep`.
-     Round merge record:
-     `/tmp/codex-security-scans/shardloom-local-repo/dcdd1fbe4993_20260611T130604Z_deep/artifacts/deep_discovery/round-03/round_merge_record.json`.
-   - Current state: three discovery rounds are complete and merged. The canonical inventory has
-     28 discovery-stage candidates, including three new round-3 clusters:
-     `SL-DEEP-026` local-source read authorization, `SL-DEEP-027` release dry-run cleanup
-     authority, and `SL-DEEP-028` dependency-freshness live-GitHub token routing. Centralized
-     validation and attack-path analysis have not run, and saturation is not proven because round 3
-     added novelty and discovery was stopped at round 3 by user instruction.
-   - Next slice outcome: produce a validated candidate-disposition matrix, then remediate or
-     suppress each candidate in cohesive control-family batches with tests and release/security
-     evidence.
-   - User-visible surface: CLI/Python local-source and output behavior, evidence/redaction
-     artifacts, benchmark/publication metadata, release and CI security gates, workflow scripts,
-     and documentation status text for explicit security posture.
-   - Implementation scope:
-     - Workspace/path containment and symlink-safe file effects across spill payload/lifecycle,
-       object-store local emulator, table append rehearsal, generated-source, SQL/SQLite/Vortex
-       ingest, Foundry proof output, prepared-route state, traditional analytics sidecars, and
-       release dry-run cleanup.
-     - Local-source authority and SQL admission around Python query-builder/public workflow APIs
-       and SQL local-source reads.
-     - Resource budgets and streaming caps for SQL local-source, Vortex ingest, object-store
-       read/write/recovery, partition discovery, and SQLite local import/export smokes.
-     - Sensitive-output redaction for object-store URIs, planning/benchmark surfaces, Python
-       exception argv, release/generated evidence paths, and token-bearing request surfaces.
-     - Evidence/provenance integrity for prepared-state digests, release-artifact producer/digest
-       binding, and local-emulator recovery sidecar trust.
-     - CI supply-chain hardening for PyPI trusted publishing, mutable privileged actions, analyzer
-       permissions, and `scripts/check_pre_5j_dependency_freshness.py`.
-   - Evidence required: per-`SL-DEEP-*` validation notes, attack-path notes for reportable
-     candidates, suppression counterevidence where applicable, before/after tests for fixed
-     controls, redaction snapshots, path/symlink and byte-budget regression tests, updated
-     release/security gate outputs, and no-fallback execution evidence.
-   - Acceptance: every `SL-DEEP-001` through `SL-DEEP-028` candidate is marked
-     `reportable_fixed`, `suppressed_with_counterevidence`, `not_applicable`, or
-     `deferred_with_owner_and_gate`; no `candidate_needs_validation` row remains without a
-     disposition; validated issues have cohesive fixes or explicit release-blocking gates; release
-     and security posture checks reflect the new controls.
+1. [ ] `REPO-WIDE-AUDIT-1` - prepare a full-repository post-completion audit body before further
+   implementation.
+   - Source: user request on 2026-06-11 after PR #1167 merge; active goal to make ShardLoom ready
+     to package/deploy/use, then review every file, consolidate stale documentation, and identify
+     performance, modularization, and world-class compute-engine improvement opportunities.
+   - Current state: the compute-engine completion gate passes for the scoped no-publication engine
+     completion claim, and the phase plan has no residual runtime implementation item from the
+     prior series. Remaining public-release and benchmark claims stay blocked by approval,
+     package-channel, API/schema-stability, per-claim evidence, and benchmark-freshness gates.
+     Optimization-only blockers remain visible in benchmark evidence and completion-gate reports,
+     but they are not yet organized into a repo-wide audit body.
+   - Next slice outcome: create a repo-wide audit work body with exactly three top-level sections:
+     `Architecture/Documentation`, `Shardloom Code`, and `Website`. The audit body must use the
+     tracked repository file list as the coverage universe and produce a logical checklist for
+     manual review before additional implementation resumes.
+   - User-visible surface: this phase plan, future audit artifacts, README/docs/website status,
+     CLI/Python/Rust/source code quality, benchmark interpretation, release-readiness reports, and
+     website/public documentation coherence.
+   - Implementation scope for this plan item:
+     - Generate a file-coverage inventory from `git ls-files` at the audited commit and classify
+       every tracked path into exactly one of the three sections or an explicitly documented shared
+       boundary bucket owned by one section.
+     - Review and record every tracked file. Do not treat generated/static files, scripts, tests,
+       fixtures, CI workflows, or archived-looking documentation as exempt unless they are ignored
+       or intentionally removed in the same audited change.
+     - Produce a checklist ordered for human review and later implementation, not a vague
+       brainstorm. Each finding must identify the file(s), issue class, proposed disposition, risk,
+       and validation needed before changes are made.
+     - Remove duplicate or unnecessary files only after proving they are untracked/generated
+       clutter or after promoting the cleanup into the checklist with an owner and validation plan.
+   - Evidence required:
+     - A checked-in audit report or generated inventory that records the `git ls-files` universe,
+       total file count, section counts, reviewed counts, skipped count of zero, and any files
+       removed as duplicate/generated clutter.
+     - For each section, a checklist of findings grouped by correctness, no-fallback/Vortex-native
+       policy, stale/outdated content, unnecessary components, performance inefficiency,
+       modularization opportunity, release/package/deploy readiness, security/authority boundary,
+       and validation gaps.
+     - Exact validator outputs for phase-plan consistency, release architecture tracking,
+       website/docs readiness where website content is touched, and focused syntax/schema checks
+       for any generated audit data.
+   - Acceptance:
+     - The audit body has the three requested top-level sections and no fourth parallel queue.
+     - Every tracked file at the audited commit is accounted for by path or glob in a coverage
+       inventory, with zero unreviewed tracked files.
+     - `Architecture/Documentation` covers `README.md`, `AGENTS.md`, docs architecture/RFC/release/
+       security/dependency/use-case/skill files, generated docs, and stale queue/consolidation
+       risks.
+     - `Shardloom Code` covers Rust crates, Python package, scripts, examples, tests, benchmark
+       harnesses, fixtures, CI workflows, packaging files, and release/security gates.
+     - `Website` covers `website-src`, checked-in static `website` output, `website-public`,
+       website data/assets/scripts, benchmark pages, Starlight/Astro structure, and public wording.
+     - The plan distinguishes immediate cleanup, deferred manual-review findings, and future
+       implementation batches. It must not claim production, package-publication, benchmark
+       superiority, Spark-displacement, or full public readiness.
+     - Follow-up implementation order is logical: architecture/docs coherence first, then
+       code/runtime correctness and modularization, then website/public surface refresh, with
+       performance optimization findings tied to benchmark evidence.
    - Verification:
-     - `python3 -m compileall -q python/src scripts benchmarks`
-     - `python3 -m pytest python/tests`
-     - `python3 scripts/check_security_posture.py --repo-root .`
-     - `python3 scripts/check_ci_gate_matrix.py --repo-root .`
-     - `python3 scripts/check_release_security_gate.py --repo-root . --allow-blocked`
-     - `cargo fmt --all -- --check`
-     - `cargo clippy --workspace --all-targets -- -D warnings`
-     - `cargo test --workspace --all-targets`
-   - Non-goals: no package publication, public vulnerability advisory, release tag, external
-     fallback engine, new query-engine dependency, or broad runtime redesign. Do not continue deep
-     discovery beyond round 3 unless explicitly requested.
-   - Claim boundary: discovery candidates are not confirmed vulnerabilities until validation and
-     attack-path analysis complete. No public security, production-readiness, or release-readiness
-     claim is allowed from this item until candidate dispositions and gate outputs are attached.
-   - Fallback boundary: fixes must preserve `fallback_attempted=false` and
-     `external_engine_invoked=false`; external engines remain baseline/test oracles only.
-   - Ledger rule: when complete, move the detailed completed session and candidate-disposition
-     summary to `docs/architecture/phased-execution-completed-ledger.md`, then keep this file as
-     the compact planned queue.
-   - Execution checklist:
-     - [x] Stabilize the scan evidence by recording the round-3 merge counts, canonical inventory
-       path, and new `SL-DEEP-026` through `SL-DEEP-028` titles in the candidate-disposition
-       matrix: `docs/security/deep-security-scan-round-3-disposition.md`.
-     - [x] Validate or suppress all 28 candidates before severity labels or security claims are
-       made.
-     - [x] Land one cohesive path/workspace containment batch for validated file-effect and
-       sidecar candidates.
-       - Progress: `SL-DEEP-024` and `SL-DEEP-027` are fixed; `SL-DEEP-001`, `SL-DEEP-002`,
-         `SL-DEEP-003`, `SL-DEEP-004`, `SL-DEEP-005`, `SL-DEEP-007`, and `SL-DEEP-018` have
-         symlink-safe/staged-write mitigations and are terminally deferred to the broader
-         workspace-root authority gate.
-     - [x] Land one local-source/query-control batch for validated SQL/path read and raw-fragment
-       candidates.
-       - Progress: `SL-DEEP-006` blocks raw SQL clause, set, and separator breakouts while
-         preserving typed predicate scoping; `SL-DEEP-026` is terminally deferred to a future
-         less-trusted local-source allow-root/authority gate.
-     - [x] Land one resource-budget batch for validated full-buffering, recursion, and byte-cap
-       candidates.
-       - Progress: `SL-DEEP-009` through `SL-DEEP-014` are fixed with local-source, Vortex ingest,
-         object-store, partition-discovery, and SQLite byte/row/depth budgets.
-     - [x] Land one evidence/redaction/provenance batch for validated URI, argv, absolute-path,
-       digest, artifact-binding, and recovery-sidecar candidates.
-       - Progress: `SL-DEEP-015`, `SL-DEEP-017`, `SL-DEEP-019`, and `SL-DEEP-021` are fixed;
-         `SL-DEEP-016`, `SL-DEEP-023`, and `SL-DEEP-025` are terminally deferred to public-evidence
-         field-classification or producer-bound authenticity gates.
-     - [x] Land one CI/workflow hardening batch for validated OIDC, mutable-action, analyzer
-       permission, and live-GitHub token-routing candidates.
-     - [x] Update docs/status/capability artifacts only where behavior or release gates changed.
-     - [ ] Run the verification commands above and attach exact outputs or artifact paths before
-       checking this item complete.
+     - `git ls-files > target/repo-wide-audit-file-universe.txt`
+     - audit coverage script or equivalent deterministic check proving every tracked path is mapped
+       once.
+     - `python3 scripts/check_release_architecture_tracker.py --allow-blocked`
+     - `python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete`
+     - `python3 scripts/check_website_readiness.py --output target/website-readiness-repo-wide-audit.json`
+       if website/source/static website files are changed.
+     - `git diff --check`
+   - Non-goals: do not publish packages, create tags/releases, upload artifacts, perform public
+     benchmark claims, continue Codex Security discovery beyond round 3, or implement broad runtime
+     behavior inside the planning PR. Do not use Spark, DataFusion, DuckDB, Polars, Velox, or
+     Vortex query-engine integrations as ShardLoom fallback execution.
+   - Claim boundary: this item creates the audit plan/body only. It may identify blockers,
+     inefficiencies, and cleanup opportunities, but it does not by itself close those findings or
+     authorize public engine, package, production, performance, or replacement claims.
+   - Fallback boundary: audit work must preserve the no-fallback contract; any later code change
+     proposed by the audit must keep `fallback_attempted=false` and
+     `external_engine_invoked=false` for ShardLoom runtime paths.
+   - Ledger rule: when the audit body is complete and merged, move the completed session summary to
+     `docs/architecture/phased-execution-completed-ledger.md`; keep any follow-up implementation
+     checklists promoted here as separate concrete `REPO-WIDE-AUDIT-*` items.
+   - Architecture/Documentation checklist:
+     - [ ] Build the architecture/documentation file inventory and prove coverage for README,
+       AGENTS, architecture docs, RFCs, release docs, security docs, dependency docs, use-case docs,
+       generated docs, and repo-local skills.
+     - [ ] Identify stale or conflicting architecture claims, duplicated current queues,
+       completed-ledger drift, outdated public status wording, and docs that should be consolidated
+       or deleted.
+     - [ ] Verify every public or near-public claim has an evidence source or an explicit
+       fail-closed claim boundary.
+     - [ ] Identify documentation modularization opportunities: canonical owners, generated data
+       sources, pages that should render source artifacts instead of restating them, and files that
+       should become historical ledger only.
+   - Shardloom Code checklist:
+     - [ ] Build the code file inventory and prove coverage for Rust crates, Python package,
+       scripts, tests, benchmark harnesses, examples, fixtures, CI workflows, package metadata, and
+       release/security gates.
+     - [ ] Review no-fallback/Vortex-native boundaries, unsupported diagnostics, file/path
+       authority, resource budgets, side-effect controls, and claim/evidence field consistency.
+     - [ ] Identify inefficiencies using current benchmark evidence: prepared lookup/create,
+       source parse/decode, Vortex reopen/verify split, source-read scout timing, operator hot-path
+       materialization, allocation/buffer reuse, result sink/proof overhead, and CI slow-tail gates.
+     - [ ] Identify modularization opportunities across CLI runtime modules, Python wrapper
+       surfaces, benchmark/report generation, release/security scripts, evidence field helpers,
+       and shared path/redaction/budget utilities.
+     - [ ] Separate immediate correctness/security cleanup from optional performance optimization
+       and from claim-grade/public-release approval gates.
+   - Website checklist:
+     - [ ] Build the website file inventory and prove coverage for `website-src`, checked-in
+       static `website`, `website-public`, website data/assets, benchmark JSON shards, Pagefind,
+       Astro/Starlight configuration, and validation scripts.
+     - [ ] Identify stale benchmark/public-state content, outdated generated pages, duplicate
+       static assets, conflicting public wording, inaccessible layout/content risks, and places
+       where static output should be regenerated or removed.
+     - [ ] Verify benchmark pages keep hot runtime, replay proof, publication proof, and external
+       baselines separate and do not imply unsupported performance claims.
+     - [ ] Identify website modularization opportunities: data-driven rendering, shared evidence
+       components, benchmark table/chart simplification, source-to-static sync points, and generated
+       artifact ownership.
 
-Plan state after prior closeout:
+Plan state after security round-3 follow-up closeout and audit-plan promotion:
 
-- One security follow-up item is now promoted above. No active runtime implementation,
-  release-sequence, benchmark-timing, performance-innovation, or non-runtime closeout item remains
-  unchecked beyond that item in this file.
+- The `SECURITY-DEEP-SCAN-R3-FOLLOWUP` item completed in PR #1167 and its detailed session record
+  lives in `docs/architecture/phased-execution-completed-ledger.md`.
+- `REPO-WIDE-AUDIT-1` is now the only active planned item. It is intentionally a planning/audit
+  body for manual review before further runtime, docs, website, or optimization implementation
+  resumes.
 - Completed runtime and release details live in
   `docs/architecture/phased-execution-completed-ledger.md`; keep this file as the compact planned
   queue.
@@ -296,6 +323,7 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
+| Active | `REPO-WIDE-AUDIT-1` | Prepare the three-section full-repository audit body for manual review. |
 | Closed | `GAR-RUNTIME-IMPL-4/6A` | Residual completion gate closes with global-review rows mapped to claim-boundary evidence. |
 | Closed | `RELEASE-SEQUENCE-1` through `RELEASE-SEQUENCE-14` | Local proof, package-channel posture, final rehearsal, and maintainer handoff are complete for the no-publication scope. |
 | Deferred approval/artifact gate | Public release/package and current benchmark publication | Requires maintainer approval, channel-specific install/upload evidence, and a clean-source benchmark refresh before any public claim. |
@@ -312,9 +340,9 @@ Runtime and release queue status:
   completed ledger and generated status artifacts.
 - Production usability closeout anchor: completed benchmark/profile, sub-evidence, user-surface,
   and package-readiness proof detail lives in the completed ledger.
-- Deferred Non-Runtime Closeout Queue: no active item. Completed non-runtime history lives in the
-  completed ledger; add a concrete unchecked item here only for a new documentation, website,
-  security, release, or claim-integrity blocker.
+- Deferred Non-Runtime Closeout Queue: `REPO-WIDE-AUDIT-1` is the active audit/planning item.
+  Completed non-runtime history lives in the completed ledger; follow-up implementation batches
+  discovered by the audit must be promoted here as concrete unchecked items before editing behavior.
 - Final Pre-Release Sequential Closeout Queue: closed as no-publication evidence. Publication,
   signing, tags, uploads, package-channel submission, release assets, and public claims still require
   explicit maintainer approval and passing hard gates.
