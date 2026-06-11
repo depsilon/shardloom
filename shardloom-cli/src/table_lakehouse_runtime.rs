@@ -159,8 +159,17 @@ struct LocalTableCommitRecoveryReport {
     recorded_manifest_digest: String,
     expected_correctness_digest: String,
     recorded_correctness_digest: String,
+    recorded_target_uri: String,
+    recorded_local_manifest_path: String,
     manifest_digest_matched: bool,
     correctness_digest_matched: bool,
+    commit_record_scope_matched: LocalTableCommitRecordScopeMatch,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LocalTableCommitRecordScopeMatch {
+    target_uri: bool,
+    local_manifest_path: bool,
 }
 
 impl LocalTableCommitRecoveryReport {
@@ -188,8 +197,14 @@ impl LocalTableCommitRecoveryReport {
             recorded_manifest_digest: "not_emitted_no_commit_record_replay".to_string(),
             expected_correctness_digest: fixture_correctness_digest(),
             recorded_correctness_digest: "not_emitted_no_commit_record_replay".to_string(),
+            recorded_target_uri: "not_emitted_no_commit_record_replay".to_string(),
+            recorded_local_manifest_path: "not_emitted_no_commit_record_replay".to_string(),
             manifest_digest_matched: false,
             correctness_digest_matched: false,
+            commit_record_scope_matched: LocalTableCommitRecordScopeMatch {
+                target_uri: false,
+                local_manifest_path: false,
+            },
         }
     }
 
@@ -724,6 +739,11 @@ fn execute_local_table_commit_recovery_smoke(
     let recorded_correctness_digest =
         extract_json_string_field(&commit_record, "correctness_digest")
             .unwrap_or_else(|| "missing_correctness_digest".to_string());
+    let recorded_target_uri = extract_json_string_field(&commit_record, "target_uri")
+        .unwrap_or_else(|| "missing_target_uri".to_string());
+    let recorded_local_manifest_path =
+        extract_json_string_field(&commit_record, "local_manifest_path")
+            .unwrap_or_else(|| "missing_local_manifest_path".to_string());
     let recovered_idempotency_key = extract_json_string_field(&commit_record, "idempotency_key")
         .unwrap_or_else(|| "missing_idempotency_key".to_string());
     let manifest_bytes = extract_json_usize_field(&commit_record, "manifest_bytes").unwrap_or(0);
@@ -733,6 +753,13 @@ fn execute_local_table_commit_recovery_smoke(
     let idempotency_matched = expected_idempotency_key
         .as_deref()
         .is_none_or(|expected| expected == recovered_idempotency_key);
+    let target_uri_matched = recorded_target_uri == target;
+    let local_manifest_path_matched =
+        recorded_local_manifest_path == target_path.to_string_lossy().as_ref();
+    let commit_record_scope_matched = LocalTableCommitRecordScopeMatch {
+        target_uri: target_uri_matched,
+        local_manifest_path: local_manifest_path_matched,
+    };
     let manifest_bytes_matched = manifest_bytes == manifest_payload.len();
     let manifest_shape_matched = manifest_payload == expected_manifest_payload
         && manifest_payload.contains("\"fallback_attempted\": false")
@@ -743,6 +770,8 @@ fn execute_local_table_commit_recovery_smoke(
     if !manifest_digest_matched
         || !correctness_digest_matched
         || !idempotency_matched
+        || !target_uri_matched
+        || !local_manifest_path_matched
         || !manifest_bytes_matched
         || !manifest_shape_matched
     {
@@ -755,6 +784,12 @@ fn execute_local_table_commit_recovery_smoke(
         }
         if !idempotency_matched {
             detail.push("idempotency_key_mismatch");
+        }
+        if !target_uri_matched {
+            detail.push("target_uri_mismatch");
+        }
+        if !local_manifest_path_matched {
+            detail.push("local_manifest_path_mismatch");
         }
         if !manifest_bytes_matched {
             detail.push("manifest_bytes_mismatch");
@@ -789,8 +824,11 @@ fn execute_local_table_commit_recovery_smoke(
             recorded_manifest_digest,
             expected_correctness_digest,
             recorded_correctness_digest,
+            recorded_target_uri,
+            recorded_local_manifest_path,
             manifest_digest_matched,
             correctness_digest_matched,
+            commit_record_scope_matched,
         };
     }
 
@@ -811,8 +849,11 @@ fn execute_local_table_commit_recovery_smoke(
         recorded_manifest_digest,
         expected_correctness_digest,
         recorded_correctness_digest,
+        recorded_target_uri,
+        recorded_local_manifest_path,
         manifest_digest_matched,
         correctness_digest_matched,
+        commit_record_scope_matched,
     }
 }
 
@@ -929,6 +970,12 @@ fn push_recovery_identity_fields(
         "committed_manifest_path",
         &path_field(report.target_path.as_deref()),
     );
+    push_field(fields, "recorded_target_uri", &report.recorded_target_uri);
+    push_field(
+        fields,
+        "recorded_local_manifest_path",
+        &report.recorded_local_manifest_path,
+    );
     push_field(
         fields,
         "commit_record_path",
@@ -998,6 +1045,16 @@ fn push_recovery_digest_fields(
         } else {
             "blocked_or_mismatched"
         },
+    );
+    push_bool_field(
+        fields,
+        "commit_record_target_uri_matched",
+        report.commit_record_scope_matched.target_uri,
+    );
+    push_bool_field(
+        fields,
+        "commit_record_local_manifest_path_matched",
+        report.commit_record_scope_matched.local_manifest_path,
     );
     push_field(
         fields,

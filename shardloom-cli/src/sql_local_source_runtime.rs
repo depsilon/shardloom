@@ -8450,6 +8450,7 @@ fn compute_sql_union_output(
         )?;
     }
     let output_column_dtypes = validate_sql_union_column_dtypes(branch_reports)?;
+    validate_sql_union_struct_shapes(branch_reports)?;
     let union_input_row_count = branch_reports
         .iter()
         .map(|report| report.output_rows.len())
@@ -8623,6 +8624,62 @@ fn merge_sql_union_column_dtype(
             Ok(())
         }
     }
+}
+
+fn validate_sql_union_struct_shapes(
+    branch_reports: &[SqlLocalSourceReport],
+) -> Result<(), ShardLoomError> {
+    let Some(first) = branch_reports.first() else {
+        return Ok(());
+    };
+    let width = first.output_rows.first().map_or_else(
+        || output_column_names(&first.parsed, &first.source).len(),
+        Vec::len,
+    );
+    let mut shapes: Vec<Option<String>> = vec![None; width];
+    for (branch_index, report) in branch_reports.iter().enumerate() {
+        for row in &report.output_rows {
+            for (column_index, (_column, value)) in row.iter().enumerate() {
+                let Some(shape) = sql_union_struct_shape(value) else {
+                    continue;
+                };
+                match shapes.get_mut(column_index) {
+                    Some(Some(expected)) if expected != &shape => {
+                        return Err(unsupported_sql_error(&format!(
+                            "SQL set-operation branch {} column {} mixes STRUCT shapes {} and {}; scoped UNION/INTERSECT/EXCEPT complex equality requires matching struct field names and value families before composition",
+                            branch_index + 1,
+                            column_index + 1,
+                            expected,
+                            shape
+                        )));
+                    }
+                    Some(slot @ None) => *slot = Some(shape),
+                    Some(Some(_)) => {}
+                    None => {
+                        return Err(unsupported_sql_error(&format!(
+                            "SQL set-operation branch {} row width exceeds first branch width {}; use matching projections before composition",
+                            branch_index + 1,
+                            width
+                        )));
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn sql_union_struct_shape(value: &ScalarValue) -> Option<String> {
+    let ScalarValue::Struct(fields) = value else {
+        return None;
+    };
+    Some(
+        fields
+            .iter()
+            .map(|(name, value)| format!("{name}:{}", value.dtype().as_str()))
+            .collect::<Vec<_>>()
+            .join("|"),
+    )
 }
 
 fn sql_union_output_rows(
@@ -11924,6 +11981,11 @@ fn join_key_parts<'a>(
         };
         if matches!(key_value, ScalarValue::Null) {
             return Ok(None);
+        }
+        if matches!(key_value, ScalarValue::Binary(_)) {
+            return Err(unsupported_sql_error(
+                "binary source values are not admitted as equi-join keys; use scoped binary helper predicates or wait for byte-exact binary join-key certification",
+            ));
         }
         parts.push(key_value.summary());
     }
@@ -15377,6 +15439,11 @@ fn validate_join_distinct_projection_shape(
             &output_columns,
             "ORDER BY DISTINCT join output column",
         )?;
+    }
+    if parsed.has_complex_projection() {
+        return Err(unsupported_sql_error(
+            "JOIN DISTINCT complex projection equality is not admitted; scoped structural DISTINCT is limited to local result-boundary rows without join null-extension or fanout semantics",
+        ));
     }
     Ok(())
 }
@@ -21249,6 +21316,43 @@ impl ParsedPredicate {
 
     fn uses_logical_predicate(&self) -> bool {
         matches!(self, Self::Logical { .. } | Self::Not { .. })
+    }
+
+    fn contains_logical_or(&self) -> bool {
+        match self {
+            Self::Logical { op, left, right } => {
+                *op == LogicalPredicateOp::Or
+                    || left.contains_logical_or()
+                    || right.contains_logical_or()
+            }
+            Self::Not { inner } => inner.contains_logical_or(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::RowValueInList { .. }
+            | Self::RowValueInSubquery { .. }
+            | Self::InSubquery { .. }
+            | Self::QuantifiedSubquery { .. }
+            | Self::ExistsSubquery { .. }
+            | Self::StringMatch { .. }
+            | Self::BinaryHelperCompare { .. } => false,
+        }
     }
 
     fn logical_operator(&self) -> &'static str {
@@ -33263,6 +33367,16 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
             },
         )
     };
+    if join_type != ParsedJoinType::InnerEqui
+        && join_on
+            .predicate
+            .as_ref()
+            .is_some_and(ParsedPredicate::contains_logical_or)
+    {
+        return Err(unsupported_sql_error(
+            "logical OR JOIN ON predicates are admitted only for INNER JOIN in this runtime slice; outer/semi/anti OR join semantics remain deterministic blockers",
+        ));
+    }
     let (source_path, left_alias) = parse_aliased_source(left_raw, "left")?;
     let (right_source_path, right_alias) = parse_aliased_source(right_raw, "right")?;
     if left_alias == right_alias {
@@ -36983,6 +37097,9 @@ fn parse_csv_scalar(raw: &str) -> ScalarValue {
         ScalarValue::Boolean(false)
     } else if let Ok(parsed) = value.parse::<i64>() {
         ScalarValue::Int64(parsed)
+    } else if csv_scalar_looks_like_decimal_exponent(value) {
+        csv_decimal_exponent_integer(value)
+            .map_or_else(|| ScalarValue::Utf8(raw.to_string()), ScalarValue::Int64)
     } else if let Ok(parsed) = value.parse::<f64>() {
         if parsed.is_finite() {
             ScalarValue::Float64(parsed)
@@ -36991,6 +37108,88 @@ fn parse_csv_scalar(raw: &str) -> ScalarValue {
         }
     } else {
         ScalarValue::Utf8(raw.to_string())
+    }
+}
+
+fn csv_scalar_looks_like_decimal_exponent(raw: &str) -> bool {
+    let body = raw
+        .trim()
+        .strip_prefix(['+', '-'])
+        .unwrap_or_else(|| raw.trim());
+    let parts = body.split(['e', 'E']).collect::<Vec<_>>();
+    let [mantissa, exponent] = parts.as_slice() else {
+        return false;
+    };
+    let exponent = exponent.strip_prefix(['+', '-']).unwrap_or(exponent);
+    if mantissa.is_empty() || exponent.is_empty() || !exponent.chars().all(|ch| ch.is_ascii_digit())
+    {
+        return false;
+    }
+    match mantissa.split('.').collect::<Vec<_>>().as_slice() {
+        [integer] => !integer.is_empty() && integer.chars().all(|ch| ch.is_ascii_digit()),
+        [integer, fraction] => {
+            (!integer.is_empty() || !fraction.is_empty())
+                && integer.chars().all(|ch| ch.is_ascii_digit())
+                && fraction.chars().all(|ch| ch.is_ascii_digit())
+        }
+        _ => false,
+    }
+}
+
+fn csv_decimal_exponent_integer(raw: &str) -> Option<i64> {
+    const MAX_EXPONENT_MAGNITUDE: u32 = 76;
+
+    let trimmed = raw.trim();
+    let (negative, body) = match trimmed.as_bytes().first() {
+        Some(b'-') => (true, &trimmed[1..]),
+        Some(b'+') => (false, &trimmed[1..]),
+        _ => (false, trimmed),
+    };
+    let marker = body.find(['e', 'E'])?;
+    let mantissa = &body[..marker];
+    let exponent_raw = &body[marker + 1..];
+    let exponent = exponent_raw.parse::<i32>().ok()?;
+    if exponent.unsigned_abs() > MAX_EXPONENT_MAGNITUDE {
+        return None;
+    }
+    let parts = mantissa.split('.').collect::<Vec<_>>();
+    let (integer, fraction) = match parts.as_slice() {
+        [integer] => (*integer, ""),
+        [integer, fraction] => (*integer, *fraction),
+        _ => return None,
+    };
+    if integer.is_empty() && fraction.is_empty() {
+        return None;
+    }
+    let digits = format!("{integer}{fraction}");
+    if digits.is_empty() || !digits.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+    let integer_len = i32::try_from(integer.len()).ok()?;
+    let digit_len = i32::try_from(digits.len()).ok()?;
+    let decimal_position = integer_len.checked_add(exponent)?;
+    let normalized = if decimal_position < digit_len {
+        let split_index = usize::try_from(decimal_position).ok()?;
+        let fractional = &digits[split_index..];
+        if fractional.chars().any(|ch| ch != '0') {
+            return None;
+        }
+        digits[..split_index].to_string()
+    } else {
+        let trailing_zero_count = usize::try_from(decimal_position - digit_len).ok()?;
+        format!("{}{}", digits, "0".repeat(trailing_zero_count))
+    };
+    let normalized = normalized.trim_start_matches('0');
+    let normalized = if normalized.is_empty() {
+        "0"
+    } else {
+        normalized
+    };
+    let value = normalized.parse::<i64>().ok()?;
+    if negative {
+        value.checked_neg()
+    } else {
+        Some(value)
     }
 }
 
@@ -41660,6 +41859,42 @@ mod tests {
     }
 
     #[test]
+    fn decimal_cast_preserves_exponent_lexemes_above_float_safe_integer_without_fallback() {
+        let path = sql_local_source_test_path("decimal-exponent-safe-integer.csv");
+        fs::write(
+            &path,
+            "id,amount\n1,9007199254740993e0\n2,9007199254740992e0\n",
+        )
+        .expect("write decimal exponent precision source");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: None,
+            statement: format!(
+                "SELECT id,CAST(amount AS decimal128(20,0)) AS amount_decimal FROM '{}' WHERE CAST(amount AS decimal128(20,0)) = 9007199254740993e0 LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run exact exponent decimal smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"amount_decimal\":\"9007199254740993\"}\n"
+        );
+        assert_field_eq(&fields, "decimal_cast_runtime_execution", "true");
+        assert_field_eq(&fields, "cast_target_dtype", "decimal128(20,0)");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove decimal exponent precision source");
+    }
+
+    #[test]
     fn decimal_cast_admits_exact_exponent_notation_without_fallback() {
         let path = sql_local_source_test_path("decimal-exponent.csv");
         fs::write(
@@ -42205,10 +42440,53 @@ mod tests {
         assert_field_eq(&fields, "output_format", "vortex");
         assert_field_eq(&fields, "vortex_output_runtime_execution", "true");
         assert_field_eq(&fields, "vortex_output_reopen_verified", "true");
-        assert_field_eq(
-            &fields,
-            "vortex_output_column_families",
-            "id:int64,amount_decimal:decimal128(10,2)",
+        assert!(
+            fields
+                .get("vortex_output_column_families")
+                .is_some_and(|families| families.contains("amount_decimal:decimal128(10,2)")),
+            "vortex_output_column_families={:?}",
+            fields.get("vortex_output_column_families")
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert!(output_path.exists());
+
+        fs::remove_file(&path).expect("remove csv source");
+        fs::remove_file(&output_path).expect("remove vortex output");
+    }
+
+    #[cfg(feature = "vortex-write")]
+    #[test]
+    fn decimal_cast_empty_result_preserves_dtype_hint_for_vortex_sink() {
+        let path = sql_local_source_test_path("csv");
+        let output_path = sql_local_source_test_path("vortex");
+        fs::write(&path, "id,amount\n1,12.34\n2,56.78\n").expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: None,
+            statement: format!(
+                "SELECT id,CAST(amount AS decimal128(10,2)) AS amount_decimal FROM '{}' WHERE id < 0 LIMIT 5",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::Vortex,
+            output_path: Some(output_path.clone()),
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("write empty vortex decimal");
+        let fields = field_map(report.fields());
+
+        assert_eq!(report.output_rows.len(), 0);
+        assert_field_eq(&fields, "output_format", "vortex");
+        assert_field_eq(&fields, "vortex_output_runtime_execution", "true");
+        assert_field_eq(&fields, "vortex_output_reopen_verified", "true");
+        assert!(
+            fields
+                .get("vortex_output_column_families")
+                .is_some_and(|families| families.contains("amount_decimal:decimal128(10,2)")),
+            "vortex_output_column_families={:?}",
+            fields.get("vortex_output_column_families")
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
@@ -48149,6 +48427,30 @@ mod tests {
     }
 
     #[test]
+    fn parser_blocks_distinct_complex_projection_on_join_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT DISTINCT f.id,STRUCT(f.region,d.segment) AS payload FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id LIMIT 5",
+        )
+        .expect("distinct complex join projection parses before bind");
+        let left_header = vec![
+            "id".to_string(),
+            "customer_id".to_string(),
+            "region".to_string(),
+        ];
+        let right_header = vec!["customer_id".to_string(), "segment".to_string()];
+        let error = bind_sql_local_source(&parsed, &left_header, Some(&right_header))
+            .expect_err("complex DISTINCT join remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("JOIN DISTINCT complex projection equality is not admitted"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+    }
+
+    #[test]
     fn parser_admits_order_by_over_complex_projection() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,STRUCT(label, amount) AS payload FROM 'target/input.csv' ORDER BY payload LIMIT 5",
@@ -48404,6 +48706,43 @@ mod tests {
         assert_field_eq(&fields, "sort_direction", "desc");
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(left).expect("remove left csv");
+        fs::remove_file(right).expect("remove right csv");
+    }
+
+    #[test]
+    fn union_blocks_mismatched_struct_shapes_without_fallback() {
+        let left = sql_local_source_test_path("csv");
+        let mut right = sql_local_source_test_path("csv");
+        while right == left {
+            right = sql_local_source_test_path("csv");
+        }
+        fs::write(&left, "id,label,amount\n1,alpha,10\n").expect("write left csv");
+        fs::write(&right, "id,label,amount\n2,beta,20\n").expect("write right csv");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: None,
+            statement: format!(
+                "SELECT id,STRUCT(label) AS payload FROM '{}' UNION SELECT id,STRUCT(amount) AS payload FROM '{}' LIMIT 10",
+                left.display(),
+                right.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let error =
+            run_sql_local_source_smoke(&request).expect_err("mismatched struct shapes block");
+
+        assert!(
+            error
+                .to_string()
+                .contains("mixes STRUCT shapes label:utf8 and amount:int64"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
 
         fs::remove_file(left).expect("remove left csv");
         fs::remove_file(right).expect("remove right csv");
@@ -48973,6 +49312,42 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn parser_blocks_logical_or_on_non_inner_join_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT f.id,d.segment FROM 'target/fact.csv' AS f LEFT JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id OR f.region = d.region LIMIT 5",
+        )
+        .expect_err("outer OR join remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("logical OR JOIN ON predicates are admitted only for INNER JOIN"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+    }
+
+    #[test]
+    fn join_key_parts_blocks_binary_source_values_without_fallback() {
+        let mut row = ExpressionInputRow::new();
+        row.insert("key".to_string(), ScalarValue::Binary(vec![0xde, 0xad]));
+        let key = QualifiedColumn {
+            alias: "f".to_string(),
+            column: "key".to_string(),
+        };
+        let error =
+            join_key_parts(&row, std::iter::once(&key), "left").expect_err("binary key blocks");
+
+        assert!(
+            error
+                .to_string()
+                .contains("binary source values are not admitted as equi-join keys"),
+            "got {error}"
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]

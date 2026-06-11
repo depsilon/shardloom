@@ -312,6 +312,7 @@ enum ObjectStorePartitionDiscoveryStatus {
     BlockedInvalidRoot,
     BlockedListingError,
     BlockedNoPartitions,
+    BlockedPartitionColumnMismatch,
 }
 
 impl ObjectStorePartitionDiscoveryStatus {
@@ -324,6 +325,7 @@ impl ObjectStorePartitionDiscoveryStatus {
             Self::BlockedInvalidRoot => "blocked_invalid_root",
             Self::BlockedListingError => "blocked_listing_error",
             Self::BlockedNoPartitions => "blocked_no_partitions",
+            Self::BlockedPartitionColumnMismatch => "blocked_partition_column_mismatch",
         }
     }
 
@@ -1607,6 +1609,27 @@ fn execute_object_store_partition_discovery_smoke(
 
     match discover_local_partition_directories(&root_path) {
         Ok(discovery) if discovery.partition_directory_count > 0 => {
+            if !requested_partition_columns.is_empty()
+                && !partition_column_sets_match(
+                    &requested_partition_columns,
+                    &discovery.partition_columns,
+                )
+            {
+                return ObjectStorePartitionDiscoveryReport::blocked(
+                    ObjectStorePartitionDiscoveryStatus::BlockedPartitionColumnMismatch,
+                    profile,
+                    root,
+                    requested_partition_columns,
+                    Diagnostic::object_store_blocked(
+                        "object_store_partition_discovery_requested_columns",
+                        format!(
+                            "requested partition columns do not match discovered key=value columns: discovered {}",
+                            joined_or_none(&discovery.partition_columns)
+                        ),
+                        "Use --partition-columns with the complete discovered key set, or fix the local-emulator partition layout.",
+                    ),
+                );
+            }
             ObjectStorePartitionDiscoveryReport {
                 status: ObjectStorePartitionDiscoveryStatus::Succeeded,
                 diagnostics: vec![],
@@ -3858,6 +3881,10 @@ fn parse_partition_columns(raw: &str) -> Vec<String> {
         .filter(|value| !value.is_empty())
         .map(ToString::to_string)
         .collect()
+}
+
+fn partition_column_sets_match(requested: &[String], discovered: &[String]) -> bool {
+    requested.iter().collect::<BTreeSet<_>>() == discovered.iter().collect::<BTreeSet<_>>()
 }
 
 fn is_remote_object_store_uri(source: &str) -> bool {

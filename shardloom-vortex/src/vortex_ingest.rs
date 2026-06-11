@@ -6032,12 +6032,14 @@ fn scalar_column_families(
                 .map(|dtype| scalar_family_from_dtype_hint(column, dtype))
                 .transpose()?
                 .flatten();
+            let mut saw_null = false;
             for row in rows {
                 let value = &row[column_index].1;
+                if matches!(value, ScalarValue::Null) {
+                    saw_null = true;
+                    continue;
+                }
                 let Some(candidate) = scalar_family(value) else {
-                    if matches!(value, ScalarValue::Null) && family.is_some() {
-                        continue;
-                    }
                     return Err(ShardLoomError::InvalidOperation(format!(
                         "local vortex_ingest column '{column}' contains unsupported value {}; scoped Vortex ingest admits nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, and timestamp_micros columns only when the column family is known; no fallback execution was attempted",
                         value.summary()
@@ -6054,6 +6056,11 @@ fn scalar_column_families(
                 } else {
                     family = Some(candidate);
                 }
+            }
+            if saw_null && family.is_none() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local vortex_ingest column '{column}' contains NULL values without dtype or non-null family evidence; scoped Vortex ingest admits all-null columns only when the column family is known; no fallback execution was attempted"
+                )));
             }
             Ok((
                 column.clone(),
@@ -7496,6 +7503,62 @@ mod tests {
 
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[test]
+    fn local_flat_scalar_leading_null_rows_infer_family_from_later_values() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-leading-null-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["id".to_string()],
+            vec![
+                vec![("id".to_string(), ScalarValue::Null)],
+                vec![("id".to_string(), ScalarValue::Int64(42))],
+            ],
+        );
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 2);
+        assert_eq!(report.reopen_row_count, 2);
+        assert_eq!(report.column_family_summary(), "id:int64");
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[test]
+    fn local_flat_scalar_all_null_rows_without_dtype_remain_blocked() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-unknown-null-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["value".to_string()],
+            vec![vec![("value".to_string(), ScalarValue::Null)]],
+        );
+
+        let error = write_flat_scalar_vortex_prepared_state(request)
+            .expect_err("all-null unknown family should block");
+
+        assert!(
+            error
+                .to_string()
+                .contains("NULL values without dtype or non-null family evidence"),
+            "{error}"
+        );
+        assert!(
+            !path.exists(),
+            "blocked all-null unknown-family write must not create {}",
+            path.display()
+        );
     }
 
     #[cfg(feature = "universal-format-io")]

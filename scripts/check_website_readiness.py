@@ -539,6 +539,19 @@ def check_benchmark_timing_surface_dashboard(website: Path, blockers: list[str])
             )
 
 
+def check_field_guide_legacy_alias(website: Path, blockers: list[str]) -> None:
+    alias_path = website / "field-guide.html"
+    canonical_path = website / "field-guide" / "index.html"
+    if not alias_path.exists() or not canonical_path.exists():
+        return
+    alias_html = alias_path.read_text(encoding="utf-8")
+    canonical_html = canonical_path.read_text(encoding="utf-8")
+    if "starlight__sidebar" not in alias_html and "Starlight v" not in alias_html:
+        blockers.append("field-guide.html must serve the Starlight Field Guide alias")
+    if alias_html != canonical_html:
+        blockers.append("field-guide.html must match field-guide/index.html")
+
+
 def check_public_front_door_benchmark_payload(
     payload: dict[str, Any],
     blockers: list[str],
@@ -657,6 +670,7 @@ def main() -> int:
             blockers.append(f"missing expected asset: {asset}")
     check_cloudflare_asset_sizes(website, repo_root, blockers)
     check_benchmark_timing_surface_dashboard(website, blockers)
+    check_field_guide_legacy_alias(website, blockers)
 
     for removed in REMOVED_WEBSITE_SURFACES:
         if (website / removed).exists():

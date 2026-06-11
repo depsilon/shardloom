@@ -302,6 +302,62 @@ fn local_table_commit_recovery_blocks_mismatched_sidecar_without_fallback() {
 }
 
 #[test]
+fn local_table_commit_recovery_blocks_mismatched_manifest_path_without_fallback() {
+    let temp_dir = temp_case_dir("recovery-path-mismatch");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let target = temp_dir.join("committed-manifest.json");
+    let commit_args = vec![
+        "local-table-append-commit-rehearsal-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+        "--idempotency-key".to_string(),
+        "orders-table-recovery-path-mismatch-001".to_string(),
+    ];
+    let (commit_success, commit_output, commit_stderr) =
+        run_local_table_append_commit_json(&commit_args);
+    assert!(
+        commit_success,
+        "stdout={commit_output} stderr={commit_stderr}"
+    );
+    let sidecar = sidecar_path(&target);
+    let sidecar_payload = fs::read_to_string(&sidecar).expect("sidecar");
+    let recorded_target = target.to_string_lossy().to_string();
+    let wrong_target = temp_dir
+        .join("other-manifest.json")
+        .to_string_lossy()
+        .to_string();
+    let corrupted_sidecar = sidecar_payload.replace(&recorded_target, &wrong_target);
+    fs::write(&sidecar, corrupted_sidecar).expect("corrupt sidecar path");
+
+    let recovery_args = vec![
+        "local-table-commit-recovery-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+        "--idempotency-key".to_string(),
+        "orders-table-recovery-path-mismatch-001".to_string(),
+    ];
+    let (success, output, stderr) = run_local_table_commit_recovery_json(&recovery_args);
+
+    assert!(!success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert!(output.contains("\"status\":\"unsupported\""));
+    assert!(output.contains("\"code\":\"SL_COMMIT_NOT_ATOMIC\""));
+    assert!(output.contains(&field(
+        "table_commit_recovery_status",
+        "blocked_recovery_mismatch"
+    )));
+    assert!(output.contains(&field("commit_record_local_manifest_path_matched", "false")));
+    assert!(output.contains("local_manifest_path_mismatch"));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
 fn remote_manifest_target_is_blocked_without_probe_or_write() {
     let args = vec![
         "local-table-append-commit-rehearsal-smoke".to_string(),

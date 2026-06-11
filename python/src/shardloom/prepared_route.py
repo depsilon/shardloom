@@ -50,6 +50,32 @@ _PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES = "fact_input,dim_input,cdc_delta_input
 _REUSE_MANIFEST_DIR = ".shardloom"
 _REUSE_MANIFEST_FILE = "prepared-vortex-reuse-manifest.json"
 _REUSE_INDEX_FILE = "prepared-state-index.json"
+_OUTPUT_ARTIFACT_DIGEST_ALGORITHM = "fnv1a64"
+_TRADITIONAL_FACT_SCHEMA_SUMMARY = "fact(id:u64,group_key:u32,dim_key:u32,value:u32,metric:f64,flag:u8,category:utf8,event_date:utf8,nullable_metric_00:utf8,nested_payload:utf8,raw_event_time:utf8,dirty_numeric:utf8,dirty_flag:utf8)"
+_TRADITIONAL_DIM_SCHEMA_SUMMARY = "dim(dim_key:u32,dim_label:utf8,weight:f64)"
+_TRADITIONAL_CDC_DELTA_SCHEMA_SUMMARY = (
+    "cdc_delta(id:u64,op:utf8,value:utf8,metric:utf8,effective_ts:utf8)"
+)
+
+
+def _route_evidence_digest(parts: Sequence[str]) -> str:
+    state = 0xCBF29CE484222325
+    prime = 0x00000100000001B3
+    for part in parts:
+        for byte in part.encode("utf-8") + b"\0":
+            state ^= byte
+            state = (state * prime) & 0xFFFFFFFFFFFFFFFF
+    return f"{_OUTPUT_ARTIFACT_DIGEST_ALGORITHM}:{state:016x}"
+
+
+_TRADITIONAL_SOURCE_ADMISSION_SCHEMA_HASH = _route_evidence_digest(
+    (
+        "source_admission_schema",
+        _TRADITIONAL_FACT_SCHEMA_SUMMARY,
+        _TRADITIONAL_DIM_SCHEMA_SUMMARY,
+        _TRADITIONAL_CDC_DELTA_SCHEMA_SUMMARY,
+    )
+)
 
 
 def _normalize_input_format(value: str) -> str:
@@ -256,7 +282,7 @@ def _prepared_state_index_payload(
             manifest_payload.get("source_admission_packet_digest")
             or "missing_source_admission_packet_digest"
         ),
-        "schema_hash": "traditional_fact_dim_cdc_schema.v1",
+        "schema_hash": _TRADITIONAL_SOURCE_ADMISSION_SCHEMA_HASH,
         "route_family": "compatibility_prepare_to_prepared_native_vortex",
         "layout_policy": {
             "strategy": field("vortex_array_build_strategy"),
@@ -733,6 +759,7 @@ class CompatibilityPreparedVortexRoute:
             "route_id": self.route_id,
             "batch_route_id": self.batch_route_id,
             "input_format": self.input_format,
+            "source_schema_hash": _TRADITIONAL_SOURCE_ADMISSION_SCHEMA_HASH,
             "source_path_fingerprint_kind": "local_path_sha256_size_mtime",
             "digest_policy": {
                 "schema_version": _SOURCE_ADMISSION_DIGEST_POLICY_SCHEMA_VERSION,
