@@ -346,6 +346,10 @@ Each item below uses the same sub-checklist shape:
       ordering predicate arguments now admit the same source-backed UTF-8 column,
       string-transform, and string-function expression subset, with grouped source-column evidence
       such as `label_prefix+label_suffix`.
+    - [x] Scoped binary `BYTE_LENGTH` / `OCTET_LENGTH` projection and predicate arguments now admit
+      the same source-backed binary helper and binary `CAST` / `TRY_CAST` expression subset,
+      return `int64` byte counts, and emit byte-length evidence fields separate from binary
+      helper, cast, and direct binary source routes.
     - [x] Common table expression syntax now has a precise parser-bound deterministic blocker:
       `WITH` / `WITH RECURSIVE` statements fail before bind/plan/runtime with `cte_plan_nodes`,
       catalog-scope, recursive-policy, execution-certificate, and no-fallback evidence
@@ -359,17 +363,18 @@ Each item below uses the same sub-checklist shape:
       ordering remains a deterministic blocker.
     - [ ] Remaining: ORC nested output, ORC typed decimal sinks, broad ANSI
       decimal coercion beyond exact exponent normalization, broader binary execution/preservation
-      beyond scoped source projection/predicate/order plus explicit casts/helpers over the admitted
-      source-backed UTF-8 expression subset, and broad ANSI subquery parity beyond the admitted
-      bounded local families remain outside the claim boundary.
+      beyond scoped source projection/predicate/order plus explicit casts/helpers and byte-length
+      over the admitted source-backed UTF-8 expression subset, and broad ANSI subquery parity beyond
+      the admitted bounded local families remain outside the claim boundary.
   - Runtime enablement: public route facade -> SQL parse/bind request -> ShardLoom capability
     admission -> native runtime lowering or deterministic unsupported diagnostic -> no-fallback
     evidence row.
   - Next slice outcome: choose the next coherent grammar family only when it has provider or route
     evidence strong enough to admit; current provider/semantics candidates are ORC/Vortex nested
     output once writer evidence exists, ORC typed decimal sink preservation once writer evidence
-    exists, broader binary preservation beyond the scoped route, or broad ANSI decimal/subquery
-    parity. Do not reopen fixture-backed deterministic diagnostics as runtime blockers.
+    exists, broader binary preservation beyond scoped source/cast/helper/byte-length routes, or
+    broad ANSI decimal/subquery parity. Do not reopen fixture-backed deterministic diagnostics as
+    runtime blockers.
   - Execution checklist:
     - [ ] Derive the exact admitted and unsupported shapes from the matrix, parser/runtime code, and
       existing CLI smokes before editing.

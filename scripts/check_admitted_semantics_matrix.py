@@ -999,6 +999,45 @@ def binary_helper_predicate_case() -> SqlFixtureCase:
     )
 
 
+def binary_byte_length_projection_predicate_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="binary_byte_length_projection_predicate",
+        source_name="binary-byte-length.csv",
+        source_text=(
+            "id,hex_payload,b64_prefix,b64_suffix,label_prefix,label_suffix\n"
+            "1, 00FF10 ,AP,8Q,al,pha\n"
+            "2, 616C706861 ,YWxw,aGE=,be,ta\n"
+            "3,,,,,\n"
+        ),
+        statement_template=(
+            "SELECT id,BYTE_LENGTH(UNHEX(LOWER(TRIM(hex_payload)))) AS payload_len,"
+            "OCTET_LENGTH(CAST(CONCAT(label_prefix,label_suffix) AS binary)) AS label_len "
+            "FROM '{source}' "
+            "WHERE BYTE_LENGTH(FROM_BASE64(CONCAT(b64_prefix,b64_suffix))) >= 4 LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"payload_len":5,"label_len":4}\n',
+        expected_fields={
+            "predicate_operator_family": "binary_byte_length",
+            "binary_byte_length_projection_runtime_execution": "true",
+            "binary_byte_length_projection_argument_family": "unhex,cast",
+            "binary_byte_length_projection_source_column": "hex_payload,label_prefix+label_suffix",
+            "binary_byte_length_projection_output_column": "payload_len,label_len",
+            "binary_byte_length_projection_output_dtype": "int64",
+            "binary_byte_length_projection_null_semantics": "null_propagating_binary_decode",
+            "binary_byte_length_predicate_runtime_execution": "true",
+            "binary_byte_length_predicate_argument_family": "from_base64",
+            "binary_byte_length_predicate_comparison_operator": "gte",
+            "binary_byte_length_predicate_source_column": "b64_prefix+b64_suffix",
+            "binary_byte_length_predicate_rhs_dtype": "int64",
+            "binary_byte_length_predicate_null_semantics": (
+                "null_propagating_binary_decode_then_sql_where_true_only"
+            ),
+            "projected_columns": "id,payload_len,label_len",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
 def in_predicate_literal_null_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="in_predicate_literal_null_semantics",
@@ -4566,6 +4605,7 @@ def executable_cases() -> list[SqlFixtureCase]:
         decimal_arithmetic_projection_case(),
         binary_helper_projection_case(),
         binary_helper_predicate_case(),
+        binary_byte_length_projection_predicate_case(),
         in_predicate_literal_null_case(),
         row_value_in_predicate_case(),
         row_value_in_subquery_case(),

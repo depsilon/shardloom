@@ -1499,6 +1499,7 @@ struct ParsedSqlLocalSource {
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     string_function_projections: Vec<ParsedStringFunctionProjection>,
     binary_helper_projections: Vec<ParsedBinaryHelperProjection>,
+    binary_byte_length_projections: Vec<ParsedBinaryByteLengthProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
     window_projections: Vec<ParsedWindowProjection>,
@@ -1769,6 +1770,23 @@ struct ParsedBinaryHelperPredicate {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+struct ParsedBinaryByteLengthProjection {
+    alias: String,
+    expression: Expression,
+    source_columns: Vec<String>,
+    argument_family: BinaryByteLengthArgumentFamily,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedBinaryByteLengthPredicate {
+    expression: Expression,
+    source_columns: Vec<String>,
+    argument_family: BinaryByteLengthArgumentFamily,
+    comparison: ComparisonOp,
+    value: ScalarValue,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 struct ParsedStringFunctionCall {
     expression: Expression,
     op: StringFunctionOp,
@@ -1844,6 +1862,7 @@ impl_projection_alias!(
     ParsedStringTransformProjection,
     ParsedStringFunctionProjection,
     ParsedBinaryHelperProjection,
+    ParsedBinaryByteLengthProjection,
     ParsedDateExtractProjection,
     ParsedTimestampExtractProjection,
     ParsedWindowProjection,
@@ -2065,6 +2084,7 @@ struct ParsedProjectionList {
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     string_function_projections: Vec<ParsedStringFunctionProjection>,
     binary_helper_projections: Vec<ParsedBinaryHelperProjection>,
+    binary_byte_length_projections: Vec<ParsedBinaryByteLengthProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
     window_projections: Vec<ParsedWindowProjection>,
@@ -2091,6 +2111,7 @@ enum ParsedProjectionOutput {
     StringTransform(String),
     StringFunction(String),
     BinaryHelper(String),
+    BinaryByteLength(String),
     DateExtract(String),
     TimestampExtract(String),
     Window(String),
@@ -2117,6 +2138,7 @@ impl ParsedProjectionOutput {
             | Self::StringTransform(alias)
             | Self::StringFunction(alias)
             | Self::BinaryHelper(alias)
+            | Self::BinaryByteLength(alias)
             | Self::DateExtract(alias)
             | Self::TimestampExtract(alias)
             | Self::Window(alias) => Some(alias),
@@ -2420,6 +2442,7 @@ enum ParsedPredicate {
         literal_count: usize,
     },
     BinaryHelperCompare(ParsedBinaryHelperPredicate),
+    BinaryByteLengthCompare(ParsedBinaryByteLengthPredicate),
     Logical {
         op: LogicalPredicateOp,
         left: Box<ParsedPredicate>,
@@ -2481,6 +2504,12 @@ enum StringFunctionOp {
 enum BinaryHelperOp {
     Unhex,
     FromBase64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BinaryByteLengthArgumentFamily {
+    Helper(BinaryHelperOp),
+    Cast(CastMode),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2711,6 +2740,16 @@ impl BinaryHelperOp {
         match self {
             Self::Unhex => "unhex",
             Self::FromBase64 => "from_base64",
+        }
+    }
+}
+
+impl BinaryByteLengthArgumentFamily {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Helper(op) => op.as_str(),
+            Self::Cast(CastMode::Strict) => "cast",
+            Self::Cast(CastMode::Try) => "try_cast",
         }
     }
 }
@@ -8174,6 +8213,9 @@ fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut
     for projection in &parsed.binary_helper_projections {
         columns.extend(projection.source_columns.iter().cloned());
     }
+    for projection in &parsed.binary_byte_length_projections {
+        columns.extend(projection.source_columns.iter().cloned());
+    }
     for projection in &parsed.date_extract_projections {
         columns.insert(projection.column.clone());
     }
@@ -9040,6 +9082,7 @@ fn materialize_in_subquery_predicates(
         | ParsedPredicate::StringMatch { .. }
         | ParsedPredicate::StringTransformCompare { .. }
         | ParsedPredicate::BinaryHelperCompare { .. }
+        | ParsedPredicate::BinaryByteLengthCompare { .. }
         | ParsedPredicate::StringFunctionCompare { .. } => Ok(()),
     }
 }
@@ -9143,6 +9186,7 @@ fn materialize_correlated_subquery_predicates(
         | ParsedPredicate::StringMatch { .. }
         | ParsedPredicate::StringTransformCompare { .. }
         | ParsedPredicate::BinaryHelperCompare { .. }
+        | ParsedPredicate::BinaryByteLengthCompare { .. }
         | ParsedPredicate::StringFunctionCompare { .. } => Ok(()),
     }
 }
@@ -10009,7 +10053,8 @@ fn apply_in_subquery_date_literal_column_coercions(
         | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
         | ParsedPredicate::StringMatch { .. }
-        | ParsedPredicate::BinaryHelperCompare { .. } => Ok(()),
+        | ParsedPredicate::BinaryHelperCompare { .. }
+        | ParsedPredicate::BinaryByteLengthCompare { .. } => Ok(()),
     }
 }
 
@@ -10108,7 +10153,8 @@ fn apply_in_subquery_timestamp_literal_column_coercions(
         | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
         | ParsedPredicate::StringMatch { .. }
-        | ParsedPredicate::BinaryHelperCompare { .. } => Ok(()),
+        | ParsedPredicate::BinaryHelperCompare { .. }
+        | ParsedPredicate::BinaryByteLengthCompare { .. } => Ok(()),
     }
 }
 
@@ -10904,6 +10950,13 @@ fn append_ordered_projection_expression(
                 "binary helper projection",
             )?)?,
         ),
+        ParsedProjectionOutput::BinaryByteLength(alias) => expressions.push(
+            binary_byte_length_projection_expression(find_projection_by_alias(
+                &parsed.binary_byte_length_projections,
+                alias,
+                "binary byte length projection",
+            )?)?,
+        ),
         ParsedProjectionOutput::DateExtract(alias) => expressions.push(
             date_extract_projection_expression(find_projection_by_alias(
                 &parsed.date_extract_projections,
@@ -11253,6 +11306,18 @@ fn binary_helper_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(decoded),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn binary_byte_length_projection_expression(
+    projection: &ParsedBinaryByteLengthProjection,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(projection.expression.clone()),
             alias: projection.alias.clone(),
         },
     ))
@@ -12471,7 +12536,8 @@ fn apply_temporal_difference_predicate_coercions(
         | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
         | ParsedPredicate::StringMatch { .. }
-        | ParsedPredicate::BinaryHelperCompare { .. } => Ok(()),
+        | ParsedPredicate::BinaryHelperCompare { .. }
+        | ParsedPredicate::BinaryByteLengthCompare { .. } => Ok(()),
     }
 }
 
@@ -12597,7 +12663,8 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
         | ParsedPredicate::StringMatch { .. }
-        | ParsedPredicate::BinaryHelperCompare { .. } => Ok(()),
+        | ParsedPredicate::BinaryHelperCompare { .. }
+        | ParsedPredicate::BinaryByteLengthCompare { .. } => Ok(()),
     }
 }
 
@@ -12733,7 +12800,8 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::QuantifiedSubquery { .. }
         | ParsedPredicate::ExistsSubquery { .. }
         | ParsedPredicate::StringMatch { .. }
-        | ParsedPredicate::BinaryHelperCompare { .. } => Ok(()),
+        | ParsedPredicate::BinaryHelperCompare { .. }
+        | ParsedPredicate::BinaryByteLengthCompare { .. } => Ok(()),
     }
 }
 
@@ -14794,7 +14862,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
         && (parsed.is_aggregate() || !parsed.group_by.is_empty() || parsed.projections.is_empty())
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns or SELECT * plus <literal> AS <column>, ARRAY[<scalar literal>, ...] AS <column>, STRUCT(<source column>, ...) AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, UNHEX(<utf8-column>) AS <column>, FROM_BASE64(<utf8-column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/order-by/limit only",
+            "computed projection smoke currently admits explicit projection columns or SELECT * plus <literal> AS <column>, ARRAY[<scalar literal>, ...] AS <column>, STRUCT(<source column>, ...) AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, UNHEX(<utf8-column>) AS <column>, FROM_BASE64(<utf8-column>) AS <column>, BYTE_LENGTH(<admitted-binary-expression>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/order-by/limit only",
         ));
     }
     Ok(())
@@ -15133,6 +15201,16 @@ fn validate_text_time_projection_source_columns(
             )?;
         }
     }
+    for projection in &parsed.binary_byte_length_projections {
+        for column in &projection.source_columns {
+            require_header_column(
+                header,
+                column,
+                "binary byte length projection source column",
+                "CSV header",
+            )?;
+        }
+    }
     for projection in &parsed.date_extract_projections {
         require_header_column(
             header,
@@ -15319,6 +15397,9 @@ fn validate_text_time_output_names<'a>(
         require_unique_projection_output_name(output_names, &projection.alias)?;
     }
     for projection in &parsed.binary_helper_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    for projection in &parsed.binary_byte_length_projections {
         require_unique_projection_output_name(output_names, &projection.alias)?;
     }
     for projection in &parsed.date_extract_projections {
@@ -16672,6 +16753,10 @@ impl ParsedSqlLocalSource {
         !self.binary_helper_projections.is_empty()
     }
 
+    fn has_binary_byte_length_projection(&self) -> bool {
+        !self.binary_byte_length_projections.is_empty()
+    }
+
     fn has_date_extract_projection(&self) -> bool {
         !self.date_extract_projections.is_empty()
     }
@@ -16702,6 +16787,7 @@ impl ParsedSqlLocalSource {
             || self.has_string_transform_projection()
             || self.has_string_function_projection()
             || self.has_binary_helper_projection()
+            || self.has_binary_byte_length_projection()
             || self.has_date_extract_projection()
             || self.has_timestamp_extract_projection()
     }
@@ -17128,6 +17214,7 @@ impl ParsedSqlLocalSource {
                 | ParsedProjectionOutput::StringTransform(column)
                 | ParsedProjectionOutput::StringFunction(column)
                 | ParsedProjectionOutput::BinaryHelper(column)
+                | ParsedProjectionOutput::BinaryByteLength(column)
                 | ParsedProjectionOutput::DateExtract(column)
                 | ParsedProjectionOutput::TimestampExtract(column)
                 | ParsedProjectionOutput::Window(column) => {
@@ -17204,6 +17291,9 @@ impl ParsedSqlLocalSource {
                 ParsedProjectionOutput::BinaryHelper(_) => {
                     output_dtypes.push(Some(LogicalDType::Binary));
                 }
+                ParsedProjectionOutput::BinaryByteLength(_) => {
+                    output_dtypes.push(Some(LogicalDType::Int64));
+                }
             }
         }
         output_dtypes
@@ -17250,6 +17340,7 @@ impl ParsedSqlLocalSource {
                 | ParsedProjectionOutput::StringTransform(_)
                 | ParsedProjectionOutput::StringFunction(_)
                 | ParsedProjectionOutput::BinaryHelper(_)
+                | ParsedProjectionOutput::BinaryByteLength(_)
                 | ParsedProjectionOutput::DateExtract(_)
                 | ParsedProjectionOutput::TimestampExtract(_)
                 | ParsedProjectionOutput::Window(_) => output_dtypes.push(None),
@@ -18097,6 +18188,42 @@ impl ParsedSqlLocalSource {
         }
     }
 
+    fn binary_byte_length_projection_argument_families(&self) -> String {
+        if self.binary_byte_length_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.binary_byte_length_projections
+                .iter()
+                .map(|projection| projection.argument_family.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_byte_length_projection_source_columns(&self) -> String {
+        if self.binary_byte_length_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.binary_byte_length_projections
+                .iter()
+                .map(|projection| projection.source_columns.join("+"))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_byte_length_projection_output_columns(&self) -> String {
+        if self.binary_byte_length_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.binary_byte_length_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
     fn date_extract_projection_operators(&self) -> String {
         if self.date_extract_projections.is_empty() {
             "not_applicable".to_string()
@@ -18887,6 +19014,10 @@ impl ParsedPredicate {
                 .source_columns
                 .iter()
                 .any(|column| is_outer_correlation_ref(column)),
+            Self::BinaryByteLengthCompare(predicate) => predicate
+                .source_columns
+                .iter()
+                .any(|column| is_outer_correlation_ref(column)),
             Self::ColumnCompare {
                 left_column,
                 right_column,
@@ -18980,6 +19111,9 @@ impl ParsedPredicate {
             Self::BinaryHelperCompare(predicate) => {
                 columns.extend(predicate.source_columns.iter().map(String::as_str));
             }
+            Self::BinaryByteLengthCompare(predicate) => {
+                columns.extend(predicate.source_columns.iter().map(String::as_str));
+            }
             Self::RowValueInList {
                 columns: row_columns,
                 ..
@@ -19066,6 +19200,15 @@ impl ParsedPredicate {
             | Self::StringTransformCompare { .. }
             | Self::StringFunctionCompare { .. } => self.string_compare_expression(),
             Self::BinaryHelperCompare(predicate) => binary_helper_compare_expression(predicate),
+            Self::BinaryByteLengthCompare(predicate) => {
+                binary_byte_length_compare_expression(predicate)
+            }
+            _ => self.secondary_to_expression(),
+        }
+    }
+
+    fn secondary_to_expression(&self) -> Result<Expression, ShardLoomError> {
+        match self {
             Self::TimestampExtractCompare {
                 column,
                 op,
@@ -19111,6 +19254,10 @@ impl ParsedPredicate {
                     expr: Box::new(inner.to_expression()?),
                 },
             )),
+            _ => Err(ShardLoomError::InvalidOperation(
+                "internal error: predicate variant should be lowered by primary expression dispatcher"
+                    .to_string(),
+            )),
         }
     }
 
@@ -19146,6 +19293,10 @@ impl ParsedPredicate {
             } => string_function_compare_expression(expression, *comparison, value),
             Self::BinaryHelperCompare(_) => Err(ShardLoomError::InvalidOperation(
                 "internal error: binary helper predicate cannot lower through string expression"
+                    .to_string(),
+            )),
+            Self::BinaryByteLengthCompare(_) => Err(ShardLoomError::InvalidOperation(
+                "internal error: binary byte length predicate cannot lower through string expression"
                     .to_string(),
             )),
             _ => Err(ShardLoomError::InvalidOperation(
@@ -19209,6 +19360,7 @@ impl ParsedPredicate {
             Self::StringTransformCompare { .. } => "string_transform",
             Self::StringFunctionCompare { .. } => "string_function",
             Self::BinaryHelperCompare(_) => "binary_helper_predicate",
+            Self::BinaryByteLengthCompare(_) => "binary_byte_length",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
             Self::InList { .. } => "in_predicate",
             Self::RowValueInList { .. } => "row_value_in_predicate",
@@ -19392,6 +19544,91 @@ impl ParsedPredicate {
         }
     }
 
+    fn uses_binary_byte_length_predicate(&self) -> bool {
+        let mut predicates = Vec::new();
+        self.push_binary_byte_length_predicates(&mut predicates);
+        !predicates.is_empty()
+    }
+
+    fn binary_byte_length_predicate_argument_families(&self) -> String {
+        let mut predicates = Vec::new();
+        self.push_binary_byte_length_predicates(&mut predicates);
+        if predicates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            predicates
+                .iter()
+                .map(|predicate| predicate.argument_family.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_byte_length_predicate_comparison_operators(&self) -> String {
+        let mut predicates = Vec::new();
+        self.push_binary_byte_length_predicates(&mut predicates);
+        if predicates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            predicates
+                .iter()
+                .map(|predicate| comparison_op_label(predicate.comparison))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_byte_length_predicate_source_columns(&self) -> String {
+        let mut predicates = Vec::new();
+        self.push_binary_byte_length_predicates(&mut predicates);
+        if predicates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            predicates
+                .iter()
+                .map(|predicate| predicate.source_columns.join("+"))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_byte_length_predicate_rhs_dtypes(&self) -> String {
+        let mut predicates = Vec::new();
+        self.push_binary_byte_length_predicates(&mut predicates);
+        if predicates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            predicates
+                .iter()
+                .map(|predicate| predicate.value.dtype().as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn binary_byte_length_predicate_null_semantics(&self) -> &'static str {
+        if self.uses_binary_byte_length_predicate() {
+            "null_propagating_binary_decode_then_sql_where_true_only"
+        } else {
+            "not_applicable"
+        }
+    }
+
+    fn push_binary_byte_length_predicates<'a>(
+        &'a self,
+        predicates: &mut Vec<&'a ParsedBinaryByteLengthPredicate>,
+    ) {
+        match self {
+            Self::BinaryByteLengthCompare(predicate) => predicates.push(predicate),
+            Self::Logical { left, right, .. } => {
+                left.push_binary_byte_length_predicates(predicates);
+                right.push_binary_byte_length_predicates(predicates);
+            }
+            Self::Not { inner } => inner.push_binary_byte_length_predicates(predicates),
+            _ => {}
+        }
+    }
+
     fn uses_null_predicate(&self) -> bool {
         match self {
             Self::IsNull { .. } | Self::IsNotNull { .. } => true,
@@ -19422,7 +19659,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -19468,7 +19706,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -19513,7 +19752,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -19548,7 +19788,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -19613,7 +19854,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -19659,7 +19901,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -19721,7 +19964,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -19756,7 +20000,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -19802,7 +20047,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -19841,7 +20087,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -19895,7 +20142,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -19930,7 +20178,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -19976,7 +20225,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20024,7 +20274,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20059,7 +20310,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -20107,7 +20359,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20155,7 +20408,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20190,7 +20444,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -20236,7 +20491,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20284,7 +20540,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20332,7 +20589,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20380,7 +20638,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20415,7 +20674,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -20461,7 +20721,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20507,7 +20768,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20555,7 +20817,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20590,7 +20853,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -20636,7 +20900,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20684,7 +20949,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20719,7 +20985,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -20765,7 +21032,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20811,7 +21079,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20859,7 +21128,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20894,7 +21164,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -20942,7 +21213,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -20992,7 +21264,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -21031,7 +21304,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -21079,7 +21353,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -21141,7 +21416,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -21174,7 +21450,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -21211,7 +21488,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -21253,7 +21531,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -21319,7 +21598,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -21413,7 +21693,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -21454,7 +21735,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -21487,7 +21769,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => "not_applicable",
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => "not_applicable",
         }
     }
 
@@ -21522,7 +21805,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 1,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 1,
         }
     }
 
@@ -21555,7 +21839,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -21590,7 +21875,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -21641,7 +21927,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -21675,7 +21962,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -21727,7 +22015,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -21774,7 +22063,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -21810,7 +22100,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -21845,7 +22136,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -21889,7 +22181,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -21924,7 +22217,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -21968,7 +22262,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -22003,7 +22298,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -22038,7 +22334,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -22078,7 +22375,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -22114,7 +22412,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -22150,7 +22449,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -22185,7 +22485,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -22239,7 +22540,8 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -22423,7 +22725,8 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -22459,7 +22762,8 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -22497,7 +22801,8 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -22535,7 +22840,8 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => 0,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => 0,
         }
     }
 
@@ -22570,7 +22876,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -22813,7 +23120,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -22861,7 +23169,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -22913,7 +23222,8 @@ impl ParsedPredicate {
             | Self::InSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23079,7 +23389,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23137,7 +23448,8 @@ impl ParsedPredicate {
             | Self::ExistsSubquery { .. }
             | Self::QuantifiedSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23173,7 +23485,8 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -23274,7 +23587,8 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23331,7 +23645,8 @@ impl ParsedPredicate {
             | Self::InList { .. }
             | Self::RowValueInList { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23366,7 +23681,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -23412,7 +23728,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23458,7 +23775,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23520,7 +23838,8 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -23555,7 +23874,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -23601,7 +23921,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23647,7 +23968,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23682,7 +24004,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -23728,7 +24051,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23776,7 +24100,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23822,7 +24147,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23857,7 +24183,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => false,
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => false,
         }
     }
 
@@ -23903,7 +24230,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23949,7 +24277,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 
@@ -23995,7 +24324,8 @@ impl ParsedPredicate {
             | Self::QuantifiedSubquery { .. }
             | Self::ExistsSubquery { .. }
             | Self::StringMatch { .. }
-            | Self::BinaryHelperCompare { .. } => {}
+            | Self::BinaryHelperCompare { .. }
+            | Self::BinaryByteLengthCompare { .. } => {}
         }
     }
 }
@@ -24264,6 +24594,22 @@ fn binary_helper_compare_expression(
             right: Box::new(Expression::literal(
                 ExprId::new("where.binary_helper.literal")?,
                 ScalarValue::Binary(predicate.value.clone()),
+            )),
+        },
+    ))
+}
+
+fn binary_byte_length_compare_expression(
+    predicate: &ParsedBinaryByteLengthPredicate,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.binary_byte_length_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(predicate.expression.clone()),
+            op: predicate.comparison,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.binary_byte_length.literal")?,
+                predicate.value.clone(),
             )),
         },
     ))
@@ -26540,6 +26886,44 @@ impl SqlLocalSourceReport {
                     .to_string(),
             ),
             (
+                "binary_byte_length_predicate_runtime_execution".to_string(),
+                self.parsed
+                    .predicate
+                    .uses_binary_byte_length_predicate()
+                    .to_string(),
+            ),
+            (
+                "binary_byte_length_predicate_argument_family".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_byte_length_predicate_argument_families(),
+            ),
+            (
+                "binary_byte_length_predicate_comparison_operator".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_byte_length_predicate_comparison_operators(),
+            ),
+            (
+                "binary_byte_length_predicate_source_column".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_byte_length_predicate_source_columns(),
+            ),
+            (
+                "binary_byte_length_predicate_rhs_dtype".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_byte_length_predicate_rhs_dtypes(),
+            ),
+            (
+                "binary_byte_length_predicate_null_semantics".to_string(),
+                self.parsed
+                    .predicate
+                    .binary_byte_length_predicate_null_semantics()
+                    .to_string(),
+            ),
+            (
                 "filter_runtime_execution".to_string(),
                 self.parsed.has_filter().to_string(),
             ),
@@ -27620,6 +28004,41 @@ impl SqlLocalSourceReport {
                 "binary_helper_projection_null_semantics".to_string(),
                 if self.parsed.has_binary_helper_projection() {
                     "null_propagating_utf8_decode"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "binary_byte_length_projection_runtime_execution".to_string(),
+                self.parsed.has_binary_byte_length_projection().to_string(),
+            ),
+            (
+                "binary_byte_length_projection_argument_family".to_string(),
+                self.parsed
+                    .binary_byte_length_projection_argument_families(),
+            ),
+            (
+                "binary_byte_length_projection_source_column".to_string(),
+                self.parsed.binary_byte_length_projection_source_columns(),
+            ),
+            (
+                "binary_byte_length_projection_output_column".to_string(),
+                self.parsed.binary_byte_length_projection_output_columns(),
+            ),
+            (
+                "binary_byte_length_projection_output_dtype".to_string(),
+                if self.parsed.has_binary_byte_length_projection() {
+                    "int64"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "binary_byte_length_projection_null_semantics".to_string(),
+                if self.parsed.has_binary_byte_length_projection() {
+                    "null_propagating_binary_decode"
                 } else {
                     "not_applicable"
                 }
@@ -30044,6 +30463,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         string_transform_projections: projection_list.string_transform_projections,
         string_function_projections: projection_list.string_function_projections,
         binary_helper_projections: projection_list.binary_helper_projections,
+        binary_byte_length_projections: projection_list.binary_byte_length_projections,
         date_extract_projections: projection_list.date_extract_projections,
         timestamp_extract_projections: projection_list.timestamp_extract_projections,
         window_projections: projection_list.window_projections,
@@ -30477,6 +30897,7 @@ fn reserved_having_aggregate_aliases(projection_list: &ParsedProjectionList) -> 
             | ParsedProjectionOutput::StringTransform(column)
             | ParsedProjectionOutput::StringFunction(column)
             | ParsedProjectionOutput::BinaryHelper(column)
+            | ParsedProjectionOutput::BinaryByteLength(column)
             | ParsedProjectionOutput::DateExtract(column)
             | ParsedProjectionOutput::TimestampExtract(column)
             | ParsedProjectionOutput::Window(column) => {
@@ -30553,6 +30974,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut string_transform_projections = Vec::new();
     let mut string_function_projections = Vec::new();
     let mut binary_helper_projections = Vec::new();
+    let mut binary_byte_length_projections = Vec::new();
     let mut date_extract_projections = Vec::new();
     let mut timestamp_extract_projections = Vec::new();
     let mut window_projections = Vec::new();
@@ -30652,6 +31074,13 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
                 binary_projection.alias.clone(),
             ));
             binary_helper_projections.push(binary_projection);
+        } else if let Some(byte_length_projection) =
+            parse_binary_byte_length_projection(projection)?
+        {
+            projection_order.push(ParsedProjectionOutput::BinaryByteLength(
+                byte_length_projection.alias.clone(),
+            ));
+            binary_byte_length_projections.push(byte_length_projection);
         } else if let Some(date_projection) = parse_date_extract_projection(projection)? {
             projection_order.push(ParsedProjectionOutput::DateExtract(
                 date_projection.alias.clone(),
@@ -30720,6 +31149,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         string_transform_projections,
         string_function_projections,
         binary_helper_projections,
+        binary_byte_length_projections,
         date_extract_projections,
         timestamp_extract_projections,
         window_projections,
@@ -32954,6 +33384,36 @@ fn parse_binary_helper_projection(
     }))
 }
 
+fn parse_binary_byte_length_projection(
+    raw: &str,
+) -> Result<Option<ParsedBinaryByteLengthProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    let Some((expression, source_columns, argument_family)) =
+        parse_binary_byte_length_call_expression(
+            expression_raw,
+            &format!("project.binary_byte_length.{alias}"),
+        )?
+    else {
+        return Ok(None);
+    };
+    if alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "binary byte length projections require an output alias",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    Ok(Some(ParsedBinaryByteLengthProjection {
+        alias: alias.to_string(),
+        expression,
+        source_columns,
+        argument_family,
+    }))
+}
+
 fn parse_binary_helper_function_prefix(raw: &str) -> Option<(BinaryHelperOp, usize)> {
     let trimmed = raw.trim();
     for (name, op) in [
@@ -32970,6 +33430,135 @@ fn parse_binary_helper_function_prefix(raw: &str) -> Option<(BinaryHelperOp, usi
         }
     }
     None
+}
+
+fn parse_binary_byte_length_function_prefix(raw: &str) -> Option<usize> {
+    let trimmed = raw.trim();
+    for name in ["octet_length", "byte_length"] {
+        let len = name.len();
+        if trimmed
+            .get(..len)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && trimmed.as_bytes().get(len) == Some(&b'(')
+        {
+            return Some(len);
+        }
+    }
+    None
+}
+
+fn parse_binary_byte_length_call_expression(
+    raw: &str,
+    id_prefix: &str,
+) -> Result<Option<(Expression, Vec<String>, BinaryByteLengthArgumentFamily)>, ShardLoomError> {
+    let Some(open_index) = parse_binary_byte_length_function_prefix(raw) else {
+        return Ok(None);
+    };
+    let close_index = matching_closing_parenthesis(raw, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "binary byte length expressions must use BYTE_LENGTH(<binary-expression>) or OCTET_LENGTH(<binary-expression>)",
+        )
+    })?;
+    if !raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "binary byte length expressions must be a single BYTE_LENGTH/OCTET_LENGTH call",
+        ));
+    }
+    let args = split_sql_csv(raw[open_index + 1..close_index].trim())?;
+    let [arg_raw] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "binary byte length expressions require exactly one binary expression argument",
+        ));
+    };
+    let (binary_expression, source_columns, argument_family) =
+        parse_binary_scalar_expression(arg_raw, &format!("{id_prefix}.arg"))?;
+    let expression = Expression::new(
+        ExprId::new(id_prefix.to_string())?,
+        ExpressionKind::FunctionCall {
+            name: "byte_length".to_string(),
+            args: vec![binary_expression],
+        },
+    );
+    Ok(Some((expression, source_columns, argument_family)))
+}
+
+fn parse_binary_scalar_expression(
+    raw: &str,
+    id_prefix: &str,
+) -> Result<(Expression, Vec<String>, BinaryByteLengthArgumentFamily), ShardLoomError> {
+    let trimmed = raw.trim();
+    if let Some((op, open_index)) = parse_binary_helper_function_prefix(trimmed) {
+        let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+            unsupported_sql_error(
+                "binary byte length helper arguments must use UNHEX(<utf8-expression>) or FROM_BASE64(<utf8-expression>)",
+            )
+        })?;
+        if !trimmed[close_index + 1..].trim().is_empty() {
+            return Err(unsupported_sql_error(
+                "binary byte length helper arguments must be a single UNHEX/FROM_BASE64 call",
+            ));
+        }
+        let args = split_sql_csv(trimmed[open_index + 1..close_index].trim())?;
+        let [value_expression_raw] = args.as_slice() else {
+            return Err(unsupported_sql_error(
+                "binary byte length helper arguments require exactly one UTF-8 expression",
+            ));
+        };
+        let value_expression = parse_string_scalar_expression(
+            value_expression_raw,
+            &format!("{id_prefix}.binary_helper_arg"),
+        )?;
+        let source_columns = expression_source_columns(&value_expression);
+        if source_columns.is_empty() {
+            return Err(unsupported_sql_error(
+                "binary byte length helper arguments require at least one source column expression",
+            ));
+        }
+        return Ok((
+            Expression::new(
+                ExprId::new(format!("{id_prefix}.binary_helper"))?,
+                ExpressionKind::FunctionCall {
+                    name: op.function_name().to_string(),
+                    args: vec![value_expression],
+                },
+            ),
+            source_columns,
+            BinaryByteLengthArgumentFamily::Helper(op),
+        ));
+    }
+    if let Some((mode, inner)) = parse_cast_call_expression(trimmed)? {
+        let Some(as_index) = find_keyword_outside_quotes(inner, "as") else {
+            return Err(unsupported_sql_error(
+                "binary byte length CAST arguments must use CAST(<utf8-expression> AS binary) syntax",
+            ));
+        };
+        let source_raw = inner[..as_index].trim();
+        let target_raw = inner[as_index + "as".len()..].trim();
+        let target_dtype = parse_cast_target_dtype(target_raw)?;
+        if !matches!(target_dtype, LogicalDType::Binary) {
+            return Err(unsupported_sql_error(
+                "binary byte length CAST arguments must target binary, blob, or varbinary",
+            ));
+        }
+        let (_column, source_expression, source_columns) = parse_cast_source_expression(
+            source_raw,
+            &target_dtype,
+            &format!("{id_prefix}.cast_arg"),
+            "binary byte length CAST arguments require at least one source column expression",
+        )?;
+        return Ok((
+            mode.build_expression(
+                ExprId::new(format!("{id_prefix}.cast"))?,
+                source_expression,
+                target_dtype,
+            ),
+            source_columns,
+            BinaryByteLengthArgumentFamily::Cast(mode),
+        ));
+    }
+    Err(unsupported_sql_error(
+        "binary byte length expressions admit BYTE_LENGTH(UNHEX(<utf8-expression>)), BYTE_LENGTH(FROM_BASE64(<utf8-expression>)), or BYTE_LENGTH(CAST(<utf8-expression> AS binary)) only",
+    ))
 }
 
 fn parse_binary_helper_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
@@ -33043,6 +33632,52 @@ fn parse_binary_helper_predicate_literal(raw: &str) -> Result<Vec<u8>, ShardLoom
     Err(unsupported_sql_error(
         "binary helper predicates admit X'<hex>', BINARY '<utf8>', or BLOB '<utf8>' literals only",
     ))
+}
+
+fn parse_binary_byte_length_predicate(
+    raw: &str,
+) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let trimmed = raw.trim();
+    let Some(open_index) = parse_binary_byte_length_function_prefix(trimmed) else {
+        return Ok(None);
+    };
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "binary byte length predicates must use BYTE_LENGTH(<binary-expression>) <op> <int-literal>",
+        )
+    })?;
+    let expression_raw = trimmed[..=close_index].trim();
+    let Some((expression, source_columns, argument_family)) =
+        parse_binary_byte_length_call_expression(expression_raw, "where.binary_byte_length")?
+    else {
+        return Ok(None);
+    };
+    let tail = trimmed[close_index + 1..].trim();
+    if tail.is_empty() {
+        return Err(unsupported_sql_error(
+            "binary byte length predicates require a comparison operator and int64 literal",
+        ));
+    }
+    let tokens = split_whitespace_outside_quotes(tail)?;
+    let [op_raw, literal_raw] = tokens.as_slice() else {
+        return Err(unsupported_sql_error(
+            "binary byte length predicates admit BYTE_LENGTH(<binary-expression>) <op> <int-literal> only",
+        ));
+    };
+    let value @ ScalarValue::Int64(_) = parse_sql_literal(literal_raw)? else {
+        return Err(unsupported_sql_error(
+            "binary byte length predicates compare against int64 literals only",
+        ));
+    };
+    Ok(Some(ParsedPredicate::BinaryByteLengthCompare(
+        ParsedBinaryByteLengthPredicate {
+            expression,
+            source_columns,
+            argument_family,
+            comparison: parse_comparison_op(op_raw)?,
+            value,
+        },
+    )))
 }
 
 fn parse_string_function_call_expression(
@@ -33946,6 +34581,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
         return Ok(predicate);
     }
     if let Some(predicate) = parse_binary_helper_predicate(raw)? {
+        return Ok(predicate);
+    }
+    if let Some(predicate) = parse_binary_byte_length_predicate(raw)? {
         return Ok(predicate);
     }
     if let Some(predicate) = parse_regex_function_predicate(raw)? {
@@ -36291,6 +36929,7 @@ fn projected_subquery_output_columns(
                 | ParsedProjectionOutput::StringTransform(column)
                 | ParsedProjectionOutput::StringFunction(column)
                 | ParsedProjectionOutput::BinaryHelper(column)
+                | ParsedProjectionOutput::BinaryByteLength(column)
                 | ParsedProjectionOutput::DateExtract(column)
                 | ParsedProjectionOutput::TimestampExtract(column)
                 | ParsedProjectionOutput::Window(column) => column.clone(),
@@ -39725,6 +40364,76 @@ mod tests {
         assert_eq!(
             parsed.execution_certificate_suffix(),
             "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_binary_byte_length_projection_and_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,BYTE_LENGTH(UNHEX(LOWER(TRIM(hex_payload)))) AS payload_len,OCTET_LENGTH(CAST(CONCAT(label_prefix,label_suffix) AS binary)) AS label_len FROM 'target/input.csv' WHERE BYTE_LENGTH(FROM_BASE64(CONCAT(b64_prefix,b64_suffix))) >= 4 LIMIT 5",
+        )
+        .expect("binary byte length statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.binary_byte_length_projections.len(), 2);
+        assert_eq!(
+            parsed.binary_byte_length_projections[0].alias,
+            "payload_len"
+        );
+        assert_eq!(
+            parsed.binary_byte_length_projections[0].argument_family,
+            BinaryByteLengthArgumentFamily::Helper(BinaryHelperOp::Unhex)
+        );
+        assert_eq!(
+            parsed.binary_byte_length_projections[0].source_columns,
+            vec!["hex_payload"]
+        );
+        assert_eq!(
+            parsed.binary_byte_length_projections[1].argument_family,
+            BinaryByteLengthArgumentFamily::Cast(CastMode::Strict)
+        );
+        assert_eq!(
+            parsed.binary_byte_length_projections[1].source_columns,
+            vec!["label_prefix", "label_suffix"]
+        );
+        assert!(parsed.has_binary_byte_length_projection());
+        assert_eq!(
+            parsed.binary_byte_length_projection_argument_families(),
+            "unhex,cast"
+        );
+        assert_eq!(
+            parsed.binary_byte_length_projection_source_columns(),
+            "hex_payload,label_prefix+label_suffix"
+        );
+        assert_eq!(
+            parsed.binary_byte_length_projection_output_columns(),
+            "payload_len,label_len"
+        );
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::BinaryByteLengthCompare(ParsedBinaryByteLengthPredicate {
+                argument_family: BinaryByteLengthArgumentFamily::Helper(BinaryHelperOp::FromBase64),
+                comparison: ComparisonOp::GtEq,
+                value: ScalarValue::Int64(4),
+                ..
+            })
+        ));
+        assert_eq!(parsed.predicate.family(), "binary_byte_length");
+        assert_eq!(
+            parsed
+                .predicate
+                .binary_byte_length_predicate_argument_families(),
+            "from_base64"
+        );
+        assert_eq!(
+            parsed
+                .predicate
+                .binary_byte_length_predicate_source_columns(),
+            "b64_prefix+b64_suffix"
+        );
+        assert_eq!(
+            parsed.predicate.binary_byte_length_predicate_rhs_dtypes(),
+            "int64"
         );
     }
 
@@ -43542,6 +44251,129 @@ mod tests {
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn runs_scoped_binary_byte_length_csv_statement_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(
+            &path,
+            "id,hex_payload,b64_prefix,b64_suffix,label_prefix,label_suffix\n1, 00FF10 ,AP,8Q,al,pha\n2, 616C706861 ,YWxw,aGE=,be,ta\n3,,,,,\n",
+        )
+        .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: None,
+            statement: format!(
+                "SELECT id,BYTE_LENGTH(UNHEX(LOWER(TRIM(hex_payload)))) AS payload_len,OCTET_LENGTH(CAST(CONCAT(label_prefix,label_suffix) AS binary)) AS label_len FROM '{}' WHERE BYTE_LENGTH(FROM_BASE64(CONCAT(b64_prefix,b64_suffix))) >= 4 ORDER BY id ASC LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run binary byte length smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":2,\"payload_len\":5,\"label_len\":4}\n"
+        );
+        assert_field_eq(&fields, "predicate_operator_family", "binary_byte_length");
+        assert_field_eq(
+            &fields,
+            "binary_byte_length_projection_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_byte_length_projection_argument_family",
+            "unhex,cast",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_byte_length_projection_source_column",
+            "hex_payload,label_prefix+label_suffix",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_byte_length_projection_output_column",
+            "payload_len,label_len",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_byte_length_projection_output_dtype",
+            "int64",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_byte_length_projection_null_semantics",
+            "null_propagating_binary_decode",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_byte_length_predicate_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_byte_length_predicate_argument_family",
+            "from_base64",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_byte_length_predicate_comparison_operator",
+            "gte",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_byte_length_predicate_source_column",
+            "b64_prefix+b64_suffix",
+        );
+        assert_field_eq(&fields, "binary_byte_length_predicate_rhs_dtype", "int64");
+        assert_field_eq(
+            &fields,
+            "binary_byte_length_predicate_null_semantics",
+            "null_propagating_binary_decode_then_sql_where_true_only",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn binary_byte_length_blocks_non_binary_arguments_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(&path, "id,label\n1,alpha\n").expect("write csv source");
+
+        for statement in [
+            "SELECT id,BYTE_LENGTH(label) AS label_len FROM '{}' LIMIT 5",
+            "SELECT id FROM '{}' WHERE BYTE_LENGTH('literal') >= 1 LIMIT 5",
+        ] {
+            let request = SqlLocalSourceRequest {
+                source_format_override: None,
+                statement: statement.replace("{}", &path.display().to_string()),
+                output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+                output_path: None,
+                fanout_outputs: Vec::new(),
+                allow_overwrite: false,
+            };
+            let error = run_sql_local_source_smoke_single(&request)
+                .expect_err("non-binary byte length argument remains blocked");
+
+            assert!(
+                error
+                    .to_string()
+                    .contains("binary byte length expressions admit BYTE_LENGTH"),
+                "{error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
 
         fs::remove_file(&path).expect("remove csv source");
     }

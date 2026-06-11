@@ -4505,6 +4505,62 @@ class SqlLocalSourceSmokeReport:
         return value
 
     @property
+    def binary_byte_length_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted binary byte-length projection."""
+
+        return (
+            self.envelope.field_bool(
+                "binary_byte_length_projection_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def binary_byte_length_projection_argument_family(self) -> tuple[str, ...]:
+        """Return binary expression families used by byte-length projections."""
+
+        value = self.envelope.field("binary_byte_length_projection_argument_family", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_byte_length_projection_source_columns(self) -> tuple[str, ...]:
+        """Return source-column groups used by byte-length projections."""
+
+        value = self.envelope.field("binary_byte_length_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_byte_length_projection_output_columns(self) -> tuple[str, ...]:
+        """Return byte-length projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("binary_byte_length_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_byte_length_projection_output_dtype(self) -> str | None:
+        """Return the output dtype for byte-length projections."""
+
+        value = self.envelope.field("binary_byte_length_projection_output_dtype")
+        if value in {None, "", "not_applicable"}:
+            return None
+        return value
+
+    @property
+    def binary_byte_length_projection_null_semantics(self) -> str | None:
+        """Return null-semantics evidence for byte-length projections."""
+
+        value = self.envelope.field("binary_byte_length_projection_null_semantics")
+        if value in {None, "", "not_applicable"}:
+            return None
+        return value
+
+    @property
     def binary_helper_predicate_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted binary helper predicate."""
 
@@ -4554,6 +4610,64 @@ class SqlLocalSourceSmokeReport:
         """Return null-semantics evidence for binary helper predicates."""
 
         value = self.envelope.field("binary_helper_predicate_null_semantics")
+        if value in {None, "", "not_applicable"}:
+            return None
+        return value
+
+    @property
+    def binary_byte_length_predicate_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted binary byte-length predicate."""
+
+        return (
+            self.envelope.field_bool(
+                "binary_byte_length_predicate_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def binary_byte_length_predicate_argument_family(self) -> tuple[str, ...]:
+        """Return binary expression families used by byte-length predicates."""
+
+        value = self.envelope.field("binary_byte_length_predicate_argument_family", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_byte_length_predicate_comparison_operator(self) -> tuple[str, ...]:
+        """Return comparison operators used by byte-length predicates."""
+
+        value = self.envelope.field(
+            "binary_byte_length_predicate_comparison_operator", ""
+        )
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_byte_length_predicate_source_columns(self) -> tuple[str, ...]:
+        """Return source-column groups used by byte-length predicates."""
+
+        value = self.envelope.field("binary_byte_length_predicate_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_byte_length_predicate_rhs_dtypes(self) -> tuple[str, ...]:
+        """Return RHS dtypes used by byte-length predicates."""
+
+        value = self.envelope.field("binary_byte_length_predicate_rhs_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def binary_byte_length_predicate_null_semantics(self) -> str | None:
+        """Return null-semantics evidence for byte-length predicates."""
+
+        value = self.envelope.field("binary_byte_length_predicate_null_semantics")
         if value in {None, "", "not_applicable"}:
             return None
         return value

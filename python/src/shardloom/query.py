@@ -475,6 +475,14 @@ class ColumnExpression:
             raise ValueError("FROM_BASE64 expressions require at least one source column")
         return ColumnExpression(f"FROM_BASE64({expression})")
 
+    def byte_length(self) -> "ColumnExpression":
+        """Return a scoped `BYTE_LENGTH(<binary-expression>)` byte-count expression."""
+
+        expression, has_source_column = _normalize_binary_scalar_expression_sql(self.sql)
+        if not has_source_column:
+            raise ValueError("BYTE_LENGTH expressions require a source-backed binary expression")
+        return ColumnExpression(f"BYTE_LENGTH({expression})")
+
     def fill_null(self, value: object) -> "ColumnExpression":
         """Return a scoped `COALESCE(column, literal)` null-cleanup expression."""
 
@@ -6672,6 +6680,14 @@ def from_base64(column_expression: object) -> ColumnExpression:
     return column_expression.from_base64()
 
 
+def byte_length(column_expression: object) -> ColumnExpression:
+    """Return a scoped `BYTE_LENGTH(<binary-expression>)` byte-count expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("byte_length requires a shardloom column expression")
+    return column_expression.byte_length()
+
+
 def array(*values: object) -> ComplexProjectionExpression:
     """Return a scoped `ARRAY[...]` projection over scalar SQL literals."""
 
@@ -8909,6 +8925,7 @@ def _sql_computed_projection_expression(expression: object) -> str:
         _sql_string_transform_projection_expression,
         _sql_string_function_projection_expression,
         _sql_binary_helper_projection_expression,
+        _sql_binary_byte_length_projection_expression,
         _sql_temporal_extract_projection_expression,
     )
     last_error: TypeError | ValueError | None = None
@@ -9244,6 +9261,31 @@ def _sql_binary_helper_projection_expression(expression: object) -> str:
     return f"{function}({expression_sql})"
 
 
+def _sql_binary_byte_length_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits BYTE_LENGTH/OCTET_LENGTH binary expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"BYTE_LENGTH", "OCTET_LENGTH"}:
+        raise ValueError(
+            "computed with_column currently admits BYTE_LENGTH/OCTET_LENGTH binary expressions"
+        )
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 1:
+        raise ValueError("binary byte length with_column expressions require exactly one argument")
+    expression_sql, has_source_column = _normalize_binary_scalar_expression_sql(args[0])
+    if not has_source_column:
+        raise ValueError(
+            "binary byte length with_column expressions require a source-backed binary expression"
+        )
+    return f"{function}({expression_sql})"
+
+
 def _sql_temporal_extract_projection_expression(expression: object) -> str:
     if not isinstance(expression, ColumnExpression):
         raise TypeError("computed with_column requires a shardloom ColumnExpression")
@@ -9389,6 +9431,50 @@ def _normalize_string_scalar_expression_sql(raw: str) -> tuple[str, bool]:
         )
     raise ValueError(
         "string expressions currently admit columns, string literals, LOWER/UPPER/TRIM, CONCAT, SUBSTR/SUBSTRING, LEFT/RIGHT, and REPLACE"
+    )
+
+
+def _normalize_binary_scalar_expression_sql(raw: str) -> tuple[str, bool]:
+    text = _require_non_empty("binary expression", raw)
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "binary byte length expressions admit UNHEX(...), FROM_BASE64(...), or CAST(... AS binary)"
+        )
+    function = text[:open_index].strip().upper()
+    inner = text[open_index + 1 : -1].strip()
+    if function in {"UNHEX", "FROM_BASE64"}:
+        args = _split_projection_function_args(inner)
+        if len(args) != 1:
+            raise ValueError("binary helper expressions require exactly one argument")
+        expression_sql, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        if not has_source_column:
+            raise ValueError(
+                "binary helper expressions require a source-backed string expression"
+            )
+        return f"{function}({expression_sql})", True
+    if function in {"CAST", "TRY_CAST"}:
+        upper_inner = inner.upper()
+        marker = " AS "
+        marker_index = upper_inner.find(marker)
+        if marker_index < 0:
+            raise ValueError(
+                "binary byte length CAST expressions must use CAST(expression AS binary)"
+            )
+        dtype = _normalize_cast_dtype(inner[marker_index + len(marker) :].strip())
+        if dtype != "binary":
+            raise ValueError(
+                "binary byte length CAST expressions must target binary, blob, or varbinary"
+            )
+        source = inner[:marker_index].strip()
+        expression_sql, has_source_column = _normalize_string_scalar_expression_sql(source)
+        if not has_source_column:
+            raise ValueError(
+                "binary byte length CAST expressions require a source-backed string expression"
+            )
+        return f"{function}({expression_sql} AS {dtype})", True
+    raise ValueError(
+        "binary byte length expressions admit UNHEX(...), FROM_BASE64(...), or CAST(... AS binary)"
     )
 
 

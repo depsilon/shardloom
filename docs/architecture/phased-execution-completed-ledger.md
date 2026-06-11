@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary byte-length grammar slice
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-6d-binary-byte-length` / local branch.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` queue.
+    - Follow-up to scoped binary source, cast, helper, and explicit-null SQL grammar slices.
+  - Scope:
+    - Added ShardLoom-owned `binary_byte_length` expression semantics over `ScalarValue::Binary`,
+      with `BYTE_LENGTH` and `OCTET_LENGTH` operator-family aliases and deterministic blockers for
+      UTF-8/string or otherwise non-binary runtime values.
+    - Added scoped local-source SQL projection and predicate parsing for
+      `BYTE_LENGTH(...)` / `OCTET_LENGTH(...)` over admitted binary helper and binary
+      `CAST` / `TRY_CAST` expressions only: `UNHEX(<source-backed utf8 expression>)`,
+      `FROM_BASE64(<source-backed utf8 expression>)`, and binary casts over the existing admitted
+      source-backed UTF-8 expression subset.
+    - Kept bare binary source columns, source-free literals, arbitrary binary expressions, and
+      non-binary byte-length arguments as deterministic no-fallback blockers.
+    - Exposed byte-length-specific evidence fields for projection/predicate runtime execution,
+      argument families, source columns, output columns, output dtype, comparison operators, RHS
+      dtypes, and NULL semantics.
+    - Added Python query-builder `ColumnExpression.byte_length()` and top-level
+      `shardloom.byte_length(...)`, plus typed client accessors for the new report fields.
+    - Updated the admitted semantics matrix, SQL/Python/DataFrame parity markers, phase plan, and
+      global architecture review so this route is no longer counted as broader binary backlog.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `cargo test -p shardloom-core binary_byte_length -- --nocapture` passed.
+    - `cargo test -p shardloom-core string_byte_length -- --nocapture` passed.
+    - `cargo test -p shardloom-cli binary_byte_length -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_binary_byte_length_invokes_sql_smoke` passed.
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/client.py python/src/shardloom/__init__.py python/tests/test_query_builder.py scripts/check_admitted_semantics_matrix.py scripts/check_sql_python_dataframe_parity.py` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-binary-byte-length.json` passed with
+      `matrix_row_count=127`, `executable_fixture_count=103`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-binary-byte-length.json` passed with
+      `row_count=11`, `admitted_row_count=7`, and `remaining_gap_count=4`.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-binary-byte-length.json` passed.
+    - `PYTHONPATH=python/src python3 -m compileall -q python/src python/tests scripts examples` passed.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 491 tests
+      and 2 expected skips.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This admits scoped local-source SQL/Python `BYTE_LENGTH` / `OCTET_LENGTH` projection and
+      predicate semantics over admitted binary helper and binary cast expression routes only. It
+      does not claim broad binary source byte length, arbitrary binary expression support, broad
+      binary preservation, ORC nested output, ORC typed decimal sinks, broad ANSI decimal/subquery
+      parity, production SQL/DataFrame completeness, or performance equivalence.
+  - Fallback boundary:
+    - Execution stays inside ShardLoom-owned local-source SQL, expression, and Python lowering
+      surfaces. No pandas, Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or Vortex
+      query-engine integration is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped SQL null-safe comparison and null-ordering grammar slice
   - Date: 2026-06-11
   - Branch/PR: `codex/compute-engine-6d-sql-null-safe-comparisons` / local branch.
