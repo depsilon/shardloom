@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
 
 def discover_test_modules(repo_root: Path) -> list[str]:
     test_root = repo_root / "python" / "tests"
-    return [path.stem for path in sorted(test_root.glob("test_*.py"))]
+    return [path.stem for path in sorted(test_root.glob("test*.py"))]
 
 
 def module_stems_for_shard(shard: str, repo_root: Path = ROOT) -> list[str]:

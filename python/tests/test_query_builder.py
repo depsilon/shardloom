@@ -2974,6 +2974,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "BYTE_LENGTH(CAST(CONCAT(prefix, suffix) AS binary))",
         )
         self.assertEqual(
+            str(sl.byte_length(sl.concat(sl.col("label"), " AS ").cast("binary"))),
+            "BYTE_LENGTH(CAST(CONCAT(label, ' AS ') AS binary))",
+        )
+        self.assertEqual(
             str(sl.col("payload_b64").from_base64().byte_length() >= 4),
             "BYTE_LENGTH(FROM_BASE64(payload_b64)) >= 4",
         )
@@ -7821,6 +7825,52 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_schema_declared_dataframe_query_dropna_after_limit_fails_closed(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1] == "workflow-unsupported-plan", sys.argv
+                assert sys.argv[2] == "dropna", sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "unsupported dropna",
+                    "human_text": "unsupported dropna",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "operation", "value": sys.argv[2]},
+                        {"key": "blocker_id", "value": "workflow.dropna.unsupported"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "utf8", "label": "utf8"},
+            )
+            .limit(10)
+            .dropna(subset=["label"])
+        )
+
+        self.assertIsInstance(report, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(report.operation, "dropna")
+        self.assertFalse(report.runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_top_n_dataframe_aliases_lower_to_sort_limit(
         self,
     ) -> None:
@@ -7889,6 +7939,50 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(smallest_report.order_by_runtime_execution)
         self.assertTrue(smallest_report.top_n_runtime_execution)
         self.assertEqual(smallest_report.sort_direction, "asc")
+
+    def test_local_csv_query_builder_top_n_after_limit_fails_closed(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1] == "workflow-unsupported-plan", sys.argv
+                assert sys.argv[2] in {"nlargest", "nsmallest"}, sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "unsupported top-n",
+                    "human_text": "unsupported top-n",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "operation", "value": sys.argv[2]},
+                        {"key": "blocker_id", "value": "workflow.top_n.unsupported"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        source = ctx.read_csv("target/input.csv").select("id", "amount").limit(10)
+
+        largest = source.nlargest(5, "amount")
+        smallest = source.nsmallest(3, "amount")
+
+        self.assertIsInstance(largest, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(largest.operation, "nlargest")
+        self.assertFalse(largest.runtime_execution)
+        self.assertFalse(largest.fallback_attempted)
+        self.assertFalse(largest.external_engine_invoked)
+        self.assertIsInstance(smallest, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(smallest.operation, "nsmallest")
+        self.assertFalse(smallest.runtime_execution)
+        self.assertFalse(smallest.fallback_attempted)
+        self.assertFalse(smallest.external_engine_invoked)
 
     def test_local_csv_query_builder_utf8_order_by_topn_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
@@ -10346,7 +10440,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 assert sys.argv[1:] == [
                     "sql-local-source-smoke",
-                    "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day,CAST(CONCAT(label_prefix, label_suffix) AS binary) AS label_bytes FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day,CAST(CONCAT(label_prefix, ' AS ', label_suffix) AS binary) AS label_bytes FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
                     "--format",
@@ -10386,7 +10480,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .with_column("event_day", sl.col("event_date").cast("date32"))
             .with_column(
                 "label_bytes",
-                sl.concat(sl.col("label_prefix"), sl.col("label_suffix")).cast("binary"),
+                sl.concat(sl.col("label_prefix"), " AS ", sl.col("label_suffix")).cast("binary"),
             )
             .filter(sl.col("id") >= 1)
             .limit(2)

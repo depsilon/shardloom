@@ -4851,6 +4851,12 @@ class ReleaseScriptTests(unittest.TestCase):
                 expected,
             )
         )
+        self.assertFalse(
+            module.validation_command_passed(
+                {expected + "0": "passed"},
+                expected,
+            )
+        )
 
     def test_pre_5j_dependency_freshness_accepts_current_dependabot_prs(self) -> None:
         module = self._load_script_module(

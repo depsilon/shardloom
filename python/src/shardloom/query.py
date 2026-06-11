@@ -5691,6 +5691,8 @@ class LazyFrame:
             return False
         if len(set(columns)) != len(columns):
             return False
+        if any(operation.kind == "limit" for operation in self.operations):
+            return False
         return all(operation.kind != "sort" for operation in self.operations)
 
     def _can_append_window(self, expressions: tuple[str, ...]) -> bool:
@@ -5898,6 +5900,8 @@ class LazyFrame:
     ) -> str | None:
         projection_columns = self._schema_declared_projection_columns()
         if projection_columns is None or kwargs:
+            return None
+        if any(operation.kind == "limit" for operation in self.operations):
             return None
         normalized_how = _normalize_dropna_how(how)
         if normalized_how != "any":
@@ -9029,6 +9033,17 @@ def _sql_predicate_projection_expression(expression: object) -> str:
     return text
 
 
+def _split_cast_source_and_dtype(inner: str, syntax_error: str) -> tuple[str, str]:
+    marker_index = _find_top_level_sql_keyword_outside_quotes(inner, "as")
+    if marker_index is None:
+        raise ValueError(syntax_error)
+    source = inner[:marker_index].strip()
+    dtype = _normalize_cast_dtype(inner[marker_index + len("as") :].strip())
+    if not source:
+        raise ValueError(syntax_error)
+    return source, dtype
+
+
 def _sql_cast_projection_expression(expression: object) -> str:
     if not isinstance(expression, ColumnExpression):
         raise TypeError("computed with_column requires a shardloom ColumnExpression")
@@ -9048,15 +9063,10 @@ def _sql_cast_projection_expression(expression: object) -> str:
         raise ValueError(
             "computed with_column currently admits CAST/TRY_CAST column expressions"
         )
-    upper_inner = inner.upper()
-    marker = " AS "
-    marker_index = upper_inner.find(marker)
-    if marker_index < 0:
-        raise ValueError(
-            "CAST/TRY_CAST column expressions must use CAST(column AS dtype) syntax"
-        )
-    dtype = _normalize_cast_dtype(inner[marker_index + len(marker) :].strip())
-    source = inner[:marker_index].strip()
+    source, dtype = _split_cast_source_and_dtype(
+        inner,
+        "CAST/TRY_CAST column expressions must use CAST(column AS dtype) syntax",
+    )
     if dtype == "binary":
         column, has_source_column = _normalize_string_scalar_expression_sql(source)
         if not has_source_column:
@@ -9526,19 +9536,14 @@ def _normalize_binary_scalar_expression_sql(raw: str) -> tuple[str, bool]:
             )
         return f"{function}({expression_sql})", True
     if function in {"CAST", "TRY_CAST"}:
-        upper_inner = inner.upper()
-        marker = " AS "
-        marker_index = upper_inner.find(marker)
-        if marker_index < 0:
-            raise ValueError(
-                "binary byte length CAST expressions must use CAST(expression AS binary)"
-            )
-        dtype = _normalize_cast_dtype(inner[marker_index + len(marker) :].strip())
+        source, dtype = _split_cast_source_and_dtype(
+            inner,
+            "binary byte length CAST expressions must use CAST(expression AS binary)",
+        )
         if dtype != "binary":
             raise ValueError(
                 "binary byte length CAST expressions must target binary, blob, or varbinary"
             )
-        source = inner[:marker_index].strip()
         expression_sql, has_source_column = _normalize_string_scalar_expression_sql(source)
         if not has_source_column:
             raise ValueError(
