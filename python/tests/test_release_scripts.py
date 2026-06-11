@@ -4177,7 +4177,11 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertEqual(packet["next_implementation_slice"], "none")
+        self.assertTrue(
+            packet["next_implementation_slice"].startswith(
+                "`SECURITY-DEEP-SCAN-R3-FOLLOWUP`"
+            )
+        )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:
@@ -4829,6 +4833,61 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(security_group, "security_dependency_provenance")
         self.assertEqual(security_env, {})
 
+    def test_security_posture_requires_sha_pinned_privileged_actions(self) -> None:
+        module = self._load_script_module(
+            "check_security_posture.py", "check_security_posture_pinning_for_test"
+        )
+
+        pinned = module.action_pin_check(
+            "steps:\n"
+            "  - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10\n"
+            "  - uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e\n"
+        )
+        mutable = module.action_pin_check("steps:\n  - uses: actions/checkout@v6\n")
+
+        self.assertEqual(pinned["status"], "passed")
+        self.assertEqual(pinned["pinned_ref_count"], 2)
+        self.assertEqual(mutable["status"], "failed")
+        self.assertEqual(mutable["mutable_refs"], ["actions/checkout@v6"])
+
+    def test_security_posture_accepts_current_privileged_workflows(self) -> None:
+        module = self._load_script_module(
+            "check_security_posture.py", "check_security_posture_current_for_test"
+        )
+
+        report = module.build_report(REPO_ROOT)
+
+        self.assertEqual(report["status"], "passed", report["checks"])
+        self.assertEqual(report["checks"]["codeql_action_pinning"]["status"], "passed")
+        self.assertEqual(report["checks"]["scorecard_action_pinning"]["status"], "passed")
+        self.assertEqual(
+            report["checks"]["pypi_trusted_publisher_action_pinning"]["status"],
+            "passed",
+        )
+        self.assertEqual(
+            report["checks"]["pypi_trusted_publisher_oidc_boundary"]["status"],
+            "passed",
+        )
+
+    def test_security_posture_rejects_pypi_build_inside_oidc_publish_job(self) -> None:
+        module = self._load_script_module(
+            "check_security_posture.py", "check_security_posture_pypi_oidc_for_test"
+        )
+
+        check = module.pypi_trusted_publisher_boundary_check(
+            "jobs:\n"
+            "  publish:\n"
+            "    permissions:\n"
+            "      contents: read\n"
+            "      id-token: write\n"
+            "    environment: pypi\n"
+            "    steps:\n"
+            "      - run: python -m build python\n"
+        )
+
+        self.assertEqual(check["status"], "failed")
+        self.assertIn("publish job must not build the package", check["missing"])
+
     def test_release_readiness_accepts_configured_dry_run_command_evidence(self) -> None:
         module = self._load_script_module(
             "check_release_readiness.py",
@@ -4904,6 +4963,55 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(headers["Authorization"], "Bearer ghs_token")
         self.assertEqual(headers["Accept"], "application/vnd.github+json")
         self.assertNotIn("Authorization", module.github_request_headers(None))
+        self.assertIsNone(module.validate_live_github_pulls_url(module.GITHUB_PULLS_URL))
+
+    def test_pre_5j_dependency_freshness_rejects_unadmitted_live_github_url(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_pre_5j_dependency_freshness.py",
+            "check_pre_5j_dependency_freshness_live_url_policy_for_test",
+        )
+
+        def fail_if_called(*_args: object, **_kwargs: object) -> object:
+            raise AssertionError("unsafe live GitHub URL reached urlopen")
+
+        original_urlopen = module.urllib.request.urlopen
+        module.urllib.request.urlopen = fail_if_called
+        try:
+            with self._temporary_env(GITHUB_TOKEN="ghs_secret"):
+                open_prs, status, error = module.load_open_prs(
+                    repo_root=REPO_ROOT,
+                    open_prs_json=None,
+                    require_live_github=True,
+                    github_url="https://attacker.example/repos/depsilon/shardloom/pulls",
+                    timeout_seconds=0.01,
+                    github_token_env=None,
+                )
+        finally:
+            module.urllib.request.urlopen = original_urlopen
+
+        self.assertIsNone(open_prs)
+        self.assertEqual(status, "failed")
+        self.assertIsNotNone(error)
+        self.assertIn("refusing live GitHub dependency check URL host", error)
+
+    def test_pre_5j_dependency_freshness_rejects_github_url_userinfo(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_pre_5j_dependency_freshness.py",
+            "check_pre_5j_dependency_freshness_userinfo_policy_for_test",
+        )
+
+        error = module.validate_live_github_pulls_url(
+            "https://token@api.github.com/repos/depsilon/shardloom/pulls"
+        )
+
+        self.assertEqual(
+            error,
+            "live GitHub dependency check URL must not include userinfo",
+        )
 
     def test_pre_5j_dependency_freshness_parses_cargo_files_without_tomllib(self) -> None:
         module = self._load_script_module(
@@ -5144,6 +5252,27 @@ jobs:
             report = module.merge_artifact(repo_root, artifact)
 
             self.assertEqual(report["status"], "passed", report["blockers"])
+            self.assertEqual(
+                report["producer_artifact_name"], "release-local-smoke-evidence"
+            )
+            self.assertTrue(report["downloaded_artifact_digest_bound"])
+            self.assertTrue(report["artifact_tree_digest"].startswith("sha256:"))
+            self.assertEqual(report["artifact_file_count"], 5)
+            self.assertEqual(
+                sorted(file["path"] for file in report["artifact_files"]),
+                [
+                    "debug/shardloom",
+                    "dist/shardloom-0.1.0.dev0-py3-none-any.whl",
+                    "dist/shardloom-0.1.0.dev0.tar.gz",
+                    "release-dry-run-proof/transcript.json",
+                    "release-provenance-dry-run/supply-chain-release-evidence.json",
+                ],
+            )
+            self.assertIn("target/release-dry-run-proof", report["copied_paths"])
+            self.assertIn("target/release-provenance-dry-run", report["copied_paths"])
+            self.assertIn("target/debug", report["copied_paths"])
+            self.assertIn("python/dist", report["copied_paths"])
+            self.assertFalse(any(str(repo_root) in path for path in report["copied_paths"]))
             transcript = repo_root / "target" / "release-dry-run-proof" / "transcript.json"
             self.assertTrue(transcript.is_file())
             self.assertTrue(
@@ -5165,6 +5294,25 @@ jobs:
             )
             sdist = repo_root / "python" / "dist" / "shardloom-0.1.0.dev0.tar.gz"
             self.assertTrue(sdist.is_file())
+
+    def test_release_evidence_artifact_merge_rejects_symlinked_entries(self) -> None:
+        module = self._load_script_module(
+            "merge_release_evidence_artifacts.py",
+            "merge_release_evidence_artifacts_symlink_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            artifact = repo_root / "target" / "downloads" / "release-local-smoke-evidence"
+            artifact.mkdir(parents=True)
+            (artifact / "outside").symlink_to(Path("/tmp"))
+
+            report = module.merge_artifact(repo_root, artifact)
+
+            self.assertEqual(report["status"], "failed")
+            self.assertFalse(report["downloaded_artifact_digest_bound"])
+            self.assertEqual(report["copied_paths"], [])
+            self.assertIn("artifact contains unsupported symlink", report["blockers"][0])
 
     def test_local_python_smoke_runs_user_surface_quickstart(self) -> None:
         module = self._load_module_from_path(
@@ -5377,6 +5525,33 @@ jobs:
             self.assertTrue(report["local_python_user_surface_quickstart_performed"])
             self.assertTrue(report["local_python_result_and_evidence_printed"])
             self.assertTrue(report["local_python_unsupported_path_evidence_printed"])
+            self.assertEqual(report["repo_root"], "repo")
+            self.assertEqual(report["clean_venv"], "venv")
+            self.assertEqual(report["clean_conda_env"], "conda")
+            self.assertEqual(report["local_cli_binary"], "target/debug/shardloom")
+            self.assertEqual(report["local_wheel"], "python/dist/shardloom.whl")
+            self.assertNotIn(str(repo_root), json.dumps(report, sort_keys=True))
+
+    def test_release_dry_run_transcript_redacts_command_paths(self) -> None:
+        module = self._load_script_module(
+            "release_dry_run_proof.py", "release_dry_run_proof_command_redaction_for_test"
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            command = [
+                str(repo_root / "target" / "debug" / "shardloom"),
+                "status",
+                str(repo_root / "target" / "release-dry-run-proof" / "venv"),
+                str(Path("/usr/local/bin/python3")),
+            ]
+
+            redacted = module.redact_command_for_transcript(repo_root, command)
+
+            self.assertEqual(redacted[0], "target/debug/shardloom")
+            self.assertEqual(redacted[2], "target/release-dry-run-proof/venv")
+            self.assertEqual(redacted[3], "external-path:python3")
+            self.assertNotIn(str(repo_root), " ".join(redacted))
 
     def test_release_dry_run_python_artifact_build_falls_back_to_pip_wheel(self) -> None:
         module = self._load_script_module(
@@ -5424,6 +5599,33 @@ jobs:
             self.assertEqual(commands[1][:4], [sys.executable, "-m", "pip", "wheel"])
             self.assertIn("--no-build-isolation", commands[1])
             self.assertIn("--no-deps", commands[1])
+
+    def test_release_dry_run_cleanup_rejects_repo_root_and_top_level_targets(self) -> None:
+        module = self._load_script_module(
+            "release_dry_run_proof.py", "release_dry_run_proof_cleanup_guard_for_test"
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            sentinel = repo_root / "sentinel.txt"
+            sentinel.write_text("keep", encoding="utf-8")
+            target_dir = repo_root / "target"
+            target_dir.mkdir()
+            nested_env = target_dir / "release-dry-run-proof" / "venv"
+            nested_env.mkdir(parents=True)
+            (nested_env / "pyvenv.cfg").write_text("home = test\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "repository root"):
+                module.remove_tree_under_repo(repo_root, repo_root)
+            with self.assertRaisesRegex(ValueError, "protected repository directory"):
+                module.remove_tree_under_repo(repo_root, target_dir)
+
+            self.assertTrue(sentinel.exists())
+            self.assertTrue(target_dir.exists())
+
+            module.remove_tree_under_repo(repo_root, nested_env)
+
+            self.assertFalse(nested_env.exists())
+            self.assertTrue(target_dir.exists())
 
     def _write_production_usability_docs(self, repo_root: Path) -> None:
         docs = {

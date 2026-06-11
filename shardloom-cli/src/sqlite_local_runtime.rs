@@ -27,6 +27,10 @@ use crate::{
     extension_planning::append_effectful_operation_admission_matrix_fields,
 };
 
+const MAX_SQLITE_FIXTURE_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_SQLITE_FIXTURE_ROWS: usize = 50_000;
+const MAX_SQLITE_EXPORT_JSONL_BYTES: usize = 128 * 1024 * 1024;
+
 #[derive(Debug, Clone)]
 struct SqliteSmokeOptions {
     source_db: PathBuf,
@@ -261,6 +265,10 @@ fn run_sqlite_local_import_export_smoke(
     require_table(&source, &options.table)?;
     let columns = load_table_columns(&source, &options.table)?;
     validate_sqlite_fixture_shape(&columns, &options.table, options.order_by.as_deref())?;
+    validate_sqlite_row_budget(
+        count_table_rows(&source, &options.table)?,
+        "source SQLite table",
+    )?;
     let mut rows = read_rows(&source, &options.table, &columns)?;
     apply_fixture_order(&mut rows, &columns, options.order_by.as_deref())?;
     let jsonl = render_jsonl(&columns, &rows)?;
@@ -371,12 +379,31 @@ fn sqlite_roundtrip_evidence(
 }
 
 fn read_file_digest(path: &Path, label: &str) -> Result<String, ShardLoomError> {
+    let metadata = fs::metadata(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to inspect {label} '{}': {error}; no fallback execution was attempted",
+            path.display()
+        ))
+    })?;
+    if metadata.len() > MAX_SQLITE_FIXTURE_BYTES {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} '{}' is {} bytes; scoped SQLite fixture reads admit at most {MAX_SQLITE_FIXTURE_BYTES} bytes; no fallback execution was attempted",
+            path.display(),
+            metadata.len()
+        )));
+    }
     let bytes = fs::read(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to read {label} '{}': {error}; no fallback execution was attempted",
             path.display()
         ))
     })?;
+    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_SQLITE_FIXTURE_BYTES {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} '{}' exceeded the scoped SQLite fixture read budget during read; no fallback execution was attempted",
+            path.display()
+        )));
+    }
     Ok(fnv64_digest_bytes(&bytes))
 }
 
@@ -420,6 +447,19 @@ fn canonical_existing_file(path: &Path) -> Result<PathBuf, ShardLoomError> {
         return Err(ShardLoomError::InvalidOperation(format!(
             "local SQLite fixture '{}' is not a file; no fallback execution was attempted",
             canonical.display()
+        )));
+    }
+    let metadata = fs::metadata(&canonical).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local SQLite fixture '{}' could not be statted: {error}; no fallback execution was attempted",
+            canonical.display()
+        ))
+    })?;
+    if metadata.len() > MAX_SQLITE_FIXTURE_BYTES {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local SQLite fixture '{}' is {} bytes; scoped SQLite fixture reads admit at most {MAX_SQLITE_FIXTURE_BYTES} bytes; no fallback execution was attempted",
+            canonical.display(),
+            metadata.len()
         )));
     }
     Ok(canonical)
@@ -473,6 +513,7 @@ fn read_rows(
     let mut sqlite_rows = statement.query([]).map_err(sqlite_error)?;
     let mut rows = Vec::new();
     while let Some(row) = sqlite_rows.next().map_err(sqlite_error)? {
+        validate_sqlite_row_budget(rows.len() + 1, "source SQLite table")?;
         let mut cells = Vec::with_capacity(columns.len());
         for index in 0..columns.len() {
             let cell = match row.get_ref(index).map_err(sqlite_error)? {
@@ -594,6 +635,11 @@ fn render_jsonl(columns: &[SqliteColumn], rows: &[SqliteRow]) -> Result<String, 
             let _ = write!(out, "{}:{}", json_string(&column.name), value.to_json()?);
         }
         out.push_str("}\n");
+        if out.len() > MAX_SQLITE_EXPORT_JSONL_BYTES {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "SQLite JSONL export exceeded scoped render budget {MAX_SQLITE_EXPORT_JSONL_BYTES} bytes; no fallback execution was attempted"
+            )));
+        }
     }
     Ok(out)
 }
@@ -734,9 +780,7 @@ fn write_roundtrip_database(
     tx.commit().map_err(sqlite_error)
 }
 
-fn count_roundtrip_rows(path: &Path, table: &str) -> Result<usize, ShardLoomError> {
-    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .map_err(sqlite_error)?;
+fn count_table_rows(conn: &Connection, table: &str) -> Result<usize, ShardLoomError> {
     let count: i64 = conn
         .query_row(
             &format!("SELECT COUNT(*) FROM {}", quote_identifier(table)),
@@ -746,9 +790,24 @@ fn count_roundtrip_rows(path: &Path, table: &str) -> Result<usize, ShardLoomErro
         .map_err(sqlite_error)?;
     usize::try_from(count).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
-            "roundtrip SQLite row count was invalid: {error}; no fallback execution was attempted"
+            "SQLite row count was invalid: {error}; no fallback execution was attempted"
         ))
     })
+}
+
+fn validate_sqlite_row_budget(row_count: usize, label: &str) -> Result<(), ShardLoomError> {
+    if row_count > MAX_SQLITE_FIXTURE_ROWS {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} has {row_count} rows; scoped SQLite import/export smoke admits at most {MAX_SQLITE_FIXTURE_ROWS} rows; no fallback execution was attempted"
+        )));
+    }
+    Ok(())
+}
+
+fn count_roundtrip_rows(path: &Path, table: &str) -> Result<usize, ShardLoomError> {
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(sqlite_error)?;
+    count_table_rows(&conn, table)
 }
 
 fn read_roundtrip_rows(
@@ -1065,6 +1124,41 @@ mod tests {
             not_null: false,
             primary_key_position: 0,
         }
+    }
+
+    #[test]
+    fn sqlite_fixture_digest_rejects_file_over_byte_budget() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-sqlite-oversized-fixture-{}.sqlite",
+            std::process::id()
+        ));
+        let file = fs::File::create(&path).expect("create sparse SQLite fixture");
+        file.set_len(MAX_SQLITE_FIXTURE_BYTES + 1)
+            .expect("set sparse SQLite fixture length");
+
+        let error = read_file_digest(&path, "local SQLite fixture")
+            .expect_err("oversized SQLite fixture blocked");
+        let _ = fs::remove_file(&path);
+
+        assert!(
+            error
+                .to_string()
+                .contains("scoped SQLite fixture reads admit at most"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn sqlite_row_budget_rejects_oversized_table_count() {
+        let error = validate_sqlite_row_budget(MAX_SQLITE_FIXTURE_ROWS + 1, "source SQLite table")
+            .expect_err("oversized row count blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("scoped SQLite import/export smoke admits at most"),
+            "{error}"
+        );
     }
 
     #[test]

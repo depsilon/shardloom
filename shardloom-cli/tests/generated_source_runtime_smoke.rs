@@ -253,7 +253,7 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
         "prepared_state_created_after_no_reuse_manifest"
     )));
     assert!(stdout.contains("\"prepared_state_reuse_manifest_path\",\"value\":\""));
-    assert!(stdout.contains("\"prepared_state_reuse_manifest_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains("\"prepared_state_reuse_manifest_digest\",\"value\":\"sha256:"));
     assert!(stdout.contains(&field(
         "prepared_state_invalidation_reason",
         "no_reuse_manifest"
@@ -268,7 +268,7 @@ fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidenc
     )));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
     assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
-    assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"sha256:"));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
     let manifest_path = output_path

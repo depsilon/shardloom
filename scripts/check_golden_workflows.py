@@ -21,6 +21,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.golden_workflow_validation_report.v1"
 DEFAULT_FEATURES = "vortex-write,vortex-local-primitives"
+ROUTE_DIGEST_PREFIX = "fnv64:"
+VORTEX_ARTIFACT_DIGEST_PREFIX = "sha256:"
 
 
 REQUIRED_SUPPORT_ROWS: dict[str, tuple[str, tuple[str, ...]]] = {
@@ -665,8 +667,8 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "claim_gate_status": "fixture_smoke_only",
             },
             prefix_fields={
-                "prepared_state_digest": "fnv64:",
-                "vortex_artifact_digest": "fnv64:",
+                "prepared_state_digest": ROUTE_DIGEST_PREFIX,
+                "vortex_artifact_digest": VORTEX_ARTIFACT_DIGEST_PREFIX,
                 "vortex_scout_ingress_source_state_id": "local-csv-",
                 "vortex_scout_ingress_metadata_range_refs": "local-csv-",
                 "vortex_layout_write_advisor_source_state_id": "local-csv-",
@@ -750,8 +752,8 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "claim_gate_status": "fixture_smoke_only",
             },
             prefix_fields={
-                "output_digest": "fnv64:",
-                "correctness_digest": "fnv64:",
+                "output_digest": ROUTE_DIGEST_PREFIX,
+                "correctness_digest": ROUTE_DIGEST_PREFIX,
             },
             artifact_paths=(jsonl_output, csv_output),
             selected_field_keys=(
@@ -840,11 +842,11 @@ def workflow_generated_source_to_vortex(
                 "claim_gate_status": "fixture_smoke_only",
             },
             prefix_fields={
-                "generated_source_schema_digest": "fnv64:",
-                "generated_source_plan_digest": "fnv64:",
-                "output_digest": "fnv64:",
-                "vortex_artifact_digest": "fnv64:",
-                "correctness_digest": "fnv64:",
+                "generated_source_schema_digest": ROUTE_DIGEST_PREFIX,
+                "generated_source_plan_digest": ROUTE_DIGEST_PREFIX,
+                "output_digest": VORTEX_ARTIFACT_DIGEST_PREFIX,
+                "vortex_artifact_digest": VORTEX_ARTIFACT_DIGEST_PREFIX,
+                "correctness_digest": VORTEX_ARTIFACT_DIGEST_PREFIX,
             },
             artifact_paths=(target_vortex,),
             selected_field_keys=(

@@ -2216,6 +2216,17 @@ fn execute_vortex_local_commit_rollback_fs(
 
     let committed_manifest_path =
         workspace_path.join(VortexCommittedManifestFileName::default_committed().as_str());
+    if let Err(error) = validate_workspace_safe_local_commit_artifact(
+        &workspace_path,
+        &committed_manifest_path,
+        true,
+    ) {
+        return Ok(VortexLocalCommitRollbackExecutionReport::blocked(
+            recovery_report,
+            VortexLocalCommitRollbackExecutionStatus::BlockedByExistingNonDirectory,
+            error.to_string(),
+        ));
+    }
     if !committed_manifest_path.exists() {
         return Ok(VortexLocalCommitRollbackExecutionReport::already_cleaned(
             recovery_report,
@@ -2244,6 +2255,20 @@ fn execute_vortex_local_commit_rollback_fs(
         recovery_report,
         bytes_removed,
     ))
+}
+
+#[cfg(feature = "vortex-staged-output-fs")]
+fn validate_workspace_safe_local_commit_artifact(
+    workspace_path: &Path,
+    artifact_path: &Path,
+    allow_overwrite: bool,
+) -> Result<()> {
+    shardloom_core::plan_workspace_safe_local_output(
+        workspace_path,
+        artifact_path,
+        allow_overwrite,
+    )?;
+    Ok(())
 }
 
 #[must_use]
@@ -2519,6 +2544,12 @@ fn write_or_verify_committed_manifest(
     finalized_bytes: &[u8],
 ) -> Result<VortexLocalCommitExecutionReport> {
     let checksum = checksum_bytes(finalized_bytes);
+    let workspace_path = committed_manifest_path.parent().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "committed-manifest artifact is missing a workspace parent".to_string(),
+        )
+    })?;
+    validate_workspace_safe_local_commit_artifact(workspace_path, committed_manifest_path, true)?;
     if committed_manifest_path.exists() {
         return verify_existing_committed_manifest(
             request,
@@ -2534,11 +2565,6 @@ fn write_or_verify_committed_manifest(
             "committed-manifest artifact appeared before local commit could create it",
         ));
     }
-    let workspace_path = committed_manifest_path.parent().ok_or_else(|| {
-        ShardLoomError::InvalidOperation(
-            "committed-manifest artifact is missing a workspace parent".to_string(),
-        )
-    })?;
     shardloom_core::write_workspace_safe_bytes(
         workspace_path,
         committed_manifest_path,
@@ -2662,6 +2688,10 @@ pub fn vortex_commit_protocol_is_side_effect_free(report: &VortexCommitProtocolR
 mod tests {
     use super::*;
     use shardloom_core::{DatasetUri, DiagnosticCategory, FallbackStatus};
+
+    #[cfg(all(feature = "vortex-staged-output-fs", unix))]
+    use std::os::unix::fs as unix_fs;
+
     fn uri() -> DatasetUri {
         DatasetUri::new("file:///tmp/dataset.vortex").expect("uri")
     }
@@ -3355,6 +3385,47 @@ mod tests {
         assert!(report.has_errors());
         assert!(!report.manifest_written());
         assert!(!report.fallback_execution_allowed());
+
+        std::fs::remove_dir_all(workspace).expect("cleanup");
+    }
+
+    #[cfg(all(feature = "vortex-staged-output-fs", unix))]
+    #[test]
+    fn local_commit_rollback_rejects_symlink_manifest_without_clobbering_destination() {
+        let workspace = unique_workspace("rollback-symlink");
+        std::fs::create_dir_all(&workspace).expect("workspace");
+        let committed_path =
+            workspace.join(VortexCommittedManifestFileName::default_committed().as_str());
+        let outside = workspace.join("outside-committed-manifest.json");
+        std::fs::write(&outside, b"outside committed sentinel").expect("outside sentinel");
+        unix_fs::symlink(&outside, &committed_path).expect("committed manifest symlink");
+        let recovery = plan_vortex_local_commit_recovery(
+            local_commit_recovery_request(&workspace.to_string_lossy())
+                .committed_manifest_written(true)
+                .rollback_requested(true)
+                .cleanup_allowed(true),
+        )
+        .expect("rollback recovery report");
+
+        let report = execute_vortex_local_commit_rollback(recovery).expect("rollback report");
+
+        assert_eq!(
+            report.status,
+            VortexLocalCommitRollbackExecutionStatus::BlockedByExistingNonDirectory
+        );
+        assert!(report.has_errors());
+        assert!(!report.rollback_executed());
+        assert!(!report.committed_manifest_removed());
+        assert_eq!(
+            std::fs::read(&outside).expect("outside sentinel"),
+            b"outside committed sentinel"
+        );
+        assert!(
+            std::fs::symlink_metadata(&committed_path)
+                .expect("committed manifest symlink metadata")
+                .file_type()
+                .is_symlink()
+        );
 
         std::fs::remove_dir_all(workspace).expect("cleanup");
     }

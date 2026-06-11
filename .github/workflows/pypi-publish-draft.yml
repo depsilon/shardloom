@@ -12,7 +12,29 @@ permissions:
   contents: read
 
 jobs:
+  build:
+    if: ${{ inputs.publish_approved == 'publish-approved' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # actions/checkout@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Build Python package
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build python
+      - name: Upload Python dist artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+        with:
+          name: python-dist
+          path: python/dist/*
+          if-no-files-found: error
+
   publish:
+    needs: build
     if: ${{ inputs.publish_approved == 'publish-approved' }}
     runs-on: ubuntu-latest
     environment: pypi
@@ -20,15 +42,12 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - name: Download Python dist artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
         with:
-          python-version: "3.13"
-      - name: Build Python package
-        run: |
-          python -m pip install --upgrade pip build
-          python -m build python
+          name: python-dist
+          path: python/dist
       - name: Publish to PyPI with Trusted Publisher
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: python/dist

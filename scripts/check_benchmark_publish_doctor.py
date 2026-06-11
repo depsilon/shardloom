@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from collections import Counter
 from datetime import datetime, timezone
@@ -195,10 +196,19 @@ def first_unchecked_phase_item(repo_root: Path) -> str:
     plan = repo_root / "docs" / "architecture" / "phased-execution-plan.md"
     if not plan.exists():
         return "not_reported"
+    in_planned = False
     for line in plan.read_text(encoding="utf-8").splitlines():
+        if line.strip() == "## Planned":
+            in_planned = True
+            continue
+        if in_planned and line.startswith("## "):
+            break
+        if not in_planned:
+            continue
         stripped = line.strip()
-        if stripped.startswith("- [ ] "):
-            return stripped.removeprefix("- [ ] ").strip()
+        match = re.match(r"(?:[-*]|\d+\.) \[ \] (.+)", stripped)
+        if match:
+            return match.group(1).strip()
     return "none"
 
 

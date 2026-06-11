@@ -23,6 +23,23 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PROTECTED_CLEANUP_ROOTS = {
+    ".git",
+    "benchmarks",
+    "docs",
+    "examples",
+    "python",
+    "scripts",
+    "shardloom-cli",
+    "shardloom-core",
+    "shardloom-exec",
+    "shardloom-python-ffi",
+    "shardloom-vortex",
+    "target",
+    "website",
+    "website-public",
+    "website-src",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -79,6 +96,33 @@ def parse_args() -> argparse.Namespace:
 def resolve_under_repo(repo_root: Path, path: Path) -> Path:
     resolved = path if path.is_absolute() else repo_root / path
     return resolved.resolve()
+
+
+def transcript_path_ref(repo_root: Path, path: Path | None) -> str | None:
+    if path is None:
+        return None
+    resolved_root = repo_root.resolve()
+    resolved_path = path.resolve()
+    try:
+        return resolved_path.relative_to(resolved_root).as_posix()
+    except ValueError:
+        return f"external-path:{resolved_path.name}"
+
+
+def redact_command_for_transcript(repo_root: Path, command: list[str]) -> list[str]:
+    repo_prefix = str(repo_root.resolve())
+    redacted: list[str] = []
+    for part in command:
+        path = Path(part)
+        if path.is_absolute():
+            redacted.append(transcript_path_ref(repo_root, path) or "not_available")
+        else:
+            redacted.append(part.replace(repo_prefix, "<repo>"))
+    return redacted
+
+
+def redact_text_for_transcript(repo_root: Path, text: str) -> str:
+    return text.replace(str(repo_root.resolve()), "<repo>")
 
 
 def venv_python(venv_dir: Path) -> Path:
@@ -153,11 +197,11 @@ def run_step(
     elapsed_ms = round((time.perf_counter() - started) * 1000.0, 4)
     return {
         "name": name,
-        "command": command,
+        "command": redact_command_for_transcript(cwd, command),
         "returncode": completed.returncode,
         "elapsed_millis": elapsed_ms,
-        "stdout": completed.stdout[-4000:],
-        "stderr": completed.stderr[-4000:],
+        "stdout": redact_text_for_transcript(cwd, completed.stdout[-4000:]),
+        "stderr": redact_text_for_transcript(cwd, completed.stderr[-4000:]),
     }
 
 
@@ -248,9 +292,18 @@ def generated_range_smoke_script(output_path: Path) -> str:
 
 
 def remove_tree_under_repo(repo_root: Path, path: Path) -> None:
+    repo_root = repo_root.resolve()
     resolved = path.resolve()
     if resolved != repo_root and repo_root not in resolved.parents:
         raise ValueError(f"refusing to remove path outside repo: {resolved}")
+    if resolved == repo_root:
+        raise ValueError(f"refusing to remove repository root: {resolved}")
+    try:
+        relative = resolved.relative_to(repo_root)
+    except ValueError:
+        raise ValueError(f"refusing to remove path outside repo: {resolved}") from None
+    if len(relative.parts) == 1 and relative.parts[0] in PROTECTED_CLEANUP_ROOTS:
+        raise ValueError(f"refusing to remove protected repository directory: {resolved}")
     shutil.rmtree(resolved)
 
 
@@ -567,15 +620,15 @@ def write_transcript(
     transcript = {
         "schema_version": "shardloom.release_dry_run_proof.v1",
         "proof_status": "passed" if passed else "failed",
-        "repo_root": str(repo_root),
-        "clean_venv": str(venv_dir),
+        "repo_root": "repo",
+        "clean_venv": transcript_path_ref(repo_root, venv_dir),
         "clean_venv_install_status": step_status("install_local_wheel_clean_venv"),
-        "clean_conda_env": str(conda_env_dir),
+        "clean_conda_env": transcript_path_ref(repo_root, conda_env_dir),
         "clean_conda_env_install_status": clean_conda_status,
-        "clean_conda_env_install_tool": str(clean_conda_tool) if clean_conda_tool else None,
+        "clean_conda_env_install_tool": transcript_path_ref(repo_root, clean_conda_tool),
         "clean_conda_env_install_required": clean_conda_required,
-        "local_wheel": str(wheel) if wheel is not None else None,
-        "local_cli_binary": str(binary),
+        "local_wheel": transcript_path_ref(repo_root, wheel),
+        "local_cli_binary": transcript_path_ref(repo_root, binary),
         "cli_binary_build_status": step_status("build_cli_binary"),
         "python_artifact_build_status": step_status("build_python_artifacts"),
         "publication_attempted": False,

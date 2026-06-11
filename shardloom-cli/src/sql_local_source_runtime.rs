@@ -55,6 +55,7 @@ const VORTEX_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.local-vortex-output
 const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
 const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
+const MAX_LOCAL_SOURCE_BYTES: u64 = 128 * 1024 * 1024;
 const MAX_IN_LIST_VALUES: usize = 32;
 const OUTER_CORRELATION_ALIAS: &str = "outer";
 const MAX_DATE_ARITHMETIC_DAYS: i32 = 366_000;
@@ -4443,6 +4444,7 @@ fn run_vortex_ingest_append_only_refinement(
 
     let delta_source_path = write_automatic_append_only_delta_source(
         &request.source_path,
+        &request.target_path,
         source_adapter.source_format,
         &refinement_decision,
     )?;
@@ -4738,21 +4740,12 @@ fn automatic_append_only_delta_target_path(
 
 fn automatic_append_only_delta_source_path(
     source_path: &Path,
+    base_target_path: &Path,
     source_format: LocalSourceFormat,
     current_source_digest: &str,
 ) -> Result<PathBuf, ShardLoomError> {
-    let source_path = if source_path.is_absolute() {
-        source_path.to_path_buf()
-    } else {
-        std::env::current_dir()
-            .map(|cwd| cwd.join(source_path))
-            .map_err(|error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "failed to resolve automatic append-only delta source '{}': {error}; no fallback execution was attempted",
-                    source_path.display()
-                ))
-            })?
-    };
+    let target_path =
+        normalize_local_vortex_ingest_target_path(&base_target_path.display().to_string())?;
     let file_name = source_path
         .file_name()
         .and_then(std::ffi::OsStr::to_str)
@@ -4762,7 +4755,7 @@ fn automatic_append_only_delta_source_path(
                 source_path.display()
             ))
         })?;
-    let parent = source_path.parent().unwrap_or_else(|| Path::new("."));
+    let parent = target_path.parent().unwrap_or_else(|| Path::new("."));
     let extension = match source_format {
         LocalSourceFormat::Csv => "csv",
         LocalSourceFormat::JsonLines => "jsonl",
@@ -4782,6 +4775,7 @@ fn automatic_append_only_delta_source_path(
 
 fn write_automatic_append_only_delta_source(
     source_path: &Path,
+    base_target_path: &Path,
     source_format: LocalSourceFormat,
     refinement: &shardloom_vortex::VortexPreparedStateAppendOnlyRefinementDecision,
 ) -> Result<PathBuf, ShardLoomError> {
@@ -4817,6 +4811,7 @@ fn write_automatic_append_only_delta_source(
     })?;
     let delta_path = automatic_append_only_delta_source_path(
         source_path,
+        base_target_path,
         source_format,
         &refinement.current_source_content_digest,
     )?;
@@ -4826,13 +4821,6 @@ fn write_automatic_append_only_delta_source(
             delta_path.display()
         ))
     })?;
-    fs::create_dir_all(parent).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to create automatic append-only delta source directory '{}': {error}; no fallback execution was attempted",
-            parent.display()
-        ))
-    })?;
-
     let delta_payload = match source_format {
         LocalSourceFormat::Csv => {
             let header_end = content.find('\n').ok_or_else(|| {
@@ -4868,7 +4856,15 @@ fn write_automatic_append_only_delta_source(
             )));
         }
     };
-    fs::write(&delta_path, delta_payload).map_err(|error| {
+    let workspace_root = parent.parent().unwrap_or(parent);
+    shardloom_core::write_workspace_safe_bytes(
+        workspace_root,
+        &delta_path,
+        true,
+        "automatic append-only delta source sidecar",
+        delta_payload.as_bytes(),
+    )
+    .map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to write automatic append-only delta source '{}': {error}; no fallback execution was attempted",
             delta_path.display()
@@ -5423,13 +5419,8 @@ fn run_columnar_vortex_ingest_smoke(
     let source_format = source_adapter.source_format;
     let prepare_start = Instant::now();
     let read_start = Instant::now();
-    let bytes = fs::read(&request.source_path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to read local {} source {}: {error}",
-            source_format.row_label(),
-            request.source_path.display(),
-        ))
-    })?;
+    let bytes =
+        read_local_source_bytes_with_budget(&request.source_path, source_format.row_label())?;
     let read_millis = read_start.elapsed().as_millis();
     let source_bytes = u64::try_from(bytes.len()).map_err(|_| {
         ShardLoomError::InvalidOperation(format!(
@@ -7360,6 +7351,11 @@ fn apply_prepared_state_reuse_fields(
     );
     set_cli_field(
         fields,
+        "prepared_state_reuse_manifest_digest_algorithm",
+        digest_algorithm(&report.manifest_digest),
+    );
+    set_cli_field(
+        fields,
         "prepared_state_invalidation_reason",
         report.invalidation_reason.clone(),
     );
@@ -7467,6 +7463,10 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
             "none".to_string(),
         ),
         (
+            "prepared_state_reuse_manifest_digest_algorithm".to_string(),
+            "not_available".to_string(),
+        ),
+        (
             "prepared_state_invalidation_reason".to_string(),
             "vortex_write_feature_gate_blocked".to_string(),
         ),
@@ -7510,15 +7510,17 @@ fn vortex_ingest_scout_blocked_fields(
         .map_or("unknown".to_string(), |adapter| {
             adapter.source_format.as_str().to_string()
         });
-    let (source_bytes, source_digest) = fs::read(&blocked_request.source_path).map_or_else(
-        |_| (0, "not_available_source_read_failed".to_string()),
-        |bytes| {
-            (
-                u64::try_from(bytes.len()).unwrap_or(u64::MAX),
-                fnv64_digest_bytes(&bytes),
-            )
-        },
-    );
+    let (source_bytes, source_digest) =
+        read_local_source_bytes_with_budget(&blocked_request.source_path, &source_format)
+            .map_or_else(
+                |_| (0, "not_available_source_read_failed".to_string()),
+                |bytes| {
+                    (
+                        u64::try_from(bytes.len()).unwrap_or(u64::MAX),
+                        fnv64_digest_bytes(&bytes),
+                    )
+                },
+            );
     let source_state_id = format!("local-{source_format}-{}", source_digest.replace(':', "-"));
     let source_state_digest = fnv64_digest(&format!(
         "{source_format}|{}|{}|{}",
@@ -29300,13 +29302,7 @@ fn read_local_source_with_plan_and_adapter(
     reject_remote_source_path(path)?;
     let source_format = source_adapter.source_format;
     let read_start = Instant::now();
-    let bytes = fs::read(path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to read local {} source {}: {error}",
-            source_format.row_label(),
-            path.display(),
-        ))
-    })?;
+    let bytes = read_local_source_bytes_with_budget(path, source_format.row_label())?;
     let read_millis = read_start.elapsed().as_millis();
     let source_bytes = u64::try_from(bytes.len()).map_err(|_| {
         ShardLoomError::InvalidOperation(format!(
@@ -30019,6 +30015,51 @@ fn reject_remote_source_path(path: &Path) -> Result<(), ShardLoomError> {
         ));
     }
     Ok(())
+}
+
+fn read_local_source_bytes_with_budget(
+    path: &Path,
+    source_label: &str,
+) -> Result<Vec<u8>, ShardLoomError> {
+    reject_remote_source_path(path)?;
+    let metadata = fs::metadata(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to inspect local {source_label} source {} before read: {error}",
+            path.display()
+        ))
+    })?;
+    if !metadata.is_file() {
+        return Err(unsupported_sql_error(&format!(
+            "local {source_label} source {} must be a regular file",
+            path.display()
+        )));
+    }
+    if metadata.len() > MAX_LOCAL_SOURCE_BYTES {
+        return Err(unsupported_sql_error(&format!(
+            "local {source_label} source {} is {} bytes; scoped local-source evidence reads admit at most {MAX_LOCAL_SOURCE_BYTES} bytes",
+            path.display(),
+            metadata.len()
+        )));
+    }
+    let bytes = fs::read(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read local {source_label} source {}: {error}",
+            path.display()
+        ))
+    })?;
+    let read_len = u64::try_from(bytes.len()).map_err(|_| {
+        ShardLoomError::InvalidOperation(format!(
+            "local {source_label} source {} length does not fit in u64",
+            path.display()
+        ))
+    })?;
+    if read_len > MAX_LOCAL_SOURCE_BYTES {
+        return Err(unsupported_sql_error(&format!(
+            "local {source_label} source {} exceeded the scoped local-source evidence byte budget during read",
+            path.display()
+        )));
+    }
+    Ok(bytes)
 }
 
 fn earliest_clause_index_after(start: usize, indexes: &[Option<usize>]) -> usize {
@@ -39248,6 +39289,17 @@ fn fnv64_digest_bytes(value: &[u8]) -> String {
     format!("fnv64:{hash:016x}")
 }
 
+fn digest_algorithm(value: &str) -> &'static str {
+    match value.split_once(':').map(|(algorithm, _)| algorithm) {
+        Some("sha256") => "sha256",
+        Some("fnv64") => "fnv64",
+        Some("fnv1a64") => "fnv1a64",
+        Some("external_baseline_only") => "external_baseline_only",
+        Some("none") | None => "not_available",
+        Some(_) => "unknown",
+    }
+}
+
 fn unsupported_sql_error(reason: &str) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
         "{reason}; no fallback execution was attempted and external_engine_invoked=false"
@@ -39300,6 +39352,25 @@ mod tests {
             fields.get(key).map(String::as_str),
             Some(expected),
             "field {key}"
+        );
+    }
+
+    #[test]
+    fn local_source_read_budget_rejects_oversized_regular_file() {
+        let path = sql_local_source_test_path("csv");
+        let file = fs::File::create(&path).expect("create sparse local source");
+        file.set_len(MAX_LOCAL_SOURCE_BYTES + 1)
+            .expect("set sparse source length");
+
+        let error =
+            read_local_source_bytes_with_budget(&path, "csv").expect_err("oversized read blocked");
+        let _ = fs::remove_file(&path);
+
+        assert!(
+            error
+                .to_string()
+                .contains("scoped local-source evidence reads admit at most"),
+            "{error}"
         );
     }
 
@@ -39494,7 +39565,7 @@ mod tests {
         assert!(
             first_fields
                 .get("prepared_state_reuse_manifest_digest")
-                .is_some_and(|value| value.starts_with("fnv64:"))
+                .is_some_and(|value| value.starts_with("sha256:"))
         );
         let manifest_path = shardloom_vortex::vortex_prepared_state_reuse_manifest_path(&target)
             .expect("manifest path");
@@ -39547,8 +39618,12 @@ mod tests {
     #[test]
     fn vortex_ingest_manifest_append_only_source_drift_refines_without_base_reprepare() {
         let root = vortex_ingest_reuse_test_root("drift");
-        let source = root.join("input.csv");
-        let target = root.join("prepared.vortex");
+        let source_dir = root.join("source");
+        let target_dir = root.join("prepared");
+        fs::create_dir_all(&source_dir).expect("create source dir");
+        fs::create_dir_all(&target_dir).expect("create target dir");
+        let source = source_dir.join("input.csv");
+        let target = target_dir.join("prepared.vortex");
         fs::write(&source, "id,label,amount\n1,alpha,10\n").expect("write initial source");
 
         let first = run_vortex_ingest_smoke(vortex_ingest_reuse_request(
@@ -39572,6 +39647,23 @@ mod tests {
             VortexIngestOutcome::Prepared(_) => panic!("append-only drift must refine"),
             VortexIngestOutcome::Reused(_) => panic!("source drift must not reuse"),
         };
+        assert!(
+            second_report
+                .delta_report
+                .request
+                .source_path
+                .starts_with(target_dir.join(".shardloom")),
+            "automatic delta source sidecar must live under the prepared target workspace, got {}",
+            second_report.delta_report.request.source_path.display()
+        );
+        assert!(
+            !second_report
+                .delta_report
+                .request
+                .source_path
+                .starts_with(source_dir.join(".shardloom")),
+            "automatic delta source sidecar must not be source-adjacent"
+        );
         let second_fields = field_map(second_report.fields());
         assert_eq!(
             fs::read(&target).expect("read base artifact after refinement"),

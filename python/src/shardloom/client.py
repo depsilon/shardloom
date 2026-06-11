@@ -6,6 +6,7 @@ import csv
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -111,6 +112,9 @@ DEFAULT_VORTEX_LOCAL_COMMIT_RECOVERY_SIGNALS = (
     "committed-manifest-written",
     "local-workspace",
     "cleanup-allowed",
+)
+_URI_WITH_AUTHORITY_RE = re.compile(
+    r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*)://(?P<body>[^\s'\"<>)\],;]+)"
 )
 
 
@@ -12444,6 +12448,7 @@ class ShardLoomClient:
         """Invoke a ShardLoom CLI command with JSON output enabled."""
 
         command = self._command(args)
+        redacted_command = _redact_command_for_error(command)
         try:
             completed = subprocess.run(
                 command,
@@ -12460,10 +12465,10 @@ class ShardLoomClient:
                 f"{command[0]!r}. Install the ShardLoom CLI package, put "
                 "`shardloom` on PATH, or set SHARDLOOM_BIN to a valid binary."
             ) from exc
-        envelope = self._parse_stdout(completed.stdout, command)
+        envelope = self._parse_stdout(completed.stdout, redacted_command)
         if check and (completed.returncode != 0 or envelope.is_error):
             raise ShardLoomCommandError(
-                command=command,
+                command=redacted_command,
                 returncode=completed.returncode,
                 envelope=envelope,
                 stderr=completed.stderr,
@@ -12581,6 +12586,41 @@ class ShardLoomClient:
             return OutputEnvelope.from_json(payload)
         except ValueError as exc:
             raise ShardLoomProtocolError(str(exc)) from exc
+
+
+def _redact_command_for_error(command: Sequence[str]) -> tuple[str, ...]:
+    return tuple(_redact_command_part_for_error(part) for part in command)
+
+
+def _redact_command_part_for_error(part: str) -> str:
+    return _URI_WITH_AUTHORITY_RE.sub(_redact_uri_match_for_error, part)
+
+
+def _redact_uri_match_for_error(match: re.Match[str]) -> str:
+    scheme = match.group("scheme")
+    body = match.group("body")
+    body_without_query = re.split(r"[?#]", body, maxsplit=1)[0]
+    authority, separator, path = body_without_query.partition("/")
+    redacted_authority = _redact_uri_authority_for_error(scheme, authority)
+    return f"{scheme}://{redacted_authority}{separator}{path}"
+
+
+def _redact_uri_authority_for_error(scheme: str, authority: str) -> str:
+    normalized_scheme = scheme.lower()
+    if normalized_scheme in {"abfs", "abfss"} and not _adls_authority_has_userinfo(
+        authority
+    ):
+        return authority
+    if "@" not in authority:
+        return authority
+    return "<redacted>@" + authority.rsplit("@", 1)[1]
+
+
+def _adls_authority_has_userinfo(authority: str) -> bool:
+    if authority.count("@") > 1:
+        return True
+    container, separator, _account = authority.partition("@")
+    return bool(separator and ":" in container)
 
 
 def _required_field(envelope: OutputEnvelope, key: str) -> str:
