@@ -32,7 +32,7 @@ Current required evidence:
 admitted_semantics_validator_status=passed
 matrix_status=passed
 matrix_row_count=123
-executable_fixture_count=99
+executable_fixture_count=100
 diagnostic_case_count=22
 unsupported_diagnostic_count=20
 runtime_error_diagnostic_count=1
@@ -241,8 +241,10 @@ explicit binary literals. Scoped direct binary source predicates and source-colu
 feature-gated Arrow IPC binary byte-array source columns admit bytewise lexicographic comparisons
 against explicit binary literals with SQL NULLs filtering out of WHERE results. Non-binary source
 columns compared to binary literals fail with deterministic unsupported diagnostics. Scoped
-`UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` projections are executable
-with strict UTF-8 text decoding, binary output evidence, null propagation, and deterministic
+`UNHEX(<utf8-column-or-admitted-utf8-expression>)` and
+`FROM_BASE64(<utf8-column-or-admitted-utf8-expression>)` projections and predicates are executable
+for source-backed UTF-8 column, string-transform, and string-function argument expressions, with
+strict UTF-8 text decoding, binary output/equality evidence, null propagation, and deterministic
 invalid-input blockers. The feature-gated local columnar materialization boundary also admits Arrow
 binary byte-array source columns as `ScalarValue::Binary` for direct projection, with null
 propagation and JSONL/CSV `binary[hex=...]` result evidence; the executable CLI proof covers Arrow
@@ -256,7 +258,8 @@ timestamp_micros result columns when dtype/family evidence is present, through t
 writer/reopen path. Unknown or unsupported NULL-bearing Vortex output batches block before writer
 conversion; binary sink preservation outside scoped Parquet/Arrow IPC/Avro/ORC and Vortex flat
 scalar outputs, broader binary execution beyond scoped source projection/predicate/order plus
-explicit casts/helpers, and nested binary helper expressions remain outside the claim boundary.
+explicit casts/helpers, and binary helper expressions outside the admitted source-backed UTF-8
+expression subset remain outside the claim boundary.
 Scoped
 `CAST`/`TRY_CAST` to
 `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` is executable for projection and predicate

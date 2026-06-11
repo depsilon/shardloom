@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped nested binary helper expression runtime slice
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-6d-binary-helper-expressions` / local branch, PR not opened.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` binary helper follow-up.
+    - Follow-up to scoped binary helper projection and predicate rows that admitted direct
+      `UNHEX(<utf8-column>)` / `FROM_BASE64(<utf8-column>)` arguments but still treated nested
+      helper arguments as outside the claim boundary.
+  - Scope:
+    - Promoted scoped source-backed UTF-8 string expression arguments for binary helper projections
+      and predicates, including `LOWER(TRIM(hex_payload))` and
+      `CONCAT(b64_prefix,b64_suffix)`.
+    - Preserved deterministic blockers for source-free helper arguments and helper arguments
+      outside the admitted source-backed UTF-8 expression subset.
+    - Updated source-column planning, header validation, left-existence join source references,
+      expression lowering, report fields, Python `ColumnExpression.unhex()` /
+      `from_base64()` lowering, admitted-semantics fixtures, status artifacts, release-readiness
+      fixture counts, and phase/global review docs.
+    - Kept grouped helper source-column evidence stable by reporting multi-column helper arguments
+      as `b64_prefix+b64_suffix` while preserving existing report field names.
+    - Added a feature-gated ORC nested-output fail-closed diagnostic before the orc-rust writer
+      conversion panic boundary.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder` passed with
+      217 tests.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 487 tests and
+      2 expected skips.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-check.json`
+      passed.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-check.json`
+      passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report-check.json`
+      passed.
+    - `python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion-check.json`
+      passed.
+    - `PYTHONPATH=python/src python3 -m compileall -q python/src python/tests scripts examples`
+      passed.
+    - `cargo test -p shardloom-vortex --features universal-format-io orc_ -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - `python3 scripts/check_release_readiness.py --output target/release-readiness-check.json`
+      failed closed with `status=blocked` because release-scope evidence remains missing
+      (clean Conda proof skipped, missing release security/final rehearsal/release validation
+      evidence, package channels not ready, API/schema stability blocked, per-claim evidence not
+      claim-grade, 38 unchecked global architecture review items, and 78 unchecked phase-plan
+      items). The admitted-semantics executable fixture count blocker is cleared at 100 fixtures.
+  - Claim boundary:
+    - This closes scoped SQL/Python local-source binary helper projection and predicate arguments
+      for source-backed UTF-8 column, string-transform, and string-function expressions only. It
+      does not claim broad binary execution/preservation, non-UTF-8 helper arguments, source-free
+      helper arguments, broad ANSI casts/helpers, production SQL/DataFrame completeness,
+      performance equivalence, object-store/table SQL, package readiness, or Spark replacement.
+  - Fallback boundary:
+    - Execution remains inside ShardLoom's local-source runtime, Python front door, and core
+      expression evaluator. Positive routes and deterministic invalid-input diagnostics retain
+      `fallback_attempted=false` and `external_engine_invoked=false`; no Spark, DataFusion,
+      DuckDB, Polars, Velox, external engine, or Vortex query-engine integration is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary helper predicate SQL/Python runtime slice
   - Date: 2026-06-06
   - Branch/PR: `codex/compute-engine-6d-binary-helper-predicates` / pending PR.

@@ -930,14 +930,15 @@ def binary_helper_projection_case() -> SqlFixtureCase:
         case_id="binary_helper_projection",
         source_name="binary-helper-projection.csv",
         source_text=(
-            "id,hex_payload,b64_payload\n"
-            "1,00ff10,AP8Q\n"
-            "2,616c706861,YWxwaGE=\n"
-            "3,,\n"
+            "id,hex_payload,b64_prefix,b64_suffix\n"
+            "1, 00FF10 ,AP,8Q\n"
+            "2, 616C706861 ,YWxw,aGE=\n"
+            "3,,,\n"
         ),
         statement_template=(
-            "SELECT id,UNHEX(hex_payload) AS payload_hex,"
-            "FROM_BASE64(b64_payload) AS payload_b64 FROM '{source}' LIMIT 10"
+            "SELECT id,UNHEX(LOWER(TRIM(hex_payload))) AS payload_hex,"
+            "FROM_BASE64(CONCAT(b64_prefix,b64_suffix)) AS payload_b64 "
+            "FROM '{source}' LIMIT 10"
         ),
         expected_jsonl=(
             '{"id":1,"payload_hex":"binary[hex=00ff10]",'
@@ -949,7 +950,7 @@ def binary_helper_projection_case() -> SqlFixtureCase:
         expected_fields={
             "binary_helper_projection_runtime_execution": "true",
             "binary_helper_projection_operator": "unhex,from_base64",
-            "binary_helper_projection_source_column": "hex_payload,b64_payload",
+            "binary_helper_projection_source_column": "hex_payload,b64_prefix+b64_suffix",
             "binary_helper_projection_output_column": "payload_hex,payload_b64",
             "binary_helper_projection_output_dtype": "binary",
             "binary_helper_projection_null_semantics": "null_propagating_utf8_decode",
@@ -964,15 +965,16 @@ def binary_helper_predicate_case() -> SqlFixtureCase:
         case_id="binary_helper_predicate",
         source_name="binary-helper-predicate.csv",
         source_text=(
-            "id,hex_payload,b64_payload\n"
-            "1,00ff10,AP8Q\n"
-            "2,616c706861,YWxwaGE=\n"
-            "3,726177ff,cmF3/w==\n"
-            "4,,\n"
+            "id,hex_payload,b64_prefix,b64_suffix\n"
+            "1, 00FF10 ,AP,8Q\n"
+            "2, 616C706861 ,YWxw,aGE=\n"
+            "3,726177ff,cmF3,/w==\n"
+            "4,,,\n"
         ),
         statement_template=(
-            "SELECT id FROM '{source}' WHERE FROM_BASE64(b64_payload) = X'00ff10' "
-            "OR UNHEX(hex_payload) != BINARY 'alpha' LIMIT 10"
+            "SELECT id FROM '{source}' WHERE "
+            "FROM_BASE64(CONCAT(b64_prefix,b64_suffix)) = X'00ff10' "
+            "OR UNHEX(LOWER(TRIM(hex_payload))) != BINARY 'alpha' LIMIT 10"
         ),
         expected_jsonl='{"id":1}\n{"id":3}\n',
         expected_fields={
@@ -981,7 +983,7 @@ def binary_helper_predicate_case() -> SqlFixtureCase:
             "binary_helper_predicate_runtime_execution": "true",
             "binary_helper_predicate_operator": "from_base64,unhex",
             "binary_helper_predicate_comparison_operator": "eq,not_eq",
-            "binary_helper_predicate_source_column": "b64_payload,hex_payload",
+            "binary_helper_predicate_source_column": "b64_prefix+b64_suffix,hex_payload",
             "binary_helper_predicate_literal_hex_value": "00ff10,616c706861",
             "binary_helper_predicate_null_semantics": (
                 "null_propagating_utf8_decode_then_sql_where_true_only"

@@ -654,8 +654,9 @@ plan before coding.
   sink preservation plus local Vortex known flat scalar sink preservation for boolean, int64,
   uint64, float64, utf8, binary, decimal128, date32, and timestamp_micros, including nullable/
   all-null rows when dtype/family evidence is present. Later scoped 6D evidence also admits
-  `UNHEX(<utf8-column>)` and `FROM_BASE64(<utf8-column>)` binary helper predicates against
-  explicit binary literals through ShardLoom-owned local-source runtime fields. Unknown or
+  `UNHEX(<utf8-column-or-admitted-utf8-expression>)` and
+  `FROM_BASE64(<utf8-column-or-admitted-utf8-expression>)` binary helper projections/predicates
+  against explicit binary literals through ShardLoom-owned local-source runtime fields. Unknown or
   unsupported NULL-bearing Vortex output batches still block before writer conversion, and broader
   binary sinks, broader binary execution beyond admitted helper/cast/source routes, and non-binary
   source columns compared directly to binary literals remain deterministic blockers.

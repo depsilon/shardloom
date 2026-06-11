@@ -2948,10 +2948,22 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "UNHEX(payload_hex) = X'00ff10'",
         )
         self.assertEqual(
+            str(sl.col("payload_hex").trim().lower().unhex()),
+            "UNHEX(LOWER(TRIM(payload_hex)))",
+        )
+        self.assertEqual(
+            str(sl.col("payload_hex").trim().lower().unhex() == b"\x00\xff\x10"),
+            "UNHEX(LOWER(TRIM(payload_hex))) = X'00ff10'",
+        )
+        self.assertEqual(
             str(sl.col("payload_b64").from_base64()), "FROM_BASE64(payload_b64)"
         )
         self.assertEqual(
             str(sl.from_base64(sl.col("payload_b64"))), "FROM_BASE64(payload_b64)"
+        )
+        self.assertEqual(
+            str(sl.from_base64(sl.concat(sl.col("prefix"), sl.col("suffix")))),
+            "FROM_BASE64(CONCAT(prefix, suffix))",
         )
         self.assertEqual(
             str(
@@ -3040,8 +3052,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.right("label", 2)
         with self.assertRaisesRegex(ValueError, "replace search literal"):
             sl.col("label").replace("", "x")
-        with self.assertRaisesRegex(ValueError, "column expressions admit"):
-            sl.col("payload").trim().unhex()
         with self.assertRaisesRegex(TypeError, "unhex requires"):
             sl.unhex("payload_hex")
         with self.assertRaisesRegex(TypeError, "from_base64 requires"):
@@ -7097,7 +7107,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 assert sys.argv[1:] == [
                     "sql-local-source-smoke",
-                    "SELECT id,UNHEX(hex_payload) AS payload_hex,FROM_BASE64(b64_payload) AS payload_b64 FROM 'target/input.csv' LIMIT 10",
+                    "SELECT id,UNHEX(LOWER(TRIM(hex_payload))) AS payload_hex,FROM_BASE64(CONCAT(b64_prefix, b64_suffix)) AS payload_b64 FROM 'target/input.csv' LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
                     "--format",
@@ -7117,7 +7127,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "computed_projection_runtime_execution", "value": "true"},
                         {"key": "binary_helper_projection_runtime_execution", "value": "true"},
                         {"key": "binary_helper_projection_operator", "value": "unhex,from_base64"},
-                        {"key": "binary_helper_projection_source_column", "value": "hex_payload,b64_payload"},
+                        {"key": "binary_helper_projection_source_column", "value": "hex_payload,b64_prefix+b64_suffix"},
                         {"key": "binary_helper_projection_output_column", "value": "payload_hex,payload_b64"},
                         {"key": "binary_helper_projection_output_dtype", "value": "binary"},
                         {"key": "binary_helper_projection_null_semantics", "value": "null_propagating_utf8_decode"},
@@ -7135,8 +7145,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         report = (
             ctx.read_csv("target/input.csv")
             .select("id")
-            .with_column("payload_hex", sl.col("hex_payload").unhex())
-            .with_column("payload_b64", sl.from_base64(sl.col("b64_payload")))
+            .with_column("payload_hex", sl.col("hex_payload").trim().lower().unhex())
+            .with_column(
+                "payload_b64",
+                sl.from_base64(sl.concat(sl.col("b64_prefix"), sl.col("b64_suffix"))),
+            )
             .limit(10)
             .collect()
         )
@@ -7153,7 +7166,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertEqual(
             report.binary_helper_projection_source_columns,
-            ("hex_payload", "b64_payload"),
+            ("hex_payload", "b64_prefix+b64_suffix"),
         )
         self.assertEqual(
             report.binary_helper_projection_output_columns,
