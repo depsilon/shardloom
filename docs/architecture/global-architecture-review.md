@@ -654,6 +654,7 @@ plan before coding.
   sink preservation plus local Vortex known flat scalar sink preservation for boolean, int64,
   uint64, float64, utf8, binary, decimal128, date32, and timestamp_micros, including nullable/
   all-null rows when dtype/family evidence is present. Later scoped 6D evidence also admits
+  scoped binary `CAST`/`TRY_CAST(<utf8-column-or-admitted-utf8-expression> AS binary)` routes plus
   `UNHEX(<utf8-column-or-admitted-utf8-expression>)` and
   `FROM_BASE64(<utf8-column-or-admitted-utf8-expression>)` binary helper projections/predicates
   against explicit binary literals through ShardLoom-owned local-source runtime fields. Unknown or

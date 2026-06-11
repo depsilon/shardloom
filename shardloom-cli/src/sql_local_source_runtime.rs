@@ -1568,6 +1568,8 @@ impl ParsedComplexProjectionKind {
 struct ParsedCastProjection {
     alias: String,
     column: String,
+    expression: Expression,
+    source_columns: Vec<String>,
     target_dtype: LogicalDType,
     mode: CastMode,
 }
@@ -2277,6 +2279,8 @@ enum ParsedPredicate {
     },
     CastCompare {
         column: String,
+        expression: Box<Expression>,
+        source_columns: Vec<String>,
         target_dtype: LogicalDType,
         mode: CastMode,
         op: ComparisonOp,
@@ -8103,7 +8107,7 @@ fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut
         );
     }
     for projection in &parsed.cast_projections {
-        columns.insert(projection.column.clone());
+        columns.extend(projection.source_columns.iter().cloned());
     }
     for projection in &parsed.null_coalesce_projections {
         columns.insert(projection.column.clone());
@@ -10938,10 +10942,7 @@ fn cast_projection_expression(
 ) -> Result<Expression, ShardLoomError> {
     let cast = projection.mode.build_expression(
         ExprId::new(format!("project.cast.{}", projection.alias))?,
-        Expression::column(
-            ExprId::new(format!("project.{}", projection.column))?,
-            ColumnRef::new(projection.column.clone())?,
-        ),
+        projection.expression.clone(),
         projection.target_dtype.clone(),
     );
     Ok(Expression::new(
@@ -14971,12 +14972,14 @@ fn validate_value_projection_source_columns(
     header: &[String],
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.cast_projections {
-        require_header_column(
-            header,
-            &projection.column,
-            "cast projection source column",
-            "local source header",
-        )?;
+        for column in &projection.source_columns {
+            require_header_column(
+                header,
+                column,
+                "cast projection source column",
+                "local source header",
+            )?;
+        }
     }
     for projection in &parsed.null_coalesce_projections {
         require_header_column(
@@ -15638,7 +15641,9 @@ fn insert_join_left_existence_projection_refs<'a>(
     source_refs: &mut BTreeSet<&'a str>,
 ) {
     for projection in &parsed.cast_projections {
-        source_refs.insert(projection.column.as_str());
+        for column in &projection.source_columns {
+            source_refs.insert(column.as_str());
+        }
     }
     for projection in &parsed.null_coalesce_projections {
         source_refs.insert(projection.column.as_str());
@@ -17339,7 +17344,7 @@ impl ParsedSqlLocalSource {
         } else {
             self.cast_projections
                 .iter()
-                .map(|projection| projection.column.as_str())
+                .map(|projection| projection.source_columns.join("+"))
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -17385,15 +17390,11 @@ impl ParsedSqlLocalSource {
         let mut columns = Vec::new();
         self.predicate
             .push_decimal_cast_source_columns(&mut columns);
-        columns.extend(
-            self.cast_projections
-                .iter()
-                .filter(|projection| {
-                    decimal_dtype_precision_scale(&projection.target_dtype).is_some()
-                })
-                .map(|projection| projection.column.as_str()),
-        );
-        not_applicable_or_join(&columns)
+        columns.extend(self.cast_projections.iter().filter_map(|projection| {
+            decimal_dtype_precision_scale(&projection.target_dtype)
+                .map(|_| projection.source_columns.join("+"))
+        }));
+        not_applicable_or_join_strings(&columns)
     }
 
     fn decimal_cast_output_columns(&self) -> String {
@@ -18806,7 +18807,6 @@ impl ParsedPredicate {
     fn uses_outer_correlation(&self) -> bool {
         match self {
             Self::Compare { column, .. }
-            | Self::CastCompare { column, .. }
             | Self::NumericArithmeticCompare { column, .. }
             | Self::NumericAbsCompare { column, .. }
             | Self::NumericRoundingCompare { column, .. }
@@ -18832,6 +18832,9 @@ impl ParsedPredicate {
             | Self::StringTransformCompare { source_columns, .. }
             | Self::StringFunctionCompare { source_columns, .. }
             | Self::GenericExpressionCompare { source_columns, .. } => source_columns
+                .iter()
+                .any(|column| is_outer_correlation_ref(column)),
+            Self::CastCompare { source_columns, .. } => source_columns
                 .iter()
                 .any(|column| is_outer_correlation_ref(column)),
             Self::RowValueInList { columns, .. } => columns
@@ -18896,7 +18899,6 @@ impl ParsedPredicate {
         match self {
             Self::All | Self::ExistsSubquery { .. } => {}
             Self::Compare { column, .. }
-            | Self::CastCompare { column, .. }
             | Self::NumericArithmeticCompare { column, .. }
             | Self::NumericAbsCompare { column, .. }
             | Self::NumericRoundingCompare { column, .. }
@@ -18933,7 +18935,8 @@ impl ParsedPredicate {
             Self::StringLengthCompare { source_columns, .. }
             | Self::StringTransformCompare { source_columns, .. }
             | Self::StringFunctionCompare { source_columns, .. }
-            | Self::GenericExpressionCompare { source_columns, .. } => {
+            | Self::GenericExpressionCompare { source_columns, .. }
+            | Self::CastCompare { source_columns, .. } => {
                 columns.extend(source_columns.iter().map(String::as_str));
             }
             Self::Logical { left, right, .. } => {
@@ -19091,10 +19094,12 @@ impl ParsedPredicate {
     fn cast_compare_expression(&self) -> Result<Expression, ShardLoomError> {
         let Self::CastCompare {
             column,
+            expression,
             target_dtype,
             mode,
             op,
             value,
+            ..
         } = self
         else {
             return Err(ShardLoomError::InvalidOperation(
@@ -19102,7 +19107,7 @@ impl ParsedPredicate {
                     .to_string(),
             ));
         };
-        cast_compare_expression(column, target_dtype, *mode, *op, value)
+        cast_compare_expression(column, expression, target_dtype, *mode, *op, value)
     }
 
     fn timestamp_arithmetic_expression(&self) -> Result<Expression, ShardLoomError> {
@@ -21152,9 +21157,9 @@ impl ParsedPredicate {
         columns.join(",")
     }
 
-    fn push_cast_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+    fn push_cast_source_columns(&self, columns: &mut Vec<String>) {
         match self {
-            Self::CastCompare { column, .. } => columns.push(column),
+            Self::CastCompare { source_columns, .. } => columns.push(source_columns.join("+")),
             Self::Logical { left, right, .. } => {
                 left.push_cast_source_columns(columns);
                 right.push_cast_source_columns(columns);
@@ -21188,13 +21193,15 @@ impl ParsedPredicate {
         }
     }
 
-    fn push_decimal_cast_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+    fn push_decimal_cast_source_columns(&self, columns: &mut Vec<String>) {
         match self {
             Self::CastCompare {
-                column,
+                source_columns,
                 target_dtype,
                 ..
-            } if decimal_dtype_precision_scale(target_dtype).is_some() => columns.push(column),
+            } if decimal_dtype_precision_scale(target_dtype).is_some() => {
+                columns.push(source_columns.join("+"));
+            }
             Self::Logical { left, right, .. } => {
                 left.push_decimal_cast_source_columns(columns);
                 right.push_decimal_cast_source_columns(columns);
@@ -23972,7 +23979,8 @@ fn column_compare_expression(
 }
 
 fn cast_compare_expression(
-    column: &str,
+    source_label: &str,
+    source_expression: &Expression,
     target_dtype: &LogicalDType,
     mode: CastMode,
     op: ComparisonOp,
@@ -23982,11 +23990,8 @@ fn cast_compare_expression(
         ExprId::new("where.cast_compare")?,
         ExpressionKind::Compare {
             left: Box::new(mode.build_expression(
-                ExprId::new(format!("where.cast.{column}"))?,
-                Expression::column(
-                    ExprId::new(format!("where.{column}"))?,
-                    ColumnRef::new(column.to_string())?,
-                ),
+                ExprId::new(format!("where.cast.{source_label}"))?,
+                source_expression.clone(),
                 target_dtype.clone(),
             )),
             op,
@@ -31104,13 +31109,50 @@ fn parse_cast_projection(raw: &str) -> Result<Option<ParsedCastProjection>, Shar
     };
     let column = inner[..inner_as_index].trim();
     let target_raw = inner[inner_as_index + "as".len()..].trim();
-    validate_sql_column_ref(column)?;
+    let target_dtype = parse_cast_target_dtype(target_raw)?;
+    let (column, expression, source_columns) = parse_cast_source_expression(
+        column,
+        &target_dtype,
+        &format!("project.cast_arg.{alias}"),
+        "CAST/TRY_CAST binary projections require at least one source column expression",
+    )?;
     Ok(Some(ParsedCastProjection {
         alias: alias.to_string(),
-        column: column.to_string(),
-        target_dtype: parse_cast_target_dtype(target_raw)?,
+        column,
+        expression,
+        source_columns,
+        target_dtype,
         mode,
     }))
+}
+
+fn parse_cast_source_expression(
+    source_raw: &str,
+    target_dtype: &LogicalDType,
+    id_prefix: &str,
+    empty_source_message: &str,
+) -> Result<(String, Expression, Vec<String>), ShardLoomError> {
+    if matches!(target_dtype, LogicalDType::Binary) {
+        let expression = parse_string_scalar_expression(source_raw, id_prefix)?;
+        let source_columns = expression_source_columns(&expression);
+        if source_columns.is_empty() {
+            return Err(unsupported_sql_error(empty_source_message));
+        }
+        let column = source_columns
+            .first()
+            .cloned()
+            .ok_or_else(|| unsupported_sql_error(empty_source_message))?;
+        return Ok((column, expression, source_columns));
+    }
+    validate_sql_column_ref(source_raw)?;
+    Ok((
+        source_raw.to_string(),
+        Expression::column(
+            ExprId::new(format!("{id_prefix}.{source_raw}"))?,
+            ColumnRef::new(source_raw.to_string())?,
+        ),
+        vec![source_raw.to_string()],
+    ))
 }
 
 fn parse_cast_call_expression(raw: &str) -> Result<Option<(CastMode, &str)>, ShardLoomError> {
@@ -34191,7 +34233,6 @@ fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomE
     })?;
     let column = inner[..as_index].trim();
     let target_raw = inner[as_index + 2..].trim();
-    validate_sql_column_ref(column)?;
     let target_dtype = parse_cast_target_dtype(target_raw)?;
 
     let tokens = split_whitespace_outside_quotes(tail)?;
@@ -34202,8 +34243,16 @@ fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomE
         return Ok(None);
     }
     let (op, value) = parse_cast_predicate_literal(&target_dtype, tokens.as_slice())?;
+    let (column, expression, source_columns) = parse_cast_source_expression(
+        column,
+        &target_dtype,
+        "where.cast_arg",
+        "CAST/TRY_CAST binary predicates require at least one source column expression",
+    )?;
     Ok(Some(ParsedPredicate::CastCompare {
-        column: column.to_string(),
+        column,
+        expression: Box::new(expression),
+        source_columns,
         target_dtype,
         mode,
         op,
@@ -34863,6 +34912,14 @@ fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
 }
 
 fn not_applicable_or_join(values: &[&str]) -> String {
+    if values.is_empty() {
+        "not_applicable".to_string()
+    } else {
+        values.join(",")
+    }
+}
+
+fn not_applicable_or_join_strings(values: &[String]) -> String {
     if values.is_empty() {
         "not_applicable".to_string()
     } else {
@@ -39865,10 +39922,14 @@ mod tests {
 
     #[test]
     fn parses_scoped_cast_projection_statement() {
-        let parsed = parse_sql_local_source_statement(
-            "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day,CAST(label AS binary) AS label_bytes FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
-        )
-        .expect("cast projection statement parses");
+        let statement = concat!(
+            "SELECT id,CAST(amount AS float64) AS amount_float,",
+            "CAST(event_date AS date32) AS event_day,",
+            "CAST(CONCAT(label_prefix,label_suffix) AS binary) AS label_bytes ",
+            "FROM 'target/input.csv' WHERE id >= 1 LIMIT 5"
+        );
+        let parsed =
+            parse_sql_local_source_statement(statement).expect("cast projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id"]);
         assert!(parsed.literal_projections.is_empty());
@@ -39888,7 +39949,11 @@ mod tests {
         );
         assert_eq!(parsed.cast_projections[1].mode, CastMode::Strict);
         assert_eq!(parsed.cast_projections[2].alias, "label_bytes");
-        assert_eq!(parsed.cast_projections[2].column, "label");
+        assert_eq!(parsed.cast_projections[2].column, "label_prefix");
+        assert_eq!(
+            parsed.cast_projections[2].source_columns,
+            vec!["label_prefix".to_string(), "label_suffix".to_string()]
+        );
         assert_eq!(
             parsed.cast_projections[2].target_dtype,
             LogicalDType::Binary
@@ -39896,7 +39961,7 @@ mod tests {
         assert_eq!(parsed.cast_projections[2].mode, CastMode::Strict);
         assert_eq!(
             parsed.cast_projection_source_columns(),
-            "amount,event_date,label"
+            "amount,event_date,label_prefix+label_suffix"
         );
         assert_eq!(
             parsed.cast_projection_output_columns(),
@@ -42798,12 +42863,16 @@ mod tests {
     #[test]
     fn runs_scoped_binary_cast_and_text_literal_csv_statement_without_fallback() {
         let path = sql_local_source_test_path("csv");
-        fs::write(&path, "id,label,amount\n1,alpha,42\n2,beta,7\n").expect("write csv source");
+        fs::write(
+            &path,
+            "id,label_prefix,label_suffix,amount_text\n1,al,pha, 42A \n2,be,ta,7b\n",
+        )
+        .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
             source_format_override: None,
             statement: format!(
-                "SELECT id,CAST(label AS binary) AS label_bytes,TRY_CAST(amount AS blob) AS amount_bytes,BINARY 'ok' AS marker,BLOB 'raw' AS blob_payload FROM '{}' WHERE CAST(label AS binary) = X'616c706861' LIMIT 2",
+                "SELECT id,CAST(CONCAT(label_prefix,label_suffix) AS binary) AS label_bytes,TRY_CAST(LOWER(TRIM(amount_text)) AS blob) AS amount_bytes,BINARY 'ok' AS marker,BLOB 'raw' AS blob_payload FROM '{}' WHERE CAST(CONCAT(label_prefix,label_suffix) AS binary) = X'616c706861' LIMIT 2",
                 path.display()
             ),
             output_format: SqlLocalSourceOutputFormat::InlineJsonl,
@@ -42817,15 +42886,19 @@ mod tests {
 
         assert_eq!(
             report.result_jsonl,
-            "{\"id\":1,\"label_bytes\":\"binary[hex=616c706861]\",\"amount_bytes\":\"binary[hex=3432]\",\"marker\":\"binary[hex=6f6b]\",\"blob_payload\":\"binary[hex=726177]\"}\n"
+            "{\"id\":1,\"label_bytes\":\"binary[hex=616c706861]\",\"amount_bytes\":\"binary[hex=343261]\",\"marker\":\"binary[hex=6f6b]\",\"blob_payload\":\"binary[hex=726177]\"}\n"
         );
         assert_field_eq(&fields, "predicate_operator_family", "cast");
         assert_field_eq(&fields, "cast_runtime_execution", "true");
-        assert_field_eq(&fields, "cast_source_column", "label");
+        assert_field_eq(&fields, "cast_source_column", "label_prefix+label_suffix");
         assert_field_eq(&fields, "cast_target_dtype", "binary");
         assert_field_eq(&fields, "cast_mode", "strict");
         assert_field_eq(&fields, "cast_projection_runtime_execution", "true");
-        assert_field_eq(&fields, "cast_projection_source_column", "label,amount");
+        assert_field_eq(
+            &fields,
+            "cast_projection_source_column",
+            "label_prefix+label_suffix,amount_text",
+        );
         assert_field_eq(
             &fields,
             "cast_projection_output_column",
@@ -42862,13 +42935,13 @@ mod tests {
     #[test]
     fn runs_scoped_binary_cast_ordering_csv_statement_without_fallback() {
         let path = sql_local_source_test_path("csv");
-        fs::write(&path, "id,label\n1,alpha\n2,beta\n3,alp\n4,\n5,gamma\n")
+        fs::write(&path, "id,label\n1, Alpha \n2,Beta\n3,Alp\n4,\n5,Gamma\n")
             .expect("write csv source");
 
         let request = SqlLocalSourceRequest {
             source_format_override: None,
             statement: format!(
-                "SELECT id,CAST(label AS binary) AS label_bytes FROM '{}' WHERE CAST(label AS binary) > BINARY 'alpha' ORDER BY id ASC LIMIT 10",
+                "SELECT id,CAST(LOWER(TRIM(label)) AS binary) AS label_bytes FROM '{}' WHERE CAST(LOWER(TRIM(label)) AS binary) > BINARY 'alpha' ORDER BY id ASC LIMIT 10",
                 path.display()
             ),
             output_format: SqlLocalSourceOutputFormat::InlineJsonl,
@@ -43190,7 +43263,8 @@ mod tests {
                 target_dtype: LogicalDType::Int64,
                 mode: CastMode::Strict,
                 op: ComparisonOp::GtEq,
-                value: ScalarValue::Int64(10)
+                value: ScalarValue::Int64(10),
+                ..
             } if column == "amount"
         ));
         assert_eq!(parsed.predicate.family(), "cast");
@@ -43213,7 +43287,8 @@ mod tests {
                 target_dtype: LogicalDType::Int64,
                 mode: CastMode::Try,
                 op: ComparisonOp::GtEq,
-                value: ScalarValue::Int64(10)
+                value: ScalarValue::Int64(10),
+                ..
             } if column == "raw_amount"
         ));
         assert_eq!(parsed.predicate.family(), "cast");
@@ -43236,7 +43311,8 @@ mod tests {
                 target_dtype: LogicalDType::Date32,
                 mode: CastMode::Strict,
                 op: ComparisonOp::GtEq,
-                value: ScalarValue::Date32(_)
+                value: ScalarValue::Date32(_),
+                ..
             } if column == "event_date"
         ));
         assert!(parsed.predicate.uses_date_literal());
@@ -43248,7 +43324,7 @@ mod tests {
     #[test]
     fn parses_scoped_binary_cast_predicate_statement() {
         let parsed = parse_sql_local_source_statement(
-            "SELECT id,label FROM 'target/input.csv' WHERE CAST(label AS binary) = BINARY 'alpha' LIMIT 5",
+            "SELECT id,label_prefix,label_suffix FROM 'target/input.csv' WHERE CAST(CONCAT(label_prefix,label_suffix) AS binary) = BINARY 'alpha' LIMIT 5",
         )
         .expect("binary cast predicate statement parses");
 
@@ -43256,14 +43332,21 @@ mod tests {
             parsed.predicate,
             ParsedPredicate::CastCompare {
                 ref column,
+                ref source_columns,
                 target_dtype: LogicalDType::Binary,
                 mode: CastMode::Strict,
                 op: ComparisonOp::Eq,
-                value: ScalarValue::Binary(ref value)
-            } if column == "label" && value == b"alpha"
+                value: ScalarValue::Binary(ref value),
+                ..
+            } if column == "label_prefix"
+                && source_columns == &vec!["label_prefix".to_string(), "label_suffix".to_string()]
+                && value == b"alpha"
         ));
         assert_eq!(parsed.predicate.family(), "cast");
-        assert_eq!(parsed.predicate.cast_source_columns(), "label");
+        assert_eq!(
+            parsed.predicate.cast_source_columns(),
+            "label_prefix+label_suffix"
+        );
         assert_eq!(parsed.predicate.cast_target_dtypes(), "binary");
         assert_eq!(parsed.predicate.cast_modes(), "strict");
     }
@@ -43298,7 +43381,8 @@ mod tests {
                     value: 1000,
                     precision: 10,
                     scale: 2
-                }
+                },
+                ..
             } if column == "amount" && target_dtype == &decimal128_dtype(10, 2)
         ));
         assert!(parsed.has_decimal_cast());
@@ -43322,7 +43406,7 @@ mod tests {
     #[test]
     fn parses_scoped_binary_cast_ordering_predicate_statement() {
         let parsed = parse_sql_local_source_statement(
-            "SELECT id,label FROM 'target/input.csv' WHERE CAST(label AS binary) > BINARY 'alpha' LIMIT 5",
+            "SELECT id,label FROM 'target/input.csv' WHERE CAST(LOWER(TRIM(label)) AS binary) > BINARY 'alpha' LIMIT 5",
         )
         .expect("binary cast ordering predicate parses");
 
@@ -43333,7 +43417,8 @@ mod tests {
                 target_dtype: LogicalDType::Binary,
                 mode: CastMode::Strict,
                 op: ComparisonOp::Gt,
-                value: ScalarValue::Binary(ref value)
+                value: ScalarValue::Binary(ref value),
+                ..
             } if column == "label" && value == b"alpha"
         ));
         assert_eq!(parsed.predicate.family(), "cast");
