@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: release CI Python/package tail split
+  - Date: 2026-06-11
+  - Branch/PR: `codex/ci-python-package-tail-split` / local branch.
+  - Source:
+    - Active phase-plan release/benchmark CI-tail optimization follow-up.
+    - User request to optimize the serial hard-gate stack and avoid slow-tail CI when checks can
+      run independently.
+  - Scope:
+    - Split Python unit discovery and compileall into a dedicated `python-tests` GitHub Actions job
+      that emits `target/python-test-evidence.json`.
+    - Kept the branch-protection-compatible `Python and package smoke` check name on
+      `python-package`, while narrowing that lane to package build plus local package/provenance dry
+      run.
+    - Wired `release-readiness` to require, download, merge, verify, and upload the Python test
+      evidence artifact alongside the existing package, runtime, benchmark, website, and release
+      evidence artifacts.
+    - Updated the CI gate matrix validator and release documentation so Python tests and package
+      smoke are separate lanes while the final aggregate gate remains strict.
+    - Updated the pre-5J Dependabot freshness action-marker count to account for the intentionally
+      added `actions/download-artifact@v8` use.
+  - Evidence:
+    - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml ok"'`
+      passed.
+    - `python3 scripts/check_ci_gate_matrix.py --output target/ci-gate-matrix-tail-split.json`
+      passed.
+    - `python3 scripts/check_pre_5j_dependency_freshness.py --output target/pre-5j-dependency-freshness-tail-split.json`
+      passed.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_accepts_current_dependabot_prs python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_without_live_check_keeps_benchmark_blocked`
+      passed.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m build python`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda`
+      passed.
+  - Claim boundary:
+    - This improves CI scheduling by parallelizing Python unit/compile validation with package
+      build/dry-run validation. It does not weaken release checks, skip Python validation, publish a
+      package, claim package-channel readiness, or make a runtime performance claim.
+  - Fallback boundary:
+    - The change affects CI orchestration and release evidence aggregation only. It does not alter
+      ShardLoom execution semantics and introduces no fallback engine, external SQL runtime, or
+      package publication path.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary byte-length grammar slice
   - Date: 2026-06-11
   - Branch/PR: `codex/compute-engine-6d-binary-byte-length` / local branch.

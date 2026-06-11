@@ -67,6 +67,52 @@ jobs:
       - name: Run feature lane
         run: ${{ matrix.command }}
 
+  python-tests:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Python tests
+        run: python -m unittest discover -s python/tests
+      - name: Python compile check
+        run: python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics
+      - name: Record Python test evidence
+        run: |
+          mkdir -p target
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          Path("target/python-test-evidence.json").write_text(
+              json.dumps(
+                  {
+                      "schema_version": "shardloom.python_test_evidence.v1",
+                      "status": "passed",
+                      "commands": [
+                          "python -m unittest discover -s python/tests",
+                          "python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics",
+                      ],
+                      "fallback_attempted": False,
+                      "external_engine_invoked": False,
+                  },
+                  indent=2,
+                  sort_keys=True,
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: python-test-evidence
+          path: target/python-test-evidence.json
+          if-no-files-found: ignore
+          retention-days: 14
+
   python-package:
     name: Python and package smoke
     runs-on: ubuntu-latest
@@ -79,10 +125,6 @@ jobs:
           python-version: "3.11"
       - name: Install Python build tooling
         run: python -m pip install --upgrade pip build
-      - name: Python tests
-        run: python -m unittest discover -s python/tests
-      - name: Python compile check
-        run: python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics
       - name: Python package build
         run: python -m build python
       - name: Local package smoke
@@ -309,6 +351,7 @@ jobs:
     needs:
       - ci-gate-matrix
       - dependency-security
+      - python-tests
       - python-package
       - release-runtime-core
       - release-package-governance
@@ -335,6 +378,11 @@ jobs:
         with:
           name: release-local-smoke-evidence
           path: target/downloads/release-local-smoke-evidence
+      - name: Reuse Python test evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: python-test-evidence
+          path: target/downloads/python-test-evidence
       - name: Reuse runtime core evidence
         uses: actions/download-artifact@v8
         with:
@@ -366,6 +414,7 @@ jobs:
             --artifact target/downloads/ci-gate-matrix-report \
             --artifact target/downloads/dependency-security-evidence \
             --artifact target/downloads/release-local-smoke-evidence \
+            --artifact target/downloads/python-test-evidence \
             --artifact target/downloads/release-runtime-core-evidence \
             --artifact target/downloads/release-package-governance-evidence \
             --artifact target/downloads/release-user-surface-evidence \
@@ -374,6 +423,7 @@ jobs:
       - name: Verify downloaded release evidence
         run: |
           test -f target/ci-gate-matrix-report.json
+          test -f target/python-test-evidence.json
           test -f target/dependency-audit-report.json
           test -f target/security-posture-report.json
           test -f target/release-dry-run-proof/transcript.json
@@ -442,6 +492,7 @@ jobs:
             target/benchmark-publication-claim-gate-report.json
             target/front-door-benchmark-publication-gate.json
             target/ci-gate-matrix-report.json
+            target/python-test-evidence.json
             target/hard-release-readiness-gate.json
           if-no-files-found: ignore
           retention-days: 14

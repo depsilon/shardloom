@@ -44,7 +44,7 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
         "expected_workflow": ".github/workflows/ci.yml",
         "required_markers": ["actions/download-artifact@v8"],
         "forbidden_markers": ["actions/download-artifact@v7"],
-        "expected_marker_counts": {"actions/download-artifact@v8": 11},
+        "expected_marker_counts": {"actions/download-artifact@v8": 12},
         "review_doc": "docs/dependencies/github-actions-dependency-review.md",
         "review_markers": [
             "Dependabot PR <https://github.com/depsilon/shardloom/pull/1149>",
