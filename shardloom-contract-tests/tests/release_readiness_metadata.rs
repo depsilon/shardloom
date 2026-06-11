@@ -2674,7 +2674,7 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
         "shardloom.admitted_semantics_matrix_report.v1",
         "python scripts\\check_admitted_semantics_matrix.py",
         "matrix_row_count=123",
-        "executable_fixture_count=99",
+        "executable_fixture_count=100",
         "diagnostic_case_count=22",
         "unsupported_diagnostic_count=20",
         "runtime_error_diagnostic_count=1",

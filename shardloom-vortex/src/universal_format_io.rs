@@ -1106,22 +1106,22 @@ fn validate_orc_record_batch_supported(batch: &RecordBatch) -> Result<()> {
     for field in batch.schema().fields() {
         if matches!(
             field.data_type(),
-            DataType::Decimal128(_, _) | DataType::Decimal256(_, _)
-        ) {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "local ORC output does not yet admit typed decimal128 preservation for column '{}'; orc-rust 0.8.0 can read decimal128 but its Arrow writer does not support decimal128 columns, so ShardLoom blocks before provider conversion instead of allowing a writer panic; decimal128 values are admitted through Parquet/Arrow IPC/Avro typed result boundaries and scoped local Vortex typed decimal output in this runtime slice; no fallback execution was attempted",
-                field.name()
-            )));
-        }
-        if matches!(
-            field.data_type(),
             DataType::List(_)
                 | DataType::LargeList(_)
                 | DataType::FixedSizeList(_, _)
                 | DataType::Struct(_)
         ) {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "local ORC output does not yet admit typed nested preservation for column '{}'; scoped typed nested compatibility sinks are admitted through Parquet/Arrow IPC/Avro after Arrow schema inference, while ORC remains blocked before provider conversion until writer/readback evidence is added; no fallback execution was attempted",
+                "local ORC output does not yet admit typed nested preservation for column '{}'; orc-rust 0.8.0 panics on nested Arrow writer conversion with unsupported datatype, so ShardLoom blocks before provider conversion; scoped typed nested compatibility sinks are admitted through Parquet/Arrow IPC/Avro after Arrow schema inference, while ORC remains blocked until writer/readback evidence is available; no fallback execution was attempted",
+                field.name()
+            )));
+        }
+        if matches!(
+            field.data_type(),
+            DataType::Decimal128(_, _) | DataType::Decimal256(_, _)
+        ) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local ORC output does not yet admit typed decimal128 preservation for column '{}'; orc-rust 0.8.0 can read decimal128 but its Arrow writer does not support decimal128 columns, so ShardLoom blocks before provider conversion instead of allowing a writer panic; decimal128 values are admitted through Parquet/Arrow IPC/Avro typed result boundaries and scoped local Vortex typed decimal output in this runtime slice; no fallback execution was attempted",
                 field.name()
             )));
         }
@@ -2917,6 +2917,38 @@ mod tests {
             error
                 .to_string()
                 .contains("orc-rust 0.8.0 can read decimal128 but its Arrow writer does not support decimal128 columns"),
+            "{error}"
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("no fallback execution was attempted"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn orc_nested_output_blocks_before_writer_conversion() {
+        let columns = vec!["tags".to_string()];
+        let dtypes = vec![Some(LogicalDType::List)];
+        let rows = vec![vec![(
+            "tags".to_string(),
+            ScalarValue::List(vec![ScalarValue::Utf8("alpha".to_string())]),
+        )]];
+
+        let error = encode_flat_orc_rows_with_dtypes(&columns, &dtypes, &rows)
+            .expect_err("ORC nested output remains blocked");
+
+        assert!(
+            error.to_string().contains(
+                "local ORC output does not yet admit typed nested preservation for column 'tags'"
+            ),
+            "{error}"
+        );
+        assert!(
+            error.to_string().contains(
+                "orc-rust 0.8.0 panics on nested Arrow writer conversion with unsupported datatype"
+            ),
             "{error}"
         );
         assert!(

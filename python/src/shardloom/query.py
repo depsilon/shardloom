@@ -436,16 +436,20 @@ class ColumnExpression:
         )
 
     def unhex(self) -> "ColumnExpression":
-        """Return a scoped `UNHEX(column)` binary helper projection expression."""
+        """Return a scoped `UNHEX(<utf8-expression>)` binary helper expression."""
 
-        column = _normalize_expression_column(self.sql)
-        return ColumnExpression(f"UNHEX({column})")
+        expression, has_source_column = _normalize_string_scalar_expression_sql(self.sql)
+        if not has_source_column:
+            raise ValueError("UNHEX expressions require at least one source column")
+        return ColumnExpression(f"UNHEX({expression})")
 
     def from_base64(self) -> "ColumnExpression":
-        """Return a scoped `FROM_BASE64(column)` binary helper projection expression."""
+        """Return a scoped `FROM_BASE64(<utf8-expression>)` binary helper expression."""
 
-        column = _normalize_expression_column(self.sql)
-        return ColumnExpression(f"FROM_BASE64({column})")
+        expression, has_source_column = _normalize_string_scalar_expression_sql(self.sql)
+        if not has_source_column:
+            raise ValueError("FROM_BASE64 expressions require at least one source column")
+        return ColumnExpression(f"FROM_BASE64({expression})")
 
     def fill_null(self, value: object) -> "ColumnExpression":
         """Return a scoped `COALESCE(column, literal)` null-cleanup expression."""
@@ -8759,8 +8763,10 @@ def _sql_binary_helper_projection_expression(expression: object) -> str:
     args = _split_projection_function_args(text[open_index + 1 : -1].strip())
     if len(args) != 1:
         raise ValueError("binary helper with_column expressions require exactly one argument")
-    column = _normalize_expression_column(args[0])
-    return f"{function}({column})"
+    expression_sql, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+    if not has_source_column:
+        raise ValueError("binary helper with_column expressions require a source column argument")
+    return f"{function}({expression_sql})"
 
 
 def _sql_temporal_extract_projection_expression(expression: object) -> str:

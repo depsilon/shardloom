@@ -1752,13 +1752,15 @@ struct ParsedStringFunctionProjection {
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedBinaryHelperProjection {
     alias: String,
-    column: String,
+    expression: Expression,
+    source_columns: Vec<String>,
     op: BinaryHelperOp,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct ParsedBinaryHelperPredicate {
-    column: String,
+    expression: Expression,
+    source_columns: Vec<String>,
     op: BinaryHelperOp,
     comparison: ComparisonOp,
     value: Vec<u8>,
@@ -8149,7 +8151,7 @@ fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut
         columns.extend(projection.source_columns.iter().cloned());
     }
     for projection in &parsed.binary_helper_projections {
-        columns.insert(projection.column.clone());
+        columns.extend(projection.source_columns.iter().cloned());
     }
     for projection in &parsed.date_extract_projections {
         columns.insert(projection.column.clone());
@@ -11226,10 +11228,7 @@ fn binary_helper_projection_expression(
         ExprId::new(format!("project.binary_helper.{}", projection.alias))?,
         ExpressionKind::FunctionCall {
             name: projection.op.function_name().to_string(),
-            args: vec![Expression::column(
-                ExprId::new(format!("project.{}", projection.column))?,
-                ColumnRef::new(projection.column.clone())?,
-            )],
+            args: vec![projection.expression.clone()],
         },
     );
     Ok(Expression::new(
@@ -15081,12 +15080,14 @@ fn validate_text_time_projection_source_columns(
         }
     }
     for projection in &parsed.binary_helper_projections {
-        require_header_column(
-            header,
-            &projection.column,
-            "binary helper projection source column",
-            "CSV header",
-        )?;
+        for column in &projection.source_columns {
+            require_header_column(
+                header,
+                column,
+                "binary helper projection source column",
+                "CSV header",
+            )?;
+        }
     }
     for projection in &parsed.date_extract_projections {
         require_header_column(
@@ -15628,6 +15629,14 @@ fn join_left_existence_source_refs(parsed: &ParsedSqlLocalSource) -> BTreeSet<&s
     for column in parsed.predicate.columns() {
         source_refs.insert(column);
     }
+    insert_join_left_existence_projection_refs(parsed, &mut source_refs);
+    source_refs
+}
+
+fn insert_join_left_existence_projection_refs<'a>(
+    parsed: &'a ParsedSqlLocalSource,
+    source_refs: &mut BTreeSet<&'a str>,
+) {
     for projection in &parsed.cast_projections {
         source_refs.insert(projection.column.as_str());
     }
@@ -15673,31 +15682,49 @@ fn join_left_existence_source_refs(parsed: &ParsedSqlLocalSource) -> BTreeSet<&s
     for projection in &parsed.timestamp_arithmetic_projections {
         source_refs.insert(projection.column.as_str());
     }
-    for projection in &parsed.string_length_projections {
-        for column in &projection.source_columns {
-            source_refs.insert(column.as_str());
-        }
-    }
-    for projection in &parsed.string_transform_projections {
-        for column in &projection.source_columns {
-            source_refs.insert(column.as_str());
-        }
-    }
-    for projection in &parsed.string_function_projections {
-        for column in &projection.source_columns {
-            source_refs.insert(column.as_str());
-        }
-    }
-    for projection in &parsed.binary_helper_projections {
-        source_refs.insert(projection.column.as_str());
-    }
+    insert_projection_source_columns(
+        source_refs,
+        parsed
+            .string_length_projections
+            .iter()
+            .map(|projection| projection.source_columns.as_slice()),
+    );
+    insert_projection_source_columns(
+        source_refs,
+        parsed
+            .string_transform_projections
+            .iter()
+            .map(|projection| projection.source_columns.as_slice()),
+    );
+    insert_projection_source_columns(
+        source_refs,
+        parsed
+            .string_function_projections
+            .iter()
+            .map(|projection| projection.source_columns.as_slice()),
+    );
+    insert_projection_source_columns(
+        source_refs,
+        parsed
+            .binary_helper_projections
+            .iter()
+            .map(|projection| projection.source_columns.as_slice()),
+    );
     for projection in &parsed.date_extract_projections {
         source_refs.insert(projection.column.as_str());
     }
     for projection in &parsed.timestamp_extract_projections {
         source_refs.insert(projection.column.as_str());
     }
-    source_refs
+}
+
+fn insert_projection_source_columns<'a>(
+    source_refs: &mut BTreeSet<&'a str>,
+    source_columns: impl IntoIterator<Item = &'a [String]>,
+) {
+    for columns in source_columns {
+        source_refs.extend(columns.iter().map(String::as_str));
+    }
 }
 
 fn validate_join_grouped_aggregate_sources(
@@ -18010,7 +18037,7 @@ impl ParsedSqlLocalSource {
         } else {
             self.binary_helper_projections
                 .iter()
-                .map(|projection| projection.column.as_str())
+                .map(|projection| projection.source_columns.join("+"))
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -18792,7 +18819,10 @@ impl ParsedPredicate {
             | Self::IsNotNull { column }
             | Self::InList { column, .. }
             | Self::StringMatch { column, .. } => is_outer_correlation_ref(column),
-            Self::BinaryHelperCompare(predicate) => is_outer_correlation_ref(&predicate.column),
+            Self::BinaryHelperCompare(predicate) => predicate
+                .source_columns
+                .iter()
+                .any(|column| is_outer_correlation_ref(column)),
             Self::ColumnCompare {
                 left_column,
                 right_column,
@@ -18881,7 +18911,9 @@ impl ParsedPredicate {
             | Self::InSubquery { column, .. }
             | Self::QuantifiedSubquery { column, .. }
             | Self::StringMatch { column, .. } => columns.push(column),
-            Self::BinaryHelperCompare(predicate) => columns.push(&predicate.column),
+            Self::BinaryHelperCompare(predicate) => {
+                columns.extend(predicate.source_columns.iter().map(String::as_str));
+            }
             Self::RowValueInList {
                 columns: row_columns,
                 ..
@@ -19248,7 +19280,7 @@ impl ParsedPredicate {
         } else {
             predicates
                 .iter()
-                .map(|predicate| predicate.column.as_str())
+                .map(|predicate| predicate.source_columns.join("+"))
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -24153,13 +24185,10 @@ fn binary_helper_compare_expression(
         ExprId::new("where.binary_helper_compare")?,
         ExpressionKind::Compare {
             left: Box::new(Expression::new(
-                ExprId::new(format!("where.binary_helper.{}", predicate.column))?,
+                ExprId::new("where.binary_helper")?,
                 ExpressionKind::FunctionCall {
                     name: predicate.op.function_name().to_string(),
-                    args: vec![Expression::column(
-                        ExprId::new(format!("where.{}", predicate.column))?,
-                        ColumnRef::new(predicate.column.clone())?,
-                    )],
+                    args: vec![predicate.expression.clone()],
                 },
             )),
             op: predicate.comparison,
@@ -32704,7 +32733,7 @@ fn parse_binary_helper_projection(
     validate_sql_identifier(alias)?;
     let close_index = matching_closing_parenthesis(expression_raw, open_index)?.ok_or_else(|| {
         unsupported_sql_error(
-            "binary helper projections must use UNHEX(<column>) AS <column> or FROM_BASE64(<column>) AS <column>",
+            "binary helper projections must use UNHEX(<utf8-expression>) AS <column> or FROM_BASE64(<utf8-expression>) AS <column>",
         )
     })?;
     if !expression_raw[close_index + 1..].trim().is_empty() {
@@ -32713,15 +32742,25 @@ fn parse_binary_helper_projection(
         ));
     }
     let args = split_sql_csv(expression_raw[open_index + 1..close_index].trim())?;
-    let [column] = args.as_slice() else {
+    let [value_expression_raw] = args.as_slice() else {
         return Err(unsupported_sql_error(
-            "binary helper projections require exactly one source column argument",
+            "binary helper projections require exactly one UTF-8 expression argument",
         ));
     };
-    validate_sql_column_ref(column)?;
+    let expression = parse_string_scalar_expression(
+        value_expression_raw,
+        &format!("project.binary_helper_arg.{alias}"),
+    )?;
+    let source_columns = expression_source_columns(&expression);
+    if source_columns.is_empty() {
+        return Err(unsupported_sql_error(
+            "binary helper projections require at least one source column argument",
+        ));
+    }
     Ok(Some(ParsedBinaryHelperProjection {
         alias: alias.to_string(),
-        column: column.clone(),
+        expression,
+        source_columns,
         op,
     }))
 }
@@ -32751,16 +32790,23 @@ fn parse_binary_helper_predicate(raw: &str) -> Result<Option<ParsedPredicate>, S
     };
     let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
         unsupported_sql_error(
-            "binary helper predicates must use UNHEX(<column>) <op> X'<hex>' or FROM_BASE64(<column>) <op> X'<hex>'",
+            "binary helper predicates must use UNHEX(<utf8-expression>) <op> X'<hex>' or FROM_BASE64(<utf8-expression>) <op> X'<hex>'",
         )
     })?;
     let args = split_sql_csv(trimmed[open_index + 1..close_index].trim())?;
-    let [column] = args.as_slice() else {
+    let [value_expression_raw] = args.as_slice() else {
         return Err(unsupported_sql_error(
-            "binary helper predicates require exactly one source column argument",
+            "binary helper predicates require exactly one UTF-8 expression argument",
         ));
     };
-    validate_sql_column_ref(column)?;
+    let expression =
+        parse_string_scalar_expression(value_expression_raw, "where.binary_helper_arg")?;
+    let source_columns = expression_source_columns(&expression);
+    if source_columns.is_empty() {
+        return Err(unsupported_sql_error(
+            "binary helper predicates require at least one source column argument",
+        ));
+    }
     let tail = trimmed[close_index + 1..].trim();
     if tail.is_empty() {
         return Err(unsupported_sql_error(
@@ -32785,13 +32831,14 @@ fn parse_binary_helper_predicate(raw: &str) -> Result<Option<ParsedPredicate>, S
         }
         _ => {
             return Err(unsupported_sql_error(
-                "binary helper predicates admit UNHEX(<column>) <op> X'<hex>' or FROM_BASE64(<column>) <op> BINARY/BLOB '<utf8>' only",
+                "binary helper predicates admit UNHEX(<utf8-expression>) <op> X'<hex>' or FROM_BASE64(<utf8-expression>) <op> BINARY/BLOB '<utf8>' only",
             ));
         }
     };
     Ok(Some(ParsedPredicate::BinaryHelperCompare(
         ParsedBinaryHelperPredicate {
-            column: column.clone(),
+            expression,
+            source_columns,
             op,
             comparison: parse_comparison_op(comparison_raw)?,
             value,
@@ -39110,24 +39157,40 @@ mod tests {
 
     #[test]
     fn binary_helper_predicates_are_admitted() {
-        for (statement, expected_op, expected_comparison, expected_value) in [
+        for (
+            statement,
+            expected_op,
+            expected_comparison,
+            expected_value,
+            expected_source_columns,
+        ) in [
             (
                 "SELECT id FROM 'target/input.csv' WHERE UNHEX(hex_payload) = X'00ff10' LIMIT 5",
                 BinaryHelperOp::Unhex,
                 ComparisonOp::Eq,
                 vec![0x00, 0xff, 0x10],
+                vec!["hex_payload"],
             ),
             (
                 "SELECT id FROM 'target/input.csv' WHERE FROM_BASE64(b64_payload) >= BINARY 'alpha' LIMIT 5",
                 BinaryHelperOp::FromBase64,
                 ComparisonOp::GtEq,
                 b"alpha".to_vec(),
+                vec!["b64_payload"],
             ),
             (
                 "SELECT id FROM 'target/input.csv' WHERE FROM_BASE64(b64_payload) < BLOB 'raw' LIMIT 5",
                 BinaryHelperOp::FromBase64,
                 ComparisonOp::Lt,
                 b"raw".to_vec(),
+                vec!["b64_payload"],
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' WHERE FROM_BASE64(CONCAT(b64_prefix,b64_suffix)) = BINARY 'alpha' LIMIT 5",
+                BinaryHelperOp::FromBase64,
+                ComparisonOp::Eq,
+                b"alpha".to_vec(),
+                vec!["b64_prefix", "b64_suffix"],
             ),
         ] {
             let parsed = parse_sql_local_source_statement(statement)
@@ -39137,15 +39200,16 @@ mod tests {
                 matches!(
                     &parsed.predicate,
                     ParsedPredicate::BinaryHelperCompare(ParsedBinaryHelperPredicate {
-                        column,
+                        source_columns,
                         op,
                         comparison,
                         value,
-                    }) if column == if expected_op == BinaryHelperOp::Unhex {
-                        "hex_payload"
-                    } else {
-                        "b64_payload"
-                    }
+                        ..
+                    }) if source_columns
+                        .iter()
+                        .map(String::as_str)
+                        .collect::<Vec<_>>()
+                        == expected_source_columns
                         && *op == expected_op
                         && *comparison == expected_comparison
                         && value.as_slice() == expected_value.as_slice()
@@ -39212,20 +39276,26 @@ mod tests {
     #[test]
     fn parses_scoped_binary_helper_projection_statement() {
         let parsed = parse_sql_local_source_statement(
-            "SELECT id,UNHEX(hex_payload) AS payload_hex,FROM_BASE64(b64_payload) AS payload_b64 FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+            "SELECT id,UNHEX(LOWER(TRIM(hex_payload))) AS payload_hex,FROM_BASE64(CONCAT(b64_prefix,b64_suffix)) AS payload_b64 FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
         )
         .expect("binary helper projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id"]);
         assert_eq!(parsed.binary_helper_projections.len(), 2);
         assert_eq!(parsed.binary_helper_projections[0].alias, "payload_hex");
-        assert_eq!(parsed.binary_helper_projections[0].column, "hex_payload");
+        assert_eq!(
+            parsed.binary_helper_projections[0].source_columns,
+            vec!["hex_payload"]
+        );
         assert_eq!(
             parsed.binary_helper_projections[0].op,
             BinaryHelperOp::Unhex
         );
         assert_eq!(parsed.binary_helper_projections[1].alias, "payload_b64");
-        assert_eq!(parsed.binary_helper_projections[1].column, "b64_payload");
+        assert_eq!(
+            parsed.binary_helper_projections[1].source_columns,
+            vec!["b64_prefix", "b64_suffix"]
+        );
         assert_eq!(
             parsed.binary_helper_projections[1].op,
             BinaryHelperOp::FromBase64
@@ -39237,7 +39307,7 @@ mod tests {
         );
         assert_eq!(
             parsed.binary_helper_projection_source_columns(),
-            "hex_payload,b64_payload"
+            "hex_payload,b64_prefix+b64_suffix"
         );
         assert_eq!(
             parsed.binary_helper_projection_output_columns(),
@@ -42978,6 +43048,56 @@ mod tests {
             &fields,
             "binary_helper_predicate_null_semantics",
             "null_propagating_utf8_decode_then_sql_where_true_only",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
+    }
+
+    #[test]
+    fn runs_nested_binary_helper_expression_csv_statement_without_fallback() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(
+            &path,
+            "id,hex_payload,b64_prefix,b64_suffix\n1, 00FF10 ,AP,8Q\n2, 616C706861 ,YWxw,aGE=\n3,,,\n4,726177ff,cmF3,/w==\n",
+        )
+        .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            source_format_override: None,
+            statement: format!(
+                "SELECT id,UNHEX(LOWER(TRIM(hex_payload))) AS payload_hex,FROM_BASE64(CONCAT(b64_prefix,b64_suffix)) AS payload_b64 FROM '{}' WHERE UNHEX(LOWER(TRIM(hex_payload))) = X'00ff10' OR FROM_BASE64(CONCAT(b64_prefix,b64_suffix)) = BINARY 'alpha' ORDER BY id ASC LIMIT 10",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report =
+            run_sql_local_source_smoke_single(&request).expect("run nested binary helper smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":1,\"payload_hex\":\"binary[hex=00ff10]\",\"payload_b64\":\"binary[hex=00ff10]\"}\n{\"id\":2,\"payload_hex\":\"binary[hex=616c706861]\",\"payload_b64\":\"binary[hex=616c706861]\"}\n"
+        );
+        assert_field_eq(
+            &fields,
+            "binary_helper_projection_runtime_execution",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "binary_helper_projection_source_column",
+            "hex_payload,b64_prefix+b64_suffix",
+        );
+        assert_field_eq(&fields, "binary_helper_predicate_runtime_execution", "true");
+        assert_field_eq(
+            &fields,
+            "binary_helper_predicate_source_column",
+            "hex_payload,b64_prefix+b64_suffix",
         );
         assert_field_eq(&fields, "fallback_attempted", "false");
         assert_field_eq(&fields, "external_engine_invoked", "false");

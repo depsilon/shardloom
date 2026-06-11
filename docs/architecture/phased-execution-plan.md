@@ -338,15 +338,19 @@ Each item below uses the same sub-checklist shape:
       compare decoded bytes against explicit `X'<hex>'`, `BINARY '<utf8>'`, or `BLOB '<utf8>'`
       literals through the local-source runtime and Python query-builder bytes-literal surface,
       with helper-predicate evidence fields kept separate from direct binary source predicates.
+    - [x] Scoped binary helper projection and predicate arguments now admit nested source-backed
+      UTF-8 string-transform/string-function expressions such as `LOWER(TRIM(hex_payload))` and
+      `CONCAT(b64_prefix,b64_suffix)` while keeping source-free and non-admitted expression shapes
+      blocked with no-fallback diagnostics.
     - [x] Common table expression syntax now has a precise parser-bound deterministic blocker:
       `WITH` / `WITH RECURSIVE` statements fail before bind/plan/runtime with `cte_plan_nodes`,
       catalog-scope, recursive-policy, execution-certificate, and no-fallback evidence
       requirements.
     - [ ] Remaining: ORC nested output, ORC typed decimal sinks, broad ANSI
       decimal coercion beyond exact exponent normalization, broader binary execution/preservation
-      beyond scoped source projection/predicate/order, explicit casts/helpers, and helper
-      predicates, and broad ANSI subquery parity beyond the admitted bounded local families remain
-      outside the claim boundary.
+      beyond scoped source projection/predicate/order, explicit casts/helpers, helper predicates,
+      and admitted source-backed helper expressions, and broad ANSI subquery parity beyond the
+      admitted bounded local families remain outside the claim boundary.
   - Runtime enablement: public route facade -> SQL parse/bind request -> ShardLoom capability
     admission -> native runtime lowering or deterministic unsupported diagnostic -> no-fallback
     evidence row.
