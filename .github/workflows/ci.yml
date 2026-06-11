@@ -276,6 +276,10 @@ jobs:
         with:
           python-version: "3.11"
       - name: Pre-5J dependency freshness gate
+        if: github.event_name == 'pull_request'
+        run: python scripts/check_pre_5j_dependency_freshness.py
+      - name: Pre-5J dependency freshness gate (live GitHub)
+        if: github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/check_pre_5j_dependency_freshness.py --require-live-github
@@ -301,6 +305,7 @@ jobs:
   release-readiness:
     name: Release readiness reports
     runs-on: ubuntu-latest
+    if: ${{ always() }}
     needs:
       - ci-gate-matrix
       - dependency-security

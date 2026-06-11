@@ -7462,6 +7462,17 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "predicate_projection_output_column", "value": "label"},
                         {"key": "predicate_projection_null_semantics", "value": "sql_is_null_is_not_null"},
                     ]
+                elif statement == "SELECT label IS NOT NULL AS label,closed_at IS NOT NULL AS closed_at FROM 'target/input.csv' LIMIT 3":
+                    fields = [
+                        {"key": "result_jsonl", "value": "{\\"label\\":true,\\"closed_at\\":false}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_not_null_mask_projection_limit"},
+                        {"key": "notna_runtime_execution", "value": "true"},
+                        {"key": "predicate_projection_runtime_execution", "value": "true"},
+                        {"key": "predicate_projection_predicate_family", "value": "null_predicate,null_predicate"},
+                        {"key": "predicate_projection_source_column", "value": "label,closed_at"},
+                        {"key": "predicate_projection_output_column", "value": "label,closed_at"},
+                        {"key": "predicate_projection_null_semantics", "value": "sql_is_null_is_not_null"},
+                    ]
                 else:
                     raise AssertionError(statement)
                 fields.extend([
@@ -7495,12 +7506,30 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(isna_report.predicate_projection_runtime_execution)
         self.assertFalse(isna_report.fallback_attempted)
 
+        all_columns_isna = source.isna()
+        self.assertIsInstance(all_columns_isna, LazyFrame)
+        all_columns_isna_report = all_columns_isna.collect(limit=3)
+        self.assertEqual(
+            all_columns_isna_report.envelope.field("predicate_projection_source_column"),
+            "label,closed_at",
+        )
+        self.assertFalse(all_columns_isna_report.external_engine_invoked)
+
         notna_workflow = source.notnull("label")
         self.assertIsInstance(notna_workflow, LazyFrame)
         notna_report = notna_workflow.collect(limit=3)
         self.assertEqual(notna_report.envelope.field("notna_runtime_execution"), "true")
         self.assertTrue(notna_report.predicate_projection_runtime_execution)
         self.assertFalse(notna_report.external_engine_invoked)
+
+        all_columns_notna = source.notna()
+        self.assertIsInstance(all_columns_notna, LazyFrame)
+        all_columns_notna_report = all_columns_notna.collect(limit=3)
+        self.assertEqual(
+            all_columns_notna_report.envelope.field("predicate_projection_source_column"),
+            "label,closed_at",
+        )
+        self.assertFalse(all_columns_notna_report.fallback_attempted)
 
     def test_local_csv_query_builder_utf8_order_by_topn_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(

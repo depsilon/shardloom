@@ -90,10 +90,7 @@ TIMING_SURFACES = {
 
 
 def runtime_envelope_required(row: dict[str, Any]) -> bool:
-    return not (
-        str(row.get("timing_surface") or "") == "hot_runtime"
-        and str(row.get("claim_gate_status") or "") != "claim_grade"
-    )
+    return True
 PROOF_TIMING_SURFACES = {"full_replay_proof", "publication_proof"}
 FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1"
 OPERATOR_MODE_INVENTORY_SCHEMA_VERSION = "shardloom.operator_mode_inventory.v1"

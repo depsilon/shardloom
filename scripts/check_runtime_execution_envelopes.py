@@ -592,11 +592,6 @@ def should_validate_benchmark_row(row: dict[str, Any]) -> bool:
     engine = str(row.get("engine", ""))
     if not engine.startswith("shardloom"):
         return False
-    if (
-        str(row.get("timing_surface") or "") == "hot_runtime"
-        and str(row.get("claim_gate_status") or "") != "claim_grade"
-    ):
-        return False
     return True
 
 

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.resolve(root, "..", "website");
 const publicRoot = path.resolve(root, "..", "website-public");
+const canonicalLegacyRoutes = new Set(["field-guide"]);
 
 function copyPublicPath(relativePath) {
   const source = path.join(publicRoot, relativePath);
@@ -35,7 +36,11 @@ function copyLegacyHtml(route) {
   const legacyDirectory = path.join(out, `${route}.html`);
   const customSource = path.join(legacyDirectory, "index.html");
   const canonicalSource = path.join(out, route, "index.html");
-  const source = fs.existsSync(customSource) ? customSource : canonicalSource;
+  const source = canonicalLegacyRoutes.has(route)
+    ? canonicalSource
+    : fs.existsSync(customSource)
+      ? customSource
+      : canonicalSource;
   const target = path.join(out, `${route}.html`);
   if (!fs.existsSync(source)) {
     throw new Error(`missing source for legacy route ${route}: ${source}`);

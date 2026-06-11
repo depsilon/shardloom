@@ -5554,7 +5554,7 @@ class LazyFrame:
         projection_columns = self._schema_declared_projection_columns()
         if projection_columns is None:
             return None
-        target_columns = _normalize_columns(columns) or projection_columns
+        target_columns = _normalize_columns(columns) if columns else projection_columns
         if any(not _is_sql_identifier(column) for column in target_columns):
             return None
         missing = tuple(column for column in target_columns if column not in projection_columns)

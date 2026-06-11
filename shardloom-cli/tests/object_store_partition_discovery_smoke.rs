@@ -93,6 +93,36 @@ fn local_emulator_partition_discovery_smoke_lists_key_value_directories() {
 }
 
 #[test]
+fn partition_discovery_blocks_requested_column_mismatch() {
+    let root = temp_partition_root("column-mismatch");
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(root.join("region=us").join("date=2026-06-06")).expect("create partition");
+
+    let args = vec![
+        "object-store-partition-discovery-smoke".to_string(),
+        root.to_string_lossy().into_owned(),
+        "--partition-columns".to_string(),
+        "region".to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+    let (success, output, stderr) = run_partition_discovery_json(&args);
+
+    let _ = fs::remove_dir_all(&root);
+    assert!(!success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert!(output.contains("\"status\":\"unsupported\""));
+    assert!(output.contains(&field(
+        "partition_discovery_status",
+        "blocked_partition_column_mismatch"
+    )));
+    assert!(output.contains(&field("requested_partition_columns", "region")));
+    assert!(output.contains("\"code\":\"SL_OBJECT_STORE_UNSUPPORTED\""));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn remote_provider_partition_discovery_is_blocked_before_credentials_or_network() {
     let args = vec![
         "object-store-partition-discovery-smoke".to_string(),

@@ -2078,6 +2078,25 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(validation.missing_fields, ())
         self.assertEqual(validation.invalid_fields, ())
 
+    def test_runtime_execution_field_validation_accepts_route_correctness_digest_for_pulseweave(
+        self,
+    ) -> None:
+        fields = _complete_pulseweave_runtime_fields()
+        del fields["prepared_vortex_scale_correctness_digest"]
+        fields["correctness_digest"] = "fnv1a64:route-correct"
+
+        validation = validate_runtime_execution_fields(
+            fields,
+            command="traditional-analytics-benchmark-row",
+            surface_id="pulseweave_route_correctness_digest",
+            execution_mode="prepared_vortex",
+        )
+
+        self.assertTrue(validation.passed)
+        self.assertNotIn(
+            "pulseweave_correctness_output_digest", validation.missing_fields
+        )
+
     def test_sql_local_source_report_result_rows_validate_jsonl_objects(self) -> None:
         def report_for(result_jsonl: str) -> SqlLocalSourceSmokeReport:
             envelope = OutputEnvelope.from_json(

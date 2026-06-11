@@ -112,6 +112,162 @@ fn public_route_blocks_unbounded_collect_before_execution() {
 }
 
 #[test]
+fn public_route_does_not_infer_scalar_path_literals_as_sources() {
+    let stdout = run_route(&[
+        "route",
+        "sql",
+        "--sql",
+        "SELECT 'target/input.csv' AS label LIMIT 1",
+        "--request",
+        "collect",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("route_id", "blocked")));
+    assert!(stdout.contains(&field("blocker_id", "cg21.route.input_not_declared")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_ignores_limit_inside_sql_comments() {
+    let stdout = run_route(&[
+        "route",
+        "sql",
+        "--sql",
+        "SELECT id FROM 'target/input.csv' -- LIMIT 1\nWHERE id > 0",
+        "--request",
+        "collect",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("route_id", "blocked")));
+    assert!(stdout.contains(&field("blocker_id", "cg21.route.unbounded_collect_blocked")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_blocks_unresolved_newline_from_source_without_declared_input() {
+    let stdout = run_route(&[
+        "route",
+        "sql",
+        "--sql",
+        "SELECT *\nFROM events",
+        "--request",
+        "write_vortex",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("route_id", "blocked")));
+    assert!(stdout.contains(&field("blocker_id", "cg21.route.input_not_declared")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_requires_vortex_input_for_native_vortex_policy() {
+    let stdout = run_route(&[
+        "route",
+        "cli",
+        "--input",
+        "target/input.csv",
+        "--input-format",
+        "csv",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("route_id", "blocked")));
+    assert!(stdout.contains(&field(
+        "blocker_id",
+        "cg21.route.native_vortex_input_required"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_blocks_collect_fanout_before_execution() {
+    let stdout = run_route(&[
+        "route",
+        "dataframe",
+        "--input",
+        "target/input.csv",
+        "--input-format",
+        "csv",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--fanout-output",
+        "csv=target/out.csv",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("route_id", "blocked")));
+    assert!(stdout.contains(&field("blocker_id", "cg21.route.collect_fanout_blocked")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_blocks_native_vortex_write_payloads() {
+    let stdout = run_route(&[
+        "route",
+        "cli",
+        "--input",
+        "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+        "--input-format",
+        "vortex",
+        "--request",
+        "write_jsonl",
+        "--execution-policy",
+        "native_vortex",
+        "--output",
+        "target/native-vortex-output.jsonl",
+        "--bounded",
+        "true",
+        "--vortex-primitive",
+        "project",
+        "--vortex-columns",
+        "metric",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("route_id", "blocked")));
+    assert!(stdout.contains(&field(
+        "blocker_id",
+        "cg21.route.native_vortex_output_not_admitted"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn public_run_executes_local_sql_with_attached_route_envelope() {
     let workspace = std::path::Path::new("target/public-workflow-run-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");

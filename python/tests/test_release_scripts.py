@@ -80,6 +80,31 @@ class ReleaseScriptTests(unittest.TestCase):
             f"{stage_id}:{value}" for stage_id in self._canonical_route_timing_stage_ids()
         )
 
+    def test_runtime_envelope_validator_includes_hot_runtime_non_claim_grade_rows(self) -> None:
+        module = self._load_script_module(
+            "check_runtime_execution_envelopes.py",
+            "check_runtime_execution_envelopes_hot_runtime_test",
+        )
+
+        self.assertTrue(
+            module.should_validate_benchmark_row(
+                {
+                    "engine": "shardloom-vortex",
+                    "timing_surface": "hot_runtime",
+                    "claim_gate_status": "not_claim_grade",
+                }
+            )
+        )
+        self.assertFalse(
+            module.should_validate_benchmark_row(
+                {
+                    "engine": "duckdb",
+                    "timing_surface": "hot_runtime",
+                    "claim_gate_status": "claim_grade",
+                }
+            )
+        )
+
     def _shardloom_benchmark_route_fields(
         self,
         engine: str = "shardloom-prepare-batch",
@@ -4836,6 +4861,17 @@ jobs:
         )
         self.assertIn("continue-on-error: true", release_lane.workflow_markers)
 
+    def test_release_readiness_job_runs_after_failed_dependencies(self) -> None:
+        workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        release_job = workflow.split("  release-readiness:", maxsplit=1)[1].split(
+            "  website-docs:", maxsplit=1
+        )[0]
+
+        self.assertIn("if: ${{ always() }}", release_job)
+        self.assertIn("python scripts/check_release_readiness.py", release_job)
+
     def test_release_evidence_artifact_merge_restores_repo_relative_refs(self) -> None:
         module = self._load_script_module(
             "merge_release_evidence_artifacts.py",
@@ -5832,6 +5868,38 @@ jobs:
             module.check_benchmark_timing_surface_dashboard(website, blockers)
 
         self.assertEqual(blockers, [])
+
+    def test_website_readiness_requires_starlight_field_guide_alias(self) -> None:
+        module = self._load_script_module(
+            "check_website_readiness.py", "check_website_field_guide_alias_for_test"
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            website = Path(tempdir) / "website"
+            alias = website / "field-guide.html"
+            canonical = website / "field-guide" / "index.html"
+            canonical.parent.mkdir(parents=True)
+            starlight_html = (
+                "<!doctype html><html><head><meta name=\"generator\" "
+                "content=\"Starlight v0.39.2\"></head>"
+                "<body><nav id=\"starlight__sidebar\"></nav></body></html>"
+            )
+            alias.write_text(
+                "<!doctype html><html><body>legacy atlas</body></html>",
+                encoding="utf-8",
+            )
+            canonical.write_text(starlight_html, encoding="utf-8")
+
+            blockers: list[str] = []
+            module.check_field_guide_legacy_alias(website, blockers)
+
+        self.assertEqual(
+            blockers,
+            [
+                "field-guide.html must serve the Starlight Field Guide alias",
+                "field-guide.html must match field-guide/index.html",
+            ],
+        )
 
     def test_foundry_dev_stack_starter_accepts_local_runtime_proof(self) -> None:
         module = self._load_script_module(

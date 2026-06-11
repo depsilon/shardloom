@@ -284,6 +284,7 @@ PULSEWEAVE_INTEGER_FIELDS = (
 PULSEWEAVE_CORRECTNESS_OUTPUT_FIELDS = (
     "prepared_vortex_scale_correctness_digest",
     "prepared_vortex_scale_split_operator_correctness_digest",
+    "correctness_digest",
     "computed_result_vortex_digest",
     "output_plan_digest",
     "sink_artifact_digest",

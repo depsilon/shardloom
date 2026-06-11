@@ -279,8 +279,8 @@ route timing is attribution evidence, not a 6D runtime blocker.
 
 #### 6-Series Runtime Breadth Queue
 
-The 6-series queue resumes only after the benchmark timing/performance split queue and performance
-innovation follow-up queue above are worked in order or explicitly blocked. Completed HOTPATH
+The 6-series queue is the active runtime sequence after the closed benchmark
+timing/performance split and performance innovation follow-up work above. Completed HOTPATH
 implementation, freshness, rerun, publication, and shared public workflow route facade history
 lives only in the completed ledger. This section now owns the remaining user-surface runtime breadth:
 SQL grammar,
