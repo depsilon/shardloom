@@ -16,6 +16,106 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D object-store/lakehouse production-I/O blocker closeout
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-6d-breadth-closeout` / local branch.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_runtime` object-store,
+      table/lakehouse, catalog, commit, and remote-result queue.
+    - Diagnostics/capabilities, object-store runtime, and translation-layer skills.
+  - Scope:
+    - Added direct Rust CLI `workflow-unsupported-plan` operations for production I/O requests:
+      `object-store-write`, `table-commit`, `catalog-integration`, and
+      `remote-result-delivery`.
+    - Each operation emits stable object-store diagnostics, blocker IDs, required evidence, and
+      no-runtime/no-I/O/no-fallback fields rather than requiring users or agents to infer the
+      blocker only from aggregate CG-10 or route reports.
+    - Updated workflow and cross-CG capability parity to list 73 operations, including the new
+      production-I/O blockers and their commit, catalog, remote-result, data-plane, credential, and
+      retry/recovery evidence requirements.
+    - Updated the object-store/table SQL runtime ladder evidence refs and phase/global architecture
+      docs while keeping live-provider runtime, catalog integration, table commits, and remote
+      result delivery blocked.
+  - Evidence:
+    - `cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots cross_cg_capability_parity_surfaces_shared_blocker_contracts -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_runtime_gap_family_burn_down.py --output target/runtime-gap-family-burn-down-breadth-closeout.json`
+      passed with `claim_gate_status=not_claim_grade`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-breadth-closeout.json`
+      passed with `claim_gate_status=not_claim_grade`.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s python/tests`
+      passed with 491 tests.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - Deterministic unsupported diagnostics only for production object-store/lakehouse requests.
+      This does not certify live S3/GCS/ADLS writes, table/lakehouse commits, external catalog
+      runtime, remote result delivery, generalized recovery, production ETL, benchmark evidence, or
+      performance equivalence.
+  - Fallback boundary:
+    - No credentials are probed, no object-store/catalog/table/remote-result I/O is performed, no
+      external lakehouse/catalog engine executes ShardLoom work, and no Spark, DataFusion, DuckDB,
+      Polars, Velox, Vortex query-engine integration, external engine, or fallback execution is
+      introduced.
+
+- [x] Session label: GAR-RUNTIME-IMPL-6D DataFrame callable/expression blocker closeout
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-6d-breadth-closeout` / local branch.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth` Python/DataFrame API
+      breadth queue.
+    - Follow-up to scoped DataFrame selection/dtype routes and earlier callable blockers.
+  - Scope:
+    - Added deterministic Python `LazyFrame` blockers for `pipe(...)`, `transform(...)`,
+      `applymap(...)`, and `eval(...)`, with stable target-reference normalization for callable
+      names, extra positional args, keyword args, and expression text.
+    - Added matching DataFrame method capability rows with required evidence for callable policy,
+      result-shape or element-wise type contracts, typed expression policy, semantic conformance,
+      execution certificates, and no-fallback proof.
+    - Wired the real Rust `workflow-unsupported-plan` registry and workflow/cross-CG capability
+      parity constants so the CLI, Python wrapper, static validators, and capability reports expose
+      the same blocker IDs and no-runtime/no-fallback posture.
+    - Kept broad DataFrame parity, Python callable execution, and expression-engine execution
+      blocked.
+  - Evidence:
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_missing_dataframe_affordances_return_report_only_unsupported python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+      passed.
+    - `cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots cross_cg_capability_parity_surfaces_shared_blocker_contracts -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-breadth-closeout.json`
+      passed with `method_matrix_row_count=113`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-breadth-closeout.json`
+      passed with `admitted_row_count=7` and `remaining_gap_count=4`.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest python.tests.test_sql_python_dataframe_parity.SqlPythonDataFrameParityTests.test_current_repo_parity_gate_is_honest_about_scope_and_gaps`
+      passed.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-breadth-closeout.json`
+      passed with 57 classified inventory rows and no blockers.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m compileall -q python/src python/tests scripts`
+      passed.
+    - `PYTHONPATH=python/src /Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s python/tests`
+      passed with 491 tests.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - Deterministic unsupported diagnostics only for common callable and expression-engine
+      affordances. This does not certify broad DataFrame parity, Python callable execution,
+      arbitrary expression parsing/evaluation, production DataFrame support, benchmark evidence, or
+      performance equivalence.
+  - Fallback boundary:
+    - No pandas, Polars, Spark, DataFusion, DuckDB, Velox, Vortex query-engine integration,
+      `numexpr`, Python `eval`, external expression engine, external engine execution, or fallback
+      execution is introduced.
+
 - [x] Session label: release CI Python/package tail split
   - Date: 2026-06-11
   - Branch/PR: `codex/ci-python-package-tail-split` / local branch.

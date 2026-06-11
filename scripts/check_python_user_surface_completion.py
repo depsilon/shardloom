@@ -157,8 +157,12 @@ REQUIRED_UNSUPPORTED_METHODS = [
     "reset_index",
     "sort_index",
     "apply",
+    "pipe",
+    "transform",
+    "applymap",
     "map",
     "map_rows",
+    "eval",
 ]
 
 REQUIRED_DOC_MARKERS = {
@@ -246,6 +250,10 @@ REQUIRED_TEST_MARKERS = {
         "source.nlargest(5, \"amount\")",
         "workflow.sample(n=5, seed=7)",
         "workflow.explode(\"items\")",
+        "workflow.pipe(\"workflow_udf\", \"arg1\", config=\"strict\")",
+        "workflow.transform(\"column_udf\")",
+        "workflow.applymap(\"cell_udf\")",
+        "workflow.eval(\"amount + tax\", engine=\"python\")",
     ],
     "python/tests/test_cli_client.py": [
         "test_context_session_reuses_prepared_vortex_state_when_fingerprints_match",

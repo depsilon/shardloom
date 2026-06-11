@@ -999,6 +999,11 @@ plan before coding.
   `runtime_execution=false`, `manifest_write_io=false`, `write_io=false`, `object_store_io=false`,
   `catalog_io=false`, `upstream_vortex_write_api_invoked=false`, `external_engine_invoked=false`,
   `fallback_attempted=false`, and `fallback_execution_allowed=false`.
+- [x] `GAR-RUNTIME-IMPL-6D` adds direct `workflow-unsupported-plan` diagnostics for production
+  object-store/lakehouse output and data-plane requests: `object-store-write`, `table-commit`,
+  `catalog-integration`, and `remote-result-delivery`. These expose stable blocker IDs and required
+  evidence without credential probing, catalog access, object-store I/O, table writes, remote
+  delivery, external engines, or fallback.
 
 ### RFC 0029 - Correctness, Benchmarks, Execution Certificates, and Stateful Reuse
 
@@ -1207,6 +1212,11 @@ plan before coding.
   schema-declared `astype(...)`, and `nlargest(...)` / `nsmallest(...)` lower to existing
   ShardLoom local-source routes, while duplicate-mask, conditional-replacement, and index-state
   methods fail through deterministic no-fallback diagnostics.
+- [x] `GAR-RUNTIME-IMPL-6D` also gives remaining common callable/expression affordances
+  (`pipe(...)`, `transform(...)`, `applymap(...)`, and `eval(...)`) deterministic
+  `workflow-unsupported-plan` blockers through the Python wrapper, Rust CLI unsupported-plan
+  registry, and capability parity reports. These blockers do not execute pandas, Polars, `numexpr`,
+  Python `eval`, or another hidden expression/callable engine.
 - [x] `GAR-0032-A` adds `docs/architecture/sql-parser-binder-readiness.md` and strengthens
   `workflow-unsupported-plan sql-parse|sql-bind|sql-plan|sql-execute --format json` with
   `support_status=unsupported`, `claim_gate_status=not_claim_grade`, `parser_executed=false`,
@@ -1323,6 +1333,11 @@ plan before coding.
   table/lakehouse, and production ETL certification rows while preserving
   `fallback_attempted=false`, `external_engine_invoked=false`, and
   `claim_gate_status=not_claim_grade`.
+- [x] Production object-store/lakehouse workflow requests now have first-class direct diagnostics
+  in the workflow unsupported-plan surface for remote writes, table commits, catalog integration,
+  and remote result delivery. The capability parity report lists those blockers alongside the
+  existing object-store read blocker while keeping production ETL and live-provider runtime
+  unsupported.
 - [ ] Mature DataFrame execution, SQL execution, joins, aggregations, windows, data-quality
   runtime, object-store/table runtime, publication, production ETL certification, and
   comparison-only baseline/oracle views remain incomplete.

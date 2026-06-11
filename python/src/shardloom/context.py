@@ -3144,6 +3144,61 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
     ),
     _df_method(
+        "pipe",
+        "dataframe_callable_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="pipe",
+        blocker_id="cg21.workflow.pipe.python_callable_unsupported",
+        required_evidence=(
+            "python_callable_policy",
+            "workflow_type_contract",
+            "sandbox_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Python pipe is a deterministic unsupported report until workflow-level callable "
+            "typing, sandbox, effect, and no-fallback execution evidence are certified."
+        ),
+    ),
+    _df_method(
+        "transform",
+        "dataframe_callable_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="transform",
+        blocker_id="cg21.workflow.transform.python_callable_unsupported",
+        required_evidence=(
+            "python_callable_policy",
+            "transform_result_shape_contract",
+            "sandbox_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "DataFrame transform is a deterministic unsupported report until transform result "
+            "shape, callable typing, sandbox, effect, and no-fallback execution evidence are "
+            "certified."
+        ),
+    ),
+    _df_method(
+        "applymap",
+        "dataframe_callable_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="applymap",
+        blocker_id="cg21.workflow.applymap.python_callable_unsupported",
+        required_evidence=(
+            "python_callable_policy",
+            "elementwise_type_contract",
+            "sandbox_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "DataFrame applymap is a deterministic unsupported report until element-wise callable "
+            "typing, sandbox, effect, and no-fallback execution evidence are certified."
+        ),
+    ),
+    _df_method(
         "map",
         "dataframe_callable_blocker",
         "deterministic_unsupported_diagnostic",
@@ -3177,6 +3232,26 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Row-wise Python maps are deterministic unsupported reports until row schema, "
             "callable typing, sandbox, effect, and no-fallback execution evidence are certified."
+        ),
+    ),
+    _df_method(
+        "eval",
+        "dataframe_expression_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="eval",
+        blocker_id="cg21.workflow.eval.expression_engine_unsupported",
+        required_evidence=(
+            "expression_engine_policy",
+            "typed_expression_contract",
+            "semantic_conformance_suite",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "DataFrame eval is a deterministic unsupported report until typed expression "
+            "parsing, semantic conformance, and native no-fallback execution evidence are "
+            "certified. It never routes to pandas, numexpr, Python eval, or another hidden "
+            "expression engine."
         ),
     ),
     _df_method(
