@@ -57,11 +57,22 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         release_blocker_refs=("workspace feature/build matrix",),
     ),
     CiLane(
-        lane_id="python_package_smoke",
-        job_id="python-package",
+        lane_id="python_tests",
+        job_id="python-tests",
         commands=(
             "python -m unittest discover -s python/tests",
             "python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics",
+        ),
+        artifact_refs=(
+            "target/python-test-evidence.json",
+            "python-test-evidence",
+        ),
+        release_blocker_refs=("Python tests", "Python compile check"),
+    ),
+    CiLane(
+        lane_id="python_package_smoke",
+        job_id="python-package",
+        commands=(
             "python -m build python",
             "python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda",
         ),
@@ -72,7 +83,8 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/release-provenance-dry-run",
             "release-local-smoke-evidence",
         ),
-        release_blocker_refs=("Python tests", "package/install smoke", "local provenance dry run"),
+        release_blocker_refs=("package/install smoke", "local provenance dry run"),
+        workflow_markers=("Python and package smoke",),
     ),
     CiLane(
         lane_id="dependency_security",
@@ -218,6 +230,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/release-provenance-dry-run",
             "target/debug/shardloom",
             "python/dist",
+            "target/python-test-evidence.json",
             "target/release-security-gate-report.json",
             "target/contribution-governance-report.json",
             "target/package-channel-readiness-report.json",
@@ -252,6 +265,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "needs:",
             "ci-gate-matrix",
             "dependency-security",
+            "python-tests",
             "python-package",
             "release-runtime-core",
             "release-package-governance",
@@ -261,6 +275,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "actions/download-artifact@v8",
             "dependency-security-evidence",
             "release-local-smoke-evidence",
+            "python-test-evidence",
             "target/downloads",
             "ci-gate-matrix-report",
             "release-runtime-core-evidence",
