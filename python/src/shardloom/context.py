@@ -2545,6 +2545,17 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=_LAZY_DECLARATION_BOUNDARY,
     ),
     _df_method(
+        "query",
+        "lazy_plan",
+        "lazy_plan_supported",
+        claim_boundary=(
+            "Pandas-style alias for filter(...) when no extra query engine kwargs are used. "
+            "The predicate remains a lazy ShardLoom expression until an admitted terminal route "
+            "runs; pandas expression engines, local variables, and external backends remain "
+            "outside the scoped route."
+        ),
+    ),
+    _df_method(
         "select",
         "lazy_plan",
         "lazy_plan_supported",
@@ -2640,6 +2651,46 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Alias for drop(...), preserving the same declared-schema projection rewrite and "
             "no-fallback boundary."
+        ),
+    ),
+    _df_method(
+        "astype",
+        "dataframe_transform",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
+        required_evidence=(
+            "declared_schema_projection_rewrite",
+            "cast_projection_contract",
+            "dtype_coercion_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Schema-declared local-source astype lowers to ShardLoom CAST projection rewrites "
+            "for explicit dtype maps or one dtype across the current projection. Inferred-schema, "
+            "errors='ignore', pandas extension dtypes, index-aware casts, and broad production "
+            "DataFrame dtype parity remain outside this scoped route and fail closed."
+        ),
+    ),
+    _df_method(
+        "dropna",
+        "dataframe_null_cleanup",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
+        required_evidence=(
+            "declared_schema_filter_rewrite",
+            "null_filter_semantics",
+            "projection_rewrite_semantics",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Schema-declared local-source dropna lowers to ShardLoom IS NOT NULL filters for "
+            "how='any' over an explicit subset or current declared projection. Inferred-schema, "
+            "axis/thresh/inplace, how='all', pandas result-shape, and broad production DataFrame "
+            "null-drop semantics remain outside this route and fail closed."
         ),
     ),
     _df_method(
@@ -2796,6 +2847,23 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
     ),
     _df_method(
+        "duplicated",
+        "dataframe_deduplication_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="duplicated",
+        blocker_id="cg21.workflow.duplicated.row_mask_unsupported",
+        required_evidence=(
+            "duplicate_mask_semantics",
+            "stable_row_identity_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Duplicated row masks are deterministic unsupported reports until stable row identity, "
+            "subset/keep semantics, and native boolean-mask evidence are certified."
+        ),
+    ),
+    _df_method(
         "tail",
         "dataframe_inspection_blocker",
         "deterministic_unsupported_diagnostic",
@@ -2869,6 +2937,44 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "optional IS NOT NULL filtering for dropna and rows-desc ordering. Multi-backend "
             "pandas parity, normalize/bin/axis behavior, production summary claims, and unsafe "
             "plan shapes remain outside this route and fail closed."
+        ),
+    ),
+    _df_method(
+        "nlargest",
+        "dataframe_ordering",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
+        required_evidence=(
+            "sort_operator",
+            "top_n_contract",
+            "ordering_contract",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Scoped local-source nlargest lowers to ORDER BY ... DESC LIMIT n when keep='first' "
+            "and the sort keys are admitted. keep='last'/'all', index tie semantics, and broad "
+            "pandas top-N parity remain outside this route and fail closed."
+        ),
+    ),
+    _df_method(
+        "nsmallest",
+        "dataframe_ordering",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        data_read=True,
+        required_evidence=(
+            "sort_operator",
+            "top_n_contract",
+            "ordering_contract",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Scoped local-source nsmallest lowers to ORDER BY ... ASC LIMIT n when keep='first' "
+            "and the sort keys are admitted. keep='last'/'all', index tie semantics, and broad "
+            "pandas top-N parity remain outside this route and fail closed."
         ),
     ),
     _df_method(
@@ -2983,6 +3089,40 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Alias for notna(...), preserving the same scoped IS NOT NULL projection rewrite and "
             "no-fallback boundary."
+        ),
+    ),
+    _df_method(
+        "mask",
+        "dataframe_conditional_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="mask",
+        blocker_id="cg21.workflow.mask.conditional_replace_unsupported",
+        required_evidence=(
+            "conditional_update_semantics",
+            "mask_alignment_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "DataFrame mask is a deterministic unsupported report until conditional replacement, "
+            "alignment, dtype, and native execution evidence are certified."
+        ),
+    ),
+    _df_method(
+        "replace",
+        "dataframe_conditional_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="replace",
+        blocker_id="cg21.workflow.replace.value_rewrite_unsupported",
+        required_evidence=(
+            "value_rewrite_semantics",
+            "dtype_coercion_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "DataFrame replace is a deterministic unsupported report until value matching, "
+            "dtype coercion, nested replacement, and native projection evidence are certified."
         ),
     ),
     _df_method(
@@ -3232,6 +3372,57 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         runtime_execution=True,
         data_read=True,
         claim_boundary="DataFrame-style alias for distinct(), preserving scoped row-level SELECT DISTINCT evidence and no-fallback boundaries.",
+    ),
+    _df_method(
+        "set_index",
+        "dataframe_index_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="set_index",
+        blocker_id="cg21.workflow.set_index.index_state_unsupported",
+        required_evidence=(
+            "index_state_model",
+            "ordering_contract",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "DataFrame index state is a deterministic unsupported report until ShardLoom has an "
+            "explicit index-state model distinct from encoded-columnar row order."
+        ),
+    ),
+    _df_method(
+        "reset_index",
+        "dataframe_index_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="reset_index",
+        blocker_id="cg21.workflow.reset_index.index_state_unsupported",
+        required_evidence=(
+            "index_state_model",
+            "row_number_or_index_projection_policy",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Reset-index is a deterministic unsupported report until index materialization, "
+            "row identity, and projection semantics are certified."
+        ),
+    ),
+    _df_method(
+        "sort_index",
+        "dataframe_index_blocker",
+        "deterministic_unsupported_diagnostic",
+        diagnostic_operation="sort_index",
+        blocker_id="cg21.workflow.sort_index.index_order_unsupported",
+        required_evidence=(
+            "index_state_model",
+            "ordering_contract",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Sort-index is a deterministic unsupported report until index state and ordering "
+            "semantics are certified without hidden materialization or external engines."
+        ),
     ),
     _df_method(
         "window",

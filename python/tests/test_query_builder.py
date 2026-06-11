@@ -7544,6 +7544,143 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertFalse(all_columns_notna_report.fallback_attempted)
 
+    def test_schema_declared_dataframe_query_dropna_astype_lowers_to_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,CAST(amount AS int64) AS amount,CAST(label AS utf8) AS label FROM 'target/input.csv' WHERE (amount > 0) AND (label IS NOT NULL) LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source dtype/null cleanup",
+                    "human_text": "sql local source dtype/null cleanup",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"amount\\":19,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_cast_projection_filter_limit"},
+                        {"key": "query_alias_runtime_execution", "value": "true"},
+                        {"key": "dropna_runtime_execution", "value": "true"},
+                        {"key": "astype_runtime_execution", "value": "true"},
+                        {"key": "cast_projection_runtime_execution", "value": "true"},
+                        {"key": "cast_projection_source_column", "value": "amount,label"},
+                        {"key": "cast_projection_target_dtype", "value": "int64,utf8"},
+                        {"key": "dropna_filter_columns", "value": "label"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "utf8", "label": "utf8"},
+            )
+            .query("amount > 0")
+            .dropna(subset=["label"])
+            .astype({"amount": "int64", "label": "utf8"})
+        )
+        self.assertIsInstance(workflow, LazyFrame)
+        report = workflow.collect(limit=2)
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("query_alias_runtime_execution"), "true")
+        self.assertEqual(report.envelope.field("dropna_runtime_execution"), "true")
+        self.assertEqual(report.envelope.field("astype_runtime_execution"), "true")
+        self.assertEqual(
+            report.envelope.field("cast_projection_target_dtype"),
+            "int64,utf8",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_top_n_dataframe_aliases_lower_to_sort_limit(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[:1] == ["sql-local-source-smoke"], args
+                statement = args[1]
+                assert args[2:] == ["--output-format", "inline-jsonl", "--format", "json"], args
+                if statement == "SELECT id,amount FROM 'target/input.csv' ORDER BY amount DESC LIMIT 5":
+                    fields = [
+                        {"key": "result_jsonl", "value": "{\\"id\\":9,\\"amount\\":99}\\n"},
+                        {"key": "top_n_dataframe_method", "value": "nlargest"},
+                        {"key": "sort_direction", "value": "desc"},
+                        {"key": "top_n_limit", "value": "5"},
+                    ]
+                elif statement == "SELECT id,amount FROM 'target/input.csv' ORDER BY amount ASC LIMIT 3":
+                    fields = [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"amount\\":1}\\n"},
+                        {"key": "top_n_dataframe_method", "value": "nsmallest"},
+                        {"key": "sort_direction", "value": "asc"},
+                        {"key": "top_n_limit", "value": "3"},
+                    ]
+                else:
+                    raise AssertionError(statement)
+                fields.extend([
+                    {"key": "sql_statement_kind", "value": "local_source_order_by_topn_limit"},
+                    {"key": "order_by_runtime_execution", "value": "true"},
+                    {"key": "top_n_runtime_execution", "value": "true"},
+                    {"key": "sort_keys", "value": "amount"},
+                    {"key": "fallback_attempted", "value": "false"},
+                    {"key": "external_engine_invoked", "value": "false"},
+                    {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                ])
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source top n",
+                    "human_text": "sql local source top n",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        source = ctx.read_csv("target/input.csv").select("id", "amount")
+
+        largest = source.nlargest(5, "amount")
+        self.assertIsInstance(largest, LazyFrame)
+        largest_report = largest.collect()
+        self.assertEqual(largest_report.envelope.field("top_n_dataframe_method"), "nlargest")
+        self.assertTrue(largest_report.order_by_runtime_execution)
+        self.assertTrue(largest_report.top_n_runtime_execution)
+        self.assertEqual(largest_report.sort_direction, "desc")
+
+        smallest = source.nsmallest(3, "amount")
+        self.assertIsInstance(smallest, LazyFrame)
+        smallest_report = smallest.collect()
+        self.assertEqual(smallest_report.envelope.field("top_n_dataframe_method"), "nsmallest")
+        self.assertTrue(smallest_report.order_by_runtime_execution)
+        self.assertTrue(smallest_report.top_n_runtime_execution)
+        self.assertEqual(smallest_report.sort_direction, "asc")
+
     def test_local_csv_query_builder_utf8_order_by_topn_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -14548,9 +14685,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "agg": "agg",
                     "sort": "sort",
                     "limit": "limit",
+                    "drop-duplicates": "drop_duplicates",
                     "pivot-table": "pivot_table",
                     "value-counts": "value_counts",
                     "map-rows": "map_rows",
+                    "set-index": "set_index",
+                    "reset-index": "reset_index",
+                    "sort-index": "sort_index",
                     "write-vortex": "write_vortex",
                     "write-parquet": "write_parquet",
                     "write-arrow-ipc": "write_arrow_ipc",
@@ -14594,6 +14735,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         "sql-values", "sql-literal-select",
                         "with-column", "group-by", "agg", "sort", "join",
                         "aggregate", "window", "merge", "pivot-table", "rolling",
+                        "dropna", "astype", "nlargest", "nsmallest",
+                        "duplicated", "drop-duplicates", "mask", "replace",
+                        "set-index", "reset-index", "sort-index",
                     }
                     else "SL_UNSUPPORTED_EFFECT"
                     if operation in {"quarantine", "apply", "map", "map-rows"}
@@ -14665,6 +14809,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.rename_columns([("id", "event_id")]),
             workflow.drop(columns=["unused"]),
             workflow.drop_columns("debug"),
+            workflow.dropna(subset=["label"]),
+            workflow.astype({"amount": "int64"}),
             workflow.sample(n=5, seed=7),
             workflow.explode("items"),
             workflow.merge(
@@ -14685,15 +14831,24 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.describe("amount"),
             workflow.nunique("customer_id"),
             workflow.value_counts("label"),
+            workflow.nlargest(5, "amount", keep="last"),
+            workflow.nsmallest(3, "amount", keep="all"),
+            workflow.drop_duplicates(subset=["id"]),
+            workflow.duplicated(subset=["id"]),
             workflow.fillna({"amount": 0}),
             workflow.fill_null(0),
             workflow.isna("amount"),
             workflow.isnull("amount"),
             workflow.notna("amount"),
             workflow.notnull("amount"),
+            workflow.mask("amount < 0", other=0),
+            workflow.replace("bad", "good"),
             workflow.apply("row_udf"),
             workflow.map("value_udf"),
             workflow.map_rows("row_udf"),
+            workflow.set_index("id"),
+            workflow.reset_index(),
+            workflow.sort_index(ascending=False),
             workflow.write_vortex("out.vortex", check=False),
             workflow.write_parquet("out.parquet", check=False),
             ctx.sql_parse("select * from events"),
@@ -14717,7 +14872,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 55)
+        self.assertEqual(len(reports), 66)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -14799,6 +14954,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         ]
         self.assertIn("unused", drop_targets)
         self.assertIn("debug", drop_targets)
+        self.assertEqual(
+            by_operation["dropna"].envelope.field("target_ref"),
+            "subset=label;how=any",
+        )
+        self.assertEqual(
+            by_operation["astype"].envelope.field("target_ref"),
+            "dtype={amount=int64};errors=raise",
+        )
         self.assertEqual(by_operation["sample"].envelope.field("target_ref"), "n=5,seed=7")
         self.assertEqual(by_operation["explode"].envelope.field("target_ref"), "items")
         self.assertEqual(
@@ -14846,6 +15009,26 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             by_operation["value-counts"].envelope.field("target_ref"),
             "columns=label;sort=true;dropna=true",
         )
+        self.assertEqual(
+            by_operation["nlargest"].envelope.field("target_ref"),
+            "n=5;columns=amount;keep=last",
+        )
+        self.assertEqual(
+            by_operation["nsmallest"].envelope.field("target_ref"),
+            "n=3;columns=amount;keep=all",
+        )
+        self.assertEqual(
+            by_operation["drop-duplicates"].envelope.field("workflow_operation"),
+            "drop_duplicates",
+        )
+        self.assertEqual(
+            by_operation["drop-duplicates"].envelope.field("target_ref"),
+            "subset=id;keep=first",
+        )
+        self.assertEqual(
+            by_operation["duplicated"].envelope.field("target_ref"),
+            "subset=id;keep=first",
+        )
         fillna_targets = [
             report.envelope.field("target_ref")
             for report in reports
@@ -14865,6 +15048,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             if report.operation == "notna"
         ]
         self.assertEqual(notna_targets, ["columns=amount", "columns=amount"])
+        self.assertEqual(
+            by_operation["mask"].envelope.field("target_ref"),
+            "cond=amount < 0;other=0",
+        )
+        self.assertEqual(
+            by_operation["replace"].envelope.field("target_ref"),
+            "to_replace=bad;value=good",
+        )
         self.assertEqual(by_operation["apply"].envelope.field("target_ref"), "callable=row_udf")
         self.assertEqual(by_operation["map"].envelope.field("target_ref"), "callable=value_udf")
         self.assertEqual(
@@ -14872,6 +15063,24 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "map_rows",
         )
         self.assertEqual(by_operation["map-rows"].envelope.field("target_ref"), "callable=row_udf")
+        self.assertEqual(
+            by_operation["set-index"].envelope.field("workflow_operation"),
+            "set_index",
+        )
+        self.assertEqual(by_operation["set-index"].envelope.field("target_ref"), "keys=id")
+        self.assertEqual(
+            by_operation["reset-index"].envelope.field("workflow_operation"),
+            "reset_index",
+        )
+        self.assertEqual(by_operation["reset-index"].envelope.field("target_ref"), "keys=none")
+        self.assertEqual(
+            by_operation["sort-index"].envelope.field("workflow_operation"),
+            "sort_index",
+        )
+        self.assertEqual(
+            by_operation["sort-index"].envelope.field("target_ref"),
+            "ascending=false",
+        )
         self.assertEqual(
             by_operation["write-vortex"].envelope.field("target_ref"),
             "out.vortex",

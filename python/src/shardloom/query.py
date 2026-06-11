@@ -3450,6 +3450,20 @@ class LazyFrame:
 
         return self.filter(predicate)
 
+    def query(
+        self,
+        expr: object,
+        *,
+        check: bool = False,
+        **kwargs: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped pandas-style query predicate when admitted."""
+
+        target_ref = _normalize_query_target(expr, kwargs)
+        if not kwargs:
+            return self.filter(expr)
+        return self._unsupported_operation("query", target_ref, check=check)
+
     def having(
         self,
         predicate: object,
@@ -3523,6 +3537,42 @@ class LazyFrame:
         """Alias for `drop(...)` using explicit column-transform naming."""
 
         return self.drop(*columns, check=check)
+
+    def dropna(
+        self,
+        *,
+        subset: object | None = None,
+        how: str = "any",
+        check: bool = False,
+        **kwargs: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped schema-declared non-null filter when admitted."""
+
+        target_ref = _normalize_dropna_target(subset=subset, how=how, kwargs=kwargs)
+        predicate = self._schema_declared_dropna_predicate(subset, how=how, kwargs=kwargs)
+        if predicate is not None:
+            return self._with_combined_filter_condition(predicate)
+        return self._unsupported_operation("dropna", target_ref, check=check)
+
+    def astype(
+        self,
+        dtype: object,
+        *,
+        errors: str = "raise",
+        check: bool = False,
+        **kwargs: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped schema-declared cast projection when admitted."""
+
+        target_ref = _normalize_astype_target(dtype=dtype, errors=errors, kwargs=kwargs)
+        projection = self._schema_declared_astype_projection(
+            dtype,
+            errors=errors,
+            kwargs=kwargs,
+        )
+        if projection is not None:
+            return self._with_rewritten_projection(projection)
+        return self._unsupported_operation("astype", target_ref, check=check)
 
     def sample(
         self,
@@ -3693,6 +3743,19 @@ class LazyFrame:
         )
         return self._unsupported_operation("rolling", target_ref, check=check)
 
+    def duplicated(
+        self,
+        subset: object | None = None,
+        *,
+        keep: str | bool = "first",
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for row-duplicate mask semantics."""
+
+        target_ref = _normalize_duplicated_target(subset=subset, keep=keep, kwargs=kwargs)
+        return self._unsupported_operation("duplicated", target_ref, check=check)
+
     def tail(
         self,
         limit: int = 20,
@@ -3769,6 +3832,72 @@ class LazyFrame:
                 return grouped.sort("rows", descending=True) if sort else grouped
         return self._unsupported_operation("value-counts", target_ref, check=check)
 
+    def nlargest(
+        self,
+        n: int,
+        columns: object,
+        *,
+        keep: str = "first",
+        check: bool = False,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped descending top-N workflow when admitted."""
+
+        return self._top_n_by_columns(
+            "nlargest",
+            n,
+            columns,
+            descending=True,
+            keep=keep,
+            check=check,
+        )
+
+    def nsmallest(
+        self,
+        n: int,
+        columns: object,
+        *,
+        keep: str = "first",
+        check: bool = False,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped ascending top-N workflow when admitted."""
+
+        return self._top_n_by_columns(
+            "nsmallest",
+            n,
+            columns,
+            descending=False,
+            keep=keep,
+            check=check,
+        )
+
+    def _top_n_by_columns(
+        self,
+        operation: str,
+        n: int,
+        columns: object,
+        *,
+        descending: bool,
+        keep: str,
+        check: bool,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        normalized_n = _normalize_top_n_count(operation, n)
+        normalized_columns = _normalize_columns((columns,))
+        normalized_keep = _normalize_top_n_keep(operation, keep)
+        target_ref = _normalize_top_n_target(
+            n=normalized_n,
+            columns=normalized_columns,
+            keep=normalized_keep,
+        )
+        if normalized_keep == "first" and self._can_append_sort(normalized_columns):
+            sorted_frame = self._append(
+                WorkflowOperation(
+                    "sort",
+                    ("desc" if descending else "asc", *normalized_columns),
+                )
+            )
+            return sorted_frame.limit(normalized_n)
+        return self._unsupported_operation(operation, target_ref, check=check)
+
     def fillna(
         self,
         value: object | None = None,
@@ -3835,6 +3964,36 @@ class LazyFrame:
         """Alias for `notna(...)` using pandas-style naming."""
 
         return self.notna(*columns, check=check)
+
+    def mask(
+        self,
+        cond: object,
+        other: object | None = None,
+        *,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for conditional replacement semantics."""
+
+        target_ref = _normalize_mask_target(cond=cond, other=other, kwargs=kwargs)
+        return self._unsupported_operation("mask", target_ref, check=check)
+
+    def replace(
+        self,
+        to_replace: object | None = None,
+        value: object | None = None,
+        *,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for broad value replacement semantics."""
+
+        target_ref = _normalize_replace_target(
+            to_replace=to_replace,
+            value=value,
+            kwargs=kwargs,
+        )
+        return self._unsupported_operation("replace", target_ref, check=check)
 
     def apply(
         self,
@@ -3957,15 +4116,64 @@ class LazyFrame:
 
         return self.except_rows(other, check=check)
 
-    def drop_duplicates(self) -> "LazyFrame":
-        """Alias for `distinct()` using familiar DataFrame naming."""
+    def drop_duplicates(
+        self,
+        subset: object | None = None,
+        *,
+        keep: str | bool = "first",
+        check: bool = False,
+        **kwargs: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Alias for row-level `distinct()` when pandas subset/keep semantics are absent."""
 
-        return self.distinct()
+        if subset is None and keep == "first" and not kwargs:
+            return self.distinct()
+        target_ref = _normalize_duplicated_target(
+            subset=subset,
+            keep=keep,
+            kwargs=kwargs,
+        )
+        return self._unsupported_operation("drop-duplicates", target_ref, check=check)
 
     def unique(self) -> "LazyFrame":
         """Alias for `distinct()` using familiar DataFrame naming."""
 
         return self.distinct()
+
+    def set_index(
+        self,
+        keys: object,
+        *,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for DataFrame index-state semantics."""
+
+        target_ref = _normalize_index_target("set_index", keys=keys, kwargs=kwargs)
+        return self._unsupported_operation("set-index", target_ref, check=check)
+
+    def reset_index(
+        self,
+        *,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for DataFrame index reset semantics."""
+
+        target_ref = _normalize_index_target("reset_index", keys=None, kwargs=kwargs)
+        return self._unsupported_operation("reset-index", target_ref, check=check)
+
+    def sort_index(
+        self,
+        *,
+        ascending: bool = True,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for DataFrame index ordering semantics."""
+
+        target_ref = _normalize_sort_index_target(ascending=ascending, kwargs=kwargs)
+        return self._unsupported_operation("sort-index", target_ref, check=check)
 
     def with_column(
         self,
@@ -5569,6 +5777,61 @@ class LazyFrame:
             )
         null_operator = "IS NOT NULL" if is_not else "IS NULL"
         return tuple(f"{column} {null_operator} AS {column}" for column in target_columns)
+
+    def _schema_declared_dropna_predicate(
+        self,
+        subset: object | None,
+        *,
+        how: str,
+        kwargs: Mapping[str, object],
+    ) -> str | None:
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None or kwargs:
+            return None
+        normalized_how = _normalize_dropna_how(how)
+        if normalized_how != "any":
+            return None
+        target_columns = (
+            _normalize_columns((subset,)) if subset is not None else projection_columns
+        )
+        if any(not _is_sql_identifier(column) for column in target_columns):
+            return None
+        missing = tuple(column for column in target_columns if column not in projection_columns)
+        if missing:
+            raise ValueError(
+                "dropna referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        return " AND ".join(f"{column} IS NOT NULL" for column in target_columns)
+
+    def _schema_declared_astype_projection(
+        self,
+        dtype: object,
+        *,
+        errors: str,
+        kwargs: Mapping[str, object],
+    ) -> tuple[str, ...] | None:
+        projection_columns = self._schema_declared_projection_columns()
+        if projection_columns is None or kwargs:
+            return None
+        normalized_errors = _normalize_astype_errors(errors)
+        if normalized_errors != "raise":
+            return None
+        dtype_map = _normalize_astype_dtype_map(dtype, projection_columns)
+        if dtype_map is None:
+            return None
+        missing = tuple(column for column in dtype_map if column not in projection_columns)
+        if missing:
+            raise ValueError(
+                "astype referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        return tuple(
+            f"CAST({column} AS {dtype_map[column]}) AS {column}"
+            if column in dtype_map
+            else column
+            for column in projection_columns
+        )
 
     def _bounded_schema_report(self, *, check: bool) -> WorkflowSchemaReport | None:
         statement = self._sql_local_source_statement(default_limit=100)
@@ -7849,6 +8112,166 @@ def _normalize_fillna_target(
 
 def _normalize_null_mask_target(columns: Sequence[object]) -> str:
     return f"columns={_optional_columns_for_target(columns or None)}"
+
+
+def _normalize_query_target(expr: object, kwargs: Mapping[str, object]) -> str:
+    parts = [f"expr={_require_non_empty('query expression', expr)}"]
+    parts.extend(_normalize_extra_kwargs("query", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_dropna_how(value: str) -> str:
+    normalized = _require_non_empty("dropna how", value).lower().replace("_", "-")
+    if normalized not in {"any", "all"}:
+        raise ValueError("dropna how must be 'any' or 'all'")
+    return normalized
+
+
+def _normalize_dropna_target(
+    *,
+    subset: object | None,
+    how: str,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [
+        f"subset={_optional_columns_for_target(subset)}",
+        f"how={_normalize_dropna_how(how)}",
+    ]
+    parts.extend(_normalize_extra_kwargs("dropna", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_astype_errors(value: str) -> str:
+    normalized = _require_non_empty("astype errors", value).lower().replace("_", "-")
+    if normalized not in {"raise", "ignore"}:
+        raise ValueError("astype errors must be 'raise' or 'ignore'")
+    return normalized
+
+
+def _normalize_astype_dtype_map(
+    dtype: object,
+    projection_columns: tuple[str, ...],
+) -> dict[str, str] | None:
+    if isinstance(dtype, Mapping):
+        if not dtype:
+            return None
+        dtype_map: dict[str, str] = {}
+        for raw_column, raw_dtype in dtype.items():
+            column = _require_non_empty("astype column", raw_column)
+            if not _is_sql_identifier(column):
+                raise ValueError("astype column names admit only bare SQL identifiers")
+            dtype_map[column] = _normalize_cast_dtype(raw_dtype)
+        return dtype_map
+    normalized_dtype = _normalize_cast_dtype(dtype)
+    return {column: normalized_dtype for column in projection_columns}
+
+
+def _normalize_astype_target(
+    *,
+    dtype: object,
+    errors: str,
+    kwargs: Mapping[str, object],
+) -> str:
+    if isinstance(dtype, Mapping):
+        dtype_ref = "{" + ",".join(
+            f"{_require_non_empty('astype column', column)}={_normalize_cast_dtype(raw_dtype)}"
+            for column, raw_dtype in sorted(dtype.items(), key=lambda item: str(item[0]))
+        ) + "}"
+    else:
+        dtype_ref = _normalize_cast_dtype(dtype)
+    parts = [f"dtype={dtype_ref}", f"errors={_normalize_astype_errors(errors)}"]
+    parts.extend(_normalize_extra_kwargs("astype", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_top_n_count(operation: str, value: object) -> int:
+    _validate_positive_row_count(f"{operation} n", value)
+    return int(value)
+
+
+def _normalize_top_n_keep(operation: str, value: str) -> str:
+    normalized = _require_non_empty(f"{operation} keep", value).lower().replace("_", "-")
+    if normalized not in {"first", "last", "all"}:
+        raise ValueError(f"{operation} keep must be 'first', 'last', or 'all'")
+    return normalized
+
+
+def _normalize_top_n_target(
+    *,
+    n: int,
+    columns: tuple[str, ...],
+    keep: str,
+) -> str:
+    return f"n={n};columns={','.join(columns)};keep={keep}"
+
+
+def _normalize_duplicated_target(
+    *,
+    subset: object | None,
+    keep: str | bool,
+    kwargs: Mapping[str, object],
+) -> str:
+    if keep is False:
+        normalized_keep = "false"
+    else:
+        normalized_keep = _require_non_empty("duplicate keep", keep).lower().replace("_", "-")
+        if normalized_keep not in {"first", "last"}:
+            raise ValueError("duplicate keep must be 'first', 'last', or False")
+    parts = [
+        f"subset={_optional_columns_for_target(subset)}",
+        f"keep={normalized_keep}",
+    ]
+    parts.extend(_normalize_extra_kwargs("duplicated", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_mask_target(
+    *,
+    cond: object,
+    other: object | None,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [
+        f"cond={_require_non_empty('mask condition', cond)}",
+        f"other={_stable_target_value(other)}",
+    ]
+    parts.extend(_normalize_extra_kwargs("mask", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_replace_target(
+    *,
+    to_replace: object | None,
+    value: object | None,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [
+        f"to_replace={_stable_target_value(to_replace)}",
+        f"value={_stable_target_value(value)}",
+    ]
+    parts.extend(_normalize_extra_kwargs("replace", kwargs))
+    return ";".join(parts)
+
+
+def _normalize_index_target(
+    context: str,
+    *,
+    keys: object | None,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [f"keys={_optional_columns_for_target(keys)}"]
+    parts.extend(_normalize_extra_kwargs(context, kwargs))
+    return ";".join(parts)
+
+
+def _normalize_sort_index_target(
+    *,
+    ascending: bool,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [f"ascending={str(bool(ascending)).lower()}"]
+    parts.extend(_normalize_extra_kwargs("sort_index", kwargs))
+    return ";".join(parts)
 
 
 def _sql_fillna_literal(value: object) -> str | None:

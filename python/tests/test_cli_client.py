@@ -5796,6 +5796,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(dataframe_methods.scope, "dataframe")
         self.assertIn("filter", dataframe_methods.plan_only_methods)
         self.assertIn("where", dataframe_methods.plan_only_methods)
+        self.assertIn("query", dataframe_methods.plan_only_methods)
         self.assertIn("select", dataframe_methods.plan_only_methods)
         self.assertIn("project", dataframe_methods.plan_only_methods)
         self.assertNotIn("join", dataframe_methods.unsupported_methods)
@@ -5821,6 +5822,8 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertNotIn("rename_columns", dataframe_methods.unsupported_methods)
         self.assertNotIn("drop", dataframe_methods.unsupported_methods)
         self.assertNotIn("drop_columns", dataframe_methods.unsupported_methods)
+        self.assertNotIn("astype", dataframe_methods.unsupported_methods)
+        self.assertNotIn("dropna", dataframe_methods.unsupported_methods)
         self.assertIn("sample", dataframe_methods.unsupported_methods)
         self.assertIn("explode", dataframe_methods.unsupported_methods)
         self.assertNotIn("merge", dataframe_methods.unsupported_methods)
@@ -5831,12 +5834,20 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn("rolling", dataframe_methods.unsupported_methods)
         self.assertNotIn("nunique", dataframe_methods.unsupported_methods)
         self.assertNotIn("value_counts", dataframe_methods.unsupported_methods)
+        self.assertNotIn("nlargest", dataframe_methods.unsupported_methods)
+        self.assertNotIn("nsmallest", dataframe_methods.unsupported_methods)
         self.assertNotIn("fillna", dataframe_methods.unsupported_methods)
         self.assertNotIn("fill_null", dataframe_methods.unsupported_methods)
         self.assertNotIn("isna", dataframe_methods.unsupported_methods)
         self.assertNotIn("isnull", dataframe_methods.unsupported_methods)
         self.assertNotIn("notna", dataframe_methods.unsupported_methods)
         self.assertNotIn("notnull", dataframe_methods.unsupported_methods)
+        self.assertIn("duplicated", dataframe_methods.unsupported_methods)
+        self.assertIn("mask", dataframe_methods.unsupported_methods)
+        self.assertIn("replace", dataframe_methods.unsupported_methods)
+        self.assertIn("set_index", dataframe_methods.unsupported_methods)
+        self.assertIn("reset_index", dataframe_methods.unsupported_methods)
+        self.assertIn("sort_index", dataframe_methods.unsupported_methods)
         self.assertEqual(
             dataframe_methods.row("read_vortex").support_status,
             "source_declaration_supported",
@@ -5990,6 +6001,22 @@ class ShardLoomClientTests(unittest.TestCase):
             "fixture_smoke_supported",
         )
         self.assertEqual(
+            dataframe_methods.row("astype").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertIn(
+            "cast_projection_contract",
+            dataframe_methods.row("astype").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("dropna").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertIn(
+            "null_filter_semantics",
+            dataframe_methods.row("dropna").required_evidence,
+        )
+        self.assertEqual(
             dataframe_methods.row("value_counts").support_status,
             "fixture_smoke_supported",
         )
@@ -6013,6 +6040,22 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(dataframe_methods.row("nunique").data_read)
         self.assertIsNone(dataframe_methods.row("nunique").diagnostic_operation)
         self.assertIsNone(dataframe_methods.row("nunique").blocker_id)
+        self.assertEqual(
+            dataframe_methods.row("nlargest").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertIn(
+            "top_n_contract",
+            dataframe_methods.row("nlargest").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("nsmallest").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertIn(
+            "top_n_contract",
+            dataframe_methods.row("nsmallest").required_evidence,
+        )
         self.assertIn(
             "distinct_count_semantics",
             dataframe_methods.row("nunique").required_evidence,
@@ -6152,6 +6195,34 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn(
             "window_frame_semantics",
             dataframe_methods.row("rolling").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("duplicated").blocker_id,
+            "cg21.workflow.duplicated.row_mask_unsupported",
+        )
+        self.assertIn(
+            "duplicate_mask_semantics",
+            dataframe_methods.row("duplicated").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("mask").blocker_id,
+            "cg21.workflow.mask.conditional_replace_unsupported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("replace").blocker_id,
+            "cg21.workflow.replace.value_rewrite_unsupported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("set_index").blocker_id,
+            "cg21.workflow.set_index.index_state_unsupported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("reset_index").blocker_id,
+            "cg21.workflow.reset_index.index_state_unsupported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("sort_index").blocker_id,
+            "cg21.workflow.sort_index.index_order_unsupported",
         )
         self.assertEqual(
             dataframe_methods.row("window").support_status,

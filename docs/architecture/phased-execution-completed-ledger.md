@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped DataFrame selection/dtype breadth slice
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-6d-dataframe-breadth-selection-dtype` / local branch.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.python_dataframe_api_breadth` Python/DataFrame API
+      breadth queue.
+    - Follow-up to prior scoped DataFrame alias, transform, combine, summary, null, and
+      unsupported-affordance slices.
+  - Scope:
+    - Added scoped pandas-style `LazyFrame.query(...)`, schema-declared `dropna(how="any")`,
+      schema-declared `astype(...)`, and `nlargest(...)` / `nsmallest(...)` routes over existing
+      ShardLoom local-source SQL runtime lowering.
+    - Added deterministic no-fallback blockers for `duplicated(...)`, pandas subset/keep variants
+      of `drop_duplicates(...)`, `mask(...)`, `replace(...)`, `set_index(...)`, `reset_index(...)`,
+      and `sort_index(...)`.
+    - Updated the DataFrame method capability matrix, Python user-surface completion validator,
+      SQL/Python/DataFrame parity validator markers, user-surface runtime gap inventory, focused
+      Python tests, phase plan, front-door parity doc, and global architecture review.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/query.py python/src/shardloom/context.py python/tests/test_query_builder.py python/tests/test_cli_client.py scripts/check_python_user_surface_completion.py scripts/check_sql_python_dataframe_parity.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_schema_declared_dataframe_query_dropna_astype_lowers_to_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_top_n_dataframe_aliases_lower_to_sort_limit python.tests.test_query_builder.LazyWorkflowBuilderTests.test_missing_dataframe_affordances_return_report_only_unsupported` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-dataframe-breadth.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-dataframe-breadth.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-dataframe-breadth.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-dataframe-breadth.json` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder` passed with
+      219 tests.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client` passed with
+      151 tests.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_sql_python_dataframe_parity`
+      passed with 2 tests.
+    - `PYTHONPATH=python/src python3 -m compileall -q python/src python/tests scripts examples`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 489 tests and
+      2 expected skips.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_compute_engine_completion_gate.py --output target/compute-engine-completion-gate-dataframe-breadth.json` failed closed with `status=blocked` for broad completion blockers outside this slice: 31 unchecked phase-plan rows, 38 unchecked global review rows, and published benchmark residual blockers. It retained `fallback_attempted=false`, `external_engine_invoked=false`, and `completion_claim_allowed=false`.
+  - Claim boundary:
+    - This closes scoped DataFrame selection/dtype convenience routes only where they lower to
+      existing admitted local-source runtime: `query(...)` predicate aliasing, schema-declared
+      `dropna(how="any")`, schema-declared `astype(...)`, and `nlargest(...)` / `nsmallest(...)`
+      with `keep="first"`. It does not claim broad pandas parity, index-state semantics,
+      duplicate-mask materialization, conditional replacement, production DataFrame runtime,
+      performance equivalence, package readiness, Spark replacement, or object-store/table
+      DataFrame execution.
+  - Fallback boundary:
+    - Positive routes remain Python front-door lowering into ShardLoom local-source SQL runtime.
+      Non-admitted pandas-style shapes return `workflow-unsupported-plan` diagnostics with
+      `fallback_attempted=false` and `external_engine_invoked=false`; no pandas, Polars, DuckDB,
+      DataFusion, Spark, Velox, external engine, or Vortex query-engine integration is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary cast source-backed expression runtime slice
   - Date: 2026-06-11
   - Branch/PR: `codex/compute-engine-6d-binary-preservation-closeout` / local branch.

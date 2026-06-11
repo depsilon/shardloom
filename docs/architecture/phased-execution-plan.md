@@ -435,6 +435,11 @@ Each item below uses the same sub-checklist shape:
     - [x] Scoped one-column `nunique(..., dropna=True)` lowers to the admitted
       `count(DISTINCT column)` aggregate route, while broad pandas result-shape parity remains
       gated.
+    - [x] Scoped pandas-style selection/dtype affordances now have a deterministic boundary:
+      `query(...)` aliases the admitted ShardLoom predicate path, schema-declared
+      `dropna(how="any")` lowers to `IS NOT NULL` filters, schema-declared `astype(...)` lowers
+      to `CAST` projection rewrites, and `nlargest(...)` / `nsmallest(...)` lower to
+      `ORDER BY ... LIMIT` when `keep="first"` and the sort keys are admitted.
     - [x] Schema-declared local-source `fillna(...)` / `fill_null(...)` lower to admitted
       ShardLoom `COALESCE` projection rewrites for scalar or per-column literal fills.
     - [x] Schema-declared local-source `isna(...)` / `isnull(...)` and `notna(...)` /
@@ -445,6 +450,11 @@ Each item below uses the same sub-checklist shape:
       and `map_rows(...)` route through `workflow-unsupported-plan` with stable source-order,
       summary-statistics, and Python-callable blocker IDs instead of missing Python attributes or
       hidden pandas/Polars execution.
+    - [x] Common DataFrame duplicate-mask, conditional-replacement, and index-state affordances
+      now exist as deterministic no-fallback blockers: `duplicated(...)`, subset/keep variants of
+      `drop_duplicates(...)`, `mask(...)`, `replace(...)`, `set_index(...)`, `reset_index(...)`,
+      and `sort_index(...)` route through `workflow-unsupported-plan` with stable duplicate-mask,
+      conditional-rewrite, and index-state blocker IDs instead of hidden pandas/Polars execution.
     - [ ] Remaining: broad DataFrame parity remains gated.
   - Runtime enablement: Python/DataFrame-style API call -> shared public route facade ->
     deterministic ShardLoom query lowering -> admitted runtime route or explicit unsupported
