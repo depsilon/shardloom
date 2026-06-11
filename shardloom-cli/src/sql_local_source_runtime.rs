@@ -38188,9 +38188,8 @@ fn parse_csv_scalar(raw: &str) -> ScalarValue {
         ScalarValue::Boolean(false)
     } else if let Ok(parsed) = value.parse::<i64>() {
         ScalarValue::Int64(parsed)
-    } else if csv_scalar_looks_like_decimal_exponent(value) {
-        csv_decimal_exponent_integer(value)
-            .map_or_else(|| ScalarValue::Utf8(raw.to_string()), ScalarValue::Int64)
+    } else if let Some(parsed) = csv_decimal_exponent_integer(value) {
+        ScalarValue::Int64(parsed)
     } else if let Ok(parsed) = value.parse::<f64>() {
         if parsed.is_finite() {
             ScalarValue::Float64(parsed)
@@ -38199,31 +38198,6 @@ fn parse_csv_scalar(raw: &str) -> ScalarValue {
         }
     } else {
         ScalarValue::Utf8(raw.to_string())
-    }
-}
-
-fn csv_scalar_looks_like_decimal_exponent(raw: &str) -> bool {
-    let body = raw
-        .trim()
-        .strip_prefix(['+', '-'])
-        .unwrap_or_else(|| raw.trim());
-    let parts = body.split(['e', 'E']).collect::<Vec<_>>();
-    let [mantissa, exponent] = parts.as_slice() else {
-        return false;
-    };
-    let exponent = exponent.strip_prefix(['+', '-']).unwrap_or(exponent);
-    if mantissa.is_empty() || exponent.is_empty() || !exponent.chars().all(|ch| ch.is_ascii_digit())
-    {
-        return false;
-    }
-    match mantissa.split('.').collect::<Vec<_>>().as_slice() {
-        [integer] => !integer.is_empty() && integer.chars().all(|ch| ch.is_ascii_digit()),
-        [integer, fraction] => {
-            (!integer.is_empty() || !fraction.is_empty())
-                && integer.chars().all(|ch| ch.is_ascii_digit())
-                && fraction.chars().all(|ch| ch.is_ascii_digit())
-        }
-        _ => false,
     }
 }
 
@@ -43104,6 +43078,22 @@ mod tests {
         assert_field_eq(&fields, "external_engine_invoked", "false");
 
         fs::remove_file(&path).expect("remove decimal exponent precision source");
+    }
+
+    #[test]
+    fn csv_scalar_inexact_exponent_decimals_fall_through_to_float_parser() {
+        match parse_csv_scalar("1e-1") {
+            ScalarValue::Float64(value) => assert!((value - 0.1).abs() < f64::EPSILON),
+            other => panic!("expected 1e-1 to parse as Float64, got {other:?}"),
+        }
+        match parse_csv_scalar("1.5e0") {
+            ScalarValue::Float64(value) => assert!((value - 1.5).abs() < f64::EPSILON),
+            other => panic!("expected 1.5e0 to parse as Float64, got {other:?}"),
+        }
+        match parse_csv_scalar("2e0") {
+            ScalarValue::Int64(value) => assert_eq!(value, 2),
+            other => panic!("expected exact exponent integer to parse as Int64, got {other:?}"),
+        }
     }
 
     #[test]

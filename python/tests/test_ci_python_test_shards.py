@@ -21,6 +21,24 @@ def load_script(script_name: str, module_name: str) -> object:
 
 
 class PythonTestShardTests(unittest.TestCase):
+    def test_discovery_matches_unittest_default_test_star_pattern(self) -> None:
+        runner = load_script(
+            "run_python_test_shard.py",
+            "run_python_test_shard_pattern_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            test_root = root / "python" / "tests"
+            test_root.mkdir(parents=True)
+            (test_root / "testfoo.py").write_text("", encoding="utf-8")
+            (test_root / "test_bar.py").write_text("", encoding="utf-8")
+            (test_root / "helper_test.py").write_text("", encoding="utf-8")
+
+            discovered = runner.discover_test_modules(root)
+
+        self.assertEqual(discovered, ["test_bar", "testfoo"])
+
     def test_shards_cover_discovered_modules_exactly_once(self) -> None:
         runner = load_script(
             "run_python_test_shard.py",

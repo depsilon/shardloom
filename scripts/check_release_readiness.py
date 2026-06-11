@@ -217,7 +217,7 @@ def validation_command_passed(command_status: dict[Any, Any], expected: str) -> 
     if expected == "python scripts/release_dry_run_proof.py --rows 64 --iterations 1":
         return any(
             isinstance(command, str)
-            and command.startswith(expected)
+            and (command == expected or command.startswith(expected + " "))
             and status == "passed"
             for command, status in command_status.items()
         )
