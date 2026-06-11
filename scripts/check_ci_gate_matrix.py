@@ -57,17 +57,43 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         release_blocker_refs=("workspace feature/build matrix",),
     ),
     CiLane(
+        lane_id="python_test_shards",
+        job_id="python-test-shards",
+        commands=(
+            "python scripts/run_python_test_shard.py --shard ${{ matrix.shard }}",
+        ),
+        artifact_refs=(
+            "target/python-test-shards/${{ matrix.shard }}.json",
+            "python-test-shard-${{ matrix.shard }}",
+        ),
+        release_blocker_refs=("Python test shards",),
+        workflow_markers=(
+            "core",
+            "front_door_benchmark_publication",
+            "release_scripts",
+            "fail-fast: false",
+        ),
+    ),
+    CiLane(
         lane_id="python_tests",
         job_id="python-tests",
         commands=(
-            "python -m unittest discover -s python/tests",
             "python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics",
+            "python scripts/merge_python_test_shard_evidence.py",
         ),
         artifact_refs=(
+            "python-test-shard-*",
             "target/python-test-evidence.json",
             "python-test-evidence",
         ),
         release_blocker_refs=("Python tests", "Python compile check"),
+        workflow_markers=(
+            "needs:",
+            "python-test-shards",
+            "if: always()",
+            "actions/download-artifact@v8",
+            "merge-multiple: true",
+        ),
     ),
     CiLane(
         lane_id="python_package_smoke",

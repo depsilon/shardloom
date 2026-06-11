@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: release CI Python shard tail split
+  - Date: 2026-06-11
+  - Branch/PR: `codex/ci-hard-gate-tail-optimization` / local branch.
+  - Source:
+    - Follow-up to the active release/benchmark CI-tail optimization request.
+    - `docs/release/ci-gate-matrix.md` and `scripts/check_ci_gate_matrix.py`.
+    - Prior timing evidence showing the `Python tests` lane was dominated by
+      `python.tests.test_release_scripts` and
+      `python.tests.test_front_door_benchmark_publication`.
+  - Scope:
+    - Split Python unit discovery into three independent shards: `core`,
+      `front_door_benchmark_publication`, and `release_scripts`.
+    - Kept the branch-protection-compatible `Python tests` aggregate check name while moving slow
+      module execution into `python-test-shards`.
+    - Kept the aggregate `Python tests` job on `if: always()` so failed or missing shard artifacts
+      report through the stable aggregate check instead of disappearing behind a skipped dependent
+      job.
+    - Added shard evidence generation and merge scripts that prove discovered
+      `python/tests/test_*.py` modules are covered exactly once before emitting the stable
+      `target/python-test-evidence.json` release artifact.
+    - Updated the CI gate matrix contract, release gate documentation, and pre-5J dependency
+      freshness marker count for the intentionally added `actions/download-artifact@v8` use.
+  - Evidence:
+    - `python3 -m py_compile scripts/check_pre_5j_dependency_freshness.py scripts/run_python_test_shard.py scripts/merge_python_test_shard_evidence.py python/tests/test_ci_python_test_shards.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_ci_python_test_shards`
+      passed with 4 tests.
+    - `python3 scripts/run_python_test_shard.py --shard core` passed with 400 tests.
+    - `python3 scripts/run_python_test_shard.py --shard front_door_benchmark_publication` passed
+      with 2 tests.
+    - `python3 scripts/run_python_test_shard.py --shard release_scripts` passed with 104 tests,
+      2 skipped.
+    - `python3 scripts/merge_python_test_shard_evidence.py` passed with
+      `coverage_equivalent_to_discover=true`, 13 modules, 506 tests, no blockers,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+      passed.
+    - `python3 scripts/check_ci_gate_matrix.py --output target/ci-gate-matrix-report.json`
+      passed with 13 lanes and no blockers.
+    - `python3 scripts/check_pre_5j_dependency_freshness.py --output target/pre-5j-dependency-freshness-gate.json`
+      passed.
+    - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "workflow yaml parsed"'`
+      passed.
+    - `cargo fmt --all -- --check` and `git diff --check` passed.
+  - Claim boundary:
+    - This improves CI scheduling and evidence reuse for the Python hard gate only. It does not
+      reduce required Python coverage, publish a package, mark package channels ready, make a
+      benchmark or runtime performance claim, or authorize public release.
+  - Fallback boundary:
+    - The change affects CI orchestration, Python test evidence, and release documentation only.
+      It does not alter ShardLoom execution semantics and introduces no Spark, DataFusion, DuckDB,
+      Polars, Velox, Vortex query-engine integration, external engine execution, or fallback
+      execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6A gate-surface correction and RELEASE-SEQUENCE-14
       maintainer handoff
   - Date: 2026-06-11

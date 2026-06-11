@@ -67,44 +67,52 @@ jobs:
       - name: Run feature lane
         run: ${{ matrix.command }}
 
-  python-tests:
-    name: Python tests
+  python-test-shards:
+    name: Python test shard (${{ matrix.shard }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - core
+          - front_door_benchmark_publication
+          - release_scripts
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - name: Python tests
-        run: python -m unittest discover -s python/tests
+      - name: Python test shard
+        run: python scripts/run_python_test_shard.py --shard ${{ matrix.shard }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: python-test-shard-${{ matrix.shard }}
+          path: target/python-test-shards/${{ matrix.shard }}.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  python-tests:
+    name: Python tests
+    runs-on: ubuntu-latest
+    needs:
+      - python-test-shards
+    if: always()
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Reuse Python test shard evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: python-test-shard-*
+          path: target/python-test-shards
+          merge-multiple: true
       - name: Python compile check
         run: python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics
-      - name: Record Python test evidence
-        run: |
-          mkdir -p target
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          Path("target/python-test-evidence.json").write_text(
-              json.dumps(
-                  {
-                      "schema_version": "shardloom.python_test_evidence.v1",
-                      "status": "passed",
-                      "commands": [
-                          "python -m unittest discover -s python/tests",
-                          "python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics",
-                      ],
-                      "fallback_attempted": False,
-                      "external_engine_invoked": False,
-                  },
-                  indent=2,
-                  sort_keys=True,
-              )
-              + "\n",
-              encoding="utf-8",
-          )
-          PY
+      - name: Merge Python test shard evidence
+        run: python scripts/merge_python_test_shard_evidence.py
       - uses: actions/upload-artifact@v7
         if: always()
         with:
