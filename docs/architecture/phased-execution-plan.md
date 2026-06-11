@@ -350,6 +350,13 @@ Each item below uses the same sub-checklist shape:
       `WITH` / `WITH RECURSIVE` statements fail before bind/plan/runtime with `cte_plan_nodes`,
       catalog-scope, recursive-policy, execution-certificate, and no-fallback evidence
       requirements.
+    - [x] Scoped local-source `IS DISTINCT FROM` and `IS NOT DISTINCT FROM` predicates and
+      predicate projections now lower to ShardLoom-owned null/comparison/logical predicate runtime
+      for column-literal, date/timestamp/binary literal, NULL literal, and column-column operands,
+      with decoded matrix evidence and Python query-builder helpers.
+    - [x] Scoped local-source `ORDER BY <column> [ASC|DESC] NULLS FIRST|LAST LIMIT <n>` now admits
+      explicit null sort-key precedence through the local top-N runtime, while implicit null sort
+      ordering remains a deterministic blocker.
     - [ ] Remaining: ORC nested output, ORC typed decimal sinks, broad ANSI
       decimal coercion beyond exact exponent normalization, broader binary execution/preservation
       beyond scoped source projection/predicate/order plus explicit casts/helpers over the admitted
@@ -445,6 +452,12 @@ Each item below uses the same sub-checklist shape:
     - [x] Schema-declared local-source `isna(...)` / `isnull(...)` and `notna(...)` /
       `notnull(...)` lower to admitted ShardLoom `IS NULL` / `IS NOT NULL` boolean projection
       rewrites over explicit or declared columns.
+    - [x] Python query-builder column expressions expose `is_distinct_from(...)` and
+      `is_not_distinct_from(...)` for the admitted SQL null-safe comparison grammar, including
+      `None` -> `NULL` rendering without using hidden pandas/Polars semantics.
+    - [x] Python local-source `sort(...)` / `order_by(...)` / `sort_by(...)` /
+      `sort_values(...)` expose scoped `nulls="first"|"last"` lowering to explicit SQL `NULLS`
+      top-N ordering when the sort keys are otherwise admitted.
     - [x] Common DataFrame inspection, summary, and Python-callable affordances now exist as
       deterministic no-fallback blockers: `tail(...)`, `describe(...)`, `apply(...)`, `map(...)`,
       and `map_rows(...)` route through `workflow-unsupported-plan` with stable source-order,

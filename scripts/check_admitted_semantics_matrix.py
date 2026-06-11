@@ -4390,6 +4390,67 @@ def executable_cases() -> list[SqlFixtureCase]:
             },
         ),
         SqlFixtureCase(
+            case_id="null_safe_comparison_predicate_semantics",
+            source_name="null-safe-comparison.csv",
+            source_text=(
+                "id,label,peer\n"
+                "1,alpha,alpha\n"
+                "2,alpha,beta\n"
+                "3,,beta\n"
+                "4,beta,\n"
+                "5,,\n"
+            ),
+            statement_template=(
+                "SELECT id,label IS NOT DISTINCT FROM peer AS same_null_safe "
+                "FROM '{source}' WHERE label IS DISTINCT FROM peer LIMIT 10"
+            ),
+            expected_jsonl=(
+                '{"id":2,"same_null_safe":false}\n'
+                '{"id":3,"same_null_safe":false}\n'
+                '{"id":4,"same_null_safe":false}\n'
+            ),
+            expected_fields={
+                "predicate_operator_family": "logical_predicate",
+                "logical_predicate_runtime_execution": "true",
+                "null_predicate_runtime_execution": "true",
+                "predicate_projection_runtime_execution": "true",
+                "predicate_projection_predicate_family": "logical_predicate",
+                "projected_columns": "id,same_null_safe",
+                "claim_gate_status": "fixture_smoke_only",
+            },
+        ),
+        SqlFixtureCase(
+            case_id="order_by_explicit_null_ordering",
+            source_name="order-by-null-ordering.csv",
+            source_text=(
+                "id,label,amount\n"
+                "1,missing_a,\n"
+                "2,beta,10\n"
+                "3,gamma,7\n"
+                "4,missing_b,\n"
+                "5,delta,12\n"
+            ),
+            statement_template=(
+                "SELECT id,label FROM '{source}' ORDER BY amount ASC NULLS FIRST LIMIT 4"
+            ),
+            expected_jsonl=(
+                '{"id":1,"label":"missing_a"}\n'
+                '{"id":4,"label":"missing_b"}\n'
+                '{"id":3,"label":"gamma"}\n'
+                '{"id":2,"label":"beta"}\n'
+            ),
+            expected_fields={
+                "order_by_runtime_execution": "true",
+                "top_n_runtime_execution": "true",
+                "sort_operator_family": "single_key_scalar_topn",
+                "sort_keys": "amount",
+                "sort_direction": "asc",
+                "sort_null_ordering": "nulls_first",
+                "top_n_limit": "4",
+                "claim_gate_status": "fixture_smoke_only",
+            },
+        ),
+        SqlFixtureCase(
             case_id="subquery_predicate_projection_semantics",
             source_name="subquery-predicate-projection-source.csv",
             source_text=(

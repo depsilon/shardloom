@@ -661,6 +661,17 @@ plan before coding.
   unsupported NULL-bearing Vortex output batches still block before writer conversion, and broader
   binary sinks, broader binary execution beyond admitted helper/cast/source routes, and non-binary
   source columns compared directly to binary literals remain deterministic blockers.
+- [x] GAR-RUNTIME-IMPL-6D also admits scoped local-source SQL `IS DISTINCT FROM` and
+  `IS NOT DISTINCT FROM` predicate and predicate-projection grammar for column-literal,
+  date/timestamp/binary literal, NULL literal, and column-column operands by lowering to existing
+  ShardLoom-owned null/comparison/logical predicate primitives. Python query-builder helpers render
+  the same grammar for admitted filter and predicate-projection use. Broad ANSI null-safe
+  comparison parity remains outside the claim boundary.
+- [x] GAR-RUNTIME-IMPL-6D also admits scoped local-source SQL explicit null top-N ordering through
+  `ORDER BY <column> [ASC|DESC] NULLS FIRST|LAST LIMIT <n>` over already-admitted scalar sort keys.
+  The runtime keeps null precedence independent from sort direction, Python local-source sort
+  aliases expose `nulls="first"|"last"`, and implicit null ordering remains blocked until a broader
+  SQL sort semantics slice is admitted.
 - [x] GAR-RUNTIME-IMPL-4D-F1 advanced scalar closeout adds executed conformance fixtures and
   admitted-matrix rows for decimal precision/scale casts, fixed-offset timestamp normalization,
   timezone database blockers, interval arithmetic outside scoped temporal helpers, and
