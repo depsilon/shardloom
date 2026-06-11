@@ -340,6 +340,8 @@ jobs:
         run: python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git
       - name: Front-door benchmark publication gate
         run: python scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git
+      - name: Benchmark optimization targets
+        run: python scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -349,6 +351,7 @@ jobs:
             target/benchmark-artifact-completeness-report.json
             target/benchmark-publication-claim-gate-report.json
             target/front-door-benchmark-publication-gate.json
+            target/benchmark-optimization-targets-report.json
           if-no-files-found: ignore
           retention-days: 14
 
@@ -461,6 +464,7 @@ jobs:
           test -f target/benchmark-artifact-completeness-report.json
           test -f target/benchmark-publication-claim-gate-report.json
           test -f target/front-door-benchmark-publication-gate.json
+          test -f target/benchmark-optimization-targets-report.json
           test -f target/public-status-docs-report.json
           test -f target/website-readiness-report.json
       - name: Final release rehearsal
@@ -501,6 +505,7 @@ jobs:
             target/benchmark-artifact-completeness-report.json
             target/benchmark-publication-claim-gate-report.json
             target/front-door-benchmark-publication-gate.json
+            target/benchmark-optimization-targets-report.json
             target/ci-gate-matrix-report.json
             target/python-test-evidence.json
             target/hard-release-readiness-gate.json

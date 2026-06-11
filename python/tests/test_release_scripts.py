@@ -4179,10 +4179,146 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertTrue(
             packet["next_implementation_slice"].startswith(
-                "`REPO-WIDE-AUDIT-3`"
+                "`REPO-WIDE-AUDIT-3B`"
             )
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
+
+    def _optimization_target_rows(self) -> list[dict[str, object]]:
+        base = {
+            "status": "success",
+            "claim_gate_status": "not_claim_grade",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "actual_evidence_tier": "metadata_sink",
+            "timing_surface": "hot_runtime",
+            "route_lane_id": "cold_certified_route",
+            "hot_route_total_ms": 10.0,
+            "query_runtime_millis": 8.0,
+            "source_read_ms": 1.0,
+            "source_parse_or_columnar_decode_ms": 2.0,
+            "vortex_write_ms": 3.0,
+            "prepared_state_lookup_or_create_ms": None,
+            "operator_compute_ms": 0.5,
+            "materialized_temporary_operators": "none",
+            "operator_temporary_materialization_used": False,
+        }
+        rows = [
+            {
+                **base,
+                "engine": "shardloom",
+                "storage_format": "jsonl",
+                "scenario_name": "nested JSON field scan",
+                "hot_route_total_ms": 110.0,
+                "source_parse_or_columnar_decode_ms": 80.0,
+            },
+            {
+                **base,
+                "engine": "shardloom",
+                "storage_format": "avro",
+                "scenario_name": "high-cardinality string group/distinct",
+                "hot_route_total_ms": 130.0,
+                "source_parse_or_columnar_decode_ms": 70.0,
+            },
+            {
+                **base,
+                "engine": "shardloom-prepare-batch",
+                "storage_format": "jsonl",
+                "scenario_name": "prepare once",
+                "route_lane_id": "prepare_once_first_query",
+                "hot_route_total_ms": 90.0,
+                "prepared_state_lookup_or_create_ms": 50.0,
+            },
+            {
+                **base,
+                "engine": "shardloom",
+                "storage_format": "csv",
+                "scenario_name": "group by aggregation",
+                "hot_route_total_ms": 60.0,
+                "operator_compute_ms": 12.0,
+                "materialized_temporary_operators": "operator-blocker://csv/group_by",
+                "operator_temporary_materialization_used": True,
+            },
+            {
+                **base,
+                "engine": "shardloom",
+                "storage_format": "csv",
+                "scenario_name": "publication proof row",
+                "timing_surface": "publication_proof",
+                "actual_evidence_tier": "publication_full",
+            },
+        ]
+        return rows
+
+    def test_benchmark_optimization_targets_extracts_current_hot_targets(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_optimization_targets.py",
+            "check_benchmark_optimization_targets_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            artifact = Path(tempdir) / "benchmark-results.json"
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "shardloom.website.benchmark_evidence.v1",
+                        "benchmark_profile": "fixture",
+                        "published_benchmark_rows": self._optimization_target_rows(),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            report = module.build_report(artifact, top_n=2)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertFalse(report["performance_claim_allowed"])
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+        self.assertTrue(report["next_implementation_slice"].startswith("REPO-WIDE-AUDIT-3B"))
+        target_ids = {target["target_id"] for target in report["targets"]}
+        self.assertEqual(
+            target_ids,
+            {
+                "jsonl_parse_decode_hot_runtime",
+                "avro_hot_runtime_outliers",
+                "prepared_state_lookup_or_create",
+                "vortex_write_and_reopen_verify",
+                "source_read_scout_timing",
+                "operator_materialization",
+            },
+        )
+        by_target = {target["target_id"]: target for target in report["targets"]}
+        self.assertEqual(
+            by_target["operator_materialization"]["top_rows"][0]["scenario_name"],
+            "group by aggregation",
+        )
+
+    def test_benchmark_optimization_targets_fail_closed_on_fallback_row(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_optimization_targets.py",
+            "check_benchmark_optimization_targets_fallback_for_test",
+        )
+
+        rows = self._optimization_target_rows()
+        rows[0]["fallback_attempted"] = True
+        with tempfile.TemporaryDirectory() as tempdir:
+            artifact = Path(tempdir) / "benchmark-results.json"
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "shardloom.website.benchmark_evidence.v1",
+                        "benchmark_profile": "fixture",
+                        "published_benchmark_rows": rows,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            report = module.build_report(artifact)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any("fallback_attempted=false" in blocker for blocker in report["blockers"])
+        )
 
     def test_benchmark_publish_doctor_fails_closed_on_missing_route_fields(self) -> None:
         module = self._load_script_module(

@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REPO-WIDE-AUDIT-3A release helpers and benchmark optimization target evidence
+  - Date: 2026-06-11
+  - Branch/PR: `codex/repo-wide-audit-code-runtime` / local branch.
+  - Source:
+    - `docs/architecture/repo-wide-audit.md` section `Shardloom Code`, especially findings `SC-2`
+      and `SC-3`.
+    - Active phase-plan item `REPO-WIDE-AUDIT-3`.
+  - Scope:
+    - Added `scripts/release_report_utils.py` as a shared helper for JSON/text report I/O,
+      repo-relative path resolution, fail-closed public claim fields, and marker validation.
+    - Refactored public-status and CI matrix validators to use the shared helper without weakening
+      their fail-closed release/public-claim behavior.
+    - Added `scripts/check_benchmark_optimization_targets.py` to extract diagnostic-only hot
+      runtime optimization targets from the promoted benchmark artifact without running
+      benchmarks, importing external engines, mutating rows, or making a performance claim.
+    - Wired the optimization-target report into the `release-benchmark-claim` CI lane,
+      release-readiness artifact verification, and CI gate matrix documentation.
+    - Advanced the phase plan to `REPO-WIDE-AUDIT-3B`, which owns actual hot-runtime code
+      optimization implementation from the target report.
+  - Local evidence:
+    - `python3 scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json --output target/benchmark-optimization-targets-report.json`
+      passed with six evidence-backed targets and 600 ShardLoom hot-runtime rows.
+    - Focused Python unit tests for `check_benchmark_optimization_targets.py` passed.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json`
+      passed.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`
+      passed.
+    - `python3 scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git`
+      passed.
+    - `python3 -m py_compile scripts/release_report_utils.py scripts/check_benchmark_optimization_targets.py scripts/check_public_status_docs.py scripts/check_ci_gate_matrix.py python/tests/test_release_scripts.py`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/run_python_test_shard.py --shard release_scripts`
+      passed with 116 tests and 2 skipped tests.
+    - `python3 scripts/check_public_status_docs.py --output target/public-status-docs-report.json`
+      passed.
+    - `python3 scripts/check_ci_gate_matrix.py --output target/ci-gate-matrix-report.json` passed.
+  - Claim boundary:
+    - This is diagnostic and release-evidence plumbing only. It does not approve package
+      publication, production support, public benchmark freshness, performance superiority, Spark
+      displacement, tags, signing, package uploads, or release assets.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution was introduced. The optimization target report fails closed
+      if ShardLoom rows do not preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: REPO-WIDE-AUDIT-2 architecture/docs coherence and public claim-boundary cleanup
   - Date: 2026-06-11
   - Branch/PR: `codex/repo-wide-audit-docs-cleanup` / local branch.

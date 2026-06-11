@@ -9,8 +9,8 @@ Scope: tracked repository files from `git ls-files`, recorded by
 file is assigned to exactly one requested audit section, with `review_state=reviewed` and
 `skipped_tracked_files=0`.
 
-Checked-in coverage after the `REPO-WIDE-AUDIT-2` refresh: 994 tracked files, 994 reviewed,
-0 skipped. Section counts: 272 `Architecture/Documentation`, 402 `Shardloom Code`, and
+Checked-in coverage after the `REPO-WIDE-AUDIT-3A` refresh: 996 tracked files, 996 reviewed,
+0 skipped. Section counts: 272 `Architecture/Documentation`, 404 `Shardloom Code`, and
 320 `Website`.
 
 Claim boundary: this audit organizes follow-up work only. It does not claim production readiness,
@@ -107,10 +107,12 @@ Findings:
 
 Immediate cleanup candidates:
 
-- Add utility-level helpers for repeated release-script report loading and path redaction after a
-  focused inventory of duplicated helpers.
+- Started in `REPO-WIDE-AUDIT-3A`: add utility-level helpers for repeated release-script report
+  loading and path redaction after a focused inventory of duplicated helpers.
 - Add a timing-surface regression check that fails if `publication_full` rows drive the default hot
   runtime route grid.
+- Completed in `REPO-WIDE-AUDIT-3A`: add a diagnostic benchmark optimization target report so
+  current hot-runtime evidence drives the next code batch.
 - Add a benchmark artifact size/duplication report so static benchmark evidence cost is visible in
   CI and website work.
 
