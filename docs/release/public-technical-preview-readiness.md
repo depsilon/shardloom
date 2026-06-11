@@ -2,13 +2,15 @@
 
 # Public Technical-Preview Readiness
 
-Status: final public technical-preview readiness pass.
+Status: historical public technical-preview readiness pass.
 
 Date: 2026-05-15.
 
-This pass checks whether the repository and website are safe to share publicly as a pre-release
-technical preview. It does not authorize package publication, release tags, production support,
-performance claims, platform claims, external execution, or fallback execution.
+This pass checked whether the repository and website were safe to share publicly as a pre-release
+technical preview on the date above. Current public posture is owned by
+`docs/release/public-status-matrix.md`. This file does not authorize package publication, release
+tags, production support, performance claims, platform claims, external execution, or fallback
+execution.
 
 ## Result
 
@@ -109,7 +111,7 @@ cargo test --workspace --all-targets
 git diff --check
 ```
 
-## Current Validation Result
+## Historical validation snapshot
 
 Validated on 2026-05-15:
 

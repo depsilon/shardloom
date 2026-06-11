@@ -10,6 +10,9 @@ environment, runs smoke checks, writes scoped generated-source local outputs,
 runs a tiny compatibility/prepared-Vortex benchmark smoke under an isolated
 per-run benchmark directory, and records the evidence transcript.
 
+Public status is owned by `docs/release/public-status-matrix.md`. This walkthrough is local
+technical-preview evidence only.
+
 ```powershell
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 ```

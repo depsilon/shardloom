@@ -5,6 +5,9 @@
 ShardLoom is pre-release. Use source checkout workflows until release artifacts
 are explicitly published.
 
+Public status is owned by `docs/release/public-status-matrix.md`. This page is an install path
+guide, not a package-publication, production, benchmark, or Spark-displacement claim.
+
 ## From Source
 
 ```powershell

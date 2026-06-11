@@ -179,29 +179,7 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-1. [ ] `REPO-WIDE-AUDIT-2` - architecture/documentation coherence and claim-boundary cleanup.
-   - Source: `docs/architecture/repo-wide-audit.md` section `Architecture/Documentation`.
-   - Next slice outcome: implement the highest-confidence docs cleanup batch after manual review of
-     findings `AD-1` through `AD-6`, starting with canonical public status wording, compute-flow
-     consolidation, and active/ledger queue hygiene.
-   - Implementation scope:
-     - Consolidate README/getting-started/Python README/public-status wording around release and
-       user-surface evidence rather than repeated maturity claims.
-     - Fold durable compute-flow review decisions into
-       `docs/architecture/compute-engine-flow-reference.md` and mark or remove superseded review
-       material.
-     - Keep `docs/architecture/phased-execution-plan.md` compact and move completed narrative to
-       `docs/architecture/phased-execution-completed-ledger.md`.
-   - Verification:
-     - `python3 scripts/check_repo_wide_audit.py`
-     - `python3 scripts/check_release_architecture_tracker.py --allow-blocked`
-     - `python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete`
-     - README/getting-started snippet smoke if snippets change.
-     - `git diff --check`
-   - Claim boundary: documentation cleanup does not authorize package publication, production,
-     performance superiority, Spark displacement, or release claims.
-
-2. [ ] `REPO-WIDE-AUDIT-3` - Shardloom code/runtime modularization, correctness, and
+1. [ ] `REPO-WIDE-AUDIT-3` - Shardloom code/runtime modularization, correctness, and
    benchmark-driven optimization planning.
    - Source: `docs/architecture/repo-wide-audit.md` section `Shardloom Code`.
    - Next slice outcome: implement a cohesive code-audit batch selected from findings `SC-1`
@@ -224,7 +202,7 @@ Current autonomous execution order:
    - Claim boundary: optimization and modularization work must keep timing surface, evidence tier,
      and claim gate fields explicit. No performance claim is allowed without a refreshed artifact.
 
-3. [ ] `REPO-WIDE-AUDIT-4` - website/public benchmark surface cleanup and data ownership.
+2. [ ] `REPO-WIDE-AUDIT-4` - website/public benchmark surface cleanup and data ownership.
    - Source: `docs/architecture/repo-wide-audit.md` section `Website`.
    - Next slice outcome: implement a cohesive website cleanup/overhaul batch selected from findings
      `WB-1` through `WB-6`, prioritizing benchmark timing-surface clarity, static data ownership,
@@ -243,17 +221,21 @@ Current autonomous execution order:
    - Claim boundary: website cleanup must not imply production readiness, package publication,
      benchmark superiority, Spark displacement, or unsupported timing-surface substitution.
 
-Plan state after repo-wide audit body promotion:
+Plan state after REPO-WIDE-AUDIT-2 docs cleanup:
 
 - The `SECURITY-DEEP-SCAN-R3-FOLLOWUP` item completed in PR #1167 and its detailed session record
   lives in `docs/architecture/phased-execution-completed-ledger.md`.
 - `REPO-WIDE-AUDIT-1` produced `docs/architecture/repo-wide-audit.md`,
   `docs/architecture/repo-wide-audit-inventory.json`, and `scripts/check_repo_wide_audit.py`.
-  The audit body records 992 tracked files, zero skipped files, and exactly three requested
+  The audit body records 994 tracked files after the `REPO-WIDE-AUDIT-2` refresh, zero skipped
+  files, and exactly three requested
   sections: `Architecture/Documentation`, `Shardloom Code`, and `Website`.
-- `REPO-WIDE-AUDIT-2` through `REPO-WIDE-AUDIT-4` are now the active follow-up batches. They remain
-  ordered for manual review: architecture/docs coherence first, Shardloom code/runtime next, and
-  website/public benchmark surface last.
+- `REPO-WIDE-AUDIT-2` completed the first Architecture/Documentation cleanup batch: public status
+  wording now routes through `docs/release/public-status-matrix.md`, compute-flow vocabulary is
+  owned by `docs/architecture/compute-engine-flow-reference.md`, the overhaul review is historical,
+  and CI validates those public-status doc anchors.
+- `REPO-WIDE-AUDIT-3` and `REPO-WIDE-AUDIT-4` are now the active follow-up batches. They remain
+  ordered for manual review: Shardloom code/runtime next, then website/public benchmark surface.
 - Completed runtime and release details live in
   `docs/architecture/phased-execution-completed-ledger.md`; keep this file as the compact planned
   queue.
@@ -272,9 +254,9 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| Active | `REPO-WIDE-AUDIT-2` | Architecture/documentation coherence and claim-boundary cleanup. |
 | Active | `REPO-WIDE-AUDIT-3` | Shardloom code/runtime modularization, correctness, and benchmark-driven optimization planning. |
 | Active | `REPO-WIDE-AUDIT-4` | Website/public benchmark surface cleanup and data ownership. |
+| Closed | `REPO-WIDE-AUDIT-2` | Architecture/documentation coherence and claim-boundary cleanup. |
 | Closed | `GAR-RUNTIME-IMPL-4/6A` | Residual completion gate closes with global-review rows mapped to claim-boundary evidence. |
 | Closed | `RELEASE-SEQUENCE-1` through `RELEASE-SEQUENCE-14` | Local proof, package-channel posture, final rehearsal, and maintainer handoff are complete for the no-publication scope. |
 | Deferred approval/artifact gate | Public release/package and current benchmark publication | Requires maintainer approval, channel-specific install/upload evidence, and a clean-source benchmark refresh before any public claim. |
@@ -291,10 +273,10 @@ Runtime and release queue status:
   completed ledger and generated status artifacts.
 - Production usability closeout anchor: completed benchmark/profile, sub-evidence, user-surface,
   and package-readiness proof detail lives in the completed ledger.
-- Deferred Non-Runtime Closeout Queue: `REPO-WIDE-AUDIT-2` through `REPO-WIDE-AUDIT-4` are the
-  active audit follow-up implementation batches. Completed non-runtime history lives in the
-  completed ledger; any additional work discovered by manual review must be promoted here as a
-  concrete unchecked item before editing behavior.
+- Deferred Non-Runtime Closeout Queue: `REPO-WIDE-AUDIT-3` and `REPO-WIDE-AUDIT-4` are the active
+  audit follow-up implementation batches. Completed non-runtime history lives in the completed
+  ledger; any additional work discovered by manual review must be promoted here as a concrete
+  unchecked item before editing behavior.
 - Final Pre-Release Sequential Closeout Queue: closed as no-publication evidence. Publication,
   signing, tags, uploads, package-channel submission, release assets, and public claims still require
   explicit maintainer approval and passing hard gates.

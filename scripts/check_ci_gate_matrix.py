@@ -266,6 +266,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/admitted-semantics-matrix",
             "target/release-architecture-tracker-report.json",
             "target/final-release-rehearsal",
+            "target/public-status-docs-report.json",
             "target/website-readiness-report.json",
             "target/production-usability-gate.json",
             "target/python-user-surface-completion-gate.json",
@@ -320,11 +321,19 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         commands=(
             "npm run build",
             "npm run check",
+            "python scripts/check_public_status_docs.py",
             "python scripts/check_website_readiness.py",
             "node website/validate_static_assets.js",
         ),
-        artifact_refs=("target/website-readiness-report.json",),
-        release_blocker_refs=("website build", "docs/status generated assets"),
+        artifact_refs=(
+            "target/public-status-docs-report.json",
+            "target/website-readiness-report.json",
+        ),
+        release_blocker_refs=(
+            "website build",
+            "public status docs",
+            "docs/status generated assets",
+        ),
         no_fallback_required=False,
     ),
     CiLane(

@@ -1,13 +1,17 @@
 # Compute Engine Flow Repo Alignment Review
 
-Status: P7.5 flow alignment review, completed for the current scoped release branch.
+Status: historical alignment review.
 
 ## Purpose
 
-This review compares `docs/architecture/compute-engine-flow-reference.md` against the current
-ShardLoom repository. It records where the flow is represented, where it remains scoped to
+This review compared `docs/architecture/compute-engine-flow-reference.md` against the then-current
+ShardLoom repository. It records where the flow was represented, where it remained scoped to
 benchmark-local or report-only surfaces, and how the P7.5 overhaul steps closed the original
-alignment gaps for the current release branch.
+alignment gaps for that release branch.
+
+This file is historical only. Current compute-flow vocabulary lives in
+`docs/architecture/compute-engine-flow-reference.md`; active implementation and cleanup routing
+lives in `docs/architecture/phased-execution-plan.md`.
 
 This document does not authorize new runtime behavior, package publication, external engine
 fallback, public performance claims, or managed-platform benchmark lanes.
@@ -557,7 +561,7 @@ Acceptance:
 - Prepared/native query timing remains separate from format-preparation timing.
 - The report states that Vortex is the native execution format.
 
-## Current Next Move
+## Historical Next Move At Completion
 
 P7.5.1 through P7.5.9 are complete for the scoped local traditional analytics and Vortex workflow
 surfaces. The remaining work is not another flow-alignment category; it is future product breadth:
