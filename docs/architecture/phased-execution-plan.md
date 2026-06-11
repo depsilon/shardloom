@@ -468,6 +468,11 @@ Each item below uses the same sub-checklist shape:
       and `map_rows(...)` route through `workflow-unsupported-plan` with stable source-order,
       summary-statistics, and Python-callable blocker IDs instead of missing Python attributes or
       hidden pandas/Polars execution.
+    - [x] Remaining common callable and expression-engine affordances now exist as deterministic
+      no-fallback blockers: `pipe(...)`, `transform(...)`, `applymap(...)`, and `eval(...)` route
+      through Python wrappers, the Rust `workflow-unsupported-plan` registry, and capability
+      discovery with stable callable or expression-engine blocker IDs instead of missing Python
+      attributes, pandas/Polars execution, `numexpr`, or Python `eval`.
     - [x] Common DataFrame duplicate-mask, conditional-replacement, and index-state affordances
       now exist as deterministic no-fallback blockers: `duplicated(...)`, subset/keep variants of
       `drop_duplicates(...)`, `mask(...)`, `replace(...)`, `set_index(...)`, `reset_index(...)`,
@@ -529,6 +534,11 @@ Each item below uses the same sub-checklist shape:
     - [x] The CG-10 object-store runtime gate exposes the scoped local-emulator partition discovery
       and write recovery evidence while keeping deterministic no-IO blockers for live-provider
       partition discovery, catalog integration, and remote result delivery.
+    - [x] Production object-store/lakehouse requests now have direct deterministic
+      `workflow-unsupported-plan` diagnostics for `object-store-write`, `table-commit`,
+      `catalog-integration`, and `remote-result-delivery`, with capability parity rows exposing
+      stable blocker IDs and required evidence while preserving no credential probes, no I/O, no
+      fallback, and no external engine invocation.
     - [ ] Remaining: live providers remain gated.
     - [ ] Remaining: production table-format/object-store commits, generalized recovery across live
       providers, live-provider partition discovery, catalog integration, and remote result delivery
@@ -913,8 +923,9 @@ validators, docs/website parity, and a completed-ledger entry.
     `target/compute-engine-completion-gate.json`.
   - Current state: completed benchmark/profile, sub-evidence, user-surface, and UDF/extension
     freshness passes are recorded in the completed ledger. The live backstop state is still blocked:
-    the release architecture tracker currently reports 38 unchecked global architecture review
-    items and 10 unchecked phase-plan runtime items before whole-engine completion can be claimed.
+    the refreshed completion gate reports 38 unchecked global architecture review items and 31
+    unchecked phase-plan rows before whole-engine completion can be claimed: 17 runtime/backstop
+    rows plus 14 release-sequence proof rows.
   - Next slice outcome: close or split the 38 global architecture review items into runtime-ready
     evidence slices, and graduate the user-surface matrix so every report-only/feature-gated
     surface has a deliberate high-level, low-level, diagnostic, or blocked posture.

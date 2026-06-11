@@ -14949,7 +14949,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         "set-index", "reset-index", "sort-index",
                     }
                     else "SL_UNSUPPORTED_EFFECT"
-                    if operation in {"quarantine", "apply", "map", "map-rows"}
+                    if operation in {
+                        "quarantine", "apply", "pipe", "transform", "applymap",
+                        "map", "map-rows", "eval",
+                    }
                     else "SL_MATERIALIZATION_REQUIRED"
                     if materialization_required
                     else "SL_NOT_IMPLEMENTED"
@@ -15053,8 +15056,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.mask("amount < 0", other=0),
             workflow.replace("bad", "good"),
             workflow.apply("row_udf"),
+            workflow.pipe("workflow_udf", "arg1", config="strict"),
+            workflow.transform("column_udf"),
+            workflow.applymap("cell_udf"),
             workflow.map("value_udf"),
             workflow.map_rows("row_udf"),
+            workflow.eval("amount + tax", engine="python"),
             workflow.set_index("id"),
             workflow.reset_index(),
             workflow.sort_index(ascending=False),
@@ -15081,7 +15088,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 66)
+        self.assertEqual(len(reports), 70)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -15173,6 +15180,22 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertEqual(by_operation["sample"].envelope.field("target_ref"), "n=5,seed=7")
         self.assertEqual(by_operation["explode"].envelope.field("target_ref"), "items")
+        self.assertEqual(
+            by_operation["pipe"].envelope.field("target_ref"),
+            "callable=workflow_udf;arg_count=1;config=strict",
+        )
+        self.assertEqual(
+            by_operation["transform"].envelope.field("target_ref"),
+            "callable=column_udf",
+        )
+        self.assertEqual(
+            by_operation["applymap"].envelope.field("target_ref"),
+            "callable=cell_udf",
+        )
+        self.assertEqual(
+            by_operation["eval"].envelope.field("target_ref"),
+            "expr=amount + tax;engine=python",
+        )
         self.assertEqual(
             by_operation["merge"].envelope.field("target_ref"),
             "how=left;on=implicit_common_columns;read_csv(other.csv)",

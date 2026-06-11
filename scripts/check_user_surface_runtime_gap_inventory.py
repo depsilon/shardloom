@@ -112,6 +112,9 @@ DATAFRAME_METHOD_FRONT_DOOR_GAPS = (
     "reset_index",
     "sort_index",
     "apply",
+    "pipe",
+    "transform",
+    "applymap",
     "map",
     "map_rows",
 )
@@ -130,12 +133,27 @@ DATAFRAME_METHOD_FRONT_DOOR_ROUTE = {
     "owner": "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
 }
 
+DATAFRAME_METHOD_EXPRESSION_ROUTE = {
+    "classification": "true_runtime_expansion_item",
+    "vortex_normalization_point": "dataframe_expression_to_vortex_plan_pending",
+    "runtime_route": (
+        "Python LazyFrame expression front door exists as a deterministic fail-closed "
+        "diagnostic; admitted native expression parsing and execution remain pending"
+    ),
+    "output_or_evidence_route": (
+        "workflow-unsupported-plan diagnostic until typed expression semantics, native "
+        "execution, and no-fallback evidence land"
+    ),
+    "owner": "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
+}
+
 DATAFRAME_METHOD_GAP_ROUTES: dict[str, dict[str, str]] = {
     method: DATAFRAME_METHOD_FRONT_DOOR_ROUTE
     for method in DATAFRAME_METHOD_FRONT_DOOR_GAPS
 }
 DATAFRAME_METHOD_GAP_ROUTES.update(
     {
+        "eval": DATAFRAME_METHOD_EXPRESSION_ROUTE,
         "schema_contract": {
             "classification": "true_runtime_expansion_item",
             "vortex_normalization_point": (

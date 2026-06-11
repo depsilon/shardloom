@@ -4044,6 +4044,57 @@ class LazyFrame:
         )
         return self._unsupported_operation("apply", target_ref, check=check)
 
+    def pipe(
+        self,
+        function: object,
+        *args: object,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for Python callable workflow piping."""
+
+        target_ref = _normalize_callable_transform_target(
+            "pipe",
+            function,
+            args,
+            kwargs,
+        )
+        return self._unsupported_operation("pipe", target_ref, check=check)
+
+    def transform(
+        self,
+        function: object,
+        *args: object,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for pandas-style transform callables."""
+
+        target_ref = _normalize_callable_transform_target(
+            "transform",
+            function,
+            args,
+            kwargs,
+        )
+        return self._unsupported_operation("transform", target_ref, check=check)
+
+    def applymap(
+        self,
+        function: object,
+        *args: object,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for element-wise DataFrame callables."""
+
+        target_ref = _normalize_callable_transform_target(
+            "applymap",
+            function,
+            args,
+            kwargs,
+        )
+        return self._unsupported_operation("applymap", target_ref, check=check)
+
     def map(
         self,
         function: object,
@@ -4072,6 +4123,18 @@ class LazyFrame:
             kwargs,
         )
         return self._unsupported_operation("map-rows", target_ref, check=check)
+
+    def eval(
+        self,
+        expr: object,
+        *,
+        check: bool = False,
+        **kwargs: object,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return a deterministic blocker for pandas expression-engine evaluation."""
+
+        target_ref = _normalize_eval_target(expr, kwargs)
+        return self._unsupported_operation("eval", target_ref, check=check)
 
     def distinct(self) -> "LazyFrame":
         """Return a lazy plan with row-level duplicate removal."""
@@ -8353,6 +8416,15 @@ def _normalize_callable_transform_target(
     if args:
         parts.append(f"arg_count={len(args)}")
     parts.extend(_normalize_extra_kwargs(context, kwargs))
+    return ";".join(parts)
+
+
+def _normalize_eval_target(
+    expr: object,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [f"expr={_require_non_empty('eval expression', expr)}"]
+    parts.extend(_normalize_extra_kwargs("eval", kwargs))
     return ";".join(parts)
 
 

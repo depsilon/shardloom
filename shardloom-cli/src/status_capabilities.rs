@@ -52,7 +52,8 @@ const WORKFLOW_OPERATION_NAMES: &str = concat!(
     "to_pandas,to_arrow,to_arrow_table,to_arrow_ipc,to_numpy,to_python_objects,",
     "with_column,group_by,agg,sort,limit,rename,drop,sample,explode,",
     "merge,concat,pivot,pivot_table,melt,rolling,",
-    "tail,describe,nunique,value_counts,fillna,isna,notna,apply,map,map_rows,",
+    "tail,describe,nunique,value_counts,fillna,isna,notna,",
+    "apply,pipe,transform,applymap,map,map_rows,eval,",
     "write_vortex,write_parquet,",
     "write_arrow_ipc,write_avro,write_orc,sql,",
     "sql_parse,sql_bind,sql_plan,sql_execute,",
@@ -61,6 +62,7 @@ const WORKFLOW_OPERATION_NAMES: &str = concat!(
     "object_store_generated_output,foundry_generated_output,join,aggregate,window,",
     "schema_contract,schema,describe_schema,validate_schema,data_quality,",
     "data_quality_summary,quarantine,preview,display,object_store_read,",
+    "object_store_write,table_commit,catalog_integration,remote_result_delivery,",
     "fallback_engine"
 );
 const WORKFLOW_BLOCKER_IDS: &str = concat!(
@@ -98,8 +100,12 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.isna.null_mask_semantics_unsupported,",
     "cg21.workflow.notna.null_mask_semantics_unsupported,",
     "cg21.workflow.apply.python_callable_unsupported,",
+    "cg21.workflow.pipe.python_callable_unsupported,",
+    "cg21.workflow.transform.python_callable_unsupported,",
+    "cg21.workflow.applymap.python_callable_unsupported,",
     "cg21.workflow.map.python_callable_unsupported,",
     "cg21.workflow.map_rows.python_callable_unsupported,",
+    "cg21.workflow.eval.expression_engine_unsupported,",
     "cg21.workflow.write_vortex.write_policy_unsupported,",
     "cg21.workflow.write_parquet.compatibility_export_unsupported,",
     "cg21.workflow.write_arrow_ipc.compatibility_export_unsupported,",
@@ -128,9 +134,13 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.preview.materialization_unsupported,",
     "cg21.workflow.display.rich_display_unsupported,",
     "cg21.workflow.object_store_read.runtime_unsupported,",
+    "cg21.workflow.object_store_write.runtime_unsupported,",
+    "cg21.workflow.table_commit.runtime_unsupported,",
+    "cg21.workflow.catalog_integration.runtime_unsupported,",
+    "cg21.workflow.remote_result_delivery.runtime_unsupported,",
     "cg21.workflow.fallback_engine.no_fallback_policy"
 );
-const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary,object_store_capability_policy,credential_policy,source_order_semantics,summary_statistics_semantics,null_mask_semantics,python_callable_policy,no_fallback_policy";
+const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary,object_store_capability_policy,credential_policy,commit_protocol,table_catalog_contract,catalog_transaction_policy,remote_result_contract,data_plane_policy,retry_recovery_evidence,source_order_semantics,summary_statistics_semantics,null_mask_semantics,python_callable_policy,expression_engine_policy,no_fallback_policy";
 const WORKFLOW_SUGGESTED_NEXT_ACTION: &str = "Use workflow-unsupported-plan for method-specific blocker details before requesting execution.";
 
 #[allow(clippy::struct_excessive_bools)]
@@ -1648,8 +1658,8 @@ const SQL_FRONTEND_RUNTIME_LADDER_ROWS: &[SqlFrontendRuntimeLadderRow] = &[
         deterministic_diagnostics: true,
         blocker_id: "cg21.workflow.object_store_read.runtime_unsupported",
         unsupported_diagnostic_code: "SL_OBJECT_STORE_UNSUPPORTED",
-        required_evidence: "object_store_capability_policy,table_catalog_contract,credential_policy,commit_protocol,no_fallback_evidence",
-        evidence_command_refs: "workflow-unsupported-plan object-store-read,capabilities compatibility",
+        required_evidence: "object_store_capability_policy,table_catalog_contract,catalog_transaction_policy,remote_result_contract,credential_policy,commit_protocol,retry_recovery_evidence,no_fallback_evidence",
+        evidence_command_refs: "workflow-unsupported-plan object-store-read,workflow-unsupported-plan object-store-write,workflow-unsupported-plan table-commit,workflow-unsupported-plan catalog-integration,workflow-unsupported-plan remote-result-delivery,capabilities compatibility",
         claim_gate_status: "not_claim_grade",
         claim_boundary: "Object-store and table/lakehouse SQL sources or sinks remain blocked outside separately admitted local fixture paths.",
     },
@@ -3894,7 +3904,7 @@ fn emit_workflow_capability_parity(scope: CapabilityDiscoveryScope, format: Outp
         "/v1/capabilities/workflow",
     );
     push_field(&mut fields, "workflow_state", "unsupported_report_only");
-    push_count_field(&mut fields, "workflow_operation_count", 65);
+    push_count_field(&mut fields, "workflow_operation_count", 73);
     push_field(
         &mut fields,
         "workflow_operation_names",

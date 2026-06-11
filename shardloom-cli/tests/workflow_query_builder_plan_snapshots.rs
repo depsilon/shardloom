@@ -392,6 +392,39 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         ],
         false,
     );
+    let pipe = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "pipe",
+            "read_csv(events.csv)",
+            "callable=workflow_udf;arg_count=1;config=strict",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let transform = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "transform",
+            "read_csv(events.csv)",
+            "callable=column_udf",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let applymap = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "applymap",
+            "read_csv(events.csv)",
+            "callable=cell_udf",
+            "--format",
+            "json",
+        ],
+        false,
+    );
     let map = run_command_json(
         &[
             "workflow-unsupported-plan",
@@ -409,6 +442,17 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
             "map-rows",
             "read_csv(events.csv)",
             "callable=row_udf",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let eval = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "eval",
+            "read_csv(events.csv)",
+            "expr=amount + tax;engine=python",
             "--format",
             "json",
         ],
@@ -557,6 +601,50 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         ],
         false,
     );
+    let object_store_write = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "object-store-write",
+            "write_s3(s3://bucket/out.vortex)",
+            "s3://bucket/out.vortex",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let table_commit = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "table-commit",
+            "write_table(iceberg:orders)",
+            "iceberg://catalog/db/orders",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let catalog_integration = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "catalog-integration",
+            "read_catalog(iceberg:orders)",
+            "iceberg://catalog/db/orders",
+            "--format",
+            "json",
+        ],
+        false,
+    );
+    let remote_result_delivery = run_command_json(
+        &[
+            "workflow-unsupported-plan",
+            "remote-result-delivery",
+            "deliver_result(s3://bucket/results/out.jsonl)",
+            "s3://bucket/results/out.jsonl",
+            "--format",
+            "json",
+        ],
+        false,
+    );
     let fallback_engine = run_command_json(
         &[
             "workflow-unsupported-plan",
@@ -597,8 +685,12 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         &isna,
         &notna,
         &apply,
+        &pipe,
+        &transform,
+        &applymap,
         &map,
         &map_rows,
+        &eval,
         &sql,
         &sql_parse,
         &sql_bind,
@@ -612,6 +704,10 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         &schema,
         &preview,
         &object_store_read,
+        &object_store_write,
+        &table_commit,
+        &catalog_integration,
+        &remote_result_delivery,
         &fallback_engine,
     ] {
         assert!(output.contains("\"command\":\"workflow-unsupported-plan\""));
@@ -812,6 +908,26 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         "cg21.workflow.apply.python_callable_unsupported"
     )));
     assert!(apply.contains("\"code\":\"SL_UNSUPPORTED_EFFECT\""));
+    assert!(pipe.contains(&field("workflow_operation", "pipe")));
+    assert!(pipe.contains(&field(
+        "blocker_id",
+        "cg21.workflow.pipe.python_callable_unsupported"
+    )));
+    assert!(pipe.contains(&field(
+        "target_ref",
+        "callable=workflow_udf;arg_count=1;config=strict"
+    )));
+    assert!(pipe.contains("\"code\":\"SL_UNSUPPORTED_EFFECT\""));
+    assert!(transform.contains(&field("workflow_operation", "transform")));
+    assert!(transform.contains(&field(
+        "blocker_id",
+        "cg21.workflow.transform.python_callable_unsupported"
+    )));
+    assert!(applymap.contains(&field("workflow_operation", "applymap")));
+    assert!(applymap.contains(&field(
+        "blocker_id",
+        "cg21.workflow.applymap.python_callable_unsupported"
+    )));
     assert!(map.contains(&field("workflow_operation", "map")));
     assert!(map.contains(&field(
         "blocker_id",
@@ -822,6 +938,13 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         "blocker_id",
         "cg21.workflow.map_rows.python_callable_unsupported"
     )));
+    assert!(eval.contains(&field("workflow_operation", "eval")));
+    assert!(eval.contains(&field(
+        "blocker_id",
+        "cg21.workflow.eval.expression_engine_unsupported"
+    )));
+    assert!(eval.contains(&field("target_ref", "expr=amount + tax;engine=python")));
+    assert!(eval.contains("\"code\":\"SL_UNSUPPORTED_EFFECT\""));
     assert!(sql.contains(&field("workflow_operation", "sql")));
     assert!(sql.contains(&field(
         "blocker_id",
@@ -899,6 +1022,37 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     assert!(object_store_read.contains("\"category\":\"object_store\""));
     assert!(object_store_read.contains(&field("diagnostic_category", "object_store")));
     assert!(object_store_read.contains(&field("object_store_io", "false")));
+    assert!(object_store_write.contains(&field("workflow_operation", "object_store_write")));
+    assert!(object_store_write.contains(&field(
+        "blocker_id",
+        "cg21.workflow.object_store_write.runtime_unsupported"
+    )));
+    assert!(object_store_write.contains("\"code\":\"SL_OBJECT_STORE_UNSUPPORTED\""));
+    assert!(object_store_write.contains(&field("write_required", "true")));
+    assert!(object_store_write.contains(&field("object_store_io", "false")));
+    assert!(table_commit.contains(&field("workflow_operation", "table_commit")));
+    assert!(table_commit.contains(&field(
+        "blocker_id",
+        "cg21.workflow.table_commit.runtime_unsupported"
+    )));
+    assert!(table_commit.contains("\"code\":\"SL_OBJECT_STORE_UNSUPPORTED\""));
+    assert!(table_commit.contains(&field("write_required", "true")));
+    assert!(catalog_integration.contains(&field("workflow_operation", "catalog_integration")));
+    assert!(catalog_integration.contains(&field(
+        "blocker_id",
+        "cg21.workflow.catalog_integration.runtime_unsupported"
+    )));
+    assert!(catalog_integration.contains("\"code\":\"SL_OBJECT_STORE_UNSUPPORTED\""));
+    assert!(
+        remote_result_delivery.contains(&field("workflow_operation", "remote_result_delivery"))
+    );
+    assert!(remote_result_delivery.contains(&field(
+        "blocker_id",
+        "cg21.workflow.remote_result_delivery.runtime_unsupported"
+    )));
+    assert!(remote_result_delivery.contains("\"code\":\"SL_OBJECT_STORE_UNSUPPORTED\""));
+    assert!(remote_result_delivery.contains(&field("materialization_required", "true")));
+    assert!(remote_result_delivery.contains(&field("write_required", "true")));
     assert!(fallback_engine.contains(&field("workflow_operation", "fallback_engine")));
     assert!(fallback_engine.contains(&field(
         "blocker_id",

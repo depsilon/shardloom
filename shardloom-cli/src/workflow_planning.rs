@@ -818,45 +818,10 @@ struct WorkflowUnsupportedOperation {
 
 fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOperation> {
     let normalized = token.trim().to_ascii_lowercase().replace('_', "-");
+    if let Some(operation) = workflow_unsupported_dataframe_operation(&normalized) {
+        return Some(operation);
+    }
     match normalized.as_str() {
-        "profile" => Some(workflow_unsupported_profile()),
-        "collect" => Some(workflow_unsupported_collect()),
-        "from-pandas" => Some(workflow_unsupported_from_pandas()),
-        "from-arrow-table" => Some(workflow_unsupported_from_arrow_table()),
-        "from-arrow-ipc" => Some(workflow_unsupported_from_arrow_ipc()),
-        "to-pandas" => Some(workflow_unsupported_to_pandas()),
-        "to-arrow" => Some(workflow_unsupported_to_arrow()),
-        "to-arrow-table" => Some(workflow_unsupported_to_arrow_table()),
-        "to-arrow-ipc" => Some(workflow_unsupported_to_arrow_ipc()),
-        "to-numpy" => Some(workflow_unsupported_to_numpy()),
-        "to-python-objects" | "to-py" | "to-pylist" => {
-            Some(workflow_unsupported_to_python_objects())
-        }
-        "with-column" | "with_column" => Some(workflow_unsupported_with_column()),
-        "group-by" | "group_by" | "groupby" => Some(workflow_unsupported_group_by()),
-        "agg" => Some(workflow_unsupported_agg()),
-        "sort" | "order-by" | "order_by" => Some(workflow_unsupported_sort()),
-        "limit" => Some(workflow_unsupported_limit()),
-        "rename" | "rename-columns" | "rename_columns" => Some(workflow_unsupported_rename()),
-        "drop" | "drop-columns" | "drop_columns" => Some(workflow_unsupported_drop()),
-        "sample" => Some(workflow_unsupported_sample()),
-        "explode" => Some(workflow_unsupported_explode()),
-        "merge" => Some(workflow_unsupported_merge()),
-        "concat" => Some(workflow_unsupported_concat()),
-        "pivot" => Some(workflow_unsupported_pivot()),
-        "pivot-table" | "pivot_table" => Some(workflow_unsupported_pivot_table()),
-        "melt" | "unpivot" => Some(workflow_unsupported_melt()),
-        "rolling" => Some(workflow_unsupported_rolling()),
-        "tail" => Some(workflow_unsupported_tail()),
-        "describe" => Some(workflow_unsupported_describe()),
-        "nunique" => Some(workflow_unsupported_nunique()),
-        "value-counts" | "value_counts" => Some(workflow_unsupported_value_counts()),
-        "fillna" | "fill-null" | "fill_null" => Some(workflow_unsupported_fillna()),
-        "isna" | "isnull" | "is-null" | "is_null" => Some(workflow_unsupported_isna()),
-        "notna" | "notnull" | "not-null" | "not_null" => Some(workflow_unsupported_notna()),
-        "apply" => Some(workflow_unsupported_apply()),
-        "map" => Some(workflow_unsupported_map()),
-        "map-rows" | "map_rows" => Some(workflow_unsupported_map_rows()),
         "write-vortex" => Some(workflow_unsupported_write_vortex()),
         "write-parquet" => Some(workflow_unsupported_write_parquet()),
         "write-arrow-ipc" | "write-arrow" | "write-ipc" => {
@@ -911,9 +876,69 @@ fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOper
         "object-store-read" | "object_store_read" | "remote-object-store" => {
             Some(workflow_unsupported_object_store_read())
         }
+        "object-store-write" | "object_store_write" | "remote-object-store-write" => {
+            Some(workflow_unsupported_object_store_write())
+        }
+        "table-commit" | "table_commit" | "lakehouse-commit" | "lakehouse_commit" => {
+            Some(workflow_unsupported_table_commit())
+        }
+        "catalog-integration" | "catalog_integration" | "catalog-runtime" => {
+            Some(workflow_unsupported_catalog_integration())
+        }
+        "remote-result-delivery" | "remote_result_delivery" | "remote-result" | "remote_result" => {
+            Some(workflow_unsupported_remote_result_delivery())
+        }
         "fallback-engine" | "spark-fallback" | "external-fallback" => {
             Some(workflow_unsupported_fallback_engine())
         }
+        _ => None,
+    }
+}
+
+fn workflow_unsupported_dataframe_operation(token: &str) -> Option<WorkflowUnsupportedOperation> {
+    match token {
+        "profile" => Some(workflow_unsupported_profile()),
+        "collect" => Some(workflow_unsupported_collect()),
+        "from-pandas" => Some(workflow_unsupported_from_pandas()),
+        "from-arrow-table" => Some(workflow_unsupported_from_arrow_table()),
+        "from-arrow-ipc" => Some(workflow_unsupported_from_arrow_ipc()),
+        "to-pandas" => Some(workflow_unsupported_to_pandas()),
+        "to-arrow" => Some(workflow_unsupported_to_arrow()),
+        "to-arrow-table" => Some(workflow_unsupported_to_arrow_table()),
+        "to-arrow-ipc" => Some(workflow_unsupported_to_arrow_ipc()),
+        "to-numpy" => Some(workflow_unsupported_to_numpy()),
+        "to-python-objects" | "to-py" | "to-pylist" => {
+            Some(workflow_unsupported_to_python_objects())
+        }
+        "with-column" | "with_column" => Some(workflow_unsupported_with_column()),
+        "group-by" | "group_by" | "groupby" => Some(workflow_unsupported_group_by()),
+        "agg" => Some(workflow_unsupported_agg()),
+        "sort" | "order-by" | "order_by" => Some(workflow_unsupported_sort()),
+        "limit" => Some(workflow_unsupported_limit()),
+        "rename" | "rename-columns" | "rename_columns" => Some(workflow_unsupported_rename()),
+        "drop" | "drop-columns" | "drop_columns" => Some(workflow_unsupported_drop()),
+        "sample" => Some(workflow_unsupported_sample()),
+        "explode" => Some(workflow_unsupported_explode()),
+        "merge" => Some(workflow_unsupported_merge()),
+        "concat" => Some(workflow_unsupported_concat()),
+        "pivot" => Some(workflow_unsupported_pivot()),
+        "pivot-table" | "pivot_table" => Some(workflow_unsupported_pivot_table()),
+        "melt" | "unpivot" => Some(workflow_unsupported_melt()),
+        "rolling" => Some(workflow_unsupported_rolling()),
+        "tail" => Some(workflow_unsupported_tail()),
+        "describe" => Some(workflow_unsupported_describe()),
+        "nunique" => Some(workflow_unsupported_nunique()),
+        "value-counts" | "value_counts" => Some(workflow_unsupported_value_counts()),
+        "fillna" | "fill-null" | "fill_null" => Some(workflow_unsupported_fillna()),
+        "isna" | "isnull" | "is-null" | "is_null" => Some(workflow_unsupported_isna()),
+        "notna" | "notnull" | "not-null" | "not_null" => Some(workflow_unsupported_notna()),
+        "apply" => Some(workflow_unsupported_apply()),
+        "pipe" => Some(workflow_unsupported_pipe()),
+        "transform" => Some(workflow_unsupported_transform()),
+        "applymap" | "map-elements" | "map_elements" => Some(workflow_unsupported_applymap()),
+        "map" => Some(workflow_unsupported_map()),
+        "map-rows" | "map_rows" => Some(workflow_unsupported_map_rows()),
+        "eval" => Some(workflow_unsupported_eval()),
         _ => None,
     }
 }
@@ -1514,6 +1539,54 @@ fn workflow_unsupported_apply() -> WorkflowUnsupportedOperation {
     }
 }
 
+fn workflow_unsupported_pipe() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "pipe",
+        label: "DataFrame Python pipe",
+        surface: "dataframe_python_callable",
+        feature: "cg21.workflow.pipe",
+        blocker_id: "cg21.workflow.pipe.python_callable_unsupported",
+        required_evidence: "python_callable_policy,workflow_type_contract,sandbox_policy,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use typed ShardLoom workflow operators or registered extension plans; Python pipe cannot execute without explicit workflow typing, sandbox, and effect evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedEffect,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_transform() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "transform",
+        label: "DataFrame Python transform",
+        surface: "dataframe_python_callable",
+        feature: "cg21.workflow.transform",
+        blocker_id: "cg21.workflow.transform.python_callable_unsupported",
+        required_evidence: "python_callable_policy,transform_result_shape_contract,sandbox_policy,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use typed ShardLoom projection expressions where scoped evidence exists; Python transform cannot execute without explicit result-shape, sandbox, and effect evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedEffect,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_applymap() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "applymap",
+        label: "DataFrame Python applymap",
+        surface: "dataframe_python_callable",
+        feature: "cg21.workflow.applymap",
+        blocker_id: "cg21.workflow.applymap.python_callable_unsupported",
+        required_evidence: "python_callable_policy,elementwise_type_contract,sandbox_policy,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use typed ShardLoom scalar expressions where scoped evidence exists; Python applymap cannot execute without explicit element-wise typing, sandbox, and effect evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedEffect,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
 fn workflow_unsupported_map() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "map",
@@ -1539,6 +1612,22 @@ fn workflow_unsupported_map_rows() -> WorkflowUnsupportedOperation {
         blocker_id: "cg21.workflow.map_rows.python_callable_unsupported",
         required_evidence: "python_callable_policy,row_udf_type_contract,sandbox_policy,execution_certificate,no_fallback_evidence",
         suggested_next_action: "Use typed ShardLoom expressions or registered UDF plans; row-wise Python maps require explicit schema, sandbox, and effect evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedEffect,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_eval() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "eval",
+        label: "DataFrame expression eval",
+        surface: "dataframe_expression",
+        feature: "cg21.workflow.eval",
+        blocker_id: "cg21.workflow.eval.expression_engine_unsupported",
+        required_evidence: "expression_engine_policy,typed_expression_contract,semantic_conformance_suite,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use typed ShardLoom expression builders where scoped evidence exists; DataFrame eval cannot route to pandas, numexpr, Python eval, or another hidden expression engine.",
         diagnostic_code: DiagnosticCode::UnsupportedEffect,
         materialization_required: false,
         write_required: false,
@@ -1990,6 +2079,70 @@ fn workflow_unsupported_object_store_read() -> WorkflowUnsupportedOperation {
         diagnostic_code: DiagnosticCode::ObjectStoreUnsupported,
         materialization_required: false,
         write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_object_store_write() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "object_store_write",
+        label: "remote object-store workflow write",
+        surface: "object_store_sink",
+        feature: "cg21.workflow.object_store_write",
+        blocker_id: "cg21.workflow.object_store_write.runtime_unsupported",
+        required_evidence: "object_store_capability_policy,credential_policy,commit_protocol,retry_recovery_evidence,native_io_certificate,execution_certificate",
+        suggested_next_action: "Use scoped local-emulator object-store write and recovery smokes until remote object-store writes have credential, commit, and replay evidence.",
+        diagnostic_code: DiagnosticCode::ObjectStoreUnsupported,
+        materialization_required: false,
+        write_required: true,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_table_commit() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "table_commit",
+        label: "table/lakehouse workflow commit",
+        surface: "table_lakehouse_commit",
+        feature: "cg21.workflow.table_commit",
+        blocker_id: "cg21.workflow.table_commit.runtime_unsupported",
+        required_evidence: "table_catalog_contract,lakehouse_transaction_policy,commit_protocol,rollback_recovery_proof,native_io_certificate,execution_certificate",
+        suggested_next_action: "Use local table append/recovery smokes for bounded manifest proof; production table commits require catalog transaction, rollback, and recovery evidence.",
+        diagnostic_code: DiagnosticCode::ObjectStoreUnsupported,
+        materialization_required: false,
+        write_required: true,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_catalog_integration() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "catalog_integration",
+        label: "catalog integration workflow",
+        surface: "catalog_integration",
+        feature: "cg21.workflow.catalog_integration",
+        blocker_id: "cg21.workflow.catalog_integration.runtime_unsupported",
+        required_evidence: "catalog_schema_contract,catalog_transaction_policy,credential_policy,side_effect_policy,native_io_certificate,execution_certificate",
+        suggested_next_action: "Use catalog metadata gate reports until external catalog resolution and transaction semantics are certified.",
+        diagnostic_code: DiagnosticCode::ObjectStoreUnsupported,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_remote_result_delivery() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "remote_result_delivery",
+        label: "remote result delivery workflow",
+        surface: "remote_result_delivery",
+        feature: "cg21.workflow.remote_result_delivery",
+        blocker_id: "cg21.workflow.remote_result_delivery.runtime_unsupported",
+        required_evidence: "remote_result_contract,data_plane_policy,credential_policy,replay_fidelity_evidence,native_io_certificate,execution_certificate",
+        suggested_next_action: "Use local result sinks and explicit output reports until remote result delivery has data-plane, replay, and credential evidence.",
+        diagnostic_code: DiagnosticCode::ObjectStoreUnsupported,
+        materialization_required: true,
+        write_required: true,
         runtime_required: true,
     }
 }
