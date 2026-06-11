@@ -1858,6 +1858,7 @@ struct ParsedOrderBy {
 struct ParsedOrderKey {
     column: String,
     direction: SortDirection,
+    null_ordering: Option<SortNullOrdering>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1931,8 +1932,15 @@ enum SortDirection {
     Desc,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SortNullOrdering {
+    First,
+    Last,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 enum SortValue {
+    Null,
     Int(i64),
     Float(f64),
     Utf8(String),
@@ -1949,8 +1957,15 @@ enum SortValueFamily {
 }
 
 impl SortValue {
-    fn try_from_scalar(value: &ScalarValue) -> Result<Self, ShardLoomError> {
+    fn try_from_scalar(
+        value: &ScalarValue,
+        null_ordering: Option<SortNullOrdering>,
+    ) -> Result<Self, ShardLoomError> {
         match value {
+            ScalarValue::Null if null_ordering.is_some() => Ok(Self::Null),
+            ScalarValue::Null => Err(unsupported_sql_error(
+                "ORDER BY NULL ordering is not admitted unless NULLS FIRST or NULLS LAST is explicit",
+            )),
             ScalarValue::Int64(value) => Ok(Self::Int(*value)),
             ScalarValue::UInt64(value) => {
                 let value = i64::try_from(*value).map_err(|_| {
@@ -1966,21 +1981,19 @@ impl SortValue {
             ScalarValue::List(_) | ScalarValue::Struct(_) => {
                 Ok(Self::Complex(scalar_order_key(value)))
             }
-            ScalarValue::Null => Err(unsupported_sql_error(
-                "ORDER BY NULL ordering is not admitted in this scoped top-N smoke",
-            )),
             _ => Err(unsupported_sql_error(
                 "ORDER BY top-N smoke admits numeric, UTF-8, binary, or scoped ARRAY/STRUCT result-boundary sort columns only",
             )),
         }
     }
 
-    fn family(&self) -> SortValueFamily {
+    fn family(&self) -> Option<SortValueFamily> {
         match self {
-            Self::Int(_) | Self::Float(_) => SortValueFamily::Numeric,
-            Self::Utf8(_) => SortValueFamily::Utf8,
-            Self::Binary(_) => SortValueFamily::Binary,
-            Self::Complex(_) => SortValueFamily::Complex,
+            Self::Null => None,
+            Self::Int(_) | Self::Float(_) => Some(SortValueFamily::Numeric),
+            Self::Utf8(_) => Some(SortValueFamily::Utf8),
+            Self::Binary(_) => Some(SortValueFamily::Binary),
+            Self::Complex(_) => Some(SortValueFamily::Complex),
         }
     }
 }
@@ -1990,6 +2003,9 @@ impl Eq for SortValue {}
 impl Ord for SortValue {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
+            (Self::Null, Self::Null) => Ordering::Equal,
+            (Self::Null, _) => Ordering::Less,
+            (_, Self::Null) => Ordering::Greater,
             (Self::Int(_) | Self::Float(_), Self::Int(_) | Self::Float(_)) => {
                 self.as_f64().total_cmp(&other.as_f64())
             }
@@ -2013,16 +2029,17 @@ impl SortValue {
         match self {
             Self::Int(value) => i64_to_f64(*value),
             Self::Float(value) => *value,
-            Self::Utf8(_) | Self::Binary(_) | Self::Complex(_) => f64::NAN,
+            Self::Null | Self::Utf8(_) | Self::Binary(_) | Self::Complex(_) => f64::NAN,
         }
     }
 
     fn family_rank(&self) -> u8 {
         match self.family() {
-            SortValueFamily::Numeric => 0,
-            SortValueFamily::Utf8 => 1,
-            SortValueFamily::Binary => 2,
-            SortValueFamily::Complex => 3,
+            None => 0,
+            Some(SortValueFamily::Numeric) => 1,
+            Some(SortValueFamily::Utf8) => 2,
+            Some(SortValueFamily::Binary) => 3,
+            Some(SortValueFamily::Complex) => 4,
         }
     }
 }
@@ -11843,7 +11860,7 @@ fn sort_values_for_row(
                 key.column
             ))
         })?;
-        values.push(SortValue::try_from_scalar(value)?);
+        values.push(SortValue::try_from_scalar(value, key.null_ordering)?);
     }
     Ok(values)
 }
@@ -11866,7 +11883,7 @@ fn sort_values_for_projected_or_source_row(
                     key.column
                 ))
             })?;
-        values.push(SortValue::try_from_scalar(value)?);
+        values.push(SortValue::try_from_scalar(value, key.null_ordering)?);
     }
     Ok(values)
 }
@@ -11881,16 +11898,34 @@ fn compare_order_by_values(
         .iter()
         .zip(left_values.iter().zip(right_values.iter()))
     {
-        let ordering = left_value.cmp(right_value);
-        let ordering = match key.direction {
-            SortDirection::Asc => ordering,
-            SortDirection::Desc => ordering.reverse(),
-        };
+        let ordering = compare_order_key_values(key, left_value, right_value);
         if ordering != Ordering::Equal {
             return ordering;
         }
     }
     Ordering::Equal
+}
+
+fn compare_order_key_values(
+    key: &ParsedOrderKey,
+    left_value: &SortValue,
+    right_value: &SortValue,
+) -> Ordering {
+    match (left_value, right_value) {
+        (SortValue::Null, SortValue::Null) => Ordering::Equal,
+        (SortValue::Null, _) => match key.null_ordering {
+            Some(SortNullOrdering::Last) => Ordering::Greater,
+            Some(SortNullOrdering::First) | None => Ordering::Less,
+        },
+        (_, SortValue::Null) => match key.null_ordering {
+            Some(SortNullOrdering::Last) => Ordering::Less,
+            Some(SortNullOrdering::First) | None => Ordering::Greater,
+        },
+        _ => match key.direction {
+            SortDirection::Asc => left_value.cmp(right_value),
+            SortDirection::Desc => left_value.cmp(right_value).reverse(),
+        },
+    }
 }
 
 fn ordered_output_row_indexes(
@@ -11924,12 +11959,18 @@ fn validate_sort_value_families(
     let Some((_, first_values)) = sort_values.first() else {
         return Ok(());
     };
-    for (key_index, first_value) in first_values.iter().enumerate() {
-        let expected_family = first_value.family();
+    for key_index in 0..first_values.len() {
+        let expected_family = sort_values
+            .iter()
+            .find_map(|(_, values)| values.get(key_index).and_then(SortValue::family));
+        let Some(expected_family) = expected_family else {
+            continue;
+        };
         if sort_values.iter().any(|(_, values)| {
             values
                 .get(key_index)
-                .is_some_and(|value| value.family() != expected_family)
+                .and_then(SortValue::family)
+                .is_some_and(|family| family != expected_family)
         }) {
             return Err(unsupported_sql_error(
                 "ORDER BY mixed numeric, UTF-8, binary, and scoped ARRAY/STRUCT values within one sort key are not admitted in this scoped top-N smoke",
@@ -18425,6 +18466,20 @@ impl ParsedOrderBy {
             .join(",")
     }
 
+    fn null_ordering_label(&self) -> String {
+        if self.keys.iter().all(|key| key.null_ordering.is_none()) {
+            return "nulls_blocked_for_fixture_smoke".to_string();
+        }
+        self.keys
+            .iter()
+            .map(|key| {
+                key.null_ordering
+                    .map_or("implicit_nulls_blocked", SortNullOrdering::as_str)
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
     fn operator_family_label(&self) -> &'static str {
         order_by_operator_family_label(self, false)
     }
@@ -18650,6 +18705,15 @@ impl SortDirection {
         match self {
             Self::Asc => "asc",
             Self::Desc => "desc",
+        }
+    }
+}
+
+impl SortNullOrdering {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::First => "nulls_first",
+            Self::Last => "nulls_last",
         }
     }
 }
@@ -26385,12 +26449,10 @@ impl SqlLocalSourceReport {
             ),
             (
                 "sort_null_ordering".to_string(),
-                if self.parsed.order_by.is_some() {
-                    "nulls_blocked_for_fixture_smoke"
-                } else {
-                    "not_applicable"
-                }
-                .to_string(),
+                self.parsed.order_by.as_ref().map_or_else(
+                    || "not_applicable".to_string(),
+                    ParsedOrderBy::null_ordering_label,
+                ),
             ),
             (
                 "top_n_limit".to_string(),
@@ -29553,10 +29615,9 @@ fn earliest_clause_index_after(start: usize, indexes: &[Option<usize>]) -> usize
 fn sql_local_source_clause_indexes(
     statement: &str,
 ) -> Result<SqlLocalSourceClauseIndexes, ShardLoomError> {
-    let from_clause =
-        find_keyword_outside_quotes_and_parentheses(statement, "from")?.ok_or_else(|| {
-            unsupported_sql_error("SQL local-source smoke requires a FROM <local.csv> clause")
-        })?;
+    let from_clause = find_sql_source_from_clause(statement)?.ok_or_else(|| {
+        unsupported_sql_error("SQL local-source smoke requires a FROM <local.csv> clause")
+    })?;
     let limit_clause = find_keyword_outside_quotes_and_parentheses(statement, "limit")?
         .ok_or_else(|| {
             unsupported_sql_error("SQL local-source smoke requires a LIMIT <n> clause")
@@ -29571,6 +29632,92 @@ fn sql_local_source_clause_indexes(
     };
     validate_sql_local_source_clause_order(indexes)?;
     Ok(indexes)
+}
+
+fn find_sql_source_from_clause(raw: &str) -> Result<Option<usize>, ShardLoomError> {
+    let mut chars = raw.char_indices().peekable();
+    let mut in_quote = false;
+    let mut depth = 0_u32;
+    let mut bracket_depth = 0_u32;
+    while let Some((index, ch)) = chars.next() {
+        if ch == '\'' {
+            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
+                let _ = chars.next();
+            } else {
+                in_quote = !in_quote;
+            }
+            continue;
+        }
+        if in_quote {
+            continue;
+        }
+        match ch {
+            '(' => {
+                depth += 1;
+                continue;
+            }
+            ')' => {
+                depth = depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("WHERE predicate grouping parentheses must be balanced")
+                })?;
+                continue;
+            }
+            '[' => {
+                bracket_depth += 1;
+                continue;
+            }
+            ']' => {
+                bracket_depth = bracket_depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("SQL expression square brackets are not balanced")
+                })?;
+                continue;
+            }
+            _ => {}
+        }
+        if depth == 0 && bracket_depth == 0 {
+            let remaining = &raw[index..];
+            if remaining.len() >= "from".len()
+                && remaining[.."from".len()].eq_ignore_ascii_case("from")
+                && keyword_boundary(raw, index, "from".len())
+                && !from_keyword_belongs_to_null_safe_comparison(raw, index)?
+            {
+                return Ok(Some(index));
+            }
+        }
+    }
+    if in_quote {
+        return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    if depth != 0 {
+        return Err(unsupported_sql_error(
+            "WHERE predicate grouping parentheses must be balanced",
+        ));
+    }
+    if bracket_depth != 0 {
+        return Err(unsupported_sql_error(
+            "SQL expression square brackets are not balanced",
+        ));
+    }
+    Ok(None)
+}
+
+fn from_keyword_belongs_to_null_safe_comparison(
+    raw: &str,
+    from_index: usize,
+) -> Result<bool, ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw[..from_index].trim_end())?;
+    Ok(matches!(
+        tokens.as_slice(),
+        [.., is_keyword, distinct_keyword]
+            if is_keyword.eq_ignore_ascii_case("is")
+                && distinct_keyword.eq_ignore_ascii_case("distinct")
+    ) || matches!(
+        tokens.as_slice(),
+        [.., is_keyword, not_keyword, distinct_keyword]
+            if is_keyword.eq_ignore_ascii_case("is")
+                && not_keyword.eq_ignore_ascii_case("not")
+                && distinct_keyword.eq_ignore_ascii_case("distinct")
+    ))
 }
 
 fn validate_sql_local_source_clause_order(
@@ -33388,22 +33535,41 @@ fn parse_order_by(raw: Option<&str>) -> Result<Option<ParsedOrderBy>, ShardLoomE
     let mut keys = Vec::with_capacity(entries.len());
     for entry in entries {
         let tokens = split_whitespace_outside_quotes(&entry)?;
-        let (column, direction) = match tokens.as_slice() {
-            [column] => (column, SortDirection::Asc),
+        let (column, direction, null_ordering) = match tokens.as_slice() {
+            [column] => (column, SortDirection::Asc, None),
             [column, direction] if direction.eq_ignore_ascii_case("asc") => {
-                (column, SortDirection::Asc)
+                (column, SortDirection::Asc, None)
             }
             [column, direction] if direction.eq_ignore_ascii_case("desc") => {
-                (column, SortDirection::Desc)
+                (column, SortDirection::Desc, None)
             }
-            [_, direction] if direction.eq_ignore_ascii_case("nulls") => {
-                return Err(unsupported_sql_error(
-                    "ORDER BY NULLS FIRST/LAST is not admitted in this scoped top-N smoke",
-                ));
+            [column, nulls, position] if nulls.eq_ignore_ascii_case("nulls") => (
+                column,
+                SortDirection::Asc,
+                parse_sort_null_ordering(position)?,
+            ),
+            [column, direction, nulls, position]
+                if nulls.eq_ignore_ascii_case("nulls") && direction.eq_ignore_ascii_case("asc") =>
+            {
+                (
+                    column,
+                    SortDirection::Asc,
+                    parse_sort_null_ordering(position)?,
+                )
+            }
+            [column, direction, nulls, position]
+                if nulls.eq_ignore_ascii_case("nulls")
+                    && direction.eq_ignore_ascii_case("desc") =>
+            {
+                (
+                    column,
+                    SortDirection::Desc,
+                    parse_sort_null_ordering(position)?,
+                )
             }
             _ => {
                 return Err(unsupported_sql_error(
-                    "ORDER BY top-N smoke admits <column> [ASC|DESC] keys only",
+                    "ORDER BY top-N smoke admits <column> [ASC|DESC] [NULLS FIRST|LAST] keys only",
                 ));
             }
         };
@@ -33419,9 +33585,22 @@ fn parse_order_by(raw: Option<&str>) -> Result<Option<ParsedOrderBy>, ShardLoomE
         keys.push(ParsedOrderKey {
             column: column.clone(),
             direction,
+            null_ordering,
         });
     }
     Ok(Some(ParsedOrderBy { keys }))
+}
+
+fn parse_sort_null_ordering(raw: &str) -> Result<Option<SortNullOrdering>, ShardLoomError> {
+    if raw.eq_ignore_ascii_case("first") {
+        Ok(Some(SortNullOrdering::First))
+    } else if raw.eq_ignore_ascii_case("last") {
+        Ok(Some(SortNullOrdering::Last))
+    } else {
+        Err(unsupported_sql_error(
+            "ORDER BY NULLS clause must use FIRST or LAST in this scoped top-N smoke",
+        ))
+    }
 }
 
 fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> {
@@ -33724,6 +33903,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_exists_subquery_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_null_safe_comparison_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_between_predicate(raw)? {
         return Ok(predicate);
     }
@@ -33774,6 +33956,172 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     }
     parse_quantified_subquery_blocker(raw)?;
     parse_token_predicate(raw)
+}
+
+enum NullSafeComparisonRhs {
+    Literal(ScalarValue),
+    Column(String),
+}
+
+fn parse_null_safe_comparison_predicate(
+    raw: &str,
+) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw)?;
+    let Some(is_index) = tokens
+        .iter()
+        .position(|token| token.eq_ignore_ascii_case("is"))
+    else {
+        return Ok(None);
+    };
+    if is_index != 1 {
+        return Ok(None);
+    }
+    let column = tokens[0].clone();
+    validate_sql_column_ref(&column)?;
+    let (is_distinct, rhs_start) = match tokens[is_index + 1..] {
+        [ref distinct_keyword, ref from_keyword, ..]
+            if distinct_keyword.eq_ignore_ascii_case("distinct")
+                && from_keyword.eq_ignore_ascii_case("from") =>
+        {
+            (true, is_index + 3)
+        }
+        [ref not_keyword, ref distinct_keyword, ref from_keyword, ..]
+            if not_keyword.eq_ignore_ascii_case("not")
+                && distinct_keyword.eq_ignore_ascii_case("distinct")
+                && from_keyword.eq_ignore_ascii_case("from") =>
+        {
+            (false, is_index + 4)
+        }
+        _ => return Ok(None),
+    };
+    let rhs = parse_null_safe_comparison_rhs(&tokens[rhs_start..])?;
+    let distinct_predicate = null_safe_distinct_predicate(&column, rhs);
+    if is_distinct {
+        Ok(Some(distinct_predicate))
+    } else {
+        Ok(Some(ParsedPredicate::Not {
+            inner: Box::new(distinct_predicate),
+        }))
+    }
+}
+
+fn parse_null_safe_comparison_rhs(
+    tokens: &[String],
+) -> Result<NullSafeComparisonRhs, ShardLoomError> {
+    match tokens {
+        [date_keyword, literal_raw] if date_keyword.eq_ignore_ascii_case("date") => Ok(
+            NullSafeComparisonRhs::Literal(parse_sql_date_literal(literal_raw)?),
+        ),
+        [timestamp_keyword, literal_raw] if timestamp_keyword.eq_ignore_ascii_case("timestamp") => {
+            Ok(NullSafeComparisonRhs::Literal(parse_sql_timestamp_literal(
+                literal_raw,
+            )?))
+        }
+        [binary_keyword, literal_raw]
+            if binary_keyword.eq_ignore_ascii_case("binary")
+                || binary_keyword.eq_ignore_ascii_case("blob") =>
+        {
+            let bytes = parse_sql_binary_keyword_literal(binary_keyword, literal_raw)?.ok_or_else(
+                || {
+                    unsupported_sql_error(
+                        "IS [NOT] DISTINCT FROM binary predicates require X'<hex>', BINARY/BLOB '<utf8>', or NULL",
+                    )
+                },
+            )?;
+            Ok(NullSafeComparisonRhs::Literal(ScalarValue::Binary(bytes)))
+        }
+        [literal_or_column] => {
+            if let Some(value) = parse_direct_binary_predicate_literal(literal_or_column)? {
+                return Ok(NullSafeComparisonRhs::Literal(value));
+            }
+            match parse_sql_literal(literal_or_column) {
+                Ok(value) => Ok(NullSafeComparisonRhs::Literal(value)),
+                Err(_) if validate_sql_column_ref(literal_or_column).is_ok() => {
+                    Ok(NullSafeComparisonRhs::Column(literal_or_column.clone()))
+                }
+                Err(error) => Err(error),
+            }
+        }
+        _ => Err(unsupported_sql_error(
+            "IS [NOT] DISTINCT FROM admits <column> IS [NOT] DISTINCT FROM <literal>, DATE <date-literal>, TIMESTAMP <timestamp-literal>, BINARY/BLOB <literal>, or <column> only",
+        )),
+    }
+}
+
+fn null_safe_distinct_predicate(column: &str, rhs: NullSafeComparisonRhs) -> ParsedPredicate {
+    match rhs {
+        NullSafeComparisonRhs::Literal(ScalarValue::Null) => ParsedPredicate::IsNotNull {
+            column: column.to_string(),
+        },
+        NullSafeComparisonRhs::Literal(value) => ParsedPredicate::Logical {
+            op: LogicalPredicateOp::Or,
+            left: Box::new(ParsedPredicate::IsNull {
+                column: column.to_string(),
+            }),
+            right: Box::new(ParsedPredicate::Compare {
+                column: column.to_string(),
+                op: ComparisonOp::NotEq,
+                value,
+            }),
+        },
+        NullSafeComparisonRhs::Column(right_column) => null_safe_distinct_column_predicate(
+            &ParsedPredicate::IsNull {
+                column: column.to_string(),
+            },
+            &ParsedPredicate::IsNotNull {
+                column: column.to_string(),
+            },
+            &ParsedPredicate::IsNull {
+                column: right_column.clone(),
+            },
+            &ParsedPredicate::IsNotNull {
+                column: right_column.clone(),
+            },
+            ParsedPredicate::ColumnCompare {
+                left_column: column.to_string(),
+                op: ComparisonOp::NotEq,
+                right_column,
+            },
+        ),
+    }
+}
+
+fn null_safe_distinct_column_predicate(
+    left_is_null: &ParsedPredicate,
+    left_is_not_null: &ParsedPredicate,
+    right_is_null: &ParsedPredicate,
+    right_is_not_null: &ParsedPredicate,
+    not_equal: ParsedPredicate,
+) -> ParsedPredicate {
+    let left_null_only = ParsedPredicate::Logical {
+        op: LogicalPredicateOp::And,
+        left: Box::new(left_is_null.clone()),
+        right: Box::new(right_is_not_null.clone()),
+    };
+    let right_null_only = ParsedPredicate::Logical {
+        op: LogicalPredicateOp::And,
+        left: Box::new(left_is_not_null.clone()),
+        right: Box::new(right_is_null.clone()),
+    };
+    let both_not_null = ParsedPredicate::Logical {
+        op: LogicalPredicateOp::And,
+        left: Box::new(left_is_not_null.clone()),
+        right: Box::new(right_is_not_null.clone()),
+    };
+    let non_null_not_equal = ParsedPredicate::Logical {
+        op: LogicalPredicateOp::And,
+        left: Box::new(both_not_null),
+        right: Box::new(not_equal),
+    };
+    ParsedPredicate::Logical {
+        op: LogicalPredicateOp::Or,
+        left: Box::new(ParsedPredicate::Logical {
+            op: LogicalPredicateOp::Or,
+            left: Box::new(left_null_only),
+            right: Box::new(right_null_only),
+        }),
+        right: Box::new(non_null_not_equal),
+    }
 }
 
 fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
@@ -34015,7 +34363,7 @@ fn parse_negated_regex_predicate(
 
 fn unsupported_where_predicate_shape_error() -> ShardLoomError {
     unsupported_sql_error(
-        "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees or temporal differences <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/LEFT/RIGHT/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern> [ESCAPE <single-character-string-literal>], <column> [NOT] RLIKE|REGEXP <regex-pattern>, REGEXP_LIKE(<column>, <regex-pattern>), <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+        "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> IS [NOT] DISTINCT FROM <literal-or-column>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees or temporal differences <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/LEFT/RIGHT/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern> [ESCAPE <single-character-string-literal>], <column> [NOT] RLIKE|REGEXP <regex-pattern>, REGEXP_LIKE(<column>, <regex-pattern>), <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
     )
 }
 
@@ -41216,6 +41564,26 @@ mod tests {
             parsed.statement_kind(),
             "local_source_order_by_topn_filter_limit"
         );
+    }
+
+    #[test]
+    fn parses_scoped_explicit_null_order_by_topn_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' ORDER BY amount ASC NULLS FIRST,id DESC NULLS LAST LIMIT 4",
+        )
+        .expect("explicit null-order statement parses");
+
+        let order_by = parsed.order_by.as_ref().expect("order by parsed");
+        assert!(order_by.is_multi_key());
+        assert_eq!(order_by.columns_label(), "amount,id");
+        assert_eq!(order_by.directions_label(), "asc,desc");
+        assert_eq!(order_by.null_ordering_label(), "nulls_first,nulls_last");
+        assert_eq!(
+            order_by.keys[0].null_ordering,
+            Some(SortNullOrdering::First)
+        );
+        assert_eq!(order_by.keys[1].null_ordering, Some(SortNullOrdering::Last));
+        assert_eq!(order_by.operator_family_label(), "multi_key_scalar_topn");
     }
 
     #[test]

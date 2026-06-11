@@ -2981,6 +2981,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("amount") * 2 == 40), "amount * 2 = 40")
         self.assertEqual(str(sl.col("ratio") / 2.0 > 0.5), "ratio / 2.0 > 0.5")
         self.assertEqual(str(sl.col("closed_at").is_not_null()), "closed_at IS NOT NULL")
+        self.assertEqual(
+            str(sl.col("label").is_distinct_from(sl.col("peer"))),
+            "label IS DISTINCT FROM peer",
+        )
+        self.assertEqual(
+            str(sl.col("label").is_not_distinct_from(None)),
+            "label IS NOT DISTINCT FROM NULL",
+        )
         self.assertEqual(str(sl.col("active").is_true()), "active IS TRUE")
         self.assertEqual(str(sl.col("active").is_false()), "active IS FALSE")
         self.assertEqual(str(sl.col("active").is_not_true()), "active IS NOT TRUE")
@@ -6849,6 +6857,68 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_order_by_explicit_nulls_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' ORDER BY amount DESC NULLS LAST LIMIT 5",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":5,\\"label\\":\\"delta\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n{\\"id\\":1,\\"label\\":\\"missing\\"}\\n"},
+                        {"key": "order_by_runtime_execution", "value": "true"},
+                        {"key": "top_n_runtime_execution", "value": "true"},
+                        {"key": "sort_operator_family", "value": "single_key_scalar_topn"},
+                        {"key": "sort_keys", "value": "amount"},
+                        {"key": "sort_direction", "value": "desc"},
+                        {"key": "sort_null_ordering", "value": "nulls_last"},
+                        {"key": "top_n_limit", "value": "5"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .sort("amount", descending=True, nulls="last")
+            .limit(5)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.order_by_runtime_execution)
+        self.assertTrue(report.top_n_runtime_execution)
+        self.assertEqual(report.sort_keys, ("amount",))
+        self.assertEqual(report.sort_direction, "desc")
+        self.assertEqual(report.sort_null_ordering, "nulls_last")
+        self.assertEqual(report.top_n_limit, 5)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+        with self.assertRaisesRegex(ValueError, "sort nulls must be one of 'first' or 'last'"):
+            ctx.read_csv("target/input.csv").sort("amount", nulls=True)
 
     def test_local_csv_query_builder_aliases_lower_to_existing_runtime_paths(self) -> None:
         binary = self.fake_cli(

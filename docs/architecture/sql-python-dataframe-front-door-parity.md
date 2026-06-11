@@ -246,10 +246,17 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   projection rewrites, scoped schema-declared `dropna(how="any")` lowers to `IS NOT NULL`
   filters, and `query(...)` aliases the admitted ShardLoom predicate path when no pandas
   expression-engine kwargs are requested. Scoped `nlargest` / `nsmallest` lower to
-  `ORDER BY ... LIMIT` when `keep="first"` and the sort keys are admitted. Scoped schema-declared
+  `ORDER BY ... LIMIT` when `keep="first"` and the sort keys are admitted. Scoped local-source
+  `sort(...)`/`order_by(...)`/`sort_values(...)` can now pass `nulls="first"|"last"` to lower to
+  explicit SQL `NULLS FIRST|LAST` top-N ordering; implicit null ordering and broader sort semantics
+  remain gated. Scoped schema-declared
   `fillna`/`fill_null` lowers to `COALESCE` projection rewrites, and scoped schema-declared
   `isna`/`isnull`/`notna`/`notnull` lowers to `IS NULL` / `IS NOT NULL` boolean projection rewrites;
-  inferred-schema, broad pandas null-fill/mask result-shape, and unsafe shapes remain gated. Common
+  scoped SQL/Python `IS DISTINCT FROM` and `IS NOT DISTINCT FROM` null-safe comparisons now lower
+  to the same ShardLoom-owned null/comparison/logical predicate runtime for admitted filters and
+  predicate projections over column-literal, date/timestamp/binary literal, NULL literal, and
+  column-column operands.
+  Inferred-schema, broad pandas null-fill/mask result-shape, and unsafe shapes remain gated. Common
   DataFrame inspection, summary, duplicate-mask, conditional-replacement, index-state, and
   Python-callable methods now fail closed through `workflow-unsupported-plan` diagnostics instead
   of missing attributes or hidden pandas/Polars execution. Arbitrary expression/DataFrame breadth

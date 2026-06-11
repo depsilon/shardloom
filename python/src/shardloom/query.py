@@ -40,6 +40,7 @@ _INTERVAL_SECOND_MULTIPLIERS = {
     "MINUTE": 60,
     "SECOND": 1,
 }
+_SORT_NULLS_TOKEN_PREFIX = "__sort_nulls__:"
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,6 +261,29 @@ class ColumnExpression:
         """Return a scoped `IS NOT NULL` predicate."""
 
         return PredicateExpression(f"{self.sql} IS NOT NULL")
+
+    def is_distinct_from(self, value: object) -> PredicateExpression:
+        """Return a scoped SQL `IS DISTINCT FROM` null-safe comparison."""
+
+        return PredicateExpression(
+            f"{self.sql} IS DISTINCT FROM {self._null_safe_comparison_rhs(value)}"
+        )
+
+    def is_not_distinct_from(self, value: object) -> PredicateExpression:
+        """Return a scoped SQL `IS NOT DISTINCT FROM` null-safe comparison."""
+
+        return PredicateExpression(
+            f"{self.sql} IS NOT DISTINCT FROM {self._null_safe_comparison_rhs(value)}"
+        )
+
+    def _null_safe_comparison_rhs(self, value: object) -> str:
+        if value is None:
+            return "NULL"
+        return (
+            _parenthesize_numeric_operand(value.sql)
+            if isinstance(value, ColumnExpression)
+            else _sql_literal(value)
+        )
 
     def is_true(self) -> PredicateExpression:
         """Return a scoped SQL boolean truth predicate."""
@@ -5028,46 +5052,62 @@ class LazyFrame:
         self,
         *columns: object,
         descending: bool = False,
+        nulls: str | None = None,
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped sort workflow when admitted, otherwise report unsupported."""
 
         normalized_columns = _normalize_columns(columns)
         direction = "desc" if descending else "asc"
+        null_ordering = _normalize_sort_nulls(nulls)
         target = f"{direction}:{','.join(normalized_columns)}"
+        if null_ordering is not None:
+            target = f"{target}:nulls_{null_ordering}"
         if self._can_append_sort(normalized_columns):
-            return self._append(WorkflowOperation("sort", (direction, *normalized_columns)))
+            return self._append(
+                WorkflowOperation(
+                    "sort",
+                    _format_sort_operation_values(
+                        direction,
+                        normalized_columns,
+                        null_ordering,
+                    ),
+                )
+            )
         return self._unsupported_operation("sort", target, check=check)
 
     def order_by(
         self,
         *columns: object,
         descending: bool = False,
+        nulls: str | None = None,
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Alias for `sort(...)` using SQL-style naming."""
 
-        return self.sort(*columns, descending=descending, check=check)
+        return self.sort(*columns, descending=descending, nulls=nulls, check=check)
 
     def sort_by(
         self,
         *columns: object,
         descending: bool = False,
+        nulls: str | None = None,
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Alias for `sort(...)` using familiar DataFrame naming."""
 
-        return self.sort(*columns, descending=descending, check=check)
+        return self.sort(*columns, descending=descending, nulls=nulls, check=check)
 
     def sort_values(
         self,
         *columns: object,
         descending: bool = False,
+        nulls: str | None = None,
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Alias for `sort(...)` using pandas-style naming."""
 
-        return self.sort(*columns, descending=descending, check=check)
+        return self.sort(*columns, descending=descending, nulls=nulls, check=check)
 
     def window(
         self,
@@ -5920,7 +5960,7 @@ class LazyFrame:
         literal_columns: list[tuple[str, str]] = []
         window_expressions: list[str] = []
         join_info: tuple[str, ...] | None = None
-        sort_key: tuple[str, tuple[str, ...]] | None = None
+        sort_key: tuple[str, tuple[str, ...], str | None] | None = None
         distinct_requested = False
         predicate: str | None = None
         having: str | None = None
@@ -5958,7 +5998,7 @@ class LazyFrame:
             elif operation.kind == "sort" and sort_key is None:
                 if window_expressions:
                     return None
-                sort_key = (operation.values[0], operation.values[1:])
+                sort_key = _parse_sort_operation_values(operation.values)
             elif operation.kind == "join" and join_info is None:
                 if aggregate_list is not None or group_by_list is not None or distinct_requested:
                     return None
@@ -6051,8 +6091,12 @@ class LazyFrame:
                 group_by_clause = ""
             order_by_clause = ""
             if sort_key is not None:
-                direction, columns = sort_key
-                order_by_clause = _format_order_by_clause(columns, direction)
+                direction, columns, null_ordering = sort_key
+                order_by_clause = _format_order_by_clause(
+                    columns,
+                    direction,
+                    null_ordering,
+                )
             source_uri = _quote_sql_local_source_path(self.source.uri)
             right_source_uri = _quote_sql_local_source_path(right_uri)
             join_keyword = _sql_join_keyword(how)
@@ -6098,8 +6142,8 @@ class LazyFrame:
             group_by_clause = ""
         order_by_clause = ""
         if sort_key is not None:
-            direction, columns = sort_key
-            order_by_clause = _format_order_by_clause(columns, direction)
+            direction, columns, null_ordering = sort_key
+            order_by_clause = _format_order_by_clause(columns, direction, null_ordering)
         source_uri = _quote_sql_local_source_path(self.source.uri)
         select_keyword = "SELECT DISTINCT" if distinct_requested else "SELECT"
         return (
@@ -10332,11 +10376,49 @@ def _normalize_join_condition(value: object) -> str:
     return condition
 
 
-def _format_order_by_clause(columns: tuple[str, ...], direction: str) -> str:
+def _normalize_sort_nulls(value: object | None) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("sort nulls must be one of 'first' or 'last'")
+    normalized = value.strip().lower().replace("_", "-")
+    if normalized in {"first", "nulls-first"}:
+        return "first"
+    if normalized in {"last", "nulls-last"}:
+        return "last"
+    raise ValueError("sort nulls must be one of 'first' or 'last'")
+
+
+def _format_sort_operation_values(
+    direction: str,
+    columns: tuple[str, ...],
+    null_ordering: str | None,
+) -> tuple[str, ...]:
+    if null_ordering is None:
+        return (direction, *columns)
+    return (direction, f"{_SORT_NULLS_TOKEN_PREFIX}{null_ordering}", *columns)
+
+
+def _parse_sort_operation_values(
+    values: tuple[str, ...],
+) -> tuple[str, tuple[str, ...], str | None]:
+    direction = values[0]
+    if len(values) >= 2 and values[1].startswith(_SORT_NULLS_TOKEN_PREFIX):
+        null_ordering = values[1][len(_SORT_NULLS_TOKEN_PREFIX) :]
+        return direction, values[2:], null_ordering
+    return direction, values[1:], None
+
+
+def _format_order_by_clause(
+    columns: tuple[str, ...],
+    direction: str,
+    null_ordering: str | None = None,
+) -> str:
     if not columns:
         return ""
     direction_label = direction.upper()
-    keys = ",".join(f"{column} {direction_label}" for column in columns)
+    null_clause = "" if null_ordering is None else f" NULLS {null_ordering.upper()}"
+    keys = ",".join(f"{column} {direction_label}{null_clause}" for column in columns)
     return f" ORDER BY {keys}"
 
 

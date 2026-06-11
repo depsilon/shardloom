@@ -6640,6 +6640,53 @@ fn sql_local_source_smoke_executes_numeric_order_by_topn_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_explicit_null_order_by_topn_without_fallback() {
+    let source_path = unique_path("sql-local-source-order-by-null-ordering", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,missing_a,\n2,beta,10\n3,gamma,7\n4,missing_b,\n5,delta,12\n",
+    )
+    .expect("write source csv");
+
+    let nulls_first_statement = format!(
+        "SELECT id,label FROM '{}' ORDER BY amount ASC NULLS FIRST LIMIT 4",
+        source_path.display()
+    );
+    let nulls_first_stdout = run_sql_local_source_smoke_json(&nulls_first_statement);
+
+    assert!(nulls_first_stdout.contains("\"status\":\"success\""));
+    assert!(nulls_first_stdout.contains(&field("order_by_runtime_execution", "true")));
+    assert!(nulls_first_stdout.contains(&field("top_n_runtime_execution", "true")));
+    assert!(nulls_first_stdout.contains(&field("sort_operator_family", "single_key_scalar_topn")));
+    assert!(nulls_first_stdout.contains(&field("sort_keys", "amount")));
+    assert!(nulls_first_stdout.contains(&field("sort_direction", "asc")));
+    assert!(nulls_first_stdout.contains(&field("sort_null_ordering", "nulls_first")));
+    assert!(nulls_first_stdout.contains(&field("selected_row_count", "5")));
+    assert!(nulls_first_stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"missing_a\\\"}\\n{\\\"id\\\":4,\\\"label\\\":\\\"missing_b\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\"}\\n{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n\""
+    ));
+    assert!(nulls_first_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(nulls_first_stdout.contains(&field("external_engine_invoked", "false")));
+
+    let nulls_last_statement = format!(
+        "SELECT id,label FROM '{}' ORDER BY amount DESC NULLS LAST LIMIT 5",
+        source_path.display()
+    );
+    let nulls_last_stdout = run_sql_local_source_smoke_json(&nulls_last_statement);
+
+    assert!(nulls_last_stdout.contains("\"status\":\"success\""));
+    assert!(nulls_last_stdout.contains(&field("sort_direction", "desc")));
+    assert!(nulls_last_stdout.contains(&field("sort_null_ordering", "nulls_last")));
+    assert!(nulls_last_stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":5,\\\"label\\\":\\\"delta\\\"}\\n{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\"}\\n{\\\"id\\\":1,\\\"label\\\":\\\"missing_a\\\"}\\n{\\\"id\\\":4,\\\"label\\\":\\\"missing_b\\\"}\\n\""
+    ));
+    assert!(nulls_last_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(nulls_last_stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_window_row_number_without_fallback() {
     let source_path = unique_path("sql-local-source-window-row-number", "csv");
     fs::write(
@@ -9417,6 +9464,84 @@ fn sql_local_source_smoke_executes_is_not_null_predicates_without_fallback() {
     assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
 
     fs::remove_file(source_path).expect("remove source jsonl");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_null_safe_comparison_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-null-safe-comparison-predicate", "csv");
+    fs::write(
+        &source_path,
+        "id,label,peer\n1,alpha,alpha\n2,alpha,beta\n3,,beta\n4,beta,\n5,,\n",
+    )
+    .expect("write source csv");
+
+    let distinct_statement = format!(
+        "SELECT id FROM '{}' WHERE label IS DISTINCT FROM peer ORDER BY id ASC LIMIT 10",
+        source_path.display()
+    );
+    let distinct_stdout = run_sql_local_source_smoke_json(&distinct_statement);
+    assert!(distinct_stdout.contains("\"status\":\"success\""));
+    assert!(distinct_stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(distinct_stdout.contains(&field("logical_predicate_runtime_execution", "true")));
+    assert!(distinct_stdout.contains(&field("null_predicate_runtime_execution", "true")));
+    assert!(distinct_stdout.contains(&field("selected_row_count", "3")));
+    assert!(distinct_stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2}\\n{\\\"id\\\":3}\\n{\\\"id\\\":4}\\n\""
+    ));
+    assert!(distinct_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(distinct_stdout.contains(&field("external_engine_invoked", "false")));
+
+    let not_distinct_statement = format!(
+        "SELECT id FROM '{}' WHERE label IS NOT DISTINCT FROM peer ORDER BY id ASC LIMIT 10",
+        source_path.display()
+    );
+    let not_distinct_stdout = run_sql_local_source_smoke_json(&not_distinct_statement);
+    assert!(not_distinct_stdout.contains("\"status\":\"success\""));
+    assert!(not_distinct_stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(not_distinct_stdout.contains(&field("logical_predicate_runtime_execution", "true")));
+    assert!(not_distinct_stdout.contains(&field("logical_predicate_operator", "not")));
+    assert!(not_distinct_stdout.contains(&field("selected_row_count", "2")));
+    assert!(
+        not_distinct_stdout
+            .contains("\"result_jsonl\",\"value\":\"{\\\"id\\\":1}\\n{\\\"id\\\":5}\\n\"")
+    );
+    assert!(not_distinct_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(not_distinct_stdout.contains(&field("external_engine_invoked", "false")));
+
+    let null_literal_statement = format!(
+        "SELECT id FROM '{}' WHERE label IS NOT DISTINCT FROM NULL ORDER BY id ASC LIMIT 10",
+        source_path.display()
+    );
+    let null_literal_stdout = run_sql_local_source_smoke_json(&null_literal_statement);
+    assert!(null_literal_stdout.contains("\"status\":\"success\""));
+    assert!(null_literal_stdout.contains(&field("selected_row_count", "2")));
+    assert!(
+        null_literal_stdout
+            .contains("\"result_jsonl\",\"value\":\"{\\\"id\\\":3}\\n{\\\"id\\\":5}\\n\"")
+    );
+    assert!(null_literal_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(null_literal_stdout.contains(&field("external_engine_invoked", "false")));
+
+    let projection_statement = format!(
+        "SELECT id,label IS NOT DISTINCT FROM peer AS same_null_safe FROM '{}' WHERE label IS DISTINCT FROM peer ORDER BY id ASC LIMIT 10",
+        source_path.display()
+    );
+    let projection_stdout = run_sql_local_source_smoke_json(&projection_statement);
+    assert!(projection_stdout.contains("\"status\":\"success\""));
+    assert!(projection_stdout.contains(&field("predicate_projection_runtime_execution", "true")));
+    assert!(projection_stdout.contains(&field(
+        "predicate_projection_predicate_family",
+        "logical_predicate"
+    )));
+    assert!(projection_stdout.contains(&field("predicate_projection_source_column", "label+peer")));
+    assert!(projection_stdout.contains(&field("selected_row_count", "3")));
+    assert!(projection_stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"same_null_safe\\\":false}\\n{\\\"id\\\":3,\\\"same_null_safe\\\":false}\\n{\\\"id\\\":4,\\\"same_null_safe\\\":false}\\n\""
+    ));
+    assert!(projection_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(projection_stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
 }
 
 #[test]

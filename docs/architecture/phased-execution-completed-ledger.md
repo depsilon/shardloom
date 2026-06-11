@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped SQL null-safe comparison and null-ordering grammar slice
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-6d-sql-null-safe-comparisons` / local branch.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` queue.
+    - SQL/Python/DataFrame front-door parity row for arbitrary grammar/API breadth.
+  - Scope:
+    - Added scoped local-source SQL `IS DISTINCT FROM` and `IS NOT DISTINCT FROM` predicate and
+      predicate-projection parsing for column-literal, `DATE`/`TIMESTAMP`/`BINARY`/`BLOB` literal,
+      `NULL` literal, and column-column operands.
+    - Lowered the syntax to existing ShardLoom-owned null, comparison, and logical predicate
+      runtime primitives rather than adding an external SQL engine or broad comparison enum.
+    - Added Python query-builder helpers `ColumnExpression.is_distinct_from(...)` and
+      `ColumnExpression.is_not_distinct_from(...)`, including `None` -> `NULL` rendering for
+      null-safe comparisons only.
+    - Added scoped local-source SQL `ORDER BY <column> [ASC|DESC] NULLS FIRST|LAST LIMIT <n>`
+      parsing/runtime over already-admitted scalar sort keys; explicit null precedence stays
+      independent of sort direction, while implicit null ordering remains blocked.
+    - Added Python local-source `sort(...)`, `order_by(...)`, `sort_by(...)`, and
+      `sort_values(...)` `nulls="first"|"last"` lowering for the admitted explicit-null top-N
+      surface.
+    - Added Rust CLI smokes, parser coverage, Python rendering/assertion coverage,
+      admitted-semantics matrix fixtures/rows, SQL/Python/DataFrame parity validator markers, and
+      phase/front-door docs.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_null_safe_comparison_predicates_without_fallback` passed.
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_explicit_null_order_by_topn_without_fallback` passed.
+    - `cargo test -p shardloom-cli sql_local_source_runtime::tests::parses_scoped_explicit_null_order_by_topn_statement` passed.
+    - `python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_order_by_explicit_nulls_invokes_sql_smoke` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-null-safe-comparison.json` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-null-safe-comparison.json` passed with
+      `matrix_row_count=126`, `executable_fixture_count=102`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This admits scoped local-source WHERE predicate and predicate-projection semantics for
+      null-safe comparison grammar plus scoped explicit-null top-N ordering and Python query-builder
+      rendering/lowering for those surfaces. It does not claim broad ANSI SQL parity, implicit null
+      ordering, production SQL runtime, performance equivalence, object-store/table SQL runtime, or
+      Spark replacement.
+  - Fallback boundary:
+    - Execution stays inside the ShardLoom local-source SQL runtime and existing expression
+      primitives. No pandas, Polars, DuckDB, DataFusion, Spark, Velox, external SQL engine, or
+      Vortex query-engine integration is introduced or invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped DataFrame selection/dtype breadth slice
   - Date: 2026-06-11
   - Branch/PR: `codex/compute-engine-6d-dataframe-breadth-selection-dtype` / local branch.
