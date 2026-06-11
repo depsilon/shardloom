@@ -179,37 +179,7 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-1. [ ] `REPO-WIDE-AUDIT-3B` - Shardloom hot-runtime optimization implementation from benchmark
-   target evidence.
-   - Source: `docs/architecture/repo-wide-audit.md` section `Shardloom Code`.
-   - Current state: `REPO-WIDE-AUDIT-3A` added shared release-report helpers and
-     `scripts/check_benchmark_optimization_targets.py`, wired the diagnostic report into CI, and
-     proved that the current promoted artifact exposes evidence for JSONL parse/decode, AVRO hot
-     outliers, prepared-state lookup/create, Vortex write/reopen/verify, source-read timing, and
-     operator materialization.
-   - Next slice outcome: implement a cohesive hot-runtime code optimization batch against the
-     highest-value targets from `target/benchmark-optimization-targets-report.json`, starting with
-     source parse/decode and prepared-state create/lookup before lower-value cosmetic refactors.
-   - Implementation scope:
-     - Keep all ShardLoom runtime rows fail-closed for fallback and external-engine invocation.
-     - Promote performance work only where current benchmark evidence identifies a bottleneck:
-       JSONL parse/decode, AVRO hot-runtime outliers, prepared state create/lookup, Vortex
-       write/reopen/verify, source-read scout timing, operator materialization, or CI slow-tail
-       gates.
-     - Preserve timing-surface separation: `hot_runtime`, replay proof/publication proof, and
-       external baselines must remain distinct in generated rows and website/static artifacts.
-   - Verification:
-     - Focused Python/Rust tests for the touched boundary.
-     - `python3 scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json`
-     - `cargo fmt --all -- --check`
-     - `cargo clippy --workspace --all-targets -- -D warnings`
-     - `cargo test --workspace --all-targets`
-     - Relevant Python release-script shard or benchmark publication gate when scripts/artifacts
-       change.
-   - Claim boundary: optimization and modularization work must keep timing surface, evidence tier,
-     and claim gate fields explicit. No performance claim is allowed without a refreshed artifact.
-
-2. [ ] `REPO-WIDE-AUDIT-4` - website/public benchmark surface cleanup and data ownership.
+1. [ ] `REPO-WIDE-AUDIT-4` - website/public benchmark surface cleanup and data ownership.
    - Source: `docs/architecture/repo-wide-audit.md` section `Website`.
    - Next slice outcome: implement a cohesive website cleanup/overhaul batch selected from findings
      `WB-1` through `WB-6`, prioritizing benchmark timing-surface clarity, static data ownership,
@@ -228,7 +198,7 @@ Current autonomous execution order:
    - Claim boundary: website cleanup must not imply production readiness, package publication,
      benchmark superiority, Spark displacement, or unsupported timing-surface substitution.
 
-Plan state after REPO-WIDE-AUDIT-2 docs cleanup:
+Plan state after REPO-WIDE-AUDIT-3B source-parse optimization:
 
 - The `SECURITY-DEEP-SCAN-R3-FOLLOWUP` item completed in PR #1167 and its detailed session record
   lives in `docs/architecture/phased-execution-completed-ledger.md`.
@@ -242,9 +212,11 @@ Plan state after REPO-WIDE-AUDIT-2 docs cleanup:
   owned by `docs/architecture/compute-engine-flow-reference.md`, the overhaul review is historical,
   and CI validates those public-status doc anchors.
 - `REPO-WIDE-AUDIT-3A` completed the first Shardloom Code cleanup batch by adding shared
-  release-report helpers and benchmark-driven optimization target evidence. `REPO-WIDE-AUDIT-3B`
-  and `REPO-WIDE-AUDIT-4` are now the active follow-up batches. They remain ordered for manual
-  review: hot-runtime code optimization next, then website/public benchmark surface.
+  release-report helpers and benchmark-driven optimization target evidence.
+- `REPO-WIDE-AUDIT-3B` completed the first hot-runtime code optimization batch by reducing JSONL
+  source parse/decode work for benchmark-shaped profile tails and selected generic fallback rows.
+  Remaining benchmark targets are diagnostic-only until a refreshed artifact identifies a concrete
+  claim-blocking runtime regression or a new phase-plan item is promoted.
 - Completed runtime and release details live in
   `docs/architecture/phased-execution-completed-ledger.md`; keep this file as the compact planned
   queue.
@@ -263,8 +235,8 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| Active | `REPO-WIDE-AUDIT-3B` | Hot-runtime optimization implementation from benchmark target evidence. |
 | Active | `REPO-WIDE-AUDIT-4` | Website/public benchmark surface cleanup and data ownership. |
+| Closed | `REPO-WIDE-AUDIT-3B` | Hot-runtime JSONL source parse/decode optimization from benchmark target evidence. |
 | Closed | `REPO-WIDE-AUDIT-3A` | Release-report helper modularization and benchmark optimization target evidence. |
 | Closed | `REPO-WIDE-AUDIT-2` | Architecture/documentation coherence and claim-boundary cleanup. |
 | Closed | `GAR-RUNTIME-IMPL-4/6A` | Residual completion gate closes with global-review rows mapped to claim-boundary evidence. |
@@ -283,10 +255,10 @@ Runtime and release queue status:
   completed ledger and generated status artifacts.
 - Production usability closeout anchor: completed benchmark/profile, sub-evidence, user-surface,
   and package-readiness proof detail lives in the completed ledger.
-- Deferred Non-Runtime Closeout Queue: `REPO-WIDE-AUDIT-3B` and `REPO-WIDE-AUDIT-4` are the active
-  audit follow-up implementation batches. Completed non-runtime history lives in the completed
-  ledger; any additional work discovered by manual review must be promoted here as a concrete
-  unchecked item before editing behavior.
+- Deferred Non-Runtime Closeout Queue: `REPO-WIDE-AUDIT-4` is the active audit follow-up
+  implementation batch. Completed non-runtime history lives in the completed ledger; any additional
+  work discovered by manual review must be promoted here as a concrete unchecked item before editing
+  behavior.
 - Final Pre-Release Sequential Closeout Queue: closed as no-publication evidence. Publication,
   signing, tags, uploads, package-channel submission, release assets, and public claims still require
   explicit maintainer approval and passing hard gates.

@@ -4179,7 +4179,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertTrue(
             packet["next_implementation_slice"].startswith(
-                "`REPO-WIDE-AUDIT-3B`"
+                "`REPO-WIDE-AUDIT-4`"
             )
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
