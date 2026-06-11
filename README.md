@@ -22,6 +22,7 @@ Use this README as the entry point, then follow the source that matches your que
 | What ShardLoom is and is not | [About](https://shardloom.io/about) |
 | How to install and run a local smoke | [Install](docs/getting-started/install.md), [first 10 minutes](docs/getting-started/first-10-minutes.md), [examples](docs/getting-started/examples.md) |
 | How routes, evidence, and claims fit together | [Compute flow](https://shardloom.io/compute-engine-flow), [canonical compute-flow reference](docs/architecture/compute-engine-flow-reference.md) |
+| What public support claims are currently allowed | [Public status matrix](docs/release/public-status-matrix.md) |
 | What the benchmark page is actually showing | [Benchmarks](https://shardloom.io/benchmarks), [local benchmark taxonomy](docs/benchmarks/local-taxonomy-benchmark.md) |
 | What is planned or incomplete | [Phased execution plan](docs/architecture/phased-execution-plan.md) |
 | What has already landed | [Completed ledger](docs/architecture/phased-execution-completed-ledger.md) |
@@ -61,6 +62,9 @@ references.
 ## Current Support Posture
 
 Current runtime support is intentionally scoped and evidence-gated.
+
+This table is a README summary; the canonical public status matrix and claim boundary lives in
+[docs/release/public-status-matrix.md](docs/release/public-status-matrix.md).
 
 | Surface | Current posture | Claim boundary |
 | --- | --- | --- |

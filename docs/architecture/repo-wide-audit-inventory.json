@@ -1,8 +1,8 @@
 {
   "boundary_owner_counts": {
-    "architecture_docs_policy": 271,
+    "architecture_docs_policy": 272,
     "ci_release_governance": 6,
-    "runtime_tests_tools": 390,
+    "runtime_tests_tools": 391,
     "website_public_surface": 319,
     "website_validation": 1,
     "workspace_package_policy": 5
@@ -31,11 +31,11 @@
     {
       "boundary_owner": "ci_release_governance",
       "file_kind": "structured_config_or_data",
-      "line_count": 558,
+      "line_count": 564,
       "path": ".github/workflows/ci.yml",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "251d226c5801c77a68f8ced849a4e173904f47d4e6dff33ba7f83ee23d947739"
+      "sha256": "165ee12631de33bf1bb02d187b7a3bba7ef87f1531544e7fb1d32a36b6047817"
     },
     {
       "boundary_owner": "ci_release_governance",
@@ -148,11 +148,11 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 317,
+      "line_count": 321,
       "path": "README.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "5272c0bf386b2429e30cf5556094dba14a35b7803f7cdf5f73e8eb5c729d32ae"
+      "sha256": "cf3d5191539a30ded69bf983c4af9b18874bab37ee5df38fe29503c0ac771f07"
     },
     {
       "boundary_owner": "workspace_package_policy",
@@ -436,20 +436,20 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 570,
+      "line_count": 574,
       "path": "docs/architecture/compute-engine-flow-overhaul-review.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "b9e5348bd68cd04dbdb805e2bc0c812d45c12ab39e10f0fc8f8fc0af3748390d"
+      "sha256": "89cceb1e53a98e768efda00fbabdbf7c11783665c3740ef9d4423455d9126fdc"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 692,
+      "line_count": 695,
       "path": "docs/architecture/compute-engine-flow-reference.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "fd33d881851855fc7cd1a240724cc23cf925828726d9c4d60a6b82016ddcf194"
+      "sha256": "7800dfea70aba31aaff71d7d9c22f1b2de9632dbde408c467b8d87d5243a5114"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -688,20 +688,20 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 41268,
+      "line_count": 41314,
       "path": "docs/architecture/phased-execution-completed-ledger.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "fd8c1ae3c9be751ab43442bdcdde6afa32af2f7b226862d5ec1fea8343f59f76"
+      "sha256": "20dd2b381837d4b56d938c55cfb3f0801da48ab9dc43522b913e426b8abd0cad"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 340,
+      "line_count": 322,
       "path": "docs/architecture/phased-execution-plan.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "b34f0a0468e80ca988bcd4a1288838f58ee2a58b11965c8832e4f593ea67e519"
+      "sha256": "8550b3a80886c7e28aba6a5f9109e9215056a8c5b00e1afc8acfc3507ff71f4e"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -742,20 +742,20 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "structured_config_or_data",
-      "line_count": 8967,
+      "line_count": 8985,
       "path": "docs/architecture/repo-wide-audit-inventory.json",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "564e06fb73e09a2a8e348b44447749729f8325cb1b8c4acc8529e442ec390f1e"
+      "sha256": "dcf2bde12463a6c5097804e67f6bfa1a5f14d54f00325103a8f24a2bee5f90d6"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 171,
+      "line_count": 174,
       "path": "docs/architecture/repo-wide-audit.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "0813671ef359c889d510760ba919b2ffbdd1954030ebd330d9dbd639d2a8ccdd"
+      "sha256": "bdeb5fb2d54ed821044202367b42293fd7b01f277df97c0096c9d87d8963a9b2"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -1228,29 +1228,29 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 463,
+      "line_count": 467,
       "path": "docs/getting-started/examples.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "3f3f58214c12ec0b6b463721f5cf8b261bcf0599e434a7c7aba701945f0b51c9"
+      "sha256": "29bb6f53610d979c28ae337574a9c24467e391ac12ee9c48fe30936992a4b328"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 124,
+      "line_count": 127,
       "path": "docs/getting-started/first-10-minutes.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "649548943c996eb09d625086dee44405bdbe53b5e71cd65a0ecd93e2556c46b0"
+      "sha256": "930ce9d44346c98dd9c668cc8cc92a8eadf7eb64ddd3ba01e54cae9d6bca2b7a"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 76,
+      "line_count": 79,
       "path": "docs/getting-started/install.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "3d2b5854f487fc19cbbb679300c63784e7f8134e3e924c119f76677682ce8279"
+      "sha256": "59170e34546daecb1551ece3a263af48c6ab0dd5bbc287361a857abedf19c4ad"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -1300,11 +1300,11 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 144,
+      "line_count": 145,
       "path": "docs/release/ci-gate-matrix.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "e51a40981facaa5868ca5fa8b2a60d02672d590eb8ae3df99befd65bf94f7590"
+      "sha256": "d907f70b5c18601783e9b8451ce61e4e25b2bd8d39f781ff382b9715024033db"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -1435,11 +1435,20 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 127,
+      "line_count": 69,
+      "path": "docs/release/public-status-matrix.md",
+      "review_state": "reviewed",
+      "section": "Architecture/Documentation",
+      "sha256": "d20548123b825e94732058ceba58a69bb2b56dd91ee87770bd476675e3ffa46c"
+    },
+    {
+      "boundary_owner": "architecture_docs_policy",
+      "file_kind": "documentation",
+      "line_count": 129,
       "path": "docs/release/public-technical-preview-readiness.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "d0fae1c1e0447a42c89702e46cf1e5d7677c2b0d60578fd1087a9489c38a4770"
+      "sha256": "2b24fe259c361383899da63b3299ff8a50b4153b64662842daec11046275846d"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2614,11 +2623,11 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 41,
+      "line_count": 42,
       "path": "docs/use-cases/reference-backlinks.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "a0d17dd00c824b0074ff98822e085d701aa8e68a067a3b39dd6452c7ed3570b1"
+      "sha256": "c16feb5a5ad76e921b81f3af2cac70a6526526cab660ce70772f0e0b16bff998"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2884,11 +2893,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "documentation",
-      "line_count": 2845,
+      "line_count": 2849,
       "path": "python/README.md",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "21f7f15a9be49274030c93e581e3fa116867736af1eff20f186d13ddd74edec4"
+      "sha256": "2d4ed513e604508e97a59fcbc430e622ace32e812e61908158c64f94ed6f9cae"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3127,11 +3136,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 6411,
+      "line_count": 6467,
       "path": "python/tests/test_release_scripts.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "4ba7ca2a1998d85b3f65cb9acac058afec1de0ba0c62b5d51a8c4f92e8a5309e"
+      "sha256": "a99e144b4cb8f382cc961a1136f15291d416278192f7675beb801d5e145c3b98"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3244,11 +3253,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 500,
+      "line_count": 509,
       "path": "scripts/check_ci_gate_matrix.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "ef66fcbf12745ed5d9e82c6c866a1ba62f08f84548780da42fc5a87121785c56"
+      "sha256": "6bfaab4f0d218447a714332c4e17181b075ef4e7d957b484767380d4946d7fb6"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3357,6 +3366,15 @@
       "review_state": "reviewed",
       "section": "Shardloom Code",
       "sha256": "19d67c3d59b22878f03e0d00c3da03aeb72ba342af0fa4e6075e05fdea78b58a"
+    },
+    {
+      "boundary_owner": "runtime_tests_tools",
+      "file_kind": "python",
+      "line_count": 172,
+      "path": "scripts/check_public_status_docs.py",
+      "review_state": "reviewed",
+      "section": "Shardloom Code",
+      "sha256": "54b983c2bebef92e700679d402267e63db3bc6b673708398304d62b888d4c620"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -6205,11 +6223,11 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 692,
+      "line_count": 695,
       "path": "website-public/assets/data/compute-engine-flow-reference.md",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "fd33d881851855fc7cd1a240724cc23cf925828726d9c4d60a6b82016ddcf194"
+      "sha256": "7800dfea70aba31aaff71d7d9c22f1b2de9632dbde408c467b8d87d5243a5114"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7573,20 +7591,20 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 695,
+      "line_count": 698,
       "path": "website/architecture.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "f912f9751d8559bb887bb2492557b457672474b8e184fc36c2a4ec78ba3aea3d"
+      "sha256": "226a4da79f5ae9a012882d7afd0cad4eae944df39252faf5b97e630562b7b651"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 695,
+      "line_count": 698,
       "path": "website/architecture/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "f912f9751d8559bb887bb2492557b457672474b8e184fc36c2a4ec78ba3aea3d"
+      "sha256": "226a4da79f5ae9a012882d7afd0cad4eae944df39252faf5b97e630562b7b651"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7708,11 +7726,11 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 692,
+      "line_count": 695,
       "path": "website/assets/data/compute-engine-flow-reference.md",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "fd33d881851855fc7cd1a240724cc23cf925828726d9c4d60a6b82016ddcf194"
+      "sha256": "7800dfea70aba31aaff71d7d9c22f1b2de9632dbde408c467b8d87d5243a5114"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7798,20 +7816,20 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 695,
+      "line_count": 698,
       "path": "website/compute-engine-flow.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "474fdeb152232089e9ee1fdf0c2d391bc0c36e34a3091795ef411cf549f366f7"
+      "sha256": "9f2aafc9a6ab11137370cca12d6473477bec67e005e22afb38bfb1e8aaad5dda"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 695,
+      "line_count": 698,
       "path": "website/compute-engine-flow/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "474fdeb152232089e9ee1fdf0c2d391bc0c36e34a3091795ef411cf549f366f7"
+      "sha256": "9f2aafc9a6ab11137370cca12d6473477bec67e005e22afb38bfb1e8aaad5dda"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8941,11 +8959,11 @@
   ],
   "file_kind_counts": {
     "checked_in_static_site": 190,
-    "documentation": 266,
+    "documentation": 267,
     "fixture_or_benchmark_data": 3,
     "jsonc": 1,
     "lock": 1,
-    "python": 85,
+    "python": 86,
     "rust": 262,
     "structured_config_or_data": 46,
     "text_or_policy": 5,
@@ -8953,15 +8971,15 @@
     "typed": 1,
     "website_source": 127
   },
-  "generated_at_utc": "2026-06-11T17:47:00.911015+00:00",
-  "reviewed_tracked_files": 992,
+  "generated_at_utc": "2026-06-11T18:29:14.931112+00:00",
+  "reviewed_tracked_files": 994,
   "schema_version": "shardloom.repo_wide_audit_inventory.v1",
   "section_counts": {
-    "Architecture/Documentation": 271,
-    "Shardloom Code": 401,
+    "Architecture/Documentation": 272,
+    "Shardloom Code": 402,
     "Website": 320
   },
   "skipped_tracked_files": 0,
-  "source_head_at_generation": "dc1d065f259d20556fd2d1e9f2ed7f8ad588baa8",
-  "total_tracked_files": 992
+  "source_head_at_generation": "faca24c4d036c662ea1463c74995862fc96d4ebe",
+  "total_tracked_files": 994
 }

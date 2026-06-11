@@ -461,6 +461,7 @@ jobs:
           test -f target/benchmark-artifact-completeness-report.json
           test -f target/benchmark-publication-claim-gate-report.json
           test -f target/front-door-benchmark-publication-gate.json
+          test -f target/public-status-docs-report.json
           test -f target/website-readiness-report.json
       - name: Final release rehearsal
         run: python scripts/final_release_rehearsal.py --allow-blocked
@@ -487,6 +488,7 @@ jobs:
             target/admitted-semantics-matrix
             target/release-architecture-tracker-report.json
             target/final-release-rehearsal
+            target/public-status-docs-report.json
             target/website-readiness-report.json
             target/production-usability-gate.json
             target/python-user-surface-completion-gate.json
@@ -527,6 +529,8 @@ jobs:
       - name: Check website types
         working-directory: website-src
         run: npm run check
+      - name: Public status docs
+        run: python scripts/check_public_status_docs.py
       - name: Website readiness
         run: python scripts/check_website_readiness.py
       - name: Static asset validation
@@ -535,7 +539,9 @@ jobs:
         if: always()
         with:
           name: website-docs-evidence
-          path: target/website-readiness-report.json
+          path: |
+            target/public-status-docs-report.json
+            target/website-readiness-report.json
           if-no-files-found: ignore
           retention-days: 14
 

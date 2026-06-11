@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REPO-WIDE-AUDIT-2 architecture/docs coherence and public claim-boundary cleanup
+  - Date: 2026-06-11
+  - Branch/PR: `codex/repo-wide-audit-docs-cleanup` / local branch.
+  - Source:
+    - `docs/architecture/repo-wide-audit.md` section `Architecture/Documentation`, especially
+      findings `AD-1`, `AD-2`, and `AD-4`.
+    - Active phase-plan item `REPO-WIDE-AUDIT-2`.
+  - Scope:
+    - Added `docs/release/public-status-matrix.md` as the canonical public support posture and
+      claim-boundary owner for README, getting-started docs, Python README, release readiness docs,
+      and website wording.
+    - Added `scripts/check_public_status_docs.py` plus focused unit coverage to validate public
+      status anchors, fail-closed claim booleans, and compute-flow ownership markers.
+    - Updated README, getting-started docs, Python README, and public technical-preview readiness
+      docs to link status wording back to the canonical matrix instead of repeating parallel
+      public-readiness language.
+    - Made `docs/architecture/compute-engine-flow-reference.md` the current compute-flow
+      vocabulary owner and marked `docs/architecture/compute-engine-flow-overhaul-review.md` as a
+      historical alignment review only.
+    - Wired the public-status validator into the website/docs CI lane, release-readiness evidence
+      aggregation, and CI gate matrix documentation.
+    - Kept the phase plan compact by closing `REPO-WIDE-AUDIT-2` and leaving
+      `REPO-WIDE-AUDIT-3` and `REPO-WIDE-AUDIT-4` as the next active audit follow-up batches.
+  - Local evidence:
+    - `python3 scripts/check_public_status_docs.py --output target/public-status-docs-report.json`
+      passed.
+    - Focused Python unit tests for `check_public_status_docs.py` passed.
+    - `python3 scripts/check_ci_gate_matrix.py` passed.
+    - `python3 scripts/check_repo_wide_audit.py --write --output target/repo-wide-audit-coverage-report.json`
+      refreshed and passed.
+    - `python3 scripts/check_release_architecture_tracker.py --allow-blocked` passed.
+    - `python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete` passed.
+    - `PYTHONPATH=python/src python3 scripts/run_python_test_shard.py --shard release_scripts`
+      passed with 114 tests and 2 skipped tests.
+    - Website content sync/build/check/readiness and static asset validation passed after the
+      compute-flow mirror update.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - Documentation cleanup only. It does not approve package publication, package-channel upload,
+      production support, public release readiness, performance superiority, Spark displacement,
+      benchmark freshness, tags, signing, release assets, or managed-platform support.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution was introduced. Public status docs remain fail-closed with
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: REPO-WIDE-AUDIT-1 repo-wide audit body and coverage inventory
   - Date: 2026-06-11
   - Branch/PR: `codex/repo-wide-audit-execution` / local branch.

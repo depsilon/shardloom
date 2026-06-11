@@ -4,6 +4,10 @@
 
 ShardLoom release-readiness examples are local and no-fallback by default.
 
+Public status is owned by `docs/release/public-status-matrix.md`. Examples here are scoped local
+proofs and blockers; they do not broaden package, production, performance, SQL/DataFrame,
+object-store/lakehouse, Foundry, or Spark-displacement claims.
+
 ## Local Python Smoke
 
 ```powershell

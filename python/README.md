@@ -11,6 +11,10 @@ fallback execution path. Importing the package has no ShardLoom side effects. Wo
 a caller explicitly invokes a CLI command through `ShardLoomClient` or one of the scoped Python
 helpers that wraps an evidence-backed CLI smoke.
 
+Public status is owned by `docs/release/public-status-matrix.md`. This README may describe scoped
+local Python surfaces, but it does not authorize package publication, production support,
+performance claims, Spark displacement, or hidden external execution.
+
 ## Local Use
 
 From the repository root:

@@ -4179,7 +4179,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertTrue(
             packet["next_implementation_slice"].startswith(
-                "`REPO-WIDE-AUDIT-2`"
+                "`REPO-WIDE-AUDIT-3`"
             )
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
@@ -5218,6 +5218,62 @@ jobs:
 
         self.assertIn("if: ${{ always() }}", release_job)
         self.assertIn("python scripts/check_release_readiness.py", release_job)
+
+    def _write_public_status_docs_fixture(self, module: object, repo_root: Path) -> None:
+        path_markers: dict[str, tuple[str, ...]] = {
+            module.PUBLIC_STATUS_REF.as_posix(): module.CANONICAL_PUBLIC_STATUS_MARKERS,
+            **module.PUBLIC_DOC_MARKERS,
+            **module.COMPUTE_FLOW_MARKERS,
+        }
+        for rel_path, markers in path_markers.items():
+            path = repo_root / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("\n".join(markers) + "\n", encoding="utf-8")
+
+    def test_public_status_docs_validator_accepts_required_markers(self) -> None:
+        module = self._load_script_module(
+            "check_public_status_docs.py",
+            "check_public_status_docs_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_public_status_docs_fixture(module, repo_root)
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(
+            report["canonical_public_status_matrix"],
+            "docs/release/public-status-matrix.md",
+        )
+        self.assertFalse(report["public_release_claim_allowed"])
+        self.assertFalse(report["public_package_claim_allowed"])
+        self.assertFalse(report["performance_claim_allowed"])
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+
+    def test_public_status_docs_validator_blocks_missing_marker(self) -> None:
+        module = self._load_script_module(
+            "check_public_status_docs.py",
+            "check_public_status_docs_blocker_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_public_status_docs_fixture(module, repo_root)
+            (repo_root / "README.md").write_text(
+                "docs/release/public-status-matrix.md\nCurrent Support Posture\n",
+                encoding="utf-8",
+            )
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "README.md: missing marker" in blocker
+                for blocker in report["blockers"]
+            )
+        )
 
     def test_release_evidence_artifact_merge_restores_repo_relative_refs(self) -> None:
         module = self._load_script_module(

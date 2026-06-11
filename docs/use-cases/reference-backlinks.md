@@ -9,6 +9,7 @@ relationship auditable.
 | Reference file | Related use cases |
 | --- | --- |
 | `README.md` | `first-10-minutes-local-smoke`, `python-wrapper-client-smoke`, `python-local-csv-query-builder-smoke`, `sql-local-source-csv-smoke`, `table-lakehouse-boundary-report`, `package-channel-readiness-boundary` |
+| `docs/release/public-status-matrix.md` | `first-10-minutes-local-smoke`, `python-wrapper-client-smoke`, `sql-dataframe-capability-posture`, `benchmark-interpretation-evidence-not-leaderboard`, `package-channel-readiness-boundary`, `evidence-audit-claim-gates` |
 | `docs/getting-started/first-10-minutes.md` | `first-10-minutes-local-smoke`, `python-wrapper-client-smoke`, `package-channel-readiness-boundary` |
 | `docs/getting-started/examples.md` | `first-10-minutes-local-smoke`, `local-file-etl-cleanup-smoke`, `python-local-csv-query-builder-smoke`, `sql-local-source-csv-smoke`, `messy-data-local-fixtures` |
 | `docs/getting-started/certified-local-workload.md` | `local-file-etl-cleanup-smoke`, `compatibility-import-certified-local`, `evidence-audit-claim-gates` |
