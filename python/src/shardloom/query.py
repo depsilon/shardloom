@@ -8499,8 +8499,16 @@ def _sql_cast_projection_expression(expression: object) -> str:
         raise ValueError(
             "CAST/TRY_CAST column expressions must use CAST(column AS dtype) syntax"
         )
-    column = _normalize_expression_column(inner[:marker_index].strip())
     dtype = _normalize_cast_dtype(inner[marker_index + len(marker) :].strip())
+    source = inner[:marker_index].strip()
+    if dtype == "binary":
+        column, has_source_column = _normalize_string_scalar_expression_sql(source)
+        if not has_source_column:
+            raise ValueError(
+                "binary CAST/TRY_CAST expressions require a source-backed string expression"
+            )
+    else:
+        column = _normalize_expression_column(source)
     return f"{function}({column} AS {dtype})"
 
 

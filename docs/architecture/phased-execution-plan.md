@@ -342,15 +342,19 @@ Each item below uses the same sub-checklist shape:
       UTF-8 string-transform/string-function expressions such as `LOWER(TRIM(hex_payload))` and
       `CONCAT(b64_prefix,b64_suffix)` while keeping source-free and non-admitted expression shapes
       blocked with no-fallback diagnostics.
+    - [x] Scoped binary `CAST`/`TRY_CAST` projection, equality/inequality predicate, and bytewise
+      ordering predicate arguments now admit the same source-backed UTF-8 column,
+      string-transform, and string-function expression subset, with grouped source-column evidence
+      such as `label_prefix+label_suffix`.
     - [x] Common table expression syntax now has a precise parser-bound deterministic blocker:
       `WITH` / `WITH RECURSIVE` statements fail before bind/plan/runtime with `cte_plan_nodes`,
       catalog-scope, recursive-policy, execution-certificate, and no-fallback evidence
       requirements.
     - [ ] Remaining: ORC nested output, ORC typed decimal sinks, broad ANSI
       decimal coercion beyond exact exponent normalization, broader binary execution/preservation
-      beyond scoped source projection/predicate/order, explicit casts/helpers, helper predicates,
-      and admitted source-backed helper expressions, and broad ANSI subquery parity beyond the
-      admitted bounded local families remain outside the claim boundary.
+      beyond scoped source projection/predicate/order plus explicit casts/helpers over the admitted
+      source-backed UTF-8 expression subset, and broad ANSI subquery parity beyond the admitted
+      bounded local families remain outside the claim boundary.
   - Runtime enablement: public route facade -> SQL parse/bind request -> ShardLoom capability
     admission -> native runtime lowering or deterministic unsupported diagnostic -> no-fallback
     evidence row.

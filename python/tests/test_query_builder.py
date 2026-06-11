@@ -10000,7 +10000,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 assert sys.argv[1:] == [
                     "sql-local-source-smoke",
-                    "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day,CAST(label AS binary) AS label_bytes FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day,CAST(CONCAT(label_prefix, label_suffix) AS binary) AS label_bytes FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
                     "--format",
@@ -10018,7 +10018,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "result_jsonl", "value": "{\\"id\\":1,\\"amount_float\\":8.0,\\"event_day\\":\\"2026-05-19\\",\\"label_bytes\\":\\"binary[hex=616c706861]\\"}\\n"},
                         {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
                         {"key": "cast_projection_runtime_execution", "value": "true"},
-                        {"key": "cast_projection_source_column", "value": "amount,event_date,label"},
+                        {"key": "cast_projection_source_column", "value": "amount,event_date,label_prefix+label_suffix"},
                         {"key": "cast_projection_output_column", "value": "amount_float,event_day,label_bytes"},
                         {"key": "cast_projection_target_dtype", "value": "float64,date32,binary"},
                         {"key": "cast_projection_mode", "value": "strict,strict,strict"},
@@ -10038,7 +10038,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .select("id")
             .with_column("amount_float", sl.col("amount").cast("float64"))
             .with_column("event_day", sl.col("event_date").cast("date32"))
-            .with_column("label_bytes", sl.col("label").cast("binary"))
+            .with_column(
+                "label_bytes",
+                sl.concat(sl.col("label_prefix"), sl.col("label_suffix")).cast("binary"),
+            )
             .filter(sl.col("id") >= 1)
             .limit(2)
             .collect()
@@ -10047,7 +10050,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.envelope.command, "sql-local-source-smoke")
         self.assertTrue(report.cast_projection_runtime_execution)
         self.assertEqual(
-            report.cast_projection_source_columns, ("amount", "event_date", "label")
+            report.cast_projection_source_columns,
+            ("amount", "event_date", "label_prefix+label_suffix"),
         )
         self.assertEqual(
             report.cast_projection_output_columns,

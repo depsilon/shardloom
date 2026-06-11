@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-6D scoped binary cast source-backed expression runtime slice
+  - Date: 2026-06-11
+  - Branch/PR: `codex/compute-engine-6d-binary-preservation-closeout` / local branch.
+  - Source:
+    - Active `GAR-RUNTIME-IMPL-6D:last_order.broad_sql_grammar` binary preservation closeout.
+    - Follow-up to scoped binary cast/literal and binary helper expression slices: binary helpers
+      admitted nested source-backed UTF-8 expressions, while binary `CAST`/`TRY_CAST` still only
+      admitted bare source columns.
+  - Scope:
+    - Promoted scoped binary `CAST`/`TRY_CAST` projection, equality/inequality predicate, and
+      bytewise ordering predicate arguments from bare columns to the admitted source-backed UTF-8
+      expression subset: columns, string transforms, and string functions such as
+      `LOWER(TRIM(label))` and `CONCAT(label_prefix,label_suffix)`.
+    - Preserved non-binary cast behavior as column-only and kept source-free/non-admitted binary
+      cast arguments deterministic blockers.
+    - Updated cast source-column planning, header validation, left-existence join source refs,
+      expression lowering, report fields, Python computed `with_column` binary cast normalization,
+      admitted-semantics fixtures, and phase/global/status docs.
+    - Kept grouped evidence stable by reporting multi-column binary cast arguments as
+      `label_prefix+label_suffix` while preserving existing report field names.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `cargo test -p shardloom-cli binary_cast -- --nocapture` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder` passed with
+      217 tests.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 487 tests and
+      2 expected skips.
+    - `python3 scripts/check_admitted_semantics_matrix.py --output target/admitted-semantics-matrix-check.json`
+      passed.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-check.json`
+      passed.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report-check.json`
+      passed.
+    - `python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion-check.json`
+      passed.
+    - `PYTHONPATH=python/src python3 -m compileall -q python/src python/tests scripts examples`
+      passed.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness -- --nocapture`
+      passed.
+    - `git diff --check` passed.
+    - `python3 scripts/check_release_readiness.py --output target/release-readiness-check.json`
+      failed closed with `status=blocked` for release-scope blockers unrelated to this runtime
+      slice: clean Conda proof skipped, missing release security/final rehearsal/release validation
+      evidence, package channels not ready, API/schema stability blocked, per-claim evidence not
+      claim-grade, 38 unchecked global architecture review items, 78 unchecked phase-plan items,
+      and missing required release validation evidence attachments.
+  - Claim boundary:
+    - This closes scoped SQL/Python local-source binary cast projection/predicate/order arguments
+      for source-backed UTF-8 column, string-transform, and string-function expressions only. It
+      does not claim broad binary execution/preservation, arbitrary expression-to-binary casts,
+      ORC nested output, ORC typed decimal sinks, broad ANSI decimal/subquery parity, production
+      SQL/DataFrame completeness, package readiness, performance equivalence, or Spark replacement.
+  - Fallback boundary:
+    - Execution remains inside ShardLoom's local-source runtime, Python front door, and core
+      expression evaluator. Positive routes and deterministic invalid-input diagnostics retain
+      `fallback_attempted=false` and `external_engine_invoked=false`; no Spark, DataFusion,
+      DuckDB, Polars, Velox, external engine, or Vortex query-engine integration is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-6D scoped nested binary helper expression runtime slice
   - Date: 2026-06-11
   - Branch/PR: `codex/compute-engine-6d-binary-helper-expressions` / local branch, PR not opened.

@@ -790,24 +790,29 @@ def binary_cast_projection_predicate_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="binary_cast_projection_predicate",
         source_name="binary-cast.csv",
-        source_text="id,label,amount\n1,alpha,42\n2,beta,7\n3,,0\n",
+        source_text=(
+            "id,label_prefix,label_suffix,amount_text\n"
+            "1,al,pha, 42A \n"
+            "2,be,ta,7b\n"
+            "3,,,\n"
+        ),
         statement_template=(
-            "SELECT id,CAST(label AS binary) AS label_bytes,"
-            "TRY_CAST(amount AS varbinary) AS amount_bytes FROM '{source}' "
-            "WHERE CAST(label AS binary) = X'616c706861' LIMIT 10"
+            "SELECT id,CAST(CONCAT(label_prefix,label_suffix) AS binary) AS label_bytes,"
+            "TRY_CAST(LOWER(TRIM(amount_text)) AS varbinary) AS amount_bytes FROM '{source}' "
+            "WHERE CAST(CONCAT(label_prefix,label_suffix) AS binary) = X'616c706861' LIMIT 10"
         ),
         expected_jsonl=(
             '{"id":1,"label_bytes":"binary[hex=616c706861]",'
-            '"amount_bytes":"binary[hex=3432]"}\n'
+            '"amount_bytes":"binary[hex=343261]"}\n'
         ),
         expected_fields={
             "predicate_operator_family": "cast",
             "cast_runtime_execution": "true",
-            "cast_source_column": "label",
+            "cast_source_column": "label_prefix+label_suffix",
             "cast_target_dtype": "binary",
             "cast_mode": "strict",
             "cast_projection_runtime_execution": "true",
-            "cast_projection_source_column": "label,amount",
+            "cast_projection_source_column": "label_prefix+label_suffix,amount_text",
             "cast_projection_output_column": "label_bytes,amount_bytes",
             "cast_projection_target_dtype": "binary,binary",
             "cast_projection_mode": "strict,try",
@@ -821,10 +826,10 @@ def binary_cast_ordering_predicate_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="binary_cast_ordering_predicate",
         source_name="binary-cast-ordering.csv",
-        source_text="id,label\n1,alpha\n2,beta\n3,alp\n4,\n5,gamma\n",
+        source_text="id,label\n1, Alpha \n2,Beta\n3,Alp\n4,\n5,Gamma\n",
         statement_template=(
-            "SELECT id,CAST(label AS binary) AS label_bytes FROM '{source}' "
-            "WHERE CAST(label AS binary) > BINARY 'alpha' ORDER BY id ASC LIMIT 10"
+            "SELECT id,CAST(LOWER(TRIM(label)) AS binary) AS label_bytes FROM '{source}' "
+            "WHERE CAST(LOWER(TRIM(label)) AS binary) > BINARY 'alpha' ORDER BY id ASC LIMIT 10"
         ),
         expected_jsonl=(
             '{"id":2,"label_bytes":"binary[hex=62657461]"}\n'

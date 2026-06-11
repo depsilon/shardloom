@@ -234,10 +234,12 @@ a deterministic unsupported diagnostic before fallback. Scoped SQL `X'<hex>'` bi
 projections are executable with exact hex evidence. Scoped `BINARY '<utf8>'` and `BLOB '<utf8>'`
 text byte literal projections are executable with exact byte evidence. Scoped `CAST`/`TRY_CAST` to
 `binary`/`blob`/`varbinary`
-projects admitted scalar values as UTF-8 bytes, and scoped binary cast equality/inequality
-predicates admit `X'<hex>'`, `BINARY`/`BLOB` text literals, single-quoted UTF-8 byte literals, or
-`NULL`. Scoped binary cast ordering predicates admit bytewise lexicographic comparisons against
-explicit binary literals. Scoped direct binary source predicates and source-column ordering over
+projects source-backed UTF-8 column, string-transform, and string-function expression values as
+bytes. Scoped binary cast equality/inequality predicates admit `X'<hex>'`, `BINARY`/`BLOB` text
+literals, single-quoted UTF-8 byte literals, or `NULL` against those admitted source-backed UTF-8
+expressions. Scoped binary cast ordering predicates admit bytewise lexicographic comparisons
+against explicit binary literals for the same expression subset. Scoped direct binary source
+predicates and source-column ordering over
 feature-gated Arrow IPC binary byte-array source columns admit bytewise lexicographic comparisons
 against explicit binary literals with SQL NULLs filtering out of WHERE results. Non-binary source
 columns compared to binary literals fail with deterministic unsupported diagnostics. Scoped
@@ -258,8 +260,9 @@ timestamp_micros result columns when dtype/family evidence is present, through t
 writer/reopen path. Unknown or unsupported NULL-bearing Vortex output batches block before writer
 conversion; binary sink preservation outside scoped Parquet/Arrow IPC/Avro/ORC and Vortex flat
 scalar outputs, broader binary execution beyond scoped source projection/predicate/order plus
-explicit casts/helpers, and binary helper expressions outside the admitted source-backed UTF-8
-expression subset remain outside the claim boundary.
+explicit casts/helpers over admitted source-backed UTF-8 expressions, and binary cast/helper
+expressions outside the admitted source-backed UTF-8 expression subset remain outside the claim
+boundary.
 Scoped
 `CAST`/`TRY_CAST` to
 `decimal128(p,s)` / `decimal(p,s)` / `numeric(p,s)` is executable for projection and predicate
