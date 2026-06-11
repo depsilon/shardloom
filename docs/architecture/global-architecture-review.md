@@ -657,10 +657,13 @@ plan before coding.
   scoped binary `CAST`/`TRY_CAST(<utf8-column-or-admitted-utf8-expression> AS binary)` routes plus
   `UNHEX(<utf8-column-or-admitted-utf8-expression>)` and
   `FROM_BASE64(<utf8-column-or-admitted-utf8-expression>)` binary helper projections/predicates
-  against explicit binary literals through ShardLoom-owned local-source runtime fields. Unknown or
-  unsupported NULL-bearing Vortex output batches still block before writer conversion, and broader
-  binary sinks, broader binary execution beyond admitted helper/cast/source routes, and non-binary
-  source columns compared directly to binary literals remain deterministic blockers.
+  against explicit binary literals through ShardLoom-owned local-source runtime fields. Scoped
+  `BYTE_LENGTH` / `OCTET_LENGTH` over those admitted helper/cast binary expressions now returns
+  `int64` byte counts for local-source projections and predicates with separate byte-length
+  evidence fields. Unknown or unsupported NULL-bearing Vortex output batches still block before
+  writer conversion, and broader binary sinks, broader binary execution beyond admitted helper/cast/
+  source/byte-length routes, and non-binary source columns compared directly to binary literals
+  remain deterministic blockers.
 - [x] GAR-RUNTIME-IMPL-6D also admits scoped local-source SQL `IS DISTINCT FROM` and
   `IS NOT DISTINCT FROM` predicate and predicate-projection grammar for column-literal,
   date/timestamp/binary literal, NULL literal, and column-column operands by lowering to existing

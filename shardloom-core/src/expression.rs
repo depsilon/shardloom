@@ -917,6 +917,9 @@ fn eval_function_call(
             eval_string_transform(name, args, row, |value| value.trim().to_string())
         }
         "utf8_length" | "length" => eval_string_length(name, args, row),
+        "binary_byte_length" | "byte_length" | "octet_length" => {
+            eval_binary_byte_length(name, args, row)
+        }
         "utf8_concat" | "concat" => eval_string_concat(name, args, row),
         "utf8_substr" | "utf8_substring" | "substr" | "substring" => {
             eval_string_substr(name, args, row)
@@ -1388,6 +1391,49 @@ fn eval_string_length(
             "string_length",
             format!(
                 "function {name:?} supports UTF-8/null operands only, got {}",
+                other.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+fn eval_binary_byte_length(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    if args.len() != 1 {
+        return Err(EvalFailure::invalid(
+            "binary_byte_length",
+            format!("function {name:?} requires exactly one binary argument"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let data_materialized = value.data_materialized;
+    match value.value {
+        ScalarValue::Null => Ok(EvalValue::null(
+            LogicalDType::Int64,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        ScalarValue::Binary(value) => {
+            let length = i64::try_from(value.len()).map_err(|_| {
+                EvalFailure::unsupported(
+                    "binary_byte_length",
+                    format!("function {name:?} input byte length exceeds int64 range"),
+                )
+            })?;
+            Ok(EvalValue::new(
+                ScalarValue::Int64(length),
+                LogicalDType::Int64,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        other => Err(EvalFailure::unsupported(
+            "binary_byte_length",
+            format!(
+                "function {name:?} supports Binary/null operands only, got {}",
                 other.dtype().as_str()
             ),
         )),
@@ -3244,6 +3290,7 @@ fn function_operator_family(name: &str) -> &'static str {
             "string_transform"
         }
         "utf8_length" | "length" => "string_length",
+        "binary_byte_length" | "byte_length" | "octet_length" => "binary_byte_length",
         "utf8_concat" | "concat" | "utf8_substr" | "utf8_substring" | "substr" | "substring"
         | "utf8_left" | "left" | "utf8_right" | "right" | "utf8_replace" | "replace" => {
             "string_function"
@@ -5407,6 +5454,58 @@ mod tests {
         assert_eq!(report.value, Some(ScalarValue::Int64(4)));
         assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
         assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_binary_byte_length_without_fallback() {
+        let expression = Expression::new(
+            expr_id("byte-length"),
+            ExpressionKind::FunctionCall {
+                name: "byte_length".to_string(),
+                args: vec![Expression::column(expr_id("payload"), col("payload"))],
+            },
+        );
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("payload", ScalarValue::Binary(vec![0x00, 0xff, 0x10]))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "binary_byte_length");
+        assert_eq!(report.value, Some(ScalarValue::Int64(3)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+
+        let null_report = evaluate_expression(&expression, &row(&[("payload", ScalarValue::Null)]));
+        assert_eq!(null_report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(null_report.operator_family, "binary_byte_length");
+        assert_eq!(null_report.value, Some(ScalarValue::Null));
+        assert_eq!(null_report.output_dtype, Some(LogicalDType::Int64));
+        assert!(!null_report.fallback_attempted);
+        assert!(!null_report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_blocks_string_byte_length_without_fallback() {
+        let expression = Expression::new(
+            expr_id("byte-length-string"),
+            ExpressionKind::FunctionCall {
+                name: "byte_length".to_string(),
+                args: vec![Expression::column(expr_id("label"), col("label"))],
+            },
+        );
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("label", ScalarValue::Utf8("alpha".to_string()))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert_eq!(report.operator_family, "binary_byte_length");
+        assert!(report.has_errors());
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
     }

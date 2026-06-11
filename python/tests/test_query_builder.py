@@ -2966,6 +2966,26 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "FROM_BASE64(CONCAT(prefix, suffix))",
         )
         self.assertEqual(
+            str(sl.col("payload_hex").unhex().byte_length()),
+            "BYTE_LENGTH(UNHEX(payload_hex))",
+        )
+        self.assertEqual(
+            str(sl.byte_length(sl.concat(sl.col("prefix"), sl.col("suffix")).cast("blob"))),
+            "BYTE_LENGTH(CAST(CONCAT(prefix, suffix) AS binary))",
+        )
+        self.assertEqual(
+            str(sl.col("payload_b64").from_base64().byte_length() >= 4),
+            "BYTE_LENGTH(FROM_BASE64(payload_b64)) >= 4",
+        )
+        with self.assertRaisesRegex(
+            ValueError, "binary byte length expressions admit"
+        ):
+            sl.col("label").byte_length()
+        with self.assertRaisesRegex(
+            ValueError, "binary helper expressions require a source-backed"
+        ):
+            sl.byte_length(sl.ColumnExpression("UNHEX('aa')"))
+        self.assertEqual(
             str(
                 sl.concat(sl.col("label").trim().lower(), "-", sl.col("segment").upper())
                 == "alpha-north"
@@ -7257,6 +7277,125 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 },
                 {"id": 3, "payload_hex": None, "payload_b64": None},
             ),
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_binary_byte_length_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,BYTE_LENGTH(UNHEX(LOWER(TRIM(hex_payload)))) AS payload_len,BYTE_LENGTH(CAST(CONCAT(label_prefix, label_suffix) AS binary)) AS label_len FROM 'target/input.csv' WHERE BYTE_LENGTH(FROM_BASE64(CONCAT(b64_prefix, b64_suffix))) >= 4 LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source binary byte length",
+                    "human_text": "sql local source binary byte length",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"payload_len\\":5,\\"label_len\\":4}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "computed_projection_runtime_execution", "value": "true"},
+                        {"key": "binary_byte_length_projection_runtime_execution", "value": "true"},
+                        {"key": "binary_byte_length_projection_argument_family", "value": "unhex,cast"},
+                        {"key": "binary_byte_length_projection_source_column", "value": "hex_payload,label_prefix+label_suffix"},
+                        {"key": "binary_byte_length_projection_output_column", "value": "payload_len,label_len"},
+                        {"key": "binary_byte_length_projection_output_dtype", "value": "int64"},
+                        {"key": "binary_byte_length_projection_null_semantics", "value": "null_propagating_binary_decode"},
+                        {"key": "binary_byte_length_predicate_runtime_execution", "value": "true"},
+                        {"key": "binary_byte_length_predicate_argument_family", "value": "from_base64"},
+                        {"key": "binary_byte_length_predicate_comparison_operator", "value": "gte"},
+                        {"key": "binary_byte_length_predicate_source_column", "value": "b64_prefix+b64_suffix"},
+                        {"key": "binary_byte_length_predicate_rhs_dtype", "value": "int64"},
+                        {"key": "binary_byte_length_predicate_null_semantics", "value": "null_propagating_binary_decode_then_sql_where_true_only"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column(
+                "payload_len",
+                sl.byte_length(sl.col("hex_payload").trim().lower().unhex()),
+            )
+            .with_column(
+                "label_len",
+                sl.byte_length(
+                    sl.concat(sl.col("label_prefix"), sl.col("label_suffix")).cast(
+                        "binary"
+                    )
+                ),
+            )
+            .filter(
+                sl.byte_length(
+                    sl.from_base64(sl.concat(sl.col("b64_prefix"), sl.col("b64_suffix")))
+                )
+                >= 4
+            )
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.computed_projection_runtime_execution)
+        self.assertTrue(report.binary_byte_length_projection_runtime_execution)
+        self.assertEqual(
+            report.binary_byte_length_projection_argument_family, ("unhex", "cast")
+        )
+        self.assertEqual(
+            report.binary_byte_length_projection_source_columns,
+            ("hex_payload", "label_prefix+label_suffix"),
+        )
+        self.assertEqual(
+            report.binary_byte_length_projection_output_columns,
+            ("payload_len", "label_len"),
+        )
+        self.assertEqual(report.binary_byte_length_projection_output_dtype, "int64")
+        self.assertEqual(
+            report.binary_byte_length_projection_null_semantics,
+            "null_propagating_binary_decode",
+        )
+        self.assertTrue(report.binary_byte_length_predicate_runtime_execution)
+        self.assertEqual(
+            report.binary_byte_length_predicate_argument_family, ("from_base64",)
+        )
+        self.assertEqual(
+            report.binary_byte_length_predicate_comparison_operator, ("gte",)
+        )
+        self.assertEqual(
+            report.binary_byte_length_predicate_source_columns,
+            ("b64_prefix+b64_suffix",),
+        )
+        self.assertEqual(report.binary_byte_length_predicate_rhs_dtypes, ("int64",))
+        self.assertEqual(
+            report.binary_byte_length_predicate_null_semantics,
+            "null_propagating_binary_decode_then_sql_where_true_only",
+        )
+        self.assertEqual(
+            report.result_rows,
+            ({"id": 2, "payload_len": 5, "label_len": 4},),
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
