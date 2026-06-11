@@ -16,6 +16,49 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REPO-WIDE-AUDIT-1 repo-wide audit body and coverage inventory
+  - Date: 2026-06-11
+  - Branch/PR: `codex/repo-wide-audit-execution` / local branch.
+  - Source:
+    - User request for a repo-wide audit body with exactly three sections:
+      `Architecture/Documentation`, `Shardloom Code`, and `Website`.
+    - Phase-plan audit item in `docs/architecture/phased-execution-plan.md`.
+    - Audit body `docs/architecture/repo-wide-audit.md`.
+    - Coverage inventory `docs/architecture/repo-wide-audit-inventory.json`.
+  - Scope:
+    - Created a checked-in repo-wide audit body with the requested three sections and explicit
+      follow-up findings for documentation coherence, ShardLoom code/runtime quality, and website
+      public-surface cleanup.
+    - Added deterministic path-level inventory coverage over the tracked repository universe from
+      `git ls-files`, with every tracked file assigned to exactly one requested audit section.
+    - Added `scripts/check_repo_wide_audit.py` so future edits can validate zero skipped tracked
+      files, section ownership, file hash drift, and required claim-boundary language.
+    - Promoted follow-up implementation batches `REPO-WIDE-AUDIT-2`, `REPO-WIDE-AUDIT-3`, and
+      `REPO-WIDE-AUDIT-4` into the active phase-plan queue for manual-review-driven execution.
+  - Local evidence:
+    - `python3 scripts/check_repo_wide_audit.py --write --output target/repo-wide-audit-coverage-report.json`
+      passed and recorded 992 tracked files, 992 reviewed files, and 0 skipped files.
+    - Section counts at generation time: 271 `Architecture/Documentation`, 401 `Shardloom Code`,
+      and 320 `Website`.
+    - `python3 -m py_compile scripts/check_repo_wide_audit.py python/tests/test_release_scripts.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publish_doctor_accepts_current_static_artifact`
+      passed.
+    - `python3 scripts/check_release_architecture_tracker.py --allow-blocked --output target/release-architecture-tracker-repo-wide-audit-execution.json`
+      passed.
+    - `python3 scripts/check_compute_engine_completion_gate.py --allow-incomplete --output target/compute-engine-completion-gate-repo-wide-audit-execution.json`
+      passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This item creates audit and routing artifacts only. It does not approve package publication,
+      production readiness, performance superiority, Spark displacement, public release readiness,
+      public benchmark freshness, tags, uploads, or release assets.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution was introduced. Runtime claims remain bounded by
+      `performance_claim_allowed=false`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+
 - [x] Session label: SECURITY-DEEP-SCAN-R3-FOLLOWUP round-3 candidate burn-down
   - Date: 2026-06-11
   - Branch/PR: `codex/security-r3-followup` / #1167.
