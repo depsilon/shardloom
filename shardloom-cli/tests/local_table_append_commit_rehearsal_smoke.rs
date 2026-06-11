@@ -4,6 +4,9 @@ use std::{
     process::Command,
 };
 
+#[cfg(unix)]
+use std::os::unix::fs as unix_fs;
+
 fn run_local_table_append_commit_json(args: &[String]) -> (bool, String, String) {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args(args)
@@ -351,6 +354,95 @@ fn local_table_commit_recovery_blocks_mismatched_manifest_path_without_fallback(
     )));
     assert!(output.contains(&field("commit_record_local_manifest_path_matched", "false")));
     assert!(output.contains("local_manifest_path_mismatch"));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[cfg(unix)]
+#[test]
+fn allow_overwrite_rejects_symlink_manifest_without_clobbering_destination() {
+    let temp_dir = temp_case_dir("symlink-manifest");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let target = temp_dir.join("committed-manifest.json");
+    let outside = temp_dir.join("outside-manifest.json");
+    fs::write(&outside, b"outside manifest sentinel").expect("outside sentinel");
+    unix_fs::symlink(&outside, &target).expect("target symlink");
+    let args = vec![
+        "local-table-append-commit-rehearsal-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+        "--allow-overwrite".to_string(),
+    ];
+
+    let (success, output, stderr) = run_local_table_append_commit_json(&args);
+
+    assert!(!success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert_eq!(
+        fs::read(&outside).expect("outside sentinel"),
+        b"outside manifest sentinel"
+    );
+    assert!(
+        fs::symlink_metadata(&target)
+            .expect("target symlink metadata")
+            .file_type()
+            .is_symlink(),
+        "manifest symlink was not replaced"
+    );
+    assert!(output.contains(&field("table_append_commit_status", "blocked_write_error")));
+    assert!(output.contains("output target is a symlink"));
+    assert!(output.contains(&field("manifest_write_performed", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[cfg(unix)]
+#[test]
+fn commit_record_symlink_is_rejected_without_clobbering_destination() {
+    let temp_dir = temp_case_dir("symlink-commit-record");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let target = temp_dir.join("committed-manifest.json");
+    let sidecar = sidecar_path(&target);
+    let outside = temp_dir.join("outside-commit-record.json");
+    fs::write(&outside, b"outside commit record sentinel").expect("outside sentinel");
+    unix_fs::symlink(&outside, &sidecar).expect("commit record symlink");
+    let args = vec![
+        "local-table-append-commit-rehearsal-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+    ];
+
+    let (success, output, stderr) = run_local_table_append_commit_json(&args);
+
+    assert!(!success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert_eq!(
+        fs::read(&outside).expect("outside sentinel"),
+        b"outside commit record sentinel"
+    );
+    assert!(
+        !target.exists(),
+        "manifest write was rolled back after sidecar rejection"
+    );
+    assert!(
+        fs::symlink_metadata(&sidecar)
+            .expect("commit record symlink metadata")
+            .file_type()
+            .is_symlink(),
+        "commit record symlink was not replaced"
+    );
+    assert!(output.contains(&field("table_append_commit_status", "blocked_write_error")));
+    assert!(output.contains("output target is a symlink"));
+    assert!(output.contains(&field("committed_manifest_present", "false")));
+    assert!(output.contains(&field("commit_record_present", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("external_engine_invoked", "false")));
 

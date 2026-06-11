@@ -8,8 +8,9 @@
 
 use std::{
     collections::BTreeMap,
+    fmt::Write as _,
     fs,
-    io::{Read as _, Write as _},
+    io::Read as _,
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
@@ -26,6 +27,7 @@ use arrow_array::{
 };
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_schema::DataType as ArrowDataType;
+use sha2::Digest as _;
 use shardloom_core::{
     LogicalDType, Result, ScalarValue, ShardLoomError, WorkspaceSafeLocalWriteReport,
 };
@@ -282,6 +284,10 @@ impl VortexPreparedStateReuseReport {
             (
                 "vortex_prepared_state_reuse_manifest_digest".to_string(),
                 self.manifest_digest.clone(),
+            ),
+            (
+                "vortex_prepared_state_reuse_manifest_digest_algorithm".to_string(),
+                digest_algorithm(&self.manifest_digest).to_string(),
             ),
             (
                 "vortex_prepared_state_reuse_invalidation_reason".to_string(),
@@ -1054,7 +1060,7 @@ pub fn evaluate_vortex_prepared_state_append_only_refinement(
             &fields,
         ));
     }
-    let prefix_digest = fnv64_file_prefix_digest(
+    let prefix_digest = sha256_file_prefix_digest(
         &request.source_path,
         base_source_size_bytes,
         "append-only refinement source prefix",
@@ -1372,7 +1378,7 @@ impl LocalReuseFileFingerprint {
                 |value| value.as_nanos().to_string(),
             );
         Ok(Self {
-            content_digest: fnv64_file_digest(&path, label)?,
+            content_digest: sha256_file_digest(&path, label)?,
             path,
             size_bytes: metadata.len(),
             mtime_ns: modified,
@@ -1402,14 +1408,14 @@ fn absolute_local_path(path: impl AsRef<Path>) -> Result<PathBuf> {
     }
 }
 
-fn fnv64_file_digest(path: &Path, label: &str) -> Result<String> {
+fn sha256_file_digest(path: &Path, label: &str) -> Result<String> {
     let mut file = fs::File::open(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to open {label} '{}' for prepared-state reuse digest: {error}; no fallback execution was attempted",
             path.display()
         ))
     })?;
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    let mut digest = sha2::Sha256::new();
     let mut buffer = [0_u8; 8192];
     loop {
         let read = file.read(&mut buffer).map_err(|error| {
@@ -1421,22 +1427,19 @@ fn fnv64_file_digest(path: &Path, label: &str) -> Result<String> {
         if read == 0 {
             break;
         }
-        for byte in &buffer[..read] {
-            hash ^= u64::from(*byte);
-            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-        }
+        digest.update(&buffer[..read]);
     }
-    Ok(format!("fnv64:{hash:016x}"))
+    Ok(sha256_digest_string(digest.finalize()))
 }
 
-fn fnv64_file_prefix_digest(path: &Path, prefix_len: u64, label: &str) -> Result<String> {
+fn sha256_file_prefix_digest(path: &Path, prefix_len: u64, label: &str) -> Result<String> {
     let mut file = fs::File::open(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to open {label} '{}' for digest: {error}; no fallback execution was attempted",
             path.display()
         ))
     })?;
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    let mut digest = sha2::Sha256::new();
     let mut buffer = [0_u8; 8192];
     let mut remaining = prefix_len;
     while remaining > 0 {
@@ -1464,12 +1467,34 @@ fn fnv64_file_prefix_digest(path: &Path, prefix_len: u64, label: &str) -> Result
                     .to_string(),
             )
         })?;
-        for byte in &buffer[..read] {
-            hash ^= u64::from(*byte);
-            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-        }
+        digest.update(&buffer[..read]);
     }
-    Ok(format!("fnv64:{hash:016x}"))
+    Ok(sha256_digest_string(digest.finalize()))
+}
+
+fn sha256_digest_string(digest: impl AsRef<[u8]>) -> String {
+    let bytes = digest.as_ref();
+    let mut encoded = String::with_capacity("sha256:".len() + bytes.len() * 2);
+    encoded.push_str("sha256:");
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}").expect("write sha256 hex digest");
+    }
+    encoded
+}
+
+fn digest_algorithm(value: &str) -> &'static str {
+    match value.split_once(':').map(|(algorithm, _)| algorithm) {
+        Some("sha256") => "sha256",
+        Some("fnv64") => "fnv64",
+        Some("fnv1a64") => "fnv1a64",
+        Some("external_baseline_only") => "external_baseline_only",
+        Some("none") | None => "not_available",
+        Some(_) => "unknown",
+    }
+}
+
+fn is_local_artifact_digest(value: &str) -> bool {
+    matches!(digest_algorithm(value), "sha256" | "fnv64")
 }
 
 fn byte_at_offset(path: &Path, offset: u64, label: &str) -> Result<u8> {
@@ -1744,73 +1769,60 @@ fn write_key_value_manifest_fields(
     title: &str,
     error_label: &str,
 ) -> Result<()> {
-    let parent = path.parent().ok_or_else(|| {
+    let mut content = String::new();
+    writeln!(&mut content, "# {title}").map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
-            "{error_label} path '{}' has no parent directory; no fallback execution was attempted",
-            path.display()
-        ))
-    })?;
-    fs::create_dir_all(parent).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to create {error_label} directory '{}': {error}; no fallback execution was attempted",
-            parent.display()
-        ))
-    })?;
-    let tmp_path = path.with_extension("tmp");
-    let mut file = fs::File::create(&tmp_path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to create {error_label} temp file '{}': {error}; no fallback execution was attempted",
-            tmp_path.display()
-        ))
-    })?;
-    writeln!(file, "# {title}").map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to write {error_label} '{}': {error}; no fallback execution was attempted",
-            tmp_path.display()
+            "failed to render {error_label} header: {error}; no fallback execution was attempted"
         ))
     })?;
     for (key, value) in fields {
-        writeln!(file, "{key}={}", escape_manifest_value(value)).map_err(|error| {
+        writeln!(&mut content, "{key}={}", escape_manifest_value(value)).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
-                "failed to write {error_label} '{}': {error}; no fallback execution was attempted",
-                tmp_path.display()
+                "failed to render {error_label} field '{key}': {error}; no fallback execution was attempted"
             ))
         })?;
     }
-    file.sync_all().map_err(|error| {
+    let workspace_root = key_value_manifest_workspace_root(path)?;
+    shardloom_core::write_workspace_safe_bytes(
+        workspace_root,
+        path,
+        true,
+        format!("{title} ({error_label})"),
+        content.as_bytes(),
+    )
+    .map(|_| ())
+    .map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
-            "failed to sync {error_label} '{}': {error}; no fallback execution was attempted",
-            tmp_path.display()
-        ))
-    })?;
-    drop(file);
-    fs::rename(&tmp_path, path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to publish {error_label} '{}' to '{}': {error}; no fallback execution was attempted",
-            tmp_path.display(),
+            "failed to publish {error_label} '{}': {error}; no fallback execution was attempted",
             path.display()
         ))
     })
 }
 
+fn key_value_manifest_workspace_root(path: &Path) -> Result<PathBuf> {
+    let Some(parent) = path.parent() else {
+        return shardloom_core::infer_local_output_workspace_root(path);
+    };
+    if parent.file_name().and_then(std::ffi::OsStr::to_str) == Some(".shardloom")
+        && let Some(artifact_parent) = parent.parent()
+    {
+        return Ok(artifact_parent.to_path_buf());
+    }
+    shardloom_core::infer_local_output_workspace_root(path)
+}
+
 fn reuse_manifest_digest(fields: &BTreeMap<String, String>) -> String {
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    let mut digest = sha2::Sha256::new();
     for (key, value) in fields
         .iter()
         .filter(|(key, _)| key.as_str() != "manifest_digest")
     {
-        for byte in key
-            .as_bytes()
-            .iter()
-            .chain(b"=")
-            .chain(value.as_bytes())
-            .chain(b"\0")
-        {
-            hash ^= u64::from(*byte);
-            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-        }
+        digest.update(key.as_bytes());
+        digest.update(b"=");
+        digest.update(value.as_bytes());
+        digest.update(b"\0");
     }
-    format!("fnv64:{hash:016x}")
+    sha256_digest_string(digest.finalize())
 }
 
 fn escape_manifest_value(value: &str) -> String {
@@ -2596,7 +2608,7 @@ fn evaluate_differential_preparation_state(
     let schema_compatible = input.base_schema_digest == input.delta_schema_digest
         && input.base_column_family_summary == input.delta_column_family_summary;
     let delta_artifact_written =
-        input.delta_row_count > 0 && input.delta_artifact_digest.starts_with("fnv64:");
+        input.delta_row_count > 0 && is_local_artifact_digest(&input.delta_artifact_digest);
     let overlay_applied = base_identity_complete
         && input.update_mode.is_append_only()
         && schema_compatible
@@ -7128,8 +7140,9 @@ impl LocalVortexWriteContext {
                     Ok(())
                 },
             )?;
-        let artifact_digest = workspace_write_report.output_digest.clone();
-        let digest_micros = 0;
+        let digest_start = Instant::now();
+        let artifact_digest = sha256_file_digest(path, "local vortex_ingest artifact")?;
+        let digest_micros = digest_start.elapsed().as_micros();
         let bytes_written = workspace_write_report.bytes_written;
         let write_micros = write_start.elapsed().as_micros();
         let workspace_stage_micros = write_micros.saturating_sub(vortex_segment_write_micros);
@@ -7348,15 +7361,17 @@ mod tests {
             report.reopen_verification_status,
             "reopen_row_count_verified"
         );
-        assert!(report.artifact_digest.starts_with("fnv64:"));
-        assert_eq!(report.digest_micros, 0);
+        assert!(report.artifact_digest.starts_with("sha256:"));
+        assert!(report.digest_micros > 0);
         assert_eq!(
             report.workspace_write_report.bytes_written,
             report.bytes_written
         );
-        assert_eq!(
-            report.workspace_write_report.output_digest,
-            report.artifact_digest
+        assert!(
+            report
+                .workspace_write_report
+                .output_digest
+                .starts_with("fnv64:")
         );
         assert_eq!(report.workspace_write_report.commit_status, "committed");
         assert_eq!(
@@ -9196,7 +9211,8 @@ mod tests {
         let base_request = reuse_request_for_test(&source, &target, &manifest_path);
         let base_decision =
             evaluate_vortex_prepared_state_reuse(&base_request).expect("base reuse decision");
-        let artifact_digest = fnv64_file_digest(&target, "test artifact").expect("artifact digest");
+        let artifact_digest =
+            sha256_file_digest(&target, "test artifact").expect("artifact digest");
         write_vortex_prepared_state_reuse_manifest(
             &base_request,
             &base_decision,
@@ -9243,6 +9259,55 @@ mod tests {
         std::fs::remove_dir_all(root).expect("remove temp root");
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn prepared_state_reuse_manifest_rejects_symlink_sidecar_directory() {
+        use std::os::unix::fs::symlink;
+
+        let root = temp_test_root("reuse-manifest-symlink");
+        let outside = temp_test_root("reuse-manifest-symlink-outside");
+        let source = root.join("input.csv");
+        let target = root.join("prepared.vortex");
+        std::fs::write(&source, "id,label\n1,alpha\n").expect("write source");
+        std::fs::write(&target, b"prepared-vortex-artifact").expect("write prepared artifact");
+        symlink(&outside, root.join(".shardloom")).expect("sidecar symlink");
+        let manifest_path =
+            vortex_prepared_state_reuse_manifest_path(&target).expect("manifest path");
+        let request = reuse_request_for_test(&source, &target, &manifest_path);
+        let decision = evaluate_vortex_prepared_state_reuse(&request).expect("reuse decision");
+        let artifact_digest =
+            sha256_file_digest(&target, "test artifact").expect("artifact digest");
+
+        let error = write_vortex_prepared_state_reuse_manifest(
+            &request,
+            &decision,
+            VortexPreparedStateReuseWriteEvidence {
+                source_state_id: "source-state-base".to_string(),
+                source_state_digest: "fnv64:source-base".to_string(),
+                source_schema_digest: "fnv64:schema".to_string(),
+                source_row_count: 1,
+                source_column_family_summary: "id:int64,label:utf8".to_string(),
+                prepared_state_id: "prepared-base".to_string(),
+                prepared_state_digest: "fnv64:prepared-base".to_string(),
+                prepared_artifact_digest: artifact_digest,
+                certificate_refs: "reopen_row_count_scan".to_string(),
+                fallback_attempted: false,
+                external_engine_invoked: false,
+            },
+        )
+        .expect_err("workspace-safe manifest writer rejects symlink sidecars");
+
+        assert!(error.to_string().contains("symlink"));
+        assert!(
+            !outside
+                .join("prepared.vortex.prepared-state-reuse.manifest")
+                .exists()
+        );
+        let _ = std::fs::remove_file(root.join(".shardloom"));
+        let _ = std::fs::remove_dir_all(root);
+        let _ = std::fs::remove_dir_all(outside);
+    }
+
     #[test]
     fn append_only_refinement_blocks_prefix_mismatch() {
         let root = temp_test_root("append-only-refinement-prefix");
@@ -9255,7 +9320,8 @@ mod tests {
         let base_request = reuse_request_for_test(&source, &target, &manifest_path);
         let base_decision =
             evaluate_vortex_prepared_state_reuse(&base_request).expect("base reuse decision");
-        let artifact_digest = fnv64_file_digest(&target, "test artifact").expect("artifact digest");
+        let artifact_digest =
+            sha256_file_digest(&target, "test artifact").expect("artifact digest");
         write_vortex_prepared_state_reuse_manifest(
             &base_request,
             &base_decision,
@@ -9345,14 +9411,14 @@ mod tests {
         .expect("write refinement manifest");
 
         assert!(report.manifest_written);
-        assert!(report.manifest_digest.starts_with("fnv64:"));
+        assert!(report.manifest_digest.starts_with("sha256:"));
         let manifest = std::fs::read_to_string(&manifest_path).expect("read manifest");
         assert!(
             manifest
                 .contains("schema_version=shardloom.vortex_differential_refinement_manifest.v1")
         );
         assert!(manifest.contains("overlay_consumer_family=count"));
-        assert!(manifest.contains("manifest_digest=fnv64:"));
+        assert!(manifest.contains("manifest_digest=sha256:"));
 
         std::fs::remove_dir_all(root).expect("remove temp root");
     }

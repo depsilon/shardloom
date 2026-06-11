@@ -2742,6 +2742,10 @@ fn generated_vortex_prepared_state_fields(
             evidence.manifest_digest.to_string(),
         ),
         (
+            "prepared_state_reuse_manifest_digest_algorithm".to_string(),
+            digest_algorithm(evidence.manifest_digest).to_string(),
+        ),
+        (
             "prepared_state_invalidation_reason".to_string(),
             evidence.invalidation_reason.to_string(),
         ),
@@ -5439,6 +5443,17 @@ fn fnv64_digest_bytes(value: &[u8]) -> String {
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
     format!("fnv64:{hash:016x}")
+}
+
+fn digest_algorithm(value: &str) -> &'static str {
+    match value.split_once(':').map(|(algorithm, _)| algorithm) {
+        Some("sha256") => "sha256",
+        Some("fnv64") => "fnv64",
+        Some("fnv1a64") => "fnv1a64",
+        Some("external_baseline_only") => "external_baseline_only",
+        Some("none") | None => "not_available",
+        Some(_) => "unknown",
+    }
 }
 
 #[cfg(test)]

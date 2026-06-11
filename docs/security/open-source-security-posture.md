@@ -29,6 +29,8 @@ Release posture:
 - `security-events: write`
 - Rust and Python language matrix
 - `build-mode: none` for the current repository shape
+- privileged workflow actions pinned to immutable commit SHAs, with source tags retained only as
+  comments
 - no publishing secrets
 - no runtime behavior changes
 
@@ -44,7 +46,22 @@ Release posture:
 - `security-events: write`
 - `publish_results: false`
 - `persist-credentials: false`
-- third-party action SHA pinning or maintainer waiver required before public release
+- privileged workflow actions pinned to immutable commit SHAs, with source tags retained only as
+  comments
+
+### PyPI Trusted Publisher Draft
+
+`.github/workflows/pypi-publish-draft.yml` is manual-dispatch only and requires the
+`publish-approved` input plus the protected `pypi` environment before any upload can run.
+
+Release posture:
+
+- repository-level `contents: read`
+- build job has no `id-token: write` permission
+- publish job depends on the build artifact and is the only job with `id-token: write`
+- checkout, Python setup, artifact transfer, and publish actions are pinned to immutable commit SHAs,
+  with source tags retained only as comments
+- no package publication is authorized without maintainer approval
 
 ### Dependabot
 
@@ -93,8 +110,9 @@ target/security-posture-report.json
 ```
 
 The report uses `schema_version=shardloom.open_source_security_posture_report.v1` and verifies that
-the CodeQL workflow, Scorecard workflow, Dependabot config, and this posture document remain present
-and aligned.
+the CodeQL workflow, Scorecard workflow, PyPI Trusted Publisher workflow, Dependabot config, and
+this posture document remain present and aligned. Privileged workflows with `security-events: write`
+or `id-token: write` must keep action `uses:` refs pinned to immutable commit SHAs.
 
 ## No-Fallback Rule
 

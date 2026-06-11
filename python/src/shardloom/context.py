@@ -7,6 +7,7 @@ import json
 from datetime import date
 from hashlib import sha256
 from pathlib import Path
+from time import time_ns
 from typing import Mapping, Sequence
 
 from ._compat import dataclass
@@ -11385,9 +11386,9 @@ def _write_foundry_style_dataset_metadata(
         "claim_gate_status": "fixture_smoke_only",
         "metadata": dict(metadata),
     }
-    (dataset_path / "_dataset_metadata.json").write_text(
+    _write_text_workspace_safe(
+        dataset_path / "_dataset_metadata.json",
         json.dumps(report, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
     )
     return report
 
@@ -11405,7 +11406,7 @@ def _write_foundry_style_dataset(
     part_text = "".join(
         json.dumps(row, sort_keys=True) + "\n" for row in normalized_rows
     )
-    part_path.write_text(part_text, encoding="utf-8")
+    _write_text_workspace_safe(part_path, part_text)
     digest = "sha256:" + sha256(part_text.encode("utf-8")).hexdigest()
     return _write_foundry_style_dataset_metadata(
         dataset_path,
@@ -11415,6 +11416,70 @@ def _write_foundry_style_dataset(
         content_digest=digest,
         metadata=metadata,
     )
+
+
+def _write_text_workspace_safe(
+    path: Path,
+    content: str,
+    *,
+    allow_overwrite: bool = True,
+) -> None:
+    _reject_workspace_unsafe_path(path)
+    if not allow_overwrite and (path.exists() or path.is_symlink()):
+        raise FileExistsError(f"workspace-safe output target already exists: {path}")
+    _ensure_workspace_safe_directory(path.parent)
+    _reject_workspace_unsafe_path(path)
+    staging_path = path.with_name(
+        f".{path.name}.shardloom-tmp-{os.getpid()}-{time_ns()}"
+    )
+    _reject_workspace_unsafe_path(staging_path)
+    try:
+        fd = os.open(
+            staging_path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o666,
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as staged:
+            staged.write(content)
+            staged.flush()
+            os.fsync(staged.fileno())
+        _reject_workspace_unsafe_path(path)
+        if not allow_overwrite and (path.exists() or path.is_symlink()):
+            raise FileExistsError(f"workspace-safe output target already exists: {path}")
+        os.replace(staging_path, path)
+    except Exception:
+        try:
+            staging_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def _ensure_workspace_safe_directory(path: Path) -> None:
+    _reject_workspace_unsafe_path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    _reject_workspace_unsafe_path(path)
+    if not path.is_dir():
+        raise NotADirectoryError(f"workspace-safe output parent is not a directory: {path}")
+
+
+def _reject_workspace_unsafe_path(path: Path) -> None:
+    if ".." in path.parts:
+        raise ValueError(f"workspace-safe output path must not contain '..': {path}")
+    absolute = path if path.is_absolute() else Path.cwd() / path
+    for candidate in (absolute, *absolute.parents):
+        if candidate.is_symlink():
+            raise ValueError(
+                f"workspace-safe output path crosses symlink component: {candidate}"
+            )
+        if candidate.exists():
+            break
+    if path.exists() and not path.is_dir():
+        stat_result = path.stat()
+        if getattr(stat_result, "st_nlink", 1) > 1:
+            raise ValueError(
+                f"workspace-safe output target has multiple hardlinks: {path}"
+            )
 
 
 def _join_non_empty_text(label: str, values: Sequence[object]) -> str:

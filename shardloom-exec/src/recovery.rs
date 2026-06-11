@@ -2815,7 +2815,32 @@ impl ShardLoomCleanupExecutionReport {
                     "synthetic spill payload filesystem reference is required",
                 );
             };
-            let target_path = Path::new(&fs_ref.path_string()).to_path_buf();
+            let workspace_path = Path::new(fs_ref.workspace_path().as_str());
+            if !workspace_path.exists() {
+                return Self::blocked(
+                    request,
+                    ShardLoomCleanupExecutionStatus::BlockedByMissingArtifact,
+                    "synthetic spill payload workspace does not exist",
+                );
+            }
+            let target_path_text = fs_ref.path_string();
+            let plan = match shardloom_core::plan_workspace_safe_local_output(
+                workspace_path,
+                Path::new(&target_path_text),
+                true,
+            ) {
+                Ok(plan) => plan,
+                Err(error) => {
+                    return Self::blocked(
+                        request,
+                        ShardLoomCleanupExecutionStatus::BlockedByUnsupportedArtifact,
+                        format!(
+                            "synthetic spill payload path failed workspace safety validation: {error}"
+                        ),
+                    );
+                }
+            };
+            let target_path = plan.target_path;
             if !target_path.exists() {
                 return Self::blocked(
                     request,
@@ -5047,6 +5072,46 @@ mod tests {
         let _ = fs::remove_file(&sibling);
         let _ = fs::remove_dir(&workspace);
     }
+
+    #[cfg(all(feature = "spill-payload-fs", unix))]
+    #[test]
+    fn cleanup_execution_rejects_symlink_payload_target() {
+        use std::fs;
+        use std::os::unix::fs::symlink;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        let workspace = std::env::temp_dir().join(format!("shardloom-cleanup-symlink-{unique}"));
+        let outside = std::env::temp_dir().join(format!("shardloom-cleanup-outside-{unique}"));
+        fs::create_dir_all(&workspace).expect("workspace");
+        fs::write(&outside, b"outside").expect("outside sentinel");
+        let workspace_str = workspace.to_string_lossy().into_owned();
+        let fs_ref = spill_payload_fs_ref("p-cleanup-symlink", &workspace_str);
+        symlink(&outside, workspace.join(fs_ref.file_name())).expect("payload symlink");
+
+        let report = execute_cleanup_plan(
+            ShardLoomCleanupExecutionRequest::synthetic_payload(
+                RecoveryArtifactRef::synthetic_spill_payload(&fs_ref),
+                fs_ref.clone(),
+            )
+            .allow_synthetic_payload_cleanup(true),
+        )
+        .expect("report");
+
+        assert_eq!(
+            report.status,
+            ShardLoomCleanupExecutionStatus::BlockedByUnsupportedArtifact
+        );
+        assert!(!report.cleanup_executed());
+        assert_eq!(fs::read(&outside).expect("outside sentinel"), b"outside");
+        let _ = fs::remove_file(workspace.join(fs_ref.file_name()));
+        let _ = fs::remove_file(outside);
+        let _ = fs::remove_dir(workspace);
+    }
+
     #[test]
     fn cleanup_execution_report_side_effects_and_human_text() {
         let payload_ref = spill_payload_fs_ref("p1", "/tmp/p1");

@@ -4,6 +4,9 @@ use std::{
     process::Command,
 };
 
+#[cfg(unix)]
+use std::os::unix::fs as unix_fs;
+
 fn run_object_store_write_smoke_json(args: &[String]) -> (bool, String, String) {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args(args)
@@ -366,6 +369,100 @@ fn allow_overwrite_replaces_existing_target_after_staging() {
     assert!(output.contains(&field("allow_overwrite", "true")));
     assert!(output.contains(&field("commit_status", "committed_local_emulator_object")));
     assert!(output.contains(&field("object_store_write_io", "true")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[cfg(unix)]
+#[test]
+fn allow_overwrite_rejects_symlink_target_without_clobbering_destination() {
+    let temp_dir = temp_case_dir("symlink-target");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let source = temp_dir.join("payload.bin");
+    let target = temp_dir.join("object.bin");
+    let outside = temp_dir.join("outside-object.bin");
+    fs::write(&source, b"replacement payload").expect("fixture write");
+    fs::write(&outside, b"outside sentinel").expect("outside sentinel");
+    unix_fs::symlink(&outside, &target).expect("target symlink");
+    let args = vec![
+        "object-store-write-smoke".to_string(),
+        source.to_string_lossy().into_owned(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-emulator".to_string(),
+        "--allow-overwrite".to_string(),
+    ];
+
+    let (success, output, stderr) = run_object_store_write_smoke_json(&args);
+
+    assert!(!success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert_eq!(
+        fs::read(&outside).expect("outside sentinel"),
+        b"outside sentinel"
+    );
+    assert!(
+        fs::symlink_metadata(&target)
+            .expect("target symlink metadata")
+            .file_type()
+            .is_symlink(),
+        "target symlink was not replaced"
+    );
+    assert!(output.contains(&field("object_store_write_status", "blocked_write_error")));
+    assert!(output.contains("output target is a symlink"));
+    assert!(output.contains(&field("object_store_write_io", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[cfg(unix)]
+#[test]
+fn sidecar_symlink_is_rejected_without_clobbering_destination() {
+    let temp_dir = temp_case_dir("symlink-sidecar");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let source = temp_dir.join("payload.bin");
+    let target = temp_dir.join("object.bin");
+    let sidecar = sidecar_path(&target);
+    let outside = temp_dir.join("outside-sidecar.json");
+    fs::write(&source, b"sidecar payload").expect("fixture write");
+    fs::write(&outside, b"outside sidecar sentinel").expect("outside sentinel");
+    unix_fs::symlink(&outside, &sidecar).expect("sidecar symlink");
+    let args = vec![
+        "object-store-write-smoke".to_string(),
+        source.to_string_lossy().into_owned(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-emulator".to_string(),
+    ];
+
+    let (success, output, stderr) = run_object_store_write_smoke_json(&args);
+
+    assert!(!success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert_eq!(
+        fs::read(&outside).expect("outside sentinel"),
+        b"outside sidecar sentinel"
+    );
+    assert!(
+        !target.exists(),
+        "target write was rolled back after sidecar rejection"
+    );
+    assert!(
+        fs::symlink_metadata(&sidecar)
+            .expect("sidecar symlink metadata")
+            .file_type()
+            .is_symlink(),
+        "sidecar symlink was not replaced"
+    );
+    assert!(output.contains(&field("object_store_write_status", "blocked_write_error")));
+    assert!(output.contains("output target is a symlink"));
+    assert!(output.contains(&field("commit_manifest_present", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("external_engine_invoked", "false")));
 

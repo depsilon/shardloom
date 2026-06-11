@@ -1,4 +1,8 @@
-use std::{fmt::Write, fs, path::Path};
+use std::{
+    fmt::Write,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use shardloom_core::{Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, ShardLoomError};
 
@@ -122,6 +126,39 @@ impl SpillPayloadFsRef {
             self.path_string()
         )
     }
+}
+
+fn spill_payload_workspace_path(fs_ref: &SpillPayloadFsRef) -> PathBuf {
+    PathBuf::from(fs_ref.workspace_path().as_str())
+}
+
+fn spill_payload_target_path_string(fs_ref: &SpillPayloadFsRef) -> String {
+    fs_ref.path_string()
+}
+
+fn validate_spill_payload_workspace(workspace: &Path) -> Result<()> {
+    if !workspace.is_dir() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "spill payload workspace '{}' exists but is not a directory; no fallback execution was attempted",
+            workspace.display()
+        )));
+    }
+    Ok(())
+}
+
+fn validate_spill_payload_target(
+    fs_ref: &SpillPayloadFsRef,
+    allow_overwrite: bool,
+) -> Result<PathBuf> {
+    let workspace = spill_payload_workspace_path(fs_ref);
+    validate_spill_payload_workspace(&workspace)?;
+    let target_path = spill_payload_target_path_string(fs_ref);
+    let plan = shardloom_core::plan_workspace_safe_local_output(
+        &workspace,
+        Path::new(&target_path),
+        allow_overwrite,
+    )?;
+    Ok(plan.target_path)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1065,11 +1102,10 @@ impl SpillPayloadWriteReport {
         if !spill_payload_fs_feature_enabled() {
             return Ok(Self::feature_disabled(request));
         }
-        let workspace_path = request.fs_ref.workspace_path().as_str().to_string();
-        let workspace = Path::new(&workspace_path);
+        let workspace = spill_payload_workspace_path(&request.fs_ref);
         if !workspace.exists() {
             if request.has_option(SpillPayloadWriteOption::CreateWorkspace) {
-                fs::create_dir_all(workspace).map_err(|e| {
+                fs::create_dir_all(&workspace).map_err(|e| {
                     ShardLoomError::InvalidOperation(format!(
                         "failed to create spill payload workspace '{}': {e}",
                         workspace.display()
@@ -1085,7 +1121,9 @@ impl SpillPayloadWriteReport {
                 ));
             }
         }
-        let target_path = Path::new(&request.fs_ref.path_string()).to_path_buf();
+        validate_spill_payload_workspace(&workspace)?;
+        let target_path_string = spill_payload_target_path_string(&request.fs_ref);
+        let target_path = Path::new(&target_path_string);
         if target_path.exists() && !request.has_option(SpillPayloadWriteOption::AllowOverwrite) {
             return Ok(Self::blocked_existing_payload(
                 request,
@@ -1095,15 +1133,17 @@ impl SpillPayloadWriteReport {
                 ),
             ));
         }
-        fs::write(&target_path, &request.payload.bytes).map_err(|e| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to write spill payload '{}': {e}",
-                target_path.display()
-            ))
-        })?;
+        let allow_overwrite = request.has_option(SpillPayloadWriteOption::AllowOverwrite);
+        let workspace_write_report = shardloom_core::write_workspace_safe_bytes(
+            &workspace,
+            target_path,
+            allow_overwrite,
+            "synthetic spill payload",
+            &request.payload.bytes,
+        )?;
         Ok(Self::written(
             request.clone(),
-            request.payload.len(),
+            usize::try_from(workspace_write_report.bytes_written).unwrap_or(usize::MAX),
             request.payload.checksum_u64(),
         ))
     }
@@ -1296,7 +1336,17 @@ impl SpillPayloadReadReport {
         if !spill_payload_fs_feature_enabled() {
             return Ok(Self::feature_disabled(request));
         }
-        let target_path = Path::new(&request.fs_ref.path_string()).to_path_buf();
+        let workspace = spill_payload_workspace_path(&request.fs_ref);
+        if !workspace.exists() {
+            return Ok(Self::blocked_missing_payload(
+                request,
+                format!(
+                    "spill payload workspace does not exist: {}",
+                    workspace.display()
+                ),
+            ));
+        }
+        let target_path = validate_spill_payload_target(&request.fs_ref, true)?;
         if !target_path.exists() {
             return Ok(Self::blocked_missing_payload(
                 request,
@@ -1573,7 +1623,7 @@ impl SpillPayloadRoundTripReport {
         if options.contains(&SpillPayloadRoundTripOption::CleanupAfter)
             && read_report.verification_passed
         {
-            let target = Path::new(&write_report.request.fs_ref.path_string()).to_path_buf();
+            let target = validate_spill_payload_target(&write_report.request.fs_ref, true)?;
             fs::remove_file(&target).map_err(|e| {
                 ShardLoomError::InvalidOperation(format!(
                     "failed to remove spill payload '{}': {e}",
@@ -2138,6 +2188,37 @@ mod tests {
         if workspace.exists() {
             fs::remove_dir(&workspace).expect("remove workspace directory");
         }
+    }
+
+    #[cfg(all(feature = "spill-payload-fs", unix))]
+    #[test]
+    fn write_spill_payload_rejects_symlink_target() {
+        use std::os::unix::fs::symlink;
+
+        let unique = format!("spill-payload-symlink-{}-{}", std::process::id(), 19);
+        let workspace = std::env::temp_dir().join(&unique);
+        let outside = std::env::temp_dir().join(format!("{unique}-outside.txt"));
+        fs::create_dir_all(&workspace).expect("workspace");
+        fs::write(&outside, b"outside").expect("outside sentinel");
+        let payload_id = SpillPayloadId::new("payload-symlink").expect("id");
+        let payload_ref = SpillPayloadRef::new(payload_id, "workspace-symlink").expect("ref");
+        let fs_ref = SpillPayloadFsRef::new(
+            payload_ref,
+            SpillPayloadPath::new(workspace.to_string_lossy().into_owned()).expect("path"),
+        );
+        symlink(&outside, workspace.join(fs_ref.file_name())).expect("payload symlink");
+
+        let payload = SyntheticSpillPayload::from_text("new-content").expect("payload");
+        let error = write_spill_payload(
+            SpillPayloadWriteRequest::new(fs_ref, payload).allow_overwrite(true),
+        )
+        .expect_err("workspace-safe write rejects symlink targets");
+
+        assert!(error.to_string().contains("symlink"));
+        assert_eq!(fs::read(&outside).expect("outside sentinel"), b"outside");
+        let _ = fs::remove_file(workspace.join("payload-symlink.spill"));
+        let _ = fs::remove_file(outside);
+        let _ = fs::remove_dir(workspace);
     }
 
     #[cfg(feature = "spill-payload-fs")]

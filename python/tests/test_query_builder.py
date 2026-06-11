@@ -282,6 +282,42 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 binary=["shardloom"],
             )
 
+    def test_local_source_query_builder_rejects_raw_sql_clause_breakouts(self) -> None:
+        frame = sl.read_csv("target/input.csv", binary=["definitely-missing-shardloom"])
+
+        with self.assertRaisesRegex(ValueError, "clause keyword"):
+            frame.filter("id > 0 UNION SELECT secret FROM 'target/secret.csv'")
+        with self.assertRaisesRegex(ValueError, "clause keyword 'from'"):
+            frame.having("count(*) > 0 FROM 'target/secret.csv'")
+        with self.assertRaisesRegex(ValueError, "statement separators"):
+            frame.filter("id > 0; SELECT secret FROM 'target/secret.csv'")
+
+        self.assertIsNone(
+            frame.select("id FROM 'target/secret.csv'").limit(10)._sql_local_source_statement()
+        )
+        self.assertIsNone(
+            frame.aggregate("count(*) FROM 'target/secret.csv'")
+            .limit(1)
+            ._sql_local_source_statement()
+        )
+        self.assertIsNone(
+            frame.sort("id LIMIT 100").limit(10)._sql_local_source_statement()
+        )
+
+    def test_local_source_query_builder_keeps_typed_subquery_predicates_scoped(self) -> None:
+        statement = (
+            sl.read_csv("target/input.csv", binary=["definitely-missing-shardloom"])
+            .filter(sl.col("id").isin_source("target/allowed.csv", "id", limit=5))
+            .select("id")
+            .limit(10)
+            ._sql_local_source_statement()
+        )
+
+        self.assertEqual(
+            statement,
+            "SELECT id FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' LIMIT 5) LIMIT 10",
+        )
+
     def test_workflow_route_uses_shared_cli_contract_for_sql_and_dataframe(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

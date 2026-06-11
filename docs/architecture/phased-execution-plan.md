@@ -179,15 +179,105 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-No unchecked phase-plan item remains. The next autonomous implementation step must first be
-promoted here as a concrete unchecked item with source, scope, evidence, verification, claim
-boundary, and fallback boundary. Do not treat global-review claim-boundary rows, release approval
-rows, or stale benchmark-artifact freshness as implicit runtime work.
+1. [ ] `SECURITY-DEEP-SCAN-R3-FOLLOWUP` - validate and burn down the round-3-bounded
+   Codex Security candidate inventory.
+   - Source: Codex Security deep scan
+     `/tmp/codex-security-scans/shardloom-local-repo/dcdd1fbe4993_20260611T130604Z_deep`.
+     Round merge record:
+     `/tmp/codex-security-scans/shardloom-local-repo/dcdd1fbe4993_20260611T130604Z_deep/artifacts/deep_discovery/round-03/round_merge_record.json`.
+   - Current state: three discovery rounds are complete and merged. The canonical inventory has
+     28 discovery-stage candidates, including three new round-3 clusters:
+     `SL-DEEP-026` local-source read authorization, `SL-DEEP-027` release dry-run cleanup
+     authority, and `SL-DEEP-028` dependency-freshness live-GitHub token routing. Centralized
+     validation and attack-path analysis have not run, and saturation is not proven because round 3
+     added novelty and discovery was stopped at round 3 by user instruction.
+   - Next slice outcome: produce a validated candidate-disposition matrix, then remediate or
+     suppress each candidate in cohesive control-family batches with tests and release/security
+     evidence.
+   - User-visible surface: CLI/Python local-source and output behavior, evidence/redaction
+     artifacts, benchmark/publication metadata, release and CI security gates, workflow scripts,
+     and documentation status text for explicit security posture.
+   - Implementation scope:
+     - Workspace/path containment and symlink-safe file effects across spill payload/lifecycle,
+       object-store local emulator, table append rehearsal, generated-source, SQL/SQLite/Vortex
+       ingest, Foundry proof output, prepared-route state, traditional analytics sidecars, and
+       release dry-run cleanup.
+     - Local-source authority and SQL admission around Python query-builder/public workflow APIs
+       and SQL local-source reads.
+     - Resource budgets and streaming caps for SQL local-source, Vortex ingest, object-store
+       read/write/recovery, partition discovery, and SQLite local import/export smokes.
+     - Sensitive-output redaction for object-store URIs, planning/benchmark surfaces, Python
+       exception argv, release/generated evidence paths, and token-bearing request surfaces.
+     - Evidence/provenance integrity for prepared-state digests, release-artifact producer/digest
+       binding, and local-emulator recovery sidecar trust.
+     - CI supply-chain hardening for PyPI trusted publishing, mutable privileged actions, analyzer
+       permissions, and `scripts/check_pre_5j_dependency_freshness.py`.
+   - Evidence required: per-`SL-DEEP-*` validation notes, attack-path notes for reportable
+     candidates, suppression counterevidence where applicable, before/after tests for fixed
+     controls, redaction snapshots, path/symlink and byte-budget regression tests, updated
+     release/security gate outputs, and no-fallback execution evidence.
+   - Acceptance: every `SL-DEEP-001` through `SL-DEEP-028` candidate is marked
+     `reportable_fixed`, `suppressed_with_counterevidence`, `not_applicable`, or
+     `deferred_with_owner_and_gate`; no `candidate_needs_validation` row remains without a
+     disposition; validated issues have cohesive fixes or explicit release-blocking gates; release
+     and security posture checks reflect the new controls.
+   - Verification:
+     - `python3 -m compileall -q python/src scripts benchmarks`
+     - `python3 -m pytest python/tests`
+     - `python3 scripts/check_security_posture.py --repo-root .`
+     - `python3 scripts/check_ci_gate_matrix.py --repo-root .`
+     - `python3 scripts/check_release_security_gate.py --repo-root . --allow-blocked`
+     - `cargo fmt --all -- --check`
+     - `cargo clippy --workspace --all-targets -- -D warnings`
+     - `cargo test --workspace --all-targets`
+   - Non-goals: no package publication, public vulnerability advisory, release tag, external
+     fallback engine, new query-engine dependency, or broad runtime redesign. Do not continue deep
+     discovery beyond round 3 unless explicitly requested.
+   - Claim boundary: discovery candidates are not confirmed vulnerabilities until validation and
+     attack-path analysis complete. No public security, production-readiness, or release-readiness
+     claim is allowed from this item until candidate dispositions and gate outputs are attached.
+   - Fallback boundary: fixes must preserve `fallback_attempted=false` and
+     `external_engine_invoked=false`; external engines remain baseline/test oracles only.
+   - Ledger rule: when complete, move the detailed completed session and candidate-disposition
+     summary to `docs/architecture/phased-execution-completed-ledger.md`, then keep this file as
+     the compact planned queue.
+   - Execution checklist:
+     - [x] Stabilize the scan evidence by recording the round-3 merge counts, canonical inventory
+       path, and new `SL-DEEP-026` through `SL-DEEP-028` titles in the candidate-disposition
+       matrix: `docs/security/deep-security-scan-round-3-disposition.md`.
+     - [x] Validate or suppress all 28 candidates before severity labels or security claims are
+       made.
+     - [x] Land one cohesive path/workspace containment batch for validated file-effect and
+       sidecar candidates.
+       - Progress: `SL-DEEP-024` and `SL-DEEP-027` are fixed; `SL-DEEP-001`, `SL-DEEP-002`,
+         `SL-DEEP-003`, `SL-DEEP-004`, `SL-DEEP-005`, `SL-DEEP-007`, and `SL-DEEP-018` have
+         symlink-safe/staged-write mitigations and are terminally deferred to the broader
+         workspace-root authority gate.
+     - [x] Land one local-source/query-control batch for validated SQL/path read and raw-fragment
+       candidates.
+       - Progress: `SL-DEEP-006` blocks raw SQL clause, set, and separator breakouts while
+         preserving typed predicate scoping; `SL-DEEP-026` is terminally deferred to a future
+         less-trusted local-source allow-root/authority gate.
+     - [x] Land one resource-budget batch for validated full-buffering, recursion, and byte-cap
+       candidates.
+       - Progress: `SL-DEEP-009` through `SL-DEEP-014` are fixed with local-source, Vortex ingest,
+         object-store, partition-discovery, and SQLite byte/row/depth budgets.
+     - [x] Land one evidence/redaction/provenance batch for validated URI, argv, absolute-path,
+       digest, artifact-binding, and recovery-sidecar candidates.
+       - Progress: `SL-DEEP-015`, `SL-DEEP-017`, `SL-DEEP-019`, and `SL-DEEP-021` are fixed;
+         `SL-DEEP-016`, `SL-DEEP-023`, and `SL-DEEP-025` are terminally deferred to public-evidence
+         field-classification or producer-bound authenticity gates.
+     - [x] Land one CI/workflow hardening batch for validated OIDC, mutable-action, analyzer
+       permission, and live-GitHub token-routing candidates.
+     - [x] Update docs/status/capability artifacts only where behavior or release gates changed.
+     - [ ] Run the verification commands above and attach exact outputs or artifact paths before
+       checking this item complete.
 
-Plan state after closeout:
+Plan state after prior closeout:
 
-- No active runtime implementation, release-sequence, benchmark-timing, performance-innovation, or
-  non-runtime closeout item remains unchecked in this file.
+- One security follow-up item is now promoted above. No active runtime implementation,
+  release-sequence, benchmark-timing, performance-innovation, or non-runtime closeout item remains
+  unchecked beyond that item in this file.
 - Completed runtime and release details live in
   `docs/architecture/phased-execution-completed-ledger.md`; keep this file as the compact planned
   queue.

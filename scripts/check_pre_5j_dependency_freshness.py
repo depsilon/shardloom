@@ -16,6 +16,7 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -36,6 +37,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.pre_5j_dependency_freshness_gate.v1"
 DEFAULT_OUTPUT = Path("target/pre-5j-dependency-freshness-gate.json")
 GITHUB_PULLS_URL = "https://api.github.com/repos/depsilon/shardloom/pulls?state=open&per_page=100"
+GITHUB_PULLS_HOST = "api.github.com"
+GITHUB_PULLS_PATH = "/repos/depsilon/shardloom/pulls"
 
 ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
     1149: {
@@ -370,11 +373,41 @@ def github_request_headers(github_token: str | None = None) -> dict[str, str]:
     return headers
 
 
+def validate_live_github_pulls_url(url: str) -> str | None:
+    try:
+        parsed = urllib.parse.urlparse(url)
+        port = parsed.port
+    except ValueError as exc:
+        return f"invalid live GitHub URL: {exc}"
+    if parsed.scheme != "https":
+        return "live GitHub dependency check URL must use https"
+    if parsed.username or parsed.password:
+        return "live GitHub dependency check URL must not include userinfo"
+    if parsed.hostname != GITHUB_PULLS_HOST:
+        return (
+            "refusing live GitHub dependency check URL host "
+            f"{parsed.hostname!r}; expected {GITHUB_PULLS_HOST}"
+        )
+    if port is not None:
+        return "live GitHub dependency check URL must not specify a custom port"
+    if parsed.path != GITHUB_PULLS_PATH:
+        return (
+            "refusing live GitHub dependency check URL path "
+            f"{parsed.path!r}; expected {GITHUB_PULLS_PATH}"
+        )
+    if parsed.fragment:
+        return "live GitHub dependency check URL must not include a fragment"
+    return None
+
+
 def fetch_open_prs(
     url: str,
     timeout_seconds: float,
     github_token: str | None = None,
 ) -> tuple[list[dict[str, Any]] | None, str, str | None]:
+    url_error = validate_live_github_pulls_url(url)
+    if url_error is not None:
+        return None, "failed", url_error
     request = urllib.request.Request(
         url,
         headers=github_request_headers(github_token),

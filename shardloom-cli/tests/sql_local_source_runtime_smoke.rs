@@ -5666,8 +5666,8 @@ fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
         "vortex:schema=flat_scalar_or_inferable_typed_nested_preserved,dtypes=preserved,row_count=reopen_verified,statistics=writer_default,layout_intent=writer_default_vortex"
     ));
     assert!(stdout.contains("vortex:none_for_scoped_flat_scalar_or_typed_nested_vortex_output"));
-    assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"fnv64:"));
-    assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"sha256:"));
+    assert!(stdout.contains("\"output_digest\",\"value\":\"sha256:"));
     assert!(stdout.contains(&field("result_replay_verified", "true")));
     assert!(stdout.contains(&field(
         "output_replay_status",

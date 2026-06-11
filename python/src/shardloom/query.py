@@ -41,6 +41,21 @@ _INTERVAL_SECOND_MULTIPLIERS = {
     "SECOND": 1,
 }
 _SORT_NULLS_TOKEN_PREFIX = "__sort_nulls__:"
+_RAW_SQL_FRAGMENT_BREAKOUT_KEYWORDS = (
+    "select",
+    "from",
+    "where",
+    "join",
+    "group by",
+    "having",
+    "order by",
+    "limit",
+    "union",
+    "intersect",
+    "except",
+    "with",
+)
+_RAW_SQL_FRAGMENT_BREAKOUT_TOKENS = (";", "--", "/*", "*/")
 
 
 @dataclass(frozen=True, slots=True)
@@ -3470,9 +3485,7 @@ class LazyFrame:
     def filter(self, predicate: object) -> "LazyFrame":
         """Return a lazy plan with an added filter predicate."""
 
-        value = str(predicate).strip()
-        if not value:
-            raise ValueError("filter predicate must not be empty")
+        value = _normalize_raw_or_typed_predicate("filter predicate", predicate)
         if self._can_append_having():
             return self._append(WorkflowOperation("having", (value,)))
         return self._append(WorkflowOperation("filter", (value,)))
@@ -3504,9 +3517,7 @@ class LazyFrame:
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a lazy plan with an admitted post-aggregate HAVING predicate."""
 
-        value = str(predicate).strip()
-        if not value:
-            raise ValueError("HAVING predicate must not be empty")
+        value = _normalize_raw_or_typed_predicate("HAVING predicate", predicate)
         if self._can_append_having():
             return self._append(WorkflowOperation("having", (value,)))
         return self._unsupported_operation("having", value, check=check)
@@ -6044,17 +6055,42 @@ class LazyFrame:
             if operation.kind == "select" and projection_list is None:
                 if window_expressions or distinct_requested:
                     return None
+                if any(
+                    not _sql_fragment_admitted_for_local_source_statement(
+                        "select projection", value
+                    )
+                    for value in operation.values
+                ):
+                    return None
                 projection_list = operation.values
             elif operation.kind == "aggregate" and aggregate_list is None:
                 if distinct_requested:
+                    return None
+                if any(
+                    not _sql_fragment_admitted_for_local_source_statement(
+                        "aggregate expression", value
+                    )
+                    for value in operation.values
+                ):
                     return None
                 aggregate_list = operation.values
             elif operation.kind == "group_by" and group_by_list is None:
                 if distinct_requested:
                     return None
+                if any(
+                    not _sql_fragment_admitted_for_local_source_statement(
+                        "GROUP BY column", value
+                    )
+                    for value in operation.values
+                ):
+                    return None
                 group_by_list = operation.values
             elif operation.kind == "with_column":
                 if window_expressions or distinct_requested:
+                    return None
+                if not _sql_fragment_admitted_for_local_source_statement(
+                    "computed-column expression", operation.values[1]
+                ):
                     return None
                 literal_columns.append((operation.values[0], operation.values[1]))
             elif operation.kind == "window":
@@ -6069,11 +6105,27 @@ class LazyFrame:
                     or limit is not None
                 ):
                     return None
+                if any(
+                    not _sql_fragment_admitted_for_local_source_statement(
+                        "window expression",
+                        value,
+                        allowed_keywords=("order by",),
+                    )
+                    for value in operation.values
+                ):
+                    return None
                 window_expressions.extend(operation.values)
             elif operation.kind == "sort" and sort_key is None:
                 if window_expressions:
                     return None
                 sort_key = _parse_sort_operation_values(operation.values)
+                if any(
+                    not _sql_fragment_admitted_for_local_source_statement(
+                        "ORDER BY column", value
+                    )
+                    for value in sort_key[1]
+                ):
+                    return None
             elif operation.kind == "join" and join_info is None:
                 if aggregate_list is not None or group_by_list is not None or distinct_requested:
                     return None
@@ -9670,10 +9722,89 @@ def _normalize_timestamp_literal(value: datetime) -> str:
 def _predicate_sql(value: object) -> str:
     if isinstance(value, PredicateExpression):
         return value.sql
+    return _normalize_raw_or_typed_predicate("predicate expression", value)
+
+
+def _normalize_raw_or_typed_predicate(name: str, value: object) -> str:
+    if isinstance(value, PredicateExpression):
+        return value.sql
     text = str(value).strip()
     if not text:
-        raise ValueError("predicate expression must not be empty")
+        raise ValueError(f"{name} must not be empty")
+    _validate_raw_sql_fragment(name, text)
     return text
+
+
+def _validate_raw_sql_fragment(
+    name: str,
+    value: str,
+    *,
+    allowed_keywords: tuple[str, ...] = (),
+) -> None:
+    _validate_sql_fragment_quotes(name, value)
+    for token in _RAW_SQL_FRAGMENT_BREAKOUT_TOKENS:
+        if _contains_sql_token_outside_quotes(value, token):
+            raise ValueError(
+                f"{name} must stay inside a scoped expression; SQL statement separators "
+                "and comments are not admitted"
+            )
+    for keyword in _RAW_SQL_FRAGMENT_BREAKOUT_KEYWORDS:
+        if keyword in allowed_keywords:
+            continue
+        if _contains_sql_keyword_outside_quotes(value, keyword):
+            raise ValueError(
+                f"{name} must stay inside a scoped expression; SQL clause keyword "
+                f"{keyword!r} is not admitted in raw fragments"
+            )
+
+
+def _sql_fragment_admitted_for_local_source_statement(
+    name: str,
+    value: str,
+    *,
+    allowed_keywords: tuple[str, ...] = (),
+) -> bool:
+    try:
+        _validate_raw_sql_fragment(
+            name,
+            value,
+            allowed_keywords=allowed_keywords,
+        )
+    except ValueError:
+        return False
+    return True
+
+
+def _validate_sql_fragment_quotes(name: str, value: str) -> None:
+    in_quote = False
+    index = 0
+    while index < len(value):
+        if value[index] == "'":
+            if in_quote and index + 1 < len(value) and value[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+        index += 1
+    if in_quote:
+        raise ValueError(f"{name} SQL string literal is not closed")
+
+
+def _contains_sql_token_outside_quotes(statement: str, token: str) -> bool:
+    in_quote = False
+    index = 0
+    while index <= len(statement) - len(token):
+        char = statement[index]
+        if char == "'":
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if not in_quote and statement.startswith(token, index):
+            return True
+        index += 1
+    return False
 
 
 def _like_needle(name: str, value: object) -> str:

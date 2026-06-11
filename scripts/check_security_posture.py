@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "target" / "security-posture-report.json"
 SCHEMA_VERSION = "shardloom.open_source_security_posture_report.v1"
+ACTION_USE_RE = re.compile(r"^\s*(?:-\s*)?uses:\s*([^#\s]+)", re.MULTILINE)
+FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -32,9 +35,46 @@ def check_contains(text: str, required: list[str]) -> dict[str, Any]:
     return {"status": "passed" if not missing else "failed", "missing": missing}
 
 
-def main() -> int:
-    args = parse_args()
-    repo_root = args.repo_root.resolve()
+def action_pin_check(text: str) -> dict[str, Any]:
+    mutable_refs: list[str] = []
+    pinned_refs: list[str] = []
+    for match in ACTION_USE_RE.finditer(text):
+        action_ref = match.group(1)
+        _, sep, ref = action_ref.rpartition("@")
+        if sep != "@" or not FULL_SHA_RE.fullmatch(ref):
+            mutable_refs.append(action_ref)
+        else:
+            pinned_refs.append(action_ref)
+    return {
+        "status": "passed" if not mutable_refs else "failed",
+        "mutable_refs": mutable_refs,
+        "pinned_ref_count": len(pinned_refs),
+    }
+
+
+def pypi_trusted_publisher_boundary_check(text: str) -> dict[str, Any]:
+    required = [
+        "build:",
+        "permissions:\n      contents: read",
+        "Upload Python dist artifact",
+        "publish:",
+        "needs: build",
+        "environment: pypi",
+        "id-token: write",
+        "Download Python dist artifact",
+        "Publish to PyPI with Trusted Publisher",
+    ]
+    missing = [item for item in required if item not in text]
+    build_section = text.split("\n  publish:", 1)[0]
+    publish_section = text.split("\n  publish:", 1)[1] if "\n  publish:" in text else ""
+    if "id-token: write" in build_section:
+        missing.append("build job must not grant id-token: write")
+    if "python -m build python" in publish_section:
+        missing.append("publish job must not build the package")
+    return {"status": "passed" if not missing else "failed", "missing": missing}
+
+
+def build_report(repo_root: Path) -> dict[str, Any]:
     checks: dict[str, dict[str, Any]] = {}
 
     codeql = read(repo_root, ".github/workflows/codeql-analysis.yml")
@@ -51,6 +91,7 @@ def main() -> int:
             "build-mode: none",
         ],
     )
+    checks["codeql_action_pinning"] = action_pin_check(codeql)
 
     scorecard = read(repo_root, ".github/workflows/scorecard.yml")
     checks["scorecard_workflow"] = check_contains(
@@ -63,6 +104,23 @@ def main() -> int:
             "security-events: write",
             "persist-credentials: false",
         ],
+    )
+    checks["scorecard_action_pinning"] = action_pin_check(scorecard)
+
+    pypi_publish = read(repo_root, ".github/workflows/pypi-publish-draft.yml")
+    checks["pypi_trusted_publisher_boundary"] = check_contains(
+        pypi_publish,
+        [
+            "workflow_dispatch:",
+            "publish-approved",
+            "environment: pypi",
+            "id-token: write",
+            "pypa/gh-action-pypi-publish@release/v1",
+        ],
+    )
+    checks["pypi_trusted_publisher_action_pinning"] = action_pin_check(pypi_publish)
+    checks["pypi_trusted_publisher_oidc_boundary"] = pypi_trusted_publisher_boundary_check(
+        pypi_publish
     )
 
     dependabot = read(repo_root, ".github/dependabot.yml")
@@ -104,6 +162,14 @@ def main() -> int:
         "fallback_attempted": False,
         "external_engine_invoked": False,
     }
+    return report
+
+
+def main() -> int:
+    args = parse_args()
+    repo_root = args.repo_root.resolve()
+    report = build_report(repo_root)
+    passed = report["status"] == "passed"
 
     if not args.no_json:
         output = args.json_output if args.json_output.is_absolute() else repo_root / args.json_output

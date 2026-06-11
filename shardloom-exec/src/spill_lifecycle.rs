@@ -531,8 +531,10 @@ impl SpillLifecycleReport {
 
 #[cfg(feature = "spill-lifecycle-fs")]
 fn execute_request(request: SpillLifecycleRequest) -> SpillLifecycleReport {
-    let workspace = request.workspace_path.as_str().to_string();
-    let marker = format!("{workspace}/.shardloom-spill-lifecycle");
+    let workspace_path = std::path::PathBuf::from(request.workspace_path.as_str());
+    let marker_path = spill_lifecycle_marker_path(&workspace_path);
+    let workspace = workspace_path.display().to_string();
+    let marker = marker_path.display().to_string();
     let mut plan = SpillCleanupPlan::empty();
     plan.add_action(SpillCleanupAction::verify_no_payload_files(
         workspace.clone(),
@@ -543,8 +545,8 @@ fn execute_request(request: SpillLifecycleRequest) -> SpillLifecycleReport {
     ));
     if request.allow_cleanup {
         let mut report = SpillLifecycleReport::cleanup_planned(request, plan);
-        if std::path::Path::new(&marker).exists() {
-            if let Err(error) = std::fs::remove_file(&marker) {
+        if marker_path.exists() {
+            if let Err(error) = remove_spill_lifecycle_marker_if_exists(&marker_path) {
                 report.add_diagnostic(Diagnostic::new(
                     DiagnosticCode::InvalidInput,
                     DiagnosticSeverity::Error,
@@ -559,31 +561,17 @@ fn execute_request(request: SpillLifecycleRequest) -> SpillLifecycleReport {
                 report.cleanup_performed = SpillIoState::Yes;
             }
         }
-        if std::path::Path::new(&workspace).exists()
-            && std::fs::read_dir(&workspace).is_ok_and(|mut it| it.next().is_none())
+        if workspace_path.exists()
+            && validate_spill_lifecycle_workspace_for_cleanup(&marker_path).is_ok()
+            && std::fs::read_dir(&workspace_path).is_ok_and(|mut it| it.next().is_none())
         {
-            let _ = std::fs::remove_dir(&workspace);
+            let _ = std::fs::remove_dir(&workspace_path);
             report.cleanup_performed = SpillIoState::Yes;
         }
         report
     } else {
         let mut report = SpillLifecycleReport::workspace_ready(request, plan);
-        if let Err(error) = std::fs::create_dir_all(&workspace) {
-            report.add_diagnostic(Diagnostic::new(
-                DiagnosticCode::InvalidInput,
-                DiagnosticSeverity::Error,
-                DiagnosticCategory::Execution,
-                format!("failed to create spill workspace: {error}"),
-                None,
-                None,
-                None,
-                FallbackStatus::disabled_by_policy(),
-            ));
-            report.status = SpillLifecycleStatus::BlockedByMissingPath;
-            return report;
-        }
-        report.workspace_created = SpillIoState::Yes;
-        if let Err(error) = std::fs::write(marker, b"lifecycle-marker") {
+        if let Err(error) = write_spill_lifecycle_marker(&marker_path) {
             report.add_diagnostic(Diagnostic::new(
                 DiagnosticCode::InvalidInput,
                 DiagnosticSeverity::Error,
@@ -597,9 +585,53 @@ fn execute_request(request: SpillLifecycleRequest) -> SpillLifecycleReport {
             report.status = SpillLifecycleStatus::BlockedByMissingPath;
             return report;
         }
+        report.workspace_created = SpillIoState::Yes;
         report.marker_created = SpillIoState::Yes;
         report
     }
+}
+
+#[cfg(feature = "spill-lifecycle-fs")]
+fn spill_lifecycle_marker_path(workspace_path: &std::path::Path) -> std::path::PathBuf {
+    workspace_path.join(".shardloom-spill-lifecycle")
+}
+
+#[cfg(feature = "spill-lifecycle-fs")]
+fn spill_lifecycle_workspace_root(marker_path: &std::path::Path) -> Result<std::path::PathBuf> {
+    shardloom_core::infer_local_output_workspace_root(marker_path)
+}
+
+#[cfg(feature = "spill-lifecycle-fs")]
+fn write_spill_lifecycle_marker(marker_path: &std::path::Path) -> Result<()> {
+    let workspace_root = spill_lifecycle_workspace_root(marker_path)?;
+    shardloom_core::write_workspace_safe_bytes(
+        workspace_root,
+        marker_path,
+        true,
+        "spill lifecycle marker",
+        b"lifecycle-marker",
+    )?;
+    Ok(())
+}
+
+#[cfg(feature = "spill-lifecycle-fs")]
+fn remove_spill_lifecycle_marker_if_exists(marker_path: &std::path::Path) -> Result<bool> {
+    let workspace_root = spill_lifecycle_workspace_root(marker_path)?;
+    shardloom_core::plan_workspace_safe_local_output(workspace_root, marker_path, true)?;
+    match std::fs::remove_file(marker_path) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(ShardLoomError::InvalidOperation(format!(
+            "failed to remove spill lifecycle marker: {error}; no fallback execution was attempted"
+        ))),
+    }
+}
+
+#[cfg(feature = "spill-lifecycle-fs")]
+fn validate_spill_lifecycle_workspace_for_cleanup(marker_path: &std::path::Path) -> Result<()> {
+    let workspace_root = spill_lifecycle_workspace_root(marker_path)?;
+    shardloom_core::plan_workspace_safe_local_output(workspace_root, marker_path, true)?;
+    Ok(())
 }
 
 /// # Errors
@@ -1053,6 +1085,10 @@ pub fn spill_reservation_integration_is_side_effect_free(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(all(feature = "spill-lifecycle-fs", unix))]
+    use std::os::unix::fs as unix_fs;
+
     fn req() -> SpillLifecycleRequest {
         SpillLifecycleRequest::report_only(
             SpillWorkspaceId::new("id").expect("id"),
@@ -1151,5 +1187,80 @@ mod tests {
         assert!(txt.contains("fallback execution disabled"));
         assert!(txt.contains("spill data written: false"));
         assert!(txt.contains("diagnostic:"));
+    }
+
+    #[cfg(all(feature = "spill-lifecycle-fs", unix))]
+    #[test]
+    fn local_workspace_rejects_symlink_marker_without_clobbering_destination() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "shardloom-spill-lifecycle-marker-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        let workspace = temp_dir.join("workspace");
+        std::fs::create_dir_all(&workspace).expect("workspace");
+        let marker = workspace.join(".shardloom-spill-lifecycle");
+        let outside = temp_dir.join("outside-marker");
+        std::fs::write(&outside, b"outside sentinel").expect("outside sentinel");
+        unix_fs::symlink(&outside, &marker).expect("marker symlink");
+        let request = SpillLifecycleRequest::local_workspace(
+            SpillWorkspaceId::new("id").expect("id"),
+            SpillWorkspacePath::new(workspace.display().to_string()).expect("path"),
+        );
+
+        let report = plan_spill_lifecycle(request).expect("report");
+
+        assert!(report.has_errors());
+        assert_eq!(report.status, SpillLifecycleStatus::BlockedByMissingPath);
+        assert!(!report.marker_created.as_bool());
+        assert_eq!(
+            std::fs::read(&outside).expect("outside sentinel"),
+            b"outside sentinel"
+        );
+        assert!(
+            std::fs::symlink_metadata(&marker)
+                .expect("marker symlink metadata")
+                .file_type()
+                .is_symlink()
+        );
+
+        std::fs::remove_dir_all(&temp_dir).expect("cleanup");
+    }
+
+    #[cfg(all(feature = "spill-lifecycle-fs", unix))]
+    #[test]
+    fn cleanup_rejects_symlink_marker_without_clobbering_destination() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "shardloom-spill-lifecycle-cleanup-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        let workspace = temp_dir.join("workspace");
+        std::fs::create_dir_all(&workspace).expect("workspace");
+        let marker = workspace.join(".shardloom-spill-lifecycle");
+        let outside = temp_dir.join("outside-marker");
+        std::fs::write(&outside, b"outside cleanup sentinel").expect("outside sentinel");
+        unix_fs::symlink(&outside, &marker).expect("marker symlink");
+        let request = SpillLifecycleRequest::cleanup_only(
+            SpillWorkspaceId::new("id").expect("id"),
+            SpillWorkspacePath::new(workspace.display().to_string()).expect("path"),
+        );
+
+        let report = plan_spill_lifecycle(request).expect("report");
+
+        assert!(report.has_errors());
+        assert!(!report.cleanup_performed.as_bool());
+        assert_eq!(
+            std::fs::read(&outside).expect("outside sentinel"),
+            b"outside cleanup sentinel"
+        );
+        assert!(
+            std::fs::symlink_metadata(&marker)
+                .expect("marker symlink metadata")
+                .file_type()
+                .is_symlink()
+        );
+
+        std::fs::remove_dir_all(&temp_dir).expect("cleanup");
     }
 }

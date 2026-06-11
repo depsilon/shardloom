@@ -7241,6 +7241,66 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(error.envelope.fallback.attempted)
         self.assertEqual(error.envelope.diagnostics[0].code, "UnsupportedSql")
 
+    def test_command_error_redacts_credential_bearing_uri_args(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "input-plan",
+                    "status": "unsupported",
+                    "summary": "unsupported",
+                    "human_text": "unsupported",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [{
+                        "code": "UnsupportedInput",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "unsupported",
+                        "feature": "input",
+                        "reason": "not implemented",
+                        "suggested_next_step": "inspect capabilities",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}
+                    }],
+                    "fields": [],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+
+        with self.assertRaises(ShardLoomCommandError) as raised:
+            ShardLoomClient(binary=binary).run(
+                [
+                    "input-plan",
+                    "s3://user@bucket/path.vortex?token=secret",
+                    "--sql",
+                    "SELECT * FROM 'gs://writer@bucket/data.csv?sig=secret'",
+                ]
+            )
+
+        command = " ".join(raised.exception.command)
+        self.assertIn("s3://<redacted>@bucket/path.vortex", command)
+        self.assertIn("gs://<redacted>@bucket/data.csv", command)
+        self.assertNotIn("token=secret", command)
+        self.assertNotIn("sig=secret", command)
+        self.assertNotIn("user@bucket", command)
+        self.assertNotIn("writer@bucket", command)
+
+    def test_protocol_error_redacts_credential_bearing_uri_args(self) -> None:
+        binary = self.fake_cli("import sys; sys.exit(1)")
+
+        with self.assertRaises(ShardLoomProtocolError) as raised:
+            ShardLoomClient(binary=binary).run(
+                ["input-plan", "s3://user@bucket/path.vortex?token=secret"]
+            )
+
+        message = str(raised.exception)
+        self.assertIn("s3://<redacted>@bucket/path.vortex", message)
+        self.assertNotIn("token=secret", message)
+        self.assertNotIn("user@bucket", message)
+
     def test_workflow_error_view_preserves_normalized_diagnostic_categories(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -8129,6 +8189,102 @@ class ShardLoomClientTests(unittest.TestCase):
             )
             self.assertTrue(evidence_metadata["foundry_style_output_api_invoked"])
             self.assertFalse(evidence_metadata["foundry_runtime_invoked"])
+
+    def test_context_foundry_generated_output_rejects_result_metadata_symlink(self) -> None:
+        if not hasattr(os, "symlink"):
+            self.skipTest("symlink is unavailable on this platform")
+        with tempfile.TemporaryDirectory() as tempdir:
+            result_dataset = Path(tempdir) / "result-dataset"
+            result_dataset.mkdir()
+            result_part = result_dataset / "part-00000.jsonl"
+            outside = Path(tempdir) / "outside-metadata.json"
+            outside.write_text("outside sentinel\n", encoding="utf-8")
+            os.symlink(outside, result_dataset / "_dataset_metadata.json")
+            binary = self._foundry_generated_output_fake_cli(result_part)
+
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                ShardLoomContext(
+                    ShardLoomClient(binary=binary)
+                ).foundry_generated_output(
+                    result_dataset,
+                    rows=[{"id": 1, "label": "alpha"}],
+                    allow_overwrite=True,
+                )
+
+            self.assertEqual(outside.read_text(encoding="utf-8"), "outside sentinel\n")
+            self.assertTrue((result_dataset / "_dataset_metadata.json").is_symlink())
+
+    def test_context_foundry_generated_output_rejects_evidence_part_symlink(self) -> None:
+        if not hasattr(os, "symlink"):
+            self.skipTest("symlink is unavailable on this platform")
+        with tempfile.TemporaryDirectory() as tempdir:
+            result_dataset = Path(tempdir) / "result-dataset"
+            evidence_dataset = Path(tempdir) / "evidence-dataset"
+            evidence_dataset.mkdir()
+            result_part = result_dataset / "part-00000.jsonl"
+            outside = Path(tempdir) / "outside-evidence.jsonl"
+            outside.write_text("outside evidence sentinel\n", encoding="utf-8")
+            os.symlink(outside, evidence_dataset / "part-00000.jsonl")
+            binary = self._foundry_generated_output_fake_cli(result_part)
+
+            with self.assertRaisesRegex(ValueError, "symlink"):
+                ShardLoomContext(
+                    ShardLoomClient(binary=binary)
+                ).foundry_generated_output(
+                    result_dataset,
+                    rows=[{"id": 1, "label": "alpha"}],
+                    evidence_ref=evidence_dataset,
+                    allow_overwrite=True,
+                )
+
+            self.assertEqual(
+                outside.read_text(encoding="utf-8"),
+                "outside evidence sentinel\n",
+            )
+            self.assertTrue((evidence_dataset / "part-00000.jsonl").is_symlink())
+
+    def _foundry_generated_output_fake_cli(self, result_part: Path) -> Path:
+        script = textwrap.dedent(
+            """
+            import json, sys
+
+            assert sys.argv[1:] == [
+                "generated-source-user-rows-smoke",
+                __RESULT_PART__,
+                "id:int64,label:utf8",
+                "id=1,label=alpha",
+                "--source-kind",
+                "user_rows",
+                "--output-format",
+                "jsonl",
+                "--allow-overwrite",
+                "--format",
+                "json",
+            ], sys.argv
+            print(json.dumps({
+                "schema_version": "shardloom.output.v2",
+                "command": "generated-source-user-rows-smoke",
+                "status": "success",
+                "summary": "local Foundry-style generated output",
+                "human_text": "local Foundry-style generated output",
+                "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                "diagnostics": [],
+                "fields": [
+                    {"key": "output_path", "value": __RESULT_PART__},
+                    {"key": "output_format", "value": "jsonl"},
+                    {"key": "generated_source_kind", "value": "user_rows"},
+                    {"key": "generated_source_row_count", "value": "1"},
+                    {"key": "generated_source_certificate_status", "value": "present"},
+                    {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
+                    {"key": "sink_artifact_digest", "value": "sha256:generated"},
+                    {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                    {"key": "fallback_attempted", "value": "false"},
+                    {"key": "external_engine_invoked", "value": "false"}
+                ],
+            }))
+            """
+        ).replace("__RESULT_PART__", json.dumps(str(result_part)))
+        return self.fake_cli(script)
 
     def test_local_table_append_commit_rehearsal_wrapper_calls_local_manifest_profile(self) -> None:
         binary = self.fake_cli(

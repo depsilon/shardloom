@@ -104,6 +104,7 @@ struct LocalTableAppendCommitReport {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct LocalTableAppendCommitOutcome {
     status: LocalTableAppendCommitStatus,
+    staging_path: PathBuf,
     cleanup_deleted_count: usize,
     written_bytes: usize,
     committed_manifest_digest: String,
@@ -531,14 +532,12 @@ fn execute_local_table_append_commit_rehearsal(
     let manifest_payload_digest = fnv64_digest(&manifest_payload);
     let (resolved_key, idempotency_status) =
         resolved_idempotency_key(idempotency_key, target, &manifest_payload_digest);
-    let staging_path = staging_manifest_path(&target_path, &resolved_key);
     let commit_record_path = commit_record_sidecar_path(&target_path);
     let correctness_digest = fixture_correctness_digest();
 
     let outcome = match perform_local_manifest_append_commit(
         target,
         &target_path,
-        &staging_path,
         &commit_record_path,
         &resolved_key,
         &manifest_payload,
@@ -565,7 +564,7 @@ fn execute_local_table_append_commit_rehearsal(
         provider_profile: profile.to_string(),
         target_uri: target.to_string(),
         target_path: Some(target_path),
-        staging_path: Some(staging_path),
+        staging_path: Some(outcome.staging_path),
         commit_record_path: Some(commit_record_path),
         idempotency_key: resolved_key,
         idempotency_status,
@@ -1475,7 +1474,6 @@ fn push_policy_boundary_fields(
 fn perform_local_manifest_append_commit(
     target_uri: &str,
     target_path: &Path,
-    staging_path: &Path,
     commit_record_path: &Path,
     idempotency_key: &str,
     manifest_payload: &str,
@@ -1484,27 +1482,21 @@ fn perform_local_manifest_append_commit(
     allow_overwrite: bool,
     rollback_after_commit: bool,
 ) -> std::io::Result<LocalTableAppendCommitOutcome> {
-    if let Some(staging_parent) = staging_path.parent() {
-        fs::create_dir_all(staging_parent)?;
-    }
-    remove_file_if_exists(staging_path)?;
-    fs::write(staging_path, manifest_payload)?;
-    if allow_overwrite {
-        remove_file_if_exists(target_path)?;
-        remove_file_if_exists(commit_record_path)?;
-    }
-    if target_path.exists() {
-        remove_file_if_exists(staging_path)?;
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::AlreadyExists,
-            "local table manifest target already exists",
-        ));
-    }
-    fs::rename(staging_path, target_path)?;
+    let workspace_root = workspace_root_for_local_output(target_path)?;
+    validate_workspace_safe_output(&workspace_root, target_path, allow_overwrite)?;
+    validate_workspace_safe_output(&workspace_root, commit_record_path, true)?;
+
+    let manifest_write_report = write_workspace_safe_local_bytes(
+        &workspace_root,
+        target_path,
+        allow_overwrite,
+        "local table append commit manifest",
+        manifest_payload.as_bytes(),
+    )?;
     let committed_manifest = match fs::read_to_string(target_path) {
         Ok(content) => content,
         Err(error) => {
-            let _ = remove_file_if_exists(target_path);
+            let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
             return Err(error);
         }
     };
@@ -1519,20 +1511,33 @@ fn perform_local_manifest_append_commit(
         correctness_digest,
     );
     let commit_record_digest = fnv64_digest(&commit_record);
-    if let Err(error) = fs::write(commit_record_path, commit_record) {
-        let _ = remove_file_if_exists(target_path);
+    if let Err(error) = write_workspace_safe_local_bytes(
+        &workspace_root,
+        commit_record_path,
+        true,
+        "local table append commit sidecar record",
+        commit_record.as_bytes(),
+    ) {
+        let _ = remove_workspace_safe_file_if_exists(&workspace_root, target_path);
         return Err(error);
     }
     let mut cleanup_deleted_count = 0;
     let status = if rollback_after_commit {
-        cleanup_deleted_count += usize::from(remove_file_if_exists(target_path)?);
-        cleanup_deleted_count += usize::from(remove_file_if_exists(commit_record_path)?);
+        cleanup_deleted_count += usize::from(remove_workspace_safe_file_if_exists(
+            &workspace_root,
+            target_path,
+        )?);
+        cleanup_deleted_count += usize::from(remove_workspace_safe_file_if_exists(
+            &workspace_root,
+            commit_record_path,
+        )?);
         LocalTableAppendCommitStatus::RolledBack
     } else {
         LocalTableAppendCommitStatus::Committed
     };
     Ok(LocalTableAppendCommitOutcome {
         status,
+        staging_path: manifest_write_report.staging_path,
         cleanup_deleted_count,
         written_bytes: manifest_payload.len(),
         committed_manifest_digest,
@@ -1800,21 +1805,6 @@ fn resolved_idempotency_key(
     )
 }
 
-fn staging_manifest_path(target_path: &Path, idempotency_key: &str) -> PathBuf {
-    let parent = target_path
-        .parent()
-        .filter(|path| !path.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let file_name = target_path
-        .file_name()
-        .map_or_else(|| "table-manifest".into(), |name| name.to_string_lossy());
-    parent.join(".shardloom-table-staging").join(format!(
-        "{}.{}.tmp",
-        file_name,
-        sanitize_idempotency_key(idempotency_key)
-    ))
-}
-
 fn commit_record_sidecar_path(target_path: &Path) -> PathBuf {
     PathBuf::from(format!(
         "{}.shardloom-table-commit.json",
@@ -1828,6 +1818,49 @@ fn remove_file_if_exists(path: &Path) -> std::io::Result<bool> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
         Err(error) => Err(error),
     }
+}
+
+fn workspace_root_for_local_output(path: &Path) -> std::io::Result<PathBuf> {
+    shardloom_core::infer_local_output_workspace_root(path).map_err(shardloom_error_to_io_error)
+}
+
+fn validate_workspace_safe_output(
+    workspace_root: &Path,
+    path: &Path,
+    allow_overwrite: bool,
+) -> std::io::Result<()> {
+    shardloom_core::plan_workspace_safe_local_output(workspace_root, path, allow_overwrite)
+        .map(|_| ())
+        .map_err(shardloom_error_to_io_error)
+}
+
+fn write_workspace_safe_local_bytes(
+    workspace_root: &Path,
+    path: &Path,
+    allow_overwrite: bool,
+    operation_label: &str,
+    content: &[u8],
+) -> std::io::Result<shardloom_core::WorkspaceSafeLocalWriteReport> {
+    shardloom_core::write_workspace_safe_bytes(
+        workspace_root,
+        path,
+        allow_overwrite,
+        operation_label,
+        content,
+    )
+    .map_err(shardloom_error_to_io_error)
+}
+
+fn remove_workspace_safe_file_if_exists(
+    workspace_root: &Path,
+    path: &Path,
+) -> std::io::Result<bool> {
+    validate_workspace_safe_output(workspace_root, path, true)?;
+    remove_file_if_exists(path)
+}
+
+fn shardloom_error_to_io_error(error: ShardLoomError) -> std::io::Error {
+    std::io::Error::other(error)
 }
 
 fn is_remote_uri(source: &str) -> bool {
@@ -1905,25 +1938,6 @@ fn escape_json(value: &str) -> String {
         }
     }
     escaped
-}
-
-fn sanitize_idempotency_key(idempotency_key: &str) -> String {
-    let sanitized: String = idempotency_key
-        .chars()
-        .take(64)
-        .map(|character| {
-            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
-                character
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    if sanitized.is_empty() {
-        "idempotency".to_string()
-    } else {
-        sanitized
-    }
 }
 
 fn support_status(has_errors: bool) -> &'static str {
