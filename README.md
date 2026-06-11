@@ -119,6 +119,79 @@ print(result.fallback_attempted, result.external_engine_invoked)
 `SHARDLOOM_REPO_ROOT` when the CLI is not on `PATH`; ordinary Python snippets should not need
 repo-root or build-profile arguments.
 
+The benchmark-page ETL scenarios use the same primary ShardLoom front door from Python. These
+snippets show the user-facing shape; measured route timing comes from the promoted benchmark
+artifact and remains claim-gated.
+
+```python
+from shardloom import context
+import shardloom as sl
+
+ctx = context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
+
+fact = ctx.read_csv("data/fact.csv", schema={
+    "id": "int64",
+    "group_key": "int64",
+    "dim_key": "int64",
+    "value": "int64",
+    "metric": "float64",
+    "flag": "boolean",
+    "category": "utf8",
+    "event_date": "utf8",
+    "nullable_metric_00": "float64",
+    "raw_event_time": "utf8",
+    "dirty_numeric": "utf8",
+})
+dim = ctx.read_csv("data/dim.csv", schema={
+    "dim_key": "int64",
+    "dim_label": "utf8",
+    "weight": "float64",
+})
+events = ctx.read_json("data/events.jsonl", schema={
+    "id": "int64",
+    "nested_payload": "utf8",
+})
+
+# selective filter
+fact.filter(sl.col("flag") == True).select("id", "group_key", "value").limit(1000).collect()
+
+# filter + projection + limit
+fact.filter(sl.col("value") >= 100).select("id", "group_key", "metric").limit(100).collect()
+
+# group by aggregation
+fact.filter(sl.col("metric") >= 0).group_by("group_key").agg(
+    rows="count(*)",
+    total_metric="sum(metric)",
+).limit(100).collect()
+
+# hash join
+fact.join(dim, on="dim_key", how="inner").select(
+    "f.id", "d.dim_label", "f.metric"
+).limit(100).collect()
+
+# global top-N; benchmark route owns the current top-N-per-group scenario
+fact.select("id", "group_key", "metric").nlargest(10, "metric").collect()
+
+# clean/cast/filter/write
+fact.with_column("amount_float", sl.col("dirty_numeric").cast("float64")).filter(
+    sl.col("amount_float") >= 0
+).limit(1000).write_vortex("target/clean-cast-filter-write.vortex", allow_overwrite=True)
+
+# malformed timestamp / dirty CSV, fail-closed unless cast path is admitted by current data
+fact.with_column("event_day", sl.col("raw_event_time").cast("date32")).limit(1000).collect()
+
+# null-heavy aggregate
+fact.dropna(subset=["nullable_metric_00"]).group_by("group_key").agg(
+    rows="count(*)",
+    total_nullable_metric="sum(nullable_metric_00)",
+).limit(100).collect()
+
+# nested JSON field scan
+events.filter(sl.col("nested_payload").contains("target")).select(
+    "id", "nested_payload"
+).limit(100).collect()
+```
+
 Bounded local-source workflows can collect or write through admitted ShardLoom paths. Unbounded
 convenience materialization returns deterministic evidence rather than invoking another engine:
 
