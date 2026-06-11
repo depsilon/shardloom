@@ -7,52 +7,52 @@
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
         "row_count": 200,
-        "sha256": "1ae6f78c32f177e71dc6f4e401c9e3f581cb29e589e627b2b5ece297305ec38f"
+        "sha256": "1040b1eb698ad3748a0af46c28795355bbadbacdbb2bf9071bea6397a043f9c4"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
         "row_count": 200,
-        "sha256": "c7eb3cc4b268b94bbb0180b45080f4a239fc14ec9f6bd5b6803b48d4825b745f"
+        "sha256": "59cdbd4541293230fc36f902c9bc3f269a9a7fd38d23255435c505bb7dcdc62b"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
         "row_count": 200,
-        "sha256": "931c3adaaddd276ff3a77741a96b76837d5efa41588e6d07b61d6a67916d945b"
+        "sha256": "c723e3abbb40092509fa9aa35d5a74ca8a3c2d619878c6eb31e14e6941f51b22"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-003.json",
         "row_count": 200,
-        "sha256": "7168bf15582d6a434fdce6a3b1996b2bc22c7dcb575769afbb7ac45fb86ef07e"
+        "sha256": "c551da86c34648d4d414e0b3531da6ffe888fc51d553a60627849df3b26a6c97"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-004.json",
         "row_count": 200,
-        "sha256": "6b2e33f86bd444fecc26b3272f98450716fd0be55efb5f91722912fa6deeabe5"
+        "sha256": "7dd47574f195c9c1524737fd0ea91d77527bda59cfd5d348617ab565b2d88487"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-005.json",
         "row_count": 200,
-        "sha256": "4b0981ea030878f0c676fe62222072ce0693803bb7cff7a09add7460d1300be1"
+        "sha256": "61cb039fa244709b5965c5095001ca44b9ac3cf24d4e71151c68bc405d0416d2"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-006.json",
         "row_count": 200,
-        "sha256": "a57b50b3aa19597177817dcd793cd802b88ef380c95c19884232894218d5a04b"
+        "sha256": "340e447bff03fbae31f417078832d57b696d69a823efe4598035b8729d98441e"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-007.json",
         "row_count": 200,
-        "sha256": "09b25e0a90bc6e030309cbba83388c0f9873848560a9da8bcc5291060f2b05b5"
+        "sha256": "dc53dcc6b48004e5e99170339b0adce34167a6456c4f9a2fd3b0f8d7b9e5c924"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-008.json",
         "row_count": 200,
-        "sha256": "e1cfe7fec83d0664375478963bf6071be8d8b9d43aecdee8344a2d0e81d98833"
+        "sha256": "35e1344ecf6223501792edb4d0765fe788d430a1959a58c55451e924047e7391"
       },
       {
         "path": "website/assets/benchmarks/latest/published-benchmark-rows-009.json",
         "row_count": 120,
-        "sha256": "8e94af93c6a9eb4cc2a9cf1e41ddcac48f0325443d5991a4fab0116addb8ef57"
+        "sha256": "d94a8481591169ae2313c297f3a951db835f0fa50e836fab6855d8b56055be2c"
       }
     ]
   },
@@ -93,7 +93,7 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "cf23c7e687ecb4fe17fc70f2f575bdbd04c5565e",
+  "benchmark_git_sha": "e739772c8c5c6d7167bf4806f1a16417bf7dc0a9",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -102,12 +102,12 @@
       "machine": "arm64",
       "platform": "macOS-26.5.1-arm64-arm-64bit",
       "processor": "arm",
-      "python_version": "3.12.13",
+      "python_version": "3.9.6",
       "total_memory_bytes": 17179869184
     },
     "cpu_count": 10,
     "platform": "macOS-26.5.1-arm64-arm-64bit",
-    "python": "3.12.13",
+    "python": "3.9.6",
     "website_promoter": "scripts/promote_benchmark_artifact.py"
   },
   "expected_lanes": [
@@ -122,7 +122,7 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-06T12:47:51.076596+00:00",
+  "generated_at_utc": "2026-06-11T12:43:28.697123+00:00",
   "lane_availability_reasons": {
     "dask": "available in promoted benchmark artifact",
     "datafusion": "available in promoted benchmark artifact",
@@ -130,10 +130,10 @@
     "pandas": "available in promoted benchmark artifact",
     "polars-eager": "available in promoted benchmark artifact",
     "polars-lazy": "available in promoted benchmark artifact",
-    "shardloom": "available, version workspace-local-release-cf23c7e6",
-    "shardloom-prepare-batch": "available, version workspace-local-release-cf23c7e6",
-    "shardloom-prepared-vortex": "available, version workspace-local-release-cf23c7e6",
-    "shardloom-vortex": "available, version workspace-local-release-cf23c7e6"
+    "shardloom": "available, version workspace-local-release-e739772c",
+    "shardloom-prepare-batch": "available, version workspace-local-release-e739772c",
+    "shardloom-prepared-vortex": "available, version workspace-local-release-e739772c",
+    "shardloom-vortex": "available, version workspace-local-release-e739772c"
   },
   "lane_versions": {
     "dask": "from promoted benchmark artifact",
@@ -142,10 +142,10 @@
     "pandas": "from promoted benchmark artifact",
     "polars-eager": "from promoted benchmark artifact",
     "polars-lazy": "from promoted benchmark artifact",
-    "shardloom": "workspace-local-release-cf23c7e6",
-    "shardloom-prepare-batch": "workspace-local-release-cf23c7e6",
-    "shardloom-prepared-vortex": "workspace-local-release-cf23c7e6",
-    "shardloom-vortex": "workspace-local-release-cf23c7e6"
+    "shardloom": "workspace-local-release-e739772c",
+    "shardloom-prepare-batch": "workspace-local-release-e739772c",
+    "shardloom-prepared-vortex": "workspace-local-release-e739772c",
+    "shardloom-vortex": "workspace-local-release-e739772c"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
@@ -168,8 +168,8 @@
   "route_timing_instrument_schema_version": "shardloom.route_timing_instrument.v1",
   "route_timing_instrument_status": "not_optimization_ready",
   "route_timing_instrument_status_counts": {
-    "not_optimization_ready": 240,
-    "optimization_ready": 960
+    "not_optimization_ready": 280,
+    "optimization_ready": 920
   },
   "route_timing_instrument_threshold_ms": 10.0,
   "runtime_envelope_validation": {
@@ -792,5 +792,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "cf23c7e687ecb4fe17fc70f2f575bdbd04c5565e"
+  "shardloom_git_sha": "e739772c8c5c6d7167bf4806f1a16417bf7dc0a9"
 }
