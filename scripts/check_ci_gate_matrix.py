@@ -5,11 +5,12 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from release_report_utils import fail_closed_fields, read_text, resolve_path, write_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -223,18 +224,21 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json",
             "python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json",
             "python scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json",
+            "python scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json",
         ),
         artifact_refs=(
             "target/pre-5j-dependency-freshness-gate.json",
             "target/benchmark-artifact-completeness-report.json",
             "target/benchmark-publication-claim-gate-report.json",
             "target/front-door-benchmark-publication-gate.json",
+            "target/benchmark-optimization-targets-report.json",
         ),
         release_blocker_refs=(
             "pre-5J dependency freshness gate",
             "benchmark artifact completeness",
             "benchmark publication claim gate",
             "front-door benchmark publication gate",
+            "benchmark optimization targets",
         ),
         workflow_markers=(
             "continue-on-error: true",
@@ -279,6 +283,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/benchmark-artifact-completeness-report.json",
             "target/benchmark-publication-claim-gate-report.json",
             "target/front-door-benchmark-publication-gate.json",
+            "target/benchmark-optimization-targets-report.json",
             "target/ci-gate-matrix-report.json",
             "target/hard-release-readiness-gate.json",
         ),
@@ -373,14 +378,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def resolve(repo_root: Path, path: Path) -> Path:
-    return path if path.is_absolute() else repo_root / path
-
-
-def read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8") if path.exists() else ""
-
-
 def workflow_job_section(workflow: str, job_id: str) -> str:
     pattern = re.compile(
         rf"(?ms)^  {re.escape(job_id)}:\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)"
@@ -435,9 +432,9 @@ def lane_status(lane: CiLane, workflow: str, doc: str) -> dict[str, Any]:
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
-    workflow_path = resolve(repo_root, args.workflow)
-    doc_path = resolve(repo_root, args.matrix_doc)
-    output = resolve(repo_root, args.output)
+    workflow_path = resolve_path(repo_root, args.workflow)
+    doc_path = resolve_path(repo_root, args.matrix_doc)
+    output = resolve_path(repo_root, args.output)
 
     workflow = read_text(workflow_path)
     doc = read_text(doc_path)
@@ -483,14 +480,10 @@ def main() -> int:
         "matrix_doc_ref": str(args.matrix_doc).replace("\\", "/"),
         "lanes": lane_rows,
         "blockers": blockers,
-        "public_release_claim_allowed": False,
-        "public_package_claim_allowed": False,
         "publication_attempted": False,
         "tag_created": False,
         "secrets_required": False,
         "package_upload_attempted": False,
-        "fallback_attempted": False,
-        "external_engine_invoked": False,
         "remaining_skipped_gates": [
             "clean_conda_release_environment",
             "real_publication",
@@ -498,9 +491,13 @@ def main() -> int:
             "signing_key_use",
             "package_upload",
         ],
+        **{
+            key: value
+            for key, value in fail_closed_fields().items()
+            if key not in {"production_claim_allowed", "spark_replacement_claim_allowed"}
+        },
     }
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json(output, report)
     print(output)
     return 0 if passed else 1
 

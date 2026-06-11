@@ -2,7 +2,7 @@
   "boundary_owner_counts": {
     "architecture_docs_policy": 272,
     "ci_release_governance": 6,
-    "runtime_tests_tools": 391,
+    "runtime_tests_tools": 393,
     "website_public_surface": 319,
     "website_validation": 1,
     "workspace_package_policy": 5
@@ -31,11 +31,11 @@
     {
       "boundary_owner": "ci_release_governance",
       "file_kind": "structured_config_or_data",
-      "line_count": 564,
+      "line_count": 569,
       "path": ".github/workflows/ci.yml",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "165ee12631de33bf1bb02d187b7a3bba7ef87f1531544e7fb1d32a36b6047817"
+      "sha256": "98aaad4cccfa0a3297d161429511de079c32419a748f19090a52c5c48c0ed1bf"
     },
     {
       "boundary_owner": "ci_release_governance",
@@ -688,20 +688,20 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 41314,
+      "line_count": 41360,
       "path": "docs/architecture/phased-execution-completed-ledger.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "20dd2b381837d4b56d938c55cfb3f0801da48ab9dc43522b913e426b8abd0cad"
+      "sha256": "2347b6a8ddb7cd75317e68c82496b7b03471bffb5546386434ef2a4113d9444b"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 322,
+      "line_count": 332,
       "path": "docs/architecture/phased-execution-plan.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "8550b3a80886c7e28aba6a5f9109e9215056a8c5b00e1afc8acfc3507ff71f4e"
+      "sha256": "2df4a24ab0d2d4b9367c2cd5f616a576dd369401eac7fb408ad3d5a427e4a744"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -742,20 +742,20 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "structured_config_or_data",
-      "line_count": 8985,
+      "line_count": 9003,
       "path": "docs/architecture/repo-wide-audit-inventory.json",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "dcf2bde12463a6c5097804e67f6bfa1a5f14d54f00325103a8f24a2bee5f90d6"
+      "sha256": "4e4f740bdd0d3d975a7f5991c938b20ff16aa354a8daba6d0a6ff977d964ae99"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 174,
+      "line_count": 176,
       "path": "docs/architecture/repo-wide-audit.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "bdeb5fb2d54ed821044202367b42293fd7b01f277df97c0096c9d87d8963a9b2"
+      "sha256": "9c14c23f88db9f730807c0259eff3f206b861208ea185ab46f80a82d822a3731"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -1300,11 +1300,11 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 145,
+      "line_count": 147,
       "path": "docs/release/ci-gate-matrix.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "d907f70b5c18601783e9b8451ce61e4e25b2bd8d39f781ff382b9715024033db"
+      "sha256": "ec85849b4925ee88297dcfbecf55eb2986756af8c513df82cff6911e8167ac8b"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -3136,11 +3136,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 6467,
+      "line_count": 6603,
       "path": "python/tests/test_release_scripts.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "a99e144b4cb8f382cc961a1136f15291d416278192f7675beb801d5e145c3b98"
+      "sha256": "cf73bd66aa94bfdb2b64b8710ada7272e9bb0687192ed0801a1b3ba439670c82"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3235,6 +3235,15 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
+      "line_count": 307,
+      "path": "scripts/check_benchmark_optimization_targets.py",
+      "review_state": "reviewed",
+      "section": "Shardloom Code",
+      "sha256": "dc68f434c0dfe36dd79b98b622a9147d4f3ddfa50b9dac59fd005d309e896db7"
+    },
+    {
+      "boundary_owner": "runtime_tests_tools",
+      "file_kind": "python",
       "line_count": 1470,
       "path": "scripts/check_benchmark_publication_claim_gate.py",
       "review_state": "reviewed",
@@ -3253,11 +3262,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 509,
+      "line_count": 506,
       "path": "scripts/check_ci_gate_matrix.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "6bfaab4f0d218447a714332c4e17181b075ef4e7d957b484767380d4946d7fb6"
+      "sha256": "fcdcbed963ba7f5f915d220fcd84e9555dc1271b53e371ed83e8a466004afba2"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3370,11 +3379,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 172,
+      "line_count": 150,
       "path": "scripts/check_public_status_docs.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "54b983c2bebef92e700679d402267e63db3bc6b673708398304d62b888d4c620"
+      "sha256": "3bed0adbc5bece63e465df5a5eac23cef8dc2f7fa4feaf90badd1f2e83c2cac8"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3627,6 +3636,15 @@
       "review_state": "reviewed",
       "section": "Shardloom Code",
       "sha256": "b52b176fa127738d8bf42a95cbf4a807d6ce7341dfc5d154418213802130d165"
+    },
+    {
+      "boundary_owner": "runtime_tests_tools",
+      "file_kind": "python",
+      "line_count": 57,
+      "path": "scripts/release_report_utils.py",
+      "review_state": "reviewed",
+      "section": "Shardloom Code",
+      "sha256": "90fd88c0ffcb78b9056c1adac644676bee58f9cc7b96346d21a86b0d15c08fce"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -8963,7 +8981,7 @@
     "fixture_or_benchmark_data": 3,
     "jsonc": 1,
     "lock": 1,
-    "python": 86,
+    "python": 88,
     "rust": 262,
     "structured_config_or_data": 46,
     "text_or_policy": 5,
@@ -8971,15 +8989,15 @@
     "typed": 1,
     "website_source": 127
   },
-  "generated_at_utc": "2026-06-11T18:29:14.931112+00:00",
-  "reviewed_tracked_files": 994,
+  "generated_at_utc": "2026-06-11T19:14:44.157796+00:00",
+  "reviewed_tracked_files": 996,
   "schema_version": "shardloom.repo_wide_audit_inventory.v1",
   "section_counts": {
     "Architecture/Documentation": 272,
-    "Shardloom Code": 402,
+    "Shardloom Code": 404,
     "Website": 320
   },
   "skipped_tracked_files": 0,
-  "source_head_at_generation": "faca24c4d036c662ea1463c74995862fc96d4ebe",
-  "total_tracked_files": 994
+  "source_head_at_generation": "a422db6bf5e5cf7dff7dae20606ff93982996afd",
+  "total_tracked_files": 996
 }

@@ -179,21 +179,28 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-1. [ ] `REPO-WIDE-AUDIT-3` - Shardloom code/runtime modularization, correctness, and
-   benchmark-driven optimization planning.
+1. [ ] `REPO-WIDE-AUDIT-3B` - Shardloom hot-runtime optimization implementation from benchmark
+   target evidence.
    - Source: `docs/architecture/repo-wide-audit.md` section `Shardloom Code`.
-   - Next slice outcome: implement a cohesive code-audit batch selected from findings `SC-1`
-     through `SC-7`, prioritizing no-fallback/Vortex-native hardening, release-script helper
-     modularization, CI slow-tail reduction, and benchmark-proven optimization targets.
+   - Current state: `REPO-WIDE-AUDIT-3A` added shared release-report helpers and
+     `scripts/check_benchmark_optimization_targets.py`, wired the diagnostic report into CI, and
+     proved that the current promoted artifact exposes evidence for JSONL parse/decode, AVRO hot
+     outliers, prepared-state lookup/create, Vortex write/reopen/verify, source-read timing, and
+     operator materialization.
+   - Next slice outcome: implement a cohesive hot-runtime code optimization batch against the
+     highest-value targets from `target/benchmark-optimization-targets-report.json`, starting with
+     source parse/decode and prepared-state create/lookup before lower-value cosmetic refactors.
    - Implementation scope:
      - Keep all ShardLoom runtime rows fail-closed for fallback and external-engine invocation.
-     - Modularize repeated release/evidence helpers without weakening hard gates.
      - Promote performance work only where current benchmark evidence identifies a bottleneck:
        JSONL parse/decode, AVRO hot-runtime outliers, prepared state create/lookup, Vortex
        write/reopen/verify, source-read scout timing, operator materialization, or CI slow-tail
        gates.
+     - Preserve timing-surface separation: `hot_runtime`, replay proof/publication proof, and
+       external baselines must remain distinct in generated rows and website/static artifacts.
    - Verification:
      - Focused Python/Rust tests for the touched boundary.
+     - `python3 scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json`
      - `cargo fmt --all -- --check`
      - `cargo clippy --workspace --all-targets -- -D warnings`
      - `cargo test --workspace --all-targets`
@@ -234,8 +241,10 @@ Plan state after REPO-WIDE-AUDIT-2 docs cleanup:
   wording now routes through `docs/release/public-status-matrix.md`, compute-flow vocabulary is
   owned by `docs/architecture/compute-engine-flow-reference.md`, the overhaul review is historical,
   and CI validates those public-status doc anchors.
-- `REPO-WIDE-AUDIT-3` and `REPO-WIDE-AUDIT-4` are now the active follow-up batches. They remain
-  ordered for manual review: Shardloom code/runtime next, then website/public benchmark surface.
+- `REPO-WIDE-AUDIT-3A` completed the first Shardloom Code cleanup batch by adding shared
+  release-report helpers and benchmark-driven optimization target evidence. `REPO-WIDE-AUDIT-3B`
+  and `REPO-WIDE-AUDIT-4` are now the active follow-up batches. They remain ordered for manual
+  review: hot-runtime code optimization next, then website/public benchmark surface.
 - Completed runtime and release details live in
   `docs/architecture/phased-execution-completed-ledger.md`; keep this file as the compact planned
   queue.
@@ -254,8 +263,9 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| Active | `REPO-WIDE-AUDIT-3` | Shardloom code/runtime modularization, correctness, and benchmark-driven optimization planning. |
+| Active | `REPO-WIDE-AUDIT-3B` | Hot-runtime optimization implementation from benchmark target evidence. |
 | Active | `REPO-WIDE-AUDIT-4` | Website/public benchmark surface cleanup and data ownership. |
+| Closed | `REPO-WIDE-AUDIT-3A` | Release-report helper modularization and benchmark optimization target evidence. |
 | Closed | `REPO-WIDE-AUDIT-2` | Architecture/documentation coherence and claim-boundary cleanup. |
 | Closed | `GAR-RUNTIME-IMPL-4/6A` | Residual completion gate closes with global-review rows mapped to claim-boundary evidence. |
 | Closed | `RELEASE-SEQUENCE-1` through `RELEASE-SEQUENCE-14` | Local proof, package-channel posture, final rehearsal, and maintainer handoff are complete for the no-publication scope. |
@@ -273,7 +283,7 @@ Runtime and release queue status:
   completed ledger and generated status artifacts.
 - Production usability closeout anchor: completed benchmark/profile, sub-evidence, user-surface,
   and package-readiness proof detail lives in the completed ledger.
-- Deferred Non-Runtime Closeout Queue: `REPO-WIDE-AUDIT-3` and `REPO-WIDE-AUDIT-4` are the active
+- Deferred Non-Runtime Closeout Queue: `REPO-WIDE-AUDIT-3B` and `REPO-WIDE-AUDIT-4` are the active
   audit follow-up implementation batches. Completed non-runtime history lives in the completed
   ledger; any additional work discovered by manual review must be promoted here as a concrete
   unchecked item before editing behavior.

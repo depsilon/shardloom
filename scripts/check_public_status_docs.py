@@ -5,9 +5,16 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from typing import Any
+
+from release_report_utils import (
+    fail_closed_fields,
+    read_text,
+    require_markers,
+    resolve_path,
+    write_json,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,30 +98,11 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def resolve(repo_root: Path, path: Path | str) -> Path:
-    path = Path(path)
-    return path if path.is_absolute() else repo_root / path
-
-
-def read_text(path: Path) -> str:
-    return path.read_text(encoding="utf-8") if path.exists() else ""
-
-
-def require_markers(label: str, text: str, markers: tuple[str, ...]) -> list[str]:
-    blockers: list[str] = []
-    if not text:
-        return [f"{label}: missing file or empty text"]
-    for marker in markers:
-        if marker not in text:
-            blockers.append(f"{label}: missing marker {marker!r}")
-    return blockers
-
-
 def build_report(repo_root: Path) -> dict[str, Any]:
     blockers: list[str] = []
     checked_docs: list[str] = []
 
-    canonical_text = read_text(resolve(repo_root, PUBLIC_STATUS_REF))
+    canonical_text = read_text(resolve_path(repo_root, PUBLIC_STATUS_REF))
     blockers.extend(
         require_markers(
             PUBLIC_STATUS_REF.as_posix(),
@@ -125,11 +113,15 @@ def build_report(repo_root: Path) -> dict[str, Any]:
     checked_docs.append(PUBLIC_STATUS_REF.as_posix())
 
     for rel_path, markers in PUBLIC_DOC_MARKERS.items():
-        blockers.extend(require_markers(rel_path, read_text(resolve(repo_root, rel_path)), markers))
+        blockers.extend(
+            require_markers(rel_path, read_text(resolve_path(repo_root, rel_path)), markers)
+        )
         checked_docs.append(rel_path)
 
     for rel_path, markers in COMPUTE_FLOW_MARKERS.items():
-        blockers.extend(require_markers(rel_path, read_text(resolve(repo_root, rel_path)), markers))
+        blockers.extend(
+            require_markers(rel_path, read_text(resolve_path(repo_root, rel_path)), markers)
+        )
         checked_docs.append(rel_path)
 
     return {
@@ -139,32 +131,18 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "checked_docs": checked_docs,
         "checked_doc_count": len(checked_docs),
         "claim_gate_status": "not_claim_grade",
-        "public_release_claim_allowed": False,
-        "public_package_claim_allowed": False,
-        "performance_claim_allowed": False,
-        "production_claim_allowed": False,
-        "spark_replacement_claim_allowed": False,
-        "publication_attempted": False,
-        "tag_created": False,
-        "package_upload_attempted": False,
-        "fallback_attempted": False,
-        "external_engine_invoked": False,
         "blockers": blockers,
+        **fail_closed_fields(),
     }
-
-
-def write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
-    output = resolve(repo_root, args.output)
+    output = resolve_path(repo_root, args.output)
     report = build_report(repo_root)
     write_json(output, report)
-    print(json.dumps(report, indent=2, sort_keys=True))
+    print(output)
     return 0 if report["status"] == "passed" else 1
 
 
