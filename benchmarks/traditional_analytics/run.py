@@ -6601,6 +6601,10 @@ PREPARATION_STAGE_TIMING_FIELDS = (
     "compatibility_to_vortex_import_timing_scope",
     "inclusive_compatibility_to_vortex_import_micros",
     "inclusive_compatibility_to_vortex_import_timing_scope",
+    "prepare_batch_preparation_timing_source",
+    "prepare_batch_preparation_micros",
+    "prepare_batch_prepared_state_lookup_or_create_micros",
+    "prepare_batch_prepare_route_total_micros",
     "vortex_array_build_micros",
     "vortex_array_build_provider_kind",
     "vortex_array_build_provider_surface",
@@ -6649,6 +6653,7 @@ def preparation_stage_timing_fields(fields: dict[str, Any]) -> dict[str, str]:
 
 def preparation_engine_millis(fields: dict[str, Any], fallback_millis: float) -> float:
     for field in (
+        "prepare_batch_prepared_state_lookup_or_create_micros",
         "prepare_batch_preparation_micros",
         "prepared_state_lookup_or_create_micros",
         "compatibility_to_vortex_import_micros",
@@ -6686,7 +6691,11 @@ def preparation_engine_millis(fields: dict[str, Any], fallback_millis: float) ->
 
 
 def preparation_route_total_millis(fields: dict[str, Any], fallback_millis: float) -> float:
-    for field in ("total_runtime_micros", "inclusive_total_runtime_micros"):
+    for field in (
+        "prepare_batch_prepare_route_total_micros",
+        "total_runtime_micros",
+        "inclusive_total_runtime_micros",
+    ):
         value = fields.get(field)
         if value in (None, "", "none"):
             continue
@@ -20377,6 +20386,32 @@ def successful_result_from_iterations(
         ]
         return None if not values else round(statistics.mean(values) / 1000.0, 4)
 
+    def prepare_batch_lifecycle_micros(field: str) -> float | None:
+        rows = [
+            row
+            for row in evidence_rows
+            if row and parse_optional_int(row.get(field)) is not None
+        ]
+        if not rows:
+            return None
+        lifecycle_keys = {
+            (
+                row.get("prepare_batch_preparation_timing_source", ""),
+                row.get("prepare_batch_vortex_preparation_spine_status", ""),
+            )
+            for row in rows
+        }
+        if len(lifecycle_keys) > 1:
+            latest = parse_optional_int(rows[-1].get(field))
+            return None if latest is None else round(latest / 1000.0, 4)
+        values = [parse_optional_int(row.get(field)) for row in rows]
+        parsed_values = [value for value in values if value is not None]
+        return (
+            None
+            if not parsed_values
+            else round(statistics.mean(parsed_values) / 1000.0, 4)
+        )
+
     def mean_evidence_micros_int(field: str) -> int | None:
         values = [
             parsed
@@ -20667,20 +20702,85 @@ def successful_result_from_iterations(
         "prepare_batch_cli_process_wall_millis": parse_optional_float(
             evidence.get("prepare_batch_cli_process_wall_millis")
         ),
-        "prepare_batch_preparation_millis": mean_evidence_micros(
+        "prepare_batch_preparation_millis": prepare_batch_lifecycle_micros(
             "prepare_batch_preparation_micros"
         ),
-        "prepare_batch_source_to_columnar_millis": mean_evidence_micros(
+        "prepare_batch_preparation_timing_source": evidence.get(
+            "prepare_batch_preparation_timing_source"
+        ),
+        "prepare_batch_prepared_state_lookup_or_create_millis": prepare_batch_lifecycle_micros(
+            "prepare_batch_prepared_state_lookup_or_create_micros"
+        ),
+        "prepare_batch_prepare_route_total_millis": prepare_batch_lifecycle_micros(
+            "prepare_batch_prepare_route_total_micros"
+        ),
+        "prepare_batch_source_to_columnar_millis": prepare_batch_lifecycle_micros(
             "prepare_batch_source_to_columnar_micros"
         ),
-        "prepare_batch_vortex_array_build_millis": mean_evidence_micros(
+        "prepare_batch_vortex_array_build_millis": prepare_batch_lifecycle_micros(
             "prepare_batch_vortex_array_build_micros"
         ),
-        "prepare_batch_vortex_write_millis": mean_evidence_micros(
+        "prepare_batch_vortex_write_millis": prepare_batch_lifecycle_micros(
             "prepare_batch_vortex_write_micros"
         ),
-        "prepare_batch_vortex_reopen_verify_millis": mean_evidence_micros(
+        "prepare_batch_vortex_reopen_verify_millis": prepare_batch_lifecycle_micros(
             "prepare_batch_vortex_reopen_verify_micros"
+        ),
+        "prepare_batch_vortex_preparation_spine_schema_version": evidence.get(
+            "prepare_batch_vortex_preparation_spine_schema_version"
+        ),
+        "prepare_batch_vortex_preparation_spine_status": evidence.get(
+            "prepare_batch_vortex_preparation_spine_status"
+        ),
+        "prepare_batch_vortex_preparation_spine_artifact_count": parse_optional_int(
+            evidence.get("prepare_batch_vortex_preparation_spine_artifact_count")
+        ),
+        "prepare_batch_vortex_preparation_spine_reused_artifact_count": parse_optional_int(
+            evidence.get("prepare_batch_vortex_preparation_spine_reused_artifact_count")
+        ),
+        "prepare_batch_vortex_preparation_spine_rewritten_artifact_count": parse_optional_int(
+            evidence.get("prepare_batch_vortex_preparation_spine_rewritten_artifact_count")
+        ),
+        "prepare_batch_vortex_preparation_spine_metadata_first_verify_status": evidence.get(
+            "prepare_batch_vortex_preparation_spine_metadata_first_verify_status"
+        ),
+        "prepare_batch_vortex_preparation_spine_metadata_first_verify_hit_count": parse_optional_int(
+            evidence.get(
+                "prepare_batch_vortex_preparation_spine_metadata_first_verify_hit_count"
+            )
+        ),
+        "prepare_batch_vortex_preparation_spine_reopen_verify_strategy": evidence.get(
+            "prepare_batch_vortex_preparation_spine_reopen_verify_strategy"
+        ),
+        "prepare_batch_vortex_preparation_spine_full_reopen_verify_count": parse_optional_int(
+            evidence.get("prepare_batch_vortex_preparation_spine_full_reopen_verify_count")
+        ),
+        "prepare_batch_vortex_preparation_spine_writer_context_write_count": parse_optional_int(
+            evidence.get(
+                "prepare_batch_vortex_preparation_spine_writer_context_write_count"
+            )
+        ),
+        "prepare_batch_vortex_preparation_spine_writer_context_reuse_hit_count": parse_optional_int(
+            evidence.get(
+                "prepare_batch_vortex_preparation_spine_writer_context_reuse_hit_count"
+            )
+        ),
+        "prepare_batch_vortex_preparation_spine_write_coalescing_status": evidence.get(
+            "prepare_batch_vortex_preparation_spine_write_coalescing_status"
+        ),
+        "prepare_batch_vortex_preparation_spine_shared_writer_context": parse_optional_bool(
+            evidence.get("prepare_batch_vortex_preparation_spine_shared_writer_context")
+        ),
+        "prepare_batch_vortex_preparation_spine_copy_budget_total_measured_copy_bytes": parse_optional_int(
+            evidence.get(
+                "prepare_batch_vortex_preparation_spine_copy_budget_total_measured_copy_bytes"
+            )
+        ),
+        "prepare_batch_vortex_preparation_spine_buffer_pool_status": evidence.get(
+            "prepare_batch_vortex_preparation_spine_buffer_pool_status"
+        ),
+        "prepare_batch_vortex_preparation_spine_buffer_reuse_count": parse_optional_int(
+            evidence.get("prepare_batch_vortex_preparation_spine_buffer_reuse_count")
         ),
         "prepare_batch_prepared_artifact_reuse_count": parse_optional_int(
             evidence.get("prepare_batch_prepared_artifact_reuse_count")

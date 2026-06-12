@@ -179,14 +179,17 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-- [ ] `PERF-DESIGN-5` - Vortex preparation write/reopen and copy-budget optimization.
 - [ ] `PERF-DESIGN-2` - Encoded-native operator promotion and stage-timing attribution cleanup.
+- [ ] `PERF-DESIGN-4R` - PulseWeave session/runtime coalescing follow-through.
+- [ ] `PERF-DESIGN-1R` - Dynamic prepared-state reuse and role-repair optimization follow-through.
+- [ ] `PERF-DESIGN-5R` - Capillary preparation spine write/reopen/copy optimization follow-through.
+- [ ] `PERF-DESIGN-6R` - Dynamic source-adapter parse/decode and scout-ingress optimization follow-through.
 - [ ] `PERF-DESIGN-3` - Publication-proof sink/evidence pipeline optimization.
 
 Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 
 - Source artifact:
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed`, 1,920
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9`, 1,920
   published rows, including 1,200 ShardLoom rows and 720 external-baseline rows. External rows are
   baselines only, never fallback execution. The ShardLoom-family row set includes
   `shardloom`, `shardloom-vortex`, `shardloom-prepared-vortex`, and
@@ -198,9 +201,12 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
   and CDC-delta role repair. It is targeted runtime evidence for the completed `PERF-DESIGN-1`
   item, not a full benchmark-suite refresh or performance claim.
 - ShardLoom timing surfaces: 600 `hot_runtime` rows and 600 `publication_proof` rows.
-- Hot/runtime lane shape: cold certified route geomean is about `63.90 ms`; native Vortex,
-  warm-prepared, prepare-once-batch, and prepare-once-first-query hot geomeans are about
-  `0.10-0.12 ms`. The refreshed PERF-DESIGN-4 CSV hot-runtime rows now report
+- Claim-gate split: 600 `publication_proof` rows are `claim_grade`; 600 `hot_runtime`
+  `metadata_sink` rows are intentionally `not_claim_grade` compact timing rows, not runtime
+  failures. The benchmark page now labels this timing-surface split explicitly.
+- Hot/runtime lane shape: cold certified route geomean is about `63.13 ms`; native Vortex,
+  warm-prepared, and prepare-once-batch hot geomeans are about `0.11-0.12 ms`. The refreshed
+  PERF-DESIGN-4 CSV hot-runtime rows report
   `session_route_used=true`, `process_spawn_count=1`, and `batch_process_wall_shared=true`, so
   process-wall measurements remain visible without redefining hot route totals.
 - Cold certified route bottlenecks: `source_parse_or_columnar_decode_ms` and `vortex_write_ms`
@@ -211,13 +217,20 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
   `materialized_temporary`; multi-key group by, nested JSON scan, high-cardinality string
   group/distinct, join+aggregate, and group-by aggregation are the highest measured
   `operator_compute_ms` families.
+- Local optimization rerun guardrail: the diagnostic artifacts under
+  `target/perf-design-2-operator-attribution/` are not promoted evidence unless the current-code
+  rerun is both configuration-comparable and faster or attribution-correct. A June 12, 2026
+  current-code CSV rerun over group-by/multi-key/join/string/hash scenarios repeated higher
+  hot-query wall timings than the published rows, so it remains a regression/attribution
+  investigation input only. Do not refresh latest website benchmark rows from those artifacts.
 - Optimization-target validator posture: `python3 scripts/check_benchmark_optimization_targets.py`
   over `website-public/assets/benchmarks/latest/benchmark-results.json` reports measured
   diagnostic targets for `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`,
   `vortex_write_and_reopen_verify`, `source_read_scout_timing`, and `operator_materialization`.
-  `prepared_state_lookup_or_create` is currently zero/retired in the promoted artifact, so future
-  prepared-state optimization work must first restore separated lookup/create/digest timing before
-  treating it as an active hotspot.
+  `prepared_state_lookup_or_create` is restored as a measured diagnostic target for prepared-batch
+  rows; the refreshed CSV metadata-sink rows report manifest reuse with
+  `prepare_batch_preparation_millis=0.0`, `prepare_batch_prepared_state_lookup_or_create_millis`
+  about `0.517 ms`, two reused artifacts, zero rewritten artifacts, and no Vortex reopen.
 - Publication/proof posture: prepared/native publication-proof geomeans sit around `4.7-7.2 ms`,
   while prepare-once-first-query publication proof is about `42.91 ms` because it includes
   first-query preparation plus result-sink/evidence work.
@@ -226,26 +239,31 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 
 Lane-to-design mapping from the 1,200 ShardLoom-family rows:
 
-- `PERF-DESIGN-1` is closed for the prepared traditional route: SourceState and
-  VortexPreparedState now reuse unchanged fact/dim/CDC artifacts and repair changed roles with
-  targeted evidence. Remaining cold certified route work maps to `PERF-DESIGN-5` and
-  `PERF-DESIGN-6`: refreshed JSONL rows reach `221.95 ms` hot route total and the cold lane still
-  exposes material `source_parse_or_columnar_decode_ms` plus `vortex_write_ms` cost.
-- `PERF-DESIGN-6` is closed: `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`, and
-  `source_read_scout_timing` remain measured diagnostic targets, but the source adapters now expose
+- `PERF-DESIGN-1` is closed for correctness and evidence, but reopened as `PERF-DESIGN-1R` for
+  optimization follow-through: SourceState and VortexPreparedState reuse unchanged fact/dim/CDC
+  artifacts and repair changed roles with targeted evidence, but the benchmark lanes still need a
+  dynamic reuse policy that avoids manifest/digest/write work when a run-local capillary has already
+  proven the same source/prepared-state dependency set.
+- `PERF-DESIGN-6` is closed for attribution, but reopened as `PERF-DESIGN-6R` for optimization
+  follow-through: `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`, and
+  `source_read_scout_timing` remain measured diagnostic targets. The source adapters expose
   projection-aware scout plans, byte acquisition, typed decode, row assembly, and columnar handoff
-  stages. The refreshed JSONL/AVRO source-heavy rows avoid unused row-buffer assembly and report
-  row assembly as `0.0 ms`; future work should target remaining typed text decode and Vortex write
-  cost without hiding it inside route totals.
-- `PERF-DESIGN-4` is closed: repeated warm/native/prepared benchmark groups now report
-  caller-owned session route use, process-spawn count, shared batch wall timing, and no hidden
-  daemon/global cache posture separately from hot route totals. Python session close and stale
-  fingerprint invalidation remain covered by focused client tests.
-- `PERF-DESIGN-5`: `vortex_write_and_reopen_verify` remains a measured target across cold/prepare
-  rows, with nonzero Vortex write timing in `240` hot rows and p95 around `29.60 ms`. The global
-  design change is to optimize the Vortex preparation spine around writer-context reuse,
-  segment/write coalescing, metadata-first reopen verification, copy-budget accounting, and
-  buffer-pool reuse without weakening Native I/O proof.
+  stages; the next work must reduce typed text decode/source parse cost through dynamic scout
+  admission and capillary chunk sizing rather than hiding it inside route totals.
+- `PERF-DESIGN-4` is closed for session evidence, but reopened as `PERF-DESIGN-4R` for
+  optimization follow-through: repeated warm/native/prepared benchmark groups report caller-owned
+  session route use, process-spawn count, shared batch wall timing, and no hidden daemon/global
+  cache posture separately from hot route totals. The next work should let PulseWeave coalesce
+  admitted local scenario groups inside the existing session/runtime envelope so repeated
+  route-open, scan-open, and result assembly overhead is bounded by evidence rather than repeated by
+  default.
+- `PERF-DESIGN-5` is closed for timing attribution, but reopened as `PERF-DESIGN-5R` for
+  optimization follow-through: prepare-batch lifecycle timing now separates
+  `prepared_state_lookup_or_create`, narrow preparation/create timing, and full prepare route total
+  instead of sourcing narrow preparation from `total_runtime_micros`. Targeted CSV metadata-sink
+  rows show manifest metadata verification with no new writer/reopen work; the next work should
+  reduce cold/prepared write, reopen, and copy cost through capillary preparation windows, writer
+  context reuse, and dynamic metadata-first verification admission.
 - `PERF-DESIGN-2`: all hot/runtime ShardLoom rows still report `residual_native` or
   `materialized_temporary` operator posture, and the highest operator families are multi-key group
   by, nested JSON scan, high-cardinality string group/distinct, join+aggregate, and group-by
@@ -269,57 +287,10 @@ Timing aggregation guardrail:
   The report is diagnostic evidence only and does not authorize public performance, production,
   package-release, or Spark-displacement claims.
 
-### PERF-DESIGN-5 - Vortex preparation write/reopen and copy-budget optimization
-
-- Source: current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed`;
-  `docs/architecture/io-reuse-and-fanout-architecture.md`;
-  `docs/architecture/allocation-buffer-pool-optimization.md`;
-  `docs/architecture/vortex-adapter-integration-plan.md`.
-- Current state: cold certified `hot_runtime` rows spend about `23.86 ms` average in
-  `vortex_write_ms` with p95 around `30.10 ms`, and cold row totals are repeatedly dominated by
-  source parse/decode plus Vortex write/reopen/verify work. Existing rows expose writer context,
-  layout/write advisor, copy-budget, and reopen/verify vocabulary, but the current benchmark
-  evidence still shows the preparation spine doing material write/reopen work for each cold or
-  newly prepared artifact.
-- Next slice outcome: implement one cohesive Vortex preparation-spine optimization batch covering
-  writer context reuse, segment/write coalescing, metadata-first reopen verification, copy-budget
-  accounting, and buffer-pool reuse across fact/dim/event/CDC roles without weakening Native I/O
-  certificates.
-- User-visible surface: benchmark preparation rows, VortexPreparedState evidence, Native I/O
-  certificate refs, Python/CLI prepare diagnostics, and website timing stage attribution.
-- Implementation scope: `shardloom-vortex` writer/preparation helpers, Vortex adapter admission
-  policy, prepared-state manifest refs, copy-budget/buffer-pool accounting, reopen/verify timing
-  split, benchmark row promotion, and focused tests for reused writer context plus fail-closed
-  digest mismatch behavior.
-- Evidence required: rows showing `vortex_writer_context_reuse_hit_count`,
-  `vortex_write_plan_coalescing_status`, copy-budget counters, reopen/verify timing split,
-  unchanged correctness digests, Native I/O certificate status, and explicit timing-surface
-  inclusion flags.
-- Acceptance: cold/preparation rows reduce repeated writer open/stage/reopen work when source and
-  layout policy match; verification stays explicit and fail-closed; copy and buffer counters are
-  populated; unchanged artifacts can reuse metadata verification without silently skipping required
-  proof.
-- Verification: Rust tests in `shardloom-vortex` for writer context/coalescing/copy-budget behavior,
-  Python release-script tests for row fields, targeted benchmark rerun for cold certified and
-  prepare-batch lanes, `cargo fmt --all -- --check`,
-  `cargo clippy --workspace --all-targets -- -D warnings`, and
-  `cargo test --workspace --all-targets` when Rust behavior changes.
-- Non-goals: do not skip Vortex write/verify for new artifacts, do not bypass Native I/O
-  certificates, do not add object-store/table commits, and do not claim all cold routes become
-  sub-ms.
-- Claim boundary: may claim only measured preparation-spine optimization for the selected local
-  routes and timing surface; no production, object-store, package-release, Spark-displacement, or
-  broad superiority claim.
-- Fallback boundary: Vortex preparation remains ShardLoom/Vortex-native; no Vortex query-engine
-  integration, DuckDB, Polars, Spark, DataFusion, or external engine may satisfy write/reopen work.
-- Ledger rule: when complete, move the completed session summary to
-  `docs/architecture/phased-execution-completed-ledger.md`.
-
 ### PERF-DESIGN-2 - Encoded-native operator promotion and stage-timing attribution cleanup
 
 - Source: PR #1174 route rows; current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4`; operator
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9`; operator
   mode inventory fields; `operator_hot_path_candidate`; `route_timing_exclusive_stage_sum_ms`;
   `route_timing_exclusive_residual_ms`.
 - Current state: prepared/native hot-route query totals are around `0.11-0.12 ms` geomean, but
@@ -328,23 +299,26 @@ Timing aggregation guardrail:
   multi-key group by, nested JSON field scan, high-cardinality string group/distinct,
   join+aggregate, and group-by aggregation. Diagnostic source/import/write fields can remain
   present on native/warm rows while excluded from authoritative hot totals, so stage attribution
-  must stay explicit before using those fields for optimization ranking.
+  must stay explicit before using those fields for optimization ranking. A local current-code
+  optimization rerun exposed a query-wall/stage-timing inconsistency and slower repeated CSV
+  operator rows; treat that as an open timing-contract issue, not a publishable performance refresh.
 - Next slice outcome: select the highest-value operator family from the benchmark scenarios and
   promote it from residual/materialized execution toward encoded-native execution with correctness
   evidence, while normalizing exclusive stage timing so diagnostic stage costs cannot contradict
-  authoritative route totals.
+  authoritative route totals and current-code reruns cannot regress silently.
 - User-visible surface: benchmark route-share attribution, explain/capability diagnostics,
   operator inventory, and encoded-native claim gates.
 - Implementation scope: operator registry/capability selection, encoded kernel implementation for
   the selected family, decoded-reference correctness tests, route timing stage attribution
   contracts, benchmark validators, and website route-share labels.
 - Evidence required: decoded reference parity, null/type edge cases, encoded/native admission
-  diagnostics, route rows showing the promoted operator family, and validators proving exclusive
-  stage sums/residuals are coherent.
+  diagnostics, route rows showing the promoted operator family, before/after current-code timing for
+  comparable scenarios, and validators proving exclusive stage sums/residuals are coherent.
 - Acceptance: promoted rows stop reporting the selected family as residual/materialized; unsupported
   operators keep deterministic blockers; route-share attribution ranks measured exclusive stage
-  costs without >100% diagnostic contradictions; performance artifacts separate operator compute
-  from source preparation and publication proof.
+  costs without >100% diagnostic contradictions; current-code reruns do not show a slower hot route
+  for admitted comparable rows; performance artifacts separate operator compute from source
+  preparation and publication proof.
 - Verification: Rust unit/integration tests for the promoted kernel, Python release-script tests for
   row contract changes, targeted benchmark rerun for scenarios using the promoted operator, and
   `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
@@ -359,10 +333,165 @@ Timing aggregation guardrail:
 - Ledger rule: when complete, move the completed session summary to
   `docs/architecture/phased-execution-completed-ledger.md`.
 
+### PERF-DESIGN-4R - PulseWeave session/runtime coalescing follow-through
+
+- Source: completed `PERF-DESIGN-4` session-routing evidence, `docs/architecture/pulseweave-runtime-control.md`,
+  current published row chunks
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9`, and benchmark
+  rows showing repeated native/prepared scenario groups with residual route-open/scan-open/result
+  assembly overhead.
+- Current state: session route evidence is present and correctly separates process wall, shared
+  batch wall, hot route totals, and no hidden daemon/global cache posture. The runtime still mostly
+  executes scenario work as independently shaped chunks inside the benchmark harness, and PulseWeave
+  fields are evidence-bearing but not yet used to coalesce compatible local scenario groups into a
+  bounded run-local work plan.
+- Next slice outcome: apply PulseWeave only inside admitted local prepared/native scenario groups so
+  FlowInventory can coalesce compatible scenario scans, ScarcityLedger can account for repeated
+  route-open/scan-open/result-assembly pressure, EndoPulse can keep the policy run-local, and
+  ProofBound can block coalescing when certificate, no-fallback, or timing-surface evidence is
+  incomplete.
+- User-visible surface: benchmark route rows, session/runtime envelope fields, Python simulation
+  timing reports, optimization-target validator, and benchmark website route/lane attribution.
+- Implementation scope: `shardloom-vortex/src/traditional_analytics.rs` session/batch route
+  planning, `shardloom-exec` PulseWeave policy if needed, Python benchmark promotion passthrough,
+  route timing validators, focused Rust tests, and targeted benchmark artifacts.
+- Evidence required: before/after targeted local benchmark rows for repeated warm/native/prepared
+  scenario groups, PulseWeave applied/blocked fields, unchanged correctness digests, no fallback,
+  no external engine, and explicit timing-surface inclusion flags.
+- Acceptance: compatible local scenario groups report coalesced PulseWeave route use with reduced
+  repeated route-open/scan-open/result-assembly overhead or a deterministic `blocked_*` reason;
+  unsupported groups continue through the non-PulseWeave ShardLoom-native path without hidden cache
+  state; no publication-proof timing is mixed into hot-runtime totals.
+- Verification: focused Rust session/PulseWeave tests, targeted benchmark rerun over repeated
+  warm/native/prepared scenario groups, `python3 scripts/check_benchmark_optimization_targets.py`,
+  benchmark publication claim gate, and broad Rust validation when runtime behavior changes.
+- Non-goals: no daemon, global cache, persistent tuning database, cross-run learning, object-store
+  runtime, distributed execution, live/hybrid runtime, or public performance claim.
+- Claim boundary: may claim only scoped local PulseWeave coalescing evidence for the measured
+  scenario groups; no broad runtime, production, Spark-displacement, or superiority claim.
+- Fallback boundary: PulseWeave policy must keep `fallback_attempted=false` and
+  `external_engine_invoked=false`; blocked policy can continue only through admitted ShardLoom-native
+  execution.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
+### PERF-DESIGN-1R - Dynamic prepared-state reuse and role-repair optimization follow-through
+
+- Source: completed `PERF-DESIGN-1` prepared-state role repair evidence,
+  `docs/architecture/io-reuse-and-fanout-architecture.md`, current manifest
+  `website/assets/benchmarks/latest/manifest.json`, and benchmark rows where prepared-state
+  lookup/metadata verification remains visible even when artifacts are reused.
+- Current state: SourceState and VortexPreparedState dependency checks, manifest reuse, and role
+  repair are correctness/evidence complete for scoped local traditional analytics. The optimized
+  path still needs dynamic reuse admission that can recognize a run-local prepared dependency set
+  already proven by capillary tasks and skip redundant digest, manifest, metadata-open, and writer
+  context work inside the same prepared benchmark/workflow.
+- Next slice outcome: implement a run-local dynamic prepared-state reuse controller that batches
+  dependency checks, records capillary proof refs for each source/prepared role, and avoids repeated
+  lookup/create work when the source/prepared digest tuple is unchanged and ProofBound evidence is
+  complete.
+- User-visible surface: prepare-batch rows, Python prepared benchmark simulation timing, benchmark
+  manifest, website prepared-route attribution, and release-script validators.
+- Implementation scope: prepared workspace manifest logic, SourceState/VortexPreparedState reuse
+  helpers, role-repair dependency checking, benchmark row promotion, focused Rust tests, and Python
+  release-script tests.
+- Evidence required: full prepare, manifest hit, role repair, same-run repeated prepared lookup,
+  digest drift fail-closed, no fallback, no external engine, and timing fields showing lookup/create
+  separately from full route totals.
+- Acceptance: repeated same-run prepared lookups report dynamic reuse admission with no rewritten
+  artifacts, no full reopen verify, no duplicate writer context, and stable correctness/certificate
+  refs; changed source/dim/CDC roles still force deterministic repair or full reprepare.
+- Verification: focused Rust prepared-state reuse/repair tests, targeted prepare-batch benchmark,
+  Python release-script tests for promotion fields, benchmark optimization-target validator, and
+  broad Rust validation when runtime behavior changes.
+- Non-goals: no process-global cache, no hidden stale reuse, no partial repair for unsupported
+  dependency shapes, no object-store/table cache, and no public performance claim.
+- Claim boundary: may claim only scoped local dynamic prepared-state reuse evidence; no package,
+  production, or superiority claim.
+- Fallback boundary: all reuse and repair paths must keep `fallback_attempted=false` and
+  `external_engine_invoked=false`; unsupported dependency shapes must block or fully reprepare.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
+### PERF-DESIGN-5R - Capillary preparation spine write/reopen/copy optimization follow-through
+
+- Source: completed `PERF-DESIGN-5` timing-attribution fix,
+  `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
+  `docs/architecture/io-reuse-and-fanout-architecture.md`, and current benchmark rows where cold
+  certified routes still expose material `vortex_write_ms`, reopen/verify, and copy-budget cost.
+- Current state: preparation timing is no longer sourced from route totals, and the artifact reports
+  narrow `prepared_state_lookup_or_create`, preparation/create, full prepare route, writer context,
+  metadata-first verification, and copy-budget fields. The path remains mostly evidence-bearing and
+  does not yet use capillary preparation windows to reduce write/reopen/copy work for admissible
+  local chunks.
+- Next slice outcome: add a capillary preparation execution window for local cold/prepared Vortex
+  preparation that coalesces compatible source split discovery, columnarize/encode, Vortex segment
+  write, metadata-first verification, and sink evidence tasks under PulseWeave/ProofBound admission.
+- User-visible surface: cold certified benchmark route rows, prepare-batch timing fields, copy-budget
+  evidence, Native I/O certificate refs, benchmark website stage attribution, and release validators.
+- Implementation scope: `vortex_ingest` preparation spine, writer context lifecycle, metadata-first
+  reopen verification strategy, capillary task manifest fields, benchmark promotion, and tests.
+- Evidence required: before/after targeted cold/prepared route rows, unchanged output digests,
+  writer/reopen count fields, copy-budget counters, Native I/O and execution certificate status,
+  and fail-closed diagnostics for unsupported capillary activation.
+- Acceptance: admitted local preparation rows show fewer duplicate writer/reopen/copy operations
+  for equivalent input shapes or report a deterministic capillary block reason; hot-runtime totals
+  remain separate from publication-proof totals; buffer reuse remains scoped and explicit.
+- Verification: focused Rust preparation-spine tests, targeted preparation benchmark, benchmark
+  artifact completeness/claim gate, optimization-target validator, and broad Rust validation when
+  runtime behavior changes.
+- Non-goals: no hidden buffer pool, unsafe lifetime reuse, object-store writes, table/lakehouse
+  commits, real query-data spill, or broad performance claim.
+- Claim boundary: may claim only scoped local capillary preparation evidence and measured targeted
+  timing; no production/package/superiority claim.
+- Fallback boundary: capillary preparation must keep `fallback_attempted=false` and
+  `external_engine_invoked=false`; unsupported source/sink/split shapes must block or use the
+  existing admitted ShardLoom-native preparation route.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
+### PERF-DESIGN-6R - Dynamic source-adapter parse/decode and scout-ingress optimization follow-through
+
+- Source: completed `PERF-DESIGN-6` source-adapter attribution, `docs/architecture/dynamic-work-shaping.md`,
+  `docs/architecture/vortex-runtime-utilization-audit.md`, current benchmark rows where
+  `source_parse_or_columnar_decode_ms` remains a cold-lane bottleneck, and optimization-target
+  reports for JSONL/AVRO/source-scout timing.
+- Current state: source adapters expose projection-aware scout plans, byte acquisition, typed
+  decode, row assembly, and columnar handoff stages, and refreshed rows avoid unused row-buffer
+  assembly where supported. Remaining overhead is still real typed text/binary decode and
+  source-to-Vortex handoff work, not a labeling problem.
+- Next slice outcome: implement dynamic scout-ingress admission that chooses lightweight metadata,
+  projected typed decode, or capillary chunked decode based on observed bytes/rows/columns and
+  scenario-required fields, with explicit block reasons when the source format cannot safely use the
+  optimized path.
+- User-visible surface: source-adapter benchmark rows, source-read scout fields, website stage
+  attribution, Python ETL snippets/timing review, and optimization-target validator.
+- Implementation scope: source adapter read/parse/decode code, scout ingress fields, capillary
+  activation thresholds, benchmark promoter passthrough, focused source tests, and targeted source
+  benchmark artifacts.
+- Evidence required: per-format targeted benchmark rows for JSONL/AVRO/CSV where relevant, row
+  assembly remains zero when avoided, decoded columns/skipped columns are correct, correctness
+  digests stable, and unsupported formats fail closed without external engines.
+- Acceptance: source-heavy lanes show reduced parse/decode or handoff timing for admitted projected
+  workloads or a deterministic `blocked_*` source-scout reason; no source adapter reports hidden
+  fallback or loses required columns/null semantics.
+- Verification: focused Rust/Python source adapter tests, targeted source-heavy benchmark rerun,
+  `python3 scripts/check_benchmark_optimization_targets.py`, website readiness/static validation,
+  and broad validation when shared adapters move.
+- Non-goals: no external parser engine fallback, no object-store runtime, no lossy decode, no
+  broad source-format support claim, and no publication freshness claim without clean-source
+  benchmark refresh.
+- Claim boundary: may claim only scoped dynamic source-adapter optimization for measured formats and
+  scenarios; no production/Spark-displacement/superiority claim.
+- Fallback boundary: optimized source paths must keep `fallback_attempted=false` and
+  `external_engine_invoked=false`; blocked formats must remain explicit.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
 ### PERF-DESIGN-3 - Publication-proof sink/evidence pipeline optimization
 
 - Source: `publication_proof` rows in PR #1174 and current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4`;
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9`;
   `PERF-SPLIT-FIX-1`; user request to reduce benchmark errors and write values incrementally.
 - Current state: publication-proof rows intentionally include result-sink and evidence-render work.
   Prepared/native publication rows add roughly `2.8-3.1 ms` evidence render geomean and

@@ -16,6 +16,74 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-DESIGN-5 Vortex preparation-spine lifecycle timing and metadata-first reuse
+  - Date: 2026-06-12
+  - Branch/PR: `codex/perf-design-5-preparation-spine` / cohesive PERF-DESIGN-5 PR.
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-5`.
+    - `docs/architecture/io-reuse-and-fanout-architecture.md`.
+    - `docs/architecture/allocation-buffer-pool-optimization.md`.
+    - `docs/architecture/vortex-adapter-integration-plan.md`.
+    - Refreshed benchmark artifact:
+      `website-public/assets/benchmarks/latest/published-row-runs/rows-61c706a059512d7b`.
+  - Scope:
+    - Added `shardloom.traditional_analytics.vortex_preparation_spine.v1` batch evidence fields
+      for artifact counts, reused/rewritten artifacts, metadata-first verification, reopen strategy,
+      full-reopen count, writer-context write/reuse counts, write-coalescing status, shared writer
+      context, copy-budget bytes, and explicit buffer-pool posture.
+    - Split prepare-batch lifecycle timing into
+      `prepare_batch_prepared_state_lookup_or_create_micros`,
+      `prepare_batch_preparation_micros`, and `prepare_batch_prepare_route_total_micros` so narrow
+      preparation/create timing no longer uses `total_runtime_micros`.
+    - Kept manifest-hit rows aligned to current-run work: manifest reuse reports zero new
+      preparation, zero writer-context writes, zero full reopen verification, two reused artifacts
+      for the targeted CSV batch rows, and `metadata_fingerprint_only_no_vortex_reopen`.
+    - Hardened benchmark aggregation so mixed full-create then manifest-hit batch iterations do not
+      average lifecycle timings from incompatible statuses into a misleading current-row value.
+    - Promoted targeted CSV metadata-sink rows into the 1,920-row latest benchmark bundle with
+      row-chunk merge; the refreshed rows report `prepare_batch_preparation_millis=0.0`,
+      `prepare_batch_prepared_state_lookup_or_create_millis≈0.517`,
+      `prepare_batch_prepare_route_total_millis≈110.559`,
+      `prepare_batch_vortex_preparation_spine_status=manifest_reuse_metadata_verified`,
+      two reused artifacts, zero rewritten artifacts, and no Vortex reopen.
+    - Fixed the benchmark website claim-grade closeout table so it no longer labels the intentional
+      600 `hot_runtime`/`metadata_sink` rows as runtime incompleteness. The page now separates
+      600 compact hot-runtime rows from 600 `publication_proof` claim-grade rows.
+    - Removed `PERF-DESIGN-5` from the active phase-plan queue; the next autonomous item is
+      `PERF-DESIGN-2`.
+  - Local evidence:
+    - Targeted benchmark command:
+      `python3 benchmarks/traditional_analytics/run.py --engines shardloom,shardloom-prepare-batch --formats csv --scenario "selective filter" --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 100000 --dim-rows 1000 --iterations 3 --regenerate --data-dir target/perf-design-5-preparation-spine/data-rerun --output target/perf-design-5-preparation-spine/preparation-spine-targeted-rerun.json --no-markdown --shardloom-build-profile release --shardloom-evidence-tier metadata_sink`
+      passed and produced four successful rows.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_prepared_batch_workspace_reuse_traditional_prepared_partial_repair -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_prepared_delta_overlay_admits_append_only_csv_scalar_lane -- --nocapture`
+      passed.
+    - Focused Python release-script tests passed for preparation timing source priority,
+      preparation-stage propagation, current prepare-batch lifecycle aggregation, source-scout field
+      promotion, and claim-grade closeout timing-surface separation.
+    - `PYTHONPATH=python/src python3 scripts/run_python_test_shard.py --shard release_scripts --output-dir target/perf-design-5-preparation-spine/python-test-shards`
+      passed with 131 tests, 0 failures, and 2 expected skips.
+    - Benchmark artifact validators passed:
+      `scripts/check_benchmark_artifact_completeness.py`,
+      `scripts/check_benchmark_publication_claim_gate.py --allow-stale-git`,
+      `scripts/check_benchmark_optimization_targets.py`,
+      `scripts/check_website_readiness.py`, and `website/validate_static_assets.js`.
+    - `node_modules/.bin/astro check`, `node_modules/.bin/astro build`, and
+      `website-src/scripts/postbuild-static.mjs` passed with the bundled Node runtime.
+    - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace --all-targets`, and `git diff --check` passed.
+  - Claim boundary:
+    - This closes scoped local preparation-spine lifecycle timing and metadata-first manifest reuse
+      evidence for the admitted prepared-batch route. It does not claim all cold routes become
+      sub-ms, production readiness, package-release readiness, Spark displacement, broad
+      superiority, object-store/table commit support, or enabled buffer-pool reuse.
+  - Fallback boundary:
+    - Preparation remains ShardLoom/Vortex-native. No Vortex query-engine integration, Spark,
+      DataFusion, DuckDB, Polars, Velox, hidden external engine, unsafe lifetime shortcut, or
+      hidden global buffer pool was introduced. Buffer reuse remains explicit as
+      `scoped_buffer_pool_disabled_no_hidden_reuse`.
+
 - [x] Session label: PERF-DESIGN-4 session-native route and process-wall attribution
   - Date: 2026-06-12
   - Branch/PR: `codex/perf-design-4-session-native-route` / cohesive PERF-DESIGN-4 PR.
