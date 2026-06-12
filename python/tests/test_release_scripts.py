@@ -4177,11 +4177,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertTrue(
-            packet["next_implementation_slice"].startswith(
-                "`REPO-WIDE-AUDIT-4`"
-            )
-        )
+        self.assertEqual(packet["next_implementation_slice"], "none")
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def _optimization_target_rows(self) -> list[dict[str, object]]:
@@ -4274,7 +4270,15 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertFalse(report["performance_claim_allowed"])
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
-        self.assertTrue(report["next_implementation_slice"].startswith("REPO-WIDE-AUDIT-3B"))
+        self.assertEqual(report["next_implementation_slice"], "none")
+        self.assertEqual(report["evidence_present_target_count"], 6)
+        self.assertEqual(report["diagnostic_absent_or_retired_target_count"], 0)
+        self.assertEqual(report["release_blocking_target_count"], 0)
+        self.assertEqual(report["release_blocking_targets"], [])
+        self.assertEqual(
+            report["target_disappearance_policy"],
+            "diagnostic_absent_or_retired_not_release_blocker",
+        )
         target_ids = {target["target_id"] for target in report["targets"]}
         self.assertEqual(
             target_ids,
@@ -4291,6 +4295,63 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             by_target["operator_materialization"]["top_rows"][0]["scenario_name"],
             "group by aggregation",
+        )
+
+    def test_benchmark_optimization_targets_do_not_block_retired_hotspots(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_optimization_targets.py",
+            "check_benchmark_optimization_targets_retired_for_test",
+        )
+
+        rows = [
+            row
+            for row in self._optimization_target_rows()
+            if row["storage_format"] != "avro"
+        ]
+        for row in rows:
+            if row.get("vortex_write_ms") is not None:
+                row["vortex_write_ms"] = 0.0
+        with tempfile.TemporaryDirectory() as tempdir:
+            artifact = Path(tempdir) / "benchmark-results.json"
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "shardloom.website.benchmark_evidence.v1",
+                        "benchmark_profile": "fixture",
+                        "published_benchmark_rows": rows,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            report = module.build_report(artifact)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["release_blocking_target_count"], 0)
+        self.assertEqual(report["release_blocking_targets"], [])
+        self.assertIn(
+            "avro_hot_runtime_outliers",
+            report["diagnostic_absent_or_retired_targets"],
+        )
+        self.assertIn(
+            "vortex_write_and_reopen_verify",
+            report["diagnostic_absent_or_retired_targets"],
+        )
+        by_target = {target["target_id"]: target for target in report["targets"]}
+        self.assertEqual(
+            by_target["avro_hot_runtime_outliers"]["status"],
+            "diagnostic_absent_or_retired",
+        )
+        self.assertEqual(by_target["avro_hot_runtime_outliers"]["row_count"], 0)
+        self.assertEqual(
+            by_target["vortex_write_and_reopen_verify"]["status"],
+            "diagnostic_stage_zero_or_retired",
+        )
+        self.assertGreater(by_target["vortex_write_and_reopen_verify"]["row_count"], 0)
+        self.assertFalse(by_target["vortex_write_and_reopen_verify"]["release_blocker"])
+        self.assertTrue(by_target["vortex_write_and_reopen_verify"]["diagnostic_only"])
+        self.assertEqual(
+            by_target["vortex_write_and_reopen_verify"]["target_disappearance_policy"],
+            "diagnostic_absent_or_retired_not_release_blocker",
         )
 
     def test_benchmark_optimization_targets_fail_closed_on_fallback_row(self) -> None:

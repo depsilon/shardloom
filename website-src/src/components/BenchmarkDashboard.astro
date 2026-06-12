@@ -165,6 +165,28 @@ const artifactRows = [
   ["Benchmark constitution gate", textValue(manifestAny.benchmark_constitution_claim_gate_status)],
   ["Route timing instrument status", textValue(manifestAny.route_timing_instrument_status)],
 ];
+const artifactMirrorRows = [
+  [
+    "Canonical public artifact",
+    "website-public/assets/benchmarks/latest/benchmark-results.json",
+    "Astro publicDir source for benchmark evidence.",
+  ],
+  [
+    "Generated website mirror",
+    "website/assets/benchmarks/latest/benchmark-results.json",
+    "Checked-in static output served by the website.",
+  ],
+  [
+    "Website data snapshot",
+    "website/assets/data/benchmark-evidence.json",
+    "Static page data mirror for deployable asset paths.",
+  ],
+  [
+    "Astro import snapshot",
+    "website-src/src/data/benchmark-evidence.json",
+    "Source import used by the benchmark dashboard build.",
+  ],
+];
 
 const runtimeCounts = countBy(shardloomRows, "route_runtime_status");
 const evidenceCounts = countBy(shardloomRows, "claim_gate_status");
@@ -259,7 +281,7 @@ events.filter(sl.col("nested_payload").contains("target")).select(
       <div class="metric"><strong>{hotRuntimeRows.length}</strong><span>ShardLoom hot runtime surfaces</span></div>
       <div class="metric"><strong>{publicationRows.length}</strong><span>publication-proof surfaces</span></div>
       <div class="metric"><strong>{externalSurfaceRows.length}</strong><span>external baseline surfaces</span></div>
-      <div class="metric"><strong>{String(manifestAny.performance_claim_allowed ?? false)}</strong><span>performance_claim_allowed</span></div>
+      <div class="metric"><strong>{String(manifestAny.performance_claim_allowed ?? false)}</strong><span>performance claim allowed</span></div>
     </div>
     <div class="table-wrap compact-table secondary-table">
       <table>
@@ -271,6 +293,32 @@ events.filter(sl.col("nested_payload").contains("target")).select(
         </tbody>
       </table>
     </div>
+    <p class="table-note">Artifact gate: <code>performance_claim_allowed=false</code>.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Benchmark data ownership</p>
+    <h2>Static mirrors have one canonical artifact.</h2>
+    <p class="narrow">
+      The public-dir benchmark bundle owns the promoted data. Website source imports and generated static output must byte-match it, and mirror digest checks keep stale or partial benchmark evidence from replacing the canonical artifact.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr><th>Role</th><th>Path</th><th>Ownership</th></tr></thead>
+        <tbody>
+          {artifactMirrorRows.map((row) => (
+            <tr><td>{row[0]}</td><td><code>{row[1]}</code></td><td>{row[2]}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">
+      Readiness validation checks benchmark-results mirrors, manifest mirrors, row chunk SHA-256 values, and Cloudflare asset-size limits before the page can be treated as synchronized static output.
+    </p>
   </div>
 </section>
 
@@ -346,9 +394,15 @@ events.filter(sl.col("nested_payload").contains("target")).select(
     <h2>Optimize the largest ShardLoom-owned hot route stages.</h2>
     <p class="narrow">
       Route-share attribution ranks measured stage cost inside the promoted artifact. It is planning evidence, not a public speed claim.
+      If a target disappears or its stage timing reaches zero, the release report records <code>diagnostic_absent_or_retired</code> with <code>target_disappearance_policy=diagnostic_absent_or_retired_not_release_blocker</code>; artifact/fallback violations remain hard blockers.
     </p>
   </div>
   <div class="artifact-panel">
+    <div class="strip mini-strip embedded-strip">
+      <div class="metric"><strong>diagnostic</strong><span>retired optimization targets</span></div>
+      <div class="metric"><strong>false</strong><span>release_blocker for retired targets</span></div>
+      <div class="metric"><strong>false</strong><span>performance claim from target report</span></div>
+    </div>
     <div class="route-card-grid compact-route-grid">
       {optimizationTargets.map((target) => (
         <article class="route-summary-card">

@@ -16,6 +16,59 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REPO-WIDE-AUDIT-4 website benchmark surface and data ownership cleanup
+  - Date: 2026-06-11
+  - Branch/PR: `codex/repo-wide-audit-website-benchmark-cleanup` / local branch.
+  - Source:
+    - `docs/architecture/repo-wide-audit.md` section `Website`, especially findings `WB-1`,
+      `WB-2`, and `WB-3`.
+    - Active phase-plan item `REPO-WIDE-AUDIT-4`.
+    - Post-merge Codex review finding on PR #1171: missing/retired optimization targets must not
+      fail the release benchmark lane.
+  - Scope:
+    - Reclassified missing or zeroed benchmark optimization targets as
+      `diagnostic_absent_or_retired` / `diagnostic_stage_zero_or_retired`, with
+      `release_blocker=false` and top-level `release_blocking_target_count=0`.
+    - Preserved fail-closed blockers for invalid benchmark artifacts, missing ShardLoom hot/runtime
+      rows, missing publication-proof rows, `fallback_attempted!=false`, and
+      `external_engine_invoked!=false`.
+    - Added release-script regression coverage proving that an absent AVRO target and a zeroed
+      Vortex-write target do not fail the benchmark lane while fallback rows still fail.
+    - Added benchmark-page ownership content that names the canonical public benchmark artifact,
+      generated website mirror, website data mirror, and Astro import snapshot.
+    - Added benchmark-page wording and validation for the retired optimization-target policy:
+      `target_disappearance_policy=diagnostic_absent_or_retired_not_release_blocker`.
+    - Extended website readiness so it runs the optimization-target report against the canonical
+      static artifact and validates mirror ownership, row chunk SHA-256 values, and the retired
+      target policy.
+    - Rebuilt the Astro static website and refreshed the repo-wide audit inventory so source,
+      checked-in static output, public-dir data, and audit coverage stay synchronized.
+    - Closed `REPO-WIDE-AUDIT-4` in the phase plan with no new unchecked autonomous item promoted.
+  - Local evidence:
+    - `python3 -m py_compile scripts/check_benchmark_optimization_targets.py scripts/check_website_readiness.py python/tests/test_release_scripts.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_optimization_targets_extracts_current_hot_targets python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_optimization_targets_do_not_block_retired_hotspots python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_optimization_targets_fail_closed_on_fallback_row`
+      passed with 3 tests.
+    - `python3 scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json --output target/benchmark-optimization-targets-report.json`
+      passed with six evidence-present targets and zero release-blocking targets.
+    - `node scripts/sync-content.mjs` and `node ./node_modules/.bin/astro check` passed using the
+      repo-supported bundled Node path.
+    - `node scripts/sync-content.mjs && node ./node_modules/.bin/astro build && node scripts/postbuild-static.mjs`
+      rebuilt `website/`.
+    - `node website/validate_static_assets.js` passed using the repo-supported bundled Node path.
+    - `python3 scripts/check_website_readiness.py --output target/website-readiness-repo-wide-audit.json`
+      passed.
+    - `python3 scripts/check_repo_wide_audit.py --write` refreshed the audit inventory and passed.
+  - Claim boundary:
+    - This is website, release-evidence, and audit cleanup only. It does not approve package
+      publication, production support, public benchmark freshness, performance superiority,
+      Spark displacement, tags, signing, package uploads, or release assets.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution was introduced. The optimization-target and website
+      readiness validators still fail closed when ShardLoom benchmark rows do not preserve
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: REPO-WIDE-AUDIT-3B hot-runtime JSONL source parse/decode optimization
   - Date: 2026-06-11
   - Branch/PR: `codex/repo-wide-audit-hot-runtime-jsonl` / local branch.

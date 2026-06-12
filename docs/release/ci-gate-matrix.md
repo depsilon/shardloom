@@ -105,6 +105,9 @@ The release hard-gate stack is split into parallel producers and a short final a
   equivalence blocked until measured equivalent front-door rows and rerun approval exist.
   The lane also emits `target/benchmark-optimization-targets-report.json`, which is diagnostic-only
   evidence for the current hot-runtime bottleneck queue and does not authorize a performance claim.
+  Missing or zeroed optimization targets are reported as retired/diagnostic instead of release
+  blockers; invalid ShardLoom rows, fallback attempts, and external-engine execution still fail the
+  lane.
 - `website-docs` emits `website-docs-evidence` with
   `target/public-status-docs-report.json` and `target/website-readiness-report.json`.
 - `release-readiness` has `needs:` entries for `ci-gate-matrix`, `dependency-security`,
