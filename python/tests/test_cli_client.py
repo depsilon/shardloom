@@ -10740,6 +10740,8 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "prepare_batch_vortex_array_build_record_batch_count", "value": "3"},
                         {"key": "prepare_batch_vortex_array_build_manual_scalar_copy_avoided", "value": "true"},
                         {"key": "scenario_order", "value": "selective-filter,filter---projection---limit"},
+                        {"key": "session_route_used", "value": "true"},
+                        {"key": "process_spawn_count", "value": "1"},
                         {"key": "source_state_digest", "value": "fnv1a64:batch"},
                         {"key": "source_state_reuse_status", "value": "per_batch_selective_filter_state_reused"},
                         {"key": "source_state_reused", "value": "true"},
@@ -10785,6 +10787,8 @@ class ShardLoomClientTests(unittest.TestCase):
             result.field("source_state_reuse_status"),
             "per_batch_selective_filter_state_reused",
         )
+        self.assertEqual(result.field("session_route_used"), "true")
+        self.assertEqual(result.field("process_spawn_count"), "1")
         self.assertEqual(result.field("prepare_batch_scale_no_standalone_lane"), "true")
         self.assertEqual(result.field("prepare_batch_scale_real_bytes"), "true")
         self.assertEqual(
@@ -10869,6 +10873,8 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "prepare_batch_prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
                         {"key": "prepare_batch_prepared_artifact_reuse_eligible", "value": "true"},
                         {"key": "scenario_order", "value": "hash join,join + aggregate"},
+                        {"key": "session_route_used", "value": "true"},
+                        {"key": "process_spawn_count", "value": "1"},
                         {"key": "source_state_digest", "value": "fnv1a64:batch"},
                         {"key": "source_state_reuse_status", "value": "per_batch_dimension_label_state_reused"},
                         {"key": "source_state_reused", "value": "true"},
@@ -10902,6 +10908,8 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.source_state_digest, "fnv1a64:batch")
         self.assertTrue(result.source_state_reused)
         self.assertEqual(result.source_state_recompute_avoided_count, 1)
+        self.assertTrue(result.session_route_used)
+        self.assertEqual(result.process_spawn_count, 1)
         self.assertTrue(result.prepared_artifacts_reuse_eligible)
         self.assertEqual(result.selected_evidence_level, "certified")
         self.assertEqual(

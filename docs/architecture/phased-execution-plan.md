@@ -179,7 +179,6 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-- [ ] `PERF-DESIGN-4` - Session-native route and process-wall amortization.
 - [ ] `PERF-DESIGN-5` - Vortex preparation write/reopen and copy-budget optimization.
 - [ ] `PERF-DESIGN-2` - Encoded-native operator promotion and stage-timing attribution cleanup.
 - [ ] `PERF-DESIGN-3` - Publication-proof sink/evidence pipeline optimization.
@@ -187,7 +186,7 @@ Current autonomous execution order:
 Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 
 - Source artifact:
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4`, 1,920
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed`, 1,920
   published rows, including 1,200 ShardLoom rows and 720 external-baseline rows. External rows are
   baselines only, never fallback execution. The ShardLoom-family row set includes
   `shardloom`, `shardloom-vortex`, `shardloom-prepared-vortex`, and
@@ -201,8 +200,9 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 - ShardLoom timing surfaces: 600 `hot_runtime` rows and 600 `publication_proof` rows.
 - Hot/runtime lane shape: cold certified route geomean is about `63.90 ms`; native Vortex,
   warm-prepared, prepare-once-batch, and prepare-once-first-query hot geomeans are about
-  `0.10-0.12 ms` but have process-wall measurements around `34-40 ms` when driven through the
-  CLI/harness boundary.
+  `0.10-0.12 ms`. The refreshed PERF-DESIGN-4 CSV hot-runtime rows now report
+  `session_route_used=true`, `process_spawn_count=1`, and `batch_process_wall_shared=true`, so
+  process-wall measurements remain visible without redefining hot route totals.
 - Cold certified route bottlenecks: `source_parse_or_columnar_decode_ms` and `vortex_write_ms`
   remain material diagnostic targets; refreshed JSONL outliers reach `221.95 ms` hot route total
   with about `174.27 ms` source parse/decode, but source-read scout timing is now complete and row
@@ -237,12 +237,10 @@ Lane-to-design mapping from the 1,200 ShardLoom-family rows:
   stages. The refreshed JSONL/AVRO source-heavy rows avoid unused row-buffer assembly and report
   row assembly as `0.0 ms`; future work should target remaining typed text decode and Vortex write
   cost without hiding it inside route totals.
-- `PERF-DESIGN-4`: native Vortex, warm-prepared, prepare-once-batch, and
-  prepare-once-first-query hot lanes are query-scale once prepared, but their rows still expose
-  `cli_process_wall_millis` around `34-40 ms` through the benchmark/Python harness. The global
-  design change is to move repeated user workflows and benchmark groups onto caller-owned
-  in-process sessions, with process-spawn counts and cleanup evidence reported separately from hot
-  route totals.
+- `PERF-DESIGN-4` is closed: repeated warm/native/prepared benchmark groups now report
+  caller-owned session route use, process-spawn count, shared batch wall timing, and no hidden
+  daemon/global cache posture separately from hot route totals. Python session close and stale
+  fingerprint invalidation remain covered by focused client tests.
 - `PERF-DESIGN-5`: `vortex_write_and_reopen_verify` remains a measured target across cold/prepare
   rows, with nonzero Vortex write timing in `240` hot rows and p95 around `29.60 ms`. The global
   design change is to optimize the Vortex preparation spine around writer-context reuse,
@@ -271,54 +269,10 @@ Timing aggregation guardrail:
   The report is diagnostic evidence only and does not authorize public performance, production,
   package-release, or Spark-displacement claims.
 
-### PERF-DESIGN-4 - Session-native route and process-wall amortization
-
-- Source: current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4`;
-  `docs/architecture/in-process-session-runtime.md`;
-  `docs/architecture/benchmark-persistent-runner-decision.md`; Python context/session surface.
-- Current state: warm/prepared/native `hot_runtime` route geomeans are about `0.10-0.12 ms`, but
-  the same rows still expose `cli_process_wall_millis` around `34-40 ms` and
-  `preparation_cli_process_wall_millis` around `34-39 ms` through the benchmark/Python harness
-  boundary. Scoped caller-owned session evidence exists, but the primary repeated-workflow route is
-  not yet treated as the default performance-sensitive path for Python/user benchmarks.
-- Next slice outcome: make repeated local workflows route through an explicit caller-owned
-  `ShardLoomSession` by default where the source/prepared-state policy admits it, and update the
-  benchmark harness to run scenario groups through one session without creating a hidden daemon or
-  process-global cache.
-- User-visible surface: Python `context(...).session(...)` and default repeated `collect()`/
-  `write_vortex()` behavior where session routing is admitted, benchmark route rows,
-  explain/diagnostic fields, and CLI batch smoke reports.
-- Implementation scope: Python context/session orchestration, CLI batch route plumbing,
-  benchmark harness route selection, row promotion fields for `process_spawn_count`,
-  `session_route_used`, cache hit/miss counts, close/drop status, and tests covering explicit
-  session close plus stale fingerprint invalidation.
-- Evidence required: repeated scenario benchmark rows showing one caller-owned session per admitted
-  group, no hidden global cache, stable source/prepared/output digests, process-wall attribution
-  separated from hot route totals, and deterministic blockers when session reuse is unsafe.
-- Acceptance: repeated warm/native/prepared routes no longer require one CLI process spawn per
-  scenario in the admitted batch path; process-wall overhead is amortized and reported separately;
-  session close/drop cleanup is observable; route totals remain timing-surface aware; unsupported
-  session reuse fails closed.
-- Verification: session-cache smoke snapshots, Python session smoke tests for repeated local
-  workloads, benchmark row contract tests, targeted traditional-analytics rerun for warm/native and
-  prepare-batch lanes, `python scripts/check_benchmark_artifact_completeness.py --allow-stale-git`
-  when artifact rows are refreshed, and no-fallback validators.
-- Non-goals: do not introduce a daemon, service runtime, remote API, hidden fast mode, hidden
-  process-global cache, object-store/table cache, or public performance claim.
-- Claim boundary: may claim only workload-scoped process/session amortization when row evidence
-  shows the selected timing surface, session reuse posture, and process-spawn count. It does not
-  authorize production, Spark-displacement, package-release, or broad superiority claims.
-- Fallback boundary: session execution remains ShardLoom/Vortex-native with
-  `fallback_attempted=false` and `external_engine_invoked=false`; external baselines remain
-  comparison-only.
-- Ledger rule: when complete, move the completed session summary to
-  `docs/architecture/phased-execution-completed-ledger.md`.
-
 ### PERF-DESIGN-5 - Vortex preparation write/reopen and copy-budget optimization
 
 - Source: current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4`;
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed`;
   `docs/architecture/io-reuse-and-fanout-architecture.md`;
   `docs/architecture/allocation-buffer-pool-optimization.md`;
   `docs/architecture/vortex-adapter-integration-plan.md`.

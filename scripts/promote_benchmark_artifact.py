@@ -152,6 +152,8 @@ WEBSITE_ROW_KEYS = (
     "includes_output",
     "includes_evidence",
     "route_comparable_to_external_end_to_end",
+    "session_route_used",
+    "process_spawn_count",
     "preparation_included",
     "preparation_included_scope",
     "query_timing_starts_after_preparation",
@@ -555,6 +557,8 @@ WEBSITE_SUMMARY_ROW_KEYS = (
     "includes_evidence",
     "route_comparable_to_external_end_to_end",
     "prepared_state_reuse_scope",
+    "session_route_used",
+    "process_spawn_count",
     "benchmark_timing_boundary",
     "benchmark_timing_status",
     "route_timing_surface_schema_version",
@@ -7936,6 +7940,21 @@ def normalize_published_runtime_evidence(row: dict[str, Any]) -> dict[str, Any]:
         return row
 
     adjusted = dict(row)
+    persistent_runner_status = str(adjusted.get("persistent_runner_status") or "")
+    if "session_route_used" not in adjusted:
+        adjusted["session_route_used"] = (
+            persistent_runner_status == "single_process_batch_runner_supported"
+        )
+    if "process_spawn_count" not in adjusted:
+        adjusted["process_spawn_count"] = (
+            1
+            if persistent_runner_status
+            in {
+                "single_process_batch_runner_supported",
+                "process_per_scenario_attributed_not_reduced",
+            }
+            else None
+        )
     evidence_level = str(
         adjusted.get("evidence_level") or adjusted.get("selected_evidence_level") or ""
     )

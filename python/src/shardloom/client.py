@@ -577,6 +577,18 @@ class PreparedVortexBatchResult:
         return self.batch.field_int("source_state_recompute_avoided_count", 0) or 0
 
     @property
+    def session_route_used(self) -> bool:
+        """Whether this batch result used the caller-owned session route."""
+
+        return self.batch.field_bool("session_route_used", False) is True
+
+    @property
+    def process_spawn_count(self) -> int | None:
+        """Return the route-invocation process spawn count when reported."""
+
+        return self.batch.field_int("process_spawn_count")
+
+    @property
     def prepared_artifacts_reuse_eligible(self) -> bool:
         """Whether the preparation step marked artifacts as reuse eligible."""
 

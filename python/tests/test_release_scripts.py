@@ -1383,6 +1383,8 @@ class ReleaseScriptTests(unittest.TestCase):
                 "operator_compute_millis": 0.5,
                 "evidence_render_millis": 0.1,
                 "cli_process_wall_millis": 2.0,
+                "session_route_used": True,
+                "process_spawn_count": 1,
                 "batch_cli_process_wall_millis": 2.0,
                 "batch_process_wall_shared": True,
             },
@@ -1395,6 +1397,38 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertTrue(published["claim_grade_requirements_met"])
         self.assertTrue(published["batch_process_wall_shared"])
         self.assertEqual(published["batch_cli_process_wall_millis"], 2.0)
+        self.assertTrue(published["session_route_used"])
+        self.assertEqual(published["process_spawn_count"], 1)
+
+        [website_row] = module.website_rows([published])
+        self.assertTrue(website_row["session_route_used"])
+        self.assertEqual(website_row["process_spawn_count"], 1)
+
+    def test_benchmark_promoter_backfills_session_process_fields_for_legacy_rows(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_session_process_backfill_for_test",
+        )
+
+        batch = module.normalize_published_runtime_evidence(
+            {
+                "engine": "shardloom-vortex",
+                "status": "success",
+                "persistent_runner_status": "single_process_batch_runner_supported",
+            }
+        )
+        per_scenario = module.normalize_published_runtime_evidence(
+            {
+                "engine": "shardloom",
+                "status": "success",
+                "persistent_runner_status": "process_per_scenario_attributed_not_reduced",
+            }
+        )
+
+        self.assertTrue(batch["session_route_used"])
+        self.assertEqual(batch["process_spawn_count"], 1)
+        self.assertFalse(per_scenario["session_route_used"])
+        self.assertEqual(per_scenario["process_spawn_count"], 1)
 
     def test_benchmark_promoter_preserves_role_scoped_repair_timing(self) -> None:
         module = self._load_script_module(
@@ -3475,6 +3509,8 @@ class ReleaseScriptTests(unittest.TestCase):
                         "persistent_runner_status": (
                             benchmark_run.PERSISTENT_RUNNER_STATUS
                         ),
+                        "session_route_used": "false",
+                        "process_spawn_count": "1",
                     }
                 ],
                 [0.1],
@@ -3488,6 +3524,8 @@ class ReleaseScriptTests(unittest.TestCase):
             metrics["global_startup_warmup_row_allocation_status"],
             "shared_global_cli_prime_reported_in_engine_versions_not_row_allocated",
         )
+        self.assertFalse(metrics["session_route_used"])
+        self.assertEqual(metrics["process_spawn_count"], 1)
 
     def test_shared_prepared_artifact_cache_hit_zeroes_fresh_import_timing(self) -> None:
         from benchmarks.traditional_analytics import run as benchmark_run
@@ -3910,6 +3948,9 @@ class ReleaseScriptTests(unittest.TestCase):
                 "vortex_scan_segments_skipped": "0",
                 "vortex_scan_columns_touched": "3",
                 "vortex_scan_decoded_values": "16",
+                "persistent_runner_status": benchmark_run.PERSISTENT_RUNNER_STATUS,
+                "session_route_used": "false",
+                "process_spawn_count": "1",
             }
             second_evidence = {
                 "source_read_header_scout_micros": "3000",
@@ -3940,6 +3981,9 @@ class ReleaseScriptTests(unittest.TestCase):
                 "vortex_scan_segments_skipped": "1",
                 "vortex_scan_columns_touched": "5",
                 "vortex_scan_decoded_values": "32",
+                "persistent_runner_status": benchmark_run.PERSISTENT_RUNNER_STATUS,
+                "session_route_used": "false",
+                "process_spawn_count": "1",
             }
 
             result = benchmark_run.successful_result_from_iterations(
@@ -3968,6 +4012,8 @@ class ReleaseScriptTests(unittest.TestCase):
         ]
         self.assertEqual(missing_source_state_fields, [])
         self.assertEqual(metrics["source_read_header_scout_millis"], 2.0)
+        self.assertFalse(metrics["session_route_used"])
+        self.assertEqual(metrics["process_spawn_count"], 1)
         self.assertEqual(metrics["source_read_byte_acquisition_millis"], 3.0)
         self.assertEqual(metrics["source_read_full_body_millis"], 4.0)
         self.assertEqual(metrics["source_read_typed_decode_millis"], 7.0)
@@ -4318,6 +4364,8 @@ class ReleaseScriptTests(unittest.TestCase):
                     "operator_compute_millis": 0.5,
                     "evidence_render_millis": 0.1,
                     "cli_process_wall_millis": 2.0,
+                    "session_route_used": True,
+                    "process_spawn_count": 1,
                     "batch_cli_process_wall_millis": 2.0,
                     "batch_process_wall_shared": True,
                 },
@@ -4922,7 +4970,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertTrue(
-            str(packet["next_implementation_slice"]).startswith("`PERF-DESIGN-4`"),
+            str(packet["next_implementation_slice"]).startswith("`PERF-DESIGN-5`"),
             packet["next_implementation_slice"],
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])

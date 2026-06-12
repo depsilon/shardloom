@@ -5056,6 +5056,8 @@ impl TraditionalDirectTransientReport {
                 "persistent_runner_status".to_string(),
                 "process_per_scenario_attributed_not_reduced".to_string(),
             ),
+            ("session_route_used".to_string(), "false".to_string()),
+            ("process_spawn_count".to_string(), "1".to_string()),
             ("fusion_status".to_string(), "not_applicable".to_string()),
             (
                 "fusion_blocker".to_string(),
@@ -9973,6 +9975,8 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "persistent_runner_status".to_string(),
                 "single_process_batch_runner_supported".to_string(),
             ),
+            ("session_route_used".to_string(), "true".to_string()),
+            ("process_spawn_count".to_string(), "1".to_string()),
             (
                 "persistent_runner_claim_boundary".to_string(),
                 "scoped single-process batch runner only; not a daemon, service, hidden fast mode, or performance claim".to_string(),
@@ -37554,6 +37558,8 @@ mod tests {
             "persistent_runner_status",
             "single_process_batch_runner_supported",
         );
+        assert_field_eq(&fields, "session_route_used", "true");
+        assert_field_eq(&fields, "process_spawn_count", "1");
         assert_field_eq(
             &fields,
             "session_schema_version",

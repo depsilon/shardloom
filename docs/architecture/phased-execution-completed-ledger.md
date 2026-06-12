@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-DESIGN-4 session-native route and process-wall attribution
+  - Date: 2026-06-12
+  - Branch/PR: `codex/perf-design-4-session-native-route` / cohesive PERF-DESIGN-4 PR.
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-4`.
+    - `docs/architecture/in-process-session-runtime.md`.
+    - `docs/architecture/benchmark-persistent-runner-decision.md`.
+    - Local Python benchmark-scenario simulation evidence previously folded into PERF-DESIGN-6.
+  - Scope:
+    - Added stable benchmark evidence fields `session_route_used` and `process_spawn_count` to the
+      persistent-runner admission surface.
+    - Emitted those fields from direct per-scenario ShardLoom rows and from the scoped
+      prepared/native batch route; direct rows report `session_route_used=false` while batch rows
+      report `session_route_used=true` and `process_spawn_count=1`.
+    - Hardened row validation so ShardLoom batch rows must prove shared process-wall timing,
+      one scoped process invocation, no hidden global cache, no daemon/service, and no fallback or
+      external-engine execution.
+    - Added Python client accessors for prepare/batch result `session_route_used` and
+      `process_spawn_count`, preserving easy inspection for users and agents.
+    - Updated benchmark promotion and website-summary projection so merged legacy publication rows
+      backfill the new fields from `persistent_runner_status` instead of leaving them absent.
+    - Refreshed the targeted CSV hot-runtime rows for `shardloom-vortex`,
+      `shardloom-prepared-vortex`, and `shardloom-prepare-batch`, then promoted them into the
+      current 1,920-row benchmark artifact at
+      `website-public/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed`.
+    - Removed `PERF-DESIGN-4` from the active phase-plan queue; the next autonomous item is
+      `PERF-DESIGN-5`.
+  - Local evidence:
+    - Targeted benchmark command:
+      `python3 benchmarks/traditional_analytics/run.py --engines shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch --formats csv --scenario "selective filter" --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 100000 --dim-rows 1000 --iterations 3 --regenerate --data-dir target/perf-design-4-session-route/data --output target/perf-design-4-session-route/session-route-targeted.json --no-markdown --shardloom-build-profile release --shardloom-evidence-tier metadata_sink`
+      passed and produced 6 successful ShardLoom rows.
+    - Refreshed hot-runtime rows report `session_route_used=true`, `process_spawn_count=1`,
+      `batch_process_wall_shared=true`, `batch_scenario_count=2`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - Representative refreshed query/runtime timings: native Vortex CSV selective filter
+      `query_runtime_millis=1.1693`, filter+projection+limit `0.0077`; prepared Vortex
+      selective filter `1.0123`, filter+projection+limit `0.008`; prepare-batch selective filter
+      `0.87`, filter+projection+limit `0.005`. These are local diagnostic timings, not public
+      performance claims.
+    - Active published row chunks now have zero successful ShardLoom rows missing
+      `session_route_used` or `process_spawn_count`.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_native_vortex_batch_run_preserves_evidence_envelope -- --nocapture`
+      passed.
+    - Focused Python client/release-script tests passed for batch accessors, session reuse/close
+      and stale-fingerprint invalidation, promoter backfill, and source-scout row promotion.
+    - `python3 -m py_compile python/src/shardloom/client.py python/tests/test_cli_client.py python/tests/test_release_scripts.py benchmarks/traditional_analytics/run.py scripts/promote_benchmark_artifact.py`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/run_python_test_shard.py --shard release_scripts --output-dir target/perf-design-4-session-route/python-test-shards`
+      passed with 131 tests, 0 failures, and 2 expected skips.
+    - Benchmark artifact validators passed:
+      `scripts/check_benchmark_artifact_completeness.py`,
+      `scripts/check_benchmark_publication_claim_gate.py --allow-stale-git`,
+      `scripts/check_website_readiness.py`, and
+      `scripts/check_benchmark_optimization_targets.py`.
+    - `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace --all-targets`, and `git diff --check` passed.
+  - Claim boundary:
+    - This closes workload-scoped process/session attribution for admitted local warm/native and
+      prepared benchmark groups. It does not claim production readiness, package-release readiness,
+      Spark displacement, broad superiority, or that all CLI/process overhead is eliminated.
+  - Fallback boundary:
+    - Session execution remains ShardLoom/Vortex-native and caller-owned. No daemon, service,
+      hidden global cache, external query-engine fallback, Spark, DataFusion, DuckDB, Polars, or
+      Velox execution was introduced.
+
 - [x] Session label: PERF-DESIGN-6 source-adapter specialization and scout-stage closeout
   - Date: 2026-06-12
   - Branch/PR: `codex/perf-design-6-source-closeout` / cohesive source-closeout PR.

@@ -898,6 +898,8 @@ BATCH_SOURCE_STATE_PREPARE_TIMING_SCOPES = {
 }
 PERSISTENT_RUNNER_ADMISSION_FIELDS = (
     "persistent_runner_status",
+    "session_route_used",
+    "process_spawn_count",
     "process_startup_attribution",
     "python_harness_overhead_status",
     "cli_process_wall_millis",
@@ -4175,6 +4177,8 @@ def shardloom_runner() -> EngineRunner:
         )
         fields["build_time_excluded"] = "true"
         fields["persistent_runner_status"] = PERSISTENT_RUNNER_STATUS
+        fields["session_route_used"] = "false"
+        fields["process_spawn_count"] = "1"
         if payload.get("status") != "success":
             reason = fields.get("reason") or payload.get("human_text") or "unsupported"
             raise BenchmarkUnsupported(str(reason))
@@ -4360,6 +4364,8 @@ def shardloom_direct_transient_runner() -> EngineRunner:
         fields["preparation_included_in_timing"] = "false"
         fields["preparation_millis"] = "none"
         fields["persistent_runner_status"] = PERSISTENT_RUNNER_STATUS
+        fields["session_route_used"] = "false"
+        fields["process_spawn_count"] = "1"
         if payload.get("status") != "success":
             reason = fields.get("reason") or payload.get("human_text") or "unsupported"
             raise BenchmarkUnsupported(str(reason))
@@ -4939,6 +4945,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "vortex_write_reopen_included": "false",
                 "direct_transient_execution": "false",
                 "persistent_runner_status": PERSISTENT_RUNNER_STATUS,
+                "session_route_used": "false",
+                "process_spawn_count": "1",
             }
         )
         for key, value in preparation_stage_timing_fields(prepared).items():
@@ -5230,6 +5238,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "vortex_write_reopen_included": "false",
                 "direct_transient_execution": "false",
                 "persistent_runner_status": BATCH_RUNNER_STATUS,
+                "session_route_used": batch_fields.get("session_route_used", "true"),
+                "process_spawn_count": batch_fields.get("process_spawn_count", "1"),
                 "process_startup_attribution": (
                     BATCH_PROCESS_STARTUP_AMORTIZED_ATTRIBUTION
                 ),
@@ -16101,6 +16111,10 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                 raise RuntimeError("ShardLoom batch row must explain shared batch overhead")
             if metrics.get("batch_process_wall_shared") is not True:
                 raise RuntimeError("ShardLoom batch row must mark shared process wall timing")
+            if metrics.get("session_route_used") is not True:
+                raise RuntimeError("ShardLoom batch row must report session_route_used=true")
+            if metrics.get("process_spawn_count") != 1:
+                raise RuntimeError("ShardLoom batch row must report one scoped process spawn")
             missing_session_fields = [
                 field for field in SESSION_RUNTIME_FIELDS if field not in metrics
             ]
@@ -16206,6 +16220,10 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                 != "outer_harness_wall_minus_cli_process_wall"
             ):
                 raise RuntimeError("ShardLoom row must explain Python harness overhead attribution")
+            if metrics.get("session_route_used") is not False:
+                raise RuntimeError("ShardLoom per-scenario row must not claim session route use")
+            if metrics.get("process_spawn_count") != 1:
+                raise RuntimeError("ShardLoom per-scenario row must report one process spawn")
         if metrics.get("cli_process_wall_millis") is None:
             raise RuntimeError("ShardLoom row must preserve CLI process wall timing")
 
@@ -20011,6 +20029,8 @@ def failed_result(
         "evidence_render_timing_status": None,
         "build_time_excluded": True,
         "process_startup_attribution": "not_executed",
+        "session_route_used": False,
+        "process_spawn_count": None,
         "python_harness_overhead_status": "not_executed",
         "compatibility_to_vortex_included": execution_mode["compatibility_import_included"],
         "vortex_reopen_scan_included": execution_mode["vortex_write_reopen_included"],
@@ -20731,6 +20751,10 @@ def successful_result_from_iterations(
         "process_startup_attribution": evidence.get(
             "process_startup_attribution", "not_measured"
         ),
+        "session_route_used": (
+            parse_optional_bool(evidence.get("session_route_used")) is True
+        ),
+        "process_spawn_count": parse_optional_int(evidence.get("process_spawn_count")),
         "python_harness_overhead_status": evidence.get(
             "python_harness_overhead_status", "not_measured"
         ),
