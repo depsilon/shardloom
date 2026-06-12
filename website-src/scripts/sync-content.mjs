@@ -7,8 +7,6 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(root, "..");
 const dataRoot = path.join(root, "src", "data");
 const docsRoot = path.join(root, "src", "content", "docs");
-const useCaseRoot = path.join(root, "src", "content", "use-cases");
-const statusRoot = path.join(root, "src", "content", "status");
 const docsUseCaseGeneratedRoot = path.join(repoRoot, "docs", "use-cases", "generated");
 const legacyWebsiteDataRoot = path.join(repoRoot, "website", "assets", "data");
 const legacyWebsiteBenchmarkRoot = path.join(repoRoot, "website", "assets", "benchmarks", "latest");
@@ -31,9 +29,59 @@ function write(file, content) {
   fs.writeFileSync(file, content, "utf8");
 }
 
-function cleanGenerated(directory) {
-  if (fs.existsSync(directory)) fs.rmSync(directory, { recursive: true, force: true });
+function removeDuplicateSuffixedArtifacts(directory) {
+  if (!fs.existsSync(directory)) return;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const child = path.join(directory, entry.name);
+    if (/ \d+(?:\.[^.]+)?$/.test(entry.name)) {
+      fs.rmSync(child, { recursive: true, force: true });
+      continue;
+    }
+    if (entry.isDirectory()) removeDuplicateSuffixedArtifacts(child);
+  }
+}
+
+function prepareGenerated(directory) {
   fs.mkdirSync(directory, { recursive: true });
+  removeDuplicateSuffixedArtifacts(directory);
+}
+
+function pruneGenerated(directory, expectedNames) {
+  if (!fs.existsSync(directory)) return;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const child = path.join(directory, entry.name);
+    if (/ \d+(?:\.[^.]+)?$/.test(entry.name) || !expectedNames.has(entry.name)) {
+      fs.rmSync(child, { recursive: true, force: true });
+    }
+  }
+}
+
+function canonicalizeDeployableBenchmarkPaths(directory) {
+  if (!fs.existsSync(directory)) return;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const child = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      canonicalizeDeployableBenchmarkPaths(child);
+      continue;
+    }
+    if (entry.name !== "benchmark-row-admission-manifest.json") continue;
+    const payload = JSON.parse(fs.readFileSync(child, "utf8"));
+    let changed = false;
+    if (Array.isArray(payload.chunks)) {
+      payload.chunks = payload.chunks.map((chunk) => {
+        if (!chunk || typeof chunk.path !== "string") return chunk;
+        const nextPath = chunk.path.replace(
+          /^website-public\/assets\/benchmarks\/latest\//,
+          "website/assets/benchmarks/latest/",
+        );
+        if (nextPath !== chunk.path) changed = true;
+        return { ...chunk, path: nextPath };
+      });
+    }
+    if (changed) {
+      fs.writeFileSync(child, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+    }
+  }
 }
 
 function syncBenchmarkRowChunks() {
@@ -67,6 +115,7 @@ function syncBenchmarkRowChunks() {
       fs.rmSync(legacyRunDirectory, { recursive: true, force: true });
     }
     fs.cpSync(publicRunDirectory, legacyRunDirectory, { recursive: true, force: true });
+    canonicalizeDeployableBenchmarkPaths(legacyRunDirectory);
   } else if (fs.existsSync(legacyRunDirectory)) {
     fs.rmSync(legacyRunDirectory, { recursive: true, force: true });
   }
@@ -79,24 +128,6 @@ function syncSourceOfTruthData() {
   );
   write(path.join(legacyWebsiteDataRoot, "compute-engine-flow-reference.md"), canonicalFlow);
   write(path.join(publicDataRoot, "compute-engine-flow-reference.md"), canonicalFlow);
-
-  const runsTodayMatrix = fs.readFileSync(
-    path.join(repoRoot, "docs", "status", "runs-today-support-matrix.json"),
-    "utf8",
-  );
-  write(path.join(dataRoot, "runs-today-support-matrix.json"), runsTodayMatrix);
-  write(path.join(legacyWebsiteDataRoot, "runs-today-support-matrix.json"), runsTodayMatrix);
-  write(path.join(publicDataRoot, "runs-today-support-matrix.json"), runsTodayMatrix);
-
-  const useCaseYaml = fs.readFileSync(
-    path.join(repoRoot, "docs", "use-cases", "use-case-index.yml"),
-    "utf8",
-  );
-  const useCaseIndex = parseYaml(useCaseYaml);
-  const useCaseJson = JSON.stringify(useCaseIndex, null, 2) + "\n";
-  write(path.join(dataRoot, "use-case-index.json"), useCaseJson);
-  write(path.join(legacyWebsiteDataRoot, "use-case-index.json"), useCaseJson);
-  write(path.join(publicDataRoot, "use-case-index.json"), useCaseJson);
 
   const benchmarkEvidence = fs.readFileSync(
     path.join(publicBenchmarkRoot, "benchmark-results.json"),
@@ -256,7 +287,7 @@ ${markdownList(useCase.related_use_cases)}
 ## Related Field Guide Terms
 
 ${relatedTerms
-  .map((term) => `- \`website/field-guide/${term.slug}.html\` - ${term.title} (\`${term.category}\` / \`${term.status}\`)`)
+  .map((term) => `- [${term.title}](https://shardloom.io/field-guide/${term.slug}) (\`${term.category}\` / \`${term.status}\`)`)
   .join("\n") || "- No related field-guide terms yet."}
 `;
 }
@@ -299,13 +330,154 @@ This Field Guide entry does not expand runtime support, performance claims, prod
 
 ## Try It / Related Use Cases
 
-${(term.related_use_cases ?? []).map((id) => `- [${id}](/use-cases/${id})`).join("\n") || "- No related use case yet."}
+${(term.related_use_cases ?? [])
+  .map((id) => `- [${id}](https://github.com/depsilon/shardloom/blob/main/docs/use-cases/generated/${id}.md)`)
+  .join("\n") || "- No related use case yet."}
 
 ## Reference Files
 
 ${referenceList(term.references)}
 `;
 }
+
+function docsPage({ title, description, order, body }) {
+  return `${frontmatter({
+    title,
+    description,
+    sidebar: { label: title, order },
+  })}
+
+${body}
+`;
+}
+
+const durableDocsPages = [
+  {
+    slug: "start-local-proof",
+    content: docsPage({
+      title: "Start local proof",
+      description: "Run ShardLoom from a source checkout and inspect no-fallback evidence.",
+      order: 1,
+      body: `ShardLoom is pre-release. Start from a source checkout, not a package-publication claim.
+
+## First Commands
+
+\`\`\`powershell
+python scripts\\release_dry_run_proof.py --rows 64 --iterations 1
+python scripts\\check_production_usability_gate.py
+python examples\\local-python-smoke\\run.py --repo-root .
+\`\`\`
+
+## Success Evidence
+
+- \`fallback_attempted=false\`
+- \`external_engine_invoked=false\`
+- a visible \`claim_gate_status\`
+- local output evidence or a deterministic blocker
+
+## Boundary
+
+This proves local technical-preview posture only. It does not prove package publication, production readiness, broad SQL/DataFrame parity, object-store runtime, or performance superiority.`,
+    }),
+  },
+  {
+    slug: "python-surface",
+    content: docsPage({
+      title: "Python surface",
+      description: "Current Python ETL scenario shape for the primary ShardLoom route.",
+      order: 2,
+      body: `The Python surface is the current user-facing way to describe local ETL scenarios. It is a front door into ShardLoom route admission, not permission to use pandas, Polars, DuckDB, Spark, or DataFusion as fallback execution.
+
+## Scenario Shape
+
+\`\`\`python
+from shardloom import context
+import shardloom as sl
+
+ctx = context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
+
+fact = ctx.read_csv("data/fact.csv", schema={
+    "id": "int64",
+    "group_key": "int64",
+    "dim_key": "int64",
+    "value": "int64",
+    "metric": "float64",
+    "flag": "boolean",
+    "category": "utf8",
+    "event_date": "utf8",
+    "nullable_metric_00": "float64",
+    "raw_event_time": "utf8",
+    "dirty_numeric": "utf8",
+})
+dim = ctx.read_csv("data/dim.csv", schema={
+    "dim_key": "int64",
+    "dim_label": "utf8",
+    "weight": "float64",
+})
+events = ctx.read_json("data/events.jsonl", schema={
+    "id": "int64",
+    "nested_payload": "utf8",
+})
+
+fact.filter(sl.col("flag") == True).select("id", "group_key", "value").limit(1000).collect()
+fact.filter(sl.col("metric") >= 0).group_by("group_key").agg(
+    rows="count(*)",
+    total_metric="sum(metric)",
+).limit(100).collect()
+fact.join(dim, on="dim_key", how="inner").select("f.id", "d.dim_label", "f.metric").limit(100).collect()
+fact.select("id", "group_key", "metric").nlargest(10, "metric").collect()
+events.filter(sl.col("nested_payload").contains("target")).select("id", "nested_payload").limit(100).collect()
+\`\`\`
+
+## Boundary
+
+The primary route must emit ShardLoom evidence. Unsupported casts, effects, or data paths fail closed unless the current runtime admits them.`,
+    }),
+  },
+  {
+    slug: "benchmark-methodology",
+    content: docsPage({
+      title: "Benchmark methodology",
+      description: "How to read hot runtime, publication proof, claim gates, and baseline rows.",
+      order: 3,
+      body: `The benchmark page renders a promoted artifact. It is evidence, not a leaderboard.
+
+## Timing Surfaces
+
+- \`hot_runtime\`: the default ShardLoom route grid for runtime timing.
+- \`full_replay_proof\`: machine replay proof when present.
+- \`publication_proof\`: result-sink, replay, and human evidence rendering when included by the row formula.
+- \`external_baseline\`: comparison context only, never fallback execution.
+
+## Claim Rules
+
+Do not compare rows without naming the timing surface, evidence tier, and claim gate. If \`performance_claim_allowed=false\`, the page may show timing evidence but must not claim superiority.`,
+    }),
+  },
+  {
+    slug: "limitations",
+    content: docsPage({
+      title: "Limitations",
+      description: "Current public claim boundaries and unsupported behavior.",
+      order: 4,
+      body: `ShardLoom is not public production infrastructure yet.
+
+## Not Claimed
+
+- package publication readiness
+- production support
+- broad SQL/DataFrame parity
+- Spark displacement
+- object-store or lakehouse production runtime
+- Foundry production runtime
+- performance superiority
+
+## Failure Behavior
+
+Unsupported work must produce a deterministic blocker or report-only posture. It must not execute through Spark, DataFusion, DuckDB, Polars, pandas, Velox, Trino, a database, a warehouse, or another fallback engine.`,
+    }),
+  },
+];
 
 function fieldGuideIndex(terms) {
   const categories = [...new Set(terms.map((term) => term.category))];
@@ -315,10 +487,16 @@ function fieldGuideIndex(terms) {
     sidebar: { label: "Field Guide" },
   })}
 
-A compact atlas for ShardLoom vocabulary. This Starlight-powered Field Guide explains the route and evidence vocabulary behind the public website, including UniversalIngress, vortex_ingest, VortexPreparedState, No fallback, and claim_gate_status.
+A compact Starlight docs shell for ShardLoom's current public surface. Start with local proof,
+Python route shape, benchmark methodology, and limitations, then use the vocabulary atlas for
+exact route and evidence terms.
 
 ## Category Table Of Contents
 
+- [Start local proof](/field-guide/start-local-proof/)
+- [Python surface](/field-guide/python-surface/)
+- [Benchmark methodology](/field-guide/benchmark-methodology/)
+- [Limitations](/field-guide/limitations/)
 ${categories.map((category) => `- [${category}](#${slug(category)})`).join("\n")}
 
 ${categories
@@ -340,31 +518,37 @@ The Field Guide explains vocabulary. It does not create a runtime, performance, 
 syncSourceOfTruthData();
 
 const fieldGuide = readJson("field-guide.json");
-const useCaseIndex = readJson("use-case-index.json");
-const statusRows = readJson("status-rows.json");
+const useCaseIndex = parseYaml(
+  fs.readFileSync(path.join(repoRoot, "docs", "use-cases", "use-case-index.yml"), "utf8"),
+);
 
-cleanGenerated(docsUseCaseGeneratedRoot);
+prepareGenerated(docsUseCaseGeneratedRoot);
+const expectedDocsUseCaseFiles = new Set();
 for (const useCase of useCaseIndex.use_cases ?? []) {
-  write(path.join(docsUseCaseGeneratedRoot, `${useCase.id}.md`), docsUseCasePage(useCase, fieldGuide));
+  const fileName = `${useCase.id}.md`;
+  expectedDocsUseCaseFiles.add(fileName);
+  write(path.join(docsUseCaseGeneratedRoot, fileName), docsUseCasePage(useCase, fieldGuide));
 }
+pruneGenerated(docsUseCaseGeneratedRoot, expectedDocsUseCaseFiles);
 
-cleanGenerated(path.join(docsRoot, "field-guide"));
-cleanGenerated(useCaseRoot);
-cleanGenerated(statusRoot);
+const fieldGuideRoot = path.join(docsRoot, "field-guide");
+prepareGenerated(fieldGuideRoot);
 const starlightDocsIndex = path.join(docsRoot, "docs.mdx");
 if (fs.existsSync(starlightDocsIndex)) fs.rmSync(starlightDocsIndex);
-write(path.join(docsRoot, "field-guide", "index.mdx"), fieldGuideIndex(fieldGuide));
+const expectedFieldGuideFiles = new Set(["index.mdx"]);
+write(path.join(fieldGuideRoot, "index.mdx"), fieldGuideIndex(fieldGuide));
 
 for (const term of fieldGuide) {
-  write(path.join(docsRoot, "field-guide", `${term.slug}.mdx`), termPage(term));
+  const fileName = `${term.slug}.mdx`;
+  expectedFieldGuideFiles.add(fileName);
+  write(path.join(fieldGuideRoot, fileName), termPage(term));
 }
 
-for (const useCase of useCaseIndex.use_cases ?? []) {
-  write(path.join(useCaseRoot, `${useCase.id}.json`), JSON.stringify(useCase, null, 2) + "\n");
+for (const page of durableDocsPages) {
+  const fileName = `${page.slug}.mdx`;
+  expectedFieldGuideFiles.add(fileName);
+  write(path.join(fieldGuideRoot, fileName), page.content);
 }
+pruneGenerated(fieldGuideRoot, expectedFieldGuideFiles);
 
-for (const row of statusRows) {
-  write(path.join(statusRoot, `${slug(row.capability)}.json`), JSON.stringify(row, null, 2) + "\n");
-}
-
-console.log(`synced ${fieldGuide.length} field-guide terms, ${(useCaseIndex.use_cases ?? []).length} use cases, and ${statusRows.length} status rows`);
+console.log(`synced ${fieldGuide.length} field-guide terms and ${(useCaseIndex.use_cases ?? []).length} repository use-case records`);

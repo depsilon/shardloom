@@ -65,4 +65,4 @@ Status, smoke, and capabilities JSON with fallback_attempted=false and external_
 
 ## Related Field Guide Terms
 
-- `website/field-guide/what-is-shardloom.html` - What is ShardLoom? (`Start Here` / `runtime_supported`)
+- [What is ShardLoom?](https://shardloom.io/field-guide/what-is-shardloom) (`Start Here` / `runtime_supported`)

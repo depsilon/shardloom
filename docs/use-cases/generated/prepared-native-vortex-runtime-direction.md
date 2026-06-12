@@ -125,12 +125,12 @@ Warm prepared Vortex rows separate from single-process prepare/batch rows, with 
 
 ## Related Field Guide Terms
 
-- `website/field-guide/source-state.html` - SourceState (`UniversalIngress` / `smoke_supported`)
-- `website/field-guide/vortex-ingest.html` - vortex_ingest (`Vortex Ingest` / `smoke_supported`)
-- `website/field-guide/vortex-prepared-state.html` - VortexPreparedState (`Vortex Ingest` / `smoke_supported`)
-- `website/field-guide/prepared-state-reuse.html` - Prepared state reuse (`Vortex Ingest` / `smoke_supported`)
-- `website/field-guide/prepared-vortex.html` - prepared_vortex (`Prepared/Native Vortex` / `smoke_supported`)
-- `website/field-guide/native-vortex.html` - native_vortex (`Prepared/Native Vortex` / `smoke_supported`)
-- `website/field-guide/source-backed-scan.html` - Source-backed scan (`Prepared/Native Vortex` / `smoke_supported`)
-- `website/field-guide/materialization-boundary.html` - Materialization boundary (`Evidence + Certificates` / `smoke_supported`)
-- `website/field-guide/prepared-warm-route.html` - Prepared warm route (`Benchmarks` / `smoke_supported`)
+- [SourceState](https://shardloom.io/field-guide/source-state) (`UniversalIngress` / `smoke_supported`)
+- [vortex_ingest](https://shardloom.io/field-guide/vortex-ingest) (`Vortex Ingest` / `smoke_supported`)
+- [VortexPreparedState](https://shardloom.io/field-guide/vortex-prepared-state) (`Vortex Ingest` / `smoke_supported`)
+- [Prepared state reuse](https://shardloom.io/field-guide/prepared-state-reuse) (`Vortex Ingest` / `smoke_supported`)
+- [prepared_vortex](https://shardloom.io/field-guide/prepared-vortex) (`Prepared/Native Vortex` / `smoke_supported`)
+- [native_vortex](https://shardloom.io/field-guide/native-vortex) (`Prepared/Native Vortex` / `smoke_supported`)
+- [Source-backed scan](https://shardloom.io/field-guide/source-backed-scan) (`Prepared/Native Vortex` / `smoke_supported`)
+- [Materialization boundary](https://shardloom.io/field-guide/materialization-boundary) (`Evidence + Certificates` / `smoke_supported`)
+- [Prepared warm route](https://shardloom.io/field-guide/prepared-warm-route) (`Benchmarks` / `smoke_supported`)

@@ -124,9 +124,9 @@ A local result-sink or fanout proof artifact with shared ResultBatchState, sink-
 
 ## Related Field Guide Terms
 
-- `website/field-guide/prepared-state-reuse.html` - Prepared state reuse (`Vortex Ingest` / `smoke_supported`)
-- `website/field-guide/native-io-certificate.html` - Native I/O certificate (`Evidence + Certificates` / `smoke_supported`)
-- `website/field-guide/result-sink-replay.html` - Result-sink replay (`Evidence + Certificates` / `smoke_supported`)
-- `website/field-guide/output-plan.html` - OutputPlan (`I/O + Outputs` / `smoke_supported`)
-- `website/field-guide/sink-artifact.html` - SinkArtifact (`I/O + Outputs` / `smoke_supported`)
-- `website/field-guide/output-fanout.html` - Output fanout (`I/O + Outputs` / `planned`)
+- [Prepared state reuse](https://shardloom.io/field-guide/prepared-state-reuse) (`Vortex Ingest` / `smoke_supported`)
+- [Native I/O certificate](https://shardloom.io/field-guide/native-io-certificate) (`Evidence + Certificates` / `smoke_supported`)
+- [Result-sink replay](https://shardloom.io/field-guide/result-sink-replay) (`Evidence + Certificates` / `smoke_supported`)
+- [OutputPlan](https://shardloom.io/field-guide/output-plan) (`I/O + Outputs` / `smoke_supported`)
+- [SinkArtifact](https://shardloom.io/field-guide/sink-artifact) (`I/O + Outputs` / `smoke_supported`)
+- [Output fanout](https://shardloom.io/field-guide/output-fanout) (`I/O + Outputs` / `planned`)

@@ -179,65 +179,48 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-- [ ] `WEB-CLEANSLATE-1` - Clean-slate ShardLoom Astro/Starlight website and docs experience.
 - [ ] `PERF-DESIGN-1` - Prepared-source and compatibility-ingest amortization design.
+- [ ] `PERF-DESIGN-4` - Session-native route and process-wall amortization.
+- [ ] `PERF-DESIGN-5` - Vortex preparation write/reopen and copy-budget optimization.
 - [ ] `PERF-DESIGN-2` - Encoded-native operator promotion and stage-timing attribution cleanup.
 - [ ] `PERF-DESIGN-3` - Publication-proof sink/evidence pipeline optimization.
 
-### WEB-CLEANSLATE-1 - Clean-slate ShardLoom Astro/Starlight website and docs experience
+Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 
-- Source: user request to remove stale/legacy website content; `$sl-dh-astro-web-experience`;
-  `$sl-dh-starlight-docs-experience`; `$build-web-data-visualization:data-visualization`;
-  `website-src`, `website`, `website-public`, `README.md`, and the promoted benchmark artifact.
-- Current state: the site validates after PR #1174 and shows fresh timing data, Python examples,
-  and logos, but it still carries legacy/repo-audit-era content, duplicated top-level/static route
-  aliases, mixed Astro custom pages and Starlight content, and several status/architecture pages
-  that were useful during pre-release cleanup but read like internal scaffolding rather than a
-  coherent ShardLoom product/docs experience.
-- Next slice outcome: produce a clean ShardLoom-branded information architecture that keeps only
-  fresh benchmark timings, example Python usage, logos, no-fallback/Vortex-native identity, and
-  necessary evidence/status boundaries. Use Starlight as the durable docs shell for quickstart,
-  concepts, benchmark methodology, API/reference, diagnostics, and limitations; use Astro pages for
-  the focused first-screen product/evidence surfaces.
-- User-visible surface: public website, Starlight docs navigation/search, benchmark page,
-  quickstart/Python examples, README/about links, and static deploy output.
-- Implementation scope: `website-src/astro.config.mjs`, Starlight sidebar/content,
-  `website-src/src/pages`, layouts/components, content/data schemas, benchmark visualization
-  components, generated `website` and `website-public` output, README/about cross-links, and
-  website readiness/static validators.
-- Evidence required: explicit IA plan before deleting pages; no stale repo-audit/process wording in
-  public pages; benchmark views remain no-JS readable; timing surfaces are charted or tabulated with
-  direct labels and mobile order; Python examples match current API posture; Pagefind search indexes
-  durable docs, not noisy generated artifacts.
-- Acceptance: first viewport says ShardLoom and shows the real engine/evidence surface; docs users
-  can find install/local proof, Python surface, Vortex/no-fallback concepts, benchmark methodology,
-  and limitations quickly; stale legacy pages are deleted or redirected intentionally; all kept
-  pages have a clear owner and current source of truth; fresh timings and logos remain visible.
-- Verification: `node node_modules/.bin/astro check`; `node scripts/sync-content.mjs`;
-  `node node_modules/.bin/astro build`; `node scripts/postbuild-static.mjs`;
-  `node website/validate_static_assets.js`; `python scripts/check_website_readiness.py`;
-  browser QA screenshots for desktop and mobile benchmark/docs pages.
-- Non-goals: do not preserve public pages merely because they exist today; do not introduce
-  decorative charts, generic marketing claims, client-rendered-only evidence, or package/install
-  claims that are not release-approved.
-- Claim boundary: the website may present current local benchmark evidence and examples only with
-  explicit timing surface, evidence tier, and claim gate. It must not claim production readiness,
-  package availability, Spark displacement, or broad superiority.
-- Fallback boundary: external baselines stay comparison-only and never satisfy ShardLoom execution;
-  public pages must keep no-fallback boundaries visible.
-- Ledger rule: when complete, move the completed session summary to
-  `docs/architecture/phased-execution-completed-ledger.md`.
+- Source artifact:
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`, 1,920
+  published rows, including 1,200 ShardLoom rows and 720 external-baseline rows. External rows are
+  baselines only, never fallback execution.
+- ShardLoom timing surfaces: 600 `hot_runtime` rows and 600 `publication_proof` rows.
+- Hot/runtime lane shape: cold certified route geomean is about `63.90 ms`; native Vortex,
+  warm-prepared, prepare-once-batch, and prepare-once-first-query hot geomeans are about
+  `0.10-0.12 ms` but have process-wall measurements around `34-40 ms` when driven through the
+  CLI/harness boundary.
+- Cold certified route bottlenecks: `source_parse_or_columnar_decode_ms` averages about `37.48 ms`
+  and `vortex_write_ms` averages about `23.86 ms`; JSONL outliers reach `219.49 ms` hot route
+  total with `174.20 ms` source parse/decode.
+- Operator posture: all 600 hot/runtime ShardLoom rows remain `residual_native` or
+  `materialized_temporary`; multi-key group by, nested JSON scan, high-cardinality string
+  group/distinct, join+aggregate, and group-by aggregation are the highest measured
+  `operator_compute_ms` families.
+- Publication/proof posture: prepared/native publication-proof geomeans sit around `4.7-7.2 ms`,
+  while prepare-once-first-query publication proof is about `42.91 ms` because it includes
+  first-query preparation plus result-sink/evidence work.
+- Claim boundary: these numbers are current local benchmark evidence and optimization direction,
+  not performance, production, Spark-displacement, superiority, or package-release claims.
 
 ### PERF-DESIGN-1 - Prepared-source and compatibility-ingest amortization design
 
 - Source: PR #1174 promoted artifact route timing; `website/assets/benchmarks/latest/benchmark-results.json`;
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`;
   runtime docs for UniversalIngress, SourceState, VortexPreparedState, and Vortex-native output.
 - Current state: among the 1,200 ShardLoom rows, cold certified `hot_runtime` route geomean is
-  about `63.96 ms`, with compatibility/import stages dominating: `inclusive_compatibility_to_vortex_import_ms`
-  about `61.15 ms`, `source_parse_or_columnar_decode_ms` about `33.97 ms`, and
-  `vortex_write_ms` about `22.50 ms`. Prepared/native query lanes are sub-ms hot-route geomeans,
-  so the clear global design opportunity is to avoid repeating source parse/decode/write work and
-  make preparation reuse the normal path.
+  about `63.90 ms`, with compatibility/import stages dominating:
+  `source_parse_or_columnar_decode_ms` averages about `37.48 ms`, `vortex_write_ms` averages about
+  `23.86 ms`, and JSONL outliers reach `219.49 ms` hot route total with `174.20 ms`
+  source parse/decode. Prepared/native query lanes are sub-ms hot-route geomeans, so the clear
+  global design opportunity is to avoid repeating source parse/decode/write work and make
+  preparation reuse the normal path.
 - Next slice outcome: design and implement the next coherent prepared-source reuse batch: stable
   SourceState fingerprints, manifest-keyed VortexPreparedState reuse, partial role repair for fact,
   dim, event, and CDC inputs, and benchmark evidence that cold import work is amortized or skipped
@@ -267,15 +250,110 @@ Current autonomous execution order:
 - Ledger rule: when complete, move the completed session summary to
   `docs/architecture/phased-execution-completed-ledger.md`.
 
+### PERF-DESIGN-4 - Session-native route and process-wall amortization
+
+- Source: current published row chunks
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`;
+  `docs/architecture/in-process-session-runtime.md`;
+  `docs/architecture/benchmark-persistent-runner-decision.md`; Python context/session surface.
+- Current state: warm/prepared/native `hot_runtime` route geomeans are about `0.10-0.12 ms`, but
+  the same rows still expose `cli_process_wall_millis` around `34-40 ms` and
+  `preparation_cli_process_wall_millis` around `34-39 ms` through the benchmark/Python harness
+  boundary. Scoped caller-owned session evidence exists, but the primary repeated-workflow route is
+  not yet treated as the default performance-sensitive path for Python/user benchmarks.
+- Next slice outcome: make repeated local workflows route through an explicit caller-owned
+  `ShardLoomSession` by default where the source/prepared-state policy admits it, and update the
+  benchmark harness to run scenario groups through one session without creating a hidden daemon or
+  process-global cache.
+- User-visible surface: Python `context(...).session(...)` and default repeated `collect()`/
+  `write_vortex()` behavior where session routing is admitted, benchmark route rows,
+  explain/diagnostic fields, and CLI batch smoke reports.
+- Implementation scope: Python context/session orchestration, CLI batch route plumbing,
+  benchmark harness route selection, row promotion fields for `process_spawn_count`,
+  `session_route_used`, cache hit/miss counts, close/drop status, and tests covering explicit
+  session close plus stale fingerprint invalidation.
+- Evidence required: repeated scenario benchmark rows showing one caller-owned session per admitted
+  group, no hidden global cache, stable source/prepared/output digests, process-wall attribution
+  separated from hot route totals, and deterministic blockers when session reuse is unsafe.
+- Acceptance: repeated warm/native/prepared routes no longer require one CLI process spawn per
+  scenario in the admitted batch path; process-wall overhead is amortized and reported separately;
+  session close/drop cleanup is observable; route totals remain timing-surface aware; unsupported
+  session reuse fails closed.
+- Verification: session-cache smoke snapshots, Python session smoke tests for repeated local
+  workloads, benchmark row contract tests, targeted traditional-analytics rerun for warm/native and
+  prepare-batch lanes, `python scripts/check_benchmark_artifact_completeness.py --allow-stale-git`
+  when artifact rows are refreshed, and no-fallback validators.
+- Non-goals: do not introduce a daemon, service runtime, remote API, hidden fast mode, hidden
+  process-global cache, object-store/table cache, or public performance claim.
+- Claim boundary: may claim only workload-scoped process/session amortization when row evidence
+  shows the selected timing surface, session reuse posture, and process-spawn count. It does not
+  authorize production, Spark-displacement, package-release, or broad superiority claims.
+- Fallback boundary: session execution remains ShardLoom/Vortex-native with
+  `fallback_attempted=false` and `external_engine_invoked=false`; external baselines remain
+  comparison-only.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
+### PERF-DESIGN-5 - Vortex preparation write/reopen and copy-budget optimization
+
+- Source: current published row chunks
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`;
+  `docs/architecture/io-reuse-and-fanout-architecture.md`;
+  `docs/architecture/allocation-buffer-pool-optimization.md`;
+  `docs/architecture/vortex-adapter-integration-plan.md`.
+- Current state: cold certified `hot_runtime` rows spend about `23.86 ms` average in
+  `vortex_write_ms` with p95 around `30.10 ms`, and cold row totals are repeatedly dominated by
+  source parse/decode plus Vortex write/reopen/verify work. Existing rows expose writer context,
+  layout/write advisor, copy-budget, and reopen/verify vocabulary, but the current benchmark
+  evidence still shows the preparation spine doing material write/reopen work for each cold or
+  newly prepared artifact.
+- Next slice outcome: implement one cohesive Vortex preparation-spine optimization batch covering
+  writer context reuse, segment/write coalescing, metadata-first reopen verification, copy-budget
+  accounting, and buffer-pool reuse across fact/dim/event/CDC roles without weakening Native I/O
+  certificates.
+- User-visible surface: benchmark preparation rows, VortexPreparedState evidence, Native I/O
+  certificate refs, Python/CLI prepare diagnostics, and website timing stage attribution.
+- Implementation scope: `shardloom-vortex` writer/preparation helpers, Vortex adapter admission
+  policy, prepared-state manifest refs, copy-budget/buffer-pool accounting, reopen/verify timing
+  split, benchmark row promotion, and focused tests for reused writer context plus fail-closed
+  digest mismatch behavior.
+- Evidence required: rows showing `vortex_writer_context_reuse_hit_count`,
+  `vortex_write_plan_coalescing_status`, copy-budget counters, reopen/verify timing split,
+  unchanged correctness digests, Native I/O certificate status, and explicit timing-surface
+  inclusion flags.
+- Acceptance: cold/preparation rows reduce repeated writer open/stage/reopen work when source and
+  layout policy match; verification stays explicit and fail-closed; copy and buffer counters are
+  populated; unchanged artifacts can reuse metadata verification without silently skipping required
+  proof.
+- Verification: Rust tests in `shardloom-vortex` for writer context/coalescing/copy-budget behavior,
+  Python release-script tests for row fields, targeted benchmark rerun for cold certified and
+  prepare-batch lanes, `cargo fmt --all -- --check`,
+  `cargo clippy --workspace --all-targets -- -D warnings`, and
+  `cargo test --workspace --all-targets` when Rust behavior changes.
+- Non-goals: do not skip Vortex write/verify for new artifacts, do not bypass Native I/O
+  certificates, do not add object-store/table commits, and do not claim all cold routes become
+  sub-ms.
+- Claim boundary: may claim only measured preparation-spine optimization for the selected local
+  routes and timing surface; no production, object-store, package-release, Spark-displacement, or
+  broad superiority claim.
+- Fallback boundary: Vortex preparation remains ShardLoom/Vortex-native; no Vortex query-engine
+  integration, DuckDB, Polars, Spark, DataFusion, or external engine may satisfy write/reopen work.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
 ### PERF-DESIGN-2 - Encoded-native operator promotion and stage-timing attribution cleanup
 
-- Source: PR #1174 route rows; operator mode inventory fields; `operator_hot_path_candidate`;
-  `route_timing_exclusive_stage_sum_ms`; `route_timing_exclusive_residual_ms`.
+- Source: PR #1174 route rows; current published row chunks
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`; operator
+  mode inventory fields; `operator_hot_path_candidate`; `route_timing_exclusive_stage_sum_ms`;
+  `route_timing_exclusive_residual_ms`.
 - Current state: prepared/native hot-route query totals are around `0.11-0.12 ms` geomean, but
-  rows still report `operator_execution_mode=residual_native` for prepared/native operators and
-  `materialized_temporary` for cold compatibility operators. Diagnostic operator stage timing can
-  exceed route totals or produce residual artifacts, which makes optimization direction noisy even
-  when hot-route totals are fast.
+  rows still report `operator_execution_mode=residual_native` for 480 hot/runtime rows and
+  `materialized_temporary` for 120 cold compatibility rows. Highest measured operator families are
+  multi-key group by, nested JSON field scan, high-cardinality string group/distinct,
+  join+aggregate, and group-by aggregation. Diagnostic source/import/write fields can remain
+  present on native/warm rows while excluded from authoritative hot totals, so stage attribution
+  must stay explicit before using those fields for optimization ranking.
 - Next slice outcome: select the highest-value operator family from the benchmark scenarios and
   promote it from residual/materialized execution toward encoded-native execution with correctness
   evidence, while normalizing exclusive stage timing so diagnostic stage costs cannot contradict
@@ -308,13 +386,15 @@ Current autonomous execution order:
 
 ### PERF-DESIGN-3 - Publication-proof sink/evidence pipeline optimization
 
-- Source: `publication_proof` rows in PR #1174; `PERF-SPLIT-FIX-1`; user request to reduce
-  benchmark errors and write values incrementally.
+- Source: `publication_proof` rows in PR #1174 and current published row chunks
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`;
+  `PERF-SPLIT-FIX-1`; user request to reduce benchmark errors and write values incrementally.
 - Current state: publication-proof rows intentionally include result-sink and evidence-render work.
   Prepared/native publication rows add roughly `2.8-3.1 ms` evidence render geomean and
-  `0.4-0.6 ms` result-sink/write geomean, while prepare-once-first-query publication rows still
-  include large prepared-state lookup/create costs. The page now labels this correctly, but the
-  proof path is still a candidate for incremental sink/evidence storage and replay reuse.
+  `0.4-0.6 ms` result-sink/write geomean, while prepare-once-first-query publication rows show
+  about `42.91 ms` publication-proof route geomean because first-query preparation is included.
+  The page now labels this correctly, but the proof path is still a candidate for incremental
+  sink/evidence storage and replay reuse.
 - Next slice outcome: design and implement an incremental proof artifact path where result-sink
   writes, replay proofs, certificate links, and human evidence render metadata are persisted as
   stable sidecar records and reused when row inputs and route evidence digests have not changed.

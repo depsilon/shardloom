@@ -1,7 +1,6 @@
 # Website Current-State Public Reference
 
-Status: accepted current contract after the Astro/Starlight migration and PERF-INNOV-5 timing
-cleanup.
+Status: accepted current contract after the `WEB-CLEANSLATE-1` public IA cleanup.
 
 ## Summary
 
@@ -35,16 +34,14 @@ syncs that artifact into the build and the generated `website/` mirror.
 | `/` | First-viewport product identity, route/evidence posture, next action | `website-src/src/pages/index.astro`, benchmark manifest |
 | `/about` | Short claim-safe overview of what ShardLoom is, is not, and where current evidence lives | `website-src/src/pages/about.astro`, README, compute-flow reference |
 | `/start` | Local proof path without package or production claims | repo getting-started docs and local scripts |
-| `/field-guide` | Dense ShardLoom vocabulary atlas | generated docs content and exact source references |
-| `/use-cases` | "Can I use this?" support/browser surface | `docs/use-cases/use-case-index.yml` |
+| `/field-guide` | Starlight docs shell for start, Python surface, benchmark methodology, limitations, and vocabulary | generated docs content and exact source references |
 | `/benchmarks` | Route timing, timing surfaces, claim gates, and optimization direction | promoted benchmark artifact |
-| `/architecture` | Human-readable route architecture | `docs/architecture/compute-engine-flow-reference.md` |
-| `/status` | Capability/support posture | `docs/status/runs-today-support-matrix.json` |
-| `/docs` | Curated source-doc entry point | repository docs |
+| `/compute-engine-flow` | Human-readable route architecture | `docs/architecture/compute-engine-flow-reference.md` |
 
-Compatibility aliases such as `/about.html`, `/benchmarks.html`, `/architecture.html`, and `/compute-engine-flow`
-may remain when static hosting or historical links need them, but they must render the same current
-content or redirect to it.
+Removed public routes are redirected intentionally: `/architecture` to `/compute-engine-flow`,
+`/docs` to `/field-guide`, `/status` to `/field-guide/limitations`, and `/use-cases` to
+`/field-guide/python-surface` or repository use-case records. The generated use-case and status
+matrices remain repository evidence, not public website IA.
 
 ## Benchmark Page Contract
 
@@ -81,6 +78,7 @@ Current references:
 - `website-src/src/content.config.ts`
 - `website-src/scripts/sync-content.mjs`
 - `website-src/scripts/postbuild-static.mjs`
+- `docs/architecture/website-clean-slate-ia.md`
 - `docs/legal/static-website-third-party-assets.md`
 - `NOTICE`
 
@@ -109,6 +107,7 @@ python3 scripts/check_website_readiness.py
 git diff --check
 ```
 
-For visual QA, inspect `/`, `/about`, `/benchmarks`, `/architecture`, `/field-guide`, `/use-cases`,
-`/status`, and `/docs` at desktop and mobile widths. Benchmark charts and tables must be readable without
-hover, and no essential evidence may depend on client-side JavaScript.
+For visual QA, inspect `/`, `/about`, `/start`, `/benchmarks`, `/compute-engine-flow`,
+`/field-guide`, `/field-guide/python-surface`, and `/field-guide/limitations` at desktop and
+mobile widths. Benchmark charts and tables must be readable without hover, and no essential
+evidence may depend on client-side JavaScript.

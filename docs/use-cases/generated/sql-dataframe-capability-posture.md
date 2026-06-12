@@ -69,6 +69,6 @@ A capability posture report showing the scoped SQL runtime ladder, the Python/Da
 
 ## Related Field Guide Terms
 
-- `website/field-guide/no-fallback.html` - No fallback (`Start Here` / `runtime_supported`)
-- `website/field-guide/deterministic-blockers.html` - Deterministic blockers (`Unsupported Diagnostics` / `runtime_supported`)
-- `website/field-guide/report-only.html` - report_only (`Unsupported Diagnostics` / `report_only`)
+- [No fallback](https://shardloom.io/field-guide/no-fallback) (`Start Here` / `runtime_supported`)
+- [Deterministic blockers](https://shardloom.io/field-guide/deterministic-blockers) (`Unsupported Diagnostics` / `runtime_supported`)
+- [report_only](https://shardloom.io/field-guide/report-only) (`Unsupported Diagnostics` / `report_only`)

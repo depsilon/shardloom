@@ -68,6 +68,6 @@ A benchmark artifact for one named scenario with no-fallback evidence and correc
 
 ## Related Field Guide Terms
 
-- `website/field-guide/source-state.html` - SourceState (`UniversalIngress` / `smoke_supported`)
-- `website/field-guide/source-backed-scan.html` - Source-backed scan (`Prepared/Native Vortex` / `smoke_supported`)
-- `website/field-guide/benchmark-evidence.html` - Benchmark evidence (`Benchmarks` / `smoke_supported`)
+- [SourceState](https://shardloom.io/field-guide/source-state) (`UniversalIngress` / `smoke_supported`)
+- [Source-backed scan](https://shardloom.io/field-guide/source-backed-scan) (`Prepared/Native Vortex` / `smoke_supported`)
+- [Benchmark evidence](https://shardloom.io/field-guide/benchmark-evidence) (`Benchmarks` / `smoke_supported`)

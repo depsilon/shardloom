@@ -313,5 +313,5 @@ A typed Python report over the SQL local-source JSON envelope with result helper
 
 ## Related Field Guide Terms
 
-- `website/field-guide/direct-compatibility-transient.html` - direct_compatibility_transient (`Execution Routes` / `smoke_supported`)
-- `website/field-guide/source-adapter-status.html` - Source adapter status (`UniversalIngress` / `smoke_supported`)
+- [direct_compatibility_transient](https://shardloom.io/field-guide/direct-compatibility-transient) (`Execution Routes` / `smoke_supported`)
+- [Source adapter status](https://shardloom.io/field-guide/source-adapter-status) (`UniversalIngress` / `smoke_supported`)

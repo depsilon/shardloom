@@ -71,4 +71,4 @@ target/release-dry-run-proof/transcript.json records local source artifacts and 
 
 ## Related Field Guide Terms
 
-- `website/field-guide/report-only.html` - report_only (`Unsupported Diagnostics` / `report_only`)
+- [report_only](https://shardloom.io/field-guide/report-only) (`Unsupported Diagnostics` / `report_only`)

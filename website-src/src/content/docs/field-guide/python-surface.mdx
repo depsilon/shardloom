@@ -1,0 +1,53 @@
+---
+title: "Python surface"
+description: "Current Python ETL scenario shape for the primary ShardLoom route."
+sidebar: {"label":"Python surface","order":2}
+---
+
+
+The Python surface is the current user-facing way to describe local ETL scenarios. It is a front door into ShardLoom route admission, not permission to use pandas, Polars, DuckDB, Spark, or DataFusion as fallback execution.
+
+## Scenario Shape
+
+```python
+from shardloom import context
+import shardloom as sl
+
+ctx = context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
+
+fact = ctx.read_csv("data/fact.csv", schema={
+    "id": "int64",
+    "group_key": "int64",
+    "dim_key": "int64",
+    "value": "int64",
+    "metric": "float64",
+    "flag": "boolean",
+    "category": "utf8",
+    "event_date": "utf8",
+    "nullable_metric_00": "float64",
+    "raw_event_time": "utf8",
+    "dirty_numeric": "utf8",
+})
+dim = ctx.read_csv("data/dim.csv", schema={
+    "dim_key": "int64",
+    "dim_label": "utf8",
+    "weight": "float64",
+})
+events = ctx.read_json("data/events.jsonl", schema={
+    "id": "int64",
+    "nested_payload": "utf8",
+})
+
+fact.filter(sl.col("flag") == True).select("id", "group_key", "value").limit(1000).collect()
+fact.filter(sl.col("metric") >= 0).group_by("group_key").agg(
+    rows="count(*)",
+    total_metric="sum(metric)",
+).limit(100).collect()
+fact.join(dim, on="dim_key", how="inner").select("f.id", "d.dim_label", "f.metric").limit(100).collect()
+fact.select("id", "group_key", "metric").nlargest(10, "metric").collect()
+events.filter(sl.col("nested_payload").contains("target")).select("id", "nested_payload").limit(100).collect()
+```
+
+## Boundary
+
+The primary route must emit ShardLoom evidence. Unsupported casts, effects, or data paths fail closed unless the current runtime admits them.

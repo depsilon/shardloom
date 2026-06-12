@@ -16,6 +16,75 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: WEB-CLEANSLATE-1 clean-slate Astro/Starlight website and timing evidence surface
+  - Date: 2026-06-12
+  - Branch/PR: `codex/website-cleanslate-overhaul` / local branch before PR.
+  - Source:
+    - Active phase-plan item `WEB-CLEANSLATE-1`.
+    - User request to remove stale/legacy public website content before returning to the series 6
+      performance/compute-engine queue.
+    - User request to keep fresh benchmark timings, Python examples, and logos while avoiding
+      not-yet-public compatibility/status clutter.
+    - Timing-lane review of the 1,920-row promoted artifact, including 1,200 ShardLoom rows.
+  - Scope:
+    - Added `docs/architecture/website-clean-slate-ia.md` as the website information-architecture
+      source for this clean rebuild.
+    - Recentered the public route set on home, start, benchmarks, compute flow, Field Guide, and
+      about; removed stale `docs`, `status`, `architecture`, and `use-cases` website surfaces and
+      kept intentional redirects for old aliases.
+    - Converted the durable public docs surface into Starlight Field Guide pages for start-local
+      proof, Python surface, benchmark methodology, limitations, and current ShardLoom vocabulary.
+    - Removed obsolete generated status/use-case content collections and public data files that no
+      longer own a public route.
+    - Updated README/about/compute-flow/site references so the public website, generated docs,
+      benchmark surface, and no-fallback/Vortex-native claim boundary use the same current wording.
+    - Hardened website generation so generated docs update incrementally, duplicate-suffixed
+      generated artifacts are pruned, and the deployable benchmark row-admission manifest uses
+      `website/...` chunk paths after public-dir mirroring.
+    - Updated website/static/readiness validators for the new clean route set, retired-route
+      redirects, Starlight pages, timing-surface labels, row-chunk completeness, and generated
+      artifact cleanup reporting.
+    - Kept the `PERF-DESIGN-*` queue active and first in Planned, with the current timing-lane
+      evidence snapshot preserved in `docs/architecture/phased-execution-plan.md`.
+  - Local evidence:
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website-src/scripts/sync-content.mjs`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node ./node_modules/.bin/astro check`
+      passed from `website-src` with 0 errors, 0 warnings, and 0 hints.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node ./node_modules/.bin/astro build`
+      passed from `website-src`, generating 45 static pages.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website-src/scripts/postbuild-static.mjs`
+      passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js`
+      passed.
+    - `python3 scripts/check_website_readiness.py` passed and wrote
+      `target/website-readiness-report.json`.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed with `artifact_status=complete`, `available_lane_count=10`, and no blockers.
+    - `python3 scripts/check_benchmark_publish_doctor.py --allow-incomplete --allow-stale-git --allow-dirty-worktree`
+      passed with `row_count=1920`, `shardloom_row_count=1200`,
+      `shardloom_unsupported_row_count=0`, `publication_claim_gate_status=passed`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `python3 scripts/check_runtime_promotion_evidence.py` passed.
+    - `python3 scripts/check_release_architecture_tracker.py --allow-blocked` passed.
+    - `python3 scripts/check_release_readiness.py --allow-blocked` passed.
+    - `git diff --check` passed.
+    - Browser QA against `http://127.0.0.1:8788` passed for `/`, `/start`, `/benchmarks`,
+      `/compute-engine-flow`, `/field-guide`, and `/about` at desktop width, plus `/`,
+      `/benchmarks`, `/compute-engine-flow`, and `/field-guide` at 390px mobile width: one `h1`
+      per page, canonical/meta present, no horizontal overflow, and no console errors.
+    - `find docs/use-cases/generated website-src/src/content/docs/field-guide website website-public -name '* [0-9]*' -print`
+      returned no duplicate-suffixed generated artifacts after cleanup.
+  - Claim boundary:
+    - This is website, documentation, static artifact ownership, and benchmark-evidence
+      presentation cleanup only. It does not make a performance, superiority, production,
+      package-publication, Spark-displacement, SQL/DataFrame parity, object-store, lakehouse,
+      Foundry, or external-baseline support claim.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution was introduced. Public benchmark evidence and validators
+      preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: BENCH-PIPE-1 benchmark artifact pipeline redesign and incremental publication writer
   - Date: 2026-06-12
   - Branch/PR: `codex/benchmark-run-scoped-artifact-refresh` / PR #1177.

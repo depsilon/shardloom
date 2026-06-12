@@ -12,7 +12,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "ShardLoom",
-      description: "Field Guide and docs for ShardLoom evidence-gated compute.",
+      description: "ShardLoom field guide for Vortex-native, no-fallback compute evidence.",
       favicon: "/assets/logo/shardloom-favicon.png",
       customCss: ["./src/styles/starlight.css"],
       head: [
@@ -36,21 +36,44 @@ export default defineConfig({
       ],
       sidebar: [
         {
-          label: "Field Guide",
-          items: [{ autogenerate: { directory: "field-guide" } }],
+          label: "Start",
+          items: [
+            { label: "Website home", link: "/" },
+            { slug: "field-guide/start-local-proof" },
+            { slug: "field-guide/python-surface" },
+            { label: "Benchmarks", link: "/benchmarks" },
+            { label: "Compute flow", link: "/compute-engine-flow" },
+          ],
         },
         {
-          label: "Public Pages",
+          label: "Core Concepts",
           items: [
-            { label: "Home", link: "/" },
-            { label: "About", link: "/about" },
-            { label: "Start", link: "/start" },
-            { label: "Use Cases", link: "/use-cases" },
-            { label: "Benchmarks", link: "/benchmarks" },
-            { label: "Architecture", link: "/architecture" },
-            { label: "Status", link: "/status" },
-            { label: "Docs", link: "/docs" },
+            { slug: "field-guide/what-is-shardloom" },
+            { slug: "field-guide/no-fallback" },
+            { slug: "field-guide/evidence-gated-compute" },
+            { slug: "field-guide/universal-ingress" },
+            { slug: "field-guide/source-state" },
+            { slug: "field-guide/vortex-ingest" },
+            { slug: "field-guide/vortex-prepared-state" },
+            { slug: "field-guide/prepared-vortex" },
+            { slug: "field-guide/native-vortex" },
           ],
+        },
+        {
+          label: "Benchmarks And Boundaries",
+          items: [
+            { slug: "field-guide/benchmark-methodology" },
+            { slug: "field-guide/benchmark-evidence" },
+            { slug: "field-guide/certified-cold-route" },
+            { slug: "field-guide/prepared-warm-route" },
+            { slug: "field-guide/external-baseline-only" },
+            { slug: "field-guide/limitations" },
+            { slug: "field-guide/deterministic-blockers" },
+          ],
+        },
+        {
+          label: "Reference Atlas",
+          items: [{ slug: "field-guide" }],
         },
       ],
     }),

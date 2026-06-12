@@ -32,6 +32,36 @@ function removeDuplicateSuffixedArtifacts(directory) {
   }
 }
 
+function canonicalizeDeployableBenchmarkPaths(directory) {
+  if (!fs.existsSync(directory)) return;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const child = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      canonicalizeDeployableBenchmarkPaths(child);
+      continue;
+    }
+    if (entry.name !== "benchmark-row-admission-manifest.json") continue;
+    const payload = JSON.parse(fs.readFileSync(child, "utf8"));
+    let changed = false;
+    if (Array.isArray(payload.chunks)) {
+      payload.chunks = payload.chunks.map((chunk) => {
+        if (!chunk || typeof chunk.path !== "string") return chunk;
+        const nextPath = chunk.path.replace(
+          /^website-public\/assets\/benchmarks\/latest\//,
+          "website/assets/benchmarks/latest/",
+        );
+        if (nextPath !== chunk.path) changed = true;
+        return { ...chunk, path: nextPath };
+      });
+    }
+    if (changed) {
+      fs.writeFileSync(child, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+    }
+  }
+}
+
+removeDuplicateSuffixedArtifacts(publicRoot);
+
 function copyLegacyHtml(route) {
   const legacyDirectory = path.join(out, `${route}.html`);
   const customSource = path.join(legacyDirectory, "index.html");
@@ -54,12 +84,8 @@ for (const route of [
   "about",
   "start",
   "field-guide",
-  "use-cases",
   "benchmarks",
-  "architecture",
   "compute-engine-flow",
-  "status",
-  "docs",
 ]) {
   copyLegacyHtml(route);
 }
@@ -79,5 +105,6 @@ for (const relativePath of [
 }
 
 removeDuplicateSuffixedArtifacts(out);
+canonicalizeDeployableBenchmarkPaths(path.join(out, "assets", "benchmarks", "latest"));
 
-console.log("wrote legacy .html compatibility pages and refreshed public assets");
+console.log("wrote canonical .html compatibility pages and refreshed public assets");

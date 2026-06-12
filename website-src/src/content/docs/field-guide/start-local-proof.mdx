@@ -1,0 +1,27 @@
+---
+title: "Start local proof"
+description: "Run ShardLoom from a source checkout and inspect no-fallback evidence."
+sidebar: {"label":"Start local proof","order":1}
+---
+
+
+ShardLoom is pre-release. Start from a source checkout, not a package-publication claim.
+
+## First Commands
+
+```powershell
+python scripts\release_dry_run_proof.py --rows 64 --iterations 1
+python scripts\check_production_usability_gate.py
+python examples\local-python-smoke\run.py --repo-root .
+```
+
+## Success Evidence
+
+- `fallback_attempted=false`
+- `external_engine_invoked=false`
+- a visible `claim_gate_status`
+- local output evidence or a deterministic blocker
+
+## Boundary
+
+This proves local technical-preview posture only. It does not prove package publication, production readiness, broad SQL/DataFrame parity, object-store runtime, or performance superiority.
