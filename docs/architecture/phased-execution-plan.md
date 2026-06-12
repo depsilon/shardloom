@@ -165,6 +165,9 @@ Current autonomous execution order:
   - Progress: prepared/native category-metric state now preassembles
     `high_cardinality_string_group_distinct` and `distinct_count` result payloads once per shared
     source-state family and reports category result-cache/preassembly fields.
+  - Progress: hash join and join aggregate now attach operator-family-specific dense accumulator
+    evidence; join aggregate uses the dense packed accumulator instead of a generic packed-key hash
+    map where the key domain is safely admitted.
   - Verification: focused Rust operator/correctness tests, Python row-contract tests, targeted
     benchmark rerun for the selected family, `cargo fmt --all -- --check`,
     `cargo clippy --workspace --all-targets -- -D warnings`, and
