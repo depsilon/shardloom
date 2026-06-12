@@ -2,28 +2,29 @@
 
 Status: `GAR-WEB-ATLAS-1J complete`
 
-This readiness record defines the public-post gate for the generated Field Guide and Use Case Atlas.
-It is a website quality and claim-safety gate only. It does not change ShardLoom runtime behavior,
-benchmark results, release status, package publication, or support claims.
+This readiness record defines the public-post gate for the current Starlight Field Guide, generated
+repository use-case records, and benchmark evidence surface. It is a website quality and
+claim-safety gate only. It does not change ShardLoom runtime behavior, benchmark results, release
+status, package publication, or support claims.
 
 ## Gate Scope
 
-The gate covers the static website surfaces that a public technical-preview reader is most likely
-to use:
+The gate covers the current static website surfaces that a public technical-preview reader is most
+likely to use:
 
 - `website/index.html`
+- `website/about/index.html`
 - `website/start/index.html`
 - `website/field-guide/index.html`
 - `website/field-guide/*/index.html`
-- `website/use-cases/index.html`
-- `website/use-cases/*/index.html`
 - `website/benchmarks/index.html`
-- `website/architecture/index.html`
 - `website/compute-engine-flow/index.html`
-- `website/status/index.html`
-- `website/docs/index.html`
-- legacy compatibility pages written by `website-src/scripts/postbuild-static.mjs`
+- canonical `.html` aliases for about, start, field-guide, benchmarks, and compute-engine-flow
+- redirects for retired docs/status/architecture/use-cases aliases
 - `website/pagefind/`
+
+Generated use-case records now remain source-of-truth repository evidence under
+`docs/use-cases/generated/`. They are intentionally not published as a separate website browser.
 
 ## Required Page Metadata
 
@@ -39,13 +40,11 @@ Every generated public page must include:
 Canonical URLs stay extensionless. Static assets are served from `website/`; no page may depend on
 `raw.githubusercontent.com` at render time.
 
-## Field Guide Dossier Gate
+## Field Guide Gate
 
-Every generated Field Guide dossier must include:
+Every generated Field Guide page must include:
 
-- `Field Guide dossier` posture label
 - status row
-- sticky in-page table of contents
 - Plain-English meaning
 - Why it matters
 - How ShardLoom uses it
@@ -58,19 +57,20 @@ Every generated Field Guide dossier must include:
 - source-linked citation block
 - `What this proves:` citation text
 
-This keeps each concept page understandable without requiring the reader to inspect RFCs, the phase
-plan, or benchmark internals first.
+The Field Guide index must also expose current reading paths for local proof, Python surface,
+benchmark methodology, limitations, and core vocabulary.
 
-## Use Case Atlas Gate
+## Repository Use-Case Gate
 
-Every generated use-case page must include:
+Every generated repository use-case page under `docs/use-cases/generated/` must include:
 
-- Plain-English Summary
-- Status Table
-- Quick Example or blocker explanation
+- Quick Answer
+- Can ShardLoom Do This?
+- How To Try It
+- blocker explanation where runtime is not admitted
 - Claim Boundary
 - Internal Flow
-- Expected Evidence Fields
+- Evidence You Should See
 - Expected Output Or Evidence
 - Common Mistakes
 - Reference Files
@@ -81,7 +81,10 @@ Every generated use-case page must include:
 
 Use cases with `ready_local` or `smoke_supported` posture must keep a runnable example. Use cases
 with `report_only`, `planned`, `blocked`, or `unsupported` posture must keep a blocker explanation
-so the page cannot imply runtime support.
+so the record cannot imply runtime support.
+
+The website must redirect `/use-cases` and `/use-cases.html` to `/field-guide/python-surface`, and
+`/use-cases/*` to the canonical repository generated use-case records.
 
 ## Claim-Safety Gate
 

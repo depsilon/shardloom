@@ -1165,13 +1165,13 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
     for required in [
         "light-mode and evidence-console oriented",
         "`/`: route/evidence console overview",
+        "`/about`: concise claim-safe project overview and evidence pointers",
         "`/start`: first local proof entry point",
-        "`/field-guide`: compact technical vocabulary atlas",
-        "`/use-cases`: filterable use-case browser",
+        "`/field-guide`: Starlight docs shell for local proof, Python route shape, benchmark methodology, limitations, and vocabulary",
         "`/benchmarks`: committed benchmark artifact interpretation",
-        "`/architecture` and `/compute-engine-flow`: human-readable route translation",
-        "`/status`: filterable support/status matrix",
+        "`/compute-engine-flow`: human-readable route translation",
         "Detailed RFCs, phase history, recipes, and source-of-truth docs remain in the",
+        "records under `docs/use-cases/generated/`",
     ] {
         assert!(
             website_readme.contains(required),
@@ -1180,7 +1180,12 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
     }
 
     let redirects = read_repo_file("website/_redirects");
-    for required in ["/status.html /status", "/docs.html /docs"] {
+    for required in [
+        "/architecture.html /compute-engine-flow",
+        "/use-cases.html /field-guide/python-surface",
+        "/status.html /field-guide/limitations",
+        "/docs.html /field-guide",
+    ] {
         assert!(
             redirects.contains(required),
             "missing minimal website redirect {required}"
@@ -3762,16 +3767,16 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         );
     }
 
-    let website_use_cases = read_repo_file("website/use-cases.html");
+    let website_python_surface = read_repo_file("website/field-guide/python-surface/index.html");
     for required in [
-        "Can ShardLoom do my thing?",
-        "compatibility_import_certified",
-        "fallback_attempted=false",
-        "claim_gate_status",
+        "Python surface",
+        "read_csv",
+        "nested_payload",
+        "fallback execution",
     ] {
         assert!(
-            website_use_cases.contains(required),
-            "missing public website use-case atlas field {required}"
+            website_python_surface.contains(required),
+            "missing public website Python/use-case surface field {required}"
         );
     }
 
@@ -3878,7 +3883,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let current_website_reference =
         read_repo_file("docs/architecture/website-current-state-public-reference.md");
     for required in [
-        "Status: accepted current contract after the Astro/Starlight migration",
+        "Status: accepted current contract after the `WEB-CLEANSLATE-1` public IA cleanup",
         "static interpretation layer",
         "The current site source is `website-src/`",
         "The benchmark page must lead with current timing semantics",
@@ -3886,7 +3891,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "`publication_proof` rows remain visible",
         "No duplicate active implementation queue",
         "website-src/scripts/sync-content.mjs",
-        "no essential evidence may depend on client-side JavaScript",
+        "no essential\nevidence may depend on client-side JavaScript",
     ] {
         assert!(
             current_website_reference.contains(required),
@@ -3923,9 +3928,10 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     }
     for required in [
         "field-guide.json",
-        "use-case-index.json",
-        "status-rows.json",
-        "A compact atlas for ShardLoom vocabulary",
+        "docsUseCaseGeneratedRoot",
+        "parseYaml",
+        "durableDocsPages",
+        "A compact Starlight docs shell",
         "Spark-displacement",
     ] {
         assert!(
@@ -3945,8 +3951,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let index = read_repo_file("website/index.html");
     let field_guide = read_repo_file("website/field-guide.html");
-    let use_cases = read_repo_file("website/use-cases.html");
-    let status = read_repo_file("website/status.html");
+    let python_surface = read_repo_file("website/field-guide/python-surface/index.html");
+    let limitations = read_repo_file("website/field-guide/limitations/index.html");
     let benchmarks = read_repo_file("website/benchmarks.html");
     let flow = read_repo_file("website/compute-engine-flow.html");
     for required in [
@@ -3969,7 +3975,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "A compact atlas for ShardLoom vocabulary.",
+        "A compact Starlight docs shell",
         "UniversalIngress",
         "vortex_ingest",
         "VortexPreparedState",
@@ -3982,28 +3988,25 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "Can ShardLoom do my thing?",
-        "compatibility_import_certified",
-        "fallback_attempted=false",
-        "claim_gate_status",
+        "Python surface",
+        "ctx = context",
+        "read_csv",
+        "nested_payload",
     ] {
         assert!(
-            use_cases.contains(required),
-            "missing public use-case field {required}"
+            python_surface.contains(required),
+            "missing public Python surface field {required}"
         );
     }
     for required in [
-        "Support status stays visible.",
-        "Local CSV",
-        "Local JSONL / NDJSON",
-        "S3 / GCS / ADLS",
-        "Iceberg / Delta / Hudi",
-        "Foundry",
-        "Package / release",
+        "Limitations",
+        "production support",
+        "Spark displacement",
+        "fallback engine",
     ] {
         assert!(
-            status.contains(required),
-            "missing public status field {required}"
+            limitations.contains(required),
+            "missing public limitations/status field {required}"
         );
     }
     for required in [
@@ -4046,8 +4049,10 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let redirects = read_repo_file("website/_redirects");
     for required in [
         "/field-guide.html /field-guide",
-        "/use-cases.html /use-cases",
-        "/status.html /status",
+        "/architecture.html /compute-engine-flow",
+        "/use-cases.html /field-guide/python-surface",
+        "/status.html /field-guide/limitations",
+        "/docs.html /field-guide",
         "/readme https://github.com/depsilon/shardloom#readme",
     ] {
         assert!(
@@ -4116,277 +4121,86 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
 
-    if std::env::var_os("SHARDLOOM_RUN_RETIRED_WEBSITE_ATLAS_CONTRACT").is_none() {
-        return;
-    }
-
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
-        "GAR-0010-B DataFrame/notebook and package surface readiness report",
-        "shardloom.dataframe_notebook_package_readiness.v1",
-        "dataframe_notebook_package_readiness",
-        "python_package_metadata",
-        "editable_install_smoke",
-        "dataframe_method_matrix",
-        "notebook_display_surface",
-        "public_package_publication",
-        "unsupported_diagnostics",
-        "local package/DataFrame/notebook posture",
-        "broad DataFrame runtime",
-        "GAR-WEB-ATLAS-1J Field Guide / Use Case public-readiness gate",
-        "GAR-WEB-ATLAS-1I visual density and readability refinement",
-        "GAR-WEB-ATLAS-1H Astro/Starlight migration decision gate",
-        "GAR-WEB-ATLAS-1G source-linked reference and citation blocks",
-        "GAR-WEB-ATLAS-1F Can-I-use-this status matrix",
-        "GAR-WEB-ATLAS-1E Use Case Atlas integration",
-        "GAR-WEB-ATLAS-1D static Field Guide search with Pagefind",
-        "GAR-WEB-ATLAS-1C Field Guide reading paths",
-        "GAR-WEB-ATLAS-1A/1B Field Guide taxonomy and dossier generator",
-        "What this proves",
-        "data-citation-block=\"reference-files\"",
-        "citation-card",
-        "atlas-density-note",
-        "category-toc-band",
-        "compact-term-row",
-        "status-chip",
-        "reference-badge",
-        "related-concepts-rail",
-        "sticky-in-page-toc",
-        "FIELD_GUIDE_DOSSIER_REQUIRED_FIELDS",
-        "USE_CASE_PAGE_REQUIRED_FIELDS",
-        "fieldGuideDossierRequiredFields",
-        "useCasePublicReadinessFields",
-        "website-atlas-public-readiness.md",
-        "runnable example or blocker explanation",
-        "Claim Boundary",
-        "75 compact dossier rows",
-        "11 concept families",
-        "blocked_pending_explicit_approval",
-        "website-atlas-framework-decision.md",
-        "99 HTML files discovered by Pagefind",
-        "97 indexed",
-        "current Python static generator",
-        "Astro custom",
-        "Astro Starlight",
-        "Capability status matrix",
-        "docs/use-cases/use-case-index.yml",
-        "status, input type, output type, execution mode, evidence level, and",
-        "node --check website/assets/use-cases.js",
-        "website/content/field-guide-index.json",
-        "website/pagefind/",
-        "Related Field Guide Terms",
-        "scripts/check_use_case_backlinks.py",
-        "python scripts/check_use_case_backlinks.py",
-        "Pagefind 1.5.2",
-        "section, status, category, execution mode, and engine mode",
-        "75 entries",
-        "seven reading paths",
-        "python website/build_static_pages.py",
-        "python -m pagefind --site website",
-        "node website/validate_static_assets.js",
-        "python scripts/check_website_readiness.py",
-        "No runtime behavior",
-        "fallback execution",
+        "WEB-CLEANSLATE-1 clean-slate Astro/Starlight website and timing evidence surface",
+        "Recentered the public route set on home, start, benchmarks, compute flow, Field Guide, and",
+        "removed stale `docs`, `status`, `architecture`, and `use-cases` website surfaces",
+        "Converted the durable public docs surface into Starlight Field Guide pages",
+        "generated docs update incrementally",
+        "duplicate-suffixed\n      generated artifacts are pruned",
+        "PERF-DESIGN-*",
+        "row_count=1920",
+        "shardloom_row_count=1200",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
     ] {
         assert!(
             completed.contains(required),
-            "missing Field Guide completed-ledger field {required}"
+            "missing clean website completed-ledger field {required}"
         );
     }
 
-    let framework_decision = completed.as_str();
+    let content_config = read_repo_file("website-src/src/content.config.ts");
+    for required in ["docsLoader", "docsSchema", "docs: defineCollection"] {
+        assert!(
+            content_config.contains(required),
+            "missing Starlight content config field {required}"
+        );
+    }
+
+    let postbuild = read_repo_file("website-src/scripts/postbuild-static.mjs");
     for required in [
-        "GAR-WEB-ATLAS-1H",
-        "Decision status: `report_only`",
-        "Recommendation: keep the current Python static generator",
-        "Migration status: `blocked_pending_explicit_approval`",
-        "99 HTML files discovered by Pagefind",
-        "97 indexed pages",
-        "Astro content collections",
-        "Astro custom site",
-        "Astro Starlight",
-        "Pagefind",
-        "Cloudflare Workers Static Assets",
-        "No Astro/Starlight migration may begin",
-        "dependency/license review",
-        "lockfile",
-        "validator parity",
-        "runtime GitHub raw fetches",
-        "fallback_attempted=false",
-        "external_engine_invoked=false",
-        "https://docs.astro.build/en/guides/content-collections/",
-        "https://starlight.astro.build/",
-        "https://pagefind.app/docs/",
+        "canonicalLegacyRoutes",
+        "copyLegacyHtml",
+        "removeDuplicateSuffixedArtifacts",
+        "canonicalizeDeployableBenchmarkPaths",
+        "\"about\"",
+        "\"start\"",
+        "\"field-guide\"",
+        "\"benchmarks\"",
+        "\"compute-engine-flow\"",
     ] {
         assert!(
-            framework_decision.contains(required),
-            "missing framework decision field {required}"
+            postbuild.contains(required),
+            "missing postbuild static field {required}"
         );
     }
 
-    let index = read_repo_file("website/content/field-guide-index.json");
-    assert!(index.contains("\"schema_version\": \"shardloom.field_guide_index.v1\""));
+    let field_guide_data = read_repo_file("website-src/src/data/field-guide.json");
     assert!(
-        index.matches("\"slug\":").count() >= 50,
-        "Field Guide index should contain at least 50 entries"
+        field_guide_data.matches("\"slug\"").count() >= 30,
+        "Field Guide data should retain the compact current vocabulary atlas"
     );
     for required in [
-        "\"Start Here\"",
-        "\"Execution Modes\"",
-        "\"Engine Modes\"",
-        "\"Vortex Runtime\"",
-        "\"Evidence And Claims\"",
-        "\"Benchmark Telemetry\"",
-        "\"User Workflows\"",
-        "\"I/O And Output\"",
-        "\"Platform Boundaries\"",
-        "\"Performance Architecture\"",
-        "\"Release And Trust\"",
+        "\"slug\": \"what-is-shardloom\"",
+        "\"slug\": \"no-fallback\"",
+        "\"slug\": \"vortex-ingest\"",
+        "\"slug\": \"prepared-vortex\"",
+        "\"slug\": \"native-vortex\"",
         "\"related_use_cases\"",
-        "\"reference_files\"",
-        "\"claim_boundary\"",
-        "\"reading_paths\"",
-        "\"new-to-shardloom\"",
-        "\"run-a-local-workflow\"",
-        "\"understand-benchmarks\"",
-        "\"understand-vortex-native-paths\"",
-        "\"use-python-sql-dataframe\"",
-        "\"know-what-is-blocked\"",
-        "\"foundry-and-platform-context\"",
+        "\"references\"",
     ] {
         assert!(
-            index.contains(required),
-            "missing Field Guide index field {required}"
-        );
-    }
-
-    let generator = read_repo_file("website/build_static_pages.py");
-    for required in [
-        "FIELD_GUIDE_INDEX_PATH",
-        "load_field_guide_concepts",
-        "load_field_guide_reading_paths",
-        "render_public_status_scorecard_section(use_cases",
-        "data-status-matrix-filters",
-        "data-status-matrix-filter",
-        "data-status-matrix-grid",
-        "data-status-matrix-count",
-        "docs/use-cases/use-case-index.yml",
-        "PAGEFIND_HEAD",
-        "pagefind_filter_spans",
-        "citation_proof",
-        "render_citation_links",
-        "data-citation-block=\"reference-files\"",
-        "What this proves:",
-        "field_guide_search_control",
-        "field_guide_atlas_sidebar",
-        "atlas-sidebar",
-        "atlas-stat-row",
-        "atlas-reading-grid",
-        "atlas-family",
-        "atlas-term-row",
-        "atlas-article-hero",
-        "atlas-meta-grid",
-        "atlas-article-jump",
-        "reference-badge",
-        "related-concepts-rail",
-        "REQUIRED_FIELD_GUIDE_CATEGORIES",
-        "FIELD_GUIDE_READING_PATHS",
-        "field_guide_concepts_for_use_case",
-        "related_field_guide_term_links",
-        "reading_path_term_links",
-        "field_guide_concepts_by_category",
-        "Plain-English meaning",
-        "Current support",
-        "Evidence fields",
-        "What it does not claim",
-        "Try it / related use cases",
-        "Reference files",
-        "pagefind-filter-dropdown",
-        "Claim Boundary",
-    ] {
-        assert!(
-            generator.contains(required),
-            "missing Field Guide generator field {required}"
-        );
-    }
-
-    let status_page = read_repo_file("website/status.html");
-    for required in [
-        "Capability status matrix",
-        "data-status-matrix-filters",
-        "data-status-matrix-filter=\"status\"",
-        "data-status-matrix-filter=\"input\"",
-        "data-status-matrix-filter=\"output\"",
-        "data-status-matrix-filter=\"execution\"",
-        "data-status-matrix-filter=\"evidence\"",
-        "data-status-matrix-filter=\"platform\"",
-        "data-status-matrix-grid",
-        "data-status-matrix-count",
-        "docs/use-cases/use-case-index.yml",
-        "/use-cases/object-store-boundary-report",
-        "/use-cases/table-lakehouse-boundary-report",
-        "fallback_attempted=false",
-        "external_engine_invoked=false",
-    ] {
-        assert!(
-            status_page.contains(required),
-            "missing generated status matrix field {required}"
-        );
-    }
-
-    let use_case_filter_script = read_repo_file("website/assets/use-cases.js");
-    for required in [
-        "setupFilterSet",
-        "data-use-case-filter",
-        "data-status-matrix-filter",
-        ".status-matrix-row",
-        "status row",
-    ] {
-        assert!(
-            use_case_filter_script.contains(required),
-            "missing reusable filter script field {required}"
+            field_guide_data.contains(required),
+            "missing Field Guide data field {required}"
         );
     }
 
     let website_index = read_repo_file("website/field-guide/index.html");
     for required in [
-        "Reading paths",
-        "New to ShardLoom",
-        "Run a local workflow",
-        "Understand benchmarks",
-        "Understand Vortex-native paths",
-        "Use Python, SQL, or DataFrame surfaces",
-        "Know what is blocked",
-        "Foundry and platform context",
-        "Table of contents",
-        "Start Here",
-        "Execution Modes",
-        "Engine Modes",
-        "Vortex Runtime",
-        "Evidence And Claims",
-        "Benchmark Telemetry",
-        "User Workflows",
-        "I/O And Output",
-        "Platform Boundaries",
-        "Performance Architecture",
-        "Release And Trust",
-        "Search atlas",
-        "pagefind-component-ui.css",
-        "pagefind-component-ui.js",
-        "pagefind-modal-trigger",
-        "pagefind-filter-dropdown",
-        "data-pagefind-filter=\"section\"",
-        "data-pagefind-filter=\"status\"",
-        "atlas-sidebar",
-        "atlas-stat-row",
-        "atlas-reading-grid",
-        "atlas-family",
-        "atlas-term-row",
-        "reference-badge",
-        "75 dossiers",
-        "concept families",
-        "what-is-shardloom",
-        "output-plan-reuse",
+        "A compact Starlight docs shell",
+        "Category Table Of Contents",
+        "Start local proof",
+        "Python surface",
+        "Benchmark methodology",
+        "Limitations",
+        "Execution Routes",
+        "UniversalIngress",
+        "Prepared/Native Vortex",
+        "Unsupported Diagnostics",
+        "No fallback",
+        "claim_gate_status",
     ] {
         assert!(
             website_index.contains(required),
@@ -4394,23 +4208,23 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
 
-    let use_case_page =
-        read_repo_file("website/use-cases/prepared-native-vortex-runtime-direction.html");
+    let dossier = read_repo_file("website/field-guide/prepared-vortex/index.html");
     for required in [
-        "Related Field Guide Terms",
-        "/field-guide/prepared-vortex",
-        "/field-guide/native-vortex",
-        "/field-guide/source-backed-scan",
+        "Plain-English Meaning",
+        "Why It Matters",
+        "How ShardLoom Uses It",
+        "Current Support",
+        "Evidence Fields",
+        "What It Does Not Claim",
+        "Try It / Related Use Cases",
+        "Reference Files",
         "data-citation-block=\"reference-files\"",
         "What this proves:",
-        "Claim Boundary",
-        "Internal Flow",
-        "Expected Evidence Fields",
-        "Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.",
+        "claim-gated",
     ] {
         assert!(
-            use_case_page.contains(required),
-            "missing use-case reverse Field Guide link {required}"
+            dossier.contains(required),
+            "missing generated Field Guide dossier field {required}"
         );
     }
 
@@ -4419,8 +4233,10 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     for required in [
         "What this proves:",
         "## Related Field Guide Terms",
-        "`website/field-guide/prepared-vortex.html`",
-        "`website/field-guide/native-vortex.html`",
+        "## Claim Boundary",
+        "https://shardloom.io/field-guide/prepared-vortex",
+        "https://shardloom.io/field-guide/native-vortex",
+        "https://shardloom.io/field-guide/source-backed-scan",
     ] {
         assert!(
             generated_use_case.contains(required),
@@ -4432,49 +4248,32 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     for required in [
         "Related Field Guide Terms",
         "What this proves:",
-        "Field Guide dossier missing citation block",
-        "website use-case page missing citation block",
-        "use case has no related Field Guide terms",
-        "website page {use_case_id} missing Field Guide term link",
-        "website/content/field-guide-index.json",
+        "generated page {use_case_id} missing Field Guide term link",
+        "https://shardloom.io/field-guide/{slug}",
+        "website-src\" / \"src\" / \"data\" / \"field-guide.json",
     ] {
         assert!(
             backlink_validator.contains(required),
             "missing use-case integration validator field {required}"
         );
     }
-
-    let dossier = read_repo_file("website/field-guide/prepared-vortex.html");
-    for required in [
-        "Plain-English meaning",
-        "Why it matters",
-        "How ShardLoom uses it",
-        "Current support",
-        "Evidence fields",
-        "What it does not claim",
-        "Try it / related use cases",
-        "Related concepts",
-        "Reference files",
-        "atlas-sidebar",
-        "atlas-article-jump",
-        "related-concepts-rail",
-        "reference-badge",
-        "data-citation-block=\"reference-files\"",
-        "What this proves:",
-        "Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.",
-        "claim-gated",
+    for retired in [
+        "website_use_cases",
+        "missing generated website use-case page",
     ] {
         assert!(
-            dossier.contains(required),
-            "missing generated Field Guide dossier field {required}"
+            !backlink_validator.contains(retired),
+            "use-case backlink validator must not require retired website use-case pages: {retired}"
         );
     }
 
-    let sitemap = read_repo_file("website/sitemap.xml");
+    let sitemap = read_repo_file("website/sitemap-0.xml");
     for required in [
-        "https://shardloom.io/field-guide/what-is-shardloom",
-        "https://shardloom.io/field-guide/output-plan-reuse",
-        "https://shardloom.io/field-guide/scale-profile",
+        "https://shardloom.io/about",
+        "https://shardloom.io/start",
+        "https://shardloom.io/field-guide/prepared-vortex",
+        "https://shardloom.io/field-guide/output-plan",
+        "https://shardloom.io/field-guide/scale-classes",
     ] {
         assert!(
             sitemap.contains(required),
@@ -4484,108 +4283,96 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let pagefind_entry = read_repo_file("website/pagefind/pagefind-entry.json");
     assert!(pagefind_entry.contains("\"version\":\"1.5.2\""));
-    assert!(pagefind_entry.contains("\"page_count\":"));
+    assert!(pagefind_entry.contains("\"page_count\":39"));
 
     let headers = read_repo_file("website/_headers");
     for required in [
-        "/pagefind/*",
-        "script-src 'self' 'wasm-unsafe-eval'",
-        "worker-src 'self'",
+        "Content-Security-Policy: default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "worker-src 'self' blob:",
+        "/assets/data/*",
         "Cache-Control: public, max-age=300",
     ] {
         assert!(
             headers.contains(required),
-            "missing Pagefind header {required}"
+            "missing static website header {required}"
         );
     }
 
     let website_validator = read_repo_file("website/validate_static_assets.js");
     for required in [
-        "pagefind/pagefind-component-ui.css",
-        "pagefind/pagefind-component-ui.js",
+        "requiredFiles",
+        "removedWebsiteSurfaces",
+        "Removed website surface still exists",
+        "field-guide/start-local-proof/index.html",
+        "field-guide/python-surface/index.html",
+        "field-guide/benchmark-methodology/index.html",
+        "field-guide/limitations/index.html",
         "pagefind/pagefind-entry.json",
-        "pagefind-filter-dropdown",
-        "Committed Pagefind static bundle",
-        "Related Field Guide Terms",
-        "must render reverse Field Guide term links",
-        "fieldGuideDossierRequiredFields",
-        "useCasePublicReadinessFields",
-        "missing public-readiness field",
-        "runnable example or blocker explanation",
-        "source-linked citation block",
-        "What this proves:",
-        "data-status-matrix-filters",
-        "Status page must include",
-        "atlas-sidebar",
-        "atlas-reading-grid",
-        "atlas-term-row",
-        "reference-badge",
+        "Hot route geomean",
+        "Publication-proof route geomean",
+        "benchmark-results.json",
+        "performance_claim_allowed",
     ] {
         assert!(
             website_validator.contains(required),
-            "missing Pagefind static validator field {required}"
+            "missing current static validator field {required}"
         );
     }
 
     let readiness = read_repo_file("scripts/check_website_readiness.py");
     for required in [
-        "pagefind/pagefind-component-ui.css",
-        "pagefind/pagefind-component-ui.js",
+        "EXPECTED_PAGES",
+        "EXPECTED_NAV_PATHS",
+        "REMOVED_WEBSITE_SURFACES",
+        "DUPLICATE_SUFFIX_RE",
+        "duplicate_suffixed_generated_artifacts_removed",
+        "benchmark manifest must keep performance_claim_allowed=false",
         "pagefind/pagefind-entry.json",
-        "Pagefind index must cover generated website pages",
-        "_headers missing Pagefind static-search policy",
-        "data-citation-block=\"reference-files\"",
-        "What this proves:",
-        "data-status-matrix-filters",
-        "data-status-matrix-grid",
-        "atlas-sidebar",
-        "atlas-reading-grid",
-        "atlas-family",
-        "atlas-term-row",
-        "reference-badge",
-        "FIELD_GUIDE_DOSSIER_REQUIRED_FIELDS",
-        "USE_CASE_PAGE_REQUIRED_FIELDS",
-        "missing public-readiness field",
-        "runnable example or blocker explanation",
-        "Claim Boundary",
+        "field-guide/limitations/index.html",
+        "removed public website surface still exists",
     ] {
         assert!(
             readiness.contains(required),
-            "missing Pagefind readiness field {required}"
+            "missing current website readiness field {required}"
         );
     }
 
-    let third_party = read_repo_file("docs/legal/static-website-third-party-assets.md");
-    for required in [
-        "Pagefind",
-        "pagefind_bin_extended",
-        "1.5.2",
-        "MIT",
-        "website/pagefind/",
-        "not ShardLoom execution logic",
+    for retired in [
+        "website/architecture.html",
+        "website/architecture/index.html",
+        "website/docs.html",
+        "website/docs/index.html",
+        "website/status.html",
+        "website/status/index.html",
+        "website/use-cases.html",
+        "website/use-cases/index.html",
+        "website/build_static_pages.py",
+        "website/assets/use-cases.js",
+        "website/content/field-guide-index.json",
     ] {
         assert!(
-            third_party.contains(required),
-            "missing Pagefind third-party asset notice {required}"
+            !repo_root().join(retired).exists(),
+            "retired website artifact must not exist: {retired}"
         );
     }
-
-    let notice = read_repo_file("NOTICE");
-    assert!(notice.contains("generated Pagefind static-search"));
-    assert!(notice.contains("docs/legal/static-website-third-party-assets.md"));
 
     let atlas_readiness = read_repo_file("docs/release/website-atlas-public-readiness.md");
     for required in [
         "GAR-WEB-ATLAS-1J complete",
-        "Field Guide Dossier Gate",
-        "Use Case Atlas Gate",
-        "Quick Example or blocker explanation",
+        "Starlight Field Guide",
+        "generated\nrepository use-case records",
+        "Repository Use-Case Gate",
+        "docs/use-cases/generated/",
+        "Quick Answer",
+        "Can ShardLoom Do This?",
         "Claim Boundary",
+        "redirect `/use-cases`",
         "raw.githubusercontent.com",
         "fallback_attempted=false",
         "external_engine_invoked=false",
         "python scripts\\check_website_readiness.py",
-        "node.exe website\\validate_static_assets.js",
+        "node website\\validate_static_assets.js",
     ] {
         assert!(
             atlas_readiness.contains(required),

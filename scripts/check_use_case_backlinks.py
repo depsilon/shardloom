@@ -72,7 +72,6 @@ def main() -> int:
     blockers = validate_index(data, repo_root)
     backlinks = repo_root / "docs" / "use-cases" / "reference-backlinks.md"
     generated = repo_root / "docs" / "use-cases" / "generated"
-    website_use_cases = repo_root / "website" / "use-cases"
     field_guide_index = repo_root / "website-src" / "src" / "data" / "field-guide.json"
 
     backlink_text = backlinks.read_text(encoding="utf-8") if backlinks.exists() else ""
@@ -146,27 +145,11 @@ def main() -> int:
             blockers.append(f"use case has no related Field Guide terms: {use_case_id}")
         if "## Related Field Guide Terms" not in text:
             blockers.append(f"generated page missing Related Field Guide Terms block: {use_case_id}")
-        website_page = generated_html_page(website_use_cases, use_case_id)
-        website_text = website_page.read_text(encoding="utf-8") if website_page.exists() else ""
-        if not website_text:
-            blockers.append(f"missing generated website use-case page: {use_case_id}")
-        elif "Related Field Guide Terms" not in website_text:
-            blockers.append(f"website use-case page missing Related Field Guide Terms block: {use_case_id}")
-        elif 'data-citation-block="reference-files"' not in website_text:
-            blockers.append(f"website use-case page missing citation block: {use_case_id}")
-        elif "What this proves:" not in website_text:
-            blockers.append(f"website use-case page missing citation proof labels: {use_case_id}")
-        if website_text and VAGUE_REFERENCE_PATTERN.search(website_text):
-            blockers.append(f"website use-case page uses vague reference wording: {use_case_id}")
         for slug, title in related_terms:
-            markdown_ref = f"`website/field-guide/{slug}.html`"
+            markdown_ref = f"https://shardloom.io/field-guide/{slug}"
             if markdown_ref not in text:
                 blockers.append(
                     f"generated page {use_case_id} missing Field Guide term link: {slug}"
-                )
-            if website_text and f'href="/field-guide/{slug}"' not in website_text:
-                blockers.append(
-                    f"website page {use_case_id} missing Field Guide term link: {slug}"
                 )
 
     if blockers:
