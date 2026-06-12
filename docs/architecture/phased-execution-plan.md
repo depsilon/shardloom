@@ -190,6 +190,10 @@ Current autonomous execution order:
   - Progress: nested JSON field scan now parses generated `metrics.score` and `event.flag` directly
     from Vortex-provided payload bytes in the hot loop, preserving deterministic score/flag
     diagnostics while avoiding per-row full-payload UTF-8 validation.
+  - Progress: cold compatibility-import rows now reuse the already-imported dimension row count for
+    fact-only query dispatch through the existing cached-dim-row file route, report
+    `source_state_query_dim_row_count_reuse_status`, and keep hash join / join aggregate blocked to
+    the dimension Vortex scan because those operators still require dimension labels.
   - Verification: focused Rust tests for selected operator families and result envelope stability,
     repeated-session tests, targeted warm prepared/native rerun, and broad Rust validation when
     shared runtime behavior changes.
@@ -317,11 +321,20 @@ Current autonomous execution order:
     batch count, zero materialized rows, handoff timing, correctness posture, and no-fallback fields.
     Direct-transient row-boundary adapters remain non-admitted; Avro/ORC are visible but out of the
     6R-C claim scope.
-  - Next outcome: merge the runtime/reporting evidence, then refresh targeted Parquet/Arrow IPC
-    artifacts before making any timing claim.
+  - Progress: Parquet fact-source reads now translate scenario field masks into reader-level
+    `ProjectionMask::roots` before batch iteration; Arrow IPC fact-source reads now translate the
+    same field masks into `FileReader` projection vectors before record-batch collection. Avro/ORC
+    remain explicit post-read projection paths outside the 6R-C claim scope.
+  - Progress: promoted benchmark rows now carry
+    `source_columnar_projection_pushdown_status` and
+    `source_columnar_projection_pushdown_provider` so reader pushdown cannot be confused with
+    post-read projection normalization.
+  - Next outcome: merge the runtime/reporting evidence, then intentionally refresh targeted
+    Parquet/Arrow IPC artifacts before making any timing claim.
   - Acceptance: admitted Parquet/Arrow IPC rows report direct columnar handoff, no row
-    materialization, stable correctness digests, reduced parse/decode timing where current artifacts
-    prove it, and explicit blockers for unsupported dtypes, encodings, nested fields, or compression.
+    materialization, reader-projection provider status for projected scenarios, stable correctness
+    digests, reduced parse/decode timing where current artifacts prove it, and explicit blockers for
+    unsupported dtypes, encodings, nested fields, or compression.
   - Verification: focused tests for primitive types, null-heavy columns, dictionary-like values where
     supported, timestamps, projection masks, empty inputs, unsupported nested fields, promoter
     passthrough tests, and targeted Parquet/Arrow IPC reruns.

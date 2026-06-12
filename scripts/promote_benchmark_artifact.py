@@ -520,6 +520,7 @@ WEBSITE_ROW_KEYS = (
     "source_state_skipped_columns",
     "source_state_decoded_column_count",
     "source_state_skipped_column_count",
+    "source_state_query_dim_row_count_reuse_status",
     "vortex_writer_context_schema_version",
     "vortex_writer_context_status",
     "vortex_writer_context_open_ms",
@@ -3666,6 +3667,8 @@ def source_columnar_default_fields(
         "source_columnar_materialized_row_count": 0,
         "source_columnar_record_batch_count": 0,
         "source_columnar_row_materialization_status": status,
+        "source_columnar_projection_pushdown_status": status,
+        "source_columnar_projection_pushdown_provider": status,
         "source_columnar_null_validity_status": status,
         "source_columnar_unsupported_dtype_reason": status,
         "source_columnar_handoff_micros": 0,
@@ -3823,6 +3826,39 @@ def source_columnar_fields_from_runtime(
             ) or "columnar_provider_not_admitted"
         else:
             unsupported_dtype_reason = "not_applicable_non_columnar_source"
+    projection_pushdown_status = first_meaningful_field(
+        fields, ("source_columnar_projection_pushdown_status",)
+    )
+    if projection_pushdown_status is None:
+        if admitted and skipped_count > 0:
+            projection_pushdown_status = "reader_projection_pushed_down"
+        elif direct_columnar_provider and skipped_count > 0:
+            projection_pushdown_status = "post_read_projection_normalized_outside_6r_c"
+        elif direct_columnar_provider:
+            projection_pushdown_status = "no_projection_opportunity_full_columnar_read"
+        elif any_columnar_input:
+            projection_pushdown_status = "not_admitted_no_reader_projection"
+        else:
+            projection_pushdown_status = "not_applicable_non_columnar_source"
+    projection_pushdown_provider = first_meaningful_field(
+        fields, ("source_columnar_projection_pushdown_provider",)
+    )
+    if projection_pushdown_provider is None:
+        if projection_pushdown_status == "reader_projection_pushed_down":
+            if input_format_normalized == "parquet":
+                projection_pushdown_provider = "parquet_projection_mask_roots"
+            elif input_format_normalized in {"arrow-ipc", "arrow_ipc"}:
+                projection_pushdown_provider = "arrow_ipc_file_reader_projection"
+            else:
+                projection_pushdown_provider = projection_pushdown_status
+        elif (
+            input_format_normalized in {"avro", "orc"}
+            and direct_columnar_provider
+            and skipped_count > 0
+        ):
+            projection_pushdown_provider = "post_read_record_batch_projection"
+        else:
+            projection_pushdown_provider = projection_pushdown_status
     handoff_micros = int(
         numeric_value(
             first_meaningful_field(
@@ -3859,6 +3895,8 @@ def source_columnar_fields_from_runtime(
         else (rows_scanned if any_columnar_input else 0),
         "source_columnar_record_batch_count": record_batch_count,
         "source_columnar_row_materialization_status": materialization_status or default_status,
+        "source_columnar_projection_pushdown_status": projection_pushdown_status,
+        "source_columnar_projection_pushdown_provider": projection_pushdown_provider,
         "source_columnar_null_validity_status": null_validity_status,
         "source_columnar_unsupported_dtype_reason": unsupported_dtype_reason,
         "source_columnar_handoff_micros": handoff_micros,
@@ -4204,6 +4242,7 @@ def source_state_projection_fields_for_row(
             "source_state_skipped_columns": "none",
             "source_state_decoded_column_count": 0,
             "source_state_skipped_column_count": 0,
+            "source_state_query_dim_row_count_reuse_status": default_status,
         }
 
     scout_status = str(fields.get("source_read_scout_status") or "not_reported")
@@ -4304,6 +4343,10 @@ def source_state_projection_fields_for_row(
         "source_state_skipped_columns": skipped_columns,
         "source_state_decoded_column_count": decoded_count,
         "source_state_skipped_column_count": skipped_count,
+        "source_state_query_dim_row_count_reuse_status": first_meaningful_field(
+            fields, ("source_state_query_dim_row_count_reuse_status",)
+        )
+        or default_status,
     }
 
 
