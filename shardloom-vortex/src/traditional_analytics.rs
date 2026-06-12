@@ -1434,8 +1434,11 @@ impl TraditionalDimensionLabelState {
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
 struct TraditionalCategoryMetricState {
-    groups: std::collections::HashMap<u32, TraditionalGroupAccum>,
-    category_interner: TraditionalStringInterner,
+    string_group_result_json: String,
+    string_group_rows_materialized: u64,
+    distinct_count_result_json: String,
+    distinct_count_rows_materialized: u64,
+    result_preassembly_micros: u64,
     stats: TraditionalStreamingScanStats,
 }
 
@@ -1474,9 +1477,22 @@ impl TraditionalCategoryMetricState {
                 Ok(())
             },
         )?;
+        let result_preassembly_start = std::time::Instant::now();
+        let distinct_count_result_json = format!(
+            "{{\"distinct_category_count\":{}}}",
+            usize_to_u64(groups.len())?
+        );
+        let distinct_count_rows_materialized =
+            result_rows_materialized(&distinct_count_result_json)?;
+        let string_group_result_json = string_group_id_distinct_json(groups, &category_interner)?;
+        let string_group_rows_materialized = result_rows_materialized(&string_group_result_json)?;
+        let result_preassembly_micros = duration_to_micros(result_preassembly_start.elapsed());
         Ok(Self {
-            groups,
-            category_interner,
+            string_group_result_json,
+            string_group_rows_materialized,
+            distinct_count_result_json,
+            distinct_count_rows_materialized,
+            result_preassembly_micros,
             stats,
         })
     }
@@ -2354,6 +2370,14 @@ impl TraditionalVortexBatchSourceState {
             .map_or(0, |state| state.result_preassembly_micros)
     }
 
+    fn category_metric_result_preassembly_micros(&self) -> u64 {
+        self.category_metric_state
+            .value
+            .borrow()
+            .as_ref()
+            .map_or(0, |state| state.result_preassembly_micros)
+    }
+
     fn dimension_label_state_recompute_avoided_count(&self) -> usize {
         self.dimension_label_state_consumer_count.saturating_sub(1)
     }
@@ -2435,6 +2459,16 @@ impl TraditionalVortexBatchSourceState {
             "per_batch_group_category_metric_result_payloads_preassembled"
         } else {
             "pending_group_category_metric_result_payload_preassembly"
+        }
+    }
+
+    fn category_metric_result_cache_status(&self) -> &'static str {
+        if self.category_metric_state_consumer_count <= 1 {
+            "not_applicable_single_or_no_category_metric_consumer"
+        } else if self.category_metric_state.is_built() {
+            "per_batch_category_metric_result_payloads_preassembled"
+        } else {
+            "pending_category_metric_result_payload_preassembly"
         }
     }
 
@@ -8032,6 +8066,8 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub dimension_label_state_recompute_avoided_count: usize,
     pub category_metric_state_consumer_count: usize,
     pub category_metric_state_recompute_avoided_count: usize,
+    pub category_metric_result_preassembly_micros: u64,
+    pub category_metric_result_cache_status: String,
     pub group_category_metric_state_consumer_count: usize,
     pub group_category_metric_state_recompute_avoided_count: usize,
     pub group_category_metric_result_preassembly_micros: u64,
@@ -11402,6 +11438,14 @@ impl TraditionalAnalyticsVortexBatchReport {
             (
                 "source_state_category_metric_family_recompute_avoided".to_string(),
                 (self.category_metric_state_recompute_avoided_count > 0).to_string(),
+            ),
+            (
+                "source_state_category_metric_result_cache_status".to_string(),
+                self.category_metric_result_cache_status.clone(),
+            ),
+            (
+                "source_state_category_metric_result_preassembly_micros".to_string(),
+                self.category_metric_result_preassembly_micros.to_string(),
             ),
             (
                 "source_state_category_metric_reused".to_string(),
@@ -24498,6 +24542,13 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
     let source_state_family_build_micros =
         source_state_family_runtime_evidence.total_build_micros();
     let source_state_family_build_count = source_state_family_runtime_evidence.total_build_count();
+    let category_metric_result_preassembly_micros = session
+        .source_state
+        .category_metric_result_preassembly_micros();
+    let category_metric_result_cache_status = session
+        .source_state
+        .category_metric_result_cache_status()
+        .to_string();
     let group_category_metric_result_preassembly_micros = session
         .source_state
         .group_category_metric_result_preassembly_micros();
@@ -24595,6 +24646,8 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         dimension_label_state_recompute_avoided_count,
         category_metric_state_consumer_count,
         category_metric_state_recompute_avoided_count,
+        category_metric_result_preassembly_micros,
+        category_metric_result_cache_status,
         group_category_metric_state_consumer_count,
         group_category_metric_state_recompute_avoided_count,
         group_category_metric_result_preassembly_micros,
@@ -32181,11 +32234,8 @@ fn run_streaming_string_group_distinct_scenario_with_category_metric_state(
 ) -> Result<TraditionalScenarioExecution> {
     let stats = category_state.stats.clone();
     let assembly_start = std::time::Instant::now();
-    let result_json = string_group_id_distinct_json(
-        category_state.groups.clone(),
-        &category_state.category_interner,
-    )?;
-    let rows_materialized = result_rows_materialized(&result_json)?;
+    let result_json = category_state.string_group_result_json.clone();
+    let rows_materialized = category_state.string_group_rows_materialized;
     let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -32499,10 +32549,8 @@ fn run_streaming_distinct_count_scenario_with_category_metric_state(
 ) -> Result<TraditionalScenarioExecution> {
     let stats = category_state.stats.clone();
     let assembly_start = std::time::Instant::now();
-    let result_json = format!(
-        "{{\"distinct_category_count\":{}}}",
-        usize_to_u64(category_state.groups.len())?
-    );
+    let result_json = category_state.distinct_count_result_json.clone();
+    let rows_materialized = category_state.distinct_count_rows_materialized;
     let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -32510,7 +32558,7 @@ fn run_streaming_distinct_count_scenario_with_category_metric_state(
         dim_rows,
         cdc_delta_rows: 0,
         rows_scanned: stats.source_row_count,
-        rows_materialized: 1,
+        rows_materialized,
         evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
     })
 }
@@ -43747,6 +43795,25 @@ mod tests {
             &fields,
             "source_state_category_metric_recompute_avoided_count",
             "1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_category_metric_family_build_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_category_metric_family_reuse_hit",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_category_metric_result_cache_status",
+            "per_batch_category_metric_result_payloads_preassembled",
+        );
+        let _preassembly_micros = field_u64(
+            &fields,
+            "source_state_category_metric_result_preassembly_micros",
         );
         assert_field_eq(
             &fields,
