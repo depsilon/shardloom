@@ -162,6 +162,9 @@ Current autonomous execution order:
     rebuilding aggregate maps into JSON on each consumer.
   - Progress: nested JSON field scan parser now keeps marker detection and boolean/numeric field
     extraction on byte-level hot paths while preserving deterministic malformed-payload diagnostics.
+  - Progress: prepared/native category-metric state now preassembles
+    `high_cardinality_string_group_distinct` and `distinct_count` result payloads once per shared
+    source-state family and reports category result-cache/preassembly fields.
   - Verification: focused Rust operator/correctness tests, Python row-contract tests, targeted
     benchmark rerun for the selected family, `cargo fmt --all -- --check`,
     `cargo clippy --workspace --all-targets -- -D warnings`, and
