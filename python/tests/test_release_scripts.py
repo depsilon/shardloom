@@ -2284,13 +2284,14 @@ class ReleaseScriptTests(unittest.TestCase):
 
         row = {
             "engine": "shardloom",
-            "storage_format": "csv",
+            "storage_format": "parquet",
             "scenario_name": "source scout scan split",
             "status": "success",
             "selected_execution_mode": "compatibility_import_certified",
             "requested_execution_mode": "compatibility_import_certified",
             "timing_scope": "cold_certified_end_to_end",
             "compatibility_import_included": True,
+            "rows_scanned": 3,
             "source_state_id": "source-state://scout-scan-row",
             "source_state_digest": "sha256:source",
             "prepared_state_id": "prepared-state://scout-scan-row",
@@ -2319,14 +2320,22 @@ class ReleaseScriptTests(unittest.TestCase):
                 "source_read_row_assembly_micros": 0,
                 "source_read_anomaly_quarantine_micros": 0,
                 "source_read_columnar_handoff_millis": 2.0,
+                "source_read_columnar_handoff_micros": 2000,
                 "source_read_scout_status": "source_read_scout_split_recorded",
                 "source_read_scout_reuse_status": "not_reused_fresh_source_read",
+                "source_read_decode_status": "projection_aware_columnar_provider_decode",
                 "source_read_projected_field_mask": "0x00000007",
                 "source_read_filter_field_mask": "0x00000004",
                 "source_read_decoded_columns": "fact.id|fact.metric|fact.flag",
                 "source_read_skipped_columns": "fact.event_date|fact.raw_event_time",
                 "source_read_decoded_column_count": 3,
                 "source_read_skipped_column_count": 2,
+                "source_read_row_materialization_status": (
+                    "columnar_provider_batches_without_row_structs"
+                ),
+                "source_read_unsupported_shape_diagnostic": "not_applicable_non_text_source",
+                "source_state_columnar_preserved": True,
+                "source_state_record_batch_count": 2,
                 "compatibility_parse_millis": 6.0,
                 "source_to_columnar_millis": 2.0,
                 "vortex_write_millis": 25.0,
@@ -2390,6 +2399,49 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertEqual(published["source_state_decoded_column_count"], 3)
         self.assertEqual(published["source_state_skipped_column_count"], 2)
+        self.assertEqual(
+            published["source_columnar_provider_schema_version"],
+            "shardloom.traditional_analytics.source_columnar_provider.v1",
+        )
+        self.assertEqual(
+            published["source_columnar_provider_status"],
+            "admitted_projected_direct_columnar_provider",
+        )
+        self.assertEqual(
+            published["source_columnar_provider_surface"],
+            "vortex_provider_record_batch",
+        )
+        self.assertEqual(published["source_columnar_source_family"], "already_columnar_source")
+        self.assertEqual(published["source_columnar_input_format"], "parquet")
+        self.assertEqual(published["source_columnar_projected_field_mask"], "0x00000007")
+        self.assertEqual(published["source_columnar_preserved_column_count"], 3)
+        self.assertEqual(published["source_columnar_skipped_column_count"], 2)
+        self.assertEqual(published["source_columnar_materialized_row_count"], 0)
+        self.assertEqual(published["source_columnar_record_batch_count"], 2)
+        self.assertEqual(
+            published["source_columnar_row_materialization_status"],
+            "columnar_provider_batches_without_row_structs",
+        )
+        self.assertEqual(
+            published["source_columnar_null_validity_status"],
+            "no_null_heavy_column_required",
+        )
+        self.assertEqual(
+            published["source_columnar_unsupported_dtype_reason"],
+            "none_supported_benchmark_columnar_shape",
+        )
+        self.assertEqual(published["source_columnar_handoff_micros"], 2000)
+        self.assertEqual(published["source_to_vortex_handoff_micros"], 2000)
+        self.assertEqual(
+            published["source_columnar_correctness_digest_status"],
+            "covered_by_route_correctness_digest",
+        )
+        self.assertFalse(published["source_columnar_fallback_attempted"])
+        self.assertFalse(published["source_columnar_external_engine_invoked"])
+        self.assertIn(
+            "source columnar-provider admission is scenario-scoped",
+            published["source_columnar_claim_boundary"],
+        )
         self.assertEqual(
             published["vortex_reopen_scan_attribution_schema_version"],
             "shardloom.traditional_analytics.vortex_reopen_scan_attribution.v1",

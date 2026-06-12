@@ -78,7 +78,8 @@ not by compiling every reader by default. Active implementation status for input
     evidence to classify schema, delimiters, nullability, projected fields, malformed rows, and
     coercion policy before appending values directly into typed buffers for Vortex preparation.
     Admitted rows must report typed-builder status, projected/full/skipped column counts, row
-    materialization status, source-to-Vortex handoff timing, correctness digest status,
+    materialization status, zero row assembly or zero source-row materialization where supported,
+    source-to-Vortex handoff timing, correctness digest status,
     `fallback_attempted=false`, `external_engine_invoked=false`, and
     `external_parser_engine_invoked=false`. Unsupported CSV/JSONL shapes must produce deterministic
     source-scout blockers; the planned path does not authorize hidden row-object assembly,
@@ -88,12 +89,17 @@ not by compiling every reader by default. Active implementation status for input
     benchmark shortcut. Required fields must be derived from predicates, outputs, joins, grouping,
     ordering, certificates, diagnostics, and proof-tier needs before decode/handoff; skipped columns
     are valid only when the row records field masks, blocker posture, unchanged digests, and
-    no-fallback evidence.
-  - Planned `PERF-DESIGN-6R-C` work keeps Parquet and Arrow IPC under an already-columnar source
-    handoff contract. Admitted rows should preserve column buffers and null/validity semantics where
-    possible, report direct-columnar provider status and unsupported dtype blockers, and avoid
-    text-source typed-builder labels. This does not authorize Polars/PyArrow/DuckDB execution
-    fallback or lossy conversion.
+    no-fallback evidence. Lazy external engines such as Polars may remain projection-efficiency
+    baselines only; they are not ShardLoom execution providers.
+  - `PERF-DESIGN-6R-C` keeps Parquet and Arrow IPC under an already-columnar source handoff
+    contract. The local runtime/reporting path now emits `source_columnar_*` provider evidence for
+    direct provider rows and row-boundary adapters, including input format, provider surface,
+    projected mask, preserved/skipped column counts, materialized source rows, record batch count,
+    null/validity posture, unsupported dtype reason, source-to-Vortex handoff timing,
+    correctness-digest posture, and no-fallback/no-external-engine fields. Admitted Parquet/Arrow
+    IPC direct provider rows are still scoped benchmark evidence until targeted artifacts are
+    refreshed; Avro/ORC rows remain visible but outside the 6R-C timing claim scope. This does not
+    authorize Polars/PyArrow/DuckDB execution fallback or lossy conversion.
   - Production-certified adapters remain separate phases and must emit full capability, pushdown,
     fidelity, and certificate evidence.
 - Catalog/table refs

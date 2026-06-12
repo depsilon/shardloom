@@ -92,6 +92,9 @@ SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION = (
 SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.source_projection_admission.v1"
 )
+SOURCE_COLUMNAR_PROVIDER_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_columnar_provider.v1"
+)
 PREPARED_STATE_OPTIMIZATION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.prepared_state_optimization.v1"
 )
@@ -484,6 +487,25 @@ WEBSITE_ROW_KEYS = (
     "source_projection_fallback_attempted",
     "source_projection_external_engine_invoked",
     "source_projection_claim_boundary",
+    "source_columnar_provider_schema_version",
+    "source_columnar_provider_status",
+    "source_columnar_provider_surface",
+    "source_columnar_source_family",
+    "source_columnar_input_format",
+    "source_columnar_projected_field_mask",
+    "source_columnar_preserved_column_count",
+    "source_columnar_skipped_column_count",
+    "source_columnar_materialized_row_count",
+    "source_columnar_record_batch_count",
+    "source_columnar_row_materialization_status",
+    "source_columnar_null_validity_status",
+    "source_columnar_unsupported_dtype_reason",
+    "source_columnar_handoff_micros",
+    "source_to_vortex_handoff_micros",
+    "source_columnar_correctness_digest_status",
+    "source_columnar_fallback_attempted",
+    "source_columnar_external_engine_invoked",
+    "source_columnar_claim_boundary",
     "source_read_scout_claim_boundary",
     "source_state_read_plan",
     "source_state_projection_pushdown_status",
@@ -3598,6 +3620,245 @@ def source_projection_fields_from_runtime(
     }
 
 
+def source_columnar_default_fields(
+    status: str,
+    *,
+    source_family: str | None = None,
+    claim_boundary: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "source_columnar_provider_schema_version": SOURCE_COLUMNAR_PROVIDER_SCHEMA_VERSION,
+        "source_columnar_provider_status": status,
+        "source_columnar_provider_surface": status,
+        "source_columnar_source_family": source_family or status,
+        "source_columnar_input_format": status,
+        "source_columnar_projected_field_mask": "0x00000000",
+        "source_columnar_preserved_column_count": 0,
+        "source_columnar_skipped_column_count": 0,
+        "source_columnar_materialized_row_count": 0,
+        "source_columnar_record_batch_count": 0,
+        "source_columnar_row_materialization_status": status,
+        "source_columnar_null_validity_status": status,
+        "source_columnar_unsupported_dtype_reason": status,
+        "source_columnar_handoff_micros": 0,
+        "source_to_vortex_handoff_micros": 0,
+        "source_columnar_correctness_digest_status": status,
+        "source_columnar_fallback_attempted": False,
+        "source_columnar_external_engine_invoked": False,
+        "source_columnar_claim_boundary": claim_boundary or status,
+    }
+
+
+def source_columnar_fields_from_runtime(
+    fields: dict[str, Any],
+    *,
+    default_status: str = "not_reported",
+) -> dict[str, Any]:
+    input_format = str(
+        first_meaningful_field(
+            fields, ("source_columnar_input_format", "input_format", "storage_format")
+        )
+        or default_status
+    ).strip()
+    input_format_normalized = input_format.lower()
+    target_columnar_input = input_format_normalized in {"parquet", "arrow-ipc", "arrow_ipc"}
+    any_columnar_input = input_format_normalized in {
+        "parquet",
+        "arrow-ipc",
+        "arrow_ipc",
+        "avro",
+        "orc",
+    }
+    decode_status = first_meaningful_field(fields, ("source_read_decode_status",)) or ""
+    direct_columnar_provider = decode_status in {
+        "direct_columnar_provider_decode",
+        "projection_aware_columnar_provider_decode",
+    }
+    materialization_status = (
+        first_meaningful_field(fields, ("source_read_row_materialization_status",)) or ""
+    )
+    scalar_boundary = materialization_status in {
+        "row_structs_materialized",
+        "mixed_scalar_rows_and_provider_batches",
+    }
+    source_state_columnar_preserved = bool_field_value(
+        first_meaningful_field(fields, ("source_state_columnar_preserved",))
+    )
+    row_boundary = source_state_columnar_preserved and not direct_columnar_provider
+    row_assembly_micros = int(
+        numeric_value(
+            first_meaningful_field(fields, ("source_read_row_assembly_micros",))
+        )
+        or 0
+    )
+    decoded_count = int(
+        numeric_value(
+            first_meaningful_field(
+                fields,
+                (
+                    "source_columnar_preserved_column_count",
+                    "source_read_decoded_column_count",
+                ),
+            )
+        )
+        or 0
+    )
+    skipped_count = int(
+        numeric_value(
+            first_meaningful_field(
+                fields,
+                (
+                    "source_columnar_skipped_column_count",
+                    "source_read_skipped_column_count",
+                ),
+            )
+        )
+        or 0
+    )
+    record_batch_count = int(
+        numeric_value(
+            first_meaningful_field(
+                fields,
+                ("source_columnar_record_batch_count", "source_state_record_batch_count"),
+            )
+        )
+        or 0
+    )
+    rows_scanned = int(numeric_value(first_meaningful_field(fields, ("rows_scanned",))) or 0)
+    admitted = (
+        target_columnar_input
+        and direct_columnar_provider
+        and row_assembly_micros == 0
+        and not scalar_boundary
+    )
+    status = first_meaningful_field(fields, ("source_columnar_provider_status",))
+    if status is None:
+        if admitted and skipped_count > 0:
+            status = "admitted_projected_direct_columnar_provider"
+        elif admitted:
+            status = "admitted_direct_columnar_provider"
+        elif direct_columnar_provider and any_columnar_input:
+            status = "not_in_6r_c_scope_columnar_provider"
+        elif row_boundary and target_columnar_input:
+            status = "not_admitted_decoded_row_boundary"
+        elif row_boundary and any_columnar_input:
+            status = "not_in_6r_c_scope_row_boundary"
+        elif scalar_boundary:
+            status = "not_admitted_scalar_row_materialization"
+        elif any_columnar_input:
+            status = "blocked_columnar_provider_not_admitted"
+        else:
+            status = "not_applicable_non_columnar_source"
+    surface = first_meaningful_field(fields, ("source_columnar_provider_surface",))
+    if surface is None:
+        if direct_columnar_provider:
+            surface = "vortex_provider_record_batch"
+        elif row_boundary:
+            surface = "local_columnar_source_state_adapter_row_boundary"
+        elif any_columnar_input:
+            surface = "columnar_source_adapter_without_provider_admission"
+        else:
+            surface = "not_applicable_non_columnar_source"
+    decoded_columns = first_meaningful_field(fields, ("source_read_decoded_columns",)) or "none"
+    skipped_columns = first_meaningful_field(fields, ("source_read_skipped_columns",)) or "none"
+    null_validity_status = first_meaningful_field(
+        fields, ("source_columnar_null_validity_status",)
+    )
+    if null_validity_status is None:
+        if admitted and "fact.nullable_metric_00" in decoded_columns:
+            null_validity_status = "null_validity_preserved_for_required_columns"
+        elif admitted and "fact.nullable_metric_00" in skipped_columns:
+            null_validity_status = "nullable_metric_skipped_by_projection"
+        elif admitted:
+            null_validity_status = "no_null_heavy_column_required"
+        elif row_boundary:
+            null_validity_status = "decoded_row_boundary_validity_not_columnar_claim"
+        elif any_columnar_input:
+            null_validity_status = "not_admitted_columnar_provider"
+        else:
+            null_validity_status = "not_applicable_non_columnar_source"
+    unsupported_dtype_reason = first_meaningful_field(
+        fields, ("source_columnar_unsupported_dtype_reason",)
+    )
+    if unsupported_dtype_reason is None:
+        if admitted:
+            unsupported_dtype_reason = "none_supported_benchmark_columnar_shape"
+        elif direct_columnar_provider and any_columnar_input:
+            unsupported_dtype_reason = "format_outside_6r_c_claim_scope"
+        elif row_boundary:
+            unsupported_dtype_reason = "row_boundary_before_direct_provider_admission"
+        elif scalar_boundary:
+            unsupported_dtype_reason = "scalar_row_materialization_boundary"
+        elif any_columnar_input:
+            unsupported_dtype_reason = first_meaningful_field(
+                fields, ("source_read_unsupported_shape_diagnostic",)
+            ) or "columnar_provider_not_admitted"
+        else:
+            unsupported_dtype_reason = "not_applicable_non_columnar_source"
+    handoff_micros = int(
+        numeric_value(
+            first_meaningful_field(
+                fields,
+                (
+                    "source_columnar_handoff_micros",
+                    "source_to_vortex_handoff_micros",
+                    "source_read_columnar_handoff_micros",
+                ),
+            )
+        )
+        or 0
+    )
+    return {
+        "source_columnar_provider_schema_version": first_meaningful_field(
+            fields, ("source_columnar_provider_schema_version",)
+        )
+        or SOURCE_COLUMNAR_PROVIDER_SCHEMA_VERSION,
+        "source_columnar_provider_status": status,
+        "source_columnar_provider_surface": surface,
+        "source_columnar_source_family": first_meaningful_field(
+            fields, ("source_columnar_source_family",)
+        )
+        or ("already_columnar_source" if any_columnar_input else default_status),
+        "source_columnar_input_format": input_format,
+        "source_columnar_projected_field_mask": first_meaningful_field(
+            fields, ("source_columnar_projected_field_mask", "source_read_projected_field_mask")
+        )
+        or "0x00000000",
+        "source_columnar_preserved_column_count": decoded_count if direct_columnar_provider else 0,
+        "source_columnar_skipped_column_count": skipped_count if direct_columnar_provider else 0,
+        "source_columnar_materialized_row_count": 0
+        if direct_columnar_provider and not scalar_boundary
+        else (rows_scanned if any_columnar_input else 0),
+        "source_columnar_record_batch_count": record_batch_count,
+        "source_columnar_row_materialization_status": materialization_status or default_status,
+        "source_columnar_null_validity_status": null_validity_status,
+        "source_columnar_unsupported_dtype_reason": unsupported_dtype_reason,
+        "source_columnar_handoff_micros": handoff_micros,
+        "source_to_vortex_handoff_micros": handoff_micros,
+        "source_columnar_correctness_digest_status": first_meaningful_field(
+            fields, ("source_columnar_correctness_digest_status",)
+        )
+        or (
+            "covered_by_route_correctness_digest"
+            if admitted
+            else "not_applicable_columnar_provider_not_admitted"
+        ),
+        "source_columnar_fallback_attempted": bool_field_value(
+            first_meaningful_field(fields, ("source_columnar_fallback_attempted",))
+        ),
+        "source_columnar_external_engine_invoked": bool_field_value(
+            first_meaningful_field(fields, ("source_columnar_external_engine_invoked",))
+        ),
+        "source_columnar_claim_boundary": first_meaningful_field(
+            fields, ("source_columnar_claim_boundary",)
+        )
+        or (
+            "source columnar-provider admission is scenario-scoped and requires clean "
+            "benchmark refresh before timing claims"
+        ),
+    }
+
+
 def source_read_scout_fields_for_row(
     row: dict[str, Any], stage_fields: dict[str, Any]
 ) -> dict[str, Any]:
@@ -3630,6 +3891,10 @@ def source_read_scout_fields_for_row(
                 claim_boundary="external_baseline_only",
             ),
             **source_projection_default_fields(
+                "external_baseline_only",
+                claim_boundary="external_baseline_only",
+            ),
+            **source_columnar_default_fields(
                 "external_baseline_only",
                 claim_boundary="external_baseline_only",
             ),
@@ -3674,6 +3939,13 @@ def source_read_scout_fields_for_row(
                 "not_applicable_no_source_read_stage",
                 claim_boundary=(
                     "source projection admission is not applicable because the row has no "
+                    "source-read stage"
+                ),
+            ),
+            **source_columnar_default_fields(
+                "not_applicable_no_source_read_stage",
+                claim_boundary=(
+                    "source columnar-provider evidence is not applicable because the row has no "
                     "source-read stage"
                 ),
             ),
@@ -3833,6 +4105,7 @@ def source_read_scout_fields_for_row(
         or "not_reported",
         **source_typed_builder_fields_from_runtime(fields),
         **source_projection_fields_from_runtime(fields),
+        **source_columnar_fields_from_runtime(fields),
         "source_read_scout_claim_boundary": (
             "source-read scout attribution explains header/scout, byte acquisition, and full-body "
             "read composition only; it does not authorize performance, production, or "

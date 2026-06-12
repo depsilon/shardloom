@@ -177,6 +177,8 @@ const SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_typed_column_builder.v1";
 const SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_projection_admission.v1";
+const SOURCE_COLUMNAR_PROVIDER_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.source_columnar_provider.v1";
 const TRADITIONAL_FACT_SCHEMA_SUMMARY: &str = "fact(id:u64,group_key:u32,dim_key:u32,value:u32,metric:f64,flag:u8,category:utf8,event_date:utf8,nullable_metric_00:utf8,nested_payload:utf8,raw_event_time:utf8,dirty_numeric:utf8,dirty_flag:utf8)";
 const TRADITIONAL_FACT_COLUMN_COUNT: usize = 13;
 const TRADITIONAL_DIM_COLUMN_COUNT: usize = 3;
@@ -4601,6 +4603,211 @@ fn source_projection_admission_fields(
     ]
 }
 
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn source_columnar_provider_fields(
+    input_format: TraditionalAnalyticsInputFormat,
+    source_read_decode_status: &str,
+    source_read_projected_field_mask: &str,
+    source_read_decoded_columns: &str,
+    source_read_skipped_columns: &str,
+    source_read_decoded_column_count: u32,
+    source_read_skipped_column_count: u32,
+    source_read_row_assembly_micros: u64,
+    source_read_columnar_handoff_micros: u64,
+    source_read_row_materialization_status: &str,
+    source_read_unsupported_shape_diagnostic: &str,
+    source_state_columnar_preserved: bool,
+    source_state_record_batch_count: usize,
+    rows_scanned: u64,
+) -> Vec<(String, String)> {
+    let target_columnar_input = matches!(
+        input_format,
+        TraditionalAnalyticsInputFormat::Parquet | TraditionalAnalyticsInputFormat::ArrowIpc
+    );
+    let any_columnar_input = input_format.is_columnar();
+    let direct_columnar_provider = matches!(
+        source_read_decode_status,
+        "direct_columnar_provider_decode" | "projection_aware_columnar_provider_decode"
+    );
+    let row_boundary = source_state_columnar_preserved && !direct_columnar_provider;
+    let scalar_boundary = matches!(
+        source_read_row_materialization_status,
+        "row_structs_materialized" | "mixed_scalar_rows_and_provider_batches"
+    );
+    let admitted = target_columnar_input
+        && direct_columnar_provider
+        && source_read_row_assembly_micros == 0
+        && !scalar_boundary;
+    let status = if admitted && source_read_skipped_column_count > 0 {
+        "admitted_projected_direct_columnar_provider"
+    } else if admitted {
+        "admitted_direct_columnar_provider"
+    } else if direct_columnar_provider && any_columnar_input {
+        "not_in_6r_c_scope_columnar_provider"
+    } else if row_boundary && target_columnar_input {
+        "not_admitted_decoded_row_boundary"
+    } else if row_boundary && any_columnar_input {
+        "not_in_6r_c_scope_row_boundary"
+    } else if scalar_boundary {
+        "not_admitted_scalar_row_materialization"
+    } else if any_columnar_input {
+        "blocked_columnar_provider_not_admitted"
+    } else {
+        "not_applicable_non_columnar_source"
+    };
+    let surface = if direct_columnar_provider {
+        "vortex_provider_record_batch"
+    } else if row_boundary {
+        "local_columnar_source_state_adapter_row_boundary"
+    } else if any_columnar_input {
+        "columnar_source_adapter_without_provider_admission"
+    } else {
+        "not_applicable_non_columnar_source"
+    };
+    let materialized_row_count = if direct_columnar_provider && !scalar_boundary {
+        0
+    } else if any_columnar_input {
+        rows_scanned
+    } else {
+        0
+    };
+    let null_validity_status =
+        if admitted && source_read_decoded_columns.contains("fact.nullable_metric_00") {
+            "null_validity_preserved_for_required_columns"
+        } else if admitted && source_read_skipped_columns.contains("fact.nullable_metric_00") {
+            "nullable_metric_skipped_by_projection"
+        } else if admitted {
+            "no_null_heavy_column_required"
+        } else if row_boundary {
+            "decoded_row_boundary_validity_not_columnar_claim"
+        } else if any_columnar_input {
+            "not_admitted_columnar_provider"
+        } else {
+            "not_applicable_non_columnar_source"
+        };
+    let unsupported_dtype_reason = if admitted {
+        "none_supported_benchmark_columnar_shape"
+    } else if direct_columnar_provider && any_columnar_input {
+        "format_outside_6r_c_claim_scope"
+    } else if row_boundary {
+        "row_boundary_before_direct_provider_admission"
+    } else if scalar_boundary {
+        "scalar_row_materialization_boundary"
+    } else if any_columnar_input {
+        source_read_unsupported_shape_diagnostic
+    } else {
+        "not_applicable_non_columnar_source"
+    };
+    let correctness_status = if admitted {
+        "covered_by_route_correctness_digest"
+    } else {
+        "not_applicable_columnar_provider_not_admitted"
+    };
+    let claim_boundary = if admitted {
+        "source_columnar_provider_admission_is_scenario_scoped_and_requires_clean_benchmark_refresh_for_timing_claim"
+    } else if direct_columnar_provider && any_columnar_input {
+        "direct_columnar_provider_evidence_outside_parquet_arrow_ipc_claim_scope"
+    } else if row_boundary {
+        "columnar_source_preservation_reaches_decoded_row_boundary_not_direct_provider_claim"
+    } else {
+        "direct_columnar_provider_fast_path_not_claimed"
+    };
+
+    vec![
+        (
+            "source_columnar_provider_schema_version".to_string(),
+            SOURCE_COLUMNAR_PROVIDER_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "source_columnar_provider_status".to_string(),
+            status.to_string(),
+        ),
+        (
+            "source_columnar_provider_surface".to_string(),
+            surface.to_string(),
+        ),
+        (
+            "source_columnar_source_family".to_string(),
+            if any_columnar_input {
+                "already_columnar_source"
+            } else {
+                "not_applicable_non_columnar_source"
+            }
+            .to_string(),
+        ),
+        (
+            "source_columnar_input_format".to_string(),
+            input_format.as_str().to_string(),
+        ),
+        (
+            "source_columnar_projected_field_mask".to_string(),
+            source_read_projected_field_mask.to_string(),
+        ),
+        (
+            "source_columnar_preserved_column_count".to_string(),
+            if direct_columnar_provider {
+                source_read_decoded_column_count
+            } else {
+                0
+            }
+            .to_string(),
+        ),
+        (
+            "source_columnar_skipped_column_count".to_string(),
+            if direct_columnar_provider {
+                source_read_skipped_column_count
+            } else {
+                0
+            }
+            .to_string(),
+        ),
+        (
+            "source_columnar_materialized_row_count".to_string(),
+            materialized_row_count.to_string(),
+        ),
+        (
+            "source_columnar_record_batch_count".to_string(),
+            source_state_record_batch_count.to_string(),
+        ),
+        (
+            "source_columnar_row_materialization_status".to_string(),
+            source_read_row_materialization_status.to_string(),
+        ),
+        (
+            "source_columnar_null_validity_status".to_string(),
+            null_validity_status.to_string(),
+        ),
+        (
+            "source_columnar_unsupported_dtype_reason".to_string(),
+            unsupported_dtype_reason.to_string(),
+        ),
+        (
+            "source_columnar_handoff_micros".to_string(),
+            source_read_columnar_handoff_micros.to_string(),
+        ),
+        (
+            "source_to_vortex_handoff_micros".to_string(),
+            source_read_columnar_handoff_micros.to_string(),
+        ),
+        (
+            "source_columnar_correctness_digest_status".to_string(),
+            correctness_status.to_string(),
+        ),
+        (
+            "source_columnar_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "source_columnar_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "source_columnar_claim_boundary".to_string(),
+            claim_boundary.to_string(),
+        ),
+    ]
+}
+
 fn source_read_mask_hex(mask: u32) -> String {
     format!("0x{mask:08x}")
 }
@@ -5498,6 +5705,22 @@ impl TraditionalDirectTransientReport {
             &self.source_read_row_materialization_status,
             &self.source_read_unsupported_shape_diagnostic,
             self.source_state_projection_aware_text_decode,
+        ));
+        fields.extend(source_columnar_provider_fields(
+            self.input_format,
+            &self.source_read_decode_status,
+            &self.source_read_projected_field_mask,
+            &self.source_read_decoded_columns,
+            &self.source_read_skipped_columns,
+            self.source_read_decoded_column_count,
+            self.source_read_skipped_column_count,
+            self.source_read_row_assembly_micros,
+            self.source_read_columnar_handoff_micros,
+            &self.source_read_row_materialization_status,
+            &self.source_read_unsupported_shape_diagnostic,
+            self.source_state_columnar_preserved,
+            self.source_state_record_batch_count,
+            self.rows_scanned,
         ));
         fields.extend(evidence_render_proof_fields(
             self.scenario,
@@ -7571,6 +7794,22 @@ impl TraditionalAnalyticsReport {
             &self.source_read_row_materialization_status,
             &self.source_read_unsupported_shape_diagnostic,
             self.source_state_projection_aware_text_decode,
+        ));
+        fields.extend(source_columnar_provider_fields(
+            self.input_format,
+            &self.source_read_decode_status,
+            &self.source_read_projected_field_mask,
+            &self.source_read_decoded_columns,
+            &self.source_read_skipped_columns,
+            self.source_read_decoded_column_count,
+            self.source_read_skipped_column_count,
+            self.source_read_row_assembly_micros,
+            self.source_read_columnar_handoff_micros,
+            &self.source_read_row_materialization_status,
+            &self.source_read_unsupported_shape_diagnostic,
+            self.source_state_columnar_preserved,
+            self.source_state_record_batch_count,
+            self.rows_scanned,
         ));
         fields.extend(self.capillary_preparation_fields(
             &format!(
@@ -35905,6 +36144,58 @@ mod tests {
         );
         assert!(evidence.columnar_preserved);
         assert!(!evidence.scalar_rows_materialized);
+
+        let fields = field_map(source_columnar_provider_fields(
+            TraditionalAnalyticsInputFormat::Parquet,
+            evidence.decode_status(),
+            &evidence.projected_field_mask_hex(),
+            &evidence.decoded_columns(),
+            &evidence.skipped_columns(),
+            evidence.decoded_column_mask.count_ones(),
+            evidence.skipped_column_mask.count_ones(),
+            evidence.row_assembly_micros,
+            evidence.columnar_handoff_micros,
+            evidence.row_materialization_status(),
+            evidence.unsupported_shape_diagnostic(),
+            evidence.columnar_preserved,
+            evidence.record_batch_count,
+            3,
+        ));
+        assert_field_eq(
+            &fields,
+            "source_columnar_provider_schema_version",
+            SOURCE_COLUMNAR_PROVIDER_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "source_columnar_provider_status",
+            "admitted_projected_direct_columnar_provider",
+        );
+        assert_field_eq(
+            &fields,
+            "source_columnar_provider_surface",
+            "vortex_provider_record_batch",
+        );
+        assert_field_eq(
+            &fields,
+            "source_columnar_projected_field_mask",
+            "0x0000007f",
+        );
+        assert_field_eq(&fields, "source_columnar_preserved_column_count", "7");
+        assert_field_eq(&fields, "source_columnar_skipped_column_count", "6");
+        assert_field_eq(&fields, "source_columnar_materialized_row_count", "0");
+        assert_field_eq(
+            &fields,
+            "source_columnar_null_validity_status",
+            "nullable_metric_skipped_by_projection",
+        );
+        assert_field_eq(
+            &fields,
+            "source_columnar_unsupported_dtype_reason",
+            "none_supported_benchmark_columnar_shape",
+        );
+        assert_field_eq(&fields, "source_columnar_fallback_attempted", "false");
+        assert_field_eq(&fields, "source_columnar_external_engine_invoked", "false");
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -44495,6 +44786,30 @@ mod tests {
             "source_state_parse_normalization",
             "arrow_record_batches_to_traditional_rows_then_vortex_from_arrow_provider",
         );
+        assert_field_eq(
+            &fields,
+            "source_columnar_provider_schema_version",
+            SOURCE_COLUMNAR_PROVIDER_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "source_columnar_provider_status",
+            "not_admitted_decoded_row_boundary",
+        );
+        assert_field_eq(
+            &fields,
+            "source_columnar_provider_surface",
+            "local_columnar_source_state_adapter_row_boundary",
+        );
+        assert_field_eq(&fields, "source_columnar_input_format", "parquet");
+        assert_field_eq(&fields, "source_columnar_materialized_row_count", "3");
+        assert_field_eq(
+            &fields,
+            "source_columnar_unsupported_dtype_reason",
+            "row_boundary_before_direct_provider_admission",
+        );
+        assert_field_eq(&fields, "source_columnar_fallback_attempted", "false");
+        assert_field_eq(&fields, "source_columnar_external_engine_invoked", "false");
         assert!(
             fields
                 .get("source_to_columnar_micros")
@@ -44653,6 +44968,39 @@ mod tests {
                 "source_state_parse_normalization",
                 "arrow_record_batches_to_traditional_rows_then_vortex_from_arrow_provider",
             );
+            assert_field_eq(
+                &fields,
+                "source_columnar_provider_schema_version",
+                SOURCE_COLUMNAR_PROVIDER_SCHEMA_VERSION,
+            );
+            assert_field_eq(&fields, "source_columnar_input_format", format_slug);
+            assert_field_eq(
+                &fields,
+                "source_columnar_provider_surface",
+                "local_columnar_source_state_adapter_row_boundary",
+            );
+            let expected_columnar_status = if matches!(
+                input_format,
+                TraditionalAnalyticsInputFormat::Parquet
+                    | TraditionalAnalyticsInputFormat::ArrowIpc
+            ) {
+                "not_admitted_decoded_row_boundary"
+            } else {
+                "not_in_6r_c_scope_row_boundary"
+            };
+            assert_field_eq(
+                &fields,
+                "source_columnar_provider_status",
+                expected_columnar_status,
+            );
+            assert_field_eq(&fields, "source_columnar_materialized_row_count", "3");
+            assert_field_eq(
+                &fields,
+                "source_columnar_unsupported_dtype_reason",
+                "row_boundary_before_direct_provider_admission",
+            );
+            assert_field_eq(&fields, "source_columnar_fallback_attempted", "false");
+            assert_field_eq(&fields, "source_columnar_external_engine_invoked", "false");
             assert_field_eq(
                 &fields,
                 "representation_transition_summary",
@@ -48212,6 +48560,45 @@ mod tests {
                     &replay_fields,
                     "source_state_parse_normalization",
                     "projected_arrow_record_batches_to_vortex_provider_record_batch_no_row_boundary",
+                );
+                let expected_columnar_status = if matches!(
+                    output_format,
+                    TraditionalAnalyticsInputFormat::Parquet
+                        | TraditionalAnalyticsInputFormat::ArrowIpc
+                ) {
+                    "admitted_projected_direct_columnar_provider"
+                } else {
+                    "not_in_6r_c_scope_columnar_provider"
+                };
+                assert_field_eq(
+                    &replay_fields,
+                    "source_columnar_provider_status",
+                    expected_columnar_status,
+                );
+                assert_field_eq(
+                    &replay_fields,
+                    "source_columnar_provider_surface",
+                    "vortex_provider_record_batch",
+                );
+                assert_field_eq(
+                    &replay_fields,
+                    "source_columnar_input_format",
+                    output_format.as_str(),
+                );
+                assert_field_eq(
+                    &replay_fields,
+                    "source_columnar_materialized_row_count",
+                    "0",
+                );
+                assert_field_eq(
+                    &replay_fields,
+                    "source_columnar_fallback_attempted",
+                    "false",
+                );
+                assert_field_eq(
+                    &replay_fields,
+                    "source_columnar_external_engine_invoked",
+                    "false",
                 );
                 assert_field_eq(&replay_fields, "source_state_columnar_preserved", "true");
                 assert!(
