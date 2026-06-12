@@ -27922,6 +27922,8 @@ where
     let mut start = 0;
     let mut in_string = false;
     let mut escaped = false;
+    let mut object_depth = 0_u32;
+    let mut array_depth = 0_u32;
     for (index, ch) in inner.char_indices() {
         if escaped {
             escaped = false;
@@ -27930,7 +27932,39 @@ where
         match ch {
             '\\' if in_string => escaped = true,
             '"' => in_string = !in_string,
-            ',' if !in_string => {
+            '{' if !in_string => {
+                object_depth = object_depth.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{label} '{}' line {line_number} JSON object nesting depth overflowed",
+                        path.display()
+                    ))
+                })?;
+            }
+            '}' if !in_string => {
+                object_depth = object_depth.checked_sub(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{label} '{}' line {line_number} contains an unmatched JSON object close",
+                        path.display()
+                    ))
+                })?;
+            }
+            '[' if !in_string => {
+                array_depth = array_depth.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{label} '{}' line {line_number} JSON array nesting depth overflowed",
+                        path.display()
+                    ))
+                })?;
+            }
+            ']' if !in_string => {
+                array_depth = array_depth.checked_sub(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{label} '{}' line {line_number} contains an unmatched JSON array close",
+                        path.display()
+                    ))
+                })?;
+            }
+            ',' if !in_string && object_depth == 0 && array_depth == 0 => {
                 visit(inner[start..index].trim())?;
                 start = index + ch.len_utf8();
             }
@@ -27940,6 +27974,12 @@ where
     if in_string || escaped {
         return Err(ShardLoomError::InvalidOperation(format!(
             "{label} '{}' line {line_number} contains an unterminated JSON string",
+            path.display()
+        )));
+    }
+    if object_depth != 0 || array_depth != 0 {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} '{}' line {line_number} contains an unterminated JSON object or array",
             path.display()
         )));
     }
@@ -27960,6 +28000,8 @@ fn split_json_key_value<'a>(
     let mut delimiter_index = None;
     let mut in_string = false;
     let mut escaped = false;
+    let mut object_depth = 0_u32;
+    let mut array_depth = 0_u32;
     for (index, ch) in field.char_indices() {
         if escaped {
             escaped = false;
@@ -27968,13 +28010,49 @@ fn split_json_key_value<'a>(
         match ch {
             '\\' if in_string => escaped = true,
             '"' => in_string = !in_string,
-            ':' if !in_string && delimiter_index.is_some() => {
+            '{' if !in_string => {
+                object_depth = object_depth.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{label} '{}' line {line_number} JSON object nesting depth overflowed",
+                        path.display()
+                    ))
+                })?;
+            }
+            '}' if !in_string => {
+                object_depth = object_depth.checked_sub(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{label} '{}' line {line_number} contains an unmatched JSON object close",
+                        path.display()
+                    ))
+                })?;
+            }
+            '[' if !in_string => {
+                array_depth = array_depth.checked_add(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{label} '{}' line {line_number} JSON array nesting depth overflowed",
+                        path.display()
+                    ))
+                })?;
+            }
+            ']' if !in_string => {
+                array_depth = array_depth.checked_sub(1).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "{label} '{}' line {line_number} contains an unmatched JSON array close",
+                        path.display()
+                    ))
+                })?;
+            }
+            ':' if !in_string
+                && object_depth == 0
+                && array_depth == 0
+                && delimiter_index.is_some() =>
+            {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "{label} '{}' line {line_number} has an invalid JSON field",
                     path.display()
                 )));
             }
-            ':' if !in_string => {
+            ':' if !in_string && object_depth == 0 && array_depth == 0 => {
                 delimiter_index = Some(index);
             }
             _ => {}
@@ -27983,6 +28061,12 @@ fn split_json_key_value<'a>(
     if in_string || escaped {
         return Err(ShardLoomError::InvalidOperation(format!(
             "{label} '{}' line {line_number} contains an unterminated JSON string",
+            path.display()
+        )));
+    }
+    if object_depth != 0 || array_depth != 0 {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} '{}' line {line_number} contains an unterminated JSON object or array",
             path.display()
         )));
     }
@@ -35070,6 +35154,48 @@ mod tests {
         )
         .expect("unselected JSONL optional field should not be parsed");
         assert_eq!(rows, 1);
+
+        let row_with_unselected_nested_values = r#"{ "id":10, "group_key":4, "dim_key":5, "value":84, "metric":2.5, "flag":1, "category":"c10", "nested_payload":{"event":{"flag":true},"metrics":[1,2,3]}, "nullable_metric_00":["bad","shape"], "raw_event_time":{"ts":"bad"}, "dirty_numeric":"\u0031" }"#;
+        assert!(
+            parse_benchmark_fact_jsonl_fast_with_selection(
+                row_with_unselected_nested_values,
+                &path,
+                2,
+                TraditionalFactTextColumnSelection::for_scenario(
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                ),
+            )
+            .unwrap()
+            .is_none(),
+            "whitespace and nested object row should exercise the generic selected-field fallback"
+        );
+        let mut projected_nested_columns = TraditionalFactVortexColumns::with_capacity(1);
+        let rows = extend_traditional_fact_jsonl_columns_from_content(
+            &path,
+            row_with_unselected_nested_values,
+            &mut projected_nested_columns,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+            ),
+        )
+        .expect("unselected nested JSONL values should be skipped by projected fallback parse");
+        assert_eq!(rows, 1);
+
+        let mut selected_nested_columns = TraditionalFactVortexColumns::with_capacity(1);
+        let selected_nested_error = extend_traditional_fact_jsonl_columns_from_content(
+            &path,
+            row_with_unselected_nested_values,
+            &mut selected_nested_columns,
+            TraditionalFactTextColumnSelection::full(),
+        )
+        .expect_err("selected complex/malformed JSONL fields must still fail deterministically");
+        assert!(
+            selected_nested_error.to_string().contains("was not quoted")
+                || selected_nested_error
+                    .to_string()
+                    .contains("unsupported unicode escape"),
+            "unexpected selected nested error: {selected_nested_error}"
+        );
 
         let mut full_columns = TraditionalFactVortexColumns::with_capacity(1);
         assert!(

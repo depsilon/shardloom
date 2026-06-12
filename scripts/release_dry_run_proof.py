@@ -14,15 +14,17 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 ROOT = Path(__file__).resolve().parents[1]
+MIN_PACKAGE_PYTHON = (3, 10)
 PROTECTED_CLEANUP_ROOTS = {
     ".git",
     "benchmarks",
@@ -59,6 +61,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--rows", type=int, default=64)
     parser.add_argument("--iterations", type=int, default=1)
+    parser.add_argument(
+        "--package-python",
+        type=Path,
+        help=(
+            "Python >=3.10 executable used for wheel build, clean venv proof, "
+            "Python smokes, benchmark smoke, and provenance dry run. Defaults "
+            "to the first eligible local interpreter."
+        ),
+    )
     parser.add_argument(
         "--conda-env-dir",
         type=Path,
@@ -205,6 +216,114 @@ def run_step(
     }
 
 
+def parse_python_version_text(text: str) -> tuple[int, int, int] | None:
+    match = re.search(r"Python\s+(\d+)\.(\d+)(?:\.(\d+))?", text)
+    if match is None:
+        return None
+    patch = match.group(3)
+    return (int(match.group(1)), int(match.group(2)), int(patch or "0"))
+
+
+def version_satisfies_minimum(
+    version: tuple[int, int, int],
+    minimum: tuple[int, int],
+) -> bool:
+    return version[:2] >= minimum
+
+
+def resolve_python_candidate(candidate: Path) -> Path | None:
+    candidate_text = str(candidate)
+    if candidate.is_absolute() or os.sep in candidate_text or (os.altsep and os.altsep in candidate_text):
+        return candidate.resolve() if candidate.exists() else None
+    found = shutil.which(candidate_text)
+    return Path(found).resolve() if found else None
+
+
+def candidate_package_pythons(explicit: Path | None) -> list[Path]:
+    if explicit is not None:
+        return [explicit]
+    env_python = os.environ.get("SHARDLOOM_PACKAGE_PYTHON")
+    if env_python:
+        return [Path(env_python)]
+
+    home = Path.home()
+    candidates = [
+        Path(sys.executable),
+        Path("python3.13"),
+        Path("python3.12"),
+        Path("python3.11"),
+        Path("python3.10"),
+        Path("/opt/homebrew/bin/python3"),
+        Path("/opt/homebrew/bin/python3.13"),
+        Path("/opt/homebrew/bin/python3.12"),
+        Path("/opt/homebrew/bin/python3.11"),
+        Path("/opt/homebrew/bin/python3.10"),
+        Path("/usr/local/bin/python3"),
+        Path("/usr/local/bin/python3.13"),
+        Path("/usr/local/bin/python3.12"),
+        Path("/usr/local/bin/python3.11"),
+        Path("/usr/local/bin/python3.10"),
+        home
+        / ".cache"
+        / "codex-runtimes"
+        / "codex-primary-runtime"
+        / "dependencies"
+        / "python"
+        / "bin"
+        / "python3",
+    ]
+
+    deduped: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        resolved = resolve_python_candidate(candidate)
+        key = str(resolved or candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(candidate)
+    return deduped
+
+
+def select_package_python(
+    candidates: list[Path],
+    *,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> tuple[Path, str]:
+    checked: list[str] = []
+    for candidate in candidates:
+        resolved = resolve_python_candidate(candidate)
+        if resolved is None:
+            checked.append(f"{candidate}: not found")
+            continue
+        completed = runner(
+            [str(resolved), "--version"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        version_text = f"{completed.stdout} {completed.stderr}".strip()
+        version = parse_python_version_text(version_text)
+        if completed.returncode != 0 or version is None:
+            checked.append(f"{resolved}: version unavailable")
+            continue
+        version_label = ".".join(str(part) for part in version)
+        if version_satisfies_minimum(version, MIN_PACKAGE_PYTHON):
+            return resolved, version_label
+        checked.append(f"{resolved}: Python {version_label}")
+
+    checked_text = "; ".join(checked) if checked else "no candidates"
+    minimum = ".".join(str(part) for part in MIN_PACKAGE_PYTHON)
+    raise RuntimeError(
+        f"no Python >={minimum} executable found for release package proof; checked {checked_text}"
+    )
+
+
+def resolve_package_python(explicit: Path | None) -> tuple[Path, str]:
+    return select_package_python(candidate_package_pythons(explicit))
+
+
 def newest_wheel(dist_dir: Path) -> Path:
     wheels = sorted(dist_dir.glob("shardloom-*.whl"), key=lambda path: path.stat().st_mtime)
     if not wheels:
@@ -219,11 +338,16 @@ def clean_python_dist(dist_dir: Path) -> None:
             artifact.unlink()
 
 
-def build_python_artifacts(repo_root: Path, dist_dir: Path) -> dict[str, Any]:
+def build_python_artifacts(
+    repo_root: Path,
+    dist_dir: Path,
+    python_executable: Path | None = None,
+) -> dict[str, Any]:
+    python = str(python_executable or Path(sys.executable))
     clean_python_dist(dist_dir)
     build_step = run_step(
         name="build_python_artifacts",
-        command=[sys.executable, "-m", "build", "python"],
+        command=[python, "-m", "build", "python"],
         cwd=repo_root,
     )
     if build_step["returncode"] == 0:
@@ -236,7 +360,7 @@ def build_python_artifacts(repo_root: Path, dist_dir: Path) -> dict[str, Any]:
     fallback_step = run_step(
         name="build_python_artifacts",
         command=[
-            sys.executable,
+            python,
             "-m",
             "pip",
             "wheel",
@@ -320,6 +444,11 @@ def main() -> int:
     generated_range_output = proof_artifact_dir / "generated-range.jsonl"
     clean_conda_status = "not_run_prerequisite_failed"
     clean_conda_tool: Path | None = None
+    try:
+        package_python, package_python_version = resolve_package_python(args.package_python)
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
 
     steps: list[dict[str, Any]] = []
 
@@ -334,11 +463,11 @@ def main() -> int:
             cwd=repo_root,
         )
     )
-    steps.append(build_python_artifacts(repo_root, dist_dir))
+    steps.append(build_python_artifacts(repo_root, dist_dir, package_python))
     steps.append(
         run_step(
             name="create_clean_venv",
-            command=[sys.executable, "-m", "venv", str(venv_dir)],
+            command=[str(package_python), "-m", "venv", str(venv_dir)],
             cwd=repo_root,
         )
     )
@@ -356,6 +485,8 @@ def main() -> int:
             clean_conda_status,
             clean_conda_tool,
             args.require_clean_conda,
+            package_python,
+            package_python_version,
         )
 
     wheel = newest_wheel(dist_dir)
@@ -533,7 +664,7 @@ def main() -> int:
         run_step(
             name="release_provenance_dry_run",
             command=[
-                sys.executable,
+                str(package_python),
                 "scripts/release_provenance_dry_run.py",
                 "--repo-root",
                 str(repo_root),
@@ -558,6 +689,8 @@ def main() -> int:
         clean_conda_status,
         clean_conda_tool,
         args.require_clean_conda,
+        package_python,
+        package_python_version,
     )
 
 
@@ -573,6 +706,8 @@ def write_transcript(
     clean_conda_status: str,
     clean_conda_tool: Path | None,
     clean_conda_required: bool,
+    package_python: Path | None = None,
+    package_python_version: str | None = None,
 ) -> int:
     steps_by_name = {step["name"]: step for step in steps}
 
@@ -623,6 +758,9 @@ def write_transcript(
         "repo_root": "repo",
         "clean_venv": transcript_path_ref(repo_root, venv_dir),
         "clean_venv_install_status": step_status("install_local_wheel_clean_venv"),
+        "package_python": transcript_path_ref(repo_root, package_python),
+        "package_python_version": package_python_version,
+        "package_python_min_version": ".".join(str(part) for part in MIN_PACKAGE_PYTHON),
         "clean_conda_env": transcript_path_ref(repo_root, conda_env_dir),
         "clean_conda_env_install_status": clean_conda_status,
         "clean_conda_env_install_tool": transcript_path_ref(repo_root, clean_conda_tool),

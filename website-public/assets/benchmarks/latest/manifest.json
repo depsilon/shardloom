@@ -4,57 +4,57 @@
     "json": "website/assets/benchmarks/latest/benchmark-results.json",
     "markdown": null,
     "prepare_batch_role_repair_evidence": "website/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json",
-    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/benchmark-row-admission-manifest.json",
+    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/benchmark-row-admission-manifest.json",
     "row_chunks": [
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-000.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/published-benchmark-rows-000.json",
         "row_count": 200,
-        "sha256": "8f9535a3ca71997f7d6944bbfd2560d31781aadcb5134b442a7eb861af8297e1"
+        "sha256": "760a431936d44ffdacbbfa34fe28dcb689bb79eee7d6983875b7a07466cfb366"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-001.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/published-benchmark-rows-001.json",
         "row_count": 200,
-        "sha256": "aadf5922d1a557983307197b82bd286e8cd64418aa7ca8663f0b6daea15c2883"
+        "sha256": "ffb484f6c910fb8cc5bc94affb1667181805b24c99947dbdaf5303708cb29c16"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-002.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/published-benchmark-rows-002.json",
         "row_count": 200,
-        "sha256": "14dc472df69b891dd3d0977cc1be79a7b2eaae36e3a3bf4696b09cc495c657bb"
+        "sha256": "940c56b2337204cb5cf7456a22b2f0f9a0c0b40c430ac7643d0fac3967f24cad"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-003.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/published-benchmark-rows-003.json",
         "row_count": 200,
-        "sha256": "34bf21ff15a9834365fde630a4040b551c1bec6c2c9dc5c8a9682a13978a4dd4"
+        "sha256": "2cc02dc3d63c51283cecd69a98ab6ab9ee0cbf0e1a5f04ddcd98fa31bb22eb8c"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-004.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/published-benchmark-rows-004.json",
         "row_count": 200,
-        "sha256": "9c8b6a288dab74381537d89c73d94e02e056a8c9e994cdb980d4e0f93054e730"
+        "sha256": "c9074a19315e5b5482a354bf6556a96d39ead26c083160d15ca047092400969c"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-005.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/published-benchmark-rows-005.json",
         "row_count": 200,
-        "sha256": "b54edf8e6bfaf1cc6deb2f1a21526b2803400b3c8787a76b0c1e1f4e14c3f712"
+        "sha256": "922d49204f8edcd852f2fe97108c71ce28989c34655e1b103c12b1118483e162"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-006.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/published-benchmark-rows-006.json",
         "row_count": 200,
-        "sha256": "6c0a80bec403b081a3c5a2949e59be3a0faa0cd7508bc33246db41f2ed759e9b"
+        "sha256": "2d0a08ae049db45cff22efaf5814e10de3de1ac78b869534a4e5e2b027a1c919"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-007.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/published-benchmark-rows-007.json",
         "row_count": 200,
-        "sha256": "052f9912c581df377e75c791dc08bcb8860ac55dc6fed87d30a05ca465d1d1e4"
+        "sha256": "1bdff4ac23034e63d774e8ae8d40db9f3803c91678fe4df41439eed34d77b4be"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-008.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/published-benchmark-rows-008.json",
         "row_count": 200,
-        "sha256": "1381a8905c01d217b96293a745a8ceecd719b23699ddb6e30f69f44314aad7e6"
+        "sha256": "a7d3b611a6771e86233e0400ce559d9e28b6e9fe1252e6dd47025b1befc2b049"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-009.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/published-benchmark-rows-009.json",
         "row_count": 120,
-        "sha256": "2e840e061a50720a474e80a73f86c0c248761e0228dae5d0871457bad602e3cf"
+        "sha256": "b261e887aa68ab1fa5375f72c0579b734cece590b219826730f98ad7c801ae13"
       }
     ]
   },
@@ -95,9 +95,9 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "650fe14833e80c1042f8484f987a706b5e60c022",
+  "benchmark_git_sha": "795b518aedb7fe361811471e6537ba5e2c506583",
   "benchmark_profile": "full_local",
-  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/benchmark-row-admission-manifest.json",
+  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c/benchmark-row-admission-manifest.json",
   "benchmark_row_admission_schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -119,7 +119,7 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-12T03:29:30.993464+00:00",
+  "generated_at_utc": "2026-06-12T09:59:37.086279+00:00",
   "lane_availability_reasons": {
     "dask": "available in promoted benchmark artifact",
     "datafusion": "available in promoted benchmark artifact",
@@ -796,5 +796,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "650fe14833e80c1042f8484f987a706b5e60c022"
+  "shardloom_git_sha": "795b518aedb7fe361811471e6537ba5e2c506583"
 }

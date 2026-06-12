@@ -357,6 +357,18 @@ SOURCE_READ_SCOUT_REQUIRED_FIELDS = {
     "source_read_unsupported_shape_diagnostic",
     "source_read_scout_claim_boundary",
 }
+SOURCE_STATE_PROJECTION_REQUIRED_FIELDS = {
+    "source_state_read_plan",
+    "source_state_projection_pushdown_status",
+    "source_state_reader_projection_columns",
+    "source_state_reader_projection_column_count",
+    "source_state_projected_field_mask",
+    "source_state_filter_field_mask",
+    "source_state_decoded_columns",
+    "source_state_skipped_columns",
+    "source_state_decoded_column_count",
+    "source_state_skipped_column_count",
+}
 VORTEX_WRITER_CONTEXT_REQUIRED_FIELDS = {
     "vortex_writer_context_schema_version",
     "vortex_writer_context_status",
@@ -461,6 +473,7 @@ REQUIRED_ROUTE_FIELDS = {
     *FAST_PATH_REQUIRED_FIELDS,
     *OPERATOR_MODE_REQUIRED_FIELDS,
     *SOURCE_READ_SCOUT_REQUIRED_FIELDS,
+    *SOURCE_STATE_PROJECTION_REQUIRED_FIELDS,
     *VORTEX_WRITER_CONTEXT_REQUIRED_FIELDS,
 }
 
@@ -1189,6 +1202,46 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                 if not str(row.get(field) or "").strip():
                     blockers.append(
                         f"ShardLoom row {index} is missing source-read field {field}"
+                    )
+            for field in (
+                "source_state_projected_field_mask",
+                "source_state_filter_field_mask",
+            ):
+                if not str(row.get(field) or "").startswith("0x"):
+                    blockers.append(
+                        f"ShardLoom row {index} has invalid SourceState mask field {field}"
+                    )
+            for field in (
+                "source_state_reader_projection_column_count",
+                "source_state_decoded_column_count",
+                "source_state_skipped_column_count",
+            ):
+                value = _numeric_value(row.get(field))
+                if value is None or value < 0:
+                    blockers.append(
+                        f"ShardLoom row {index} has invalid SourceState count field {field}"
+                    )
+            source_state_projection_status = str(
+                row.get("source_state_projection_pushdown_status") or ""
+            )
+            if source_state_projection_status not in {
+                "external_baseline_only",
+                "full_source_read",
+                "not_applicable_no_source_read_stage",
+                "not_executed",
+                "not_reported",
+                "not_requested",
+                "not_requested_full_read",
+                "unsupported",
+                "unsupported_format",
+            }:
+                projection_columns = str(
+                    row.get("source_state_reader_projection_columns") or ""
+                )
+                if projection_columns in {"", "not_reported", "unknown"}:
+                    blockers.append(
+                        f"ShardLoom row {index} claims SourceState projection pushdown "
+                        "without reader projection columns"
                     )
             for field in (
                 "vortex_writer_context_write_count",

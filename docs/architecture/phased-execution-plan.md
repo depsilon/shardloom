@@ -188,7 +188,7 @@ Current autonomous execution order:
 Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 
 - Source artifact:
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`, 1,920
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`, 1,920
   published rows, including 1,200 ShardLoom rows and 720 external-baseline rows. External rows are
   baselines only, never fallback execution. The ShardLoom-family row set includes
   `shardloom`, `shardloom-vortex`, `shardloom-prepared-vortex`, and
@@ -274,7 +274,7 @@ Timing aggregation guardrail:
 ### PERF-DESIGN-6 - Source-adapter specialization and scout-stage execution split
 
 - Source: current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`;
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`;
   `scripts/check_benchmark_optimization_targets.py`;
   `target/benchmark-optimization-targets-review.json` when regenerated locally from
   `website-public/assets/benchmarks/latest/benchmark-results.json`;
@@ -295,8 +295,19 @@ Timing aggregation guardrail:
   provider path, locks the JSONL provider path so unselected malformed optional tails are not
   decoded while full preservation still fails closed, and tightens benchmark row promotion so
   source-read scout timing is not marked complete unless typed decode, row assembly, anomaly
-  quarantine, and columnar handoff substages are present. This does not complete PERF-DESIGN-6:
-  targeted JSONL/AVRO benchmark reruns, broader malformed/nested anomaly fixtures, and the updated
+  quarantine, and columnar handoff substages are present. The next runtime evidence-contract slice
+  now extends SourceState benchmark rows with read plan, projection pushdown status, reader
+  projection columns/count, projected/filter field masks, decoded/skipped column lists, and
+  decoded/skipped counts so route timing cannot expose source-adapter scout detail while
+  SourceState remains opaque. The local Python simulation also found and folded in two user-surface
+  correctness fixes: JSONL reads must pass `jsonl` into the public workflow route, and
+  computed-column filters must rewrite aliases to their admitted source expressions before route
+  execution. Runtime parser slices now let local JSON/JSONL projected reads preserve the full
+  source header while structurally skipping unselected values, and make the traditional benchmark
+  JSONL source adapter split generic fallback rows by top-level JSON fields so unselected nested
+  objects/arrays are skipped by projected hot-route reads. Selected scalar paths remain fail-closed
+  and unselected unsupported values are not decoded. This does not complete PERF-DESIGN-6: targeted
+  JSONL/AVRO benchmark reruns, broader malformed/nested anomaly fixtures, and the updated
   optimization-target artifact are still required before moving the item to the completed ledger.
 - Next slice outcome: implement one cohesive source-adapter execution-spine optimization batch that
   specializes JSONL and AVRO cold-ingest paths around projected field masks, typed decode plans,
@@ -345,7 +356,7 @@ Timing aggregation guardrail:
 ### PERF-DESIGN-4 - Session-native route and process-wall amortization
 
 - Source: current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`;
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`;
   `docs/architecture/in-process-session-runtime.md`;
   `docs/architecture/benchmark-persistent-runner-decision.md`; Python context/session surface.
 - Current state: warm/prepared/native `hot_runtime` route geomeans are about `0.10-0.12 ms`, but
@@ -389,7 +400,7 @@ Timing aggregation guardrail:
 ### PERF-DESIGN-5 - Vortex preparation write/reopen and copy-budget optimization
 
 - Source: current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`;
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`;
   `docs/architecture/io-reuse-and-fanout-architecture.md`;
   `docs/architecture/allocation-buffer-pool-optimization.md`;
   `docs/architecture/vortex-adapter-integration-plan.md`.
@@ -436,7 +447,7 @@ Timing aggregation guardrail:
 ### PERF-DESIGN-2 - Encoded-native operator promotion and stage-timing attribution cleanup
 
 - Source: PR #1174 route rows; current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`; operator
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`; operator
   mode inventory fields; `operator_hot_path_candidate`; `route_timing_exclusive_stage_sum_ms`;
   `route_timing_exclusive_residual_ms`.
 - Current state: prepared/native hot-route query totals are around `0.11-0.12 ms` geomean, but
@@ -479,7 +490,7 @@ Timing aggregation guardrail:
 ### PERF-DESIGN-3 - Publication-proof sink/evidence pipeline optimization
 
 - Source: `publication_proof` rows in PR #1174 and current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`;
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`;
   `PERF-SPLIT-FIX-1`; user request to reduce benchmark errors and write values incrementally.
 - Current state: publication-proof rows intentionally include result-sink and evidence-render work.
   Prepared/native publication rows add roughly `2.8-3.1 ms` evidence render geomean and
@@ -578,6 +589,10 @@ Runtime and release queue status:
 - Final Pre-Release Sequential Closeout Queue: closed as no-publication evidence. Publication,
   signing, tags, uploads, package-channel submission, release assets, and public claims still require
   explicit maintainer approval and passing hard gates.
+- Local release dry-run simulation follow-up: package proof must resolve and record a Python
+  interpreter satisfying the Python package `requires-python` floor before wheel build, clean-venv
+  install, benchmark smoke, or provenance dry-run steps. This is local pre-release readiness
+  hardening only; it does not authorize publication or package-channel claims.
 
 Traceability anchors retained for validators and future routing:
 

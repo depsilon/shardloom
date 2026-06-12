@@ -1010,6 +1010,16 @@ SOURCE_STATE_CONTRACT_FIELDS = (
     "source_state_parse_normalization",
     "source_state_columnar_preserved",
     "source_state_record_batch_count",
+    "source_state_read_plan",
+    "source_state_projection_pushdown_status",
+    "source_state_reader_projection_columns",
+    "source_state_reader_projection_column_count",
+    "source_state_projected_field_mask",
+    "source_state_filter_field_mask",
+    "source_state_decoded_columns",
+    "source_state_skipped_columns",
+    "source_state_decoded_column_count",
+    "source_state_skipped_column_count",
     "source_state_reuse_allowed",
     "source_discovery_millis",
     "schema_inference_millis",
@@ -10326,6 +10336,179 @@ def source_state_reuse_reason(engine: str, evidence: dict[str, Any], status: str
     return "one-shot compatibility import records SourceState identity but does not reuse it"
 
 
+def source_state_column_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    text = str(value).strip()
+    if text.lower() in {
+        "",
+        "none",
+        "not_applicable",
+        "not_evaluated",
+        "not_executed",
+        "not_reported",
+        "not_requested",
+        "unknown",
+    }:
+        return []
+    separator = "|" if "|" in text else ","
+    return [column.strip() for column in text.split(separator) if column.strip()]
+
+
+def source_state_column_text(value: Any) -> str:
+    columns = source_state_column_list(value)
+    return ",".join(columns) if columns else "none"
+
+
+def source_state_column_count(
+    evidence: dict[str, Any],
+    direct_count_field: str,
+    column_text: str,
+    *,
+    fallback_count_field: str | None = None,
+) -> int:
+    direct = parse_optional_int(evidence.get(direct_count_field))
+    if direct is not None:
+        return direct
+    if fallback_count_field is not None:
+        fallback = parse_optional_int(evidence.get(fallback_count_field))
+        if fallback is not None:
+            return fallback
+    return len(source_state_column_list(column_text))
+
+
+def source_state_projection_contract_metadata(
+    *,
+    engine: str,
+    data_format: str,
+    status: str,
+    evidence: dict[str, Any],
+    is_shardloom: bool,
+    supported_format: bool,
+) -> dict[str, Any]:
+    non_execution_status = status in UNSUPPORTED_ROW_STATUSES | NON_EXECUTED_BLOCKED_ROW_STATUSES
+    if not is_shardloom:
+        default_status = "external_baseline_only"
+        return {
+            "source_state_read_plan": default_status,
+            "source_state_projection_pushdown_status": default_status,
+            "source_state_reader_projection_columns": "none",
+            "source_state_reader_projection_column_count": 0,
+            "source_state_projected_field_mask": "0x00000000",
+            "source_state_filter_field_mask": "0x00000000",
+            "source_state_decoded_columns": "none",
+            "source_state_skipped_columns": "none",
+            "source_state_decoded_column_count": 0,
+            "source_state_skipped_column_count": 0,
+        }
+    if not supported_format:
+        default_status = "unsupported_format"
+    elif non_execution_status:
+        default_status = "not_executed"
+    elif engine == "shardloom-direct-transient" or data_format == SHARDLOOM_VORTEX_FORMAT:
+        default_status = "not_requested"
+    else:
+        default_status = "not_reported"
+
+    decoded_columns = source_state_column_text(
+        first_meaningful_field(
+            evidence.get("source_state_decoded_columns"),
+            evidence.get("source_read_decoded_columns"),
+        )
+    )
+    skipped_columns = source_state_column_text(
+        first_meaningful_field(
+            evidence.get("source_state_skipped_columns"),
+            evidence.get("source_read_skipped_columns"),
+        )
+    )
+    reader_projection_columns = source_state_column_text(
+        first_meaningful_field(
+            evidence.get("source_state_reader_projection_columns"),
+            evidence.get("reader_projection_columns"),
+            evidence.get("source_read_decoded_columns"),
+        )
+    )
+    decoded_count = source_state_column_count(
+        evidence,
+        "source_state_decoded_column_count",
+        decoded_columns,
+        fallback_count_field="source_read_decoded_column_count",
+    )
+    skipped_count = source_state_column_count(
+        evidence,
+        "source_state_skipped_column_count",
+        skipped_columns,
+        fallback_count_field="source_read_skipped_column_count",
+    )
+    reader_projection_count = source_state_column_count(
+        evidence,
+        "source_state_reader_projection_column_count",
+        reader_projection_columns,
+    )
+    if (
+        reader_projection_columns == "none"
+        and decoded_columns != "none"
+        and reader_projection_count == 0
+    ):
+        reader_projection_columns = decoded_columns
+        reader_projection_count = decoded_count
+
+    if default_status != "not_reported":
+        read_plan = str(
+            first_meaningful_field(evidence.get("source_state_read_plan"), default_status)
+        )
+        projection_status = str(
+            first_meaningful_field(
+                evidence.get("source_state_projection_pushdown_status"),
+                default_status,
+            )
+        )
+    else:
+        read_plan = str(
+            first_meaningful_field(
+                evidence.get("source_state_read_plan"),
+                evidence.get("vortex_scout_ingress_read_plan"),
+                "projection_aware_source_scout" if skipped_count > 0 else None,
+                "full_source_read" if decoded_count > 0 else None,
+                default_status,
+            )
+        )
+        projection_status = str(
+            first_meaningful_field(
+                evidence.get("source_state_projection_pushdown_status"),
+                "reader_projection_applied" if skipped_count > 0 else None,
+                "not_requested_full_read" if decoded_count > 0 else None,
+                default_status,
+            )
+        )
+
+    return {
+        "source_state_read_plan": read_plan,
+        "source_state_projection_pushdown_status": projection_status,
+        "source_state_reader_projection_columns": reader_projection_columns,
+        "source_state_reader_projection_column_count": reader_projection_count,
+        "source_state_projected_field_mask": str(
+            first_meaningful_field(
+                evidence.get("source_state_projected_field_mask"),
+                evidence.get("source_read_projected_field_mask"),
+                "0x00000000",
+            )
+        ),
+        "source_state_filter_field_mask": str(
+            first_meaningful_field(
+                evidence.get("source_state_filter_field_mask"),
+                evidence.get("source_read_filter_field_mask"),
+                "0x00000000",
+            )
+        ),
+        "source_state_decoded_columns": decoded_columns,
+        "source_state_skipped_columns": skipped_columns,
+        "source_state_decoded_column_count": decoded_count,
+        "source_state_skipped_column_count": skipped_count,
+    }
+
+
 def source_state_contract_metadata(
     engine: str,
     paths: DatasetPaths,
@@ -10417,6 +10600,14 @@ def source_state_contract_metadata(
         source_state_record_batch_count = (
             parse_optional_int(evidence.get("source_state_record_batch_count")) or 0
         )
+    projection_metadata = source_state_projection_contract_metadata(
+        engine=engine,
+        data_format=data_format,
+        status=status,
+        evidence=evidence,
+        is_shardloom=is_shardloom,
+        supported_format=supported_format,
+    )
     return {
         "source_state_contract_schema_version": SOURCE_STATE_CONTRACT_SCHEMA_VERSION,
         "source_state_status_vocabulary": ",".join(SOURCE_STATE_CONTRACT_STATUS_VOCABULARY),
@@ -10436,6 +10627,7 @@ def source_state_contract_metadata(
         "source_state_parse_normalization": source_state_parse_normalization,
         "source_state_columnar_preserved": source_state_columnar_preserved,
         "source_state_record_batch_count": source_state_record_batch_count,
+        **projection_metadata,
         "source_state_reuse_allowed": batch_reuse_allowed,
         "source_discovery_millis": None,
         "schema_inference_millis": None,
@@ -15028,6 +15220,37 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             True, str(result.get("status", "unknown"))
         ):
             raise RuntimeError("SourceState evidence claim gate status was unexpected")
+        for field in (
+            "source_state_reader_projection_column_count",
+            "source_state_decoded_column_count",
+            "source_state_skipped_column_count",
+        ):
+            value = parse_optional_int(metrics.get(field))
+            if value is None or value < 0:
+                raise RuntimeError(f"SourceState field {field} must be a nonnegative integer")
+        for field in ("source_state_projected_field_mask", "source_state_filter_field_mask"):
+            if not str(metrics.get(field) or "").startswith("0x"):
+                raise RuntimeError(f"SourceState field {field} must use a hex mask")
+        source_state_projection_status = str(
+            metrics.get("source_state_projection_pushdown_status") or ""
+        )
+        if source_state_projection_status not in {
+            "external_baseline_only",
+            "full_source_read",
+            "not_executed",
+            "not_reported",
+            "not_requested",
+            "not_requested_full_read",
+            "unsupported",
+            "unsupported_format",
+        }:
+            projection_columns = str(
+                metrics.get("source_state_reader_projection_columns") or ""
+            )
+            if projection_columns in {"", "not_reported", "unknown"}:
+                raise RuntimeError(
+                    "SourceState projection pushdown rows must report reader projection columns"
+                )
         if (
             metrics.get("source_state_status") == "source_state_reuse_supported"
             and metrics.get("source_state_reuse_allowed") is not True
