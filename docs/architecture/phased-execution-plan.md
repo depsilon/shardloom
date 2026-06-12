@@ -289,6 +289,15 @@ Timing aggregation guardrail:
   read averaging about `1.95 ms` and p95 about `12.96 ms`, so the engine cannot yet distinguish
   open, byte acquisition, typed decode, row assembly, and columnar handoff costs well enough to
   choose the right cold-lane optimization.
+- Implementation evidence in progress: the local source-adapter slice now routes fact-columnar
+  readers through scenario-specific projected field masks for Parquet, Arrow IPC, AVRO, and ORC
+  reader provider surfaces, records projection-aware source evidence for the direct columnar
+  provider path, locks the JSONL provider path so unselected malformed optional tails are not
+  decoded while full preservation still fails closed, and tightens benchmark row promotion so
+  source-read scout timing is not marked complete unless typed decode, row assembly, anomaly
+  quarantine, and columnar handoff substages are present. This does not complete PERF-DESIGN-6:
+  targeted JSONL/AVRO benchmark reruns, broader malformed/nested anomaly fixtures, and the updated
+  optimization-target artifact are still required before moving the item to the completed ledger.
 - Next slice outcome: implement one cohesive source-adapter execution-spine optimization batch that
   specializes JSONL and AVRO cold-ingest paths around projected field masks, typed decode plans,
   anomaly/quarantine policy, columnar handoff into Vortex preparation, and explicit source-read scout

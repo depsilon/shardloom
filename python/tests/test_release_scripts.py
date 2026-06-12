@@ -2102,6 +2102,10 @@ class ReleaseScriptTests(unittest.TestCase):
                 "source_read_header_scout_micros": 1000,
                 "source_read_byte_acquisition_millis": 4.0,
                 "source_read_full_body_millis": 7.0,
+                "source_read_typed_decode_millis": 6.0,
+                "source_read_row_assembly_micros": 0,
+                "source_read_anomaly_quarantine_micros": 0,
+                "source_read_columnar_handoff_millis": 2.0,
                 "source_read_scout_status": "source_read_scout_split_recorded",
                 "source_read_scout_reuse_status": "not_reused_fresh_source_read",
                 "compatibility_parse_millis": 6.0,
@@ -2139,6 +2143,10 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["source_read_header_scout_ms"], 1.0)
         self.assertEqual(published["source_read_byte_acquisition_ms"], 4.0)
         self.assertEqual(published["source_read_full_body_ms"], 7.0)
+        self.assertEqual(published["source_read_typed_decode_ms"], 6.0)
+        self.assertEqual(published["source_read_row_assembly_ms"], 0.0)
+        self.assertEqual(published["source_read_anomaly_quarantine_ms"], 0.0)
+        self.assertEqual(published["source_read_columnar_handoff_ms"], 2.0)
         self.assertEqual(published["source_read_scout_residual_ms"], 0.0)
         self.assertEqual(
             published["vortex_reopen_scan_attribution_schema_version"],
@@ -2159,6 +2167,62 @@ class ReleaseScriptTests(unittest.TestCase):
             route_share["rows"][0][7],
             "continue_workspace_safe_writer_metadata_coalescing",
         )
+
+    def test_benchmark_promoter_blocks_complete_source_scout_when_diagnostic_pieces_missing(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_source_scout_incomplete_for_test",
+        )
+
+        row = {
+            "engine": "shardloom",
+            "storage_format": "avro",
+            "scenario_name": "filter + projection + limit",
+            "status": "success",
+            "selected_execution_mode": "compatibility_import_certified",
+            "requested_execution_mode": "compatibility_import_certified",
+            "timing_scope": "cold_certified_end_to_end",
+            "compatibility_import_included": True,
+            "source_state_id": "source-state://coarse-scout-row",
+            "source_state_digest": "sha256:source",
+            "prepared_state_id": "prepared-state://coarse-scout-row",
+            "prepared_state_digest": "sha256:prepared",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.coarse-scout-row",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:correct",
+            "correctness_digest_stable": True,
+            "computed_result_sink_replay_verified": True,
+            "metrics": {
+                "exclusive_source_read_millis": 12.0,
+                "source_read_header_scout_millis": 1.0,
+                "source_read_byte_acquisition_millis": 4.0,
+                "source_read_full_body_millis": 7.0,
+                "compatibility_parse_millis": 6.0,
+                "source_to_columnar_millis": 2.0,
+                "total_runtime_millis": 20.0,
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(
+            published["source_read_scout_timing_split_status"],
+            "blocked_missing_source_read_scout_split",
+        )
+        self.assertIsNone(published["source_read_typed_decode_ms"])
+        self.assertIsNone(published["source_read_columnar_handoff_ms"])
+        self.assertEqual(published["source_read_scout_residual_ms"], 0.0)
 
     def test_benchmark_promoter_flags_common_run_timing_drift(self) -> None:
         module = self._load_script_module(
@@ -3755,6 +3819,10 @@ class ReleaseScriptTests(unittest.TestCase):
                 "source_read_header_scout_micros": "1000",
                 "source_read_byte_acquisition_micros": "2000",
                 "source_read_full_body_micros": "3000",
+                "source_read_typed_decode_micros": "6000",
+                "source_read_row_assembly_micros": "0",
+                "source_read_anomaly_quarantine_micros": "0",
+                "source_read_columnar_handoff_micros": "1000",
                 "source_read_scout_status": "measured",
                 "source_read_scout_reuse_status": "reuse_miss",
                 "vortex_footer_open_micros": "400",
@@ -3771,6 +3839,10 @@ class ReleaseScriptTests(unittest.TestCase):
                 "source_read_header_scout_micros": "3000",
                 "source_read_byte_acquisition_micros": "4000",
                 "source_read_full_body_micros": "5000",
+                "source_read_typed_decode_micros": "8000",
+                "source_read_row_assembly_micros": "0",
+                "source_read_anomaly_quarantine_micros": "0",
+                "source_read_columnar_handoff_micros": "2000",
                 "source_read_scout_status": "measured",
                 "source_read_scout_reuse_status": "reuse_hit",
                 "vortex_footer_open_micros": "800",
@@ -3806,6 +3878,10 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(metrics["source_read_header_scout_millis"], 2.0)
         self.assertEqual(metrics["source_read_byte_acquisition_millis"], 3.0)
         self.assertEqual(metrics["source_read_full_body_millis"], 4.0)
+        self.assertEqual(metrics["source_read_typed_decode_millis"], 7.0)
+        self.assertEqual(metrics["source_read_row_assembly_millis"], 0.0)
+        self.assertEqual(metrics["source_read_anomaly_quarantine_millis"], 0.0)
+        self.assertEqual(metrics["source_read_columnar_handoff_millis"], 1.5)
         self.assertEqual(metrics["source_read_header_scout_micros"], 3000)
         self.assertEqual(metrics["source_read_scout_reuse_status"], "reuse_hit")
         self.assertEqual(metrics["vortex_footer_open_millis"], 0.6)

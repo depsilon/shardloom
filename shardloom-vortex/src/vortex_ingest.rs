@@ -8484,6 +8484,7 @@ mod tests {
 
     #[cfg(feature = "universal-format-io")]
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn local_flat_scalar_typed_nested_rows_write_via_vortex_arrow_provider() {
         use std::sync::Arc;
 

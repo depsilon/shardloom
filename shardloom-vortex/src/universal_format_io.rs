@@ -41,7 +41,7 @@ pub struct FlatLocalSourceTable {
     pub column_dtypes: Vec<Option<LogicalDType>>,
     /// Source-schema Arrow dtype hints aligned with `header` for scoped typed
     /// nested output preservation. These hints are canonicalized to the
-    /// ShardLoom scalar materialization families rather than claimed as exact
+    /// `ShardLoom` scalar materialization families rather than claimed as exact
     /// source layout preservation.
     pub column_arrow_dtypes: Vec<Option<DataType>>,
     /// Column order requested from the underlying local reader.
@@ -62,7 +62,7 @@ pub struct FlatLocalColumnarSource {
     pub column_dtypes: Vec<Option<LogicalDType>>,
     /// Source-schema Arrow dtype hints aligned with `header` for scoped typed
     /// nested output preservation. These hints are canonicalized to the
-    /// ShardLoom scalar materialization families rather than claimed as exact
+    /// `ShardLoom` scalar materialization families rather than claimed as exact
     /// source layout preservation.
     pub column_arrow_dtypes: Vec<Option<DataType>>,
     /// Column order materialized for the caller.
@@ -531,6 +531,7 @@ where
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn read_flat_record_batch_reader_columnar_with_header<R>(
     reader: &mut R,
     path: &Path,
@@ -780,11 +781,7 @@ fn source_schema_arrow_dtype_hint(data_type: &DataType) -> Option<DataType> {
             let scale_u8 = u8::try_from(*scale).ok()?;
             (scale_u8 <= *precision).then_some(DataType::Decimal128(*precision, *scale))
         }
-        DataType::List(field) | DataType::LargeList(field) => {
-            let child = source_schema_arrow_dtype_hint(field.data_type())?;
-            Some(DataType::List(Arc::new(Field::new_list_field(child, true))))
-        }
-        DataType::FixedSizeList(field, _) => {
+        DataType::List(field) | DataType::LargeList(field) | DataType::FixedSizeList(field, _) => {
             let child = source_schema_arrow_dtype_hint(field.data_type())?;
             Some(DataType::List(Arc::new(Field::new_list_field(child, true))))
         }
@@ -1242,6 +1239,7 @@ fn validate_flat_columns(columns: &[String], context: &str) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)]
 fn flat_output_column_array(
     column: &str,
     column_index: usize,
@@ -1296,8 +1294,7 @@ fn flat_output_column_array(
         if let Some((arrow_kind, arrow_dtype)) = declared_complex_arrow_dtype {
             if arrow_kind != complex_kind {
                 return Err(ShardLoomError::InvalidOperation(format!(
-                    "{context} column '{column}' is declared {complex_kind} but has Arrow child-schema hint {:?}; scoped typed complex sinks require matching logical and Arrow complex families",
-                    arrow_dtype
+                    "{context} column '{column}' is declared {complex_kind} but has Arrow child-schema hint {arrow_dtype:?}; scoped typed complex sinks require matching logical and Arrow complex families"
                 )));
             }
             return nested_arrow_column_with_data_type(
@@ -1328,8 +1325,7 @@ fn flat_output_column_array(
         if let Some((arrow_kind, arrow_dtype)) = declared_complex_arrow_dtype {
             if Some(arrow_kind) != inferred_kind {
                 return Err(ShardLoomError::InvalidOperation(format!(
-                    "{context} column '{column}' inferred {:?} but has Arrow child-schema hint {:?}; scoped typed complex sinks require matching logical and Arrow complex families",
-                    inferred_kind, arrow_dtype
+                    "{context} column '{column}' inferred {inferred_kind:?} but has Arrow child-schema hint {arrow_dtype:?}; scoped typed complex sinks require matching logical and Arrow complex families"
                 )));
             }
             return nested_arrow_column_with_data_type(
@@ -1709,6 +1705,7 @@ fn complex_arrow_dtype_kind(data_type: &DataType) -> Option<&'static str> {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn infer_arrow_dtype_from_scalar_values(
     path: &str,
     values: &[&ScalarValue],
@@ -1752,8 +1749,7 @@ fn infer_arrow_dtype_from_scalar_values(
                     Some(existing_names) if existing_names == &candidate_names => {}
                     Some(existing_names) => {
                         return Err(ShardLoomError::InvalidOperation(format!(
-                            "{context} nested output path '{path}' mixes struct field layouts {:?} and {:?}; scoped typed complex sinks require stable field names and order",
-                            existing_names, candidate_names
+                            "{context} nested output path '{path}' mixes struct field layouts {existing_names:?} and {candidate_names:?}; scoped typed complex sinks require stable field names and order"
                         )));
                     }
                 }
@@ -1768,8 +1764,7 @@ fn infer_arrow_dtype_from_scalar_values(
                     Some(existing_dtype) if existing_dtype == &candidate_dtype => {}
                     Some(existing_dtype) => {
                         return Err(ShardLoomError::InvalidOperation(format!(
-                            "{context} nested output path '{path}' mixes Arrow dtypes {:?} and {:?}; scoped typed complex sinks require one stable Arrow dtype per nested path",
-                            existing_dtype, candidate_dtype
+                            "{context} nested output path '{path}' mixes Arrow dtypes {existing_dtype:?} and {candidate_dtype:?}; scoped typed complex sinks require one stable Arrow dtype per nested path"
                         )));
                     }
                 }
@@ -2014,8 +2009,7 @@ fn append_null_to_arrow_builder(
         }
         other => {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "{context} nested output path '{path}' has unsupported Arrow dtype {:?}; scoped typed complex sinks admit boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, list, and struct only",
-                other
+                "{context} nested output path '{path}' has unsupported Arrow dtype {other:?}; scoped typed complex sinks admit boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, list, and struct only"
             )));
         }
     }
@@ -2184,8 +2178,7 @@ fn struct_builder_mut<'a>(
 
 fn arrow_builder_downcast_error(context: &str, path: &str, data_type: &DataType) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
-        "{context} nested output path '{path}' could not access Arrow builder for dtype {:?}; no fallback execution was attempted",
-        data_type
+        "{context} nested output path '{path}' could not access Arrow builder for dtype {data_type:?}; no fallback execution was attempted"
     ))
 }
 
@@ -2218,7 +2211,7 @@ fn unexpected_sink_value(
     ))
 }
 
-#[allow(clippy::cast_precision_loss)]
+#[allow(clippy::cast_precision_loss, clippy::too_many_lines)]
 fn arrow_scalar_to_shardloom(
     array: &dyn Array,
     row_index: usize,
@@ -2317,13 +2310,13 @@ fn arrow_scalar_to_shardloom(
         });
     }
     if let Some(values) = array.as_any().downcast_ref::<ListArray>() {
-        return arrow_list_value_to_shardloom(values.value(row_index), column, path, source_label);
+        return arrow_list_value_to_shardloom(&values.value(row_index), column, path, source_label);
     }
     if let Some(values) = array.as_any().downcast_ref::<LargeListArray>() {
-        return arrow_list_value_to_shardloom(values.value(row_index), column, path, source_label);
+        return arrow_list_value_to_shardloom(&values.value(row_index), column, path, source_label);
     }
     if let Some(values) = array.as_any().downcast_ref::<FixedSizeListArray>() {
-        return arrow_list_value_to_shardloom(values.value(row_index), column, path, source_label);
+        return arrow_list_value_to_shardloom(&values.value(row_index), column, path, source_label);
     }
     if let Some(values) = array.as_any().downcast_ref::<StructArray>() {
         let mut fields = Vec::with_capacity(values.num_columns());
@@ -2350,7 +2343,7 @@ fn arrow_scalar_to_shardloom(
 }
 
 fn arrow_list_value_to_shardloom(
-    value: ArrayRef,
+    value: &ArrayRef,
     column: &str,
     path: &Path,
     source_label: &str,
