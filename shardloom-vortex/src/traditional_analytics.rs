@@ -18925,10 +18925,10 @@ impl TraditionalResidualOperatorOptimizationEvidence {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-    fn dense_u32_group_accumulator() -> Self {
+    fn dense_u32_accumulator_for(family: &'static str, status: &'static str) -> Self {
         Self {
-            family: "single_key_group_by",
-            status: "applied_residual_dense_u32_group_accumulator",
+            family,
+            status,
             dense_accumulator_used: true,
             sparse_rollover_used: false,
             dense_max_key: Some(TRADITIONAL_DENSE_GROUP_MAX_KEY),
@@ -18937,10 +18937,10 @@ impl TraditionalResidualOperatorOptimizationEvidence {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-    fn dense_packed_group_accumulator() -> Self {
+    fn dense_packed_accumulator_for(family: &'static str, status: &'static str) -> Self {
         Self {
-            family: "multi_key_group_by",
-            status: "applied_residual_dense_packed_group_accumulator",
+            family,
+            status,
             dense_accumulator_used: true,
             sparse_rollover_used: false,
             dense_max_key: Some(TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY),
@@ -19109,13 +19109,27 @@ impl TraditionalU32GroupAccumulator {
     }
 
     fn optimization_evidence(&self) -> TraditionalResidualOperatorOptimizationEvidence {
+        self.optimization_evidence_for_family(
+            "single_key_group_by",
+            "applied_residual_dense_u32_group_accumulator",
+        )
+    }
+
+    fn optimization_evidence_for_family(
+        &self,
+        family: &'static str,
+        dense_status: &'static str,
+    ) -> TraditionalResidualOperatorOptimizationEvidence {
         match self {
             Self::Dense(_) => {
-                TraditionalResidualOperatorOptimizationEvidence::dense_u32_group_accumulator()
+                TraditionalResidualOperatorOptimizationEvidence::dense_u32_accumulator_for(
+                    family,
+                    dense_status,
+                )
             }
-            Self::Sparse(_) => TraditionalResidualOperatorOptimizationEvidence::sparse_rollover(
-                "single_key_group_by",
-            ),
+            Self::Sparse(_) => {
+                TraditionalResidualOperatorOptimizationEvidence::sparse_rollover(family)
+            }
         }
     }
 
@@ -19271,13 +19285,27 @@ impl TraditionalPackedGroupAccumulator {
     }
 
     fn optimization_evidence(&self) -> TraditionalResidualOperatorOptimizationEvidence {
+        self.optimization_evidence_for_family(
+            "multi_key_group_by",
+            "applied_residual_dense_packed_group_accumulator",
+        )
+    }
+
+    fn optimization_evidence_for_family(
+        &self,
+        family: &'static str,
+        dense_status: &'static str,
+    ) -> TraditionalResidualOperatorOptimizationEvidence {
         match self {
             Self::Dense(_) => {
-                TraditionalResidualOperatorOptimizationEvidence::dense_packed_group_accumulator()
+                TraditionalResidualOperatorOptimizationEvidence::dense_packed_accumulator_for(
+                    family,
+                    dense_status,
+                )
             }
-            Self::Sparse(_) => TraditionalResidualOperatorOptimizationEvidence::sparse_rollover(
-                "multi_key_group_by",
-            ),
+            Self::Sparse(_) => {
+                TraditionalResidualOperatorOptimizationEvidence::sparse_rollover(family)
+            }
         }
     }
 
@@ -31684,6 +31712,10 @@ fn run_streaming_hash_join_scenario_with_dim_state(
         },
     )?;
 
+    let residual_operator_optimization = groups.optimization_evidence_for_family(
+        "hash_join",
+        "applied_residual_dense_u32_hash_join_accumulator",
+    );
     let result_json = dim_key_group_rows_json(groups.into_btree_map(), dim_by_key)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
     let rows_scanned = checked_u64_sum(fact_stats.source_row_count, dim_stats.source_row_count)?;
@@ -31778,8 +31810,7 @@ fn run_streaming_hash_join_scenario_with_dim_state(
             dim_stats.vortex_scan_decoded_values,
             fact_stats.vortex_scan_decoded_values,
         )?,
-        residual_operator_optimization:
-            TraditionalResidualOperatorOptimizationEvidence::not_applicable(),
+        residual_operator_optimization,
     };
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -31815,10 +31846,7 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
     let dim_stats = &dim_state.stats;
     let mut category_interner =
         TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
-    let mut groups =
-        std::collections::HashMap::<TraditionalPackedU32Pair, TraditionalGroupAccum>::with_capacity(
-            TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY,
-        );
+    let mut groups = TraditionalPackedGroupAccumulator::default();
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
         &["dim_key", "category", "metric"],
@@ -31848,14 +31876,22 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
                         "category",
                         index,
                     )?;
-                    add_packed_group_accum(&mut groups, dim_key, category_id, metric);
+                    groups.add(dim_key, category_id, metric)?;
                 }
             }
             Ok(())
         },
     )?;
 
-    let result_json = dim_key_category_packed_id_rows_json(groups, dim_by_key, &category_interner)?;
+    let residual_operator_optimization = groups.optimization_evidence_for_family(
+        "join_aggregate",
+        "applied_residual_dense_packed_join_aggregate_accumulator",
+    );
+    let result_json = dim_key_category_packed_id_rows_json(
+        groups.into_hash_map(),
+        dim_by_key,
+        &category_interner,
+    )?;
     let rows_materialized = result_rows_materialized(&result_json)?;
     let rows_scanned = checked_u64_sum(fact_stats.source_row_count, dim_stats.source_row_count)?;
     let stats = TraditionalStreamingScanStats {
@@ -31949,8 +31985,7 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
             dim_stats.vortex_scan_decoded_values,
             fact_stats.vortex_scan_decoded_values,
         )?,
-        residual_operator_optimization:
-            TraditionalResidualOperatorOptimizationEvidence::not_applicable(),
+        residual_operator_optimization,
     };
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -47004,6 +47039,26 @@ mod tests {
                 .map(String::as_str),
             Some("false")
         );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_family",
+            "hash_join",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_status",
+            "applied_residual_dense_u32_hash_join_accumulator",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_dense_accumulator_used",
+            "true",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_sparse_rollover_used",
+            "false",
+        );
         assert_eq!(
             native_fields
                 .get("prepared_vortex_scale_route")
@@ -47124,6 +47179,26 @@ mod tests {
                 .get("provider_admission_external_engine_invoked")
                 .map(String::as_str),
             Some("false")
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_family",
+            "join_aggregate",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_status",
+            "applied_residual_dense_packed_join_aggregate_accumulator",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_dense_accumulator_used",
+            "true",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_sparse_rollover_used",
+            "false",
         );
 
         let _ = std::fs::remove_dir_all(root);
