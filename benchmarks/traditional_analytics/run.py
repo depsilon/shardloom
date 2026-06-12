@@ -328,6 +328,7 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "source_read_skipped_column_count",
     "source_read_row_materialization_status",
     "source_read_unsupported_shape_diagnostic",
+    "source_state_query_dim_row_count_reuse_status",
     "source_typed_column_builder_schema_version",
     "source_typed_column_builder_status",
     "source_typed_column_builder_path",
@@ -1118,6 +1119,7 @@ SOURCE_STATE_CONTRACT_FIELDS = (
     "source_state_skipped_columns",
     "source_state_decoded_column_count",
     "source_state_skipped_column_count",
+    "source_state_query_dim_row_count_reuse_status",
     "source_state_reuse_allowed",
     "source_discovery_millis",
     "schema_inference_millis",
@@ -10613,6 +10615,7 @@ def source_state_projection_contract_metadata(
             "source_state_skipped_columns": "none",
             "source_state_decoded_column_count": 0,
             "source_state_skipped_column_count": 0,
+            "source_state_query_dim_row_count_reuse_status": default_status,
         }
     if not supported_format:
         default_status = "unsupported_format"
@@ -10719,6 +10722,12 @@ def source_state_projection_contract_metadata(
         "source_state_skipped_columns": skipped_columns,
         "source_state_decoded_column_count": decoded_count,
         "source_state_skipped_column_count": skipped_count,
+        "source_state_query_dim_row_count_reuse_status": str(
+            first_meaningful_field(
+                evidence.get("source_state_query_dim_row_count_reuse_status"),
+                default_status,
+            )
+        ),
     }
 
 

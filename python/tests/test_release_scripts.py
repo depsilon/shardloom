@@ -2370,6 +2370,9 @@ class ReleaseScriptTests(unittest.TestCase):
                 "source_read_unsupported_shape_diagnostic": "not_applicable_non_text_source",
                 "source_state_columnar_preserved": True,
                 "source_state_record_batch_count": 2,
+                "source_state_query_dim_row_count_reuse_status": (
+                    "reused_imported_dim_row_count_for_query_dispatch"
+                ),
                 "compatibility_parse_millis": 6.0,
                 "source_to_columnar_millis": 2.0,
                 "vortex_write_millis": 25.0,
@@ -2434,6 +2437,10 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["source_state_decoded_column_count"], 3)
         self.assertEqual(published["source_state_skipped_column_count"], 2)
         self.assertEqual(
+            published["source_state_query_dim_row_count_reuse_status"],
+            "reused_imported_dim_row_count_for_query_dispatch",
+        )
+        self.assertEqual(
             published["source_columnar_provider_schema_version"],
             "shardloom.traditional_analytics.source_columnar_provider.v1",
         )
@@ -2455,6 +2462,14 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             published["source_columnar_row_materialization_status"],
             "columnar_provider_batches_without_row_structs",
+        )
+        self.assertEqual(
+            published["source_columnar_projection_pushdown_status"],
+            "reader_projection_pushed_down",
+        )
+        self.assertEqual(
+            published["source_columnar_projection_pushdown_provider"],
+            "parquet_projection_mask_roots",
         )
         self.assertEqual(
             published["source_columnar_null_validity_status"],
