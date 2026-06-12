@@ -2039,6 +2039,29 @@ class ReleaseScriptTests(unittest.TestCase):
         route_share = module.route_share_amdahl_table([published])
         [route_row] = route_share["rows"]
 
+        self.assertEqual(
+            published["operator_compute_route_relation_schema_version"],
+            "shardloom.operator_compute_route_relation.v1",
+        )
+        self.assertEqual(
+            published["operator_compute_route_relation_status"],
+            "diagnostic_only_exceeds_route_total",
+        )
+        self.assertFalse(published["operator_compute_included_in_route_total"])
+        self.assertEqual(
+            published["operator_compute_route_stage_inclusion_class"],
+            "diagnostic_only",
+        )
+        self.assertEqual(
+            published["operator_compute_route_total_field"],
+            "route_timing_included_stage_total_ms",
+        )
+        self.assertEqual(published["operator_compute_route_total_ms"], 0.12)
+        self.assertEqual(published["operator_compute_route_total_delta_ms"], 1.28)
+        self.assertIn(
+            "operator_compute_millis is interpreted through the selected timing surface",
+            published["operator_compute_route_relation_claim_boundary"],
+        )
         self.assertEqual(route_row[1], "hot_runtime")
         self.assertEqual(route_row[4], "Operator compute (excluded diagnostic)")
         self.assertEqual(route_row[6], "n/a")
@@ -5479,6 +5502,54 @@ class ReleaseScriptTests(unittest.TestCase):
             or any(
                 "non_encoded_operator_row_allows_encoded_native_claim" in blocker
                 for blocker in blockers
+            )
+        )
+
+    def test_benchmark_publication_claim_gate_rejects_invalid_operator_route_relation(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_operator_relation_for_test",
+        )
+        row = {
+            "route_timing_stage_inclusion_classes": self._packed_route_stage_map(
+                "diagnostic_only"
+            ),
+            "operator_compute_route_relation_schema_version": (
+                "shardloom.operator_compute_route_relation.v1"
+            ),
+            "operator_compute_route_relation_status": (
+                "diagnostic_only_exceeds_route_total"
+            ),
+            "operator_compute_included_in_route_total": True,
+            "operator_compute_route_stage_inclusion_class": "diagnostic_only",
+            "operator_compute_route_total_field": "route_timing_included_stage_total_ms",
+            "operator_compute_route_total_ms": 0.12,
+            "operator_compute_route_total_delta_ms": 1.28,
+            "operator_compute_route_relation_claim_boundary": (
+                "operator_compute_millis is interpreted through the selected timing surface"
+            ),
+        }
+
+        status, issues = module.operator_compute_route_relation_issues(
+            row,
+            row_index=7,
+            engine="shardloom-prepared-vortex",
+        )
+
+        self.assertEqual(status, "diagnostic_only_exceeds_route_total")
+        self.assertTrue(
+            any(
+                "diagnostic-only operator relation was marked included" in issue
+                for issue in issues
+            )
+        )
+        self.assertTrue(
+            any(
+                "operator relation included=true but stage class='diagnostic_only'"
+                in issue
+                for issue in issues
             )
         )
 

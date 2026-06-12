@@ -103,6 +103,9 @@ VORTEX_REOPEN_SCAN_ATTRIBUTION_SCHEMA_VERSION = (
 )
 ROUTE_SHARE_AMDAHL_SCHEMA_VERSION = "shardloom.traditional_analytics.route_share_amdahl.v1"
 ROUTE_TIMING_INSTRUMENT_SCHEMA_VERSION = "shardloom.route_timing_instrument.v1"
+OPERATOR_COMPUTE_ROUTE_RELATION_SCHEMA_VERSION = (
+    "shardloom.operator_compute_route_relation.v1"
+)
 OPTIMIZATION_READINESS_STAGE_THRESHOLD_MS = 10.0
 COMMON_RUN_TIMING_DRIFT_SCHEMA_VERSION = (
     "shardloom.website.common_run_timing_drift.v1"
@@ -628,6 +631,14 @@ WEBSITE_ROW_KEYS = (
     "session_requested_scenario_count",
     "vortex_scan_millis",
     "operator_compute_millis",
+    "operator_compute_route_relation_schema_version",
+    "operator_compute_route_relation_status",
+    "operator_compute_included_in_route_total",
+    "operator_compute_route_stage_inclusion_class",
+    "operator_compute_route_total_field",
+    "operator_compute_route_total_ms",
+    "operator_compute_route_total_delta_ms",
+    "operator_compute_route_relation_claim_boundary",
     "result_sink_write_millis",
     "fallback_attempted",
     "external_engine_invoked",
@@ -719,6 +730,14 @@ WEBSITE_SUMMARY_ROW_KEYS = (
     "prepare_batch_vortex_preparation_spine_reopen_verify_strategy",
     "vortex_scan_millis",
     "operator_compute_millis",
+    "operator_compute_route_relation_schema_version",
+    "operator_compute_route_relation_status",
+    "operator_compute_included_in_route_total",
+    "operator_compute_route_stage_inclusion_class",
+    "operator_compute_route_total_field",
+    "operator_compute_route_total_ms",
+    "operator_compute_route_total_delta_ms",
+    "operator_compute_route_relation_claim_boundary",
     "result_sink_write_millis",
     "exclusive_stage_timing_status",
     "route_timing_exclusive_stage_sum_ms",
@@ -1253,6 +1272,14 @@ PUBLISHED_METRIC_KEYS = (
     "operator_residual_native_used",
     "operator_temporary_materialization_used",
     "operator_blocker_matrix_ref",
+    "operator_compute_route_relation_schema_version",
+    "operator_compute_route_relation_status",
+    "operator_compute_included_in_route_total",
+    "operator_compute_route_stage_inclusion_class",
+    "operator_compute_route_total_field",
+    "operator_compute_route_total_ms",
+    "operator_compute_route_total_delta_ms",
+    "operator_compute_route_relation_claim_boundary",
     "residual_operator_optimization_schema_version",
     "residual_operator_optimization_family",
     "residual_operator_optimization_status",
@@ -5160,6 +5187,88 @@ def route_timing_stage_inclusion_fields_for_row(
     }
 
 
+def operator_compute_route_relation_fields_for_row(
+    row: dict[str, Any],
+    stage_fields: dict[str, Any],
+    timing_ledger: dict[str, Any],
+    stage_inclusion_fields: dict[str, Any],
+) -> dict[str, Any]:
+    engine = str(row.get("engine") or "")
+    if not is_shardloom_engine(engine):
+        return {
+            "operator_compute_route_relation_schema_version": (
+                OPERATOR_COMPUTE_ROUTE_RELATION_SCHEMA_VERSION
+            ),
+            "operator_compute_route_relation_status": "external_baseline_only",
+            "operator_compute_included_in_route_total": False,
+            "operator_compute_route_stage_inclusion_class": "external_baseline_only",
+            "operator_compute_route_total_field": "external_baseline_total_runtime",
+            "operator_compute_route_total_ms": numeric_value(
+                stage_fields.get("total_route_ms")
+            ),
+            "operator_compute_route_total_delta_ms": None,
+            "operator_compute_route_relation_claim_boundary": (
+                "external baseline operator timing is comparison context only and cannot "
+                "satisfy ShardLoom runtime, encoded-native, no-fallback, production, "
+                "release, or Spark-displacement evidence"
+            ),
+        }
+
+    route_total_field = "route_timing_included_stage_total_ms"
+    route_total = numeric_value(timing_ledger.get(route_total_field))
+    if route_total is None:
+        route_total_field = "total_route_ms"
+        route_total = numeric_value(stage_fields.get(route_total_field))
+    operator_compute = numeric_value(stage_fields.get("operator_compute_ms"))
+    classes = unpack_stage_map(
+        stage_inclusion_fields.get("route_timing_stage_inclusion_classes")
+    )
+    operator_stage_class = classes.get("operator_compute", "missing")
+    operator_included = operator_stage_class.startswith("included")
+    delta = (
+        round(operator_compute - route_total, 4)
+        if operator_compute is not None and route_total is not None
+        else None
+    )
+
+    if row.get("status") != "success":
+        status = "not_executed"
+    elif operator_compute is None:
+        status = "operator_compute_not_reported"
+    elif not classes:
+        status = "stage_inclusion_missing"
+    elif operator_included:
+        status = (
+            "included_stage_exceeds_route_total"
+            if delta is not None and delta > 0.001
+            else "included_in_route_total"
+        )
+    elif route_total is None:
+        status = "diagnostic_only_route_total_missing"
+    elif delta is not None and delta > 0.001:
+        status = "diagnostic_only_exceeds_route_total"
+    else:
+        status = "diagnostic_only_within_route_total"
+
+    return {
+        "operator_compute_route_relation_schema_version": (
+            OPERATOR_COMPUTE_ROUTE_RELATION_SCHEMA_VERSION
+        ),
+        "operator_compute_route_relation_status": status,
+        "operator_compute_included_in_route_total": operator_included,
+        "operator_compute_route_stage_inclusion_class": operator_stage_class,
+        "operator_compute_route_total_field": route_total_field,
+        "operator_compute_route_total_ms": route_total,
+        "operator_compute_route_total_delta_ms": delta,
+        "operator_compute_route_relation_claim_boundary": (
+            "operator_compute_millis is interpreted through the selected timing surface. "
+            "It is additive route work only when operator_compute_included_in_route_total=true; "
+            "diagnostic-only operator timing may be larger than the selected hot route total "
+            "because total_route_ms remains the authoritative route surface."
+        ),
+    }
+
+
 def stage_value_for_readiness(
     stage_id: str,
     row: dict[str, Any],
@@ -5941,6 +6050,17 @@ def decorated_route_row(row: dict[str, Any]) -> dict[str, Any]:
     identity = route_identity_for_row(row)
     stage_fields = route_stage_fields_for_row(row)
     timing_ledger = route_timing_ledger_fields_for_row(row, identity, stage_fields)
+    stage_inclusion_fields = route_timing_stage_inclusion_fields_for_row(
+        row,
+        stage_fields,
+        timing_ledger,
+    )
+    operator_compute_relation_fields = operator_compute_route_relation_fields_for_row(
+        row,
+        stage_fields,
+        timing_ledger,
+        stage_inclusion_fields,
+    )
     fast_path_fields = route_fast_path_attribution_fields_for_row(
         row, identity, stage_fields, timing_ledger
     )
@@ -5953,6 +6073,8 @@ def decorated_route_row(row: dict[str, Any]) -> dict[str, Any]:
         **identity,
         **stage_fields,
         **timing_ledger,
+        **stage_inclusion_fields,
+        **operator_compute_relation_fields,
         **fast_path_fields,
         **evidence_render_proof_fields,
         **operator_mode_fields,
@@ -6010,6 +6132,14 @@ def synthetic_prepare_once_first_query_rows(rows: list[dict[str, Any]]) -> list[
             prepared_timing_ledger,
         )
         prepared.update(prepared_stage_inclusion_fields)
+        prepared.update(
+            operator_compute_route_relation_fields_for_row(
+                prepared,
+                prepared,
+                prepared_timing_ledger,
+                prepared_stage_inclusion_fields,
+            )
+        )
         prepared.update(
             route_timing_instrument_fields_for_row(
                 prepared,
@@ -9624,6 +9754,12 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             route_stage_fields,
             route_timing_ledger,
         )
+        operator_compute_relation_fields = operator_compute_route_relation_fields_for_row(
+            adjusted_row,
+            route_stage_fields,
+            route_timing_ledger,
+            stage_inclusion_fields,
+        )
         instrument_input_row = {
             **adjusted_row,
             **route_stage_fields,
@@ -9634,6 +9770,7 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             **route_timing_ledger,
             **timing_normalization_fields,
             **stage_inclusion_fields,
+            **operator_compute_relation_fields,
         }
         route_timing_instrument_fields = route_timing_instrument_fields_for_row(
             instrument_input_row,
@@ -9694,6 +9831,7 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rendered_row.update(route_timing_ledger)
         rendered_row.update(timing_normalization_fields)
         rendered_row.update(stage_inclusion_fields)
+        rendered_row.update(operator_compute_relation_fields)
         rendered_row.update(route_timing_instrument_fields)
         rendered_row.update(fast_path_fields)
         rendered_row.update(evidence_render_proof_fields)
@@ -9779,6 +9917,14 @@ def published_rows_with_current_route_timing_ledger(
             timing_ledger,
         )
         updated.update(stage_inclusion_fields)
+        updated.update(
+            operator_compute_route_relation_fields_for_row(
+                updated,
+                route_stage_fields,
+                timing_ledger,
+                stage_inclusion_fields,
+            )
+        )
         updated.update(
             route_timing_instrument_fields_for_row(
                 updated,
