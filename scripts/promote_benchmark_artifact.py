@@ -86,6 +86,12 @@ COLD_BOTTLENECK_SCHEMA_VERSION = "shardloom.traditional_analytics.cold_bottlenec
 SOURCE_READ_SCOUT_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.source_read_scout.v1"
 )
+SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_typed_column_builder.v1"
+)
+SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_projection_admission.v1"
+)
 PREPARED_STATE_OPTIMIZATION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.prepared_state_optimization.v1"
 )
@@ -441,6 +447,43 @@ WEBSITE_ROW_KEYS = (
     "source_read_skipped_column_count",
     "source_read_row_materialization_status",
     "source_read_unsupported_shape_diagnostic",
+    "source_typed_column_builder_schema_version",
+    "source_typed_column_builder_status",
+    "source_typed_column_builder_path",
+    "source_typed_builder_schema_digest",
+    "source_typed_builder_projected_column_count",
+    "source_typed_builder_full_column_count",
+    "source_typed_builder_decoded_column_count",
+    "source_typed_builder_skipped_column_count",
+    "source_typed_builder_row_assembly_avoided",
+    "source_typed_builder_row_materialization_status",
+    "source_typed_builder_null_validity_status",
+    "source_typed_builder_type_coercion_status",
+    "source_typed_builder_nested_json_status",
+    "source_typed_builder_correctness_digest_status",
+    "source_typed_builder_fallback_attempted",
+    "source_typed_builder_external_engine_invoked",
+    "source_typed_builder_external_parser_engine_invoked",
+    "external_parser_engine_invoked",
+    "source_typed_builder_claim_boundary",
+    "source_projection_admission_schema_version",
+    "source_projection_admission_status",
+    "source_projection_source_family",
+    "source_projection_required_field_mask",
+    "source_projection_predicate_field_mask",
+    "source_projection_output_field_mask",
+    "source_projection_certificate_field_mask",
+    "source_projection_diagnostic_field_mask",
+    "source_projection_field_mask_digest",
+    "source_projection_decoded_columns",
+    "source_projection_skipped_columns",
+    "source_projection_decoded_column_count",
+    "source_projection_skipped_column_count",
+    "source_projection_blocker",
+    "source_projection_correctness_digest_status",
+    "source_projection_fallback_attempted",
+    "source_projection_external_engine_invoked",
+    "source_projection_claim_boundary",
     "source_read_scout_claim_boundary",
     "source_state_read_plan",
     "source_state_projection_pushdown_status",
@@ -3210,6 +3253,351 @@ def _stage_ids_with_values(stage_fields: dict[str, Any]) -> list[str]:
     ]
 
 
+def bool_field_value(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    text = str(value).strip().lower()
+    if text == "true":
+        return True
+    if text == "false":
+        return False
+    return default
+
+
+def source_typed_builder_default_fields(
+    status: str,
+    *,
+    path: str | None = None,
+    claim_boundary: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "source_typed_column_builder_schema_version": (
+            SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION
+        ),
+        "source_typed_column_builder_status": status,
+        "source_typed_column_builder_path": path or status,
+        "source_typed_builder_schema_digest": "none",
+        "source_typed_builder_projected_column_count": 0,
+        "source_typed_builder_full_column_count": 0,
+        "source_typed_builder_decoded_column_count": 0,
+        "source_typed_builder_skipped_column_count": 0,
+        "source_typed_builder_row_assembly_avoided": False,
+        "source_typed_builder_row_materialization_status": status,
+        "source_typed_builder_null_validity_status": status,
+        "source_typed_builder_type_coercion_status": status,
+        "source_typed_builder_nested_json_status": status,
+        "source_typed_builder_correctness_digest_status": status,
+        "source_typed_builder_fallback_attempted": False,
+        "source_typed_builder_external_engine_invoked": False,
+        "source_typed_builder_external_parser_engine_invoked": False,
+        "external_parser_engine_invoked": False,
+        "source_typed_builder_claim_boundary": claim_boundary or status,
+    }
+
+
+def source_typed_builder_fields_from_runtime(
+    fields: dict[str, Any],
+    *,
+    default_status: str = "not_reported",
+) -> dict[str, Any]:
+    return {
+        "source_typed_column_builder_schema_version": first_meaningful_field(
+            fields, ("source_typed_column_builder_schema_version",)
+        )
+        or SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION,
+        "source_typed_column_builder_status": first_meaningful_field(
+            fields, ("source_typed_column_builder_status",)
+        )
+        or default_status,
+        "source_typed_column_builder_path": first_meaningful_field(
+            fields, ("source_typed_column_builder_path",)
+        )
+        or default_status,
+        "source_typed_builder_schema_digest": first_meaningful_field(
+            fields, ("source_typed_builder_schema_digest",)
+        )
+        or "none",
+        "source_typed_builder_projected_column_count": int(
+            numeric_value(
+                first_meaningful_field(
+                    fields, ("source_typed_builder_projected_column_count",)
+                )
+            )
+            or 0
+        ),
+        "source_typed_builder_full_column_count": int(
+            numeric_value(
+                first_meaningful_field(fields, ("source_typed_builder_full_column_count",))
+            )
+            or 0
+        ),
+        "source_typed_builder_decoded_column_count": int(
+            numeric_value(
+                first_meaningful_field(
+                    fields, ("source_typed_builder_decoded_column_count",)
+                )
+            )
+            or 0
+        ),
+        "source_typed_builder_skipped_column_count": int(
+            numeric_value(
+                first_meaningful_field(
+                    fields, ("source_typed_builder_skipped_column_count",)
+                )
+            )
+            or 0
+        ),
+        "source_typed_builder_row_assembly_avoided": bool_field_value(
+            first_meaningful_field(fields, ("source_typed_builder_row_assembly_avoided",))
+        ),
+        "source_typed_builder_row_materialization_status": first_meaningful_field(
+            fields, ("source_typed_builder_row_materialization_status",)
+        )
+        or default_status,
+        "source_typed_builder_null_validity_status": first_meaningful_field(
+            fields, ("source_typed_builder_null_validity_status",)
+        )
+        or default_status,
+        "source_typed_builder_type_coercion_status": first_meaningful_field(
+            fields, ("source_typed_builder_type_coercion_status",)
+        )
+        or default_status,
+        "source_typed_builder_nested_json_status": first_meaningful_field(
+            fields, ("source_typed_builder_nested_json_status",)
+        )
+        or default_status,
+        "source_typed_builder_correctness_digest_status": first_meaningful_field(
+            fields, ("source_typed_builder_correctness_digest_status",)
+        )
+        or default_status,
+        "source_typed_builder_fallback_attempted": bool_field_value(
+            first_meaningful_field(fields, ("source_typed_builder_fallback_attempted",))
+        ),
+        "source_typed_builder_external_engine_invoked": bool_field_value(
+            first_meaningful_field(fields, ("source_typed_builder_external_engine_invoked",))
+        ),
+        "source_typed_builder_external_parser_engine_invoked": bool_field_value(
+            first_meaningful_field(
+                fields, ("source_typed_builder_external_parser_engine_invoked",)
+            )
+        ),
+        "external_parser_engine_invoked": bool_field_value(
+            first_meaningful_field(fields, ("external_parser_engine_invoked",))
+        ),
+        "source_typed_builder_claim_boundary": first_meaningful_field(
+            fields, ("source_typed_builder_claim_boundary",)
+        )
+        or default_status,
+    }
+
+
+def source_projection_mask_value(value: Any) -> int:
+    if value is None:
+        return 0
+    text = str(value).strip().lower()
+    if text.startswith("0x"):
+        text = text[2:]
+    try:
+        return int(text, 16)
+    except ValueError:
+        return 0
+
+
+def source_projection_mask_hex(value: int) -> str:
+    return f"0x{value:08x}"
+
+
+def source_projection_field_mask_digest(*parts: Any) -> str:
+    text = "\0".join(str(part) for part in parts)
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def source_projection_default_fields(
+    status: str,
+    *,
+    source_family: str | None = None,
+    claim_boundary: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "source_projection_admission_schema_version": (
+            SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION
+        ),
+        "source_projection_admission_status": status,
+        "source_projection_source_family": source_family or status,
+        "source_projection_required_field_mask": "0x00000000",
+        "source_projection_predicate_field_mask": "0x00000000",
+        "source_projection_output_field_mask": "0x00000000",
+        "source_projection_certificate_field_mask": "0x00000000",
+        "source_projection_diagnostic_field_mask": "0x00000000",
+        "source_projection_field_mask_digest": "none",
+        "source_projection_decoded_columns": "none",
+        "source_projection_skipped_columns": "none",
+        "source_projection_decoded_column_count": 0,
+        "source_projection_skipped_column_count": 0,
+        "source_projection_blocker": status,
+        "source_projection_correctness_digest_status": status,
+        "source_projection_fallback_attempted": False,
+        "source_projection_external_engine_invoked": False,
+        "source_projection_claim_boundary": claim_boundary or status,
+    }
+
+
+def source_projection_fields_from_runtime(
+    fields: dict[str, Any],
+    *,
+    default_status: str = "not_reported",
+) -> dict[str, Any]:
+    required_mask = first_meaningful_field(
+        fields, ("source_projection_required_field_mask", "source_read_projected_field_mask")
+    ) or "0x00000000"
+    predicate_mask = first_meaningful_field(
+        fields, ("source_projection_predicate_field_mask", "source_read_filter_field_mask")
+    ) or "0x00000000"
+    output_mask = first_meaningful_field(fields, ("source_projection_output_field_mask",))
+    if output_mask is None:
+        output_mask = source_projection_mask_hex(
+            source_projection_mask_value(required_mask)
+            & ~source_projection_mask_value(predicate_mask)
+        )
+    decoded_columns = first_meaningful_field(
+        fields, ("source_projection_decoded_columns", "source_read_decoded_columns")
+    ) or "none"
+    skipped_columns = first_meaningful_field(
+        fields, ("source_projection_skipped_columns", "source_read_skipped_columns")
+    ) or "none"
+    decoded_count = int(
+        numeric_value(
+            first_meaningful_field(
+                fields,
+                (
+                    "source_projection_decoded_column_count",
+                    "source_read_decoded_column_count",
+                ),
+            )
+        )
+        or 0
+    )
+    skipped_count = int(
+        numeric_value(
+            first_meaningful_field(
+                fields,
+                (
+                    "source_projection_skipped_column_count",
+                    "source_read_skipped_column_count",
+                ),
+            )
+        )
+        or 0
+    )
+    decode_status = first_meaningful_field(fields, ("source_read_decode_status",)) or ""
+    materialization_status = (
+        first_meaningful_field(fields, ("source_read_row_materialization_status",)) or ""
+    )
+    scalar_materialization = materialization_status in {
+        "row_structs_materialized",
+        "mixed_scalar_rows_and_provider_batches",
+    }
+    source_family = first_meaningful_field(fields, ("source_projection_source_family",))
+    if source_family is None:
+        if "text_column_decode" in decode_status:
+            source_family = "text_source"
+        elif "columnar_provider" in decode_status:
+            source_family = "already_columnar_source"
+        else:
+            source_family = default_status
+    admission_status = first_meaningful_field(
+        fields, ("source_projection_admission_status",)
+    )
+    if admission_status is None:
+        if (
+            skipped_count > 0
+            and decode_status == "projection_aware_text_column_decode"
+            and not scalar_materialization
+        ):
+            admission_status = "admitted_projection_aware_text_decode"
+        elif (
+            skipped_count > 0
+            and decode_status == "projection_aware_columnar_provider_decode"
+            and not scalar_materialization
+        ):
+            admission_status = "admitted_projection_aware_columnar_provider"
+        elif scalar_materialization:
+            admission_status = "not_admitted_scalar_row_materialization"
+        elif decoded_count > 0 and skipped_count == 0:
+            admission_status = "no_projection_opportunity_full_source_decode"
+        else:
+            admission_status = default_status
+    blocker = first_meaningful_field(fields, ("source_projection_blocker",))
+    if blocker is None:
+        blocker = (
+            "none"
+            if admission_status.startswith("admitted_projection_aware")
+            or admission_status == "no_projection_opportunity_full_source_decode"
+            else "projection_admission_not_reported"
+        )
+    field_mask_digest = first_meaningful_field(
+        fields, ("source_projection_field_mask_digest",)
+    ) or source_projection_field_mask_digest(
+        SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION,
+        source_family,
+        required_mask,
+        predicate_mask,
+        output_mask,
+        decoded_columns,
+        skipped_columns,
+        admission_status,
+        blocker,
+    )
+    return {
+        "source_projection_admission_schema_version": first_meaningful_field(
+            fields, ("source_projection_admission_schema_version",)
+        )
+        or SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION,
+        "source_projection_admission_status": admission_status,
+        "source_projection_source_family": source_family,
+        "source_projection_required_field_mask": required_mask,
+        "source_projection_predicate_field_mask": predicate_mask,
+        "source_projection_output_field_mask": output_mask,
+        "source_projection_certificate_field_mask": first_meaningful_field(
+            fields, ("source_projection_certificate_field_mask",)
+        )
+        or required_mask,
+        "source_projection_diagnostic_field_mask": first_meaningful_field(
+            fields, ("source_projection_diagnostic_field_mask",)
+        )
+        or "0x00000000",
+        "source_projection_field_mask_digest": field_mask_digest,
+        "source_projection_decoded_columns": decoded_columns,
+        "source_projection_skipped_columns": skipped_columns,
+        "source_projection_decoded_column_count": decoded_count,
+        "source_projection_skipped_column_count": skipped_count,
+        "source_projection_blocker": blocker,
+        "source_projection_correctness_digest_status": first_meaningful_field(
+            fields, ("source_projection_correctness_digest_status",)
+        )
+        or (
+            "covered_by_route_correctness_digest"
+            if admission_status.startswith("admitted_projection_aware")
+            else "not_applicable_projection_not_admitted"
+        ),
+        "source_projection_fallback_attempted": bool_field_value(
+            first_meaningful_field(fields, ("source_projection_fallback_attempted",))
+        ),
+        "source_projection_external_engine_invoked": bool_field_value(
+            first_meaningful_field(fields, ("source_projection_external_engine_invoked",))
+        ),
+        "source_projection_claim_boundary": first_meaningful_field(
+            fields, ("source_projection_claim_boundary",)
+        )
+        or (
+            "source projection admission is scenario-scoped and requires clean benchmark "
+            "refresh before timing claims"
+        ),
+    }
+
+
 def source_read_scout_fields_for_row(
     row: dict[str, Any], stage_fields: dict[str, Any]
 ) -> dict[str, Any]:
@@ -3237,6 +3625,14 @@ def source_read_scout_fields_for_row(
             "source_read_skipped_column_count": 0,
             "source_read_row_materialization_status": "external_baseline_only",
             "source_read_unsupported_shape_diagnostic": "external_baseline_only",
+            **source_typed_builder_default_fields(
+                "external_baseline_only",
+                claim_boundary="external_baseline_only",
+            ),
+            **source_projection_default_fields(
+                "external_baseline_only",
+                claim_boundary="external_baseline_only",
+            ),
             "source_read_scout_claim_boundary": "external_baseline_only",
         }
 
@@ -3267,6 +3663,20 @@ def source_read_scout_fields_for_row(
             "source_read_skipped_column_count": 0,
             "source_read_row_materialization_status": "not_applicable",
             "source_read_unsupported_shape_diagnostic": "not_applicable",
+            **source_typed_builder_default_fields(
+                "not_applicable_no_source_read_stage",
+                claim_boundary=(
+                    "source typed-builder evidence is not applicable because the row has no "
+                    "source-read stage"
+                ),
+            ),
+            **source_projection_default_fields(
+                "not_applicable_no_source_read_stage",
+                claim_boundary=(
+                    "source projection admission is not applicable because the row has no "
+                    "source-read stage"
+                ),
+            ),
             "source_read_scout_claim_boundary": (
                 "source-read scout attribution is diagnostic timing evidence only; route totals "
                 "remain the comparison surface"
@@ -3421,6 +3831,8 @@ def source_read_scout_fields_for_row(
             fields, ("source_read_unsupported_shape_diagnostic",)
         )
         or "not_reported",
+        **source_typed_builder_fields_from_runtime(fields),
+        **source_projection_fields_from_runtime(fields),
         "source_read_scout_claim_boundary": (
             "source-read scout attribution explains header/scout, byte acquisition, and full-body "
             "read composition only; it does not authorize performance, production, or "

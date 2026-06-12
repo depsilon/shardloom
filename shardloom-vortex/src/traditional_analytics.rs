@@ -173,6 +173,10 @@ const SHUFFLE_SCALE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.shuf
 const SCALE_SUPPORTED_CLASSES: &str = "local_smoke,local_claim_grade,larger_than_memory_local,split_parallel_local,object_store_read_report_only,object_store_runtime,table_metadata_report_only,table_runtime,distributed_report_only,distributed_runtime,foundry_dev_stack_proof,managed_platform_proof";
 const FUSED_PIPELINE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.fused_pipeline.v1";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
+const SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.source_typed_column_builder.v1";
+const SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.source_projection_admission.v1";
 const TRADITIONAL_FACT_SCHEMA_SUMMARY: &str = "fact(id:u64,group_key:u32,dim_key:u32,value:u32,metric:f64,flag:u8,category:utf8,event_date:utf8,nullable_metric_00:utf8,nested_payload:utf8,raw_event_time:utf8,dirty_numeric:utf8,dirty_flag:utf8)";
 const TRADITIONAL_FACT_COLUMN_COUNT: usize = 13;
 const TRADITIONAL_DIM_COLUMN_COUNT: usize = 3;
@@ -4235,9 +4239,376 @@ impl TraditionalSourceReadEvidence {
     }
 }
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn source_typed_column_builder_fields(
+    input_format: TraditionalAnalyticsInputFormat,
+    source_read_decode_status: &str,
+    source_read_projected_field_mask: &str,
+    source_read_filter_field_mask: &str,
+    source_read_decoded_columns: &str,
+    source_read_skipped_columns: &str,
+    source_read_decoded_column_count: u32,
+    source_read_skipped_column_count: u32,
+    source_read_row_assembly_micros: u64,
+    source_read_row_materialization_status: &str,
+    source_read_unsupported_shape_diagnostic: &str,
+    source_state_projection_aware_text_decode: bool,
+) -> Vec<(String, String)> {
+    let text_input = matches!(
+        input_format,
+        TraditionalAnalyticsInputFormat::Csv | TraditionalAnalyticsInputFormat::JsonLines
+    );
+    let text_decode = source_read_decode_status.contains("text_column_decode");
+    let admitted_text_builder = text_input
+        && text_decode
+        && source_read_row_materialization_status
+            == "typed_text_column_builders_without_row_structs";
+    let mixed_text_builder = text_input
+        && text_decode
+        && source_read_row_materialization_status == "mixed_scalar_rows_and_provider_batches";
+    let typed_builder_active = admitted_text_builder || mixed_text_builder;
+    let observed_full_column_count =
+        source_read_decoded_column_count.saturating_add(source_read_skipped_column_count);
+    let decoded_count = source_read_decoded_column_count.to_string();
+    let skipped_count = source_read_skipped_column_count.to_string();
+    let projection_policy = if source_state_projection_aware_text_decode {
+        "projection_aware_text_decode"
+    } else {
+        "full_text_decode"
+    };
+    let schema_digest = if typed_builder_active {
+        route_evidence_digest(&[
+            SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION,
+            input_format.as_str(),
+            source_read_decode_status,
+            source_read_projected_field_mask,
+            source_read_filter_field_mask,
+            source_read_decoded_columns,
+            source_read_skipped_columns,
+            decoded_count.as_str(),
+            skipped_count.as_str(),
+            projection_policy,
+        ])
+    } else {
+        "none".to_string()
+    };
+    let status = if admitted_text_builder {
+        "admitted_csv_jsonl_typed_column_builder"
+    } else if mixed_text_builder {
+        "mixed_csv_jsonl_typed_column_builder_with_scalar_delta_rows"
+    } else if text_input && source_read_row_materialization_status == "row_structs_materialized" {
+        "not_admitted_scalar_row_materialization"
+    } else if text_input {
+        "not_admitted_text_shape"
+    } else if input_format.is_columnar() {
+        "not_applicable_already_columnar_source"
+    } else {
+        "not_reported"
+    };
+    let path = if admitted_text_builder {
+        "source_read_scout_to_typed_column_buffers_to_vortex_provider_record_batch"
+    } else if mixed_text_builder {
+        "source_read_scout_to_typed_column_buffers_plus_scalar_delta_rows"
+    } else if text_input {
+        "not_admitted_text_source_materialization_path"
+    } else if input_format.is_columnar() {
+        "not_applicable_already_columnar_source"
+    } else {
+        "not_reported"
+    };
+    let projected_column_count = if typed_builder_active {
+        source_read_decoded_column_count
+    } else {
+        0
+    };
+    let full_column_count = if typed_builder_active {
+        observed_full_column_count
+    } else {
+        0
+    };
+    let null_validity_status = if !typed_builder_active {
+        "not_applicable_not_typed_text_builder"
+    } else if source_read_decoded_columns.contains("fact.nullable_metric_00") {
+        "fixture_null_sentinels_preserved_in_utf8_builder_fields"
+    } else if source_read_skipped_columns.contains("fact.nullable_metric_00") {
+        "nullable_metric_skipped_by_projection"
+    } else {
+        "not_required_by_projection"
+    };
+    let type_coercion_status = if typed_builder_active {
+        "deterministic_typed_parse_or_fail_closed"
+    } else if text_input {
+        "not_admitted_scalar_or_unsupported_text_shape"
+    } else {
+        "not_applicable_non_text_source"
+    };
+    let nested_json_status = if !typed_builder_active {
+        "not_applicable_not_typed_text_builder"
+    } else if source_read_decoded_columns.contains("fact.nested_payload") {
+        "nested_payload_admitted_as_utf8_payload"
+    } else if source_read_skipped_columns.contains("fact.nested_payload") {
+        "nested_payload_skipped_by_projection"
+    } else {
+        "nested_payload_not_required"
+    };
+    let correctness_digest_status = if typed_builder_active {
+        "covered_by_route_correctness_digest"
+    } else {
+        "not_applicable_not_typed_text_builder"
+    };
+    let claim_boundary = if typed_builder_active {
+        "scoped_csv_jsonl_typed_builder_evidence_only_requires_clean_benchmark_refresh_for_timing_claim"
+    } else if text_input {
+        source_read_unsupported_shape_diagnostic
+    } else {
+        "not_applicable_non_text_source"
+    };
+
+    vec![
+        (
+            "source_typed_column_builder_schema_version".to_string(),
+            SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "source_typed_column_builder_status".to_string(),
+            status.to_string(),
+        ),
+        (
+            "source_typed_column_builder_path".to_string(),
+            path.to_string(),
+        ),
+        (
+            "source_typed_builder_schema_digest".to_string(),
+            schema_digest,
+        ),
+        (
+            "source_typed_builder_projected_column_count".to_string(),
+            projected_column_count.to_string(),
+        ),
+        (
+            "source_typed_builder_full_column_count".to_string(),
+            full_column_count.to_string(),
+        ),
+        (
+            "source_typed_builder_decoded_column_count".to_string(),
+            decoded_count,
+        ),
+        (
+            "source_typed_builder_skipped_column_count".to_string(),
+            skipped_count,
+        ),
+        (
+            "source_typed_builder_row_assembly_avoided".to_string(),
+            (admitted_text_builder && source_read_row_assembly_micros == 0).to_string(),
+        ),
+        (
+            "source_typed_builder_row_materialization_status".to_string(),
+            source_read_row_materialization_status.to_string(),
+        ),
+        (
+            "source_typed_builder_null_validity_status".to_string(),
+            null_validity_status.to_string(),
+        ),
+        (
+            "source_typed_builder_type_coercion_status".to_string(),
+            type_coercion_status.to_string(),
+        ),
+        (
+            "source_typed_builder_nested_json_status".to_string(),
+            nested_json_status.to_string(),
+        ),
+        (
+            "source_typed_builder_correctness_digest_status".to_string(),
+            correctness_digest_status.to_string(),
+        ),
+        (
+            "source_typed_builder_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "source_typed_builder_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "source_typed_builder_external_parser_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "external_parser_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "source_typed_builder_claim_boundary".to_string(),
+            claim_boundary.to_string(),
+        ),
+    ]
+}
+
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+fn source_projection_admission_fields(
+    input_format: TraditionalAnalyticsInputFormat,
+    source_read_decode_status: &str,
+    source_read_projected_field_mask: &str,
+    source_read_filter_field_mask: &str,
+    source_read_decoded_columns: &str,
+    source_read_skipped_columns: &str,
+    source_read_decoded_column_count: u32,
+    source_read_skipped_column_count: u32,
+    source_read_row_materialization_status: &str,
+    source_read_unsupported_shape_diagnostic: &str,
+    source_state_projection_aware_text_decode: bool,
+) -> Vec<(String, String)> {
+    let projected_mask = source_read_mask_from_hex(source_read_projected_field_mask).unwrap_or(0);
+    let filter_mask = source_read_mask_from_hex(source_read_filter_field_mask).unwrap_or(0);
+    let output_mask = projected_mask & !filter_mask;
+    let output_field_mask = source_read_mask_hex(output_mask);
+    let has_decoded_fields = source_read_decoded_column_count > 0;
+    let skipped_fields = source_read_skipped_column_count > 0;
+    let text_projection = source_read_decode_status == "projection_aware_text_column_decode"
+        || source_state_projection_aware_text_decode;
+    let columnar_projection =
+        source_read_decode_status == "projection_aware_columnar_provider_decode";
+    let scalar_materialization = source_read_row_materialization_status
+        == "row_structs_materialized"
+        || source_read_row_materialization_status == "mixed_scalar_rows_and_provider_batches";
+    let source_family = if matches!(
+        input_format,
+        TraditionalAnalyticsInputFormat::Csv | TraditionalAnalyticsInputFormat::JsonLines
+    ) {
+        "text_source"
+    } else if input_format.is_columnar() {
+        "already_columnar_source"
+    } else {
+        "unknown_source"
+    };
+    let admission_status = if text_projection && skipped_fields && !scalar_materialization {
+        "admitted_projection_aware_text_decode"
+    } else if columnar_projection && skipped_fields && !scalar_materialization {
+        "admitted_projection_aware_columnar_provider"
+    } else if has_decoded_fields && !skipped_fields && !scalar_materialization {
+        "no_projection_opportunity_full_source_decode"
+    } else if scalar_materialization {
+        "not_admitted_scalar_row_materialization"
+    } else if !has_decoded_fields {
+        "blocked_missing_required_field_mask"
+    } else {
+        "blocked_projection_not_admitted"
+    };
+    let blocker = match admission_status {
+        "admitted_projection_aware_text_decode"
+        | "admitted_projection_aware_columnar_provider"
+        | "no_projection_opportunity_full_source_decode" => "none",
+        "not_admitted_scalar_row_materialization" => "scalar_row_materialization_boundary",
+        "blocked_missing_required_field_mask" => "missing_decoded_required_field_mask",
+        _ => source_read_unsupported_shape_diagnostic,
+    };
+    let claim_boundary = if admission_status.starts_with("admitted_projection_aware") {
+        "source_projection_admission_is_scenario_scoped_and_requires_clean_benchmark_refresh_for_timing_claim"
+    } else if admission_status == "no_projection_opportunity_full_source_decode" {
+        "full_width_or_required_field_read_not_an_optimization_claim"
+    } else {
+        "projection_optimization_not_claimed_for_blocked_or_scalar_source_path"
+    };
+    let field_mask_digest = route_evidence_digest(&[
+        SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION,
+        input_format.as_str(),
+        source_family,
+        source_read_decode_status,
+        source_read_projected_field_mask,
+        source_read_filter_field_mask,
+        output_field_mask.as_str(),
+        source_read_decoded_columns,
+        source_read_skipped_columns,
+        admission_status,
+        blocker,
+    ]);
+
+    vec![
+        (
+            "source_projection_admission_schema_version".to_string(),
+            SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "source_projection_admission_status".to_string(),
+            admission_status.to_string(),
+        ),
+        (
+            "source_projection_source_family".to_string(),
+            source_family.to_string(),
+        ),
+        (
+            "source_projection_required_field_mask".to_string(),
+            source_read_projected_field_mask.to_string(),
+        ),
+        (
+            "source_projection_predicate_field_mask".to_string(),
+            source_read_filter_field_mask.to_string(),
+        ),
+        (
+            "source_projection_output_field_mask".to_string(),
+            output_field_mask,
+        ),
+        (
+            "source_projection_certificate_field_mask".to_string(),
+            source_read_projected_field_mask.to_string(),
+        ),
+        (
+            "source_projection_diagnostic_field_mask".to_string(),
+            "0x00000000".to_string(),
+        ),
+        (
+            "source_projection_field_mask_digest".to_string(),
+            field_mask_digest,
+        ),
+        (
+            "source_projection_decoded_columns".to_string(),
+            source_read_decoded_columns.to_string(),
+        ),
+        (
+            "source_projection_skipped_columns".to_string(),
+            source_read_skipped_columns.to_string(),
+        ),
+        (
+            "source_projection_decoded_column_count".to_string(),
+            source_read_decoded_column_count.to_string(),
+        ),
+        (
+            "source_projection_skipped_column_count".to_string(),
+            source_read_skipped_column_count.to_string(),
+        ),
+        ("source_projection_blocker".to_string(), blocker.to_string()),
+        (
+            "source_projection_correctness_digest_status".to_string(),
+            if admission_status.starts_with("admitted_projection_aware") {
+                "covered_by_route_correctness_digest"
+            } else {
+                "not_applicable_projection_not_admitted"
+            }
+            .to_string(),
+        ),
+        (
+            "source_projection_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "source_projection_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "source_projection_claim_boundary".to_string(),
+            claim_boundary.to_string(),
+        ),
+    ]
+}
+
 fn source_read_mask_hex(mask: u32) -> String {
     format!("0x{mask:08x}")
+}
+
+fn source_read_mask_from_hex(value: &str) -> Option<u32> {
+    let text = value.trim();
+    let digits = text.strip_prefix("0x").unwrap_or(text);
+    u32::from_str_radix(digits, 16).ok()
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -5101,6 +5472,33 @@ impl TraditionalDirectTransientReport {
             ("fallback_attempted".to_string(), "false".to_string()),
             ("external_engine_invoked".to_string(), "false".to_string()),
         ]);
+        fields.extend(source_typed_column_builder_fields(
+            self.input_format,
+            &self.source_read_decode_status,
+            &self.source_read_projected_field_mask,
+            &self.source_read_filter_field_mask,
+            &self.source_read_decoded_columns,
+            &self.source_read_skipped_columns,
+            self.source_read_decoded_column_count,
+            self.source_read_skipped_column_count,
+            self.source_read_row_assembly_micros,
+            &self.source_read_row_materialization_status,
+            &self.source_read_unsupported_shape_diagnostic,
+            self.source_state_projection_aware_text_decode,
+        ));
+        fields.extend(source_projection_admission_fields(
+            self.input_format,
+            &self.source_read_decode_status,
+            &self.source_read_projected_field_mask,
+            &self.source_read_filter_field_mask,
+            &self.source_read_decoded_columns,
+            &self.source_read_skipped_columns,
+            self.source_read_decoded_column_count,
+            self.source_read_skipped_column_count,
+            &self.source_read_row_materialization_status,
+            &self.source_read_unsupported_shape_diagnostic,
+            self.source_state_projection_aware_text_decode,
+        ));
         fields.extend(evidence_render_proof_fields(
             self.scenario,
             "direct_compatibility_transient",
@@ -7146,6 +7544,33 @@ impl TraditionalAnalyticsReport {
             "compatibility_import_certified",
             self.streaming_vortex_execution_used,
             self.data_materialized,
+        ));
+        fields.extend(source_typed_column_builder_fields(
+            self.input_format,
+            &self.source_read_decode_status,
+            &self.source_read_projected_field_mask,
+            &self.source_read_filter_field_mask,
+            &self.source_read_decoded_columns,
+            &self.source_read_skipped_columns,
+            self.source_read_decoded_column_count,
+            self.source_read_skipped_column_count,
+            self.source_read_row_assembly_micros,
+            &self.source_read_row_materialization_status,
+            &self.source_read_unsupported_shape_diagnostic,
+            self.source_state_projection_aware_text_decode,
+        ));
+        fields.extend(source_projection_admission_fields(
+            self.input_format,
+            &self.source_read_decode_status,
+            &self.source_read_projected_field_mask,
+            &self.source_read_filter_field_mask,
+            &self.source_read_decoded_columns,
+            &self.source_read_skipped_columns,
+            self.source_read_decoded_column_count,
+            self.source_read_skipped_column_count,
+            &self.source_read_row_materialization_status,
+            &self.source_read_unsupported_shape_diagnostic,
+            self.source_state_projection_aware_text_decode,
         ));
         fields.extend(self.capillary_preparation_fields(
             &format!(
@@ -37373,6 +37798,102 @@ mod tests {
             "source_read_unsupported_shape_diagnostic",
             "none_admitted_text_shape",
         );
+        assert_field_eq(
+            &fields,
+            "source_typed_column_builder_schema_version",
+            SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "source_typed_column_builder_status",
+            "admitted_csv_jsonl_typed_column_builder",
+        );
+        assert_field_eq(
+            &fields,
+            "source_typed_column_builder_path",
+            "source_read_scout_to_typed_column_buffers_to_vortex_provider_record_batch",
+        );
+        assert!(
+            fields
+                .get("source_typed_builder_schema_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert_field_eq(&fields, "source_typed_builder_projected_column_count", "16");
+        assert_field_eq(&fields, "source_typed_builder_full_column_count", "16");
+        assert_field_eq(&fields, "source_typed_builder_decoded_column_count", "16");
+        assert_field_eq(&fields, "source_typed_builder_skipped_column_count", "0");
+        assert_field_eq(&fields, "source_typed_builder_row_assembly_avoided", "true");
+        assert_field_eq(
+            &fields,
+            "source_typed_builder_row_materialization_status",
+            "typed_text_column_builders_without_row_structs",
+        );
+        assert_field_eq(
+            &fields,
+            "source_typed_builder_null_validity_status",
+            "fixture_null_sentinels_preserved_in_utf8_builder_fields",
+        );
+        assert_field_eq(
+            &fields,
+            "source_typed_builder_type_coercion_status",
+            "deterministic_typed_parse_or_fail_closed",
+        );
+        assert_field_eq(
+            &fields,
+            "source_typed_builder_nested_json_status",
+            "nested_payload_admitted_as_utf8_payload",
+        );
+        assert_field_eq(
+            &fields,
+            "source_typed_builder_correctness_digest_status",
+            "covered_by_route_correctness_digest",
+        );
+        assert_field_eq(&fields, "source_typed_builder_fallback_attempted", "false");
+        assert_field_eq(
+            &fields,
+            "source_typed_builder_external_engine_invoked",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "source_typed_builder_external_parser_engine_invoked",
+            "false",
+        );
+        assert_field_eq(&fields, "external_parser_engine_invoked", "false");
+        assert_field_contains(
+            &fields,
+            "source_typed_builder_claim_boundary",
+            "scoped_csv_jsonl_typed_builder_evidence_only",
+        );
+        assert_field_eq(
+            &fields,
+            "source_projection_admission_schema_version",
+            SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "source_projection_admission_status",
+            "no_projection_opportunity_full_source_decode",
+        );
+        assert_field_eq(&fields, "source_projection_source_family", "text_source");
+        assert_field_eq(
+            &fields,
+            "source_projection_required_field_mask",
+            "0x0000ffff",
+        );
+        assert_field_eq(
+            &fields,
+            "source_projection_predicate_field_mask",
+            "0x00000028",
+        );
+        assert_field_eq(&fields, "source_projection_output_field_mask", "0x0000ffd7");
+        assert_field_eq(
+            &fields,
+            "source_projection_certificate_field_mask",
+            "0x0000ffff",
+        );
+        assert_field_eq(&fields, "source_projection_skipped_column_count", "0");
+        assert_field_eq(&fields, "source_projection_blocker", "none");
         let scout_source_read_micros = field_u64(&fields, "source_read_header_scout_micros")
             + field_u64(&fields, "source_read_byte_acquisition_micros")
             + field_u64(&fields, "source_read_full_body_micros");
@@ -37779,6 +38300,113 @@ mod tests {
             &import_fields,
             "source_read_unsupported_shape_diagnostic",
             "none_admitted_text_shape",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_typed_column_builder_status",
+            "admitted_csv_jsonl_typed_column_builder",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_typed_column_builder_path",
+            "source_read_scout_to_typed_column_buffers_to_vortex_provider_record_batch",
+        );
+        assert!(
+            import_fields
+                .get("source_typed_builder_schema_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_typed_builder_projected_column_count",
+            "11",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_typed_builder_full_column_count",
+            "16",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_typed_builder_decoded_column_count",
+            "11",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_typed_builder_skipped_column_count",
+            "5",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_typed_builder_row_assembly_avoided",
+            "true",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_typed_builder_null_validity_status",
+            "nullable_metric_skipped_by_projection",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_typed_builder_nested_json_status",
+            "nested_payload_admitted_as_utf8_payload",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_typed_builder_correctness_digest_status",
+            "covered_by_route_correctness_digest",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_typed_builder_external_parser_engine_invoked",
+            "false",
+        );
+        assert_field_eq(&import_fields, "external_parser_engine_invoked", "false");
+        assert_field_eq(
+            &import_fields,
+            "source_projection_admission_status",
+            "admitted_projection_aware_text_decode",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_projection_source_family",
+            "text_source",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_projection_required_field_mask",
+            "0x0000e27f",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_projection_predicate_field_mask",
+            "0x00000000",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_projection_output_field_mask",
+            "0x0000e27f",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_projection_decoded_column_count",
+            "11",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_projection_skipped_column_count",
+            "5",
+        );
+        assert_field_eq(&import_fields, "source_projection_blocker", "none");
+        assert_field_eq(
+            &import_fields,
+            "source_projection_correctness_digest_status",
+            "covered_by_route_correctness_digest",
+        );
+        assert_field_eq(
+            &import_fields,
+            "source_projection_external_engine_invoked",
+            "false",
         );
         assert_field_eq(
             &import_fields,
@@ -43486,6 +44114,52 @@ mod tests {
                 .get("source_state_row_assembly_strategy")
                 .map(String::as_str),
             Some("traditional_row_buffer_materialized")
+        );
+        assert_eq!(
+            fields
+                .get("source_typed_column_builder_status")
+                .map(String::as_str),
+            Some("not_admitted_scalar_row_materialization")
+        );
+        assert_eq!(
+            fields
+                .get("source_typed_column_builder_path")
+                .map(String::as_str),
+            Some("not_admitted_text_source_materialization_path")
+        );
+        assert_eq!(
+            fields
+                .get("source_projection_admission_status")
+                .map(String::as_str),
+            Some("not_admitted_scalar_row_materialization")
+        );
+        assert_eq!(
+            fields.get("source_projection_blocker").map(String::as_str),
+            Some("scalar_row_materialization_boundary")
+        );
+        assert_eq!(
+            fields
+                .get("source_projection_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("source_typed_builder_row_assembly_avoided")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("source_typed_builder_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            fields
+                .get("source_typed_builder_external_parser_engine_invoked")
+                .map(String::as_str),
+            Some("false")
         );
         assert_eq!(fields.get("write_io").map(String::as_str), Some("false"));
         assert_eq!(

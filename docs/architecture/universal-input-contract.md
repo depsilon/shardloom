@@ -73,6 +73,27 @@ not by compiling every reader by default. Active implementation status for input
     structured local inputs: Parquet/Arrow IPC/Avro/ORC rows report columnar preservation, record
     batch count, source-to-columnar timing, and the remaining traditional row-normalization boundary
     separately from Vortex array build/write timing.
+  - Planned `PERF-DESIGN-6R-A` work narrows CSV/JSONL cold-ingest optimization to direct typed
+    column builders for admitted local text-source shapes. That path should use SourceState scout
+    evidence to classify schema, delimiters, nullability, projected fields, malformed rows, and
+    coercion policy before appending values directly into typed buffers for Vortex preparation.
+    Admitted rows must report typed-builder status, projected/full/skipped column counts, row
+    materialization status, source-to-Vortex handoff timing, correctness digest status,
+    `fallback_attempted=false`, `external_engine_invoked=false`, and
+    `external_parser_engine_invoked=false`. Unsupported CSV/JSONL shapes must produce deterministic
+    source-scout blockers; the planned path does not authorize hidden row-object assembly,
+    decode-to-Arrow execution, broad JSON support, new source-format support, or external parser
+    engine fallback.
+  - Planned `PERF-DESIGN-6R-B` work makes projection a source-admission contract rather than a
+    benchmark shortcut. Required fields must be derived from predicates, outputs, joins, grouping,
+    ordering, certificates, diagnostics, and proof-tier needs before decode/handoff; skipped columns
+    are valid only when the row records field masks, blocker posture, unchanged digests, and
+    no-fallback evidence.
+  - Planned `PERF-DESIGN-6R-C` work keeps Parquet and Arrow IPC under an already-columnar source
+    handoff contract. Admitted rows should preserve column buffers and null/validity semantics where
+    possible, report direct-columnar provider status and unsupported dtype blockers, and avoid
+    text-source typed-builder labels. This does not authorize Polars/PyArrow/DuckDB execution
+    fallback or lossy conversion.
   - Production-certified adapters remain separate phases and must emit full capability, pushdown,
     fidelity, and certificate evidence.
 - Catalog/table refs

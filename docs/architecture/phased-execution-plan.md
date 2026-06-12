@@ -192,6 +192,11 @@ Current autonomous execution order:
 - [ ] `PERF-DESIGN-3` - Publication-proof sink/evidence pipeline optimization.
   - [ ] `PERF-DESIGN-3-A` - Certified route tiering for hot-runtime versus publication-proof work.
 
+Validation-speed note: the current 6R-A/6R-B local pass also caches Python `OutputEnvelope.field_map`
+and switches runtime mapping checks to `collections.abc.Mapping` so benchmark publication validators
+do not rebuild typed payload field maps for every field lookup. This is a serial hard-gate stack
+optimization only; it does not change runtime semantics or benchmark claim status.
+
 Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 
 - Source artifact:
@@ -624,24 +629,52 @@ Timing aggregation guardrail:
 
 #### PERF-DESIGN-6R-A - Direct typed column builders for CSV/JSONL cold ingest
 
-- Source: `PERF-DESIGN-6R` and current cold route attribution where parse/decode remains the largest
-  cold-route component for source-heavy rows.
+- Source: `PERF-DESIGN-6R`, `docs/architecture/universal-input-contract.md`,
+  `docs/architecture/performance-attribution-and-execution-structure.md`, and current cold route
+  attribution where text-source parse/decode remains the largest cold-route component for
+  source-heavy rows, roughly `33-34 ms` geomean in the current route snapshot and much higher on
+  JSONL outliers.
+- Current state: CSV/JSONL benchmark compatibility-ingest rows have source-read scout and
+  stage-timing attribution, and refreshed rows avoid unused row-buffer assembly where currently
+  supported. The local runtime/reporting path now emits `source_typed_column_builder_*` and
+  `source_typed_builder_*` evidence for admitted CSV/JSONL rows, including projected/full/skipped
+  counts, row-assembly avoidance, no external parser, and correctness-digest posture. Focused Rust
+  coverage proves full CSV decode, projection-aware JSONL nested-payload decode, and direct
+  transient non-admission. The checked-in published benchmark artifact predates these fields and
+  still requires a targeted source-heavy refresh before a timing claim.
+- Next slice outcome: regenerate a targeted source-heavy benchmark artifact, confirm typed-builder
+  fields flow through promotion/website data, and compare cold-route source parse/decode timing
+  before deciding whether more runtime decode work is needed. The slice should close the direct
+  typed-builder path for admitted scalar shapes rather than producing a narrow one-scenario shortcut.
+- User-visible surface: benchmark rows, source-read scout fields, Python benchmark harness output,
+  website stage-attribution data, source-adapter diagnostics, and targeted timing artifacts for the
+  published ETL scenarios.
 - Goal: replace row/object/string-heavy CSV/JSONL compatibility ingest with direct typed column
   builders that emit column buffers suitable for Vortex preparation without intermediate row
   materialization.
 - Scope: CSV and JSONL local-source adapters, schema/scout inference, typed builders for integer,
   float, bool, UTF-8, timestamp/date, null-heavy fields, nested JSON-field scan where admitted,
   benchmark route timing passthrough, and source-read scout fields.
+- Implementation scope: source adapter parse/decode modules, schema/scout inference, scenario
+  required-field masks, typed builder allocation and append loops, null/validity accounting,
+  timestamp/date and dirty-numeric coercion policy, nested JSON-field scan admission, Vortex
+  preparation handoff, benchmark report fields, promoter passthrough, website/static artifact data,
+  and focused source fixtures.
 - Implementation: add a scout pass that classifies delimiter/schema/nulls/projected fields, allocate
-  typed column buffers once, append parsed values directly into typed builders, avoid `Vec<Row>` or
-  map-like object assembly for admitted shapes, and preserve deterministic diagnostics for malformed
-  rows and unsupported type coercions.
+  typed column buffers once per admitted field set, append parsed values directly into typed builders,
+  avoid `Vec<Row>` or map-like object assembly for admitted shapes, preserve required predicate/
+  output/certificate/diagnostic fields, and fail closed with deterministic diagnostics for malformed
+  rows, unsupported nested JSON shapes, and unsupported type coercions.
 - Evidence required: before/after cold certified rows for CSV/JSONL source-heavy scenarios,
-  decoded-column/skipped-column evidence, row materialization status, correctness parity against the
-  existing decoded reference, no fallback, and no external parser engine invocation.
+  typed-builder admission status, decoded-column/skipped-column evidence, projected/full column
+  counts, row materialization status, source-to-Vortex handoff timing, malformed/coercion blocker
+  coverage, correctness parity against the existing decoded reference, no fallback, and no external
+  parser engine invocation.
 - Acceptance: admitted CSV/JSONL rows report the typed-column-builder path, avoided row assembly
   where supported, correct projected/full column counts, stable correctness digests, and materially
-  reduced `source_parse_or_columnar_decode_ms`.
+  reduced `source_parse_or_columnar_decode_ms` for source-heavy rows. Full-width or unsupported
+  rows must either report no projection/builder opportunity or a deterministic source-scout blocker;
+  they must not silently fall back to row-object assembly and then claim typed-builder execution.
 - Verification: focused Rust source-adapter tests for nulls, malformed values, timestamps, dirty CSV,
   nested JSON, projection masks, and type coercions; Python benchmark harness smoke for CSV/JSONL;
   targeted reruns for `csv_file_ingest`, `filter_projection_limit`, `wide_projection`,
@@ -661,6 +694,15 @@ Timing aggregation guardrail:
 
 - Source: `PERF-DESIGN-6R`, source-read scout attribution, and current external-baseline gaps where
   lazy baselines win by avoiding unnecessary column work.
+- Current state: source-read evidence already carries decoded/skipped masks for text and
+  already-columnar source paths. The local runtime/reporting path now promotes that evidence into a
+  stable `source_projection_*` admission surface with required, predicate, output, certificate, and
+  diagnostic masks; field-mask digests; decoded/skipped counts; blockers; correctness-digest
+  posture; and no-fallback/no-external-engine fields. The Python benchmark harness and artifact
+  promoter preserve those fields, and focused Rust coverage proves CSV full-read/no-projection
+  posture, JSONL projection-aware admission, and scalar direct-transient non-admission. The
+  checked-in published benchmark artifact still predates these fields and requires a targeted
+  projection-sensitive refresh before a timing claim.
 - Goal: make cold ingest decode only columns needed for predicates, output, joins, grouping, ordering,
   certificates, and required diagnostics.
 - Scope: scenario-required field discovery, filter-only versus output-column masks, source scout

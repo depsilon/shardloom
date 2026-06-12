@@ -771,6 +771,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.field_map["fallback_execution_allowed"], "false")
         self.assertEqual(result.field_map["phase"], "typed-lifecycle")
         self.assertEqual(result.field_map["scope"], "typed-capability")
+        self.assertIs(result.field_map, result.field_map)
 
     def test_optimizer_plan_typed_view_preserves_report_only_boundaries(self) -> None:
         binary = self.fake_cli(
