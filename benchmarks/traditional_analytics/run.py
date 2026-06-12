@@ -3082,6 +3082,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     explicit_scenario = option_was_provided("--scenario", argv)
     explicit_data_dir = option_was_provided("--data-dir", argv)
     explicit_output = option_was_provided("--output", argv)
+    explicit_dataset_profile = option_was_provided("--dataset-profile", argv)
     explicit_skip_native = option_was_provided("--skip-shardloom-native", argv)
     explicit_shardloom_evidence_level = option_was_provided(
         "--shardloom-evidence-level", argv
@@ -3123,6 +3124,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     args.format_list = requested_formats
     if args.claim_readiness_rerun and not explicit_scenario:
         args.include_taxonomy_extra = True
+    if args.claim_readiness_rerun and not explicit_dataset_profile:
+        args.dataset_profile = "tiny_smoke"
     if args.claim_readiness_rerun:
         args.shardloom_result_sink = True
         if not explicit_skip_native:
@@ -14586,6 +14589,11 @@ def runtime_execution_validation_summary(
 
 def validate_result_attribution_contract(result: dict[str, Any]) -> None:
     metrics = result.get("metrics")
+    row_context = (
+        f"{result.get('engine', 'unknown')} "
+        f"{result.get('scenario_name', result.get('scenario_base', 'unknown'))} "
+        f"status={result.get('status', 'unknown')}"
+    )
     if not isinstance(metrics, dict):
         raise RuntimeError(
             f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
@@ -15063,6 +15071,7 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         ):
             raise RuntimeError("direct transient rows cannot report prepared-state reuse")
         if str(result.get("engine") or "") == "shardloom-prepare-batch":
+            row_success = result.get("status") == "success"
             missing_repair_fields = [
                 field for field in PREPARED_STATE_REPAIR_CONTRACT_FIELDS if field not in metrics
             ]
@@ -15134,10 +15143,40 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
                 metrics.get(
                     "prepare_batch_prepared_state_optimization_no_fallback_policy_status"
                 )
+                not in (
+                    "passed_fallback_false_external_engine_false",
+                    "not_executed",
+                )
+            ):
+                raise RuntimeError(
+                    row_context
+                    + " prepared-state optimization reported an unexpected no-fallback policy "
+                    + "(actual="
+                    + str(
+                        metrics.get(
+                            "prepare_batch_prepared_state_optimization_no_fallback_policy_status",
+                            "missing",
+                        )
+                    )
+                    + ")"
+                )
+            if row_success and (
+                metrics.get(
+                    "prepare_batch_prepared_state_optimization_no_fallback_policy_status"
+                )
                 != "passed_fallback_false_external_engine_false"
             ):
                 raise RuntimeError(
-                    "prepared-state optimization must report passed no-fallback policy"
+                    row_context
+                    + " prepared-state optimization must report passed no-fallback policy "
+                    + "(actual="
+                    + str(
+                        metrics.get(
+                            "prepare_batch_prepared_state_optimization_no_fallback_policy_status",
+                            "missing",
+                        )
+                    )
+                    + ")"
                 )
             optimization_strategy = str(
                 metrics.get("prepare_batch_prepared_state_optimization_strategy") or ""
@@ -15145,48 +15184,49 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             optimization_status = str(
                 metrics.get("prepare_batch_prepared_state_optimization_status") or ""
             )
-            if optimization_strategy not in {
-                "full_prepare_register",
-                "manifest_reuse",
-                "role_scoped_repair",
-                "append_only_delta_overlay",
-            }:
-                raise RuntimeError(
-                    "prepared-state optimization strategy is not in the supported vocabulary"
-                )
-            if optimization_status in {"", "missing_success_evidence", "not_reported"}:
-                raise RuntimeError(
-                    "ShardLoom prepare/batch success row omitted prepared-state optimization status"
-                )
-            if not metrics.get("prepare_batch_prepared_state_optimization_proof_digest"):
-                raise RuntimeError(
-                    "prepared-state optimization must report a proof digest"
-                )
-            if optimization_strategy == "append_only_delta_overlay":
-                if (
-                    metrics.get(
-                        "prepare_batch_prepared_state_optimization_delta_overlay_admitted"
+            if row_success:
+                if optimization_strategy not in {
+                    "full_prepare_register",
+                    "manifest_reuse",
+                    "role_scoped_repair",
+                    "append_only_delta_overlay",
+                }:
+                    raise RuntimeError(
+                        "prepared-state optimization strategy is not in the supported vocabulary"
                     )
-                    is not True
+                if optimization_status in {"", "missing_success_evidence", "not_reported"}:
+                    raise RuntimeError(
+                        "ShardLoom prepare/batch success row omitted prepared-state optimization status"
+                    )
+                if not metrics.get("prepare_batch_prepared_state_optimization_proof_digest"):
+                    raise RuntimeError(
+                        "prepared-state optimization must report a proof digest"
+                    )
+                if optimization_strategy == "append_only_delta_overlay":
+                    if (
+                        metrics.get(
+                            "prepare_batch_prepared_state_optimization_delta_overlay_admitted"
+                        )
+                        is not True
+                    ):
+                        raise RuntimeError(
+                            "append-only prepared-state optimization requires admitted delta overlay"
+                        )
+                    if (
+                        metrics.get(
+                            "prepare_batch_prepared_state_optimization_base_artifact_reused"
+                        )
+                        is not True
+                    ):
+                        raise RuntimeError(
+                            "append-only prepared-state optimization must reuse the base artifact"
+                        )
+                if optimization_strategy == "role_scoped_repair" and not metrics.get(
+                    "prepare_batch_prepared_state_optimization_repaired_roles"
                 ):
                     raise RuntimeError(
-                        "append-only prepared-state optimization requires admitted delta overlay"
+                        "role-scoped prepared-state optimization must report repaired roles"
                     )
-                if (
-                    metrics.get(
-                        "prepare_batch_prepared_state_optimization_base_artifact_reused"
-                    )
-                    is not True
-                ):
-                    raise RuntimeError(
-                        "append-only prepared-state optimization must reuse the base artifact"
-                    )
-            if optimization_strategy == "role_scoped_repair" and not metrics.get(
-                "prepare_batch_prepared_state_optimization_repaired_roles"
-            ):
-                raise RuntimeError(
-                    "role-scoped prepared-state optimization must report repaired roles"
-                )
             repair_status = str(
                 metrics.get("prepare_batch_prepared_state_partial_repair_status") or ""
             )
@@ -27011,15 +27051,15 @@ def main() -> int:
                     continue
                 if runner.batch_scenarios is not None:
                     try:
-                        for result in run_batch(
-                            runner,
-                            paths,
-                            tuple(runnable_scenarios),
-                            data_format,
-                            args.iterations,
-                        ):
-                            record_result(result)
-                        continue
+                        batch_results = list(
+                            run_batch(
+                                runner,
+                                paths,
+                                tuple(runnable_scenarios),
+                                data_format,
+                                args.iterations,
+                            )
+                        )
                     except BenchmarkUnsupported:
                         # The batch command is an optimization of the benchmark harness process
                         # boundary, not a runtime fallback. Keep a deterministic report by
@@ -27036,6 +27076,10 @@ def main() -> int:
                                 paths,
                                 args.iterations,
                             )
+                            record_result(result)
+                        continue
+                    else:
+                        for result in batch_results:
                             record_result(result)
                         continue
                 for scenario in runnable_scenarios:
