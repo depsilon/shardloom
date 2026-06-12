@@ -607,7 +607,11 @@ scenarios also share one per-batch dimension-label lookup state when both are pr
 `source_state_reuse_status=per_batch_dimension_label_state_reused`,
 `source_state_reuse_consumer_count`, `source_state_recompute_avoided_count`, and
 `source_state_prepare_micros` with
-`source_state_prepare_timing_scope=batch_shared_pre_scenario`. Distinct-count and
+`source_state_prepare_timing_scope=batch_shared_pre_scenario`. CSV file ingest and many-small-files
+scan share one prewarmed per-batch fact metric-sum state when both are present and emit
+`source_state_reuse_status=per_batch_fact_metric_state_reused` plus family-specific
+`source_state_fact_metric_*` fields such as `source_state_fact_metric_reuse_status`.
+Distinct-count and
 high-cardinality string-group/distinct child scenarios share one per-batch category/metric grouped
 state when both are present and emit
 `source_state_reuse_status=per_batch_category_metric_state_reused` plus family-specific
@@ -624,9 +628,9 @@ means the CLI process wall time is shared across the grouped rows; per-scenario
 `scenario_compute_micros`, `vortex_scan_micros`, and optional
 `computed_result_sink_write_micros` remain row-level evidence fields. This is a runtime support
 slice for scoped local prepared/native process, source-metadata, dimension-label source-state,
-category/metric source-state reuse, group/category/metric source-state reuse, ranked-metric
-source-state reuse, selective-filter source-state reuse, dirty-input source-state reuse, and
-date/null metric source-state reuse.
+fact-metric source-state reuse, category/metric source-state reuse, group/category/metric
+source-state reuse, ranked-metric source-state reuse, selective-filter source-state reuse,
+dirty-input source-state reuse, and date/null metric source-state reuse.
 Evidence-level fields separate proof depth from execution mode: `minimal_runtime` omits
 result-sink replay and stays `not_claim_grade`, `certified` emits normal certificates without replay
 by default, and `full_replay` requires result-sink replay proof through `--write-result-vortex`.

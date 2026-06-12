@@ -1043,6 +1043,11 @@ BATCH_RUNNER_ADMISSION_FIELDS = (
     "source_state_dimension_label_family_build_count",
     "source_state_dimension_label_family_reuse_hit",
     "source_state_dimension_label_family_recompute_avoided",
+    "source_state_fact_metric_reuse_status",
+    "source_state_fact_metric_family_build_micros",
+    "source_state_fact_metric_family_build_count",
+    "source_state_fact_metric_family_reuse_hit",
+    "source_state_fact_metric_family_recompute_avoided",
     "source_state_category_metric_reuse_status",
     "source_state_category_metric_family_build_micros",
     "source_state_category_metric_family_build_count",
@@ -5742,6 +5747,18 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
                 "source_state_dimension_label_recompute_avoided_count": batch_fields.get(
                     "source_state_dimension_label_recompute_avoided_count", "unknown"
+                ),
+                "source_state_fact_metric_reuse_status": batch_fields.get(
+                    "source_state_fact_metric_reuse_status", "unknown"
+                ),
+                "source_state_fact_metric_reused": batch_fields.get(
+                    "source_state_fact_metric_reused", "unknown"
+                ),
+                "source_state_fact_metric_reuse_consumer_count": batch_fields.get(
+                    "source_state_fact_metric_reuse_consumer_count", "unknown"
+                ),
+                "source_state_fact_metric_recompute_avoided_count": batch_fields.get(
+                    "source_state_fact_metric_recompute_avoided_count", "unknown"
                 ),
                 "source_state_category_metric_reuse_status": batch_fields.get(
                     "source_state_category_metric_reuse_status", "unknown"
