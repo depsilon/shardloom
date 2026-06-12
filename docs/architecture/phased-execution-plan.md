@@ -156,6 +156,10 @@ Current autonomous execution order:
   - Progress: benchmark promotion now emits `operator_compute_route_relation_*` fields so
     diagnostic-only operator timings cannot be mistaken for additive hot-route totals; remaining
     work is runtime/operator-family promotion.
+  - Progress: prepared/native group-category state now preassembles the exact
+    `group_by_aggregation` and `multi_key_group_by` result payloads once per shared source-state
+    family, reports result-cache/preassembly timing fields, and keeps hot scenario execution from
+    rebuilding aggregate maps into JSON on each consumer.
   - Verification: focused Rust operator/correctness tests, Python row-contract tests, targeted
     benchmark rerun for the selected family, `cargo fmt --all -- --check`,
     `cargo clippy --workspace --all-targets -- -D warnings`, and
