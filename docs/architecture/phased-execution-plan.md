@@ -153,6 +153,9 @@ Current autonomous execution order:
   - Acceptance: admitted rows stop overstating residual/materialized work for the selected family;
     unsupported families keep deterministic blockers; timing attribution cannot contradict
     authoritative route totals.
+  - Progress: benchmark promotion now emits `operator_compute_route_relation_*` fields so
+    diagnostic-only operator timings cannot be mistaken for additive hot-route totals; remaining
+    work is runtime/operator-family promotion.
   - Verification: focused Rust operator/correctness tests, Python row-contract tests, targeted
     benchmark rerun for the selected family, `cargo fmt --all -- --check`,
     `cargo clippy --workspace --all-targets -- -D warnings`, and

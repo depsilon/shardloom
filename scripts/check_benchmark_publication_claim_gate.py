@@ -114,6 +114,30 @@ RESULT_SINK_REPLAY_VERIFIED_FIELDS = (
     "result_sink_replay_verified",
     "evidence_level_result_sink_replay_verified",
 )
+OPERATOR_COMPUTE_ROUTE_RELATION_SCHEMA_VERSION = (
+    "shardloom.operator_compute_route_relation.v1"
+)
+OPERATOR_COMPUTE_ROUTE_RELATION_FIELDS = (
+    "operator_compute_route_relation_schema_version",
+    "operator_compute_route_relation_status",
+    "operator_compute_included_in_route_total",
+    "operator_compute_route_stage_inclusion_class",
+    "operator_compute_route_total_field",
+    "operator_compute_route_total_ms",
+    "operator_compute_route_total_delta_ms",
+    "operator_compute_route_relation_claim_boundary",
+)
+OPERATOR_COMPUTE_ROUTE_RELATION_STATUSES = {
+    "diagnostic_only_exceeds_route_total",
+    "diagnostic_only_route_total_missing",
+    "diagnostic_only_within_route_total",
+    "external_baseline_only",
+    "included_in_route_total",
+    "included_stage_exceeds_route_total",
+    "not_executed",
+    "operator_compute_not_reported",
+    "stage_inclusion_missing",
+}
 LOCAL_PATH_RE = re.compile(
     r"(?P<win>[A-Za-z]:\\[^|,;\"'\s]+)|"
     r"(?P<posix>(?:/Users|/home|/tmp|/var/folders|/private/var|/workspace|/mnt|/Volumes)"
@@ -523,6 +547,91 @@ def meaningful_value(value: Any) -> bool:
     }
 
 
+def unpack_stage_map(value: Any) -> dict[str, str]:
+    if not isinstance(value, str):
+        return {}
+    result: dict[str, str] = {}
+    for token in value.split(";"):
+        if ":" not in token:
+            continue
+        stage_id, stage_value = token.split(":", 1)
+        if stage_id.strip():
+            result[stage_id.strip()] = stage_value.strip()
+    return result
+
+
+def operator_compute_route_relation_issues(
+    row: dict[str, Any],
+    *,
+    row_index: int,
+    engine: str,
+) -> tuple[str | None, list[str]]:
+    fields = runtime_validation_field_map(row)
+    if not any(field in fields for field in OPERATOR_COMPUTE_ROUTE_RELATION_FIELDS):
+        return None, []
+    missing = [
+        field for field in OPERATOR_COMPUTE_ROUTE_RELATION_FIELDS if field not in fields
+    ]
+    if missing:
+        return None, [f"{row_index}:{engine}:missing_operator_route_relation={missing}"]
+
+    issues: list[str] = []
+    schema = field_value(row, "operator_compute_route_relation_schema_version")
+    if schema != OPERATOR_COMPUTE_ROUTE_RELATION_SCHEMA_VERSION:
+        issues.append(
+            f"{row_index}:{engine}:operator_compute_route_relation_schema_version={schema!r}"
+        )
+    status = str(field_value(row, "operator_compute_route_relation_status") or "")
+    if status not in OPERATOR_COMPUTE_ROUTE_RELATION_STATUSES:
+        issues.append(
+            f"{row_index}:{engine}:operator_compute_route_relation_status={status!r}"
+        )
+    included = bool_value(field_value(row, "operator_compute_included_in_route_total"))
+    stage_class = str(field_value(row, "operator_compute_route_stage_inclusion_class") or "")
+    if included is None:
+        issues.append(
+            f"{row_index}:{engine}:operator_compute_included_in_route_total is not boolean"
+        )
+    elif included and not stage_class.startswith("included"):
+        issues.append(
+            f"{row_index}:{engine}:operator relation included=true but stage class={stage_class!r}"
+        )
+    elif included is False and stage_class.startswith("included"):
+        issues.append(
+            f"{row_index}:{engine}:operator relation included=false but stage class={stage_class!r}"
+        )
+
+    classes = unpack_stage_map(field_value(row, "route_timing_stage_inclusion_classes"))
+    if classes and classes.get("operator_compute") != stage_class:
+        issues.append(
+            f"{row_index}:{engine}:operator relation stage class does not match stage map"
+        )
+
+    delta = numeric_value(field_value(row, "operator_compute_route_total_delta_ms"))
+    if status == "diagnostic_only_exceeds_route_total":
+        if included is not False or stage_class.startswith("included"):
+            issues.append(
+                f"{row_index}:{engine}:diagnostic-only operator relation was marked included"
+            )
+        if delta is None or delta <= 0.001:
+            issues.append(
+                f"{row_index}:{engine}:diagnostic-only exceeds status without positive delta"
+            )
+    if status == "included_stage_exceeds_route_total":
+        issues.append(
+            f"{row_index}:{engine}:included operator stage exceeds selected route total"
+        )
+    if status == "included_in_route_total" and included is not True:
+        issues.append(
+            f"{row_index}:{engine}:included relation status without included=true"
+        )
+    if status.startswith("diagnostic_only") and included is not False:
+        issues.append(
+            f"{row_index}:{engine}:diagnostic relation status without included=false"
+        )
+    return status, issues
+
+
 def local_path_occurrences(value: Any, *, path: str = "$") -> list[str]:
     if isinstance(value, str):
         return [path] if LOCAL_PATH_RE.search(value) is not None else []
@@ -827,6 +936,7 @@ def validate_profile_and_rows(
     operator_mode_counts: Counter[str] = Counter()
     shardloom_engine_format_counts: dict[str, Counter[str]] = defaultdict(Counter)
     runtime_validation_counts: Counter[str] = Counter()
+    operator_compute_route_relation_counts: Counter[str] = Counter()
     missing_capillary_count = 0
     missing_reuse_evidence_count = 0
     non_success_examples: list[str] = []
@@ -841,6 +951,7 @@ def validate_profile_and_rows(
     missing_route_examples: list[str] = []
     invalid_route_examples: list[str] = []
     invalid_operator_mode_examples: list[str] = []
+    invalid_operator_compute_relation_examples: list[str] = []
     unsupported_external_examples: list[str] = []
     independent_claim_examples: list[str] = []
     reuse_evidence_examples: list[str] = []
@@ -1096,6 +1207,16 @@ def validate_profile_and_rows(
                 invalid_route_examples.append(
                     f"{index}:{engine}:successful ShardLoom row reports unsupported route"
                 )
+        relation_status, relation_issues = operator_compute_route_relation_issues(
+            row,
+            row_index=index,
+            engine=engine,
+        )
+        if relation_status:
+            operator_compute_route_relation_counts[relation_status] += 1
+        for issue in relation_issues:
+            if len(invalid_operator_compute_relation_examples) < 5:
+                invalid_operator_compute_relation_examples.append(issue)
         if storage_format:
             shardloom_format_counts[storage_format] += 1
             shardloom_engine_format_counts[engine][storage_format] += 1
@@ -1325,6 +1446,11 @@ def validate_profile_and_rows(
             "published benchmark rows have invalid operator mode/encoded-native claim fields; "
             f"examples={invalid_operator_mode_examples}"
         )
+    if invalid_operator_compute_relation_examples:
+        blockers.append(
+            "published benchmark rows have invalid operator compute route-relation fields; "
+            f"examples={invalid_operator_compute_relation_examples}"
+        )
     failed_runtime_validations = {
         status: count
         for status, count in runtime_validation_counts.items()
@@ -1371,6 +1497,9 @@ def validate_profile_and_rows(
         "external_engine_counts": dict(sorted(external_engine_counts.items())),
         "route_runtime_status_counts": dict(sorted(route_runtime_counts.items())),
         "operator_execution_mode_counts": dict(sorted(operator_mode_counts.items())),
+        "operator_compute_route_relation_status_counts": dict(
+            sorted(operator_compute_route_relation_counts.items())
+        ),
         "external_baseline_unsupported_examples": unsupported_external_examples,
         "shardloom_row_count": sum(shardloom_engine_counts.values()),
         "shardloom_engine_counts": dict(sorted(shardloom_engine_counts.items())),
