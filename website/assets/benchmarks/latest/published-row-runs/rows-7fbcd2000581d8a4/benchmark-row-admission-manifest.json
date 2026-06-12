@@ -1,0 +1,69 @@
+{
+  "chunk_count": 10,
+  "chunk_size": 200,
+  "chunks": [
+    {
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4/published-benchmark-rows-000.json",
+      "row_count": 200,
+      "sha256": "760a431936d44ffdacbbfa34fe28dcb689bb79eee7d6983875b7a07466cfb366"
+    },
+    {
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4/published-benchmark-rows-001.json",
+      "row_count": 200,
+      "sha256": "ffb484f6c910fb8cc5bc94affb1667181805b24c99947dbdaf5303708cb29c16"
+    },
+    {
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4/published-benchmark-rows-002.json",
+      "row_count": 200,
+      "sha256": "940c56b2337204cb5cf7456a22b2f0f9a0c0b40c430ac7643d0fac3967f24cad"
+    },
+    {
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4/published-benchmark-rows-003.json",
+      "row_count": 200,
+      "sha256": "2cc02dc3d63c51283cecd69a98ab6ab9ee0cbf0e1a5f04ddcd98fa31bb22eb8c"
+    },
+    {
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4/published-benchmark-rows-004.json",
+      "row_count": 200,
+      "sha256": "c9074a19315e5b5482a354bf6556a96d39ead26c083160d15ca047092400969c"
+    },
+    {
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4/published-benchmark-rows-005.json",
+      "row_count": 200,
+      "sha256": "922d49204f8edcd852f2fe97108c71ce28989c34655e1b103c12b1118483e162"
+    },
+    {
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4/published-benchmark-rows-006.json",
+      "row_count": 200,
+      "sha256": "c6d8c083caa990223f3ebc29de61ca3b370a8181150b8394678fb57e5fcd6062"
+    },
+    {
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4/published-benchmark-rows-007.json",
+      "row_count": 200,
+      "sha256": "1bdff4ac23034e63d774e8ae8d40db9f3803c91678fe4df41439eed34d77b4be"
+    },
+    {
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4/published-benchmark-rows-008.json",
+      "row_count": 200,
+      "sha256": "a7d3b611a6771e86233e0400ce559d9e28b6e9fe1252e6dd47025b1befc2b049"
+    },
+    {
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4/published-benchmark-rows-009.json",
+      "row_count": 120,
+      "sha256": "b261e887aa68ab1fa5375f72c0579b734cece590b219826730f98ad7c801ae13"
+    }
+  ],
+  "claim_boundary": "benchmark row admission manifest only; not performance, production, or replacement evidence",
+  "duplicate_suffixed_artifacts_removed": [],
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "generated_at_utc": "2026-06-12T11:14:04.440848+00:00",
+  "legacy_top_level_chunk_files_removed": [],
+  "resume_status": "reused_existing_chunks",
+  "reused_chunk_count": 10,
+  "row_count": 1920,
+  "run_id": "rows-7fbcd2000581d8a4",
+  "schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
+  "stale_chunk_files_removed": [],
+  "written_chunk_count": 0
+}

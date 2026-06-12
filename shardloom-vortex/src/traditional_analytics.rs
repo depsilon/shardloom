@@ -34792,6 +34792,50 @@ mod tests {
         (fact_jsonl, dim_jsonl)
     }
 
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn write_projected_traditional_avro_fact(root: &std::path::Path) -> PathBuf {
+        std::fs::create_dir_all(root).unwrap();
+        let mut columns = TraditionalFactVortexColumns::with_capacity(2);
+        columns.push_values(
+            1,
+            10,
+            1,
+            6000,
+            2.5,
+            1,
+            "A".to_string(),
+            Some("2024-03-01".to_string()),
+            Some("1.25".to_string()),
+            Some(r#"{"event":{"flag":true},"metrics":{"score":2.5}}"#.to_string()),
+            Some("2024-01-01T00:00:00Z".to_string()),
+            Some("6000".to_string()),
+            Some("Y".to_string()),
+        );
+        columns.push_values(
+            2,
+            11,
+            2,
+            1000,
+            3.5,
+            0,
+            "B".to_string(),
+            Some("2024-07-01".to_string()),
+            None,
+            Some(r#"{"event":{"flag":false},"metrics":{"score":3.75}}"#.to_string()),
+            Some("not-a-timestamp".to_string()),
+            Some("bad-number".to_string()),
+            Some("N".to_string()),
+        );
+        let fact_avro = root.join("fact.avro");
+        write_avro_output(
+            &columns.into_record_batch().expect("fact batch"),
+            &fact_avro,
+            "fact input",
+        )
+        .expect("write projected Avro fixture");
+        fact_avro
+    }
+
     #[test]
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn avro_provider_batch_uses_fact_projection_mask_without_row_materialization() {
@@ -34861,6 +34905,117 @@ mod tests {
         assert!(!source.evidence.scalar_rows_materialized);
         assert_eq!(source.batch.num_rows(), fact_rows.len());
         assert_eq!(source.batch.num_columns(), 13);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn avro_provider_batch_keeps_nested_projection_and_skips_dirty_fields() {
+        let root = traditional_analytics_test_root("avro-projected-nested-provider");
+        let fact_avro = write_projected_traditional_avro_fact(&root);
+
+        let source = read_traditional_fact_vortex_provider_batch_with_evidence(
+            &fact_avro,
+            TraditionalAnalyticsInputFormat::Avro,
+            TraditionalAnalyticsResourcePolicy::auto().resolve_for_sources(1024),
+            TraditionalAnalyticsScenario::NestedJsonFieldScan,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::NestedJsonFieldScan,
+            ),
+        )
+        .expect("projection-aware nested Avro provider batch");
+
+        assert_eq!(
+            source.evidence.decode_status(),
+            "projection_aware_columnar_provider_decode"
+        );
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x0000027f");
+        assert_eq!(source.evidence.filter_field_mask_hex(), "0x00000000");
+        assert_eq!(
+            source.evidence.decoded_columns(),
+            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category|fact.nested_payload"
+        );
+        assert_eq!(
+            source.evidence.skipped_columns(),
+            "fact.event_date|fact.nullable_metric_00|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+        );
+        let nested_payloads =
+            arrow_string_column(&source.batch, &fact_avro, "nested_payload").expect("nested");
+        let dirty_numeric =
+            arrow_string_column(&source.batch, &fact_avro, "dirty_numeric").expect("dirty");
+        assert_eq!(
+            nested_payloads,
+            vec![
+                r#"{"event":{"flag":true},"metrics":{"score":2.5}}"#.to_string(),
+                r#"{"event":{"flag":false},"metrics":{"score":3.75}}"#.to_string(),
+            ]
+        );
+        assert_eq!(dirty_numeric, vec!["".to_string(), "".to_string()]);
+        assert_eq!(source.evidence.row_assembly_micros, 0);
+        assert!(source.evidence.columnar_handoff_micros > 0);
+        assert!(source.evidence.columnar_preserved);
+        assert!(!source.evidence.scalar_rows_materialized);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn avro_provider_batch_keeps_dirty_projection_and_skips_nested_fields() {
+        let root = traditional_analytics_test_root("avro-projected-dirty-provider");
+        let fact_avro = write_projected_traditional_avro_fact(&root);
+
+        let source = read_traditional_fact_vortex_provider_batch_with_evidence(
+            &fact_avro,
+            TraditionalAnalyticsInputFormat::Avro,
+            TraditionalAnalyticsResourcePolicy::auto().resolve_for_sources(1024),
+            TraditionalAnalyticsScenario::CleanCastFilterWrite,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::CleanCastFilterWrite,
+            ),
+        )
+        .expect("projection-aware dirty Avro provider batch");
+
+        assert_eq!(
+            source.evidence.decode_status(),
+            "projection_aware_columnar_provider_decode"
+        );
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00001c7f");
+        assert_eq!(source.evidence.filter_field_mask_hex(), "0x00001c00");
+        assert_eq!(
+            source.evidence.decoded_columns(),
+            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+        );
+        assert_eq!(
+            source.evidence.skipped_columns(),
+            "fact.event_date|fact.nullable_metric_00|fact.nested_payload"
+        );
+        let raw_event_time =
+            arrow_string_column(&source.batch, &fact_avro, "raw_event_time").expect("raw time");
+        let dirty_numeric =
+            arrow_string_column(&source.batch, &fact_avro, "dirty_numeric").expect("dirty");
+        let dirty_flag =
+            arrow_string_column(&source.batch, &fact_avro, "dirty_flag").expect("dirty flag");
+        let nested_payloads =
+            arrow_string_column(&source.batch, &fact_avro, "nested_payload").expect("nested");
+        assert_eq!(
+            raw_event_time,
+            vec![
+                "2024-01-01T00:00:00Z".to_string(),
+                "not-a-timestamp".to_string(),
+            ]
+        );
+        assert_eq!(
+            dirty_numeric,
+            vec!["6000".to_string(), "bad-number".to_string()]
+        );
+        assert_eq!(dirty_flag, vec!["Y".to_string(), "N".to_string()]);
+        assert_eq!(nested_payloads, vec!["".to_string(), "".to_string()]);
+        assert_eq!(source.evidence.row_assembly_micros, 0);
+        assert!(source.evidence.columnar_handoff_micros > 0);
+        assert!(source.evidence.columnar_preserved);
+        assert!(!source.evidence.scalar_rows_materialized);
 
         let _ = std::fs::remove_dir_all(root);
     }

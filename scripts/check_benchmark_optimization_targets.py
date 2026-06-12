@@ -216,7 +216,10 @@ def targets() -> tuple[OptimizationTarget, ...]:
             route_metric_field="hot_route_total_ms",
             predicate=lambda row: row.get("storage_format") == "jsonl",
             rationale="JSONL rows show parse/decode as a hot-runtime contributor.",
-            next_slice="specialize JSONL field projection and typed decode before row assembly.",
+            next_slice=(
+                "optimize remaining JSONL typed text decode now that projected reads "
+                "measure row assembly at zero."
+            ),
         ),
         OptimizationTarget(
             target_id="avro_hot_runtime_outliers",
@@ -248,8 +251,11 @@ def targets() -> tuple[OptimizationTarget, ...]:
             stage_field="source_read_ms",
             route_metric_field="hot_route_total_ms",
             predicate=lambda row: numeric(row.get("source_read_ms")) is not None,
-            rationale="Source-read timing is visible but needs deeper scout-stage ownership.",
-            next_slice="split source read into open, byte acquisition, typed decode, and row assembly.",
+            rationale="Source-read timing is split into scout substages for optimization targeting.",
+            next_slice=(
+                "use populated scout-stage fields to target byte acquisition, typed decode, "
+                "and columnar handoff in phase-specific work."
+            ),
         ),
         OptimizationTarget(
             target_id="operator_materialization",
