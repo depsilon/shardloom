@@ -10959,6 +10959,7 @@ class ShardLoomClient:
         source_path: str | os.PathLike[str],
         target_vortex_path: str | os.PathLike[str],
         *,
+        input_format: str | None = None,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
         delta_source_path: str | os.PathLike[str] | None = None,
@@ -10973,6 +10974,8 @@ class ShardLoomClient:
             str(source_path),
             str(target_vortex_path),
         ]
+        if input_format is not None:
+            command.extend(["--input-format", input_format])
         if allow_overwrite:
             command.append("--allow-overwrite")
         if certification_level != "ingest_certified":

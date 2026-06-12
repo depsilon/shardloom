@@ -47,6 +47,15 @@ _PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.prepared_state_partial_repair.v1"
 )
 _PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES = "fact_input,dim_input,cdc_delta_input,prepare_policy,source_admission_packet,prepared_artifact_fact,prepared_artifact_dim,prepared_artifact_cdc_delta,no_fallback_policy"
+_ROLE_INPUT_TO_ARTIFACT = {
+    "fact_input": "fact",
+    "dim_input": "dim",
+    "cdc_delta_input": "cdc_delta",
+}
+_ARTIFACT_TO_ROLE_INPUT = {
+    artifact_role: input_role
+    for input_role, artifact_role in _ROLE_INPUT_TO_ARTIFACT.items()
+}
 _REUSE_MANIFEST_DIR = ".shardloom"
 _REUSE_MANIFEST_FILE = "prepared-vortex-reuse-manifest.json"
 _REUSE_INDEX_FILE = "prepared-state-index.json"
@@ -238,6 +247,22 @@ def _bool_field(fields: Mapping[str, str], key: str) -> bool:
     return str(fields.get(key, "false")).strip().lower() == "true"
 
 
+def _millis_field_to_micros(fields: Mapping[str, str], *keys: str) -> int:
+    for key in keys:
+        value = fields.get(key)
+        if value in {None, ""}:
+            continue
+        try:
+            return max(0, int(round(float(value) * 1000)))
+        except ValueError:
+            continue
+    return 0
+
+
+def _csv_or_none(values: Sequence[str]) -> str:
+    return ",".join(values) if values else "none"
+
+
 def _manifest_path(workspace: str | os.PathLike[str]) -> Path:
     return Path(workspace).expanduser() / _REUSE_MANIFEST_DIR / _REUSE_MANIFEST_FILE
 
@@ -353,6 +378,13 @@ class _PreparedStateReuseDecision:
     invalidation_reason: str
     manifest_digest: str | None
     manifest: Mapping[str, Any] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedStateRoleRepair:
+    manifest: Mapping[str, Any]
+    decision: _PreparedStateReuseDecision
+    fields: Mapping[str, str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -602,6 +634,17 @@ class CompatibilityPreparedVortexRoute:
                 )
             )
 
+        repair = self._repair_workspace_manifest(decision, check=_as_check(self.check, check))
+        if repair is not None:
+            return PreparedVortexArtifacts(
+                self._prepare_envelope_from_manifest(
+                    repair.manifest,
+                    repair.decision,
+                    command="prepared-vortex-role-repair-manifest",
+                    repair_fields=repair.fields,
+                )
+            )
+
         artifacts = self.client.prepare_traditional_analytics_vortex_artifacts(
             self.fact_input,
             self.dim_input,
@@ -702,6 +745,40 @@ class CompatibilityPreparedVortexRoute:
                     command="prepared-vortex-reuse-manifest",
                 ),
                 batch=self._combine_reuse_batch_envelope(batch_envelope, manifest, decision),
+            )
+
+        repair = self._repair_workspace_manifest(decision, check=_as_check(self.check, check))
+        if repair is not None:
+            manifest = repair.manifest
+            artifacts = self._manifest_artifacts(manifest)
+            batch_envelope = self.client.traditional_analytics_vortex_batch_run(
+                scenarios,
+                artifacts["fact_vortex_path"],
+                artifacts["dim_vortex_path"],
+                cdc_delta_vortex=artifacts.get("cdc_delta_vortex_path") or None,
+                workspace=result_workspace or self.result_workspace,
+                write_result_vortex=write_result_vortex,
+                execution_mode="prepared_vortex",
+                evidence_level=evidence_level or self.evidence_level,
+                memory_gb=memory_gb if memory_gb is not None else self.memory_gb,
+                max_parallelism=(
+                    max_parallelism if max_parallelism is not None else self.max_parallelism
+                ),
+                check=_as_check(self.check, check),
+            )
+            return PreparedVortexBatchResult(
+                prepare=self._prepare_envelope_from_manifest(
+                    manifest,
+                    repair.decision,
+                    command="prepared-vortex-role-repair-manifest",
+                    repair_fields=repair.fields,
+                ),
+                batch=self._combine_reuse_batch_envelope(
+                    batch_envelope,
+                    manifest,
+                    repair.decision,
+                    repair_fields=repair.fields,
+                ),
             )
 
         result = self.client.prepare_and_run_traditional_analytics_vortex_batch(
@@ -918,6 +995,444 @@ class CompatibilityPreparedVortexRoute:
         ):
             return "source_admission_packet_changed"
         return "route_request_digest_mismatch"
+
+    def _changed_input_roles(
+        self,
+        manifest_payload: Mapping[str, Any],
+        request_payload: Mapping[str, Any],
+    ) -> tuple[str, ...]:
+        """Return source roles whose current fingerprints differ from the manifest."""
+
+        return tuple(
+            role
+            for role in _ROLE_INPUT_TO_ARTIFACT
+            if manifest_payload.get(role) != request_payload.get(role)
+        )
+
+    def _repair_source_path_for_role(self, input_role: str) -> str | os.PathLike[str] | None:
+        if input_role == "fact_input":
+            return self.fact_input
+        if input_role == "dim_input":
+            return self.dim_input
+        if input_role == "cdc_delta_input":
+            return self.cdc_delta_input
+        return None
+
+    def _role_scoped_repair_blocker(
+        self,
+        manifest_payload: Mapping[str, Any],
+        request_payload: Mapping[str, Any],
+        changed_input_roles: Sequence[str],
+    ) -> str | None:
+        """Return a deterministic blocker when workspace-manifest repair is unsafe."""
+
+        if not changed_input_roles:
+            return "no_role_fingerprint_change_detected"
+        if manifest_payload.get("prepare_policy") != request_payload.get("prepare_policy"):
+            return "prepare_policy_changed_requires_full_prepare"
+        if manifest_payload.get("schema_version") != _REUSE_MANIFEST_SCHEMA_VERSION:
+            return "reuse_manifest_schema_mismatch_requires_full_prepare"
+        if manifest_payload.get("fallback_attempted") is True:
+            return "reuse_manifest_fallback_attempted_requires_full_prepare"
+        if manifest_payload.get("external_engine_invoked") is True:
+            return "reuse_manifest_external_engine_invoked_requires_full_prepare"
+        artifacts = manifest_payload.get("prepared_artifacts")
+        if not isinstance(artifacts, Mapping):
+            return "reuse_manifest_missing_prepared_artifacts"
+        request_cdc_present = request_payload.get("cdc_delta_input") is not None
+        manifest_cdc_present = manifest_payload.get("cdc_delta_input") is not None
+        if request_cdc_present != manifest_cdc_present:
+            return "cdc_delta_route_shape_changed_requires_full_prepare"
+
+        required_artifact_roles = ["fact", "dim"]
+        if request_cdc_present:
+            required_artifact_roles.append("cdc_delta")
+        changed_artifact_roles = {
+            _ROLE_INPUT_TO_ARTIFACT[role] for role in changed_input_roles
+        }
+        for artifact_role in required_artifact_roles:
+            stored = artifacts.get(artifact_role)
+            if not isinstance(stored, Mapping):
+                return f"{artifact_role}_prepared_artifact_manifest_missing"
+            if not stored.get("path"):
+                return f"{artifact_role}_prepared_artifact_path_missing"
+            if artifact_role in changed_artifact_roles:
+                source_path = self._repair_source_path_for_role(
+                    _ARTIFACT_TO_ROLE_INPUT[artifact_role]
+                )
+                source_fingerprint = _local_path_fingerprint(source_path)
+                if source_fingerprint is None or not source_fingerprint.get("exists"):
+                    return f"{artifact_role}_source_missing_requires_full_prepare"
+                continue
+            current = _local_path_fingerprint(str(stored["path"]))
+            if current != stored.get("fingerprint"):
+                return f"{artifact_role}_unchanged_prepared_artifact_fingerprint_changed"
+        return None
+
+    def _repair_workspace_manifest(
+        self,
+        decision: _PreparedStateReuseDecision,
+        *,
+        check: bool,
+    ) -> _PreparedStateRoleRepair | None:
+        """Repair changed prepared-artifact roles through `vortex-ingest-smoke`.
+
+        This is deliberately narrower than full manifest reuse. It admits only
+        role-local source fingerprint drift, verifies unchanged artifacts before
+        reuse, regenerates changed role artifacts through the existing
+        Vortex-native ingest command, and rewrites the workspace manifest before
+        running the prepared/native batch.
+        """
+
+        manifest_payload = decision.manifest
+        if decision.hit or manifest_payload is None:
+            return None
+        request_payload = self._reuse_request_payload()
+        changed_input_roles = self._changed_input_roles(manifest_payload, request_payload)
+        blocker = self._role_scoped_repair_blocker(
+            manifest_payload,
+            request_payload,
+            changed_input_roles,
+        )
+        if blocker is not None:
+            return None
+
+        artifacts = manifest_payload.get("prepared_artifacts")
+        if not isinstance(artifacts, Mapping):
+            return None
+        prepared_artifacts: dict[str, Any] = {
+            str(role): dict(value)
+            for role, value in artifacts.items()
+            if isinstance(value, Mapping)
+        }
+        repair_started = time.perf_counter()
+        changed_artifact_roles = tuple(
+            _ROLE_INPUT_TO_ARTIFACT[role] for role in changed_input_roles
+        )
+        repair_evidence_parts: list[str] = [
+            "workspace_manifest_role_scoped_repair",
+            decision.reason,
+            decision.manifest_digest or "none",
+        ]
+        repair_source_to_columnar_micros = 0
+        repair_vortex_array_build_micros = 0
+        repair_vortex_write_micros = 0
+        repair_vortex_reopen_verify_micros = 0
+        for input_role, artifact_role in zip(changed_input_roles, changed_artifact_roles):
+            stored = prepared_artifacts.get(artifact_role)
+            if not isinstance(stored, Mapping) or not stored.get("path"):
+                return None
+            source_path = self._repair_source_path_for_role(input_role)
+            if source_path is None:
+                return None
+            target_path = str(stored["path"])
+            ingest_report = self.client.vortex_ingest_smoke(
+                source_path,
+                target_path,
+                input_format=self.input_format,
+                allow_overwrite=True,
+                check=check,
+            )
+            ingest_fields = ingest_report.envelope.field_map
+            external_engine_invoked = _bool_field(ingest_fields, "external_engine_invoked")
+            if (
+                ingest_report.envelope.status != "success"
+                or ingest_report.envelope.fallback.attempted
+                or external_engine_invoked
+            ):
+                return None
+            repair_source_to_columnar_micros += _millis_field_to_micros(
+                ingest_fields,
+                "source_to_columnar_millis",
+                "source_to_columnar_ms",
+            )
+            repair_vortex_array_build_micros += _millis_field_to_micros(
+                ingest_fields,
+                "vortex_array_build_millis",
+                "vortex_array_build_ms",
+            )
+            repair_vortex_write_micros += _millis_field_to_micros(
+                ingest_fields,
+                "vortex_write_millis",
+                "vortex_write_ms",
+            )
+            repair_vortex_reopen_verify_micros += _millis_field_to_micros(
+                ingest_fields,
+                "vortex_reopen_verify_millis",
+                "vortex_reopen_millis",
+                "vortex_reopen_verify_ms",
+                "vortex_reopen_ms",
+            )
+            repaired_fingerprint = _local_path_fingerprint(target_path)
+            if repaired_fingerprint is None or not repaired_fingerprint.get("exists"):
+                return None
+            repaired_digest = _field_any(
+                ingest_fields,
+                "vortex_artifact_digest",
+                "prepared_artifact_digest",
+                "prepared_state_digest",
+                default=str(repaired_fingerprint.get("content_digest") or ""),
+            )
+            prepared_artifacts[artifact_role] = {
+                "path": repaired_fingerprint["path"],
+                "fingerprint": repaired_fingerprint,
+                "digest": repaired_digest,
+                "repair_provider": "vortex-ingest-smoke",
+                "repair_source_role": input_role,
+            }
+            repair_evidence_parts.extend(
+                [
+                    input_role,
+                    artifact_role,
+                    str(repaired_fingerprint.get("content_digest") or ""),
+                    repaired_digest,
+                ]
+            )
+
+        repair_micros = int((time.perf_counter() - repair_started) * 1_000_000)
+        repaired_input_roles = tuple(changed_input_roles)
+        reused_input_roles = tuple(
+            role
+            for role in _ROLE_INPUT_TO_ARTIFACT
+            if role not in repaired_input_roles
+            and (
+                role != "cdc_delta_input"
+                or request_payload.get("cdc_delta_input") is not None
+            )
+        )
+        artifact_manifest_hash = _stable_json_digest(prepared_artifacts)
+        repair_digest = _stable_json_digest(
+            {
+                "source_admission_packet_digest": request_payload[
+                    "source_admission_packet_digest"
+                ],
+                "prepared_artifacts": prepared_artifacts,
+                "changed_roles": repaired_input_roles,
+                "reused_roles": reused_input_roles,
+                "repair_evidence_parts": repair_evidence_parts,
+            }
+        )
+        short_digest = repair_digest.split(":", 1)[-1][:16]
+        previous_prepare_fields = manifest_payload.get("prepare_fields")
+        prepare_fields = (
+            dict(previous_prepare_fields)
+            if isinstance(previous_prepare_fields, Mapping)
+            else {}
+        )
+        repair_fields = {
+            "prepare_batch_preparation_command": "prepared-vortex-role-repair-manifest",
+            "prepare_batch_preparation_timing_scope": (
+                "workspace_manifest_role_scoped_repair"
+            ),
+            "prepare_batch_preparation_micros": str(repair_micros),
+            "prepare_batch_source_to_columnar_micros": str(
+                repair_source_to_columnar_micros
+            ),
+            "prepare_batch_vortex_array_build_micros": str(
+                repair_vortex_array_build_micros
+            ),
+            "prepare_batch_vortex_write_micros": str(repair_vortex_write_micros),
+            "prepare_batch_vortex_reopen_verify_micros": str(
+                repair_vortex_reopen_verify_micros
+            ),
+            "prepare_batch_preparation_included_in_batch_timing": "false",
+            "prepare_batch_query_timing_starts_after_preparation": "true",
+            "prepare_batch_prepared_state_created": "false",
+            "prepare_batch_prepared_state_reused": "true",
+            "prepare_batch_prepared_state_reuse_hit": "false",
+            "prepare_batch_prepared_state_reuse_reason": (
+                "role_scoped_repair_completed"
+            ),
+            "prepared_state_reuse_hit": "false",
+            "prepared_state_reuse_reason": "role_scoped_repair_completed",
+            "invalidation_reason": decision.invalidation_reason,
+            "prepare_batch_prepared_state_lookup_timing_schema_version": (
+                "shardloom.traditional_analytics.prepared_state_lookup_timing.v1"
+            ),
+            "prepare_batch_prepared_state_lookup_status": "workspace_manifest_role_repair",
+            "prepare_batch_prepared_state_manifest_lookup_micros": "0",
+            "prepare_batch_prepared_state_cache_hit_micros": "0",
+            "prepare_batch_prepared_state_cache_miss_create_micros": "0",
+            "prepare_batch_prepared_state_artifact_write_micros": str(repair_micros),
+            "prepare_batch_prepared_state_artifact_register_micros": "0",
+            "prepare_batch_prepared_state_replay_verification_micros": "0",
+            "prepare_batch_prepared_state_dependency_schema_version": (
+                _PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION
+            ),
+            "prepare_batch_prepared_state_dependency_status": (
+                "manifest_dependencies_repaired"
+            ),
+            "prepare_batch_prepared_state_dependency_checked_roles": (
+                _PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES
+            ),
+            "prepare_batch_prepared_state_dependency_changed_roles": _csv_or_none(
+                repaired_input_roles
+            ),
+            "prepare_batch_prepared_state_dependency_manifest_digest": (
+                decision.manifest_digest or "none"
+            ),
+            "prepare_batch_prepared_state_dependency_source_packet_digest": str(
+                request_payload.get("source_admission_packet_digest") or ""
+            ),
+            "prepare_batch_prepared_state_dependency_artifact_manifest_hash": (
+                artifact_manifest_hash
+            ),
+            "prepare_batch_prepared_state_dependency_recheck_policy": (
+                "validate_manifest_digest_route_request_source_fingerprints_"
+                "artifact_fingerprints_repair_changed_roles_no_fallback_before_reuse"
+            ),
+            "prepare_batch_prepared_state_dependency_fallback_attempted": "false",
+            "prepare_batch_prepared_state_dependency_external_engine_invoked": "false",
+            "prepare_batch_prepared_state_partial_repair_schema_version": (
+                _PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION
+            ),
+            "prepare_batch_prepared_state_partial_repair_status": (
+                "admitted_role_repair_completed"
+            ),
+            "prepare_batch_prepared_state_partial_repair_blocker_id": (
+                "not_applicable_partial_repair_admitted"
+            ),
+            "prepare_batch_prepared_state_partial_repair_changed_roles": _csv_or_none(
+                repaired_input_roles
+            ),
+            "prepare_batch_prepared_state_partial_repair_reused_roles": _csv_or_none(
+                reused_input_roles
+            ),
+            "prepare_batch_prepared_state_partial_repair_repaired_roles": _csv_or_none(
+                repaired_input_roles
+            ),
+            "prepare_batch_prepared_state_partial_repair_invalidated_derived_states": (
+                "prepared_state_index,source_admission_packet"
+            ),
+            "prepare_batch_prepared_state_partial_repair_micros": str(repair_micros),
+            "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros": str(
+                repair_source_to_columnar_micros
+            ),
+            "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros": str(
+                repair_vortex_array_build_micros
+            ),
+            "prepare_batch_prepared_state_partial_repair_vortex_write_micros": str(
+                repair_vortex_write_micros
+            ),
+            "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros": str(
+                repair_vortex_reopen_verify_micros
+            ),
+            "prepare_batch_prepared_state_partial_repair_replay_proof": repair_digest,
+            "prepare_batch_prepared_state_partial_repair_repairable_segment_count": str(
+                len(repaired_input_roles)
+            ),
+            "prepare_batch_prepared_state_partial_repair_regeneration_performed": "true",
+            "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed": "false",
+            "prepare_batch_prepared_state_partial_repair_claim_boundary": (
+                "role-scoped workspace manifest repair regenerated changed source roles "
+                "through vortex-ingest-smoke and reused only unchanged artifacts whose "
+                "fingerprints still matched; no stale changed-role artifact or fallback "
+                "engine was used"
+            ),
+            "fallback_attempted": "false",
+            "external_engine_invoked": "false",
+        }
+        prepare_fields.update(repair_fields)
+        manifest_payload_next: dict[str, Any] = {
+            **dict(manifest_payload),
+            **request_payload,
+            "created_unix_seconds": int(time.time()),
+            "manifest_path": str(_manifest_path(self.workspace)),
+            "prepare_command": "prepared-vortex-role-repair-manifest",
+            "prepare_fields": prepare_fields,
+            "prepared_artifacts": prepared_artifacts,
+            "source_admission_packet_artifact_manifest_hash": artifact_manifest_hash,
+            "prepared_state_dependency_schema_version": (
+                _PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION
+            ),
+            "prepared_state_dependency_status": "manifest_dependencies_repaired",
+            "prepared_state_dependency_checked_roles": (
+                _PREPARED_BATCH_DEPENDENCY_CHECKED_ROLES
+            ),
+            "prepared_state_dependency_changed_roles": _csv_or_none(repaired_input_roles),
+            "prepared_state_dependency_recheck_policy": repair_fields[
+                "prepare_batch_prepared_state_dependency_recheck_policy"
+            ],
+            "prepared_state_partial_repair_schema_version": (
+                _PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION
+            ),
+            "prepared_state_partial_repair_status": "admitted_role_repair_completed",
+            "prepared_state_partial_repair_changed_roles": _csv_or_none(
+                repaired_input_roles
+            ),
+            "prepared_state_partial_repair_reused_roles": _csv_or_none(reused_input_roles),
+            "prepared_state_partial_repair_repaired_roles": _csv_or_none(
+                repaired_input_roles
+            ),
+            "prepared_state_partial_repair_invalidated_derived_states": (
+                "prepared_state_index,source_admission_packet"
+            ),
+            "prepared_state_partial_repair_replay_proof": repair_digest,
+            "prepared_state_partial_repair_regeneration_performed": True,
+            "prepared_state_partial_repair_stale_segment_reuse_allowed": False,
+            "source_state_id": f"source-state://workspace-role-repair/{short_digest}",
+            "source_state_digest": repair_digest,
+            "prepared_state_id": f"prepared-state://workspace-role-repair/{short_digest}",
+            "prepared_state_digest": repair_digest,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+        }
+        manifest_payload_next["manifest_digest"] = _stable_json_digest(
+            {
+                str(key): value
+                for key, value in manifest_payload_next.items()
+                if key != "manifest_digest"
+            }
+        )
+        manifest_file = _manifest_path(self.workspace)
+        manifest_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = manifest_file.with_suffix(".tmp")
+        tmp_path.write_text(
+            json.dumps(
+                manifest_payload_next,
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        tmp_path.replace(manifest_file)
+        _write_index_manifest(self.workspace, manifest_payload_next)
+        repair_fields = {
+            **repair_fields,
+            "prepared_state_reuse_manifest_digest": manifest_payload_next[
+                "manifest_digest"
+            ],
+            "prepare_batch_prepared_state_reuse_manifest_digest": manifest_payload_next[
+                "manifest_digest"
+            ],
+            "prepare_batch_prepared_state_index_digest": (
+                _prepared_state_index_digest_from_manifest(manifest_payload_next)
+            ),
+            "prepare_batch_prepared_state_id": str(
+                manifest_payload_next["prepared_state_id"]
+            ),
+            "prepare_batch_prepared_state_digest": str(
+                manifest_payload_next["prepared_state_digest"]
+            ),
+            "prepare_batch_source_state_id": str(manifest_payload_next["source_state_id"]),
+            "prepare_batch_source_state_digest": str(
+                manifest_payload_next["source_state_digest"]
+            ),
+        }
+        repair_decision = _PreparedStateReuseDecision(
+            hit=False,
+            reason="role_scoped_repair_completed",
+            invalidation_reason=decision.invalidation_reason,
+            manifest_digest=str(manifest_payload_next["manifest_digest"]),
+            manifest=manifest_payload_next,
+        )
+        return _PreparedStateRoleRepair(
+            manifest=manifest_payload_next,
+            decision=repair_decision,
+            fields=repair_fields,
+        )
 
     def _artifact_invalidation_reason(self, manifest_payload: Mapping[str, Any]) -> str:
         artifacts = manifest_payload.get("prepared_artifacts")
@@ -1187,6 +1702,7 @@ class CompatibilityPreparedVortexRoute:
         decision: _PreparedStateReuseDecision,
         *,
         command: str,
+        repair_fields: Mapping[str, str] | None = None,
     ) -> OutputEnvelope:
         prepare_fields = manifest_payload.get("prepare_fields")
         fields = dict(prepare_fields) if isinstance(prepare_fields, Mapping) else {}
@@ -1242,6 +1758,8 @@ class CompatibilityPreparedVortexRoute:
                 "external_engine_invoked": "false",
             }
         )
+        if repair_fields is not None:
+            fields.update(repair_fields)
         return OutputEnvelope.from_field_mapping(
             fields,
             command=command,
@@ -1284,6 +1802,8 @@ class CompatibilityPreparedVortexRoute:
         batch_envelope: OutputEnvelope,
         manifest_payload: Mapping[str, Any],
         decision: _PreparedStateReuseDecision,
+        *,
+        repair_fields: Mapping[str, str] | None = None,
     ) -> OutputEnvelope:
         fields = dict(batch_envelope.field_map)
         artifacts = self._manifest_artifacts(manifest_payload)
@@ -1548,6 +2068,8 @@ class CompatibilityPreparedVortexRoute:
                 "external_engine_invoked": "false",
             }
         )
+        if repair_fields is not None:
+            fields.update(repair_fields)
         return OutputEnvelope.from_field_mapping(
             fields,
             command="traditional-analytics-prepared-state-reuse-batch-run",
