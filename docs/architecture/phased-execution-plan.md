@@ -168,6 +168,10 @@ Current autonomous execution order:
   - Progress: hash join and join aggregate now attach operator-family-specific dense accumulator
     evidence; join aggregate uses the dense packed accumulator instead of a generic packed-key hash
     map where the key domain is safely admitted.
+  - Progress: prepared/native scalar fact-metric state now prewarms the shared metric-sum scan for
+    `csv/file ingest` and `many-small-files scan`, reports `source_state_fact_metric_*` coverage,
+    and keeps the first scalar hot scenario from paying a duplicate metric-column scan when both
+    consumers are admitted in one batch.
   - Verification: focused Rust operator/correctness tests, Python row-contract tests, targeted
     benchmark rerun for the selected family, `cargo fmt --all -- --check`,
     `cargo clippy --workspace --all-targets -- -D warnings`, and

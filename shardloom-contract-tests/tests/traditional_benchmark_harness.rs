@@ -569,6 +569,7 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"source_state_family_digests\"",
         "\"source_state_family_count\"",
         "\"source_state_dimension_label_reuse_status\"",
+        "\"source_state_fact_metric_reuse_status\"",
         "\"source_state_category_metric_reuse_status\"",
         "\"source_state_group_category_metric_reuse_status\"",
         "\"source_state_ranked_metric_reuse_status\"",
@@ -1208,6 +1209,8 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(readme.contains("per_batch_source_metadata_reused"));
     assert!(readme.contains("source_state_reuse_status"));
     assert!(readme.contains("per_batch_dimension_label_state_reused"));
+    assert!(readme.contains("source_state_fact_metric_reuse_status"));
+    assert!(readme.contains("per_batch_fact_metric_state_reused"));
     assert!(readme.contains("source_state_category_metric_reuse_status"));
     assert!(readme.contains("per_batch_category_metric_state_reused"));
     assert!(readme.contains("source_state_group_category_metric_reuse_status"));
@@ -1344,6 +1347,8 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "process_startup_attribution",
         "source_metadata_snapshot_status=per_batch_source_metadata_reused",
         "source_state_reuse_status=per_batch_dimension_label_state_reused",
+        "source_state_reuse_status=per_batch_fact_metric_state_reused",
+        "source_state_fact_metric_*",
         "source_state_reuse_status=per_batch_category_metric_state_reused",
         "source_state_category_metric_*",
         "source_state_reuse_status=per_batch_group_category_metric_state_reused",
