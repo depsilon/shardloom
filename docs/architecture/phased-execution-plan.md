@@ -279,19 +279,28 @@ Timing aggregation guardrail:
   `23.86 ms`, and JSONL outliers reach `219.49 ms` hot route total with `174.20 ms`
   source parse/decode. Prepared/native query lanes are sub-ms hot-route geomeans, so the clear
   global design opportunity is to avoid repeating source parse/decode/write work and make
-  preparation reuse the normal path.
-- Next slice outcome: design and implement the next coherent prepared-source reuse batch: stable
-  SourceState fingerprints, manifest-keyed VortexPreparedState reuse, partial role repair for fact,
-  dim, event, and CDC inputs, and benchmark evidence that cold import work is amortized or skipped
-  when source fingerprints match.
+  preparation reuse the normal path. PR #1179 added stable prepared-route source fingerprints,
+  manifest-keyed VortexPreparedState reuse, role-scoped repair for the traditional route's fact,
+  dim, and optional CDC artifacts, and separated timing fields for prepared-state lookup/create,
+  prepare-route total, and prepare CLI wall time. The checked-in 1,200-row ShardLoom-family artifact
+  still proves manifest reuse and separated timing surfaces, but it does not yet include a row that
+  exercises actual role-scoped repair after changed source fingerprints.
+- Next slice outcome: close the prepared-source evidence gap without broad benchmark churn:
+  preserve role-scoped repair substage timing through the runner/promoter/public row contract, then
+  run a targeted prepare-batch artifact refresh that proves unchanged fact/dim/CDC roles are reused,
+  changed fact/dim/CDC roles are repaired deterministically, and hot/prepared query totals remain
+  separate from preparation/proof work. Nested JSON/event-source specialization stays under
+  `PERF-DESIGN-6`, not this prepared traditional route.
 - User-visible surface: Python/CLI prepare/query flow, benchmark rows, explain/diagnostic fields,
   and source/prepared-state evidence.
 - Implementation scope: source identity/fingerprint helpers, prepared-state manifest/index logic,
-  role-scoped repair, benchmark fixture setup, route diagnostics, and tests covering unchanged,
-  changed, missing, and stale source roles.
+  role-scoped repair, benchmark row promotion, route diagnostics, and tests covering unchanged,
+  changed, missing, and stale fact/dim/CDC source roles.
 - Evidence required: correctness tests for source-state reuse and repair, no stale artifact reuse,
-  benchmark rows proving preparation skip/repair status, and route timing fields separating
-  `prepared_state_lookup_or_create_ms`, `prepare_route_total_ms`, and `prepare_cli_wall_ms`.
+  benchmark rows proving preparation skip/repair status, role-repair substage attribution for
+  source-to-columnar, Vortex array build, Vortex write, and reopen/verify work, and route timing
+  fields separating `prepared_state_lookup_or_create_ms`, `prepare_route_total_ms`, and
+  `prepare_cli_wall_ms`.
 - Acceptance: repeated prepared routes do not reparse/rewrite unchanged source roles; changed roles
   repair deterministically; stale/missing artifacts fail closed; cold route timing remains explicit
   when preparation really occurs; hot/prepared routes keep query/runtime totals separate from

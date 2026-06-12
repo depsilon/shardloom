@@ -1118,6 +1118,10 @@ PREPARED_STATE_REPAIR_CONTRACT_FIELDS = (
     "prepare_batch_prepared_state_partial_repair_repaired_roles",
     "prepare_batch_prepared_state_partial_repair_invalidated_derived_states",
     "prepare_batch_prepared_state_partial_repair_micros",
+    "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros",
+    "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros",
+    "prepare_batch_prepared_state_partial_repair_vortex_write_micros",
+    "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros",
     "prepare_batch_prepared_state_partial_repair_replay_proof",
     "prepare_batch_prepared_state_partial_repair_repairable_segment_count",
     "prepare_batch_prepared_state_partial_repair_regeneration_performed",
@@ -7313,6 +7317,38 @@ def prepare_batch_dependency_repair_fields(
         "prepare_batch_prepared_state_partial_repair_micros": (
             parse_optional_float(
                 evidence.get("prepare_batch_prepared_state_partial_repair_micros")
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros": (
+            parse_optional_float(
+                evidence.get(
+                    "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros"
+                )
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros": (
+            parse_optional_float(
+                evidence.get(
+                    "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros"
+                )
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_partial_repair_vortex_write_micros": (
+            parse_optional_float(
+                evidence.get(
+                    "prepare_batch_prepared_state_partial_repair_vortex_write_micros"
+                )
+            )
+            or 0.0
+        ),
+        "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros": (
+            parse_optional_float(
+                evidence.get(
+                    "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros"
+                )
             )
             or 0.0
         ),

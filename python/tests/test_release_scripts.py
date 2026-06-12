@@ -1349,6 +1349,180 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertTrue(published["batch_process_wall_shared"])
         self.assertEqual(published["batch_cli_process_wall_millis"], 2.0)
 
+    def test_benchmark_promoter_preserves_role_scoped_repair_timing(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_role_scoped_repair_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-prepare-batch",
+            "storage_format": "csv",
+            "scenario_name": "role scoped prepared repair",
+            "scenario_id": "role_scoped_prepared_repair",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex_batch",
+            "requested_execution_mode": "prepared_vortex_batch",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "claim_gate_status": "not_claim_grade",
+            **self._shardloom_benchmark_route_fields("shardloom-prepare-batch"),
+            "timing_surface": "hot_runtime",
+            "timing_surface_label": "Hot runtime",
+            "timing_surface_evidence_tier": "metadata_sink",
+            "actual_evidence_tier": "metadata_sink",
+            "sink_tier": "metadata_sink",
+            "metrics": {
+                "query_runtime_millis": 0.25,
+                "total_runtime_millis": 1.0,
+                "vortex_scan_millis": 0.08,
+                "operator_compute_millis": 0.12,
+                "result_sink_write_millis": 0.0,
+                "evidence_render_millis": 0.0,
+            },
+            "shardloom_evidence": {
+                "prepare_batch_prepared_state_lookup_status": (
+                    "workspace_manifest_role_repair"
+                ),
+                "prepare_batch_prepared_state_index_lookup_status": (
+                    "workspace_index_manifest_hit"
+                ),
+                "prepare_batch_prepared_state_index_digest": "sha256:index",
+                "prepare_batch_prepared_state_index_source_packet_digest": (
+                    "sha256:packet"
+                ),
+                "prepare_batch_prepared_state_index_external_engine_invoked": False,
+                "prepare_batch_prepared_state_dependency_status": (
+                    "manifest_dependencies_repaired"
+                ),
+                "prepare_batch_prepared_state_dependency_checked_roles": (
+                    "fact_input,dim_input,cdc_delta_input,prepare_policy,"
+                    "source_admission_packet,prepared_artifact_fact,"
+                    "prepared_artifact_dim,prepared_artifact_cdc_delta,"
+                    "no_fallback_policy"
+                ),
+                "prepare_batch_prepared_state_dependency_changed_roles": "fact_input",
+                "prepare_batch_prepared_state_dependency_manifest_digest": (
+                    "sha256:manifest"
+                ),
+                "prepare_batch_prepared_state_dependency_source_packet_digest": (
+                    "sha256:packet"
+                ),
+                "prepare_batch_prepared_state_dependency_artifact_manifest_hash": (
+                    "sha256:artifact-manifest"
+                ),
+                "prepare_batch_prepared_state_dependency_fallback_attempted": False,
+                "prepare_batch_prepared_state_dependency_external_engine_invoked": False,
+                "prepare_batch_prepared_state_partial_repair_status": (
+                    "admitted_role_repair_completed"
+                ),
+                "prepare_batch_prepared_state_partial_repair_blocker_id": (
+                    "not_applicable_partial_repair_admitted"
+                ),
+                "prepare_batch_prepared_state_partial_repair_changed_roles": (
+                    "fact_input"
+                ),
+                "prepare_batch_prepared_state_partial_repair_reused_roles": (
+                    "dim_input"
+                ),
+                "prepare_batch_prepared_state_partial_repair_repaired_roles": (
+                    "fact_input"
+                ),
+                "prepare_batch_prepared_state_partial_repair_invalidated_derived_states": (
+                    "prepared_state_index,source_admission_packet"
+                ),
+                "prepare_batch_prepared_state_partial_repair_micros": 8765,
+                "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros": (
+                    2000
+                ),
+                "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros": (
+                    3000
+                ),
+                "prepare_batch_prepared_state_partial_repair_vortex_write_micros": (
+                    4000
+                ),
+                "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros": (
+                    5000
+                ),
+                "prepare_batch_prepared_state_partial_repair_replay_proof": (
+                    "sha256:repair-proof"
+                ),
+                "prepare_batch_prepared_state_partial_repair_repairable_segment_count": (
+                    1
+                ),
+                "prepare_batch_prepared_state_partial_repair_regeneration_performed": (
+                    True
+                ),
+                "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed": (
+                    False
+                ),
+                "prepare_batch_prepared_state_optimization_no_fallback_policy_status": (
+                    "passed_fallback_false_external_engine_false"
+                ),
+                "prepare_batch_prepared_state_optimization_fallback_attempted": False,
+                "prepare_batch_prepared_state_optimization_external_engine_invoked": False,
+                "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed": (
+                    False
+                ),
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(
+            published["prepare_batch_prepared_state_optimization_strategy"],
+            "role_scoped_repair",
+        )
+        self.assertEqual(
+            published["prepare_batch_prepared_state_optimization_status"],
+            "prepared_state_role_repair_admitted",
+        )
+        self.assertEqual(
+            published["prepare_batch_prepared_state_optimization_repaired_roles"],
+            "fact_input",
+        )
+        self.assertEqual(
+            published["prepare_batch_prepared_state_optimization_repair_ms"],
+            8.765,
+        )
+        self.assertEqual(
+            published[
+                "prepare_batch_prepared_state_partial_repair_source_to_columnar_ms"
+            ],
+            2.0,
+        )
+        self.assertEqual(
+            published[
+                "prepare_batch_prepared_state_partial_repair_vortex_array_build_ms"
+            ],
+            3.0,
+        )
+        self.assertEqual(
+            published["prepare_batch_prepared_state_partial_repair_vortex_write_ms"],
+            4.0,
+        )
+        self.assertEqual(
+            published[
+                "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_ms"
+            ],
+            5.0,
+        )
+        self.assertEqual(
+            published["prepare_batch_prepared_state_partial_repair_replay_proof"],
+            "sha256:repair-proof",
+        )
+        self.assertTrue(
+            published[
+                "prepare_batch_prepared_state_optimization_base_artifact_reused"
+            ]
+        )
+        self.assertFalse(
+            published[
+                "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed"
+            ]
+        )
+
     def test_benchmark_promoter_emits_cold_bottleneck_fields(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",

@@ -211,6 +211,14 @@ WEBSITE_ROW_KEYS = (
     "prepare_batch_prepared_state_partial_repair_repaired_roles",
     "prepare_batch_prepared_state_partial_repair_invalidated_derived_states",
     "prepare_batch_prepared_state_partial_repair_micros",
+    "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros",
+    "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros",
+    "prepare_batch_prepared_state_partial_repair_vortex_write_micros",
+    "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros",
+    "prepare_batch_prepared_state_partial_repair_source_to_columnar_ms",
+    "prepare_batch_prepared_state_partial_repair_vortex_array_build_ms",
+    "prepare_batch_prepared_state_partial_repair_vortex_write_ms",
+    "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_ms",
     "prepare_batch_prepared_state_partial_repair_replay_proof",
     "prepare_batch_prepared_state_partial_repair_repairable_segment_count",
     "prepare_batch_prepared_state_partial_repair_regeneration_performed",
@@ -653,6 +661,14 @@ WEBSITE_SUMMARY_ROW_KEYS = (
     "prepare_batch_prepared_state_partial_repair_reused_roles",
     "prepare_batch_prepared_state_partial_repair_repaired_roles",
     "prepare_batch_prepared_state_partial_repair_micros",
+    "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros",
+    "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros",
+    "prepare_batch_prepared_state_partial_repair_vortex_write_micros",
+    "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros",
+    "prepare_batch_prepared_state_partial_repair_source_to_columnar_ms",
+    "prepare_batch_prepared_state_partial_repair_vortex_array_build_ms",
+    "prepare_batch_prepared_state_partial_repair_vortex_write_ms",
+    "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_ms",
     "prepare_batch_prepared_state_partial_repair_replay_proof",
     "prepare_batch_prepared_state_delta_overlay_schema_version",
     "prepare_batch_prepared_state_delta_overlay_status",
@@ -3224,6 +3240,42 @@ def prepared_state_optimization_fields_for_row(row: dict[str, Any]) -> dict[str,
                 ),
             )
         )
+    partial_repair_source_to_columnar_micros = first_numeric_micros(
+        fields,
+        micros_keys=(
+            "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros",
+        ),
+        millis_keys=(
+            "prepare_batch_prepared_state_partial_repair_source_to_columnar_ms",
+        ),
+    )
+    partial_repair_vortex_array_build_micros = first_numeric_micros(
+        fields,
+        micros_keys=(
+            "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros",
+        ),
+        millis_keys=(
+            "prepare_batch_prepared_state_partial_repair_vortex_array_build_ms",
+        ),
+    )
+    partial_repair_vortex_write_micros = first_numeric_micros(
+        fields,
+        micros_keys=(
+            "prepare_batch_prepared_state_partial_repair_vortex_write_micros",
+        ),
+        millis_keys=(
+            "prepare_batch_prepared_state_partial_repair_vortex_write_ms",
+        ),
+    )
+    partial_repair_vortex_reopen_verify_micros = first_numeric_micros(
+        fields,
+        micros_keys=(
+            "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros",
+        ),
+        millis_keys=(
+            "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_ms",
+        ),
+    )
     base_artifact_reused = first_bool_field(
         fields,
         (
@@ -3387,6 +3439,34 @@ def prepared_state_optimization_fields_for_row(row: dict[str, Any]) -> dict[str,
                     "prepare_batch_prepared_state_optimization_replay_verification_ms",
                 ),
             )
+        )
+        or 0.0,
+        "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros": (
+            partial_repair_source_to_columnar_micros or 0.0
+        ),
+        "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros": (
+            partial_repair_vortex_array_build_micros or 0.0
+        ),
+        "prepare_batch_prepared_state_partial_repair_vortex_write_micros": (
+            partial_repair_vortex_write_micros or 0.0
+        ),
+        "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros": (
+            partial_repair_vortex_reopen_verify_micros or 0.0
+        ),
+        "prepare_batch_prepared_state_partial_repair_source_to_columnar_ms": micros_to_millis(
+            partial_repair_source_to_columnar_micros
+        )
+        or 0.0,
+        "prepare_batch_prepared_state_partial_repair_vortex_array_build_ms": micros_to_millis(
+            partial_repair_vortex_array_build_micros
+        )
+        or 0.0,
+        "prepare_batch_prepared_state_partial_repair_vortex_write_ms": micros_to_millis(
+            partial_repair_vortex_write_micros
+        )
+        or 0.0,
+        "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_ms": micros_to_millis(
+            partial_repair_vortex_reopen_verify_micros
         )
         or 0.0,
         "prepare_batch_prepared_state_optimization_delta_overlay_admitted": bool(
@@ -8148,6 +8228,11 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             rendered_row["runtime_claim_allowed"] = runtime_validation.get(
                 "runtime_claim_allowed"
             )
+        for key in WEBSITE_ROW_KEYS:
+            if key in rendered_row:
+                continue
+            if key in runtime_fields:
+                rendered_row[key] = runtime_fields[key]
         for key in PUBLISHED_METRIC_KEYS:
             if key in runtime_fields:
                 rendered_row[key] = runtime_fields[key]
