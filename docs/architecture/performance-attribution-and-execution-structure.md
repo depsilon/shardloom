@@ -667,10 +667,13 @@ The active runtime-enhancement implementation map is tracked in
   parity and execution certificate evidence.
 - `PERF-DESIGN-5R-A` owns the Capillary preparation writer window. It can reduce local Vortex
   writer context, small-write, digest, reopen, and verification overhead only when artifact roles,
-  schema, workspace, and proof isolation are admitted.
+  schema, workspace, and proof isolation are admitted. Current small local cold-route rows keep
+  `vortex_write_ms` material at roughly `22 ms` geomean, so the slice must expose whether context
+  open, segment write, digest, or verify moved.
 - `PERF-DESIGN-6R-A` owns direct typed column builders for CSV/JSONL cold ingest. It targets the
   text-source `source_parse_or_columnar_decode_ms` bottleneck by building typed columns directly
-  instead of constructing row/object intermediates for admitted schema and coercion shapes.
+  instead of constructing row/object intermediates for admitted schema and coercion shapes. Current
+  source-heavy cold rows keep that bottleneck around `33-34 ms` geomean with larger JSONL outliers.
 - `PERF-DESIGN-6R-B` owns projection-aware decode admission. It derives the required field mask
   from predicates, outputs, joins, grouping, ordering, certificates, and diagnostics, then records
   decoded/skipped columns and blockers so unused work is avoided without hiding required proof data.
@@ -706,7 +709,8 @@ The scout pass classifies delimiter/schema/nullability/projected fields before a
 For admitted scalar shapes, parsing appends directly into typed buffers for integer, float, boolean,
 UTF-8, timestamp/date, null-heavy, dirty numeric, and explicitly admitted nested JSON-field scan
 cases. The route must avoid `Vec<Row>`, map-like row objects, or whole-row string envelopes for
-admitted fields. If malformed values, unsupported coercions, nested JSON shapes, schema drift, or
+admitted fields and report zero row assembly or zero source-row materialization for the admitted
+builder path. If malformed values, unsupported coercions, nested JSON shapes, schema drift, or
 proof-required fields make the direct path unsafe, the row must emit a deterministic source-scout
 blocker instead of silently reverting to an unreported row-object path.
 
@@ -740,6 +744,8 @@ Projection-aware decode admission (`PERF-DESIGN-6R-B`) may reduce the builder fi
 predicate, output, join, grouping, ordering, certificate, and diagnostic requirements are all
 accounted for. Already-columnar source handoff (`PERF-DESIGN-6R-C`) owns Parquet and Arrow IPC; it
 must not reuse the text-source typed-builder labels for columnar provider admission.
+Polars Lazy and similar lazy external baselines may explain why projection matters, but they remain
+comparative baselines only and must not become ShardLoom execution providers.
 
 A timing claim for direct typed source ingress is valid only for admitted CSV/JSONL rows with
 correctness parity, stable digests, field-mask evidence, source-to-Vortex handoff timing,
@@ -791,14 +797,25 @@ and Vortex import policy are all supported.
 Rows that use the path should preserve:
 
 ```text
+source_columnar_provider_schema_version
 source_columnar_provider_status
 source_columnar_provider_surface
+source_columnar_source_family
+source_columnar_input_format
 source_columnar_projected_field_mask
 source_columnar_preserved_column_count
+source_columnar_skipped_column_count
 source_columnar_materialized_row_count
+source_columnar_record_batch_count
+source_columnar_row_materialization_status
 source_columnar_null_validity_status
 source_columnar_unsupported_dtype_reason
-source_to_vortex_handoff_ms
+source_columnar_handoff_micros
+source_to_vortex_handoff_micros
+source_columnar_correctness_digest_status
+source_columnar_fallback_attempted=false
+source_columnar_external_engine_invoked=false
+source_columnar_claim_boundary
 ```
 
 Unsupported extension, nested, compression, dictionary, timestamp, or nullability shapes should emit
@@ -810,7 +827,9 @@ execute ShardLoom compute or hide unsupported ShardLoom behavior.
 
 `PERF-DESIGN-5R-A` owns the local Vortex preparation writer coalescing contract. A Capillary writer
 window may reuse writer/runtime context for compatible preparation groups only when artifact roles,
-schema, workspace isolation, digest policy, and proof tier are all admitted.
+schema, workspace isolation, digest policy, and proof tier are all admitted. The current optimization
+target is the local cold-route `vortex_write_ms` component, roughly `22 ms` geomean in the published
+snapshot, not object-store/table writer behavior.
 
 Rows that use writer coalescing should preserve:
 

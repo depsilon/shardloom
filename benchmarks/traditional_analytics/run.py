@@ -84,6 +84,9 @@ SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION = (
 SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.source_projection_admission.v1"
 )
+SOURCE_COLUMNAR_PROVIDER_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_columnar_provider.v1"
+)
 SHARDLOOM_EXECUTION_MODE_VOCABULARY = (
     "auto",
     "compatibility_import_certified",
@@ -362,6 +365,25 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "source_projection_fallback_attempted",
     "source_projection_external_engine_invoked",
     "source_projection_claim_boundary",
+    "source_columnar_provider_schema_version",
+    "source_columnar_provider_status",
+    "source_columnar_provider_surface",
+    "source_columnar_source_family",
+    "source_columnar_input_format",
+    "source_columnar_projected_field_mask",
+    "source_columnar_preserved_column_count",
+    "source_columnar_skipped_column_count",
+    "source_columnar_materialized_row_count",
+    "source_columnar_record_batch_count",
+    "source_columnar_row_materialization_status",
+    "source_columnar_null_validity_status",
+    "source_columnar_unsupported_dtype_reason",
+    "source_columnar_handoff_micros",
+    "source_to_vortex_handoff_micros",
+    "source_columnar_correctness_digest_status",
+    "source_columnar_fallback_attempted",
+    "source_columnar_external_engine_invoked",
+    "source_columnar_claim_boundary",
     "exclusive_source_parse_or_decode_millis",
     "exclusive_source_to_vortex_array_millis",
     "exclusive_vortex_write_millis",
@@ -20183,6 +20205,72 @@ def source_read_scout_stage_metrics(
         or False,
         "source_projection_claim_boundary": evidence.get(
             "source_projection_claim_boundary", default_status
+        ),
+        "source_columnar_provider_schema_version": evidence.get(
+            "source_columnar_provider_schema_version",
+            SOURCE_COLUMNAR_PROVIDER_SCHEMA_VERSION,
+        ),
+        "source_columnar_provider_status": evidence.get(
+            "source_columnar_provider_status", default_status
+        ),
+        "source_columnar_provider_surface": evidence.get(
+            "source_columnar_provider_surface", default_status
+        ),
+        "source_columnar_source_family": evidence.get(
+            "source_columnar_source_family", default_status
+        ),
+        "source_columnar_input_format": evidence.get(
+            "source_columnar_input_format", default_status
+        ),
+        "source_columnar_projected_field_mask": evidence.get(
+            "source_columnar_projected_field_mask", "0x00000000"
+        ),
+        "source_columnar_preserved_column_count": parse_optional_int(
+            evidence.get("source_columnar_preserved_column_count")
+        )
+        or 0,
+        "source_columnar_skipped_column_count": parse_optional_int(
+            evidence.get("source_columnar_skipped_column_count")
+        )
+        or 0,
+        "source_columnar_materialized_row_count": parse_optional_int(
+            evidence.get("source_columnar_materialized_row_count")
+        )
+        or 0,
+        "source_columnar_record_batch_count": parse_optional_int(
+            evidence.get("source_columnar_record_batch_count")
+        )
+        or 0,
+        "source_columnar_row_materialization_status": evidence.get(
+            "source_columnar_row_materialization_status", default_status
+        ),
+        "source_columnar_null_validity_status": evidence.get(
+            "source_columnar_null_validity_status", default_status
+        ),
+        "source_columnar_unsupported_dtype_reason": evidence.get(
+            "source_columnar_unsupported_dtype_reason", default_status
+        ),
+        "source_columnar_handoff_micros": parse_optional_int(
+            evidence.get("source_columnar_handoff_micros")
+        )
+        or 0,
+        "source_to_vortex_handoff_micros": parse_optional_int(
+            evidence.get("source_to_vortex_handoff_micros")
+        )
+        or 0,
+        "source_columnar_correctness_digest_status": evidence.get(
+            "source_columnar_correctness_digest_status", default_status
+        ),
+        "source_columnar_fallback_attempted": parse_optional_bool(
+            evidence.get("source_columnar_fallback_attempted")
+        )
+        or False,
+        "source_columnar_external_engine_invoked": parse_optional_bool(
+            evidence.get("source_columnar_external_engine_invoked")
+        )
+        or False,
+        "source_columnar_claim_boundary": evidence.get(
+            "source_columnar_claim_boundary", default_status
         ),
     }
 

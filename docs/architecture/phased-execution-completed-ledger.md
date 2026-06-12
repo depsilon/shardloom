@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Phase-plan open-queue cleanup and completed-state ledger migration
+  - Date: 2026-06-12
+  - Source:
+    - User request to clean the active phase plan into a clearer checklist/checkbox style.
+    - Historical PR #1174 benchmark/readiness, repo-audit, runtime queue, and release-status
+      narrative previously carried inline in `docs/architecture/phased-execution-plan.md`.
+  - Scope:
+    - Moved stale or closed plan narrative out of the active plan and into this ledger as provenance.
+    - Preserved the benchmark evidence snapshot from
+      `website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209` and the
+      timing-surface split that explains why compact hot-runtime rows are intentionally
+      `not_claim_grade` while publication-proof rows are claim-grade.
+    - Preserved closed repo-wide audit and release-sequence status as historical context instead of
+      active planned work.
+    - Reframed open work in the phase plan as one unchecked checkbox per active item or child slice,
+      with executable checklist details carried as nested plain bullets.
+  - Moved historical context:
+    - Source artifact `rows-b81bbdc3217d3209` contains 1,920 published rows: 1,200 ShardLoom-family
+      rows and 720 external baseline rows. External rows are baseline evidence only, never fallback
+      execution.
+    - The ShardLoom timing split in that artifact is 600 `hot_runtime` rows and 600
+      `publication_proof` rows. The 600 publication-proof rows are claim-grade; the 600
+      `metadata_sink` hot-runtime rows are intentionally compact `not_claim_grade` timing rows, not
+      runtime failures.
+    - Hot lane shape from that snapshot: cold certified route geomean is about `63.13 ms`;
+      native/warm/prepared hot geomeans are about `0.11-0.12 ms`; prepared/native
+      publication-proof geomeans are about `4.7-7.2 ms`; prepare-once-first-query publication proof
+      is about `42.91 ms` because it includes first-query preparation plus proof/output work.
+    - Cold bottlenecks recorded for optimization direction: source parse or columnar decode about
+      `33-34 ms` geomean on source-heavy cold rows; local Vortex write about `22 ms` geomean on
+      small cold preparation rows; JSONL outliers up to `221.95 ms` hot route total with about
+      `174.27 ms` source parse/decode.
+    - Optimization-target validator context: additive hot-runtime targets were
+      `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`,
+      `prepared_state_lookup_or_create`, `vortex_write_and_reopen_verify`, and
+      `source_read_scout_timing`. `operator_materialization` remained visible but blocked as
+      non-additive or excluded diagnostic timing for the selected hot/runtime surface.
+    - Closed work noted in the old active file: `SECURITY-DEEP-SCAN-R3-FOLLOWUP`,
+      `REPO-WIDE-AUDIT-1` through `REPO-WIDE-AUDIT-4`, `GAR-RUNTIME-IMPL-4/6A`, and
+      `RELEASE-SEQUENCE-1` through `RELEASE-SEQUENCE-14`.
+    - Deferred gates remain approval or artifact-refresh gates: public package/release approval,
+      channel-specific install/upload proof, signing/tags/uploads, and clean-source benchmark
+      refresh before public performance or package claims.
+  - Claim boundary:
+    - This is a documentation-state cleanup and provenance migration. It does not close any runtime
+      item, package-release gate, public performance claim, production-readiness claim, Spark
+      displacement claim, or broad superiority claim.
+  - Fallback boundary:
+    - Documentation-only cleanup. It does not add runtime behavior or authorize fallback execution;
+      ShardLoom rows remain required to report `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: PERF-DESIGN-5 Vortex preparation-spine lifecycle timing and metadata-first reuse
   - Date: 2026-06-12
   - Branch/PR: `codex/perf-design-5-preparation-spine` / cohesive PERF-DESIGN-5 PR.
