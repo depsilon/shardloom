@@ -1397,6 +1397,10 @@ def write_row_chunks(
         if path not in expected_paths:
             stale_removed.append(str(path))
             path.unlink()
+    legacy_removed: list[str] = []
+    for path in sorted(directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*.json")):
+        legacy_removed.append(str(path))
+        path.unlink()
     admission_manifest = {
         "schema_version": ROW_ADMISSION_MANIFEST_SCHEMA_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -1413,6 +1417,9 @@ def write_row_chunks(
         "reused_chunk_count": reused_chunk_count,
         "written_chunk_count": written_chunk_count,
         "stale_chunk_files_removed": [repo_relative(Path(path)) for path in stale_removed],
+        "legacy_top_level_chunk_files_removed": [
+            repo_relative(Path(path)) for path in legacy_removed
+        ],
         "duplicate_suffixed_artifacts_removed": [
             repo_relative(Path(path)) for path in duplicate_removed
         ],

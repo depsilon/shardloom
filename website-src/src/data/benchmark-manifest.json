@@ -3,56 +3,57 @@
     "html": null,
     "json": "website/assets/benchmarks/latest/benchmark-results.json",
     "markdown": null,
+    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/benchmark-row-admission-manifest.json",
     "row_chunks": [
       {
-        "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-000.json",
         "row_count": 200,
-        "sha256": "3c74e357021e214aca8b70d435b0462200c9bd0d28dee50d4e2b642ec2980317"
+        "sha256": "8f9535a3ca71997f7d6944bbfd2560d31781aadcb5134b442a7eb861af8297e1"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-001.json",
         "row_count": 200,
-        "sha256": "0e886be3783c50b4681d85dede305c81070113e85f7867750744e078e4ee2006"
+        "sha256": "aadf5922d1a557983307197b82bd286e8cd64418aa7ca8663f0b6daea15c2883"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-002.json",
         "row_count": 200,
-        "sha256": "eb340fe9db1b8f5268029251640c8dfd8aa2f24e88a01e1da5006729b01de97e"
+        "sha256": "14dc472df69b891dd3d0977cc1be79a7b2eaae36e3a3bf4696b09cc495c657bb"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-benchmark-rows-003.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-003.json",
         "row_count": 200,
         "sha256": "34bf21ff15a9834365fde630a4040b551c1bec6c2c9dc5c8a9682a13978a4dd4"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-benchmark-rows-004.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-004.json",
         "row_count": 200,
         "sha256": "9c8b6a288dab74381537d89c73d94e02e056a8c9e994cdb980d4e0f93054e730"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-benchmark-rows-005.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-005.json",
         "row_count": 200,
         "sha256": "b54edf8e6bfaf1cc6deb2f1a21526b2803400b3c8787a76b0c1e1f4e14c3f712"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-benchmark-rows-006.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-006.json",
         "row_count": 200,
-        "sha256": "278675669590d091475687119b39865b3d13675ff0536c46cbfd9ecff3141a0b"
+        "sha256": "6c0a80bec403b081a3c5a2949e59be3a0faa0cd7508bc33246db41f2ed759e9b"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-benchmark-rows-007.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-007.json",
         "row_count": 200,
-        "sha256": "3d2d4eab69ff2c615c11d52683b15f27bb801909f4664819abd33b57cb256a32"
+        "sha256": "052f9912c581df377e75c791dc08bcb8860ac55dc6fed87d30a05ca465d1d1e4"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-benchmark-rows-008.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-008.json",
         "row_count": 200,
-        "sha256": "cd462dafdada86407cc915981c41bcbc74c24c826a2cbbe0df3c30cade54e0fe"
+        "sha256": "1381a8905c01d217b96293a745a8ceecd719b23699ddb6e30f69f44314aad7e6"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-benchmark-rows-009.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-009.json",
         "row_count": 120,
-        "sha256": "78bccc0a9ba209c47844289e3fdf49b73f25ad9a50b74744022ff3a65938b619"
+        "sha256": "2e840e061a50720a474e80a73f86c0c248761e0228dae5d0871457bad602e3cf"
       }
     ]
   },
@@ -93,21 +94,16 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "7f66eb573217f8e1fa93fdd1926dcf343e2a0a1d",
+  "benchmark_git_sha": "650fe14833e80c1042f8484f987a706b5e60c022",
   "benchmark_profile": "full_local",
+  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/benchmark-row-admission-manifest.json",
+  "benchmark_row_admission_schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
-    "artifact_environment": {
-      "cpu_count": 10,
-      "machine": "arm64",
-      "platform": "macOS-26.5.1-arm64-arm-64bit",
-      "processor": "arm",
-      "python_version": "3.12.13",
-      "total_memory_bytes": 17179869184
-    },
+    "artifact_environment": {},
     "cpu_count": 10,
     "platform": "macOS-26.5.1-arm64-arm-64bit",
-    "python": "3.12.13",
+    "python": "3.9.6",
     "website_promoter": "scripts/promote_benchmark_artifact.py"
   },
   "expected_lanes": [
@@ -122,7 +118,7 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-12T01:42:01.751821+00:00",
+  "generated_at_utc": "2026-06-12T03:29:30.993464+00:00",
   "lane_availability_reasons": {
     "dask": "available in promoted benchmark artifact",
     "datafusion": "available in promoted benchmark artifact",
@@ -130,10 +126,10 @@
     "pandas": "available in promoted benchmark artifact",
     "polars-eager": "available in promoted benchmark artifact",
     "polars-lazy": "available in promoted benchmark artifact",
-    "shardloom": "available, version workspace-local-release-7f66eb57-dirty",
-    "shardloom-prepare-batch": "available, version workspace-local-release-7f66eb57-dirty",
-    "shardloom-prepared-vortex": "available, version workspace-local-release-7f66eb57-dirty",
-    "shardloom-vortex": "available, version workspace-local-release-7f66eb57-dirty"
+    "shardloom": "available in promoted benchmark artifact",
+    "shardloom-prepare-batch": "available in promoted benchmark artifact",
+    "shardloom-prepared-vortex": "available in promoted benchmark artifact",
+    "shardloom-vortex": "available in promoted benchmark artifact"
   },
   "lane_versions": {
     "dask": "from promoted benchmark artifact",
@@ -142,10 +138,10 @@
     "pandas": "from promoted benchmark artifact",
     "polars-eager": "from promoted benchmark artifact",
     "polars-lazy": "from promoted benchmark artifact",
-    "shardloom": "workspace-local-release-7f66eb57-dirty",
-    "shardloom-prepare-batch": "workspace-local-release-7f66eb57-dirty",
-    "shardloom-prepared-vortex": "workspace-local-release-7f66eb57-dirty",
-    "shardloom-vortex": "workspace-local-release-7f66eb57-dirty"
+    "shardloom": "from promoted benchmark artifact",
+    "shardloom-prepare-batch": "from promoted benchmark artifact",
+    "shardloom-prepared-vortex": "from promoted benchmark artifact",
+    "shardloom-vortex": "from promoted benchmark artifact"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
@@ -792,5 +788,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "7f66eb573217f8e1fa93fdd1926dcf343e2a0a1d"
+  "shardloom_git_sha": "650fe14833e80c1042f8484f987a706b5e60c022"
 }
