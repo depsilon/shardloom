@@ -2138,6 +2138,8 @@ class ReleaseScriptTests(unittest.TestCase):
 
             duplicate = output_dir / "published-benchmark-rows-001 2.json"
             duplicate.write_text("duplicate", encoding="utf-8")
+            legacy = output_dir / "published-benchmark-rows-000.json"
+            legacy.write_text("legacy", encoding="utf-8")
             stale = chunk_dir / "published-benchmark-rows-099.json"
             stale.write_text("stale", encoding="utf-8")
 
@@ -2153,8 +2155,10 @@ class ReleaseScriptTests(unittest.TestCase):
             self.assertEqual(admission["written_chunk_count"], 0)
             self.assertEqual(admission["reused_chunk_count"], 3)
             self.assertFalse(duplicate.exists())
+            self.assertFalse(legacy.exists())
             self.assertFalse(stale.exists())
             self.assertTrue(admission["duplicate_suffixed_artifacts_removed"])
+            self.assertTrue(admission["legacy_top_level_chunk_files_removed"])
             self.assertTrue(admission["stale_chunk_files_removed"])
 
     def test_benchmark_completeness_validates_row_admission_manifest(self) -> None:
@@ -4348,7 +4352,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertTrue(
-            str(packet["next_implementation_slice"]).startswith("`BENCH-PIPE-1`"),
+            str(packet["next_implementation_slice"]).startswith("`WEB-CLEANSLATE-1`"),
             packet["next_implementation_slice"],
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])

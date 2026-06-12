@@ -16,6 +16,64 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: BENCH-PIPE-1 benchmark artifact pipeline redesign and incremental publication writer
+  - Date: 2026-06-12
+  - Branch/PR: `codex/benchmark-run-scoped-artifact-refresh` / PR #1177.
+  - Source:
+    - Active phase-plan item `BENCH-PIPE-1`.
+    - PR #1176 incremental benchmark row-admission implementation.
+    - User request to reduce benchmark refresh errors, avoid stale duplicate generated files, and
+      keep current benchmark evidence coherent before the website overhaul.
+  - Scope:
+    - Regenerated the committed `full_local` benchmark website bundle by running
+      `scripts/promote_benchmark_artifact.py` against
+      `website/assets/benchmarks/latest/benchmark-results.json`, without running a new benchmark
+      suite.
+    - Published full benchmark rows into run-scoped row chunks under
+      `website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/` and mirrored
+      matching chunks under `website-public/assets/benchmarks/latest/published-row-runs/`.
+    - Added `benchmark-row-admission-manifest.json` to the promoted bundle and wired manifest
+      fields `benchmark_row_admission_schema_version`, `benchmark_row_admission_manifest`, and
+      `artifact_paths.row_admission_manifest`.
+    - Removed the stale top-level `published-benchmark-rows-000.json` through
+      `published-benchmark-rows-009.json` files from both `website/` and `website-public/` so the
+      static bundle has one referenced row-chunk location.
+    - Strengthened `scripts/promote_benchmark_artifact.py` and release-script tests so future
+      promotions remove legacy top-level chunks after run-scoped chunk admission.
+    - Kept timing surfaces separate in the promoted artifact: ShardLoom remains `1200/1200`
+      successful rows, split into `600` `hot_runtime` rows and `600` `publication_proof` rows.
+  - Local evidence:
+    - `python3 scripts/promote_benchmark_artifact.py --input website/assets/benchmarks/latest/benchmark-results.json --profile full_local`
+      passed and wrote `website/assets/benchmarks/latest/manifest.json`.
+    - Row-admission manifest evidence:
+      `row_count=1920`, `chunk_count=10`, `run_id=rows-101a09da6437eac2`,
+      `reused_chunk_count=10`, `written_chunk_count=0`,
+      `legacy_top_level_chunk_files_removed=10`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_admits_row_chunks_incrementally python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_completeness_validates_row_admission_manifest python.tests.test_release_scripts.ReleaseScriptTests.test_website_readiness_flags_duplicate_suffixed_artifacts`
+      passed with 3 tests.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed with `artifact_status=complete`, `available_lane_count=10`, and no blockers.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree`
+      passed with `shardloom_row_count=1200`, `shardloom_status_counts={"success": 1200}`,
+      `route_runtime_status_counts={"external_baseline_only": 720, "scoped_runtime_supported": 1200}`,
+      `shardloom_claim_gate_counts={"claim_grade": 600, "not_claim_grade": 600}`, and no blockers.
+    - `python3 scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json`
+      passed.
+    - `python3 scripts/check_website_readiness.py` passed.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js`
+      passed.
+    - `find website/assets/benchmarks/latest website-public/assets/benchmarks/latest website-src/src/data -maxdepth 5 \( -name '* 2*' -o -name '* 3*' \) -print`
+      returned no duplicate suffixed generated files.
+  - Claim boundary:
+    - This closes benchmark publication reliability and static artifact ownership only. It does
+      not make a performance, superiority, production, package-publication, Spark-displacement, or
+      external-baseline support claim.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution was introduced. ShardLoom rows and the row-admission
+      manifest preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: REPO-WIDE-AUDIT-4 website benchmark surface and data ownership cleanup
   - Date: 2026-06-11
   - Branch/PR: `codex/repo-wide-audit-website-benchmark-cleanup` / local branch.

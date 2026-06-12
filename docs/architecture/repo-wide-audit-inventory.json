@@ -3,7 +3,7 @@
     "architecture_docs_policy": 272,
     "ci_release_governance": 6,
     "runtime_tests_tools": 393,
-    "website_public_surface": 319,
+    "website_public_surface": 321,
     "website_validation": 1,
     "workspace_package_policy": 5
   },
@@ -688,20 +688,20 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 41463,
+      "line_count": 41521,
       "path": "docs/architecture/phased-execution-completed-ledger.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "41f3ed10e6b095548eb15a8e71f4cc3f623cecd4f6f8ebee90c4d017e0c3d829"
+      "sha256": "da47188b105acdd70bd9e98fbf3a9ae9d194d10f576687a2035007975daeffea"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 495,
+      "line_count": 448,
       "path": "docs/architecture/phased-execution-plan.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "153047d874f3443ec8a1c2eb42b957ea438a9637f055ed5a2db10f918edcd161"
+      "sha256": "064803d7756bce0195d30cdffba27ec563062144978a54b979d6bfb96db7798f"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -742,11 +742,11 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "structured_config_or_data",
-      "line_count": 9003,
+      "line_count": 9021,
       "path": "docs/architecture/repo-wide-audit-inventory.json",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "01bb22cf7f2999c37ef10003e7ade8b94fd51b71fe9f26a948655fc4c332daaf"
+      "sha256": "dc7f90df41c6abb18fbffa7731a61e9f98289aeaaf83df58d265bf663867c834"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -3136,11 +3136,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 6877,
+      "line_count": 6881,
       "path": "python/tests/test_release_scripts.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "2fd9272764753c29aaec6ed00ab076a77063f4cad690fd9850ae73c1cc3dd470"
+      "sha256": "f709c16efe53e1d6622b24ba15969c222dc7c547ad8ca860130583ce79c77dd3"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3613,11 +3613,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 8579,
+      "line_count": 8586,
       "path": "scripts/promote_benchmark_artifact.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "6b573a99fe0012e9a7bbbb3d3a398b02c25b0a94330328a8eea406fb1167c19d"
+      "sha256": "8104faa2845948ce604f512843a1619b22ca5a121315713617ac585f85ef3290"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -6124,53 +6124,62 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 238620,
+      "line_count": 237899,
       "path": "website-public/assets/benchmarks/latest/benchmark-results.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "705c8f8adb45ba4c246453239ec66114b9bbd52a76d2d1873069d564ebb93de3"
+      "sha256": "cfed4bd4658ce5dcdf47295fdcac4fd128edc22a44d32f4c38f3c681a64ac3c3"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 796,
+      "line_count": 792,
       "path": "website-public/assets/benchmarks/latest/manifest.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "85e1d847712298d9f9d0aebd74ef45ded3b322c7d868dbd2320ff5effbf426f0"
+      "sha256": "dbd92d79b173b137c0727d7da0c9d9e86c9b09077b1dd451bd872b3511fc2194"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": 80,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/benchmark-row-admission-manifest.json",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "d0869ded176c0eb1aa7f601a7ec100d7ab3e32e051c4f74994f8514cd9507fc9"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 198407,
-      "path": "website-public/assets/benchmarks/latest/published-benchmark-rows-000.json",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-000.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "3c74e357021e214aca8b70d435b0462200c9bd0d28dee50d4e2b642ec2980317"
+      "sha256": "8f9535a3ca71997f7d6944bbfd2560d31781aadcb5134b442a7eb861af8297e1"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 221487,
-      "path": "website-public/assets/benchmarks/latest/published-benchmark-rows-001.json",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-001.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "0e886be3783c50b4681d85dede305c81070113e85f7867750744e078e4ee2006"
+      "sha256": "aadf5922d1a557983307197b82bd286e8cd64418aa7ca8663f0b6daea15c2883"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 197887,
-      "path": "website-public/assets/benchmarks/latest/published-benchmark-rows-002.json",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-002.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "eb340fe9db1b8f5268029251640c8dfd8aa2f24e88a01e1da5006729b01de97e"
+      "sha256": "14dc472df69b891dd3d0977cc1be79a7b2eaae36e3a3bf4696b09cc495c657bb"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 175807,
-      "path": "website-public/assets/benchmarks/latest/published-benchmark-rows-003.json",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-003.json",
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "34bf21ff15a9834365fde630a4040b551c1bec6c2c9dc5c8a9682a13978a4dd4"
@@ -6179,7 +6188,7 @@
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 175751,
-      "path": "website-public/assets/benchmarks/latest/published-benchmark-rows-004.json",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-004.json",
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "9c8b6a288dab74381537d89c73d94e02e056a8c9e994cdb980d4e0f93054e730"
@@ -6188,7 +6197,7 @@
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 175695,
-      "path": "website-public/assets/benchmarks/latest/published-benchmark-rows-005.json",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-005.json",
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "b54edf8e6bfaf1cc6deb2f1a21526b2803400b3c8787a76b0c1e1f4e14c3f712"
@@ -6196,47 +6205,47 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 213647,
-      "path": "website-public/assets/benchmarks/latest/published-benchmark-rows-006.json",
+      "line_count": 199607,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-006.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "278675669590d091475687119b39865b3d13675ff0536c46cbfd9ecff3141a0b"
+      "sha256": "6c0a80bec403b081a3c5a2949e59be3a0faa0cd7508bc33246db41f2ed759e9b"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 213047,
-      "path": "website-public/assets/benchmarks/latest/published-benchmark-rows-007.json",
+      "line_count": 222687,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-007.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "3d2d4eab69ff2c615c11d52683b15f27bb801909f4664819abd33b57cb256a32"
+      "sha256": "052f9912c581df377e75c791dc08bcb8860ac55dc6fed87d30a05ca465d1d1e4"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 227567,
-      "path": "website-public/assets/benchmarks/latest/published-benchmark-rows-008.json",
+      "line_count": 231967,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-008.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "cd462dafdada86407cc915981c41bcbc74c24c826a2cbbe0df3c30cade54e0fe"
+      "sha256": "1381a8905c01d217b96293a745a8ceecd719b23699ddb6e30f69f44314aad7e6"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 139807,
-      "path": "website-public/assets/benchmarks/latest/published-benchmark-rows-009.json",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-009.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "78bccc0a9ba209c47844289e3fdf49b73f25ad9a50b74744022ff3a65938b619"
+      "sha256": "2e840e061a50720a474e80a73f86c0c248761e0228dae5d0871457bad602e3cf"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 238620,
+      "line_count": 237899,
       "path": "website-public/assets/data/benchmark-evidence.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "705c8f8adb45ba4c246453239ec66114b9bbd52a76d2d1873069d564ebb93de3"
+      "sha256": "cfed4bd4658ce5dcdf47295fdcac4fd128edc22a44d32f4c38f3c681a64ac3c3"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7222,20 +7231,20 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 238620,
+      "line_count": 237899,
       "path": "website-src/src/data/benchmark-evidence.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "705c8f8adb45ba4c246453239ec66114b9bbd52a76d2d1873069d564ebb93de3"
+      "sha256": "cfed4bd4658ce5dcdf47295fdcac4fd128edc22a44d32f4c38f3c681a64ac3c3"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 796,
+      "line_count": 792,
       "path": "website-src/src/data/benchmark-manifest.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "85e1d847712298d9f9d0aebd74ef45ded3b322c7d868dbd2320ff5effbf426f0"
+      "sha256": "dbd92d79b173b137c0727d7da0c9d9e86c9b09077b1dd451bd872b3511fc2194"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7627,53 +7636,62 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 238620,
+      "line_count": 237899,
       "path": "website/assets/benchmarks/latest/benchmark-results.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "705c8f8adb45ba4c246453239ec66114b9bbd52a76d2d1873069d564ebb93de3"
+      "sha256": "cfed4bd4658ce5dcdf47295fdcac4fd128edc22a44d32f4c38f3c681a64ac3c3"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 796,
+      "line_count": 792,
       "path": "website/assets/benchmarks/latest/manifest.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "85e1d847712298d9f9d0aebd74ef45ded3b322c7d868dbd2320ff5effbf426f0"
+      "sha256": "dbd92d79b173b137c0727d7da0c9d9e86c9b09077b1dd451bd872b3511fc2194"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": 80,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/benchmark-row-admission-manifest.json",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "70f21c3b91f52d65334a8f5e7f4e735431510676ca42e9156d1e72322ccf96db"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 198407,
-      "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-000.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "3c74e357021e214aca8b70d435b0462200c9bd0d28dee50d4e2b642ec2980317"
+      "sha256": "8f9535a3ca71997f7d6944bbfd2560d31781aadcb5134b442a7eb861af8297e1"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 221487,
-      "path": "website/assets/benchmarks/latest/published-benchmark-rows-001.json",
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-001.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "0e886be3783c50b4681d85dede305c81070113e85f7867750744e078e4ee2006"
+      "sha256": "aadf5922d1a557983307197b82bd286e8cd64418aa7ca8663f0b6daea15c2883"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 197887,
-      "path": "website/assets/benchmarks/latest/published-benchmark-rows-002.json",
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-002.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "eb340fe9db1b8f5268029251640c8dfd8aa2f24e88a01e1da5006729b01de97e"
+      "sha256": "14dc472df69b891dd3d0977cc1be79a7b2eaae36e3a3bf4696b09cc495c657bb"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 175807,
-      "path": "website/assets/benchmarks/latest/published-benchmark-rows-003.json",
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-003.json",
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "34bf21ff15a9834365fde630a4040b551c1bec6c2c9dc5c8a9682a13978a4dd4"
@@ -7682,7 +7700,7 @@
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 175751,
-      "path": "website/assets/benchmarks/latest/published-benchmark-rows-004.json",
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-004.json",
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "9c8b6a288dab74381537d89c73d94e02e056a8c9e994cdb980d4e0f93054e730"
@@ -7691,7 +7709,7 @@
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 175695,
-      "path": "website/assets/benchmarks/latest/published-benchmark-rows-005.json",
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-005.json",
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "b54edf8e6bfaf1cc6deb2f1a21526b2803400b3c8787a76b0c1e1f4e14c3f712"
@@ -7699,47 +7717,47 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 213647,
-      "path": "website/assets/benchmarks/latest/published-benchmark-rows-006.json",
+      "line_count": 199607,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-006.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "278675669590d091475687119b39865b3d13675ff0536c46cbfd9ecff3141a0b"
+      "sha256": "6c0a80bec403b081a3c5a2949e59be3a0faa0cd7508bc33246db41f2ed759e9b"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 213047,
-      "path": "website/assets/benchmarks/latest/published-benchmark-rows-007.json",
+      "line_count": 222687,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-007.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "3d2d4eab69ff2c615c11d52683b15f27bb801909f4664819abd33b57cb256a32"
+      "sha256": "052f9912c581df377e75c791dc08bcb8860ac55dc6fed87d30a05ca465d1d1e4"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 227567,
-      "path": "website/assets/benchmarks/latest/published-benchmark-rows-008.json",
+      "line_count": 231967,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-008.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "cd462dafdada86407cc915981c41bcbc74c24c826a2cbbe0df3c30cade54e0fe"
+      "sha256": "1381a8905c01d217b96293a745a8ceecd719b23699ddb6e30f69f44314aad7e6"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": 139807,
-      "path": "website/assets/benchmarks/latest/published-benchmark-rows-009.json",
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-009.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "78bccc0a9ba209c47844289e3fdf49b73f25ad9a50b74744022ff3a65938b619"
+      "sha256": "2e840e061a50720a474e80a73f86c0c248761e0228dae5d0871457bad602e3cf"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 238620,
+      "line_count": 237899,
       "path": "website/assets/data/benchmark-evidence.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "705c8f8adb45ba4c246453239ec66114b9bbd52a76d2d1873069d564ebb93de3"
+      "sha256": "cfed4bd4658ce5dcdf47295fdcac4fd128edc22a44d32f4c38f3c681a64ac3c3"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8976,7 +8994,7 @@
     }
   ],
   "file_kind_counts": {
-    "checked_in_static_site": 190,
+    "checked_in_static_site": 192,
     "documentation": 267,
     "fixture_or_benchmark_data": 3,
     "jsonc": 1,
@@ -8989,15 +9007,15 @@
     "typed": 1,
     "website_source": 127
   },
-  "generated_at_utc": "2026-06-12T03:14:09.457546+00:00",
-  "reviewed_tracked_files": 996,
+  "generated_at_utc": "2026-06-12T03:51:00.983194+00:00",
+  "reviewed_tracked_files": 998,
   "schema_version": "shardloom.repo_wide_audit_inventory.v1",
   "section_counts": {
     "Architecture/Documentation": 272,
     "Shardloom Code": 404,
-    "Website": 320
+    "Website": 322
   },
   "skipped_tracked_files": 0,
-  "source_head_at_generation": "b9bd863c1baabddb8106e1364a5d879f64e124a1",
-  "total_tracked_files": 996
+  "source_head_at_generation": "650fe14833e80c1042f8484f987a706b5e60c022",
+  "total_tracked_files": 998
 }

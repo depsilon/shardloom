@@ -179,57 +179,10 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-- [ ] `BENCH-PIPE-1` - Benchmark artifact pipeline redesign and incremental publication writer.
 - [ ] `WEB-CLEANSLATE-1` - Clean-slate ShardLoom Astro/Starlight website and docs experience.
 - [ ] `PERF-DESIGN-1` - Prepared-source and compatibility-ingest amortization design.
 - [ ] `PERF-DESIGN-2` - Encoded-native operator promotion and stage-timing attribution cleanup.
 - [ ] `PERF-DESIGN-3` - Publication-proof sink/evidence pipeline optimization.
-
-### BENCH-PIPE-1 - Benchmark artifact pipeline redesign and incremental publication writer
-
-- Source: PR #1174 benchmark refresh; user request on benchmark errors; `PERF-SPLIT-FIX-1`;
-  `scripts/promote_benchmark_artifact.py`; `benchmarks/traditional_analytics/run.py`;
-  `scripts/check_benchmark_publication_claim_gate.py`; `scripts/check_website_readiness.py`.
-- Current state: the promoted artifact is now current enough for the checked-in website and has
-  `1200/1200` successful ShardLoom rows split into `600` `hot_runtime` and `600`
-  `publication_proof` rows, but the refresh path still rewrites large JSON files wholesale, can
-  leave duplicate ` 2`/` 3` generated files in website trees, and couples row production,
-  validation, promotion, static website mirroring, and readiness checks in a way that makes row
-  errors noisy and slow to fix.
-- Next slice outcome: add an incremental benchmark publication pipeline that writes validated
-  per-run/per-lane/per-surface row chunks atomically, records a durable run manifest as rows are
-  admitted, can resume from completed chunks without rewriting successful rows, and promotes only
-  after all required row contracts and mirror digests pass.
-- User-visible surface: benchmark CLI/harness, JSON artifacts, static website benchmark data,
-  release readiness validators, and diagnostics emitted when a row fails.
-- Implementation scope: benchmark row writer/promotion scripts, benchmark run output structure,
-  duplicate generated-file cleanup, release validators, tests in `python/tests`, and docs for the
-  new artifact flow. Keep website page rendering behavior unchanged except where data ownership
-  metadata needs to point at the new manifest structure.
-- Evidence required: unit tests for incremental chunk admission, resume/retry, duplicate cleanup,
-  timing-surface grouping, claim-readiness dataset profile defaults, and fail-closed row validation;
-  a targeted regenerated artifact showing no ShardLoom failed/blocked rows; static mirror digest
-  checks; no-fallback and external-engine fields remain false for ShardLoom rows.
-- Acceptance: row validation errors identify the exact engine/scenario/format/surface before
-  promotion; partial runs cannot overwrite the promoted `latest` bundle; duplicate ` 2`/` 3`
-  website/source files are cleaned or fail the gate before publication; `hot_runtime` and
-  `publication_proof` rows remain separate; promotion can be rerun without changing already
-  accepted chunks unless source rows changed.
-- Verification: `python -m unittest python.tests.test_release_scripts`;
-  `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`;
-  `python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git`;
-  `python scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json`;
-  `python scripts/check_website_readiness.py`; `node website/validate_static_assets.js`;
-  targeted benchmark regenerate/promote command documented in the PR.
-- Non-goals: do not broaden benchmark claims, add Spark/DataFusion fallback, or force every
-  external baseline row to be supported. Do not rebuild the website visual design in this item.
-- Claim boundary: this item improves artifact reliability and row correctness; it does not make a
-  performance, superiority, production, or package-publication claim.
-- Fallback boundary: every ShardLoom row and validator output must keep
-  `fallback_attempted=false` and `external_engine_invoked=false`; external engines remain
-  baseline-only.
-- Ledger rule: when complete, move the completed session summary to
-  `docs/architecture/phased-execution-completed-ledger.md`.
 
 ### WEB-CLEANSLATE-1 - Clean-slate ShardLoom Astro/Starlight website and docs experience
 
