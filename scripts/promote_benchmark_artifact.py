@@ -3036,17 +3036,27 @@ def source_read_scout_fields_for_row(
         millis_keys=("source_read_columnar_handoff_millis",),
         micros_keys=("source_read_columnar_handoff_micros",),
     )
-    pieces = [
+    read_pieces = [
         value
         for value in (header_scout, byte_acquisition, full_body)
         if value is not None and value >= 0.0
     ]
-    split_sum = sum(pieces)
-    residual = round(source_read - split_sum, 4) if pieces else None
+    split_sum = sum(read_pieces)
+    residual = round(source_read - split_sum, 4) if read_pieces else None
+    diagnostic_pieces_present = all(
+        value is not None
+        for value in (
+            typed_decode,
+            row_assembly,
+            anomaly_quarantine,
+            columnar_handoff,
+        )
+    )
     complete = (
         header_scout is not None
         and byte_acquisition is not None
         and full_body is not None
+        and diagnostic_pieces_present
         and residual is not None
         and residual >= -0.001
     )

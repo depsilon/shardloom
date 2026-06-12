@@ -3925,6 +3925,20 @@ impl TraditionalSourceReadEvidence {
         parse_micros: u64,
         record_batch_count: usize,
     ) -> Result<Self> {
+        Self::direct_vortex_provider_batch_with_projection(
+            columnar_micros,
+            parse_micros,
+            record_batch_count,
+            TraditionalTextProjectionEvidence::default(),
+        )
+    }
+
+    fn direct_vortex_provider_batch_with_projection(
+        columnar_micros: u64,
+        parse_micros: u64,
+        record_batch_count: usize,
+        projection: TraditionalTextProjectionEvidence,
+    ) -> Result<Self> {
         Ok(Self {
             read_micros: checked_u64_sum(columnar_micros, parse_micros)?,
             parse_micros,
@@ -3936,10 +3950,10 @@ impl TraditionalSourceReadEvidence {
             row_assembly_micros: 0,
             anomaly_quarantine_micros: 0,
             columnar_handoff_micros: columnar_micros,
-            projected_field_mask: 0,
-            filter_field_mask: 0,
-            decoded_column_mask: 0,
-            skipped_column_mask: 0,
+            projected_field_mask: projection.projected_fields,
+            filter_field_mask: projection.filter_fields,
+            decoded_column_mask: projection.decoded_columns,
+            skipped_column_mask: projection.skipped_columns,
             source_read_scout_recorded: false,
             record_batch_count,
             scalar_rows_materialized: false,
@@ -4065,6 +4079,8 @@ impl TraditionalSourceReadEvidence {
             "projection_aware_text_column_decode"
         } else if self.text_vortex_provider_batch {
             "full_text_column_decode"
+        } else if self.direct_vortex_provider_batch && self.skipped_column_mask != 0 {
+            "projection_aware_columnar_provider_decode"
         } else if self.direct_vortex_provider_batch {
             "direct_columnar_provider_decode"
         } else if self.columnar_preserved {
@@ -4133,6 +4149,8 @@ impl TraditionalSourceReadEvidence {
             "text_adapter_record_batch_plus_scalar_delta_rows"
         } else if self.scalar_rows_materialized && self.direct_vortex_provider_batch {
             "columnar_provider_record_batch_plus_scalar_delta_rows"
+        } else if self.direct_vortex_provider_batch && self.skipped_column_mask != 0 {
+            "projected_columnar_provider_record_batch_without_persistent_traditional_rows"
         } else if self.direct_vortex_provider_batch {
             "columnar_record_batches_normalized_to_vortex_provider_batch"
         } else if self.text_vortex_provider_batch {
@@ -4151,6 +4169,8 @@ impl TraditionalSourceReadEvidence {
             } else {
                 "mixed_arrow_and_text_record_batches_to_vortex_provider_no_persistent_row_buffer"
             }
+        } else if self.direct_vortex_provider_batch && self.skipped_column_mask != 0 {
+            "projected_arrow_record_batches_to_vortex_provider_record_batch_no_row_boundary"
         } else if self.scalar_rows_materialized && self.text_vortex_provider_batch {
             "text_record_batch_no_persistent_rows_plus_scalar_delta_rows"
         } else if self.scalar_rows_materialized && self.direct_vortex_provider_batch {
@@ -4175,6 +4195,11 @@ impl TraditionalSourceReadEvidence {
             }
         } else if self.text_vortex_provider_batch && !self.scalar_rows_materialized {
             "direct_text_columnar_push_without_persistent_traditional_rows"
+        } else if self.direct_vortex_provider_batch
+            && self.skipped_column_mask != 0
+            && !self.scalar_rows_materialized
+        {
+            "projected_columnar_provider_batch_without_traditional_rows"
         } else if self.direct_vortex_provider_batch && !self.scalar_rows_materialized {
             "direct_columnar_provider_batch_without_traditional_rows"
         } else if self.columnar_preserved && !self.scalar_rows_materialized {
@@ -16903,6 +16928,8 @@ fn repair_traditional_prepared_role(
                 fact_input,
                 input_format,
                 resolved_policy,
+                TraditionalAnalyticsScenario::CsvFileIngest,
+                TraditionalFactTextColumnSelection::full(),
             )?;
             let row_count = usize_to_u64(source.row_count)?;
             let timing = write_vortex_provider_record_batch_with_io(
@@ -20868,6 +20895,13 @@ fn run_traditional_analytics_benchmark_enabled(
         .cdc_delta_csv
         .as_ref()
         .map(|_| request.workspace_dir.join("cdc_delta.vortex"));
+    let fact_column_selection = if request.compatibility_output_format.is_some()
+        || request.preserve_all_text_columns_for_reuse
+    {
+        TraditionalFactTextColumnSelection::full()
+    } else {
+        TraditionalFactTextColumnSelection::for_scenario(request.scenario)
+    };
     let (
         source_read_evidence,
         source_rows_materialized,
@@ -20881,6 +20915,8 @@ fn run_traditional_analytics_benchmark_enabled(
             &request.fact_csv,
             request.input_format,
             resource_policy,
+            request.scenario,
+            fact_column_selection,
         )?;
         let dim_source = read_traditional_dim_vortex_provider_batch_with_evidence(
             &request.dim_csv,
@@ -20929,19 +20965,12 @@ fn run_traditional_analytics_benchmark_enabled(
             dim_vortex_bytes,
         )
     } else {
-        let fact_text_column_selection = if request.compatibility_output_format.is_some()
-            || request.preserve_all_text_columns_for_reuse
-        {
-            TraditionalFactTextColumnSelection::full()
-        } else {
-            TraditionalFactTextColumnSelection::for_scenario(request.scenario)
-        };
         let fact_source = read_traditional_fact_text_vortex_provider_batch_with_evidence(
             &request.fact_csv,
             request.input_format,
             fact_source_bytes,
             request.scenario,
-            fact_text_column_selection,
+            fact_column_selection,
         )?;
         let dim_source = read_traditional_dim_text_vortex_provider_batch_with_evidence(
             &request.dim_csv,
@@ -25729,6 +25758,8 @@ fn read_traditional_fact_vortex_provider_batch_with_evidence(
     path: &std::path::Path,
     input_format: TraditionalAnalyticsInputFormat,
     resource_policy: TraditionalAnalyticsResourcePolicy,
+    scenario: TraditionalAnalyticsScenario,
+    column_selection: TraditionalFactTextColumnSelection,
 ) -> Result<TraditionalVortexProviderBatchRead> {
     if !input_format.is_columnar() {
         return Err(ShardLoomError::InvalidOperation(format!(
@@ -25736,9 +25767,15 @@ fn read_traditional_fact_vortex_provider_batch_with_evidence(
             input_format.as_str()
         )));
     }
+    let projection_indices = fact_columnar_projection_indices_for_selection(column_selection);
     let source_to_columnar_start = std::time::Instant::now();
-    let batches =
-        read_traditional_fact_arrow_batches(path, input_format, "fact input", resource_policy)?;
+    let batches = read_traditional_fact_arrow_batches_with_projection(
+        path,
+        input_format,
+        "fact input",
+        resource_policy,
+        &projection_indices,
+    )?;
     let source_to_columnar_micros = duration_to_micros(source_to_columnar_start.elapsed());
     let record_batch_count = batches.len();
     let source_parse_start = std::time::Instant::now();
@@ -25748,10 +25785,11 @@ fn read_traditional_fact_vortex_provider_batch_with_evidence(
     Ok(TraditionalVortexProviderBatchRead {
         batch,
         row_count,
-        evidence: TraditionalSourceReadEvidence::direct_vortex_provider_batch(
+        evidence: TraditionalSourceReadEvidence::direct_vortex_provider_batch_with_projection(
             source_to_columnar_micros,
             source_parse_micros,
             record_batch_count,
+            fact_source_projection_evidence(scenario, column_selection),
         )?,
     })
 }
@@ -25915,6 +25953,45 @@ impl TraditionalFactTextColumnSelection {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn fact_columnar_projection_indices_for_selection(
+    column_selection: TraditionalFactTextColumnSelection,
+) -> Vec<usize> {
+    let mut projection = vec![0, 1, 2, 3, 4, 5, 6];
+    if column_selection.event_date {
+        projection.push(7);
+    }
+    if column_selection.nullable_metric_00 {
+        projection.push(8);
+    }
+    if column_selection.nested_payload {
+        projection.push(9);
+    }
+    if column_selection.raw_event_time {
+        projection.push(10);
+    }
+    if column_selection.dirty_numeric {
+        projection.push(11);
+    }
+    if column_selection.dirty_flag {
+        projection.push(12);
+    }
+    projection
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn fact_source_projection_evidence(
+    scenario: TraditionalAnalyticsScenario,
+    column_selection: TraditionalFactTextColumnSelection,
+) -> TraditionalTextProjectionEvidence {
+    TraditionalTextProjectionEvidence {
+        projected_fields: column_selection.decoded_mask(),
+        filter_fields: source_read_filter_field_mask_for_scenario(scenario),
+        decoded_columns: column_selection.decoded_mask(),
+        skipped_columns: column_selection.skipped_mask(),
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const fn source_read_filter_field_mask_for_scenario(scenario: TraditionalAnalyticsScenario) -> u32 {
     match scenario {
         TraditionalAnalyticsScenario::SelectiveFilter
@@ -25980,12 +26057,7 @@ fn read_traditional_fact_text_vortex_provider_batch_with_evidence(
             source_to_columnar_micros,
             1,
             column_selection != TraditionalFactTextColumnSelection::full(),
-            TraditionalTextProjectionEvidence {
-                projected_fields: column_selection.decoded_mask(),
-                filter_fields: source_read_filter_field_mask_for_scenario(scenario),
-                decoded_columns: column_selection.decoded_mask(),
-                skipped_columns: column_selection.skipped_mask(),
-            },
+            fact_source_projection_evidence(scenario, column_selection),
         )?,
     })
 }
@@ -28067,16 +28139,29 @@ fn read_traditional_arrow_batches(
     label: &str,
     resource_policy: TraditionalAnalyticsResourcePolicy,
 ) -> Result<Vec<arrow_array::RecordBatch>> {
+    read_traditional_arrow_batches_with_projection(path, input_format, label, resource_policy, None)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn read_traditional_arrow_batches_with_projection(
+    path: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    label: &str,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+    projection: Option<&[usize]>,
+) -> Result<Vec<arrow_array::RecordBatch>> {
     match input_format {
         TraditionalAnalyticsInputFormat::Parquet => {
-            read_parquet_record_batches(path, label, resource_policy)
+            read_parquet_record_batches(path, label, resource_policy, projection)
         }
-        TraditionalAnalyticsInputFormat::ArrowIpc => read_arrow_ipc_record_batches(path, label),
+        TraditionalAnalyticsInputFormat::ArrowIpc => {
+            read_arrow_ipc_record_batches(path, label, projection)
+        }
         TraditionalAnalyticsInputFormat::Avro => {
-            read_avro_record_batches(path, label, resource_policy)
+            read_avro_record_batches(path, label, resource_policy, projection)
         }
         TraditionalAnalyticsInputFormat::Orc => {
-            read_orc_record_batches(path, label, resource_policy)
+            read_orc_record_batches(path, label, resource_policy, projection)
         }
         TraditionalAnalyticsInputFormat::Csv | TraditionalAnalyticsInputFormat::JsonLines => {
             Err(ShardLoomError::InvalidOperation(format!(
@@ -28088,22 +28173,30 @@ fn read_traditional_arrow_batches(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn read_traditional_fact_arrow_batches(
+fn read_traditional_fact_arrow_batches_with_projection(
     path: &std::path::Path,
     input_format: TraditionalAnalyticsInputFormat,
     label: &str,
     resource_policy: TraditionalAnalyticsResourcePolicy,
+    projection: &[usize],
 ) -> Result<Vec<arrow_array::RecordBatch>> {
     if !path.is_dir() {
-        return read_traditional_arrow_batches(path, input_format, label, resource_policy);
+        return read_traditional_arrow_batches_with_projection(
+            path,
+            input_format,
+            label,
+            resource_policy,
+            Some(projection),
+        );
     }
     let mut batches = Vec::new();
     for part in fact_input_part_paths(path, input_format, label)? {
-        batches.extend(read_traditional_arrow_batches(
+        batches.extend(read_traditional_arrow_batches_with_projection(
             &part,
             input_format,
             label,
             resource_policy,
+            Some(projection),
         )?);
     }
     if batches
@@ -28158,6 +28251,7 @@ fn read_parquet_record_batches(
     path: &std::path::Path,
     label: &str,
     resource_policy: TraditionalAnalyticsResourcePolicy,
+    projection: Option<&[usize]>,
 ) -> Result<Vec<arrow_array::RecordBatch>> {
     let file = std::fs::File::open(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -28165,13 +28259,23 @@ fn read_parquet_record_batches(
             path.display()
         ))
     })?;
-    let reader = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
+    let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to create Parquet reader for {label} '{}': {error}",
                 path.display()
             ))
-        })?
+        })?;
+    let builder = if let Some(projection) = projection {
+        let mask = parquet::arrow::ProjectionMask::roots(
+            builder.parquet_schema(),
+            projection.iter().copied(),
+        );
+        builder.with_projection(mask)
+    } else {
+        builder
+    };
+    let reader = builder
         .with_batch_size(resource_policy.target_batch_rows)
         .build()
         .map_err(|error| {
@@ -28187,6 +28291,7 @@ fn read_parquet_record_batches(
 fn read_arrow_ipc_record_batches(
     path: &std::path::Path,
     label: &str,
+    projection: Option<&[usize]>,
 ) -> Result<Vec<arrow_array::RecordBatch>> {
     let file = std::fs::File::open(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -28194,12 +28299,13 @@ fn read_arrow_ipc_record_batches(
             path.display()
         ))
     })?;
-    let reader = arrow_ipc::reader::FileReader::try_new(file, None).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to create Arrow IPC reader for {label} '{}': {error}",
-            path.display()
-        ))
-    })?;
+    let reader = arrow_ipc::reader::FileReader::try_new(file, projection.map(<[usize]>::to_vec))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create Arrow IPC reader for {label} '{}': {error}",
+                path.display()
+            ))
+        })?;
     collect_record_batches(reader, path, label, "Arrow IPC")
 }
 
@@ -28208,6 +28314,7 @@ fn read_avro_record_batches(
     path: &std::path::Path,
     label: &str,
     resource_policy: TraditionalAnalyticsResourcePolicy,
+    projection: Option<&[usize]>,
 ) -> Result<Vec<arrow_array::RecordBatch>> {
     let file = std::fs::File::open(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -28215,8 +28322,12 @@ fn read_avro_record_batches(
             path.display()
         ))
     })?;
-    let reader = arrow_avro::reader::ReaderBuilder::new()
-        .with_batch_size(resource_policy.target_batch_rows)
+    let mut builder =
+        arrow_avro::reader::ReaderBuilder::new().with_batch_size(resource_policy.target_batch_rows);
+    if let Some(projection) = projection {
+        builder = builder.with_projection(projection.to_vec());
+    }
+    let reader = builder
         .build(std::io::BufReader::new(file))
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -28232,6 +28343,7 @@ fn read_orc_record_batches(
     path: &std::path::Path,
     label: &str,
     resource_policy: TraditionalAnalyticsResourcePolicy,
+    projection: Option<&[usize]>,
 ) -> Result<Vec<arrow_array::RecordBatch>> {
     let file = std::fs::File::open(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -28239,13 +28351,22 @@ fn read_orc_record_batches(
             path.display()
         ))
     })?;
-    let reader = orc_rust::ArrowReaderBuilder::try_new(file)
-        .map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to create ORC reader for {label} '{}': {error}",
-                path.display()
-            ))
-        })?
+    let builder = orc_rust::ArrowReaderBuilder::try_new(file).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create ORC reader for {label} '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let builder = if let Some(projection) = projection {
+        let mask = orc_rust::projection::ProjectionMask::roots(
+            builder.file_metadata().root_data_type(),
+            projection.iter().copied(),
+        );
+        builder.with_projection(mask)
+    } else {
+        builder
+    };
+    let reader = builder
         .with_batch_size(resource_policy.target_batch_rows)
         .build();
     collect_record_batches(reader, path, label, "ORC")
@@ -34104,6 +34225,52 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
+    fn source_read_evidence_reports_projection_aware_columnar_provider_state() {
+        let evidence = TraditionalSourceReadEvidence::direct_vortex_provider_batch_with_projection(
+            7,
+            11,
+            1,
+            TraditionalTextProjectionEvidence {
+                projected_fields: SOURCE_READ_FACT_CORE_MASK,
+                filter_fields: SOURCE_READ_FACT_VALUE | SOURCE_READ_FACT_FLAG,
+                decoded_columns: SOURCE_READ_FACT_CORE_MASK,
+                skipped_columns: SOURCE_READ_FACT_OPTIONAL_MASK,
+            },
+        )
+        .expect("projection-aware columnar evidence");
+
+        assert_eq!(
+            evidence.materialization_layout(),
+            "projected_columnar_provider_record_batch_without_persistent_traditional_rows"
+        );
+        assert_eq!(
+            evidence.parse_normalization(),
+            "projected_arrow_record_batches_to_vortex_provider_record_batch_no_row_boundary"
+        );
+        assert_eq!(
+            evidence.decode_status(),
+            "projection_aware_columnar_provider_decode"
+        );
+        assert_eq!(
+            evidence.row_assembly_strategy(),
+            "projected_columnar_provider_batch_without_traditional_rows"
+        );
+        assert_eq!(evidence.projected_field_mask_hex(), "0x0000007f");
+        assert_eq!(evidence.filter_field_mask_hex(), "0x00000028");
+        assert_eq!(
+            evidence.decoded_columns(),
+            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category"
+        );
+        assert_eq!(
+            evidence.skipped_columns(),
+            "fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+        );
+        assert!(evidence.columnar_preserved);
+        assert!(!evidence.scalar_rows_materialized);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
     fn fact_text_column_selection_limits_optional_csv_fields_by_scenario() {
         let optional_indices = (Some(7), Some(8), Some(12), Some(9), Some(10), Some(11));
         let selective = TraditionalFactTextColumnSelection::for_scenario(
@@ -34186,6 +34353,35 @@ mod tests {
             optional_indices.5,
         );
         assert_eq!(null_heavy, vec![0, 1, 2, 3, 4, 5, 6, 8]);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn fact_columnar_projection_indices_match_text_selection_by_scenario() {
+        assert_eq!(
+            fact_columnar_projection_indices_for_selection(
+                TraditionalFactTextColumnSelection::for_scenario(
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                ),
+            ),
+            vec![0, 1, 2, 3, 4, 5, 6]
+        );
+        assert_eq!(
+            fact_columnar_projection_indices_for_selection(
+                TraditionalFactTextColumnSelection::for_scenario(
+                    TraditionalAnalyticsScenario::NestedJsonFieldScan,
+                ),
+            ),
+            vec![0, 1, 2, 3, 4, 5, 6, 9]
+        );
+        assert_eq!(
+            fact_columnar_projection_indices_for_selection(
+                TraditionalFactTextColumnSelection::for_scenario(
+                    TraditionalAnalyticsScenario::CleanCastFilterWrite,
+                ),
+            ),
+            vec![0, 1, 2, 3, 4, 5, 6, 10, 11, 12]
+        );
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -34514,6 +34710,79 @@ mod tests {
 
     #[test]
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn avro_provider_batch_uses_fact_projection_mask_without_row_materialization() {
+        let root = traditional_analytics_test_root("avro-projected-provider");
+        let (fact_csv, _) = write_tiny_traditional_csv_inputs(&root);
+        let fact_rows = read_traditional_fact_rows(
+            &fact_csv,
+            TraditionalAnalyticsInputFormat::Csv,
+            TraditionalAnalyticsResourcePolicy::auto().resolve_for_sources(1024),
+        )
+        .expect("fact rows");
+        let mut columns = TraditionalFactVortexColumns::with_capacity(fact_rows.len());
+        for row in &fact_rows {
+            columns.push_values(
+                row.id,
+                row.group_key,
+                row.dim_key,
+                row.value,
+                row.metric,
+                row.flag,
+                row.category.clone(),
+                row.event_date.clone(),
+                row.nullable_metric_00.clone(),
+                row.nested_payload.clone(),
+                row.raw_event_time.clone(),
+                row.dirty_numeric.clone(),
+                row.dirty_flag.clone(),
+            );
+        }
+        let fact_avro = root.join("fact.avro");
+        write_avro_output(
+            &columns.into_record_batch().expect("fact batch"),
+            &fact_avro,
+            "fact input",
+        )
+        .expect("write avro fixture");
+
+        let source = read_traditional_fact_vortex_provider_batch_with_evidence(
+            &fact_avro,
+            TraditionalAnalyticsInputFormat::Avro,
+            TraditionalAnalyticsResourcePolicy::auto().resolve_for_sources(1024),
+            TraditionalAnalyticsScenario::SelectiveFilter,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+            ),
+        )
+        .expect("projection-aware avro provider batch");
+
+        assert_eq!(source.row_count, fact_rows.len());
+        assert_eq!(
+            source.evidence.decode_status(),
+            "projection_aware_columnar_provider_decode"
+        );
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x0000007f");
+        assert_eq!(source.evidence.filter_field_mask_hex(), "0x00000028");
+        assert_eq!(
+            source.evidence.decoded_columns(),
+            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category"
+        );
+        assert_eq!(
+            source.evidence.skipped_columns(),
+            "fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+        );
+        assert_eq!(source.evidence.row_assembly_micros, 0);
+        assert!(source.evidence.columnar_handoff_micros > 0);
+        assert!(source.evidence.columnar_preserved);
+        assert!(!source.evidence.scalar_rows_materialized);
+        assert_eq!(source.batch.num_rows(), fact_rows.len());
+        assert_eq!(source.batch.num_columns(), 13);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn benchmark_jsonl_fast_path_parses_canonical_rows() {
         let path = PathBuf::from("fact.jsonl");
         let row = parse_benchmark_fact_jsonl_fast(
@@ -34566,6 +34835,68 @@ mod tests {
         assert_eq!(dim.dim_key, 3);
         assert_eq!(dim.dim_label, "d3");
         assert!((dim.weight - 9.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn jsonl_provider_batch_uses_projection_mask_without_optional_tail_decode() {
+        let root = traditional_analytics_test_root("jsonl-projected-provider");
+        std::fs::create_dir_all(&root).unwrap();
+        let fact_jsonl = root.join("fact.jsonl");
+        std::fs::write(
+            &fact_jsonl,
+            "{ \"id\":8, \"group_key\":4, \"dim_key\":5, \"value\":84, \"metric\":2.5, \"flag\":1, \"category\":\"c8\", \"nullable_metric_00\":\"\\u0031\" }\n",
+        )
+        .expect("write projected JSONL fixture");
+
+        let source = read_traditional_fact_text_vortex_provider_batch_with_evidence(
+            &fact_jsonl,
+            TraditionalAnalyticsInputFormat::JsonLines,
+            1024,
+            TraditionalAnalyticsScenario::SelectiveFilter,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+            ),
+        )
+        .expect("projection-aware JSONL provider batch");
+
+        assert_eq!(source.row_count, 1);
+        assert_eq!(
+            source.evidence.decode_status(),
+            "projection_aware_text_column_decode"
+        );
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x0000007f");
+        assert_eq!(source.evidence.filter_field_mask_hex(), "0x00000028");
+        assert_eq!(
+            source.evidence.decoded_columns(),
+            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category"
+        );
+        assert_eq!(
+            source.evidence.skipped_columns(),
+            "fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+        );
+        assert_eq!(source.evidence.row_assembly_micros, 0);
+        assert_eq!(source.evidence.anomaly_quarantine_micros, 0);
+        assert!(source.evidence.source_read_scout_recorded);
+        assert!(source.evidence.projection_aware_text_decode);
+        assert!(!source.evidence.scalar_rows_materialized);
+        assert_eq!(source.batch.num_rows(), 1);
+        assert_eq!(source.batch.num_columns(), 13);
+
+        let err = read_traditional_fact_text_vortex_provider_batch_with_evidence(
+            &fact_jsonl,
+            TraditionalAnalyticsInputFormat::JsonLines,
+            1024,
+            TraditionalAnalyticsScenario::SelectiveFilter,
+            TraditionalFactTextColumnSelection::full(),
+        )
+        .expect_err("full JSONL preservation must fail closed on malformed selected optional text");
+        assert!(
+            err.to_string().contains("unsupported unicode escape"),
+            "unexpected error: {err}"
+        );
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
