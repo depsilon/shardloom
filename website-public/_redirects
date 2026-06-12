@@ -14,7 +14,7 @@
 /architecture.html /compute-engine-flow
 /field-guide.html /field-guide
 /use-cases /field-guide/python-surface
-/use-cases/* https://github.com/depsilon/shardloom/tree/main/docs/use-cases/generated/:splat
+/use-cases/* https://github.com/depsilon/shardloom/blob/main/docs/use-cases/generated/:splat.md
 /use-cases.html /field-guide/python-surface
 /can-i-use-this /field-guide/limitations
 /status /field-guide/limitations

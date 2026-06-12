@@ -10753,12 +10753,23 @@ def _rewrite_predicate_with_computed_columns(
     predicate: str,
     computed_columns: tuple[tuple[str, str], ...],
 ) -> str:
-    rewritten = predicate
+    expanded_columns: dict[str, str] = {}
     for alias, expression in computed_columns:
+        expanded = expression
+        for prior_alias, prior_expression in expanded_columns.items():
+            expanded = _replace_sql_identifier_outside_quotes(
+                expanded,
+                prior_alias,
+                f"({prior_expression})",
+            )
+        expanded_columns[alias] = expanded
+
+    rewritten = predicate
+    for alias, expression in expanded_columns.items():
         rewritten = _replace_sql_identifier_outside_quotes(
             rewritten,
             alias,
-            expression,
+            f"({expression})",
         )
     return rewritten
 

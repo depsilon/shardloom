@@ -4461,8 +4461,7 @@ fn source_projection_admission_fields(
     source_state_projection_aware_text_decode: bool,
 ) -> Vec<(String, String)> {
     let projected_mask = source_read_mask_from_hex(source_read_projected_field_mask).unwrap_or(0);
-    let filter_mask = source_read_mask_from_hex(source_read_filter_field_mask).unwrap_or(0);
-    let output_mask = projected_mask & !filter_mask;
+    let output_mask = projected_mask;
     let output_field_mask = source_read_mask_hex(output_mask);
     let has_decoded_fields = source_read_decoded_column_count > 0;
     let skipped_fields = source_read_skipped_column_count > 0;
@@ -24412,6 +24411,12 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
             child_cdc_delta_vortex.as_deref(),
             fact_delta_overlay_vortex.as_deref(),
         );
+        let child_source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
+            &fact_vortex,
+            &dim_vortex,
+            child_cdc_delta_vortex.as_deref(),
+            fact_delta_overlay_vortex.as_deref(),
+        )?;
         let split_inventory_cache_hit = split_inventory_cache.contains_key(&split_inventory_key);
         if !split_inventory_cache_hit {
             let split_inventory = TraditionalPreparedVortexSplitInventory::collect(
@@ -24419,7 +24424,7 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
                 &dim_vortex,
                 child_cdc_delta_vortex.as_deref(),
                 fact_delta_overlay_vortex.as_deref(),
-                &session.source_state.source_snapshot,
+                &child_source_snapshot,
             )?;
             split_inventory_cache.insert(split_inventory_key.clone(), split_inventory);
         }
@@ -27472,23 +27477,21 @@ fn read_traditional_fact_vortex_provider_batch_with_evidence(
             input_format.as_str()
         )));
     }
-    let projection_indices = fact_columnar_projection_indices_for_selection(column_selection);
+    let category_required = fact_category_required_for_scenario(scenario);
+    let projection_fields =
+        fact_columnar_projection_fields_for_selection(column_selection, category_required);
     let source_to_columnar_start = std::time::Instant::now();
     let batches = read_traditional_fact_arrow_batches_with_projection(
         path,
         input_format,
         "fact input",
         resource_policy,
-        &projection_indices,
+        &projection_fields,
     )?;
     let source_to_columnar_micros = duration_to_micros(source_to_columnar_start.elapsed());
     let record_batch_count = batches.len();
     let source_parse_start = std::time::Instant::now();
-    let batch = fact_vortex_record_batch_from_arrow_batches(
-        &batches,
-        path,
-        fact_category_required_for_scenario(scenario),
-    )?;
+    let batch = fact_vortex_record_batch_from_arrow_batches(&batches, path, category_required)?;
     let source_parse_micros = duration_to_micros(source_parse_start.elapsed());
     let row_count = batch.num_rows();
     Ok(TraditionalVortexProviderBatchRead {
@@ -27498,7 +27501,7 @@ fn read_traditional_fact_vortex_provider_batch_with_evidence(
             source_to_columnar_micros,
             source_parse_micros,
             record_batch_count,
-            fact_source_projection_evidence(scenario, column_selection),
+            fact_source_projection_evidence(scenario, column_selection, category_required),
         )?,
     })
 }
@@ -27673,27 +27676,31 @@ const fn fact_category_required_for_scenario(scenario: TraditionalAnalyticsScena
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn fact_columnar_projection_indices_for_selection(
+fn fact_columnar_projection_fields_for_selection(
     column_selection: TraditionalFactTextColumnSelection,
-) -> Vec<usize> {
-    let mut projection = vec![0, 1, 2, 3, 4, 5, 6];
+    category_required: bool,
+) -> Vec<&'static str> {
+    let mut projection = vec!["id", "group_key", "dim_key", "value", "metric", "flag"];
+    if category_required {
+        projection.push("category");
+    }
     if column_selection.event_date {
-        projection.push(7);
+        projection.push("event_date");
     }
     if column_selection.nullable_metric_00 {
-        projection.push(8);
+        projection.push("nullable_metric_00");
     }
     if column_selection.nested_payload {
-        projection.push(9);
+        projection.push("nested_payload");
     }
     if column_selection.raw_event_time {
-        projection.push(10);
+        projection.push("raw_event_time");
     }
     if column_selection.dirty_numeric {
-        projection.push(11);
+        projection.push("dirty_numeric");
     }
     if column_selection.dirty_flag {
-        projection.push(12);
+        projection.push("dirty_flag");
     }
     projection
 }
@@ -27702,12 +27709,19 @@ fn fact_columnar_projection_indices_for_selection(
 fn fact_source_projection_evidence(
     scenario: TraditionalAnalyticsScenario,
     column_selection: TraditionalFactTextColumnSelection,
+    category_required: bool,
 ) -> TraditionalTextProjectionEvidence {
+    let mut projected_fields = column_selection.decoded_mask();
+    let mut skipped_columns = column_selection.skipped_mask();
+    if !category_required {
+        projected_fields &= !SOURCE_READ_FACT_CATEGORY;
+        skipped_columns |= SOURCE_READ_FACT_CATEGORY;
+    }
     TraditionalTextProjectionEvidence {
-        projected_fields: column_selection.decoded_mask(),
+        projected_fields,
         filter_fields: source_read_filter_field_mask_for_scenario(scenario),
-        decoded_columns: column_selection.decoded_mask(),
-        skipped_columns: column_selection.skipped_mask(),
+        decoded_columns: projected_fields,
+        skipped_columns,
     }
 }
 
@@ -27777,7 +27791,7 @@ fn read_traditional_fact_text_vortex_provider_batch_with_evidence(
             source_to_columnar_micros,
             1,
             column_selection != TraditionalFactTextColumnSelection::full(),
-            fact_source_projection_evidence(scenario, column_selection),
+            fact_source_projection_evidence(scenario, column_selection, true),
         )?,
     })
 }
@@ -28881,50 +28895,86 @@ fn parse_benchmark_fact_jsonl_tail<'a>(
         };
         match key {
             "\"event_date\"" if column_selection.event_date => {
+                mark_selected_jsonl_tail_field(
+                    &mut seen_selected_mask,
+                    SOURCE_READ_FACT_EVENT_DATE,
+                    path,
+                    line_number,
+                    "event_date",
+                )?;
                 tail.event_date =
                     parse_fast_json_optional_string_token(value, path, line_number, "event_date")?;
-                seen_selected_mask |= SOURCE_READ_FACT_EVENT_DATE;
             }
             "\"nullable_metric_00\"" if column_selection.nullable_metric_00 => {
+                mark_selected_jsonl_tail_field(
+                    &mut seen_selected_mask,
+                    SOURCE_READ_FACT_NULLABLE_METRIC_00,
+                    path,
+                    line_number,
+                    "nullable_metric_00",
+                )?;
                 tail.nullable_metric_00 = parse_fast_json_optional_string_token(
                     value,
                     path,
                     line_number,
                     "nullable_metric_00",
                 )?;
-                seen_selected_mask |= SOURCE_READ_FACT_NULLABLE_METRIC_00;
             }
             "\"nested_payload\"" if column_selection.nested_payload => {
+                mark_selected_jsonl_tail_field(
+                    &mut seen_selected_mask,
+                    SOURCE_READ_FACT_NESTED_PAYLOAD,
+                    path,
+                    line_number,
+                    "nested_payload",
+                )?;
                 tail.nested_payload = parse_fast_json_optional_string_token(
                     value,
                     path,
                     line_number,
                     "nested_payload",
                 )?;
-                seen_selected_mask |= SOURCE_READ_FACT_NESTED_PAYLOAD;
             }
             "\"raw_event_time\"" if column_selection.raw_event_time => {
+                mark_selected_jsonl_tail_field(
+                    &mut seen_selected_mask,
+                    SOURCE_READ_FACT_RAW_EVENT_TIME,
+                    path,
+                    line_number,
+                    "raw_event_time",
+                )?;
                 tail.raw_event_time = parse_fast_json_optional_string_token(
                     value,
                     path,
                     line_number,
                     "raw_event_time",
                 )?;
-                seen_selected_mask |= SOURCE_READ_FACT_RAW_EVENT_TIME;
             }
             "\"dirty_numeric\"" if column_selection.dirty_numeric => {
+                mark_selected_jsonl_tail_field(
+                    &mut seen_selected_mask,
+                    SOURCE_READ_FACT_DIRTY_NUMERIC,
+                    path,
+                    line_number,
+                    "dirty_numeric",
+                )?;
                 tail.dirty_numeric = parse_fast_json_optional_string_token(
                     value,
                     path,
                     line_number,
                     "dirty_numeric",
                 )?;
-                seen_selected_mask |= SOURCE_READ_FACT_DIRTY_NUMERIC;
             }
             "\"dirty_flag\"" if column_selection.dirty_flag => {
+                mark_selected_jsonl_tail_field(
+                    &mut seen_selected_mask,
+                    SOURCE_READ_FACT_DIRTY_FLAG,
+                    path,
+                    line_number,
+                    "dirty_flag",
+                )?;
                 tail.dirty_flag =
                     parse_fast_json_optional_string_token(value, path, line_number, "dirty_flag")?;
-                seen_selected_mask |= SOURCE_READ_FACT_DIRTY_FLAG;
             }
             _ => {}
         }
@@ -28936,6 +28986,24 @@ fn parse_benchmark_fact_jsonl_tail<'a>(
         };
         remaining = next;
     }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn mark_selected_jsonl_tail_field(
+    seen_selected_mask: &mut u32,
+    field_mask: u32,
+    path: &std::path::Path,
+    line_number: usize,
+    field_name: &str,
+) -> Result<()> {
+    if *seen_selected_mask & field_mask != 0 {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "fact JSONL '{}' line {line_number} contains duplicate selected field '{field_name}'",
+            path.display()
+        )));
+    }
+    *seen_selected_mask |= field_mask;
+    Ok(())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -29982,25 +30050,32 @@ fn read_traditional_fact_arrow_batches_with_projection(
     input_format: TraditionalAnalyticsInputFormat,
     label: &str,
     resource_policy: TraditionalAnalyticsResourcePolicy,
-    projection: &[usize],
+    projection_fields: &[&str],
 ) -> Result<Vec<arrow_array::RecordBatch>> {
     if !path.is_dir() {
-        return read_traditional_arrow_batches_with_projection(
+        let batches = read_traditional_arrow_batches_with_projection(
             path,
             input_format,
             label,
             resource_policy,
-            Some(projection),
-        );
+            None,
+        )?;
+        return project_record_batches_by_field_names(batches, path, label, projection_fields);
     }
     let mut batches = Vec::new();
     for part in fact_input_part_paths(path, input_format, label)? {
-        batches.extend(read_traditional_arrow_batches_with_projection(
+        let part_batches = read_traditional_arrow_batches_with_projection(
             &part,
             input_format,
             label,
             resource_policy,
-            Some(projection),
+            None,
+        )?;
+        batches.extend(project_record_batches_by_field_names(
+            part_batches,
+            &part,
+            label,
+            projection_fields,
         )?);
     }
     if batches
@@ -30015,6 +30090,31 @@ fn read_traditional_fact_arrow_batches_with_projection(
         )));
     }
     Ok(batches)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn project_record_batches_by_field_names(
+    batches: Vec<arrow_array::RecordBatch>,
+    path: &std::path::Path,
+    label: &str,
+    projection_fields: &[&str],
+) -> Result<Vec<arrow_array::RecordBatch>> {
+    batches
+        .into_iter()
+        .map(|batch| {
+            let schema = batch.schema();
+            let projection = projection_fields
+                .iter()
+                .filter_map(|field| schema.index_of(field).ok())
+                .collect::<Vec<_>>();
+            batch.project(&projection).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to project {label} '{}' by schema field names: {error}; no fallback execution was attempted",
+                    path.display()
+                ))
+            })
+        })
+        .collect()
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -36286,30 +36386,68 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
-    fn fact_columnar_projection_indices_match_text_selection_by_scenario() {
+    fn fact_columnar_projection_fields_match_selection_by_scenario() {
         assert_eq!(
-            fact_columnar_projection_indices_for_selection(
+            fact_columnar_projection_fields_for_selection(
                 TraditionalFactTextColumnSelection::for_scenario(
                     TraditionalAnalyticsScenario::SelectiveFilter,
                 ),
+                false,
             ),
-            vec![0, 1, 2, 3, 4, 5, 6]
+            vec!["id", "group_key", "dim_key", "value", "metric", "flag"]
         );
         assert_eq!(
-            fact_columnar_projection_indices_for_selection(
+            fact_columnar_projection_fields_for_selection(
+                TraditionalFactTextColumnSelection::for_scenario(
+                    TraditionalAnalyticsScenario::DistinctCount,
+                ),
+                true,
+            ),
+            vec![
+                "id",
+                "group_key",
+                "dim_key",
+                "value",
+                "metric",
+                "flag",
+                "category"
+            ]
+        );
+        assert_eq!(
+            fact_columnar_projection_fields_for_selection(
                 TraditionalFactTextColumnSelection::for_scenario(
                     TraditionalAnalyticsScenario::NestedJsonFieldScan,
                 ),
+                false,
             ),
-            vec![0, 1, 2, 3, 4, 5, 6, 9]
+            vec![
+                "id",
+                "group_key",
+                "dim_key",
+                "value",
+                "metric",
+                "flag",
+                "nested_payload"
+            ]
         );
         assert_eq!(
-            fact_columnar_projection_indices_for_selection(
+            fact_columnar_projection_fields_for_selection(
                 TraditionalFactTextColumnSelection::for_scenario(
                     TraditionalAnalyticsScenario::CleanCastFilterWrite,
                 ),
+                false,
             ),
-            vec![0, 1, 2, 3, 4, 5, 6, 10, 11, 12]
+            vec![
+                "id",
+                "group_key",
+                "dim_key",
+                "value",
+                "metric",
+                "flag",
+                "raw_event_time",
+                "dirty_numeric",
+                "dirty_flag"
+            ]
         );
     }
 
@@ -36734,15 +36872,15 @@ mod tests {
             source.evidence.decode_status(),
             "projection_aware_columnar_provider_decode"
         );
-        assert_eq!(source.evidence.projected_field_mask_hex(), "0x0000007f");
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x0000003f");
         assert_eq!(source.evidence.filter_field_mask_hex(), "0x00000028");
         assert_eq!(
             source.evidence.decoded_columns(),
-            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category"
+            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag"
         );
         assert_eq!(
             source.evidence.skipped_columns(),
-            "fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+            "fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
         );
         assert_eq!(source.evidence.row_assembly_micros, 0);
         assert!(source.evidence.columnar_handoff_micros > 0);
@@ -36750,6 +36888,71 @@ mod tests {
         assert!(!source.evidence.scalar_rows_materialized);
         assert_eq!(source.batch.num_rows(), fact_rows.len());
         assert_eq!(source.batch.num_columns(), 13);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn avro_provider_batch_resolves_reordered_schema_projection_by_name() {
+        use std::sync::Arc;
+
+        use arrow_array::{
+            ArrayRef, Float64Array, RecordBatch, UInt8Array, UInt32Array, UInt64Array,
+        };
+        use arrow_schema::{DataType, Field, Schema};
+
+        let root = traditional_analytics_test_root("avro-reordered-provider");
+        std::fs::create_dir_all(&root).unwrap();
+        let fact_avro = root.join("fact.avro");
+        let schema = Schema::new(vec![
+            Field::new("value", DataType::UInt32, false),
+            Field::new("id", DataType::UInt64, false),
+            Field::new("flag", DataType::UInt8, false),
+            Field::new("metric", DataType::Float64, false),
+            Field::new("dim_key", DataType::UInt32, false),
+            Field::new("group_key", DataType::UInt32, false),
+        ]);
+        let batch = RecordBatch::try_new(
+            Arc::new(schema),
+            vec![
+                Arc::new(UInt32Array::from(vec![84])) as ArrayRef,
+                Arc::new(UInt64Array::from(vec![8])) as ArrayRef,
+                Arc::new(UInt8Array::from(vec![1])) as ArrayRef,
+                Arc::new(Float64Array::from(vec![2.5])) as ArrayRef,
+                Arc::new(UInt32Array::from(vec![5])) as ArrayRef,
+                Arc::new(UInt32Array::from(vec![4])) as ArrayRef,
+            ],
+        )
+        .expect("reordered fact batch");
+        write_avro_output(&batch, &fact_avro, "reordered fact input")
+            .expect("write reordered Avro fixture");
+
+        let source = read_traditional_fact_vortex_provider_batch_with_evidence(
+            &fact_avro,
+            TraditionalAnalyticsInputFormat::Avro,
+            TraditionalAnalyticsResourcePolicy::auto().resolve_for_sources(1024),
+            TraditionalAnalyticsScenario::SelectiveFilter,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+            ),
+        )
+        .expect("projection-aware reordered Avro provider batch");
+
+        assert_eq!(source.row_count, 1);
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x0000003f");
+        assert_eq!(
+            arrow_u64_column(&source.batch, &fact_avro, "id").expect("id"),
+            vec![8]
+        );
+        assert_eq!(
+            arrow_u32_column(&source.batch, &fact_avro, "value").expect("value"),
+            vec![84]
+        );
+        assert_eq!(
+            arrow_string_column(&source.batch, &fact_avro, "category").expect("category"),
+            vec![String::new()]
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -36775,15 +36978,15 @@ mod tests {
             source.evidence.decode_status(),
             "projection_aware_columnar_provider_decode"
         );
-        assert_eq!(source.evidence.projected_field_mask_hex(), "0x0000027f");
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x0000023f");
         assert_eq!(source.evidence.filter_field_mask_hex(), "0x00000000");
         assert_eq!(
             source.evidence.decoded_columns(),
-            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category|fact.nested_payload"
+            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.nested_payload"
         );
         assert_eq!(
             source.evidence.skipped_columns(),
-            "fact.event_date|fact.nullable_metric_00|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+            "fact.category|fact.event_date|fact.nullable_metric_00|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
         );
         let nested_payloads =
             arrow_string_column(&source.batch, &fact_avro, "nested_payload").expect("nested");
@@ -36826,15 +37029,15 @@ mod tests {
             source.evidence.decode_status(),
             "projection_aware_columnar_provider_decode"
         );
-        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00001c7f");
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00001c3f");
         assert_eq!(source.evidence.filter_field_mask_hex(), "0x00001c00");
         assert_eq!(
             source.evidence.decoded_columns(),
-            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
         );
         assert_eq!(
             source.evidence.skipped_columns(),
-            "fact.event_date|fact.nullable_metric_00|fact.nested_payload"
+            "fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload"
         );
         let raw_event_time =
             arrow_string_column(&source.batch, &fact_avro, "raw_event_time").expect("raw time");
@@ -37054,6 +37257,23 @@ mod tests {
         assert_eq!(dirty.dirty_numeric.as_deref(), Some("bad-number"));
         assert_eq!(dirty.dirty_flag.as_deref(), Some("Y"));
         assert_eq!(dirty.event_date, None);
+
+        let duplicate_selected_tail = "{\"id\":12,\"group_key\":4,\"dim_key\":5,\"value\":84,\"metric\":2.5,\"flag\":0,\"category\":\"c12\",\"raw_event_time\":\"2024-01-01T00:00:00Z\",\"dirty_numeric\":\"6000\",\"dirty_numeric\":\"7000\",\"dirty_flag\":\"Y\"}";
+        let duplicate_error = parse_benchmark_fact_jsonl_fast_with_selection(
+            duplicate_selected_tail,
+            &path,
+            3,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::CleanCastFilterWrite,
+            ),
+        )
+        .expect_err("duplicate selected optional tail fields must fail closed");
+        assert!(
+            duplicate_error
+                .to_string()
+                .contains("duplicate selected field 'dirty_numeric'"),
+            "unexpected duplicate selected tail error: {duplicate_error}"
+        );
     }
 
     #[test]
@@ -38177,7 +38397,7 @@ mod tests {
             "source_projection_predicate_field_mask",
             "0x00000028",
         );
-        assert_field_eq(&fields, "source_projection_output_field_mask", "0x0000ffd7");
+        assert_field_eq(&fields, "source_projection_output_field_mask", "0x0000ffff");
         assert_field_eq(
             &fields,
             "source_projection_certificate_field_mask",

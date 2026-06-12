@@ -1666,10 +1666,11 @@ def publication_proof_record_for_row(row: dict[str, Any]) -> dict[str, Any] | No
         "computed_result_vortex_digest": str(
             row.get("computed_result_vortex_digest") or "none"
         ),
-        "computed_result_sink_replay_verified": row.get(
-            "computed_result_sink_replay_verified"
-        )
-        is True,
+        "computed_result_sink_replay_verified": field_bool(
+            row,
+            "computed_result_sink_replay_verified",
+            default=False,
+        ),
         "runtime_execution_certificate_id": str(
             row.get("runtime_execution_certificate_id")
             or row.get("execution_certificate_id")
@@ -9197,8 +9198,16 @@ def normalize_published_runtime_evidence(row: dict[str, Any]) -> dict[str, Any]:
 
     adjusted = dict(row)
     persistent_runner_status = str(adjusted.get("persistent_runner_status") or "")
+    session_evidence_present = any(
+        adjusted.get(field) not in {None, "", "none", "not_reported"}
+        for field in (
+            "session_schema_version",
+            "session_id",
+            "session_evidence_recorder_ref",
+        )
+    )
     if "session_route_used" not in adjusted:
-        adjusted["session_route_used"] = (
+        adjusted["session_route_used"] = session_evidence_present and (
             persistent_runner_status == "single_process_batch_runner_supported"
         )
     if "process_spawn_count" not in adjusted:

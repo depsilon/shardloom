@@ -415,7 +415,7 @@ class ReleaseScriptTests(unittest.TestCase):
             "human_evidence_render_skip_reason": (
                 "not_skipped_publication_full_requires_human_render"
             ),
-            "computed_result_sink_replay_verified": True,
+            "computed_result_sink_replay_verified": "true",
             "fast_path_claim_boundary": "runtime fast path fixture",
             "operator_mode_inventory_schema_version": "shardloom.operator_mode_inventory.v1",
             "operator_execution_class": "residual_native",
@@ -1500,10 +1500,21 @@ class ReleaseScriptTests(unittest.TestCase):
             }
         )
 
-        self.assertTrue(batch["session_route_used"])
+        self.assertFalse(batch["session_route_used"])
         self.assertEqual(batch["process_spawn_count"], 1)
         self.assertFalse(per_scenario["session_route_used"])
         self.assertEqual(per_scenario["process_spawn_count"], 1)
+
+        session_backed = module.normalize_published_runtime_evidence(
+            {
+                "engine": "shardloom-vortex",
+                "status": "success",
+                "persistent_runner_status": "single_process_batch_runner_supported",
+                "session_schema_version": "shardloom.session.v1",
+                "session_id": "session://fixture",
+            }
+        )
+        self.assertTrue(session_backed["session_route_used"])
 
     def test_benchmark_promoter_preserves_role_scoped_repair_timing(self) -> None:
         module = self._load_script_module(
@@ -3529,6 +3540,15 @@ class ReleaseScriptTests(unittest.TestCase):
             )
             self.assertEqual(first["publication_proof_sidecar_record_count"], 1)
             self.assertEqual(first["publication_proof_sidecar_written_record_count"], 1)
+            sidecar = json.loads(
+                (output_dir / module.PUBLICATION_PROOF_SIDECAR_NAME).read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertIs(
+                sidecar["records"][0]["computed_result_sink_replay_verified"],
+                True,
+            )
 
             second = module.write_publication_proof_sidecar(output_dir, [row], chunks)
             self.assertEqual(
@@ -5667,6 +5687,92 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["published_benchmark_row_count"], 5)
         self.assertEqual(report["evidence_present_target_count"], 6)
         self.assertEqual(report["timing_contract_blocked_target_count"], 0)
+
+    def test_benchmark_optimization_targets_resolve_chunks_under_repo_root(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_optimization_targets.py",
+            "check_benchmark_optimization_targets_repo_root_chunks_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            chunk_dir = repo_root / "website" / "assets" / "benchmarks" / "latest"
+            chunk_dir.mkdir(parents=True)
+            chunk_path = chunk_dir / "published-benchmark-rows-000.json"
+            chunk_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "shardloom.website.benchmark_row_chunk.v1",
+                        "rows": self._optimization_target_rows(),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            artifact = chunk_dir / "benchmark-results.json"
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "shardloom.website.benchmark_evidence.v1",
+                        "benchmark_profile": "fixture",
+                        "published_benchmark_rows": [],
+                        "published_benchmark_rows_inlined": "summary_only",
+                        "published_benchmark_row_count": 5,
+                        "published_benchmark_row_chunks": [
+                            {
+                                "path": (
+                                    "website/assets/benchmarks/latest/"
+                                    "published-benchmark-rows-000.json"
+                                ),
+                                "row_count": 5,
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            report = module.build_report(artifact, top_n=2, repo_root=repo_root)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["published_benchmark_row_count"], 5)
+
+    def test_benchmark_optimization_targets_fail_closed_for_missing_chunks(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_optimization_targets.py",
+            "check_benchmark_optimization_targets_missing_chunks_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            artifact = repo_root / "benchmark-results.json"
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "shardloom.website.benchmark_evidence.v1",
+                        "benchmark_profile": "fixture",
+                        "published_benchmark_rows": [],
+                        "published_benchmark_rows_inlined": "summary_only",
+                        "published_benchmark_row_count": 5,
+                        "published_benchmark_row_chunks": [
+                            {
+                                "path": "website/assets/benchmarks/latest/missing.json",
+                                "row_count": 5,
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            report = module.build_report(artifact, top_n=2, repo_root=repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "declared benchmark row chunk missing" in blocker
+                for blocker in report["blockers"]
+            )
+        )
 
     def test_benchmark_optimization_targets_fail_closed_on_non_additive_stage(
         self,

@@ -7526,6 +7526,8 @@ def prepare_batch_dependency_repair_fields(
                     "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros"
                 )
             )
+            or parse_optional_float(evidence.get("prepare_batch_source_to_columnar_micros"))
+            or parse_optional_float(evidence.get("source_to_columnar_micros"))
             or 0.0
         ),
         "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros": (
@@ -7534,6 +7536,10 @@ def prepare_batch_dependency_repair_fields(
                     "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros"
                 )
             )
+            or parse_optional_float(
+                evidence.get("prepare_batch_vortex_array_build_micros")
+            )
+            or parse_optional_float(evidence.get("vortex_array_build_micros"))
             or 0.0
         ),
         "prepare_batch_prepared_state_partial_repair_vortex_write_micros": (
@@ -7542,6 +7548,8 @@ def prepare_batch_dependency_repair_fields(
                     "prepare_batch_prepared_state_partial_repair_vortex_write_micros"
                 )
             )
+            or parse_optional_float(evidence.get("prepare_batch_vortex_write_micros"))
+            or parse_optional_float(evidence.get("vortex_write_micros"))
             or 0.0
         ),
         "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros": (
@@ -7550,6 +7558,10 @@ def prepare_batch_dependency_repair_fields(
                     "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros"
                 )
             )
+            or parse_optional_float(
+                evidence.get("prepare_batch_vortex_reopen_verify_micros")
+            )
+            or parse_optional_float(evidence.get("vortex_reopen_verify_micros"))
             or 0.0
         ),
         "prepare_batch_prepared_state_partial_repair_replay_proof": first_meaningful_field(
