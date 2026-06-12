@@ -78,6 +78,12 @@ ENGINE_ALIASES = {
     "gpu-optional": ("cudf-gpu",),
 }
 BENCHMARK_SUITE = "local_analytics"
+SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_typed_column_builder.v1"
+)
+SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.source_projection_admission.v1"
+)
 SHARDLOOM_EXECUTION_MODE_VOCABULARY = (
     "auto",
     "compatibility_import_certified",
@@ -319,6 +325,43 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "source_read_skipped_column_count",
     "source_read_row_materialization_status",
     "source_read_unsupported_shape_diagnostic",
+    "source_typed_column_builder_schema_version",
+    "source_typed_column_builder_status",
+    "source_typed_column_builder_path",
+    "source_typed_builder_schema_digest",
+    "source_typed_builder_projected_column_count",
+    "source_typed_builder_full_column_count",
+    "source_typed_builder_decoded_column_count",
+    "source_typed_builder_skipped_column_count",
+    "source_typed_builder_row_assembly_avoided",
+    "source_typed_builder_row_materialization_status",
+    "source_typed_builder_null_validity_status",
+    "source_typed_builder_type_coercion_status",
+    "source_typed_builder_nested_json_status",
+    "source_typed_builder_correctness_digest_status",
+    "source_typed_builder_fallback_attempted",
+    "source_typed_builder_external_engine_invoked",
+    "source_typed_builder_external_parser_engine_invoked",
+    "external_parser_engine_invoked",
+    "source_typed_builder_claim_boundary",
+    "source_projection_admission_schema_version",
+    "source_projection_admission_status",
+    "source_projection_source_family",
+    "source_projection_required_field_mask",
+    "source_projection_predicate_field_mask",
+    "source_projection_output_field_mask",
+    "source_projection_certificate_field_mask",
+    "source_projection_diagnostic_field_mask",
+    "source_projection_field_mask_digest",
+    "source_projection_decoded_columns",
+    "source_projection_skipped_columns",
+    "source_projection_decoded_column_count",
+    "source_projection_skipped_column_count",
+    "source_projection_blocker",
+    "source_projection_correctness_digest_status",
+    "source_projection_fallback_attempted",
+    "source_projection_external_engine_invoked",
+    "source_projection_claim_boundary",
     "exclusive_source_parse_or_decode_millis",
     "exclusive_source_to_vortex_array_millis",
     "exclusive_vortex_write_millis",
@@ -20014,6 +20057,132 @@ def source_read_scout_stage_metrics(
         ),
         "source_read_unsupported_shape_diagnostic": evidence.get(
             "source_read_unsupported_shape_diagnostic", default_status
+        ),
+        "source_typed_column_builder_schema_version": evidence.get(
+            "source_typed_column_builder_schema_version",
+            SOURCE_TYPED_COLUMN_BUILDER_SCHEMA_VERSION,
+        ),
+        "source_typed_column_builder_status": evidence.get(
+            "source_typed_column_builder_status", default_status
+        ),
+        "source_typed_column_builder_path": evidence.get(
+            "source_typed_column_builder_path", default_status
+        ),
+        "source_typed_builder_schema_digest": evidence.get(
+            "source_typed_builder_schema_digest", "none"
+        ),
+        "source_typed_builder_projected_column_count": parse_optional_int(
+            evidence.get("source_typed_builder_projected_column_count")
+        )
+        or 0,
+        "source_typed_builder_full_column_count": parse_optional_int(
+            evidence.get("source_typed_builder_full_column_count")
+        )
+        or 0,
+        "source_typed_builder_decoded_column_count": parse_optional_int(
+            evidence.get("source_typed_builder_decoded_column_count")
+        )
+        or 0,
+        "source_typed_builder_skipped_column_count": parse_optional_int(
+            evidence.get("source_typed_builder_skipped_column_count")
+        )
+        or 0,
+        "source_typed_builder_row_assembly_avoided": parse_optional_bool(
+            evidence.get("source_typed_builder_row_assembly_avoided")
+        )
+        or False,
+        "source_typed_builder_row_materialization_status": evidence.get(
+            "source_typed_builder_row_materialization_status", default_status
+        ),
+        "source_typed_builder_null_validity_status": evidence.get(
+            "source_typed_builder_null_validity_status", default_status
+        ),
+        "source_typed_builder_type_coercion_status": evidence.get(
+            "source_typed_builder_type_coercion_status", default_status
+        ),
+        "source_typed_builder_nested_json_status": evidence.get(
+            "source_typed_builder_nested_json_status", default_status
+        ),
+        "source_typed_builder_correctness_digest_status": evidence.get(
+            "source_typed_builder_correctness_digest_status", default_status
+        ),
+        "source_typed_builder_fallback_attempted": parse_optional_bool(
+            evidence.get("source_typed_builder_fallback_attempted")
+        )
+        or False,
+        "source_typed_builder_external_engine_invoked": parse_optional_bool(
+            evidence.get("source_typed_builder_external_engine_invoked")
+        )
+        or False,
+        "source_typed_builder_external_parser_engine_invoked": parse_optional_bool(
+            evidence.get("source_typed_builder_external_parser_engine_invoked")
+        )
+        or False,
+        "external_parser_engine_invoked": parse_optional_bool(
+            evidence.get("external_parser_engine_invoked")
+        )
+        or False,
+        "source_typed_builder_claim_boundary": evidence.get(
+            "source_typed_builder_claim_boundary", default_status
+        ),
+        "source_projection_admission_schema_version": evidence.get(
+            "source_projection_admission_schema_version",
+            SOURCE_PROJECTION_ADMISSION_SCHEMA_VERSION,
+        ),
+        "source_projection_admission_status": evidence.get(
+            "source_projection_admission_status", default_status
+        ),
+        "source_projection_source_family": evidence.get(
+            "source_projection_source_family", default_status
+        ),
+        "source_projection_required_field_mask": evidence.get(
+            "source_projection_required_field_mask", "0x00000000"
+        ),
+        "source_projection_predicate_field_mask": evidence.get(
+            "source_projection_predicate_field_mask", "0x00000000"
+        ),
+        "source_projection_output_field_mask": evidence.get(
+            "source_projection_output_field_mask", "0x00000000"
+        ),
+        "source_projection_certificate_field_mask": evidence.get(
+            "source_projection_certificate_field_mask", "0x00000000"
+        ),
+        "source_projection_diagnostic_field_mask": evidence.get(
+            "source_projection_diagnostic_field_mask", "0x00000000"
+        ),
+        "source_projection_field_mask_digest": evidence.get(
+            "source_projection_field_mask_digest", "none"
+        ),
+        "source_projection_decoded_columns": evidence.get(
+            "source_projection_decoded_columns", "none"
+        ),
+        "source_projection_skipped_columns": evidence.get(
+            "source_projection_skipped_columns", "none"
+        ),
+        "source_projection_decoded_column_count": parse_optional_int(
+            evidence.get("source_projection_decoded_column_count")
+        )
+        or 0,
+        "source_projection_skipped_column_count": parse_optional_int(
+            evidence.get("source_projection_skipped_column_count")
+        )
+        or 0,
+        "source_projection_blocker": evidence.get(
+            "source_projection_blocker", default_status
+        ),
+        "source_projection_correctness_digest_status": evidence.get(
+            "source_projection_correctness_digest_status", default_status
+        ),
+        "source_projection_fallback_attempted": parse_optional_bool(
+            evidence.get("source_projection_fallback_attempted")
+        )
+        or False,
+        "source_projection_external_engine_invoked": parse_optional_bool(
+            evidence.get("source_projection_external_engine_invoked")
+        )
+        or False,
+        "source_projection_claim_boundary": evidence.get(
+            "source_projection_claim_boundary", default_status
         ),
     }
 

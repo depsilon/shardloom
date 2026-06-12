@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from dataclasses import field
+from typing import Any
 
 from ._compat import dataclass
 
@@ -533,6 +535,9 @@ class OutputEnvelope:
     capability_snapshot: Mapping[str, Any]
     fields: tuple[FieldEntry, ...]
     raw: Mapping[str, Any]
+    _field_map_cache: dict[str, str] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     @classmethod
     def from_json(cls, payload: Mapping[str, Any]) -> "OutputEnvelope":
@@ -653,6 +658,9 @@ class OutputEnvelope:
         migrate.
         """
 
+        if self._field_map_cache is not None:
+            return self._field_map_cache
+
         merged = {entry.key: entry.value for entry in self.fields}
         for payload in (
             self.result,
@@ -661,6 +669,7 @@ class OutputEnvelope:
             self.capability_snapshot,
         ):
             merged.update(_typed_payload_field_map(payload))
+        object.__setattr__(self, "_field_map_cache", merged)
         return merged
 
     @property

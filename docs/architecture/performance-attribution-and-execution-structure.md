@@ -685,6 +685,207 @@ All six slices share the same contract: they may reduce measured runtime only af
 parity, timing attribution, no-fallback evidence, and deterministic blockers exist. Hot-runtime rows
 remain optimization timing context; publication-proof rows remain the claim-grade evidence surface.
 
+## Direct Typed Source Ingress
+
+`PERF-DESIGN-6R-A` narrows the cold-lane text-source optimization contract to CSV and JSONL
+compatibility ingest. It is not a new broad source-format claim and it is not an Arrow-default
+execution substrate.
+
+The intended admitted route is:
+
+```text
+CSV/JSONL source bytes
+-> source-read scout
+-> typed column builders
+-> Vortex preparation handoff
+-> VortexPreparedState
+-> prepared/native or publication-proof route
+```
+
+The scout pass classifies delimiter/schema/nullability/projected fields before allocating builders.
+For admitted scalar shapes, parsing appends directly into typed buffers for integer, float, boolean,
+UTF-8, timestamp/date, null-heavy, dirty numeric, and explicitly admitted nested JSON-field scan
+cases. The route must avoid `Vec<Row>`, map-like row objects, or whole-row string envelopes for
+admitted fields. If malformed values, unsupported coercions, nested JSON shapes, schema drift, or
+proof-required fields make the direct path unsafe, the row must emit a deterministic source-scout
+blocker instead of silently reverting to an unreported row-object path.
+
+Rows that exercise this route should preserve these fields or equivalent typed-envelope payloads:
+
+```text
+source_parse_or_columnar_decode_ms
+source_to_vortex_handoff_ms
+source_read_scout_status
+source_read_scout_blocker
+source_typed_column_builder_status
+source_typed_column_builder_path
+source_typed_builder_schema_digest
+source_typed_builder_projected_column_count
+source_typed_builder_full_column_count
+source_typed_builder_decoded_column_count
+source_typed_builder_skipped_column_count
+source_typed_builder_row_assembly_avoided
+source_typed_builder_row_materialization_status
+source_typed_builder_null_validity_status
+source_typed_builder_type_coercion_status
+source_typed_builder_nested_json_status
+source_typed_builder_correctness_digest_status
+fallback_attempted=false
+external_engine_invoked=false
+external_parser_engine_invoked=false
+claim_gate_status
+```
+
+Projection-aware decode admission (`PERF-DESIGN-6R-B`) may reduce the builder field set only after
+predicate, output, join, grouping, ordering, certificate, and diagnostic requirements are all
+accounted for. Already-columnar source handoff (`PERF-DESIGN-6R-C`) owns Parquet and Arrow IPC; it
+must not reuse the text-source typed-builder labels for columnar provider admission.
+
+A timing claim for direct typed source ingress is valid only for admitted CSV/JSONL rows with
+correctness parity, stable digests, field-mask evidence, source-to-Vortex handoff timing,
+`fallback_attempted=false`, `external_engine_invoked=false`, and clean regenerated benchmark
+artifacts for the affected source-heavy scenarios.
+
+## Projection-Aware Decode Admission
+
+`PERF-DESIGN-6R-B` owns source-aware projection admission across text and already-columnar
+compatibility inputs. It should derive the required field set from predicates, outputs, joins,
+grouping, ordering, certificates, diagnostics, and selected proof tier before source parsing or
+columnar handoff begins.
+
+Rows that use a narrowed field set must preserve:
+
+```text
+source_projection_admission_schema_version
+source_projection_admission_status
+source_projection_source_family
+source_projection_required_field_mask
+source_projection_predicate_field_mask
+source_projection_output_field_mask
+source_projection_certificate_field_mask
+source_projection_diagnostic_field_mask
+source_projection_field_mask_digest
+source_projection_decoded_columns
+source_projection_skipped_columns
+source_projection_decoded_column_count
+source_projection_skipped_column_count
+source_projection_blocker
+source_projection_correctness_digest_status
+source_projection_fallback_attempted=false
+source_projection_external_engine_invoked=false
+source_projection_claim_boundary
+```
+
+Projection is an optimization only when result digests, proof requirements, and diagnostics are
+unchanged. Full-width workloads should report `no_projection_opportunity` rather than leaving the
+reader behavior implicit. Unsupported malformed, nested, or proof-required shapes must block the
+projection-aware path instead of silently dropping fields.
+
+## Already-Columnar Source Handoff
+
+`PERF-DESIGN-6R-C` owns Parquet and Arrow IPC cold-ingest fast paths. These formats should not be
+reported as text typed-builder routes. Their admitted path is direct columnar handoff into the
+Vortex preparation boundary when physical/logical types, validity/null semantics, projection masks,
+and Vortex import policy are all supported.
+
+Rows that use the path should preserve:
+
+```text
+source_columnar_provider_status
+source_columnar_provider_surface
+source_columnar_projected_field_mask
+source_columnar_preserved_column_count
+source_columnar_materialized_row_count
+source_columnar_null_validity_status
+source_columnar_unsupported_dtype_reason
+source_to_vortex_handoff_ms
+```
+
+Unsupported extension, nested, compression, dictionary, timestamp, or nullability shapes should emit
+deterministic blockers. Polars, PyArrow, DuckDB, or other external engines may remain benchmark
+baselines or file readers where explicitly admitted as compatibility adapters, but they must not
+execute ShardLoom compute or hide unsupported ShardLoom behavior.
+
+## Capillary Writer Window
+
+`PERF-DESIGN-5R-A` owns the local Vortex preparation writer coalescing contract. A Capillary writer
+window may reuse writer/runtime context for compatible preparation groups only when artifact roles,
+schema, workspace isolation, digest policy, and proof tier are all admitted.
+
+Rows that use writer coalescing should preserve:
+
+```text
+capillary_writer_window_status
+capillary_writer_window_blocker
+capillary_writer_context_open_count
+capillary_writer_context_reuse_hit_count
+capillary_writer_artifact_role_count
+capillary_writer_write_count
+capillary_writer_total_bytes
+capillary_writer_segment_write_micros
+capillary_writer_workspace_stage_micros
+capillary_writer_digest_micros
+capillary_writer_verify_micros
+```
+
+Publication-proof routes may still include digest, replay, and verification costs; hot-runtime
+routes must not inherit those costs unless the route formula explicitly declares them. Coalescing
+must never skip required Vortex output digest or role-isolation evidence.
+
+## Prepared Native Hot Path
+
+`PERF-DESIGN-2-A` owns prepared/native scan-open, residual operator, result-envelope, and compact
+result-sink tightening. Because these rows are already sub-millisecond in the hot-runtime lane, each
+change should expose the exact subsystem that moved rather than reporting an opaque faster total.
+
+Rows touched by this work should preserve:
+
+```text
+prepared_native_scan_open_micros
+prepared_native_scan_reopen_micros
+prepared_native_operator_dispatch_micros
+prepared_native_operator_compute_micros
+prepared_native_materialization_micros
+prepared_native_result_envelope_micros
+prepared_native_result_sink_micros
+prepared_native_encoded_family_status
+prepared_native_selection_vector_status
+```
+
+Encoded-native or selection-vector promotion is valid only per admitted operator family/scenario
+with decoded-reference parity, null/type coverage, execution certificate evidence, and
+`fallback_attempted=false`. Residual-native execution can remain the admitted ShardLoom-native path
+for unsupported encoded families, but it must not be relabeled as encoded-native.
+
+## Certified Route Tiering
+
+`PERF-DESIGN-3-A` owns timing-surface tiering. Hot runtime, full replay proof, and publication proof
+are separate surfaces, not interchangeable substitutes for route geomeans. The selected timing
+surface must be derived from the actual evidence tier, and no benchmark or website table should use
+`publication_full` rows as the default hot-runtime result.
+
+Rows should preserve:
+
+```text
+route_tier_admission_status
+route_tier_id
+route_tier_included_stage_ids
+route_tier_excluded_stage_ids
+route_tier_digest_policy
+route_tier_sink_policy
+route_tier_evidence_render_policy
+route_tier_proof_deferral_reason
+route_tier_publication_proof_ref
+route_tier_stale_proof_status
+route_total_formula
+timing_surface
+timing_surface_evidence_tier
+```
+
+Hot-runtime rows are optimization timing context; publication-proof rows remain claim-grade evidence
+when proof is fresh and complete. Stale or incomplete proof should block publication promotion, not
+execution semantics, and the website should label each route total by timing surface.
+
 ## Stage Timing Fields
 
 Benchmark JSON and Markdown should preserve these fields where available:

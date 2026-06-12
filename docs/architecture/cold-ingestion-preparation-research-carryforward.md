@@ -114,6 +114,23 @@ small-file/pathology signals, and encoding/layout opportunities early.
 Scout triage must not silently drop records. If rows are rejected or quarantined, the quarantine
 output is an explicit sink boundary with digest, count, schema, fidelity, and no-fallback evidence.
 
+`PERF-DESIGN-6R-A` turns the CSV/JSONL portion of this research into a concrete runtime slice:
+source-read scout evidence should admit direct typed column builders only when schema, projection,
+nullability, malformed-row, coercion, and nested-field policy are all deterministic. Admitted rows
+append directly into typed buffers for Vortex preparation and report typed-builder status,
+decoded/skipped column counts, row-materialization posture, source-to-Vortex handoff timing,
+correctness parity, and no-fallback/no-external-parser evidence. Unsupported text-source shapes stay
+blocked or use the existing explicitly reported compatibility path without claiming typed-builder
+execution.
+
+The same research now feeds three adjacent proof-bound optimization slices:
+`PERF-DESIGN-6R-B` narrows decode through required-field masks, `PERF-DESIGN-6R-C` avoids text-like
+economics for admitted Parquet/Arrow IPC handoff, and `PERF-DESIGN-5R-A` reduces repeated local
+Vortex writer/reopen work through a Capillary writer window. `PERF-DESIGN-3-A` keeps any proof or
+publication work from being charged to hot-runtime route totals unless the selected timing surface
+explicitly includes it. Each slice must provide deterministic blockers and clean benchmark evidence
+before a performance claim.
+
 ### Predictive Layout And Write Advice
 
 The cold lane should make layout decisions with the later workload in mind. A Vortex layout/write
