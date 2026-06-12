@@ -658,6 +658,33 @@ These slices may reduce cold-lane work only after they provide runtime evidence.
 compatibility-import-certified rows must keep source read, parse, Vortex preparation, write/reopen,
 scan, output/replay, evidence rendering, and process/harness overhead visible in stage timing.
 
+The active runtime-enhancement implementation map is tracked in
+`docs/architecture/phased-execution-plan.md`. It keeps performance work in six proof-bound slices:
+
+- `PERF-DESIGN-2-A` owns prepared/native scan, residual operator hot-loop, result envelope, and
+  optional result-sink tightening. It operates on the `hot_runtime` prepared/native lane first and
+  may promote only family-scoped encoded-native or selection-vector paths with decoded-reference
+  parity and execution certificate evidence.
+- `PERF-DESIGN-5R-A` owns the Capillary preparation writer window. It can reduce local Vortex
+  writer context, small-write, digest, reopen, and verification overhead only when artifact roles,
+  schema, workspace, and proof isolation are admitted.
+- `PERF-DESIGN-6R-A` owns direct typed column builders for CSV/JSONL cold ingest. It targets the
+  text-source `source_parse_or_columnar_decode_ms` bottleneck by building typed columns directly
+  instead of constructing row/object intermediates for admitted schema and coercion shapes.
+- `PERF-DESIGN-6R-B` owns projection-aware decode admission. It derives the required field mask
+  from predicates, outputs, joins, grouping, ordering, certificates, and diagnostics, then records
+  decoded/skipped columns and blockers so unused work is avoided without hiding required proof data.
+- `PERF-DESIGN-6R-C` owns already-columnar source fast paths for Parquet and Arrow IPC. It prevents
+  columnar formats from paying text-like row reconstruction costs by using direct columnar handoff
+  where dtypes, validity/null handling, projection masks, and Vortex import boundaries are admitted.
+- `PERF-DESIGN-3-A` owns certified route tiering. It keeps hot-runtime, full replay proof, and
+  publication-proof work separate through timing-surface formulas, proof deferral fields, stale-proof
+  detection, and website labels.
+
+All six slices share the same contract: they may reduce measured runtime only after correctness
+parity, timing attribution, no-fallback evidence, and deterministic blockers exist. Hot-runtime rows
+remain optimization timing context; publication-proof rows remain the claim-grade evidence surface.
+
 ## Stage Timing Fields
 
 Benchmark JSON and Markdown should preserve these fields where available:

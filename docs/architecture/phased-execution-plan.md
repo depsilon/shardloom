@@ -180,11 +180,17 @@ not by numeric CG order.
 Current autonomous execution order:
 
 - [ ] `PERF-DESIGN-2` - Encoded-native operator promotion and stage-timing attribution cleanup.
+  - [ ] `PERF-DESIGN-2-A` - Prepared/native scan, operator, and result-path tightening.
 - [ ] `PERF-DESIGN-4R` - PulseWeave session/runtime coalescing optimization pass.
 - [ ] `PERF-DESIGN-1R` - Dynamic prepared-state reuse and role-repair optimization pass.
 - [ ] `PERF-DESIGN-5R` - Capillary preparation spine write/reopen/copy optimization pass.
+  - [ ] `PERF-DESIGN-5R-A` - Vortex write coalescing and reusable writer context.
 - [ ] `PERF-DESIGN-6R` - Dynamic source-adapter parse/decode and scout-ingress optimization pass.
+  - [ ] `PERF-DESIGN-6R-A` - Direct typed column builders for CSV/JSONL cold ingest.
+  - [ ] `PERF-DESIGN-6R-B` - Projection-aware and source-aware decode admission.
+  - [ ] `PERF-DESIGN-6R-C` - Already-columnar source fast paths for Parquet and Arrow IPC.
 - [ ] `PERF-DESIGN-3` - Publication-proof sink/evidence pipeline optimization.
+  - [ ] `PERF-DESIGN-3-A` - Certified route tiering for hot-runtime versus publication-proof work.
 
 Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 
@@ -263,6 +269,11 @@ Completed-design reopen policy:
   optimization reopen pass above. Do not create additional `*R` variants unless a new benchmark row
   or local simulation identifies a distinct measured bottleneck and a matching dynamic, PulseWeave,
   or capillary control surface.
+- Runtime enhancement slice rule: the `*-A/B/C` entries below are implementation slices inside the
+  existing open items, not new phase families. Use them to finish runtime work in larger cohesive
+  batches: prepared/native hot-path tightening under `PERF-DESIGN-2`, write coalescing under
+  `PERF-DESIGN-5R`, source-ingest fast paths under `PERF-DESIGN-6R`, and route-tiering under
+  `PERF-DESIGN-3`.
 
 Lane-to-design mapping from the 1,200 ShardLoom-family rows:
 
@@ -334,7 +345,10 @@ Timing aggregation guardrail:
   slice targets the measured top residual family, multi-key group by, by replacing hash-map-only
   packed `(group_key, category_id)` accumulation with a bounded dense packed accumulator that rolls
   over deterministically to the existing sparse path for wide keys. This is a residual hot-loop
-  optimization, not a full encoded-native operator claim.
+  optimization, not a full encoded-native operator claim. The current runtime enhancement pass adds
+  explicit `residual_operator_optimization_*` evidence for direct and precomputed dense accumulator
+  paths so benchmark rows can distinguish "residual hot loop tightened" from "encoded-native
+  operator admitted".
 - Next slice outcome: select the highest-value operator family from the benchmark scenarios and
   promote it from residual/materialized execution toward encoded-native execution with correctness
   evidence, while normalizing exclusive stage timing so diagnostic stage costs cannot contradict
@@ -366,6 +380,40 @@ Timing aggregation guardrail:
   broader correctness and benchmark claims.
 - Fallback boundary: unsupported operator families must fail or report deterministic blockers; no
   external engine residual evaluation is allowed.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
+#### PERF-DESIGN-2-A - Prepared/native scan, operator, and result-path tightening
+
+- Source: `PERF-DESIGN-2` and `PERF-DESIGN-4R`, where prepared/native lanes are already near
+  `0.11-0.13 ms` but still report residual-native operators and nonzero scan-open, result assembly,
+  and proof/result-path overhead outside the core scan.
+- Goal: improve the already-fast prepared/native lanes by reducing scan-open, operator dispatch,
+  residual hot-loop materialization, result envelope construction, and optional result-sink overhead
+  without weakening correctness or encoded-native boundaries.
+- Scope: Vortex scan setup, scenario scan dispatch, residual-native operator hot loops,
+  selection-vector opportunities, result envelope construction, compact result sink, and benchmark
+  timing attribution.
+- Implementation: cache scan/open metadata within admitted session groups, reduce per-scenario
+  allocation and result-envelope work, specialize the hottest residual operator families, introduce
+  encoded-native or selection-vector-backed paths only when decoded-reference parity exists, and keep
+  result sink work optional and tiered.
+- Evidence required: scan-open/reopen split, Vortex scan timing, operator compute timing,
+  allocation/materialization counters where available, result sink timing, encoded/residual/
+  materialized mode inventory, correctness parity, no fallback, and no external engine.
+- Acceptance: prepared/native hot-runtime geomeans improve or remain stable with clearer attribution;
+  result digests remain unchanged; encoded-native promotion is family/scenario-scoped and
+  certificate-backed; result-path changes do not alter publication-proof semantics.
+- Verification: focused Rust tests for selected operator families, null/type edge cases, result
+  envelope stability, prepared/native repeated-session tests, targeted warm prepared/native benchmark
+  rerun, and broad Rust validation when shared runtime behavior changes.
+- Non-goals: no broad encoded-native claim until `PERF-DESIGN-2` evidence supports it, no external
+  query-engine fallback, and no skipping required result proof in publication rows.
+- Claim boundary: may claim only scoped prepared/native hot-path tightening and, separately,
+  encoded-native family support where admitted by correctness and certificate evidence.
+- Fallback boundary: scan/open caching, residual specialization, selection-vector paths, and result
+  envelope changes must keep `fallback_attempted=false` and `external_engine_invoked=false`; blocked
+  encoded-native promotion must continue only through admitted ShardLoom-native residual execution.
 - Ledger rule: when complete, move the completed session summary to
   `docs/architecture/phased-execution-completed-ledger.md`.
 
@@ -501,6 +549,38 @@ Timing aggregation guardrail:
 - Ledger rule: when complete, move the completed session summary to
   `docs/architecture/phased-execution-completed-ledger.md`.
 
+#### PERF-DESIGN-5R-A - Vortex write coalescing and reusable writer context
+
+- Source: `PERF-DESIGN-5R`, current cold routes where `vortex_write_ms` remains material for small
+  local benchmark rows, and the existing capillary preparation spine/copy-budget fields.
+- Goal: reduce Vortex preparation write cost through a shared writer/runtime context, coalesced
+  small writes, staged segment batches, and separated digest/verification accounting.
+- Scope: Vortex writer context lifecycle, local workspace staging, artifact role writes, fact/dim/CDC
+  preparation writes, digest timing, reopen/verify timing, copy-budget fields, benchmark promoter
+  fields, and fail-closed coalescing blockers.
+- Implementation: introduce a capillary writer window that opens a reusable writer/runtime context
+  once per compatible preparation group, batches compatible artifact writes, avoids redundant
+  context/session setup, and records segment-write, workspace-stage, digest, verify, context-open,
+  reuse-hit, and coalescing status fields.
+- Evidence required: writer context count, write count, reuse hits, artifact roles, total bytes/rows,
+  segment-write timing, workspace-stage timing, digest timing, verification timing, unchanged
+  artifact digests, no fallback, and no external engine.
+- Acceptance: cold/prepared rows show coalesced writer-context reuse where admitted; small local
+  artifacts do not pay repeated context open/write setup; Vortex output digests remain stable;
+  blocked shapes report deterministic coalescing blockers.
+- Verification: focused Rust tests for writer context reuse, artifact role isolation, digest
+  stability, partial failure cleanup, workspace-safe staging, and targeted cold-certified/
+  prepare-batch benchmark reruns across CSV/JSONL/Parquet/Arrow IPC where supported.
+- Non-goals: no weakening of Vortex-native persistence, no skipping required verification in
+  publication-proof rows, no object-store write semantics, and no Vortex query-engine integration.
+- Claim boundary: may claim only scoped local Vortex write coalescing evidence after timing, digest,
+  and verification fields are present in regenerated artifacts.
+- Fallback boundary: coalesced writer windows must keep `fallback_attempted=false` and
+  `external_engine_invoked=false`; unsupported artifact-role, schema, workspace, or proof shapes
+  must block coalescing and use the existing admitted ShardLoom-native preparation path.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
 ### PERF-DESIGN-6R - Dynamic source-adapter parse/decode and scout-ingress optimization pass
 
 - Source: completed `PERF-DESIGN-6` source-adapter attribution, `docs/architecture/dynamic-work-shaping.md`,
@@ -542,6 +622,107 @@ Timing aggregation guardrail:
 - Ledger rule: when complete, move the completed session summary to
   `docs/architecture/phased-execution-completed-ledger.md`.
 
+#### PERF-DESIGN-6R-A - Direct typed column builders for CSV/JSONL cold ingest
+
+- Source: `PERF-DESIGN-6R` and current cold route attribution where parse/decode remains the largest
+  cold-route component for source-heavy rows.
+- Goal: replace row/object/string-heavy CSV/JSONL compatibility ingest with direct typed column
+  builders that emit column buffers suitable for Vortex preparation without intermediate row
+  materialization.
+- Scope: CSV and JSONL local-source adapters, schema/scout inference, typed builders for integer,
+  float, bool, UTF-8, timestamp/date, null-heavy fields, nested JSON-field scan where admitted,
+  benchmark route timing passthrough, and source-read scout fields.
+- Implementation: add a scout pass that classifies delimiter/schema/nulls/projected fields, allocate
+  typed column buffers once, append parsed values directly into typed builders, avoid `Vec<Row>` or
+  map-like object assembly for admitted shapes, and preserve deterministic diagnostics for malformed
+  rows and unsupported type coercions.
+- Evidence required: before/after cold certified rows for CSV/JSONL source-heavy scenarios,
+  decoded-column/skipped-column evidence, row materialization status, correctness parity against the
+  existing decoded reference, no fallback, and no external parser engine invocation.
+- Acceptance: admitted CSV/JSONL rows report the typed-column-builder path, avoided row assembly
+  where supported, correct projected/full column counts, stable correctness digests, and materially
+  reduced `source_parse_or_columnar_decode_ms`.
+- Verification: focused Rust source-adapter tests for nulls, malformed values, timestamps, dirty CSV,
+  nested JSON, projection masks, and type coercions; Python benchmark harness smoke for CSV/JSONL;
+  targeted reruns for `csv_file_ingest`, `filter_projection_limit`, `wide_projection`,
+  `nested_json_field_scan`, and dirty CSV.
+- Non-goals: no broad new source-format support, no lossy coercion, no hidden decode-to-Arrow
+  execution substrate, and no external engine fallback.
+- Claim boundary: may claim only scoped typed-column-builder evidence for admitted CSV/JSONL
+  benchmark rows after clean benchmark artifacts are regenerated.
+- Fallback boundary: typed builders must keep `fallback_attempted=false` and
+  `external_engine_invoked=false`; malformed rows, unsupported coercions, unsupported nested shapes,
+  or missing schema evidence must produce deterministic source-scout blockers rather than hidden row
+  assembly or external parser execution.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
+#### PERF-DESIGN-6R-B - Projection-aware and source-aware decode admission
+
+- Source: `PERF-DESIGN-6R`, source-read scout attribution, and current external-baseline gaps where
+  lazy baselines win by avoiding unnecessary column work.
+- Goal: make cold ingest decode only columns needed for predicates, output, joins, grouping, ordering,
+  certificates, and required diagnostics.
+- Scope: scenario-required field discovery, filter-only versus output-column masks, source scout
+  plans, CSV/JSONL typed builders, already-columnar source readers, benchmark evidence fields, and
+  route timing attribution.
+- Implementation: derive required field masks from benchmark scenario/operator plans, split
+  predicate-only fields from output fields, propagate projection masks into source adapters, skip
+  unused columns during parse/build where safe, and record skipped columns, decoded columns, and
+  blocked reasons.
+- Evidence required: per-row projected/skipped column counts, source format, scenario id, field-mask
+  digest, correctness parity, blocked reason when a format/scenario cannot safely project, and route
+  timing deltas for projection-sensitive scenarios.
+- Acceptance: projection-sensitive workloads show reduced parse/decode or columnar handoff timing
+  without changing result digests; full-width workloads explicitly report no projection opportunity;
+  unsupported nested or malformed cases fail with deterministic source-scout blockers.
+- Verification: unit tests for required-field derivation, CSV/JSONL projection tests, Parquet/Arrow
+  field-mask tests where supported, and targeted reruns for `wide_projection`,
+  `filter_projection_limit`, `selective_filter`, `distinct_count`, `group_by_aggregation`, and
+  `nested_json_field_scan`.
+- Non-goals: no optimizer semantic changes beyond safe field selection, no predicate-pushdown claim
+  unless predicate-pushdown evidence exists, and no hidden omission of certificate-required fields.
+- Claim boundary: projection-aware decode is an optimization claim only for admitted rows with
+  field-mask evidence and unchanged correctness.
+- Fallback boundary: projection masks must keep `fallback_attempted=false` and
+  `external_engine_invoked=false`; any field required for predicate, output, ordering, grouping,
+  certificate, diagnostics, or proof must be retained or the optimized decode path must block.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
+#### PERF-DESIGN-6R-C - Already-columnar source fast paths for Parquet and Arrow IPC
+
+- Source: `PERF-DESIGN-6R` plus current external gap where Parquet/Arrow IPC cold rows are
+  disproportionately behind columnar baselines despite already-columnar source shape.
+- Goal: ensure Parquet and Arrow IPC avoid text-like decode economics and move toward direct
+  columnar handoff into Vortex preparation.
+- Scope: Parquet and Arrow IPC local readers, schema mapping, projection masks, null/validity
+  preservation, dictionary/list/struct support posture, Vortex array build/import boundary, and
+  benchmark evidence fields.
+- Implementation: add source-aware admission for already-columnar sources, preserve column
+  buffers/validity where possible, map supported physical/logical types directly into
+  Vortex-compatible arrays, avoid row reconstruction, and expose deterministic blockers for
+  unsupported extension/nested/compression/type cases.
+- Evidence required: source format, direct-columnar-provider status, projected column mask,
+  decoded/materialized row count, preserved null/validity status, unsupported dtype reasons, and
+  source-to-Vortex handoff timing.
+- Acceptance: admitted Parquet/Arrow IPC rows report direct columnar handoff, no row materialization,
+  reduced parse/decode timing, stable correctness digests, and explicit blockers for unsupported
+  column shapes.
+- Verification: focused tests for primitive types, null-heavy columns, dictionary-like values where
+  supported, timestamps, projection masks, empty inputs, unsupported nested fields, correctness
+  parity, and targeted reruns for Parquet/Arrow IPC `csv_file_ingest`, `wide_projection`,
+  `partition_pruning`, `filter_projection_limit`, and aggregate scenarios.
+- Non-goals: no claim of complete Parquet/Arrow feature coverage, no fallback to Polars/PyArrow
+  execution, no lossy conversion, and no hiding unsupported dtype behavior.
+- Claim boundary: may claim only admitted direct-columnar fast-path rows by format/type/profile after
+  a clean benchmark refresh.
+- Fallback boundary: direct columnar handoff must keep `fallback_attempted=false` and
+  `external_engine_invoked=false`; unsupported dtypes, encodings, nested fields, or compression
+  cases must emit deterministic blockers instead of delegating to Polars/PyArrow execution.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
 ### PERF-DESIGN-3 - Publication-proof sink/evidence pipeline optimization
 
 - Source: `publication_proof` rows in PR #1174 and current published row chunks
@@ -574,6 +755,36 @@ Timing aggregation guardrail:
   not change hot-runtime performance claims.
 - Fallback boundary: result-sink replay and evidence rendering remain ShardLoom-native proof
   surfaces with `fallback_attempted=false` and `external_engine_invoked=false`.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
+#### PERF-DESIGN-3-A - Certified route tiering for hot-runtime versus publication-proof work
+
+- Source: `PERF-DESIGN-3`, the route timing surface split, and the need to keep claim-grade proof
+  without charging every hot/cold timing lane for human evidence expansion or full digest work.
+- Goal: preserve certified proof while making hot/cold route timing tiers explicit, minimal, and
+  fair: hot runtime, full replay proof, and publication proof stay separate surfaces.
+- Scope: evidence tier policy, source digest policy, result sink replay policy, human evidence
+  render, route timing formulas, website/promoter fields, validators, and stale-proof detection.
+- Implementation: define a tier admission ledger where hot runtime uses compact machine evidence and
+  cheap fingerprints when allowed, publication proof requests full digest/result-sink replay/evidence
+  render, and every row records which tier ran, which proof was deferred, and what must be regenerated
+  before public claims.
+- Evidence required: tier id, included/excluded stage ids, digest policy, sink policy, evidence render
+  policy, proof deferral reason, publication-proof linkage, route-total formula, and validator status.
+- Acceptance: hot-runtime route totals exclude human/publication work by contract; publication-proof
+  rows remain claim-grade; no row silently upgrades/downgrades timing surface; website tables show
+  tier semantics clearly.
+- Verification: validator tests for stage inclusion, route-total formulas, proof linkage, stale-proof
+  detection, publication artifact regeneration, targeted benchmark promotion checks, and website
+  static asset validation.
+- Non-goals: no removal of claim-grade evidence, no superiority claim from compact hot-runtime rows
+  alone, and no stale proof reuse across source revisions.
+- Claim boundary: hot-runtime rows are optimization timing context; publication-proof rows remain the
+  claim-grade evidence surface.
+- Fallback boundary: route tiering must keep `fallback_attempted=false` and
+  `external_engine_invoked=false`; proof deferral may affect claim status only, never execution
+  semantics, and stale or incomplete proof must block publication promotion.
 - Ledger rule: when complete, move the completed session summary to
   `docs/architecture/phased-execution-completed-ledger.md`.
 
