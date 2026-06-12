@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-DESIGN-1A prepared-source reuse and role-repair evidence contract
+  - Date: 2026-06-12
+  - Branch/PR: `codex/perf-design-1-role-repair-evidence` / local branch before PR.
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-1`.
+    - PR #1179 prepared route role-scoped repair implementation.
+    - Audit of the checked-in 1,920-row benchmark artifact, including 1,200 ShardLoom-family rows.
+  - Scope:
+    - Preserved PR #1179's completed runtime scope: stable source fingerprints,
+      manifest-keyed VortexPreparedState reuse, and role-scoped repair for the traditional
+      prepared route's fact, dim, and optional CDC artifacts.
+    - Clarified the phase plan so `PERF-DESIGN-1` no longer names a separate event role for the
+      prepared traditional route; nested JSON/event-source specialization remains under
+      `PERF-DESIGN-6`.
+    - Added runner contract fields for role-repair source-to-columnar, Vortex array build, Vortex
+      write, and Vortex reopen/verify substage timing.
+    - Wired the benchmark promoter's explicit full-row allowlist into published row rendering so
+      fields from nested ShardLoom runtime evidence are not silently dropped.
+    - Promoted normalized millisecond fields for partial role-repair substages while preserving raw
+      microsecond fields for audit/replay consumers.
+    - Added release-script coverage proving that role-scoped repair rows promote to
+      `role_scoped_repair`, preserve proof/no-stale-reuse/no-fallback evidence, and surface each
+      substage timing value.
+    - Kept the remaining `PERF-DESIGN-1` work explicit: the current checked-in artifact proves
+      manifest reuse but still needs a targeted prepare-batch artifact refresh that exercises actual
+      changed-role repair rows.
+  - Local evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_preserves_role_scoped_repair_timing` passed.
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py scripts/promote_benchmark_artifact.py python/tests/test_release_scripts.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_preserves_role_scoped_repair_timing python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_preserves_shared_batch_cold_lane_split` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts` passed with
+      124 tests and 2 skips.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client python.tests.test_prepared_route` passed with 159 tests.
+    - `python3 scripts/check_benchmark_optimization_targets.py --artifact website-public/assets/benchmarks/latest/benchmark-results.json --output target/benchmark-optimization-targets-review.json --top-n 12` passed.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json` passed with `artifact_status=complete`, `available_lane_count=10`, and no blockers.
+    - `python3 scripts/check_benchmark_publish_doctor.py --allow-incomplete --allow-stale-git --allow-dirty-worktree` passed with `row_count=1920`, `shardloom_row_count=1200`,
+      `shardloom_unsupported_row_count=0`, `publication_claim_gate_status=passed`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Current artifact inspection confirmed `prepare_batch_strategies={"manifest_reuse": 480}`,
+      `partial_repair_statuses={"not_needed_manifest_hit": 480}`, and
+      `role_scoped_repair_rows=0`.
+    - `git diff --check` passed.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+  - Claim boundary:
+    - This closes runtime/promoter evidence-contract gaps only. It does not claim the checked-in
+      benchmark artifact already proves changed-role repair, broad cold-route speedup, production
+      support, package publication, Spark displacement, or performance superiority.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution was introduced. Role repair remains scoped to
+      ShardLoom/Python orchestration and the Vortex ingest smoke boundary, with
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: WEB-CLEANSLATE-1 clean-slate Astro/Starlight website and timing evidence surface
   - Date: 2026-06-12
   - Branch/PR: `codex/website-cleanslate-overhaul` / local branch before PR.
