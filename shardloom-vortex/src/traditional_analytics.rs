@@ -3010,12 +3010,14 @@ impl TraditionalPreparedNativeSession {
     fn execute_with_split_inventory(
         &self,
         request: TraditionalAnalyticsVortexRequest,
+        source_snapshot: &TraditionalVortexSourceSnapshot,
         split_inventory: &TraditionalPreparedVortexSplitInventory,
         split_inventory_cache_hit: bool,
     ) -> Result<TraditionalAnalyticsVortexReport> {
-        run_traditional_analytics_vortex_benchmark_with_batch_source_state(
+        run_traditional_analytics_vortex_benchmark_with_source_context(
             request,
-            &self.source_state,
+            source_snapshot,
+            Some(&self.source_state),
             Some(split_inventory),
             split_inventory_cache_hit,
         )
@@ -24674,6 +24676,10 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         TraditionalPreparedVortexSplitInventoryKey,
         TraditionalPreparedVortexSplitInventory,
     >::new();
+    let mut source_snapshot_cache = std::collections::BTreeMap::<
+        TraditionalPreparedVortexSplitInventoryKey,
+        TraditionalVortexSourceSnapshot,
+    >::new();
     for (index, scenario) in scenarios.into_iter().enumerate() {
         let scenario_workspace = result_workspace_dir.as_ref().map(|workspace| {
             workspace.join(format!(
@@ -24694,12 +24700,21 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
             child_cdc_delta_vortex.as_deref(),
             fact_delta_overlay_vortex.as_deref(),
         );
-        let child_source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
-            &fact_vortex,
-            &dim_vortex,
-            child_cdc_delta_vortex.as_deref(),
-            fact_delta_overlay_vortex.as_deref(),
-        )?;
+        if !source_snapshot_cache.contains_key(&split_inventory_key) {
+            let source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
+                &fact_vortex,
+                &dim_vortex,
+                child_cdc_delta_vortex.as_deref(),
+                fact_delta_overlay_vortex.as_deref(),
+            )?;
+            source_snapshot_cache.insert(split_inventory_key.clone(), source_snapshot);
+        }
+        let child_source_snapshot = source_snapshot_cache.get(&split_inventory_key).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "prepared/native batch source snapshot cache did not contain the just-admitted key; fallback execution was not attempted"
+                    .to_string(),
+            )
+        })?;
         let split_inventory_cache_hit = split_inventory_cache.contains_key(&split_inventory_key);
         if !split_inventory_cache_hit {
             let split_inventory = TraditionalPreparedVortexSplitInventory::collect(
@@ -24730,6 +24745,7 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         .with_result_vortex_write(write_result_vortex);
         reports.push(session.execute_with_split_inventory(
             child_request,
+            child_source_snapshot,
             split_inventory,
             split_inventory_cache_hit,
         )?);
@@ -24976,29 +24992,6 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         None,
         None,
         false,
-    )
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-#[allow(clippy::too_many_lines)]
-fn run_traditional_analytics_vortex_benchmark_with_batch_source_state(
-    request: TraditionalAnalyticsVortexRequest,
-    source_state: &TraditionalVortexBatchSourceState,
-    split_inventory: Option<&TraditionalPreparedVortexSplitInventory>,
-    split_inventory_cache_hit: bool,
-) -> Result<TraditionalAnalyticsVortexReport> {
-    let source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
-        &request.fact_vortex,
-        &request.dim_vortex,
-        request.cdc_delta_vortex.as_deref(),
-        request.fact_delta_overlay_vortex.as_deref(),
-    )?;
-    run_traditional_analytics_vortex_benchmark_with_source_context(
-        request,
-        &source_snapshot,
-        Some(source_state),
-        split_inventory,
-        split_inventory_cache_hit,
     )
 }
 
@@ -33083,8 +33076,7 @@ fn run_streaming_nested_json_field_scan_scenario_with_dim_rows(
                 }
                 saw_nested_payload = true;
                 let row_index = source_row_offset + index;
-                let payload = utf8_bytes_at(payload, "nested_payload", row_index)?;
-                let nested_fields = generated_nested_payload_fields(payload, row_index)?;
+                let nested_fields = generated_nested_payload_fields_bytes(payload, row_index)?;
                 metric_sum += nested_fields.score;
                 if nested_fields.flag {
                     flagged += 1;
@@ -35812,16 +35804,23 @@ fn generated_nested_payload_fields(
     payload: &str,
     row_index: usize,
 ) -> Result<GeneratedNestedPayloadFields> {
+    generated_nested_payload_fields_bytes(payload.as_bytes(), row_index)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn generated_nested_payload_fields_bytes(
+    payload: &[u8],
+    row_index: usize,
+) -> Result<GeneratedNestedPayloadFields> {
     const SCORE_MARKER: &[u8] = b"\"score\":";
     const FLAG_MARKER: &[u8] = b"\"flag\":";
 
     let mut score = None;
     let mut flag = None;
-    let bytes = payload.as_bytes();
     let mut cursor = 0_usize;
-    while cursor < bytes.len() && (score.is_none() || flag.is_none()) {
-        if bytes[cursor] == b'"' {
-            let tail = &bytes[cursor..];
+    while cursor < payload.len() && (score.is_none() || flag.is_none()) {
+        if payload[cursor] == b'"' {
+            let tail = &payload[cursor..];
             if score.is_none() && tail.starts_with(SCORE_MARKER) {
                 let start = cursor + SCORE_MARKER.len();
                 score = Some(parse_generated_nested_score(payload, start, row_index)?);
@@ -35853,14 +35852,20 @@ fn generated_nested_payload_fields(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn parse_generated_nested_score(payload: &str, start: usize, row_index: usize) -> Result<f64> {
-    let bytes = payload.as_bytes();
+fn parse_generated_nested_score(payload: &[u8], start: usize, row_index: usize) -> Result<f64> {
     let mut end = start;
-    while end < bytes.len() && matches!(bytes[end], b'-' | b'+' | b'.' | b'0'..=b'9' | b'e' | b'E')
+    while end < payload.len()
+        && matches!(payload[end], b'-' | b'+' | b'.' | b'0'..=b'9' | b'e' | b'E')
     {
         end += 1;
     }
-    payload[start..end].parse::<f64>().map_err(|error| {
+    let token = std::str::from_utf8(&payload[start..end]).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "nested_payload row {} has invalid metrics.score: {error}",
+            row_index + 1
+        ))
+    })?;
+    token.parse::<f64>().map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "nested_payload row {} has invalid metrics.score: {error}",
             row_index + 1
@@ -35869,8 +35874,8 @@ fn parse_generated_nested_score(payload: &str, start: usize, row_index: usize) -
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn parse_generated_nested_flag(payload: &str, start: usize, row_index: usize) -> Result<bool> {
-    let tail = &payload.as_bytes()[start..];
+fn parse_generated_nested_flag(payload: &[u8], start: usize, row_index: usize) -> Result<bool> {
+    let tail = &payload[start..];
     if tail.starts_with(b"true") {
         Ok(true)
     } else if tail.starts_with(b"false") {

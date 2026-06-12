@@ -187,6 +187,9 @@ Current autonomous execution order:
   - Acceptance: prepared/native hot-runtime geomeans improve or remain stable with clearer
     attribution; result digests remain unchanged; any encoded/native promotion is scoped and
     certificate-backed.
+  - Progress: nested JSON field scan now parses generated `metrics.score` and `event.flag` directly
+    from Vortex-provided payload bytes in the hot loop, preserving deterministic score/flag
+    diagnostics while avoiding per-row full-payload UTF-8 validation.
   - Verification: focused Rust tests for selected operator families and result envelope stability,
     repeated-session tests, targeted warm prepared/native rerun, and broad Rust validation when
     shared runtime behavior changes.
@@ -202,6 +205,10 @@ Current autonomous execution order:
     prepared/native pressure points using FlowInventory, ScarcityLedger, EndoPulse, and ProofBound.
   - Acceptance: compatible local scenario groups report coalesced route use with reduced repeated
     overhead or deterministic `blocked_*` reasons; no hot-runtime/publication-proof timing mix.
+  - Progress: prepared/native child routes now reuse the run-local
+    `TraditionalVortexSourceSnapshot` keyed with the PulseWeave split-inventory key, so
+    `session_source_metadata_cache_*` evidence corresponds to a real metadata/digest snapshot cache
+    rather than repeated per-child snapshot reconstruction.
   - Verification: focused Rust session/PulseWeave tests, targeted repeated warm/native/prepared
     benchmark, optimization-target validator, claim gate, and broad Rust validation when behavior
     changes.
