@@ -2371,6 +2371,8 @@ class ShardLoomClientTests(unittest.TestCase):
                     "vortex-ingest-smoke",
                     "target/source.csv",
                     "target/source.vortex",
+                    "--input-format",
+                    "csv",
                     "--allow-overwrite",
                     "--format",
                     "json",
@@ -2487,6 +2489,7 @@ class ShardLoomClientTests(unittest.TestCase):
         result = ShardLoomClient(binary=binary).vortex_ingest_smoke(
             "target/source.csv",
             "target/source.vortex",
+            input_format="csv",
             allow_overwrite=True,
         )
 
@@ -3510,7 +3513,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     from pathlib import Path
 
                     count_path = Path({str(count_path)!r})
-                    counts = json.loads(count_path.read_text(encoding="utf-8")) if count_path.exists() else {{"prepare": 0, "batch": 0}}
+                    counts = json.loads(count_path.read_text(encoding="utf-8")) if count_path.exists() else {{"prepare": 0, "batch": 0, "repair": 0}}
 
                     def emit(command, fields):
                         print(json.dumps({{
@@ -3580,6 +3583,45 @@ class ShardLoomClientTests(unittest.TestCase):
                             "all_native_io_certificates_certified": "true",
                             "result_sink_requested": "false",
                             "all_result_sink_replays_verified": "false",
+                            "fallback_attempted": "false",
+                            "external_engine_invoked": "false",
+                        }})
+                    elif command == "vortex-ingest-smoke":
+                        counts["repair"] += 1
+                        count_path.write_text(json.dumps(counts), encoding="utf-8")
+                        assert sys.argv[2] == {str(fact)!r}, sys.argv
+                        assert sys.argv[3] == str(Path({str(workspace / "fact.vortex")!r}).resolve(strict=False)), sys.argv
+                        assert sys.argv[4:] == [
+                            "--input-format",
+                            "csv",
+                            "--allow-overwrite",
+                            "--format",
+                            "json",
+                        ], sys.argv
+                        Path(sys.argv[3]).write_text(f"fact artifact repaired {{counts['repair']}}", encoding="utf-8")
+                        emit(command, {{
+                            "source_path": sys.argv[2],
+                            "target_vortex_path": sys.argv[3],
+                            "source_format": "csv",
+                            "source_state_id": f"source-state://repair-{{counts['repair']}}",
+                            "source_state_digest": f"sha256:repair-source-{{counts['repair']}}",
+                            "vortex_ingest_status": "prepared_state_created",
+                            "prepared_state_id": f"prepared-state://repair-{{counts['repair']}}",
+                            "prepared_state_digest": f"sha256:repair-prepared-{{counts['repair']}}",
+                            "vortex_artifact_digest": f"sha256:repair-artifact-{{counts['repair']}}",
+                            "source_to_columnar_millis": "2",
+                            "vortex_array_build_millis": "3",
+                            "vortex_write_millis": "4",
+                            "vortex_reopen_verify_millis": "5",
+                            "input_row_count": "1",
+                            "writer_row_count": "1",
+                            "reopen_row_count": "1",
+                            "reopen_verification_status": "reopen_row_count_verified",
+                            "certification_level": "ingest_certified",
+                            "certification_status": "fixture_smoke_certified",
+                            "source_io_performed": "true",
+                            "prepared_state_created": "true",
+                            "claim_gate_status": "fixture_smoke_only",
                             "fallback_attempted": "false",
                             "external_engine_invoked": "false",
                         }})
@@ -3684,7 +3726,7 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertFalse(second.external_engine_invoked)
             self.assertEqual(
                 json.loads(count_path.read_text(encoding="utf-8")),
-                {"prepare": 1, "batch": 1},
+                {"prepare": 1, "batch": 1, "repair": 0},
             )
             self.assertTrue((workspace / ".shardloom" / "prepared-state-index.json").exists())
 
@@ -3702,11 +3744,65 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertFalse(third.prepared_state_reuse_hit)
             self.assertEqual(
                 third.prepared_state_reuse_reason,
-                "fact_input_fingerprint_changed",
+                "role_scoped_repair_completed",
+            )
+            self.assertEqual(
+                third.batch.field("prepare_batch_prepared_state_dependency_status"),
+                "manifest_dependencies_repaired",
+            )
+            self.assertEqual(
+                third.batch.field("prepare_batch_prepared_state_dependency_changed_roles"),
+                "fact_input",
+            )
+            self.assertEqual(
+                third.batch.field("prepare_batch_prepared_state_partial_repair_status"),
+                "admitted_role_repair_completed",
+            )
+            self.assertEqual(
+                third.batch.field("prepare_batch_prepared_state_partial_repair_reused_roles"),
+                "dim_input",
+            )
+            self.assertEqual(
+                third.batch.field("prepare_batch_prepared_state_partial_repair_repaired_roles"),
+                "fact_input",
+            )
+            self.assertEqual(
+                third.batch.field("prepare_batch_source_to_columnar_micros"),
+                "2000",
+            )
+            self.assertEqual(
+                third.batch.field("prepare_batch_vortex_array_build_micros"),
+                "3000",
+            )
+            self.assertEqual(
+                third.batch.field("prepare_batch_vortex_write_micros"),
+                "4000",
+            )
+            self.assertEqual(
+                third.batch.field("prepare_batch_vortex_reopen_verify_micros"),
+                "5000",
+            )
+            self.assertEqual(
+                third.batch.field(
+                    "prepare_batch_prepared_state_partial_repair_vortex_write_micros"
+                ),
+                "4000",
+            )
+            self.assertEqual(
+                third.batch.field(
+                    "prepare_batch_prepared_state_partial_repair_regeneration_performed"
+                ),
+                "true",
+            )
+            self.assertEqual(
+                third.batch.field(
+                    "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed"
+                ),
+                "false",
             )
             self.assertEqual(
                 json.loads(count_path.read_text(encoding="utf-8")),
-                {"prepare": 2, "batch": 1},
+                {"prepare": 1, "batch": 2, "repair": 1},
             )
 
     def test_context_session_reuses_prepared_vortex_state_when_fingerprints_match(

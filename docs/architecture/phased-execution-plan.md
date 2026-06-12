@@ -220,6 +220,54 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 - Claim boundary: these numbers are current local benchmark evidence and optimization direction,
   not performance, production, Spark-displacement, superiority, or package-release claims.
 
+Lane-to-design mapping from the 1,200 ShardLoom-family rows:
+
+- `PERF-DESIGN-1` and `PERF-DESIGN-5`: `cold_certified_route` hot rows remain the slowest
+  ShardLoom lane; JSONL rows reach `219.49 ms` hot route total and the cold lane averages about
+  `37.48 ms` `source_parse_or_columnar_decode_ms` plus `23.86 ms` `vortex_write_ms`. The global
+  design change is to make SourceState and VortexPreparedState reuse the normal steady-state route,
+  so unchanged raw compatibility inputs do not repeatedly parse, decode, write, reopen, or verify
+  the same prepared artifact.
+- `PERF-DESIGN-6`: `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`, and
+  `source_read_scout_timing` are measured optimization targets, with JSONL parse/decode averaging
+  about `51.02 ms` across the diagnostic target rows and AVRO still showing outlier decode/import
+  tails. The global design change is to split source adapters into projection-aware scout, byte
+  acquisition, typed decode, row assembly, and columnar handoff stages, avoiding unused column
+  construction before Vortex preparation.
+- `PERF-DESIGN-4`: native Vortex, warm-prepared, prepare-once-batch, and
+  prepare-once-first-query hot lanes are query-scale once prepared, but their rows still expose
+  `cli_process_wall_millis` around `34-40 ms` through the benchmark/Python harness. The global
+  design change is to move repeated user workflows and benchmark groups onto caller-owned
+  in-process sessions, with process-spawn counts and cleanup evidence reported separately from hot
+  route totals.
+- `PERF-DESIGN-5`: `vortex_write_and_reopen_verify` remains a measured target across cold/prepare
+  rows, with nonzero Vortex write timing in `240` hot rows and p95 around `29.60 ms`. The global
+  design change is to optimize the Vortex preparation spine around writer-context reuse,
+  segment/write coalescing, metadata-first reopen verification, copy-budget accounting, and
+  buffer-pool reuse without weakening Native I/O proof.
+- `PERF-DESIGN-2`: all hot/runtime ShardLoom rows still report `residual_native` or
+  `materialized_temporary` operator posture, and the highest operator families are multi-key group
+  by, nested JSON scan, high-cardinality string group/distinct, join+aggregate, and group-by
+  aggregation. The global design change is to promote the highest-value family to encoded-native
+  execution with decoded-reference parity, while keeping residual operator timing diagnostic until
+  inclusion-aware route attribution is coherent.
+- `PERF-DESIGN-3`: `publication_proof` rows intentionally include result-sink and evidence-render
+  work; prepared publication rows are slower than hot-runtime rows because they do more proof/output
+  work. The global design change is to add an incremental publication-proof artifact path so
+  unchanged sink/replay/evidence records can be reused while keeping proof totals separate from
+  hot-runtime totals.
+
+Timing aggregation guardrail:
+
+- Route optimization analysis must group by `(route_lane_id, timing_surface)` and honor
+  `route_timing_stage_inclusion_classes` before ranking stages. Diagnostic stage fields may remain
+  present on a row even when excluded from the selected surface; they must not silently redefine hot
+  runtime totals or trigger a performance claim.
+- The generated review command for this mapping is:
+  `python3 scripts/check_benchmark_optimization_targets.py --artifact website-public/assets/benchmarks/latest/benchmark-results.json --output target/benchmark-optimization-targets-review.json --top-n 12`.
+  The report is diagnostic evidence only and does not authorize public performance, production,
+  package-release, or Spark-displacement claims.
+
 ### PERF-DESIGN-1 - Prepared-source and compatibility-ingest amortization design
 
 - Source: PR #1174 promoted artifact route timing; `website/assets/benchmarks/latest/benchmark-results.json`;
