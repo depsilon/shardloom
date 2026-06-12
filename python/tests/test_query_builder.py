@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import shardloom as sl
 from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext
+from shardloom.query import _rewrite_predicate_with_computed_columns
 
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     """
@@ -10133,6 +10134,25 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_computed_column_filter_rewrite_preserves_expression_precedence(self) -> None:
+        rewritten = _rewrite_predicate_with_computed_columns(
+            "gross >= 40",
+            (("gross", "(amount + tax) * 2"),),
+        )
+
+        self.assertEqual(rewritten, "((amount + tax) * 2) >= 40")
+
+    def test_computed_column_filter_rewrite_expands_chained_aliases(self) -> None:
+        rewritten = _rewrite_predicate_with_computed_columns(
+            "gross >= 40",
+            (
+                ("net", "amount + tax"),
+                ("gross", "net * 2"),
+            ),
+        )
+
+        self.assertEqual(rewritten, "((amount + tax) * 2) >= 40")
 
     def test_local_csv_query_builder_generic_expression_filter_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(

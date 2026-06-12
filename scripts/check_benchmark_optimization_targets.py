@@ -160,36 +160,61 @@ def hot_shardloom_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [row for row in rows if is_shardloom_row(row) and is_hot_runtime_row(row)]
 
 
-def chunked_published_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+def chunked_published_rows(
+    payload: dict[str, Any],
+    *,
+    repo_root: Path = ROOT,
+) -> tuple[list[dict[str, Any]], list[str]]:
     chunks = payload.get("published_benchmark_row_chunks")
     if not isinstance(chunks, list):
-        return []
+        return [], ["summary-only benchmark artifact missing published_benchmark_row_chunks"]
     rows: list[dict[str, Any]] = []
-    for chunk in chunks:
+    blockers: list[str] = []
+    for index, chunk in enumerate(chunks):
         if not isinstance(chunk, dict):
+            blockers.append(f"benchmark row chunk {index} has invalid shape")
             continue
         path_text = chunk.get("path")
         if not isinstance(path_text, str) or not path_text:
+            blockers.append(f"benchmark row chunk {index} missing path")
             continue
-        path = ROOT / path_text
+        path = resolve_path(repo_root, Path(path_text))
         if not path.exists():
+            blockers.append(f"declared benchmark row chunk missing: {path_text}")
             continue
         chunk_payload = load_json(path)
         chunk_rows = (
             chunk_payload.get("rows") if isinstance(chunk_payload, dict) else chunk_payload
         )
         if isinstance(chunk_rows, list):
-            rows.extend(row for row in chunk_rows if isinstance(row, dict))
-    return rows
+            valid_rows = [row for row in chunk_rows if isinstance(row, dict)]
+            declared_row_count = chunk.get("row_count")
+            if isinstance(declared_row_count, int) and declared_row_count != len(valid_rows):
+                blockers.append(
+                    f"benchmark row chunk {index} row_count mismatch: "
+                    f"declared {declared_row_count}, loaded {len(valid_rows)}"
+                )
+            rows.extend(valid_rows)
+        else:
+            blockers.append(f"benchmark row chunk {index} missing rows list")
+    published_count = payload.get("published_benchmark_row_count")
+    if isinstance(published_count, int) and rows and len(rows) != published_count:
+        blockers.append(
+            "published_benchmark_row_count mismatch: "
+            f"declared {published_count}, loaded {len(rows)}"
+        )
+    return rows, blockers
 
 
-def published_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+def published_rows(
+    payload: dict[str, Any],
+    *,
+    repo_root: Path = ROOT,
+) -> tuple[list[dict[str, Any]], list[str]]:
     if str(payload.get("published_benchmark_rows_inlined") or "") == "summary_only":
-        rows = chunked_published_rows(payload)
-        if rows:
-            return rows
+        return chunked_published_rows(payload, repo_root=repo_root)
     rows = payload.get("published_benchmark_rows") or payload.get("rows") or []
-    return [row for row in rows if isinstance(row, dict)]
+    return [row for row in rows if isinstance(row, dict)], []
 
 
 def row_identity(row: dict[str, Any]) -> dict[str, Any]:
@@ -424,10 +449,18 @@ def validate_rows(rows: list[dict[str, Any]]) -> list[str]:
     return blockers
 
 
-def build_report(artifact_path: Path, *, top_n: int = DEFAULT_TOP_N) -> dict[str, Any]:
+def build_report(
+    artifact_path: Path,
+    *,
+    top_n: int = DEFAULT_TOP_N,
+    repo_root: Path = ROOT,
+) -> dict[str, Any]:
     payload = load_json(artifact_path)
-    rows = published_rows(payload if isinstance(payload, dict) else {})
-    blockers = validate_rows(rows)
+    rows, row_blockers = published_rows(
+        payload if isinstance(payload, dict) else {},
+        repo_root=repo_root,
+    )
+    blockers = [*row_blockers, *validate_rows(rows)]
     hot_rows = hot_shardloom_rows(rows)
     publication_rows = [
         row
@@ -486,7 +519,7 @@ def main() -> int:
     repo_root = args.repo_root.resolve()
     artifact = resolve_path(repo_root, args.artifact)
     output = resolve_path(repo_root, args.output)
-    report = build_report(artifact, top_n=args.top_n)
+    report = build_report(artifact, top_n=args.top_n, repo_root=repo_root)
     write_json(output, report)
     print(output)
     return 0 if report["status"] == "passed" else 1

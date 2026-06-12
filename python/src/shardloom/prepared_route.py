@@ -1032,6 +1032,16 @@ class CompatibilityPreparedVortexRoute:
             return "prepare_policy_changed_requires_full_prepare"
         if manifest_payload.get("schema_version") != _REUSE_MANIFEST_SCHEMA_VERSION:
             return "reuse_manifest_schema_mismatch_requires_full_prepare"
+        manifest_digest = str(manifest_payload.get("manifest_digest") or "")
+        expected_manifest_digest = _stable_json_digest(
+            {
+                str(key): value
+                for key, value in manifest_payload.items()
+                if key != "manifest_digest"
+            }
+        )
+        if manifest_digest != expected_manifest_digest:
+            return "reuse_manifest_digest_mismatch_requires_full_prepare"
         if manifest_payload.get("fallback_attempted") is True:
             return "reuse_manifest_fallback_attempted_requires_full_prepare"
         if manifest_payload.get("external_engine_invoked") is True:

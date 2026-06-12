@@ -773,9 +773,6 @@ def main() -> int:
         repo_root / "docs/use-cases/generated",
     ]
     duplicate_cleanup_paths: list[str] = []
-    duplicate_cleanup_paths.extend(
-        cleanup_duplicate_suffixed_artifacts(generated_artifact_roots, repo_root)
-    )
 
     for page in EXPECTED_PAGES:
         path = website / page
@@ -794,10 +791,6 @@ def main() -> int:
     for blocker in validate_runtime_promotion_evidence(repo_root=repo_root):
         blockers.append(f"runtime promotion evidence: {blocker}")
 
-    duplicate_cleanup_paths.extend(
-        cleanup_duplicate_suffixed_artifacts(generated_artifact_roots, repo_root)
-    )
-
     for page in website.rglob("*.html"):
         if not page.is_file() or page.name == "validate_static_assets.js":
             continue
@@ -807,9 +800,6 @@ def main() -> int:
         if not (website / asset).exists():
             blockers.append(f"missing expected asset: {asset}")
     check_cloudflare_asset_sizes(website, repo_root, blockers)
-    duplicate_cleanup_paths.extend(
-        cleanup_duplicate_suffixed_artifacts(generated_artifact_roots, repo_root)
-    )
     check_duplicate_suffixed_artifacts(
         generated_artifact_roots,
         repo_root,

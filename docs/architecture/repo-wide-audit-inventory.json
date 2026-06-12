@@ -1,9 +1,9 @@
 {
   "boundary_owner_counts": {
-    "architecture_docs_policy": 272,
+    "architecture_docs_policy": 273,
     "ci_release_governance": 6,
-    "runtime_tests_tools": 393,
-    "website_public_surface": 321,
+    "runtime_tests_tools": 398,
+    "website_public_surface": 233,
     "website_validation": 1,
     "workspace_package_policy": 5
   },
@@ -148,11 +148,11 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 321,
+      "line_count": 334,
       "path": "README.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "cf3d5191539a30ded69bf983c4af9b18874bab37ee5df38fe29503c0ac771f07"
+      "sha256": "a4ef95de4a3e3230ee1a253b85b7b8cd9a32cbb5735a9f35183c0b3becebd68f"
     },
     {
       "boundary_owner": "workspace_package_policy",
@@ -256,11 +256,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 27299,
+      "line_count": 28070,
       "path": "benchmarks/traditional_analytics/run.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "4cbbf988962ce8fb5cadb035999d8e1e440c5f96837d661ea16a6d1a51fbfc7d"
+      "sha256": "d6308b47984c1641980d7a02a46605f5bfa485dd92b0c707781a75950b9ee63c"
     },
     {
       "boundary_owner": "workspace_package_policy",
@@ -400,11 +400,11 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 173,
+      "line_count": 190,
       "path": "docs/architecture/cold-ingestion-preparation-research-carryforward.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "2a38424da695698b5f5529322fc1471fb7a2cc4f407392df215fb76137d87df4"
+      "sha256": "d4fcdd193ae9d194599a87200ebd47a26ec2a86ad23945ddfecf48535acb6168"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -679,29 +679,29 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 925,
+      "line_count": 1172,
       "path": "docs/architecture/performance-attribution-and-execution-structure.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "a93375991bd43c27ff82d0b0d4dea8096caa3c9f3a20edb7cc95f8d3b71005d4"
+      "sha256": "159e5b50990bc75b131f8b5383c0df0d4e2f5a45d559ddf684196c18c3a1de2e"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 41521,
+      "line_count": 41976,
       "path": "docs/architecture/phased-execution-completed-ledger.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "da47188b105acdd70bd9e98fbf3a9ae9d194d10f576687a2035007975daeffea"
+      "sha256": "75df7bda83be82d6bf0f3d2995e4a11cbd5bf76ebc685a5bf717031b67dbe38e"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 448,
+      "line_count": 419,
       "path": "docs/architecture/phased-execution-plan.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "064803d7756bce0195d30cdffba27ec563062144978a54b979d6bfb96db7798f"
+      "sha256": "cb381fa40ea677be79193a626ca27175943a3db0ca2038abfd7f5e1058bf999b"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -746,7 +746,7 @@
       "path": "docs/architecture/repo-wide-audit-inventory.json",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "dc7f90df41c6abb18fbffa7731a61e9f98289aeaaf83df58d265bf663867c834"
+      "sha256": "8eb52fec18e20b38a588ff5948ff1df6711b551e9d4b5854055a073fdf0f2086"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -967,11 +967,11 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 210,
+      "line_count": 237,
       "path": "docs/architecture/universal-input-contract.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "28b6933a6b66c9155ed7804f5808f6a8e29cdc2caa1bf5d2d2f32cb69f4b9351"
+      "sha256": "af943f7fa5b77c5f8afa24982596e2374fe2e761c4afb30cdc2241184e30630f"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -1030,11 +1030,20 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 114,
+      "line_count": 55,
+      "path": "docs/architecture/website-clean-slate-ia.md",
+      "review_state": "reviewed",
+      "section": "Architecture/Documentation",
+      "sha256": "f2f0317ce964ff834a26578cb9addf9e5a2f3bfe67cd91d3558e6163cef96521"
+    },
+    {
+      "boundary_owner": "architecture_docs_policy",
+      "file_kind": "documentation",
+      "line_count": 113,
       "path": "docs/architecture/website-current-state-public-reference.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "e106569cdb1134c826bab5e7b14e6265341a38adfe1b509e64f4f26c73ab4a54"
+      "sha256": "6ba6c8dc76bc8a8595d29138ae88ddc11683d5e64ec028bf6e46fc23684b6757"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -1498,20 +1507,20 @@
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 120,
+      "line_count": 123,
       "path": "docs/release/website-atlas-public-readiness.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "71c9d2776ddcbfeffe64addf0c57ff74430ce14fa314b80e359b55696b8c47fe"
+      "sha256": "23be2248ac74c06c7eab09e94beb42aa85fdfd5fe6609b6cafa9c392b8eebd16"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "documentation",
-      "line_count": 100,
+      "line_count": 97,
       "path": "docs/release/website-public-post-readiness.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "0f12b7046c2bbc6a3027e4e6f326c4287f700a0e974b404412c36db9ab2243e2"
+      "sha256": "4920d783db9e4f382d7129c64e6cf7c13ad1c7406bbb0ae9e4929fd7c42e1aca"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2339,16 +2348,16 @@
       "path": "docs/status/golden-workflow-validator.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "42fef52f777983c60cd5c6ada70f1052d6c038e7107b9d35ddc27e5462cad6b8"
+      "sha256": "de79b77dc45503a79209f6f6b5ae0cc45a53073124f3f4f085f43965878e5d6b"
     },
     {
       "boundary_owner": "architecture_docs_policy",
       "file_kind": "structured_config_or_data",
-      "line_count": 1021,
+      "line_count": 1049,
       "path": "docs/status/runs-today-support-matrix.json",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "dc74859da4d40a5463d539243c1770d660a97031e33a3bed7e2fb7ed2c4d8f58"
+      "sha256": "07f7d50996992413bca2a332bcd968b7c34947657b6b12d20e7dcff63c0959c2"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2393,7 +2402,7 @@
       "path": "docs/use-cases/generated/benchmark-interpretation-evidence-not-leaderboard.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "fba544cf9697355aadb8883fdf1a79fb628e21c1081cc293ce0257402e242643"
+      "sha256": "bbd3f6ad238e23b6d2c8fa4ad3e5d4b93a8403d54ef5e1ea90ca65b594683b6e"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2402,7 +2411,7 @@
       "path": "docs/use-cases/generated/compatibility-import-certified-local.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "4aa3ece4c9b7734e283215703d9b989745d77df44eb9239f4b449714c27d7298"
+      "sha256": "d0376d9a3226c0e9a661fdfd950dc183ee0b03d11865af24ff296ea7c59a78f0"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2411,7 +2420,7 @@
       "path": "docs/use-cases/generated/evidence-audit-claim-gates.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "d59cdf328c3b221178bceef01d89f27983e4c88d293eef9b599055dc8c4ab58a"
+      "sha256": "aaa481ed78d2f71d87e79839ae5b17f520c919efeea9c15492920d12a92fa8e1"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2420,7 +2429,7 @@
       "path": "docs/use-cases/generated/first-10-minutes-local-smoke.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "595a4e36d0e6b1315412b02aa4a14b9b1cf20c7d68fd72a39ecadf1cc1fdcbfd"
+      "sha256": "03e4dcd814d1c9fb3ff52d991b5135da1f92d6ad03c9895056fd039d18d7f458"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2429,7 +2438,7 @@
       "path": "docs/use-cases/generated/foundry-local-proof-boundary.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "c9e9601f0403ae72e452dd0349603d6ff3c9746c7415eeae125700b7f06505c1"
+      "sha256": "65a04743f48ce0690b1070e0772eca06687dbcd0a2aa56b672ef245df87261d0"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2438,7 +2447,7 @@
       "path": "docs/use-cases/generated/local-file-etl-cleanup-smoke.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "76c8d14e72cc20e30c4c0d950b607d8996bd851771720b952a2c8afa3a1fc5ef"
+      "sha256": "dbb5cc3148bf55f7299d600780beab1e070029413a195684f8ca7498707fac21"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2447,7 +2456,7 @@
       "path": "docs/use-cases/generated/local-sqlite-udf-effectful-boundary.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "de55187d84e82b448c6c55dcd7f57540915e0cab5008e0b4b83c2ebc3edb54ee"
+      "sha256": "ec37ace5b73c563f8e8b8fdaf9368fb4e0f6ca0b7215b7dd0bf62c3a92a94d65"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2456,7 +2465,7 @@
       "path": "docs/use-cases/generated/local-table-append-commit-rehearsal-smoke.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "bc4403afb6433848913eec410f35cd85e3269d3c3f245d1fef358ce3633b43e9"
+      "sha256": "d982cc506cb7c810950931166671ceacbadcef7ddb13d5f790e21e96cca11861"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2465,7 +2474,7 @@
       "path": "docs/use-cases/generated/messy-data-local-fixtures.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "be45da3c227a95830bdf9dd6f3f8162f084a1da88624ae533ffd62e12e490f13"
+      "sha256": "e983ead6e286cd8880df1dfe73e093a451707a65f4a07e10db1cd56de1d7f715"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2474,7 +2483,7 @@
       "path": "docs/use-cases/generated/object-store-boundary-report.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "c567f475e9a0cdf4fd321f46fc49b20b9b2c6293bcbcc3275965380bce31f4fa"
+      "sha256": "5f7d68a10eef995b2fa552a07f3279344bb50f1b2b90daa5dcdd935a7ab16fc5"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2483,7 +2492,7 @@
       "path": "docs/use-cases/generated/object-store-local-emulator-read-smoke.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "914ec5939fba22880dbcb15ae9cbf6ac0fd71ec708c7ef99bfe7b14440a95180"
+      "sha256": "5d542cf9dd789a180601c9981572255c972f4a3fd0b68238c44671ac33476992"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2492,7 +2501,7 @@
       "path": "docs/use-cases/generated/object-store-local-emulator-write-smoke.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "3af59f78d77250af40418885f4c077868067cfffaa28f91b2d0221bf9a042ffc"
+      "sha256": "13aad90db8b026ed1cfe82cb6c0fe06e3eb8c1417ab0f31fb3dd84d53ebb1716"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2501,7 +2510,7 @@
       "path": "docs/use-cases/generated/object-store-public-no-credential-fixture-read-smoke.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "3e8aeb54cc66acafbeac215109fc17174d68bc44681d1b37eb8db7d7ec2b173b"
+      "sha256": "dce11cee120594433e95614944f3cf9cf40c201d85d9466b536a9b780af8f632"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2510,7 +2519,7 @@
       "path": "docs/use-cases/generated/output-result-sink-and-fanout-boundary.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "21bc5db35a6c95699c99ae4c323a1c59d6e46cc62abebd0ae63dc85ed40fb199"
+      "sha256": "f3c3f61bd39cf9195ebb4290ae900e363f152ddcf503401a10429e6ac8cf758b"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2519,7 +2528,7 @@
       "path": "docs/use-cases/generated/package-channel-readiness-boundary.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "6d3b87f85c73cddfbcdbf86fea6878724e34d3f2f4321b85ee27c130016d8327"
+      "sha256": "b0f9773aa85cf2ebb6b462875cd8c0ed03f17478b0274d969edd9dfd441548e4"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2528,7 +2537,7 @@
       "path": "docs/use-cases/generated/prepared-native-vortex-runtime-direction.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "2e7abdd3d279e652dfb55592a96fced0c291b6e55f13ad2ea411782cfbb5e917"
+      "sha256": "5cceaf65d48ece10397cc00649febec4ec4aa0f5132baf525bf365be575e9b30"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2537,7 +2546,7 @@
       "path": "docs/use-cases/generated/python-local-csv-query-builder-smoke.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "e8533af901f950bb4d4460546fb8593ad77532c7322feca76523f554658f6035"
+      "sha256": "5e6618a92d2579ff930322a5bf76da0e60b08ecd1b818522ab0e78613ebb4b83"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2546,7 +2555,7 @@
       "path": "docs/use-cases/generated/python-wrapper-client-smoke.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "ee7ccde833e4ec0fae540602a1fc1cb3eb079315377557da2e245919c8fe5fc9"
+      "sha256": "c035e9e0140e21ec77a6bbe8293746db268921301fd926300f63561a284a0ce4"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2555,7 +2564,7 @@
       "path": "docs/use-cases/generated/query-scenario-cookbook-smoke.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "7d6c109eb0eed6fd56f945fc98360a6326271e4b44983619fe806e210d26f57f"
+      "sha256": "8f10ddcfa547464affd95c9128543dccd9246363db02d140544a22684936e2d2"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2564,7 +2573,7 @@
       "path": "docs/use-cases/generated/source-free-generated-output-boundary.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "9b95b10044afdbd7fb6e550b4d8314d7878bfcf45b94617d07574c0d71687da3"
+      "sha256": "1c1f54d075a31fe437e4a5bd483285d7cf4c3a0e2bf4a6c62433db255bf22bc0"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2573,7 +2582,7 @@
       "path": "docs/use-cases/generated/sql-dataframe-capability-posture.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "817fa2b649844994b8bfc49e6f93352037542f9061ade07ac90cf7c438eeed56"
+      "sha256": "27bbe66a28a347b3d1735be02fdd8f969e6c355feeeb7e8f7878468fb69e5012"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2582,7 +2591,7 @@
       "path": "docs/use-cases/generated/sql-local-source-csv-smoke.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "d4c9c02a10c5fb8553c4e9dc1ebbc3c1a741fe574a094c1162c43d8696b10779"
+      "sha256": "b0886a134d46e6305ece6deee9592304a3fd167b49dbe3fcd7748c7d73d0991d"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2591,7 +2600,7 @@
       "path": "docs/use-cases/generated/table-lakehouse-boundary-report.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "65c42ecf4a24124cc17250d76a74745abc2017ee3f15147abdd5c3f0d5ebd476"
+      "sha256": "51b201f7de10293e607d347ccf76b737e9865a6cdb1ed3b6301a059a77e2daba"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2600,7 +2609,7 @@
       "path": "docs/use-cases/generated/vortex-ingest-prepare-once-local.md",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "e018030283814e20b260cb5ad0fb75299e3b7051f057373b0a6b7b3bf5649aff"
+      "sha256": "c29f9766bfa7c451314dbb89cf72b53c1c8b512e99846d4f0806c7eb72097e5b"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -2709,6 +2718,33 @@
       "review_state": "reviewed",
       "section": "Shardloom Code",
       "sha256": "5c8fa49462cc377a3707da5604491982747263af51e8fbd93f95a1c7d93a7ac9"
+    },
+    {
+      "boundary_owner": "runtime_tests_tools",
+      "file_kind": "python",
+      "line_count": 78,
+      "path": "examples/local-python-benchmark-scenarios/run.py",
+      "review_state": "reviewed",
+      "section": "Shardloom Code",
+      "sha256": "4537ba090c15a01052f00b93400e414004abc4cf9140442e26bd5c407090daee"
+    },
+    {
+      "boundary_owner": "runtime_tests_tools",
+      "file_kind": "python",
+      "line_count": 422,
+      "path": "examples/local-python-benchmark-scenarios/scenario_support.py",
+      "review_state": "reviewed",
+      "section": "Shardloom Code",
+      "sha256": "4d8c9b5880c003ab6b0365cb24b773fd914f2470f4521276b6aa588948b9e480"
+    },
+    {
+      "boundary_owner": "runtime_tests_tools",
+      "file_kind": "python",
+      "line_count": 92,
+      "path": "examples/local-python-benchmark-scenarios/timing_review.py",
+      "review_state": "reviewed",
+      "section": "Shardloom Code",
+      "sha256": "4b7e4edacdfe41e03a1463a58ee33d47b06be6533a377ed69df0803335521a09"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -2983,11 +3019,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 13069,
+      "line_count": 13084,
       "path": "python/src/shardloom/client.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "9020ebb3e220a6037f0d0e56ad6b070cbe6733af140e4c2e3ba8aff49a98cd09"
+      "sha256": "891578cdfa838ffc745a4db33e54263b8535a9dc30ee4f1934b12ae71954ea39"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3010,11 +3046,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 1413,
+      "line_count": 1422,
       "path": "python/src/shardloom/models.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "a7387ead9207baa181f0d1c656e5a2f09611cfaa15fb6f55a8ce3f1125d4c20d"
+      "sha256": "e509378788c87d4860c04e3bfd46be9dad6ca1eca379925d388e211817b54b39"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3028,11 +3064,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 1557,
+      "line_count": 2089,
       "path": "python/src/shardloom/prepared_route.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "f07a44ca87e75afcd8c8271fdb16001ae01ca368e93b4388a5235dafd81874f8"
+      "sha256": "0bf5d3284798413c2d1d95c7fd4a0f7d117ea9a4faa4d2eb3e877212381261d9"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3046,11 +3082,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 11327,
+      "line_count": 11417,
       "path": "python/src/shardloom/query.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "1fe12cb0ae8fedcf07c1f1dc3b052ea0700754cf648adf1b90a1aa77cfe998d8"
+      "sha256": "f3edd96447639e662d5ea03cb99980671539818aa714508474e844dbb731679e"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3082,11 +3118,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 11846,
+      "line_count": 11951,
       "path": "python/tests/test_cli_client.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "9f93ca5195d024538a07756265b3c98753e9659546ddfe4afc28ca277d76eafc"
+      "sha256": "6c769796fbe7491b951d5b4d43e155437e5f5088421d92b2f2426f2afcb1e0b5"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3109,20 +3145,20 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 57,
+      "line_count": 219,
       "path": "python/tests/test_prepared_route.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "de8b8919364061dc4ceb638aa35fe712021d9af18f068b699bbc062ba1183917"
+      "sha256": "08c66a4ed9fa85ab7fc05ba0a90e4311f2483b18a7e9e98a41ea2025fc8d5e2a"
     },
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 17516,
+      "line_count": 17623,
       "path": "python/tests/test_query_builder.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "673fd77911dd92f9302a2ef1a8f2bc148849768090e9b1ea6bb808b2fe136c34"
+      "sha256": "38c4c4b497cd6525b44c0a61ea20723265d1a3e8645933c27c9fa67c6fedcb14"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3136,11 +3172,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 6881,
+      "line_count": 8258,
       "path": "python/tests/test_release_scripts.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "f709c16efe53e1d6622b24ba15969c222dc7c547ad8ca860130583ce79c77dd3"
+      "sha256": "791f9ba4ffa52c77c42e1531ce4509fd2b5c91613c5c1d48170eace85504aa74"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3208,11 +3244,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 1946,
+      "line_count": 2045,
       "path": "scripts/check_benchmark_artifact_completeness.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "73880ffac0f3df88b2a0de936a6806efddd6c85b744adf63e1ecbd3b08777b67"
+      "sha256": "22547a8bfd0e47b60978a173892bcd7314550953b38c702182eff6a94e575062"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3235,11 +3271,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 344,
+      "line_count": 529,
       "path": "scripts/check_benchmark_optimization_targets.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "6a256e02dbfade7cc439f131ded40cba6f7f693f16cd988f18889e059f12ff52"
+      "sha256": "c4c48147d3a82a03ec127561c3e2928801c7645125b217377cbd2badd411c2dc"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3343,11 +3379,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 1152,
+      "line_count": 1149,
       "path": "scripts/check_golden_workflows.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "4c5279bbb88132196353d5c906ad0804b2aca1711d8bacc4c9cf69e3fb5e3bf5"
+      "sha256": "ef465b2f3262dfabe9d00c16590591bde8af5999cb2f1967bc34b7069328ade1"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3370,6 +3406,15 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
+      "line_count": 359,
+      "path": "scripts/check_prepare_batch_role_repair_evidence.py",
+      "review_state": "reviewed",
+      "section": "Shardloom Code",
+      "sha256": "2d562d1b7e3e5fbac3a05db49090b7389a698bce0639cc8c0da6eed8f322df45"
+    },
+    {
+      "boundary_owner": "runtime_tests_tools",
+      "file_kind": "python",
       "line_count": 794,
       "path": "scripts/check_production_usability_gate.py",
       "review_state": "reviewed",
@@ -3388,11 +3433,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 1052,
+      "line_count": 1053,
       "path": "scripts/check_python_user_surface_completion.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "b5879c19cdc589da0369dab25f68c7f3fc8db693137e348e3d0837f449294d13"
+      "sha256": "c10a3a9c034c7a8509d4276085b0cb8bcbe947b2ca118b57c78ad15e3f93866f"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3451,11 +3496,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 392,
+      "line_count": 400,
       "path": "scripts/check_runtime_promotion_evidence.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "4c4aa2bfe9331aad09b8db44aa432b7a252b6c8f89f16cf5ea59170a349d0621"
+      "sha256": "6cb18293be1d51a60823c745f763dd730c6cdb25e8b12e31ecb12b88db00e97f"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3487,11 +3532,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 182,
+      "line_count": 165,
       "path": "scripts/check_use_case_backlinks.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "f64b602b861e75d35fde01015c6bf026762df51438fe0aa64626d92b096035f1"
+      "sha256": "7ad4f63ef362c2ecad97c8400a110b012c62b30850284049cd8a788f98364d06"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3550,11 +3595,11 @@
     {
       "boundary_owner": "website_validation",
       "file_kind": "python",
-      "line_count": 1010,
+      "line_count": 1009,
       "path": "scripts/check_website_readiness.py",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "e846d59e0acd51f46c27df2f31e7f9874af273cba59024cd1041e1f4be5a0ce9"
+      "sha256": "bc4cb5157a3cccd91d533cc05e3ade6c2c2306b14578cdae2772c9a4899ce452"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3568,11 +3613,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 232,
+      "line_count": 244,
       "path": "scripts/export_runs_today_support_matrix.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "f4364b586a389df86f50cdd748b7c8d346424d5820160847cf7eba60014163de"
+      "sha256": "d34ee203cba1f83a27aae9a724206f9cd33f9bb5a06a882cd6c8ca0c44212861"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3595,6 +3640,15 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
+      "line_count": 457,
+      "path": "scripts/generate_prepare_batch_role_repair_evidence.py",
+      "review_state": "reviewed",
+      "section": "Shardloom Code",
+      "sha256": "58befd4f7fcfe74d72998a54602e9d8dbb24974b3400c6962ba54f2c3bd8454e"
+    },
+    {
+      "boundary_owner": "runtime_tests_tools",
+      "file_kind": "python",
       "line_count": 163,
       "path": "scripts/merge_python_test_shard_evidence.py",
       "review_state": "reviewed",
@@ -3613,20 +3667,20 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 8586,
+      "line_count": 10231,
       "path": "scripts/promote_benchmark_artifact.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "8104faa2845948ce604f512843a1619b22ca5a121315713617ac585f85ef3290"
+      "sha256": "fc240cb47d7a951459583c99285f6989248de1efed99e224685b2fb5fe91fadf"
     },
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 673,
+      "line_count": 811,
       "path": "scripts/release_dry_run_proof.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "a8e277f6d41ff8b9fba66209b93be49f2ed7eac894223e7ce31db62468bcf97e"
+      "sha256": "77816c32f693f2c897c2ce446ab672264da5174d1e4c3a806caf4cdcd6e14485"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3901,11 +3955,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "rust",
-      "line_count": 51123,
+      "line_count": 51312,
       "path": "shardloom-cli/src/sql_local_source_runtime.rs",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "56d1d2b2e907cd316e6f7c871290596f7cc01746469f4f954a252154495a7fef"
+      "sha256": "56c83adcd30e4fe2fdedb1fe5448368f2536073aa816966796a7b480a29af36e"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3919,11 +3973,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "rust",
-      "line_count": 11653,
+      "line_count": 11652,
       "path": "shardloom-cli/src/status_capabilities.rs",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "4e6c1af078e1837c60e8a706e461fa83f6c5b772ec6b1e345d5f79fc187d67bb"
+      "sha256": "1f3f3aab22123189a7ea5fa3ce8436d192a821a7f32364304d7a739114757708"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -4504,11 +4558,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "rust",
-      "line_count": 13014,
+      "line_count": 13036,
       "path": "shardloom-cli/tests/sql_local_source_runtime_smoke.rs",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "85e9b2b3252ca241d7b2ec3a742c0a081a4e0aa4df4702d4bb41010680ed70e6"
+      "sha256": "3ce4b612a045273c338bace46e6681fbcc0644f33140304651568eb4de740308"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -4801,11 +4855,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "rust",
-      "line_count": 7078,
+      "line_count": 6865,
       "path": "shardloom-contract-tests/tests/release_readiness_metadata.rs",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "7920cf342c48f46fcce960d2ac52c2401debd96327abbc08af88ee92152c5661"
+      "sha256": "916fee435371e29caa29e9d65f9ba0ac18f1e1af5b399fe3d781843bf4e33f6f"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -5998,20 +6052,20 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "rust",
-      "line_count": 45194,
+      "line_count": 48874,
       "path": "shardloom-vortex/src/traditional_analytics.rs",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "090615a195931cff889aa6303d8b9f0f0e0d6fb6be7367427b64724150391364"
+      "sha256": "488d50455ac6ca58b41dac2efc9ed639785ca413e83316f7d7fb6b8b5c51b56f"
     },
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "rust",
-      "line_count": 2961,
+      "line_count": 2954,
       "path": "shardloom-vortex/src/universal_format_io.rs",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "b73817615a8b6d4b54773c945156fc8fe5cb9c3cf8d91d4b9cbb04174125bcdc"
+      "sha256": "a56a22843e5e9b4c0af77d1d761ee9da206f9668aa5a8c3cfcd278a5f200f690"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -6034,11 +6088,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "rust",
-      "line_count": 9633,
+      "line_count": 9634,
       "path": "shardloom-vortex/src/vortex_ingest.rs",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "9ee255def0eabbf34abbdf7810d5c250fc35bfe2e827107c861988a3ade20ca7"
+      "sha256": "33c4a6625cf9b1d17afcc96630c6bf9ecacdf913cd2a49123fe64da247f83e8f"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -6115,137 +6169,155 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 20,
+      "line_count": 25,
       "path": "website-public/_redirects",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "9868b729b607141e766d0f1670b3fbf1d333547e2c4e150aa9cfc43cb0b01733"
+      "sha256": "53197ce8ec48b92b18e76e965bf8a1750dfd3426fffeed1890b92a76adcdad00"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 237899,
+      "line_count": 250208,
       "path": "website-public/assets/benchmarks/latest/benchmark-results.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "cfed4bd4658ce5dcdf47295fdcac4fd128edc22a44d32f4c38f3c681a64ac3c3"
+      "sha256": "55c2e9fe2a5b3e39b6d56ac532a77dc21326d6fa8b857fa25a6546653a9f95fe"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 792,
+      "line_count": 809,
       "path": "website-public/assets/benchmarks/latest/manifest.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "dbd92d79b173b137c0727d7da0c9d9e86c9b09077b1dd451bd872b3511fc2194"
+      "sha256": "4f07aec356b86452818a5d49d8393e2bb854e669e53f234556ce6491206ed6cc"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 80,
-      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/benchmark-row-admission-manifest.json",
+      "line_count": 482,
+      "path": "website-public/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "d0869ded176c0eb1aa7f601a7ec100d7ab3e32e051c4f74994f8514cd9507fc9"
+      "sha256": "6293b0d0eaf9726a54367d0cfb1d23eaecf2684aac529279c90a0586b20a5683"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 198407,
-      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-000.json",
+      "line_count": 15015,
+      "path": "website-public/assets/benchmarks/latest/publication-proof-sidecar.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "8f9535a3ca71997f7d6944bbfd2560d31781aadcb5134b442a7eb861af8297e1"
+      "sha256": "14a7bdee1b884f865e7744c4ddbf039fa69363993e32bec95888ffdcd27edabe"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 221487,
-      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-001.json",
+      "line_count": 69,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/benchmark-row-admission-manifest.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "aadf5922d1a557983307197b82bd286e8cd64418aa7ca8663f0b6daea15c2883"
+      "sha256": "075ae4c7e632c79d69841c75c0ff4871ee9d342287dae02d33b48d47bcceb4d8"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 197887,
-      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-002.json",
+      "line_count": 203007,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-000.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "14dc472df69b891dd3d0977cc1be79a7b2eaae36e3a3bf4696b09cc495c657bb"
+      "sha256": "a190c42444b59a39d992776644dfe16d70def834001f448845ae78a373867bc5"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 175807,
-      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-003.json",
+      "line_count": 226407,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-001.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "34bf21ff15a9834365fde630a4040b551c1bec6c2c9dc5c8a9682a13978a4dd4"
+      "sha256": "ac03884c0dd9cab2641b75f70b49e9a51554d95ae9fffc975c43bdd52e5b3c1b"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 175751,
-      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-004.json",
+      "line_count": 202887,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-002.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "9c8b6a288dab74381537d89c73d94e02e056a8c9e994cdb980d4e0f93054e730"
+      "sha256": "fc9bc2edb1cdf681667d20634977f51b37893d141c712116f49c19c0b536b208"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 175695,
-      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-005.json",
+      "line_count": 180007,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-003.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "b54edf8e6bfaf1cc6deb2f1a21526b2803400b3c8787a76b0c1e1f4e14c3f712"
+      "sha256": "0173790e1adeb57c8cd5d90341a0cd8290c172134736563b975f692ba5ec8ea3"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 199607,
-      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-006.json",
+      "line_count": 179951,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-004.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "6c0a80bec403b081a3c5a2949e59be3a0faa0cd7508bc33246db41f2ed759e9b"
+      "sha256": "463a826b4f35596d849d20c299315961ecf6b09ff897fd926b4de147447baf1d"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 222687,
-      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-007.json",
+      "line_count": 179895,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-005.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "052f9912c581df377e75c791dc08bcb8860ac55dc6fed87d30a05ca465d1d1e4"
+      "sha256": "515c6598195c2a42a883d7354fb56777c35ccb3be41f675dcda165b6fed38d0c"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 231967,
-      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-008.json",
+      "line_count": 204998,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-006.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "1381a8905c01d217b96293a745a8ceecd719b23699ddb6e30f69f44314aad7e6"
+      "sha256": "260fac29ef944190a3efdb6798f4e0e7401254483c3673a358c402c630bec838"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 139807,
-      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-009.json",
+      "line_count": 228410,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-007.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "2e840e061a50720a474e80a73f86c0c248761e0228dae5d0871457bad602e3cf"
+      "sha256": "ff36dd28da0568348f9b0ea239d2c8a23823a1569373be7909a9b54460e8e341"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 237899,
+      "line_count": 238167,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-008.json",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "eef2f2428493995f4571c5f058f8035de963d6f9df21c64bf7dc54939b674859"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": 143938,
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-009.json",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "ba748589fa36c3a6ab3b65e54b8df6f3ca70683f2ab2ee1bc47233b723090e10"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": 250208,
       "path": "website-public/assets/data/benchmark-evidence.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "cfed4bd4658ce5dcdf47295fdcac4fd128edc22a44d32f4c38f3c681a64ac3c3"
+      "sha256": "55c2e9fe2a5b3e39b6d56ac532a77dc21326d6fa8b857fa25a6546653a9f95fe"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6255,24 +6327,6 @@
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "7800dfea70aba31aaff71d7d9c22f1b2de9632dbde408c467b8d87d5243a5114"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1021,
-      "path": "website-public/assets/data/runs-today-support-matrix.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "dc74859da4d40a5463d539243c1770d660a97031e33a3bed7e2fb7ed2c4d8f58"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 2159,
-      "path": "website-public/assets/data/use-case-index.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "e748426d739860a0def7b7b7f7be3e9dcd924b2395ed08df2af68d6b3f430bcd"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6331,38 +6385,38 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 62,
+      "line_count": 17,
       "path": "website-public/sitemap.xml",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "71ab2e7df3d1fe33e9b5e7763567918e614706321ad28bb073041d2109d3c468"
+      "sha256": "6b9e1b1703051497929ccd0c3bc4e950f951448b989f906f9be918da27c1af6b"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 451,
+      "line_count": 454,
       "path": "website-public/validate_static_assets.js",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "48d3fedd91ef407f36f4c1c7699576993360d416f6bbba462497639de1c3be9c"
+      "sha256": "2119d8fb9dfa6ef04cea91e2cf5d2afacf69351484456eb75f4945360832cf70"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 39,
+      "line_count": 37,
       "path": "website-src/README.md",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "e160bce44f844ac7d1bf6ccbf5edfb9316ccdae3d63aaaeaf770ad79ee97d995"
+      "sha256": "1481660405d124bb5394ab87c82bb98d9ef1a445b45ad4c7c79a2a2a41766b63"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 60,
+      "line_count": 83,
       "path": "website-src/astro.config.mjs",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "5b7166be173aa723ba78c18e3a3e736c5048843aa2f9a10c9be86615dee8e2c7"
+      "sha256": "ca71554ce487286c213e3b30593cf3704158009a63b500579e6c3980eba4a42f"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6385,20 +6439,20 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 83,
+      "line_count": 110,
       "path": "website-src/scripts/postbuild-static.mjs",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "b76d9eceba3c0c45922558deae5684b107d7e1deae3146119b7b6888a1ad73ff"
+      "sha256": "0fd362fa66e56a76551b00ce33fe7d0fc03d61be1f453606b4a0e4f24c6e0417"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 370,
+      "line_count": 554,
       "path": "website-src/scripts/sync-content.mjs",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "530d8424fad458e8d35cb244d3fc0314867817400bc9e5837dd0dea7c0a1d693"
+      "sha256": "1967bd86f3fd1c65a2deed8b5385f4e5feecb34a1aa15425dd6e56efda35b571"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6407,34 +6461,16 @@
       "path": "website-src/src/components/ArchitectureContent.astro",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "7e1810c98b9f63d4220158b3856fc14e11eb5d366329c16a0079a590f4a1fcba"
+      "sha256": "fbfc462812720dd76068afd03ca383c1179c4f2524d968baba71b412e563a078"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 682,
+      "line_count": 678,
       "path": "website-src/src/components/BenchmarkDashboard.astro",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "23d26125c8153d1459f14a82637d4923e142da12b24ffd35d57f6a90b9c462c1"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 105,
-      "path": "website-src/src/components/FieldGuideAtlas.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "38e27820286cd63c7af039ef27505e6f4d9fb350c7b934c99f2370befdf49f9f"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 18,
-      "path": "website-src/src/components/ReferenceList.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "e176da278430de626acd671f23de467efe83301d4201e856b45dd9bb720b7c64"
+      "sha256": "76fe4e37c1c62d0b15c2ec59c134f2429e87858379bd774c717481cdfd2d2c87"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6457,38 +6493,11 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 12,
-      "path": "website-src/src/components/StatusChip.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "21816e287b816a1417065f4dfe415e8538a04877d235ca7a419cb9e7e07b296b"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 114,
-      "path": "website-src/src/components/StatusMatrix.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "feef375ad5a6a63c14ee8fadb8aa2e3c8a1f4c7c081e7f92e0e86a4d2349017d"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 61,
-      "path": "website-src/src/components/UseCaseBrowser.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "1e0fbd8232c18a3aa0d9db8271937478b676db8b389e09b9ec66ae08b74da5cd"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 45,
+      "line_count": 7,
       "path": "website-src/src/content.config.ts",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "7d2fc1d5fa454ba7abc93d6b5ae5c9cfac62e215a434a804080d75f337bd4bf9"
+      "sha256": "1f8b206b5f7c0afb44c3715a3fe79954b448885fe9e753ba372dddf1210ecfd5"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6497,7 +6506,16 @@
       "path": "website-src/src/content/docs/field-guide/benchmark-evidence.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "4f28355df3d9b31dc03dbf40ea74b26c1c5046c61f395e6b5799cb5fe60c375e"
+      "sha256": "c62ad2eaf1c41e616b8213353cbe346089251cc6ba6ec77c5abbd37777567ee3"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "website_source",
+      "line_count": 19,
+      "path": "website-src/src/content/docs/field-guide/benchmark-methodology.mdx",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "f1004764cfc241f3ba939183efe133e1aa4ba19ffdd6f7b7c440d9958a3f9aaf"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6506,7 +6524,7 @@
       "path": "website-src/src/content/docs/field-guide/certified-cold-route.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "0fb598f3ab216089d938b07c6f29a14063969bfc192d3c88e47434ea5acf3c36"
+      "sha256": "3aa9be552562c17068e7deb05836bfff5d96f5e2a3cb0fb9aa7ed2271b2dc0a2"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6515,7 +6533,7 @@
       "path": "website-src/src/content/docs/field-guide/claim-gate-status.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "5c1e3d763c099bc32fe4ef15b3d757d36a1baa5a3dd43b925d24ee4bcceb720c"
+      "sha256": "4c5f28782e5723cc317ae3c28ad62c1149d69369ea61daca75d805799cfbf6e0"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6524,7 +6542,7 @@
       "path": "website-src/src/content/docs/field-guide/compatibility-import-certified.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "2e8466b0c5770f39eb9f69befbeb89e0624cff8a75c693da6b850dfc79667ea3"
+      "sha256": "0c55178caacc9159bd33e7d928083f48efa3856b773e7b2083eba34b3aa9de77"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6533,7 +6551,7 @@
       "path": "website-src/src/content/docs/field-guide/deterministic-blockers.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "0b0630475e03a7d7fcd1370827f64ffa8cedf021d23fb43302403b7529c70d99"
+      "sha256": "4701d50a8ce36bbd4cd51ceeccb58e61c9354a36044c1621c9feef4da4927419"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6542,7 +6560,7 @@
       "path": "website-src/src/content/docs/field-guide/direct-compatibility-transient.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "1aa75540226faf9148a60a3104940f1ae167779258e1240877087288ec0a9eaf"
+      "sha256": "268e06d06c219623f0deaadb6c60cd6c13fdf9913028a875dbe3ee88e5d44ef8"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6551,7 +6569,7 @@
       "path": "website-src/src/content/docs/field-guide/effectful-operation-admission.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "8a2a5cb3f9ffc6c6098e015dcf17cc6fb70abaf323147966fee316d08381de45"
+      "sha256": "80950d59d581bea439f554da7729bc2120df5171ca1a1f2e696871b2f5ffad29"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6560,7 +6578,7 @@
       "path": "website-src/src/content/docs/field-guide/evidence-gated-compute.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "20b386301aa3447c3497ed963124617fb18984a0a4d33b61d715288d560ae7f3"
+      "sha256": "889d379d60a4cf3b02cc0fa7461e987d685ea21ae9eb0784da3a5c9e7a225bc3"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6569,7 +6587,7 @@
       "path": "website-src/src/content/docs/field-guide/external-baseline-only.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "90f1f386f03732d8380e1069983e3745e32cde4310884988d60598af70d71071"
+      "sha256": "56a6c4cad4cbcc1e011ea27ef35e1c58e644ef02a8400736dd1703af375259b3"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6578,7 +6596,7 @@
       "path": "website-src/src/content/docs/field-guide/foundry-boundary.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "335153f7fa6f5c0a7907eb7b5776066f365b1e4df54ab0c664ec2c1140d2d601"
+      "sha256": "094e8cf0947b8b816277a32e7049666af005b6ffe8753c6cc527b3b337d80c9d"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6587,16 +6605,25 @@
       "path": "website-src/src/content/docs/field-guide/generated-source-route.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "f5a9839d9d15962709c31f51f7cc1d8977082908c879ecabf09b716f7f0b7bdb"
+      "sha256": "93b279e45d4fa3132c6a303c2b97ec72c999e5d39c9325d8f85da362b4b45b61"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 93,
+      "line_count": 99,
       "path": "website-src/src/content/docs/field-guide/index.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "6f5981d3845e516b5d5e9ad065deb65a6e92678425913adb3712c3edc56de53d"
+      "sha256": "737ba8ccc38c6189d26685e825201a48de1d4ec1b5c554b3a022b7e64e0d82d7"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "website_source",
+      "line_count": 22,
+      "path": "website-src/src/content/docs/field-guide/limitations.mdx",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "3ab4c1100129c6dc88fe7265840e3868b62d779388acba00c3931c5f522ce1f2"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6605,7 +6632,7 @@
       "path": "website-src/src/content/docs/field-guide/local-sqlite-fixture.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "d4518f33866592a7e5e08a7454e0333ae24729295fcb7263f078bc019422cc5f"
+      "sha256": "ccedb3439b95bbf5854e202a1e9b51d714a9fdd5aaeeff8c39ccab1dfade8131"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6614,7 +6641,7 @@
       "path": "website-src/src/content/docs/field-guide/materialization-boundary.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "7d095c848eb36bf78810461427846910908d08c83db5722f94ae4f5dc2da991a"
+      "sha256": "04b0a631cf1b94cb38277917ad128ca1213fae85c6d984e33ad48bb6971f69a9"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6623,7 +6650,7 @@
       "path": "website-src/src/content/docs/field-guide/native-io-certificate.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "8b87fce60e44a24a588507a761966f36e5d7f3cb25d78fc9f2fd5d40044e4bf4"
+      "sha256": "1fe499885ac371b1b0af49ed2f82e5c20288f3e7aaec9968c26c64e9ccc557b9"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6632,7 +6659,7 @@
       "path": "website-src/src/content/docs/field-guide/native-vortex.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "16cfa695ff09b3a803d76e4cbaf938a4e5fec2a620d3bc2ed897031a15ed0088"
+      "sha256": "770d90e5ea9928f6d05d3086fcd932ca79f411f0a43136792556b51874f13b4f"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6641,7 +6668,7 @@
       "path": "website-src/src/content/docs/field-guide/no-fallback.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "7109bfc3ffab6d16ea4f50b6f88352619be7568f1318eaa7cb96b5c4b8148052"
+      "sha256": "7d3fc2d2fa31f9bbcfc9bcc9433bbc9bce0eaf013b04984772edb67298d57b38"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6650,7 +6677,7 @@
       "path": "website-src/src/content/docs/field-guide/object-store-boundary.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "7dcec71704955f21486bf2a16212b25eac1e9f9d0e8e1e2dd626669f9a0366cf"
+      "sha256": "d73128ac04a735ec261ae7793eb7ce14e050166d516d87f683fe69ee6776da4f"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6659,7 +6686,7 @@
       "path": "website-src/src/content/docs/field-guide/output-fanout.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "d3ce7861c24946ffb22b9f09fcfa181ab33418c10dec84e6eb3905665db6bb00"
+      "sha256": "95042d43933991d2a3562b37dbe048891df06a384723c0eba88d920d3120c6b7"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6668,7 +6695,7 @@
       "path": "website-src/src/content/docs/field-guide/output-plan.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "55df89a34c0db9c46a3230b4ecabf6b90e5901bf8805126aed21d3a168e08d73"
+      "sha256": "96fdd525c2e6983a3031f5bfa2df9b7353110372f1e45f14eeb9826c13f2ec34"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6677,7 +6704,7 @@
       "path": "website-src/src/content/docs/field-guide/prepared-state-reuse.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "9cc9a7e41079566c8206af400afcefef5211e3fcf416a87bb121130e7fd96651"
+      "sha256": "6ca9a3fad0b343f24a41722446731c046c388e0e176c96d0a31f65380164eb30"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6686,7 +6713,7 @@
       "path": "website-src/src/content/docs/field-guide/prepared-vortex.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "deabc7543e9a9cc5e59e6dbc1a1146c19e6d5860f20434f3238945dbf7910075"
+      "sha256": "87b7d38025646a64e796b079f92e89bc9fa3a9e590f878c4f1e7c3ffebe607fb"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6695,7 +6722,16 @@
       "path": "website-src/src/content/docs/field-guide/prepared-warm-route.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "ce16923e0f9a924e487f833fb5a93d530d802664b9324898991b0bfabe27e1ee"
+      "sha256": "4cd9457f7f3a1532912795488d2bf4d13397f2002eeaad65719fd537d19ef82b"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "website_source",
+      "line_count": 53,
+      "path": "website-src/src/content/docs/field-guide/python-surface.mdx",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "8a138fe9c0a3e503254e89f09f23a819fc9044a2a4eb692da055ee088aad8ee4"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6704,7 +6740,7 @@
       "path": "website-src/src/content/docs/field-guide/report-only.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "30b0557ef4b1e9d64ec62aef828fe3a6623cf75b133c6ebc02b148f5fb6116e9"
+      "sha256": "cad768a86e09fab7ac2ba4b981b356f56016cff6ffd72c687b0e5b69037f533d"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6713,7 +6749,7 @@
       "path": "website-src/src/content/docs/field-guide/result-sink-replay.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "4d38ef30cbb25474a40c648338570ec8bce5475aea78dbfe7b987e1cf829d8bd"
+      "sha256": "22e67089fa47e6e8e90e2643315317233c4c4baaf6d58a35501b2e7955023426"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6722,7 +6758,7 @@
       "path": "website-src/src/content/docs/field-guide/scale-classes.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "25f05b9e2f09ac494075498d41bace382c232b60d55d08a81996286cd3ac03c1"
+      "sha256": "3f8441bca7dcb5373d8b60c3ffc7d0343ea1d5c0d3913e9ab2a64dcecfd75691"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6731,7 +6767,7 @@
       "path": "website-src/src/content/docs/field-guide/sink-artifact.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "03d9465fdea64aa95f083b1d581e504b71452649bd576516f5b4d08421015d30"
+      "sha256": "9f6524d14d1f92ec78addd8b41a53e6da1cc8115449c020f4b6bdd247499b428"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6740,7 +6776,7 @@
       "path": "website-src/src/content/docs/field-guide/source-adapter-status.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "a9f6c028f7cd12070967871ec4dd535838cd14ac37570ba1a002a5fc508cf08e"
+      "sha256": "0b6c86d589935bcc6c192a2d36e80227541f6ee443642e307488f17673eab96e"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6749,7 +6785,7 @@
       "path": "website-src/src/content/docs/field-guide/source-backed-scan.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "d4cb98aabc0ef8636a70b82ed69cf30a2f020c92dcc568297bf13c64a5c27a32"
+      "sha256": "e89dfac1ca75512f5ed86063abce5ba5b6d3748fab0cf2755d08a3754f42a72f"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6758,7 +6794,16 @@
       "path": "website-src/src/content/docs/field-guide/source-state.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "780cd472fc45de78f1a17a62d8f65becfd9612fc1a9d0096ce66c206cb7f5cc0"
+      "sha256": "c2f7c4146bb404ce8bad4f5a846a3132ba3cab90e8dc9af2da24e60341b46916"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "website_source",
+      "line_count": 27,
+      "path": "website-src/src/content/docs/field-guide/start-local-proof.mdx",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "8b4b2fb2971a60c67b270f8e8243838bf9e57569bf5d6e1f3307cfd91aa914e0"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6767,7 +6812,7 @@
       "path": "website-src/src/content/docs/field-guide/table-lakehouse-boundary.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "403bfa705bb8fbfd2637b3cd923bdd1f29f20e6b0f24904595d274a2f7656f09"
+      "sha256": "66fa492cd3b4359bfed9ba961e9b35d40cfab5de01650bf1578dd1d231c6aed8"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6776,7 +6821,7 @@
       "path": "website-src/src/content/docs/field-guide/universal-ingress.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "c3f88bd635717c2e6bb18575219a9be12b2d077ce9611d92478a68970077d77e"
+      "sha256": "4d0cd35fa4db8eef088603c358a9a0d8c2e157ca2f8818fc4816666358efa0a0"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6785,7 +6830,7 @@
       "path": "website-src/src/content/docs/field-guide/vortex-ingest.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "715043a8941afbdf00684cf3d37528d3e6adf650f1932693734b6cbed3b3832a"
+      "sha256": "b3dff22a9ce31fa87cbfd941533c7f0e46e51e67f375b498ebc6698762b1aa87"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6794,7 +6839,7 @@
       "path": "website-src/src/content/docs/field-guide/vortex-prepared-state.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "21a06c2fcc1a668e6d3f056c835bfa6198e7226ededa3a6a1be6cff52f219cd7"
+      "sha256": "63e4ae0441c42dd913218fff5f03eb0fc15f5af13dda0d1133c06ed5ade58b27"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -6803,448 +6848,25 @@
       "path": "website-src/src/content/docs/field-guide/what-is-shardloom.mdx",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "756c74e02699f823fb96640c12dd4c4922be0cc1abd351c2aa5a121209323138"
+      "sha256": "beb59def3ef3efb65f5eeced9dcd605960eabc51989fb29d6546f7b4564adb1f"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 27,
-      "path": "website-src/src/content/status/arrow-ipc.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "2e52da62ab8c703e36d74db25951f7b4c88cfa52f0659d563f2de931b76bc581"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 26,
-      "path": "website-src/src/content/status/avro.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "177129081e9a6647ba24c0ced0ff68397237e90355cefcf405dfb465d0da1833"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 30,
-      "path": "website-src/src/content/status/benchmarks.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "119a8fff22f86664a46c030250ea462f7d0b4138d0f216bc742d9564b4726dd1"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 32,
-      "path": "website-src/src/content/status/deterministic-udf-fixture-and-extension-metadata.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "3e8474f760cdd8ab9ebbc81368a9f8c55a69ee2b59cfbe9cb3e38f55f54a6fff"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 27,
-      "path": "website-src/src/content/status/foundry.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "5f571d636f97a19108f68266a543cc8c0bd1ffa598dcf54a90f1eddb4f823f1e"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 29,
-      "path": "website-src/src/content/status/generated-source-free-output.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "2678a7069427de35980df6917ceec11fdffb1018df9b78c8fc9d7bc000b6d3cb"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 26,
-      "path": "website-src/src/content/status/iceberg-delta-hudi.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "a16bcd6e974008b23079d8f4e322a35b8956957230384d6eda1d25165e930fe1"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 30,
-      "path": "website-src/src/content/status/local-csv.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "47196626eece3550b13527cff682899fd484ac4f86a83a5919ebc50ae77c8cd6"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 26,
-      "path": "website-src/src/content/status/local-json.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "7e22765b03584e70c8c2b8ef99d2285fb409866b81735f575be3c24daa6af4d4"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 30,
-      "path": "website-src/src/content/status/local-jsonl-ndjson.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "3067bd7d572d9b9152b0497bfe6b39441996719386b51e91013fdee51827d32e"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 28,
-      "path": "website-src/src/content/status/local-parquet.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "3382bb26bdf972d7104ee7c5d25ebd1ef26724db789b986fe6c1017ccdaa4be2"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 31,
-      "path": "website-src/src/content/status/local-sqlite-file.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "a5683d3e95f44ebf51ef19bfee2c64261ff8378ae82c067bc05e7f8fe5ca6b1c"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 47,
-      "path": "website-src/src/content/status/local-table-append-commit-rehearsal.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "229476999e42f96fc6fddd2a6c121faff60cf2e7fdd110e27b47466aebdcbdc6"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 32,
-      "path": "website-src/src/content/status/object-store-local-emulator-read.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "fa91413f86796c8621de555b1dbb341dd3504eb6dd413907cae12837c4830fb1"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 41,
-      "path": "website-src/src/content/status/object-store-local-emulator-write-commit.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "ac19200179ae16a89592f1ca072ac571241d7444b161260eb26e51e54ad258b0"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 42,
-      "path": "website-src/src/content/status/object-store-public-no-credential-fixture-read.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "6d73b2e3fcfd1c9c3a55afcde0b6e609302bf22d69f3ddbb1b07515120798e26"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 26,
-      "path": "website-src/src/content/status/orc.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "984be7b1bc8e7188b18d368f2505a6418001a18b7c5e627ccc365423193a5b3d"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 23,
-      "path": "website-src/src/content/status/package-release.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "969bb96d00a1bfc5fc3fa43ae8d9dff15c755840899a6d613e897f0e5321daf3"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 40,
-      "path": "website-src/src/content/status/public-workflow-route-facade.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "8ea18dfd9f6ecbd4e70408cf748e77a7b975836f18472aa41c0ff217ef2b865f"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 27,
-      "path": "website-src/src/content/status/python.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "997cd0466122b7b75add5b75f34675f25870598b2501c24aeee2b38accf2795c"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 34,
-      "path": "website-src/src/content/status/s3-gcs-adls.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "4109a891669bd850b8b1f8233608cc826fef991bc95660ad941634c6f11b94d2"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 26,
-      "path": "website-src/src/content/status/sql-dataframe.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "ed6b1ac624d1a79d4b425a7255d9ef3a21713eb16eb33f254643a0e4dc3e07cc"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 26,
-      "path": "website-src/src/content/status/vortex-input.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "38e0bece032ceb064fb24ea143dc315b395b4dc1973d415648a4c03006d8c63b"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 60,
-      "path": "website-src/src/content/use-cases/benchmark-interpretation-evidence-not-leaderboard.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "c6ad8b25b480bb066e5b0018f5384447933a77a2cae7fba338c48c962ba02ac3"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 69,
-      "path": "website-src/src/content/use-cases/compatibility-import-certified-local.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "1192730b1e24142a9129f720199e9f782bc36c3567f3e8d55d66e91458f4ee3c"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 46,
-      "path": "website-src/src/content/use-cases/evidence-audit-claim-gates.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "305753fc34f695e5eeb67064b6c48295c6bfd41b3dbe870bcb73cd7d96dac625"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 43,
-      "path": "website-src/src/content/use-cases/first-10-minutes-local-smoke.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "11b9cfbb5f703d8db8b067dc7ebc5e224646aec53ec390dd43fff10aa34dd03a"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 61,
-      "path": "website-src/src/content/use-cases/foundry-local-proof-boundary.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "43dd73f192587fcac7b3ac6a1abd0eff4fef8a112329bb320689e322723a9e4f"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 45,
-      "path": "website-src/src/content/use-cases/local-file-etl-cleanup-smoke.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "25899906c15720060e7c744029c55f14e2d01c9fe19f50535270bc81efc4edb3"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 64,
-      "path": "website-src/src/content/use-cases/local-sqlite-udf-effectful-boundary.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "74fdb542eabaff25f4267225c073fb47e6ffe373a6aa029df1e485f2af6ca5ba"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 76,
-      "path": "website-src/src/content/use-cases/local-table-append-commit-rehearsal-smoke.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "3c2f1edfd19e57a5a9262348587296ac686179d4e5072470bb553a0f66aa62a0"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 48,
-      "path": "website-src/src/content/use-cases/messy-data-local-fixtures.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "7dbf88fe7fde24855f97d3daa2d909017d7da9549196d2f5983eb15b30ce1670"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 57,
-      "path": "website-src/src/content/use-cases/object-store-boundary-report.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "de2a09ce3913fa89203fc4598d073fdd3dd869d54f2092fcdf4d2bceab730a0c"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 54,
-      "path": "website-src/src/content/use-cases/object-store-local-emulator-read-smoke.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "18148504ba05a25d3c71fb128298f3fe4fcd32df81e75dafa7aff7907ae4a47d"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 62,
-      "path": "website-src/src/content/use-cases/object-store-local-emulator-write-smoke.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "c45cbe597025a90acd4f1aa666d18100cb8fc94cf847086e538bc3c264b511f9"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 72,
-      "path": "website-src/src/content/use-cases/object-store-public-no-credential-fixture-read-smoke.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "67c303537319c6941ab91fd37ca0ed6d9d5ed6c7c5762afbef024e1f3726cfb7"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 106,
-      "path": "website-src/src/content/use-cases/output-result-sink-and-fanout-boundary.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "ca2434bc93e2cbc9141fe5181e79d10f94755a6019f40fcc02b6c8e579142a65"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 49,
-      "path": "website-src/src/content/use-cases/package-channel-readiness-boundary.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "09cd4ae293ff9690527eefcf35b96736129e6be4af4e2c36a90c7cbf206797f0"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 107,
-      "path": "website-src/src/content/use-cases/prepared-native-vortex-runtime-direction.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "150fb70e8ca97b1ed0a19f8fa0c1c0b1d0562b7cb82ba98d68299a653a1bbbe9"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 332,
-      "path": "website-src/src/content/use-cases/python-local-csv-query-builder-smoke.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "e1d613b10c94d58a22d2c4241b9a2d3830e4d62e4d7c4641eb6df705d40700af"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 43,
-      "path": "website-src/src/content/use-cases/python-wrapper-client-smoke.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "4723cb45a6cdbb42e8b867e45d13730a6ad10e886e5fb56a9ad6cffc890be649"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 46,
-      "path": "website-src/src/content/use-cases/query-scenario-cookbook-smoke.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "3cf54ec7043ef78a8d68dded50f90fc02151395c474820dd33ef656d6bb736a7"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 80,
-      "path": "website-src/src/content/use-cases/source-free-generated-output-boundary.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "00680a3ee5b9ab978cbce2a90fd1679cb108eaf78d6b0833310bc7ea6e59c782"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 48,
-      "path": "website-src/src/content/use-cases/sql-dataframe-capability-posture.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "d19829eab019f05c3c1cb8c0005b2950b891a42659c115e44010e249bf237144"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 328,
-      "path": "website-src/src/content/use-cases/sql-local-source-csv-smoke.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "1edebc125cb776979e01bba733ad34408e9e0f33d8608487b247668c7fc45f58"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 53,
-      "path": "website-src/src/content/use-cases/table-lakehouse-boundary-report.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "6e2c9b81b69cdde5ca4a83c27a8b112d387f86a249586e21d15bdccba07c9f1e"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 131,
-      "path": "website-src/src/content/use-cases/vortex-ingest-prepare-once-local.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "bb54d1852d6559025d399007f4d6cadd0c112478177cb2134d22616d982c0c51"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 237899,
+      "line_count": 250208,
       "path": "website-src/src/data/benchmark-evidence.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "cfed4bd4658ce5dcdf47295fdcac4fd128edc22a44d32f4c38f3c681a64ac3c3"
+      "sha256": "55c2e9fe2a5b3e39b6d56ac532a77dc21326d6fa8b857fa25a6546653a9f95fe"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 792,
+      "line_count": 809,
       "path": "website-src/src/data/benchmark-manifest.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "dbd92d79b173b137c0727d7da0c9d9e86c9b09077b1dd451bd872b3511fc2194"
+      "sha256": "4f07aec356b86452818a5d49d8393e2bb854e669e53f234556ce6491206ed6cc"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7258,33 +6880,6 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 1021,
-      "path": "website-src/src/data/runs-today-support-matrix.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "dc74859da4d40a5463d539243c1770d660a97031e33a3bed7e2fb7ed2c4d8f58"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 708,
-      "path": "website-src/src/data/status-rows.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "0689c183610910021b977c74c8e1ad1d5e09f7d7726571bf7af2cd85332d552a"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 2159,
-      "path": "website-src/src/data/use-case-index.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "e748426d739860a0def7b7b7f7be3e9dcd924b2395ed08df2af68d6b3f430bcd"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
       "line_count": 53,
       "path": "website-src/src/layouts/SiteLayout.astro",
       "review_state": "reviewed",
@@ -7294,11 +6889,11 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 156,
+      "line_count": 137,
       "path": "website-src/src/lib/data.ts",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "7f032b6e74b603b4d2c0fbf2a4176f79febd11f8aff877cc2be68edc1fa289c2"
+      "sha256": "0e2b30962aa3296f8d6dc2ab97fb74e971d0646b691e9886b52759734f383c44"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7321,47 +6916,11 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 5,
-      "path": "website-src/src/pages/about.html.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "2269c3ec9fbb7b6f6e0b434d270c05c6b263538554588a1a4774943f45c8a3b3"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 5,
-      "path": "website-src/src/pages/architecture.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "b107dd0275fc0a4420659619ec861d7bcc7d177f7a104e1e10ff0ad37f6f8e3c"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 5,
-      "path": "website-src/src/pages/architecture.html.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "092af21830207c34e15ffad7331c00048d0b71090f0e6e8677aa8e41d2a62908"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
       "line_count": 8,
       "path": "website-src/src/pages/benchmarks.astro",
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "aba2fe7041f02d75609457946cf94f91e09fe17d210079a272ccb6fc8ad2fef0"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 5,
-      "path": "website-src/src/pages/benchmarks.html.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "09dd1ed777c6e82bebc614df79d2e0f993c1e53be0674f928fab999e38862ef7"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7375,33 +6934,6 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 5,
-      "path": "website-src/src/pages/compute-engine-flow.html.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "49ff380461542107febc1c615cd3c0a3ea6a0a00d2a2077e44f9d3c6027e6426"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 98,
-      "path": "website-src/src/pages/docs.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "8802be89e0888390a5067dd173c283ad9a815e373237cb3682a45f0b5dc132a8"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 8,
-      "path": "website-src/src/pages/field-guide.html.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "9016bb2f22321c04c2d85bd340a081ea0c9ba38b6c6c71dc01d444ce874ba7cd"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
       "line_count": 127,
       "path": "website-src/src/pages/index.astro",
       "review_state": "reviewed",
@@ -7411,65 +6943,11 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 60,
+      "line_count": 73,
       "path": "website-src/src/pages/start.astro",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "f8f76dd3841a6e9ce2706f9e2fda390da55d6c3c9b8ad35b746c18bf31592ce7"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 5,
-      "path": "website-src/src/pages/start.html.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "3033f6e596635c0f3f2be47248d71d24fbf53ee2119ca5034cdf64fe0d9fa855"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 8,
-      "path": "website-src/src/pages/status.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "c059154c561cc80270db9e73826044d82be4e27584b278a6c4a865a244f9e96d"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 5,
-      "path": "website-src/src/pages/status.html.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "22499af6aef6bf33aa407467a4b18f5cd922f9745f9f7ec9d342e0ff46d0d6c3"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 5,
-      "path": "website-src/src/pages/use-cases.html.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "770f4ded2999282d1d11e2288f102e0f5ec09eed1c7a3b7e45e369d26e05f2fd"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 43,
-      "path": "website-src/src/pages/use-cases/[id].astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "4529c93f1773a9f436f3c33b89d2cbc60bc8d8097e37068aeb12adf4cad606dd"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "website_source",
-      "line_count": 8,
-      "path": "website-src/src/pages/use-cases/index.astro",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "962ef4f7d73c23ce00ecfaa0953db7002e8657f5303db2ef1167a35d9eb62c1d"
+      "sha256": "e4ef34b5b36407243a1c94cd07c0b3e51cc8cd5e4d82a49dc271e21ae67f77c2"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7496,7 +6974,7 @@
       "path": "website/404.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "963dbf868810d7c0e1b7002bfd07b8ef4e7eee1cf8916770f9e98ef081392980"
+      "sha256": "20509e89fdcbde3e634f41a6a8ec72c40c8b033c2290178f4e594d5d6899da30"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7591,11 +7069,11 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 20,
+      "line_count": 25,
       "path": "website/_redirects",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "9868b729b607141e766d0f1670b3fbf1d333547e2c4e150aa9cfc43cb0b01733"
+      "sha256": "53197ce8ec48b92b18e76e965bf8a1750dfd3426fffeed1890b92a76adcdad00"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7604,7 +7082,7 @@
       "path": "website/about.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "52658bd6eafa04aa494eacd7bf5f0ffb4ca77aaa9d4152656e9922c65a42590c"
+      "sha256": "ad3f1dfa02f282ebea670cc07fd7e7b67ecde6117df602a7c31a3be38e14a285"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7613,151 +7091,151 @@
       "path": "website/about/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "52658bd6eafa04aa494eacd7bf5f0ffb4ca77aaa9d4152656e9922c65a42590c"
+      "sha256": "ad3f1dfa02f282ebea670cc07fd7e7b67ecde6117df602a7c31a3be38e14a285"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 698,
-      "path": "website/architecture.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "226a4da79f5ae9a012882d7afd0cad4eae944df39252faf5b97e630562b7b651"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 698,
-      "path": "website/architecture/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "226a4da79f5ae9a012882d7afd0cad4eae944df39252faf5b97e630562b7b651"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 237899,
+      "line_count": 250208,
       "path": "website/assets/benchmarks/latest/benchmark-results.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "cfed4bd4658ce5dcdf47295fdcac4fd128edc22a44d32f4c38f3c681a64ac3c3"
+      "sha256": "55c2e9fe2a5b3e39b6d56ac532a77dc21326d6fa8b857fa25a6546653a9f95fe"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 792,
+      "line_count": 809,
       "path": "website/assets/benchmarks/latest/manifest.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "dbd92d79b173b137c0727d7da0c9d9e86c9b09077b1dd451bd872b3511fc2194"
+      "sha256": "4f07aec356b86452818a5d49d8393e2bb854e669e53f234556ce6491206ed6cc"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 80,
-      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/benchmark-row-admission-manifest.json",
+      "line_count": 482,
+      "path": "website/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "70f21c3b91f52d65334a8f5e7f4e735431510676ca42e9156d1e72322ccf96db"
+      "sha256": "6293b0d0eaf9726a54367d0cfb1d23eaecf2684aac529279c90a0586b20a5683"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 198407,
-      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-000.json",
+      "line_count": 15015,
+      "path": "website/assets/benchmarks/latest/publication-proof-sidecar.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "8f9535a3ca71997f7d6944bbfd2560d31781aadcb5134b442a7eb861af8297e1"
+      "sha256": "14a7bdee1b884f865e7744c4ddbf039fa69363993e32bec95888ffdcd27edabe"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 221487,
-      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-001.json",
+      "line_count": 69,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/benchmark-row-admission-manifest.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "aadf5922d1a557983307197b82bd286e8cd64418aa7ca8663f0b6daea15c2883"
+      "sha256": "075ae4c7e632c79d69841c75c0ff4871ee9d342287dae02d33b48d47bcceb4d8"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 197887,
-      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-002.json",
+      "line_count": 203007,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-000.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "14dc472df69b891dd3d0977cc1be79a7b2eaae36e3a3bf4696b09cc495c657bb"
+      "sha256": "a190c42444b59a39d992776644dfe16d70def834001f448845ae78a373867bc5"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 175807,
-      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-003.json",
+      "line_count": 226407,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-001.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "34bf21ff15a9834365fde630a4040b551c1bec6c2c9dc5c8a9682a13978a4dd4"
+      "sha256": "ac03884c0dd9cab2641b75f70b49e9a51554d95ae9fffc975c43bdd52e5b3c1b"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 175751,
-      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-004.json",
+      "line_count": 202887,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-002.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "9c8b6a288dab74381537d89c73d94e02e056a8c9e994cdb980d4e0f93054e730"
+      "sha256": "fc9bc2edb1cdf681667d20634977f51b37893d141c712116f49c19c0b536b208"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 175695,
-      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-005.json",
+      "line_count": 180007,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-003.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "b54edf8e6bfaf1cc6deb2f1a21526b2803400b3c8787a76b0c1e1f4e14c3f712"
+      "sha256": "0173790e1adeb57c8cd5d90341a0cd8290c172134736563b975f692ba5ec8ea3"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 199607,
-      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-006.json",
+      "line_count": 179951,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-004.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "6c0a80bec403b081a3c5a2949e59be3a0faa0cd7508bc33246db41f2ed759e9b"
+      "sha256": "463a826b4f35596d849d20c299315961ecf6b09ff897fd926b4de147447baf1d"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 222687,
-      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-007.json",
+      "line_count": 179895,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-005.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "052f9912c581df377e75c791dc08bcb8860ac55dc6fed87d30a05ca465d1d1e4"
+      "sha256": "515c6598195c2a42a883d7354fb56777c35ccb3be41f675dcda165b6fed38d0c"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 231967,
-      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-008.json",
+      "line_count": 204998,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-006.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "1381a8905c01d217b96293a745a8ceecd719b23699ddb6e30f69f44314aad7e6"
+      "sha256": "260fac29ef944190a3efdb6798f4e0e7401254483c3673a358c402c630bec838"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 139807,
-      "path": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/published-benchmark-rows-009.json",
+      "line_count": 228410,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-007.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "2e840e061a50720a474e80a73f86c0c248761e0228dae5d0871457bad602e3cf"
+      "sha256": "ff36dd28da0568348f9b0ea239d2c8a23823a1569373be7909a9b54460e8e341"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 237899,
+      "line_count": 238167,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-008.json",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "eef2f2428493995f4571c5f058f8035de963d6f9df21c64bf7dc54939b674859"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": 143938,
+      "path": "website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209/published-benchmark-rows-009.json",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "ba748589fa36c3a6ab3b65e54b8df6f3ca70683f2ab2ee1bc47233b723090e10"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": 250208,
       "path": "website/assets/data/benchmark-evidence.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "cfed4bd4658ce5dcdf47295fdcac4fd128edc22a44d32f4c38f3c681a64ac3c3"
+      "sha256": "55c2e9fe2a5b3e39b6d56ac532a77dc21326d6fa8b857fa25a6546653a9f95fe"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7767,24 +7245,6 @@
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "7800dfea70aba31aaff71d7d9c22f1b2de9632dbde408c467b8d87d5243a5114"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1021,
-      "path": "website/assets/data/runs-today-support-matrix.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "dc74859da4d40a5463d539243c1770d660a97031e33a3bed7e2fb7ed2c4d8f58"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 2159,
-      "path": "website/assets/data/use-case-index.json",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "e748426d739860a0def7b7b7f7be3e9dcd924b2395ed08df2af68d6b3f430bcd"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7838,7 +7298,7 @@
       "path": "website/benchmarks.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "dcbd80ed013bce1590a39a2cb7442fb6047a87b1e82772f0603ee3ab375207d7"
+      "sha256": "f00c2c83a50aa6c57456dc04026c572974f6ff48cee2e66eccf88d63ceb55989"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7847,7 +7307,7 @@
       "path": "website/benchmarks/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "dcbd80ed013bce1590a39a2cb7442fb6047a87b1e82772f0603ee3ab375207d7"
+      "sha256": "f00c2c83a50aa6c57456dc04026c572974f6ff48cee2e66eccf88d63ceb55989"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7856,7 +7316,7 @@
       "path": "website/compute-engine-flow.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "9f2aafc9a6ab11137370cca12d6473477bec67e005e22afb38bfb1e8aaad5dda"
+      "sha256": "6eeaa1033bf62ca0958a4cf91378c93f6702cecefd4cad18989755203cccfb28"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7865,34 +7325,16 @@
       "path": "website/compute-engine-flow/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "9f2aafc9a6ab11137370cca12d6473477bec67e005e22afb38bfb1e8aaad5dda"
+      "sha256": "6eeaa1033bf62ca0958a4cf91378c93f6702cecefd4cad18989755203cccfb28"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 5,
-      "path": "website/docs.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "30a015882d46470616d8ec6532a4e52466d4bcaf30314d4bee32b5f6cbb54a51"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 5,
-      "path": "website/docs/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "30a015882d46470616d8ec6532a4e52466d4bcaf30314d4bee32b5f6cbb54a51"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 156,
+      "line_count": 162,
       "path": "website/field-guide.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "6921de4b1ddb30c7fcb41635b221c23f72574799e9418c73e54e20909a77c290"
+      "sha256": "2041271adf9c26a9c6bdebde9df22ab771b703dbcbfc3ece4b3409b439a51e04"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7901,7 +7343,16 @@
       "path": "website/field-guide/benchmark-evidence/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "4c2c4fc16ffe1be46dbfe6d224a500ce8bff3e392c2a132919557390a11a0b63"
+      "sha256": "13401b7956d9891ef3122351411447e9bb9d2ee7c21b64c16c637f4ed44156df"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": 82,
+      "path": "website/field-guide/benchmark-methodology/index.html",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "c9f578ff93dce5abe49fffbb5e7a87adf6a9b61fe865a9af960ec9d6040befbe"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7910,7 +7361,7 @@
       "path": "website/field-guide/certified-cold-route/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "262251c1bfed80af343c965c70a6eb626f6320637b9d97f4d9bbbb7b02bf42b2"
+      "sha256": "8829ab087f567b935dd552c917d0822566cd32bce28d94b7d6e82ba6fd3a1a47"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7919,7 +7370,7 @@
       "path": "website/field-guide/claim-gate-status/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "58b110dd39ffccd8515ba083eec0a49c6ad2bb726c33d0de400c2fc11071355b"
+      "sha256": "5e20225a4280567f753a5579a97d60970310e8cdf7cf26245f64b2eefd661e5b"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7928,7 +7379,7 @@
       "path": "website/field-guide/compatibility-import-certified/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "317aacceb19008aad0aa0e616b2b1d6f75dfa009ad3c5d099ae418c74bf719bf"
+      "sha256": "0f8d7326f12a31151f957174f46bf2a034a6c57f7ae4ad16bf9ecc4459a23d0b"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7937,7 +7388,7 @@
       "path": "website/field-guide/deterministic-blockers/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "0e56ae621b2ebd9e3c17526ee41965a9c67d25d144bdb5af19509ed1f79ff5f2"
+      "sha256": "2f303d5060fe8afdbc233d50ec5526f963f6e8303a18471540814200d27b56cd"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7946,7 +7397,7 @@
       "path": "website/field-guide/direct-compatibility-transient/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "b2f480230fd045662a1c30fc9758a4d75175461fa973d78d772e7bc4018e4c3e"
+      "sha256": "261fa3eeebb0391b762c0db63949685f20314abaa99255feb4dfbcd8e24d7749"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7955,7 +7406,7 @@
       "path": "website/field-guide/effectful-operation-admission/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "c7094e5803d3fde0a942eee547eab8bb933c27665c75b3c5f2dcda94e27f7d3f"
+      "sha256": "b9c086d85e26d542327be728ab597a441e5bc7fa1a3f16db431318babdfea333"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7964,7 +7415,7 @@
       "path": "website/field-guide/evidence-gated-compute/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "c9f13ac8163bbc7ce92579e28747ea14c7e90f1e2bc4076c654489f030a7f4ed"
+      "sha256": "f95f5d6dea65ac6cd874223605d8ee4585793797bc0b8e96f0e8f375323d6fb7"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7973,7 +7424,7 @@
       "path": "website/field-guide/external-baseline-only/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "3019317d2f56f4ad27bfa9a3b4b2eaaa4cb7a6a44111a672b3ce69fc93b7f1f2"
+      "sha256": "7f8c8ed58955b95c3973ceea0be3010ca1169e7728bc52a249e78e5be1657b0d"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7982,7 +7433,7 @@
       "path": "website/field-guide/foundry-boundary/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "36a5bb822ecfe07372ddce63143950bde52e9c696085cf5099886ca2561fabc6"
+      "sha256": "767f09fd3eb552bdb1779315c21c5671e471706c60311383d577994ab6b5269f"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -7991,16 +7442,25 @@
       "path": "website/field-guide/generated-source-route/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "ddf66ea250a4e36d1a1803bf61f82a9744ffaaeb938822f115c1c8a4df8c29b3"
+      "sha256": "dc70efee707290dd09e9f79830fe226698fee416c3091b0cf3d672ca2b96bab2"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 156,
+      "line_count": 162,
       "path": "website/field-guide/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "6921de4b1ddb30c7fcb41635b221c23f72574799e9418c73e54e20909a77c290"
+      "sha256": "2041271adf9c26a9c6bdebde9df22ab771b703dbcbfc3ece4b3409b439a51e04"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": 85,
+      "path": "website/field-guide/limitations/index.html",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "59de6f9c289373521a966e7270baa13a7cf1c34c7aaa783fecc8c3c845b99d5c"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8009,7 +7469,7 @@
       "path": "website/field-guide/local-sqlite-fixture/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "30c5b954a9e44e3a4bf845bd138b42be8a51b2d1e5a9d188c377ae4f9adfa067"
+      "sha256": "6fdd41549d451f8d2e1d0dbf6c914dd075271be629f3f1160da8da76a60474e0"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8018,7 +7478,7 @@
       "path": "website/field-guide/materialization-boundary/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "e8e4f0ff8776b383990e3b7aa60440480c90ca0ddc688c6f84186a33e6a07885"
+      "sha256": "40598ab54f46a881a32e9e06c5a97e1986dc6f607dd1adf0b82f7e2dc5f7ce66"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8027,7 +7487,7 @@
       "path": "website/field-guide/native-io-certificate/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "e1995c975fa8470ede9a4e99f27417fffa5dc9cf2912fba0498d7b6f45402c8b"
+      "sha256": "44ac69a5fa5b6a3fcfcc8d54d4b32496ce4a931a5ec158e97745d5e4d15ec844"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8036,7 +7496,7 @@
       "path": "website/field-guide/native-vortex/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "70243979c74e52eac7d43962c029b3bc18a7ce0267e3c4d74fb2f2db838bda83"
+      "sha256": "d45f4a20d4435df6e35f755f8fee1556d9bfc3e226ceccc7b00d6a12fe49dff7"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8045,7 +7505,7 @@
       "path": "website/field-guide/no-fallback/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "c830e1525d3b511cce76cdb4373c17b31e1b178b9b6dd38f7f3858b7760345b1"
+      "sha256": "e84a1f30b8b29c6a7cc4e91491d23d3c73d4157ad5660ade5484b13635d477b6"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8054,7 +7514,7 @@
       "path": "website/field-guide/object-store-boundary/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "6f169cfbadbc83dde111c1f493eec51ff075b4c7f2130b5537c6f3c836cc4acc"
+      "sha256": "7b4ec974e7f7e61ffa2f067f94d913271a48f97662cf3aa1b6ab1aab5b7d7c71"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8063,7 +7523,7 @@
       "path": "website/field-guide/output-fanout/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "0aa8522ba09f89902b56c8e9e9c60d0d5af0ff0726c4c3f0f3fa850bb1ef534e"
+      "sha256": "4a1eb7976e87fb0ca23848b12aa7fd0d28c39d4e9a743ffd904e6fa7fb7c911d"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8072,7 +7532,7 @@
       "path": "website/field-guide/output-plan/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "511711b7b83e4c548beb5411fe5ca0dfc0f9654eaf28b66c5ec64752dbf692da"
+      "sha256": "d50d375b876eb3d37993f3c4f3343eedfaa37530c2042a27fc15671598a67d24"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8081,7 +7541,7 @@
       "path": "website/field-guide/prepared-state-reuse/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "ac6382d896e6f92ae2409aea44d5bac9e5a9d771f76efcd854d8f4f6b007040e"
+      "sha256": "7a393dc39d19cce3e975354c5af67de97debd6fe7f0bb66d2b1de7d2e286ed73"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8090,7 +7550,7 @@
       "path": "website/field-guide/prepared-vortex/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "d5c9ff2ad2b44a5b7760ced7320da150414aea93a5ae8ce0d3d3d2d3b090881e"
+      "sha256": "37d852369a7c82625c6066f64b52d498e02cff23daea0782c05dceb8a332e4b9"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8099,7 +7559,16 @@
       "path": "website/field-guide/prepared-warm-route/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "c02d698de9dd1f25d01e7638a634328bfd5712432089526b988fab2d88c6f4b5"
+      "sha256": "4d411024cc2bf232751ab2f0085cced1e2f7b12dd26648f669eefdf95ad86e3d"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": 80,
+      "path": "website/field-guide/python-surface/index.html",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "41d239b6d992c73ef88ec5f4ab294d9b476d783036d1b7bd47f1f5cee96c57ec"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8108,7 +7577,7 @@
       "path": "website/field-guide/report-only/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "ecbf2047947c7dd07ea4c46ddbd1fbdfdd7362ece5a45fbc1076dc826089e5f6"
+      "sha256": "459b1cde225e1694e674cc53c6a98af0d355af54e99f5bd162a67c9e6c5b82a4"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8117,7 +7586,7 @@
       "path": "website/field-guide/result-sink-replay/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "6083f2acb848dd86f732d15f1ea90c82963400358bf1662521a8aa61aa722946"
+      "sha256": "5f2d8f81de8eb38966467fd033d7dc308611e0fe2798bc3f5e998497cd46de90"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8126,7 +7595,7 @@
       "path": "website/field-guide/scale-classes/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "c259cb199d951ba47acf2253ee1e1a9c56e0ae021cf13c4d0edc68f5b5dc1102"
+      "sha256": "130ec8747c454013c31adf0725361f060b493944ef718dcd028cfb4129706114"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8135,7 +7604,7 @@
       "path": "website/field-guide/sink-artifact/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "4822e808b921dc7feb97c5516e2e66ce3ae7a77cb44f525f7871e3e3c5aea4e0"
+      "sha256": "3d745e988570f97a0da90caf6c9e6b8e5cf4d278ccb67c4ea0b35724755f0dda"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8144,7 +7613,7 @@
       "path": "website/field-guide/source-adapter-status/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "9d09df7fc35f336d01c4faaf3724e00c92e320484976e462b453d28a5ac88c42"
+      "sha256": "7d28e36665194ca76cce638a96ce1325303904b927cf3860caa385dc65042dbb"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8153,7 +7622,7 @@
       "path": "website/field-guide/source-backed-scan/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "549f9f4bd0327676299fc80b874e241e9785233ff04f84b4a2c442d3a93caed1"
+      "sha256": "cd9a90286e652be1cd9e443313bcb711a9c6192cb627ccd053ec26a9f271e6aa"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8162,7 +7631,16 @@
       "path": "website/field-guide/source-state/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "150f68d6f6262c42a8465c7787d7a1ab24a42eae8f44df2361a5b2970fd11372"
+      "sha256": "eecffad6c8b983d9b50bffbbc7efaeb195908da3f8d9cd9dbb00074c098eaad2"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": 84,
+      "path": "website/field-guide/start-local-proof/index.html",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "9c5456cc18da5408026d726baeee98c9478fa7524dc5b235b933f7c7e4932db9"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8171,7 +7649,7 @@
       "path": "website/field-guide/table-lakehouse-boundary/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "b2c38f4b63fcfd5c7917d281a3568d729054608a89ba5d6625e51bfb557412fd"
+      "sha256": "2160aaf7e4e6e086c34777d8e8d16d2349d1049e035cd835edcbcf1314f1ad6f"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8180,7 +7658,7 @@
       "path": "website/field-guide/universal-ingress/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "6a7627a559f6276b8c60dcf6b316cb211eb5c0dc5150994806bd8d5d97b14318"
+      "sha256": "92d7a2504a6de37fa1b94efd4240f0c30248061a93e6af0609c9021206399021"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8189,7 +7667,7 @@
       "path": "website/field-guide/vortex-ingest/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "0f57c1ab7db3a4ca5daa81db44c3e34abdf3ae12324b03430aaf81750bbbc2e7"
+      "sha256": "d429f615f1681b94294f76fb0306826886b569900771138d7280c8fd069394eb"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8198,7 +7676,7 @@
       "path": "website/field-guide/vortex-prepared-state/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "d10a439b5a33a9094edea8d9a07d40f4bc805344988cea07a292bf0cca0bd3e7"
+      "sha256": "46b2c8275c139a6a1aad7eeacaeb1d720235118647628b99a5da41f3e165673d"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8207,7 +7685,7 @@
       "path": "website/field-guide/what-is-shardloom/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "3ff51b77a1879ba5c57755dbfa664c5e253f554ec7ed2a6eb69be7a7e9283565"
+      "sha256": "44e87670ada9142d377da0732c0bc31ad63714b61ec99438684e509cbd1a1e11"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8216,7 +7694,7 @@
       "path": "website/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "f761c298bef956d8b3458d44dbec15c8c73e6fd9a9fae2cfabed69d2e1c0e3bb"
+      "sha256": "0eae56221b59fb3ee67d97428abd12e4c4539337df189c72b9766db3ba1eff10"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8366,15 +7844,6 @@
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": null,
-      "path": "website/pagefind/fragment/en_59f0b56.pf_fragment",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "60b500c9859a9b56090f41fc9e3721cfc454a0de25299fa5c3edc694663eb6c0"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": null,
       "path": "website/pagefind/fragment/en_68bb8c7.pf_fragment",
       "review_state": "reviewed",
       "section": "Website",
@@ -8402,10 +7871,28 @@
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": null,
+      "path": "website/pagefind/fragment/en_85f4412.pf_fragment",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "ce5b2a26ede06edb6682b6067d759144f6590f4478d4d622aa0e20c323ed7168"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": null,
       "path": "website/pagefind/fragment/en_884933b.pf_fragment",
       "review_state": "reviewed",
       "section": "Website",
       "sha256": "489e31d138f450f575894e7dfaf1aa9f12bbaf6efd7f9f6869d078003f294989"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": null,
+      "path": "website/pagefind/fragment/en_89b3f33.pf_fragment",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "0dd48ebb60e442acb0565f55c3e8bb7f9a4a394b42714353d1bfadea039284f4"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8474,6 +7961,15 @@
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": null,
+      "path": "website/pagefind/fragment/en_b313cb1.pf_fragment",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "6643947d0e9e9e23473c00e8a40d9c47765f340e649d9b5ef94fc45ef61e40ec"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": null,
       "path": "website/pagefind/fragment/en_c00821a.pf_fragment",
       "review_state": "reviewed",
       "section": "Website",
@@ -8537,10 +8033,28 @@
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": null,
-      "path": "website/pagefind/index/en_7349673.pf_index",
+      "path": "website/pagefind/fragment/en_f3491db.pf_fragment",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "41d99603343e72e29df5a76321a8b1a33bdd6a8c2a4624dd4188b75f5285a393"
+      "sha256": "686a73e2eafdd69c787fe63b381040008dc670fb48170e7847cf245d4b2e5410"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": null,
+      "path": "website/pagefind/fragment/en_fb9ef26.pf_fragment",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "a276c220c0a34753825aa9dc10e988101c27a8ccb9a4f6eafffaa190ebb48563"
+    },
+    {
+      "boundary_owner": "website_public_surface",
+      "file_kind": "checked_in_static_site",
+      "line_count": null,
+      "path": "website/pagefind/index/en_e371a76.pf_index",
+      "review_state": "reviewed",
+      "section": "Website",
+      "sha256": "91ea0c4f2818962d31a3f9e569fced052eec5da86c4552f993f1ffc016399154"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8567,7 +8081,7 @@
       "path": "website/pagefind/pagefind-entry.json",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "68c379bd15527c8a9a4d2f036a257873efd4ae0ac644bd2a60bf64ff94e570c4"
+      "sha256": "9fcd98cddac7ac4cc7c81f45595648ad506c555a79a500254681d7db75b555a8"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8627,10 +8141,10 @@
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
       "line_count": null,
-      "path": "website/pagefind/pagefind.en_3ce12316ee.pf_meta",
+      "path": "website/pagefind/pagefind.en_81517c88d2.pf_meta",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "0f0f4de6c745ffe8c8caac11e7c17444cb80b586088c8bae9330832a5092e2de"
+      "sha256": "327fc168b157a748f93cf4c99512abacfa7fa0fc6c4c6bddb0c8d560af489b70"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8675,7 +8189,7 @@
       "path": "website/sitemap-0.xml",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "efa6411075c6a145241474e24333cef01ee0cf3663af6640f11b5ca8c83df189"
+      "sha256": "67d58233d2d4ea9241ca52cd72e07749b9d5061074ab01345c69b76a30c5ed4d"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8689,290 +8203,38 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 62,
+      "line_count": 17,
       "path": "website/sitemap.xml",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "71ab2e7df3d1fe33e9b5e7763567918e614706321ad28bb073041d2109d3c468"
+      "sha256": "6b9e1b1703051497929ccd0c3bc4e950f951448b989f906f9be918da27c1af6b"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 21,
+      "line_count": 32,
       "path": "website/start.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "8208eefea586bc45fb45e38f1dce1e97530af63ab58cb2db4512ed8cf506436b"
+      "sha256": "b2241000da8015f282b64941f473fb7d6fe30f5369aa25fd51da7f34aff9eedf"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 21,
+      "line_count": 32,
       "path": "website/start/index.html",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "8208eefea586bc45fb45e38f1dce1e97530af63ab58cb2db4512ed8cf506436b"
+      "sha256": "b2241000da8015f282b64941f473fb7d6fe30f5369aa25fd51da7f34aff9eedf"
     },
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "checked_in_static_site",
-      "line_count": 7,
-      "path": "website/status.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "3de80dd334d33b0bfa360a3a491ce491944b47a9c25b523962fca59ad22da357"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 7,
-      "path": "website/status/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "3de80dd334d33b0bfa360a3a491ce491944b47a9c25b523962fca59ad22da357"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 5,
-      "path": "website/use-cases.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "45243a8f6c1b27c06965614b2fdf6322684f31630c154f4967282a4b6ac892a5"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/benchmark-interpretation-evidence-not-leaderboard/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "f063b0e4a293d0914ca0d299dbfa37a2dd95e1789f9dba8582f70f307314e3e5"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/compatibility-import-certified-local/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "a497e5e4f4bf4083232278ef9f6cc49b229be8d338a479a856080f247591952f"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/evidence-audit-claim-gates/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "3651a491d8a991f45218dc73604f23df6ce62438f61ab82453844022ce61a4b4"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/first-10-minutes-local-smoke/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "72a5e08dc7e3fb083be52de1e209504d74cf3ea8f5a506a9823255cb1f246240"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/foundry-local-proof-boundary/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "7dc10f2e913c214b33bf7c6bb10fe0ae189ff6aea60f7141dfeae4b2dfaf5a8e"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 5,
-      "path": "website/use-cases/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "45243a8f6c1b27c06965614b2fdf6322684f31630c154f4967282a4b6ac892a5"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/local-file-etl-cleanup-smoke/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "485737defa05b225a4140ae895615fb6fcb0ec62f534e70b4ca247d7f29f6670"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/local-sqlite-udf-effectful-boundary/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "bddea8b7b738245c4462bec1479e55035bafd533169c89684896282a56c502f5"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/local-table-append-commit-rehearsal-smoke/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "74167c53d9cf1e8d8c50dba4d7c146501182169f4e82d551a6c9bed9e01e1cbe"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/messy-data-local-fixtures/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "8fd082906ae9ef9559715f888a7bb27dd68a2c95bf40fde1d6486bb0df69b06e"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/object-store-boundary-report/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "f2e475b8f9f181271926303c6fb8bc98b042a9bd257fc4707c73c8419532da15"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/object-store-local-emulator-read-smoke/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "6ad11d37894058ca298af80a08588a745cb7738a631b737bcfb2fed773bd61bf"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/object-store-local-emulator-write-smoke/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "88de9cc6f38be63feaf8023fd5e6d7a7c5bb51a8081011b851999c782ee15e8c"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/object-store-public-no-credential-fixture-read-smoke/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "401ae8453d7cafeca25725a984434b63cb229897591bf733dd51670571102a5a"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/output-result-sink-and-fanout-boundary/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "a41d15e95163a0c1bd97cec51c4265dec05c0a30fc357ac601530b90ad70867c"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/package-channel-readiness-boundary/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "f0b194ec163c3b481a586f07c7c07edbb17b8f77dbe6f9a83b355dcae2c52fe4"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/prepared-native-vortex-runtime-direction/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "9e8d466cc76e6e38c32fcb7198831b86d5ce270436b14a90794d0a2e37cde41f"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/python-local-csv-query-builder-smoke/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "01ed3fec1892fe028fda4698b70c63a340b961a0fd4cc03c51a5c85b6d139362"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/python-wrapper-client-smoke/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "35581ad26989df5e3f524e9003303d2eef4262aaaf7ba110b335230e12adcd25"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/query-scenario-cookbook-smoke/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "3ce33f9e1c57beba78c32d101d3506df75f150d5c20af3a4ba84a56243d0216a"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/source-free-generated-output-boundary/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "f815cd6573c8b55fa8319f3570dca00b4f4c7ea5bf470934f60043ca47fe6373"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/sql-dataframe-capability-posture/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "f45e5a5ecdd691adc6f4f28f5b86d4eb71f1d00bc6821f411b22ea515487d568"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/sql-local-source-csv-smoke/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "0a7b9555b2f580ad3c502abdd676398e802ba36506cd4dd405180659c0224a81"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/table-lakehouse-boundary-report/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "4bb0997097a96a74654dc2bf2432fa69a49c823c5e1a5c772c3701ba565d2620"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 1,
-      "path": "website/use-cases/vortex-ingest-prepare-once-local/index.html",
-      "review_state": "reviewed",
-      "section": "Website",
-      "sha256": "ab73ba000cf99e2439ab63c78e05dd5dc096b226af1a62e8d9b5bb159dd9eb18"
-    },
-    {
-      "boundary_owner": "website_public_surface",
-      "file_kind": "checked_in_static_site",
-      "line_count": 451,
+      "line_count": 454,
       "path": "website/validate_static_assets.js",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "48d3fedd91ef407f36f4c1c7699576993360d416f6bbba462497639de1c3be9c"
+      "sha256": "2119d8fb9dfa6ef04cea91e2cf5d2afacf69351484456eb75f4945360832cf70"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8994,28 +8256,28 @@
     }
   ],
   "file_kind_counts": {
-    "checked_in_static_site": 192,
-    "documentation": 267,
+    "checked_in_static_site": 168,
+    "documentation": 268,
     "fixture_or_benchmark_data": 3,
     "jsonc": 1,
     "lock": 1,
-    "python": 88,
+    "python": 93,
     "rust": 262,
     "structured_config_or_data": 46,
     "text_or_policy": 5,
     "txt": 5,
     "typed": 1,
-    "website_source": 127
+    "website_source": 63
   },
-  "generated_at_utc": "2026-06-12T03:51:00.983194+00:00",
-  "reviewed_tracked_files": 998,
+  "generated_at_utc": "2026-06-12T20:19:34.396644+00:00",
+  "reviewed_tracked_files": 916,
   "schema_version": "shardloom.repo_wide_audit_inventory.v1",
   "section_counts": {
-    "Architecture/Documentation": 272,
-    "Shardloom Code": 404,
-    "Website": 322
+    "Architecture/Documentation": 273,
+    "Shardloom Code": 409,
+    "Website": 234
   },
   "skipped_tracked_files": 0,
-  "source_head_at_generation": "650fe14833e80c1042f8484f987a706b5e60c022",
-  "total_tracked_files": 998
+  "source_head_at_generation": "8cb7efb9555987306e5a2d688602466f7dec7753",
+  "total_tracked_files": 916
 }
