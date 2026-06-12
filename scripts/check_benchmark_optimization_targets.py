@@ -23,6 +23,23 @@ DEFAULT_ARTIFACT = Path("website/assets/benchmarks/latest/benchmark-results.json
 DEFAULT_OUTPUT = Path("target/benchmark-optimization-targets-report.json")
 DEFAULT_TOP_N = 8
 NEXT_IMPLEMENTATION_SLICE = "none"
+ROUTE_SHARE_ADDITIVE_TOLERANCE = 1.000001
+ROUTE_STAGE_FIELD_TO_ID = {
+    "source_admission_ms": "source_admission",
+    "source_read_ms": "source_read",
+    "source_parse_or_columnar_decode_ms": "source_parse_or_decode",
+    "source_to_vortex_array_ms": "source_to_vortex_array",
+    "vortex_write_ms": "vortex_write",
+    "exclusive_vortex_digest_ms": "vortex_digest",
+    "vortex_reopen_or_verify_ms": "vortex_reopen_verify",
+    "prepared_state_lookup_or_create_ms": "prepared_state_lookup_or_create",
+    "vortex_scan_ms": "vortex_scan",
+    "operator_compute_ms": "operator_compute",
+    "result_sink_write_ms": "result_sink_write",
+    "evidence_render_ms": "evidence_render",
+    "cli_process_wall_millis": "cli_process_wall",
+}
+INCLUDED_HOT_RUNTIME_STAGE_CLASS = "included_hot_runtime"
 
 
 RowPredicate = Callable[[dict[str, Any]], bool]
@@ -92,11 +109,85 @@ def is_materialized_temporary_operator(row: dict[str, Any]) -> bool:
     return bool(materialized and materialized != "none")
 
 
+def unpack_stage_map(value: Any) -> dict[str, str]:
+    if not isinstance(value, str):
+        return {}
+    result: dict[str, str] = {}
+    for token in value.split(";"):
+        if ":" not in token:
+            continue
+        key, stage_value = token.split(":", 1)
+        if key.strip():
+            result[key.strip()] = stage_value.strip()
+    return result
+
+
+def stage_included_in_hot_runtime(row: dict[str, Any], stage_field: str) -> bool:
+    stage_id = ROUTE_STAGE_FIELD_TO_ID.get(stage_field)
+    if stage_id is None:
+        return False
+    classes = unpack_stage_map(row.get("route_timing_stage_inclusion_classes"))
+    if not classes:
+        return False
+    return classes.get(stage_id) in {"included", INCLUDED_HOT_RUNTIME_STAGE_CLASS}
+
+
+def stage_contract_status(row: dict[str, Any], target: OptimizationTarget) -> str:
+    stage_value = numeric(row.get(target.stage_field))
+    if stage_value is None or stage_value <= 0.0:
+        return "stage_zero_or_missing"
+    if not stage_included_in_hot_runtime(row, target.stage_field):
+        return "stage_not_included_in_hot_runtime"
+    route_value = numeric(row.get(target.route_metric_field))
+    if route_value is None or route_value <= 0.0:
+        return "route_metric_missing"
+    if stage_value > route_value * ROUTE_SHARE_ADDITIVE_TOLERANCE:
+        return "non_additive_stage_exceeds_route_total"
+    return "included_additive"
+
+
+def stage_route_share(row: dict[str, Any], target: OptimizationTarget) -> float | None:
+    if stage_contract_status(row, target) != "included_additive":
+        return None
+    route_value = numeric(row.get(target.route_metric_field))
+    stage_value = numeric(row.get(target.stage_field))
+    if route_value is None or route_value <= 0.0 or stage_value is None:
+        return None
+    return stage_value / route_value
+
+
 def hot_shardloom_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [row for row in rows if is_shardloom_row(row) and is_hot_runtime_row(row)]
 
 
+def chunked_published_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    chunks = payload.get("published_benchmark_row_chunks")
+    if not isinstance(chunks, list):
+        return []
+    rows: list[dict[str, Any]] = []
+    for chunk in chunks:
+        if not isinstance(chunk, dict):
+            continue
+        path_text = chunk.get("path")
+        if not isinstance(path_text, str) or not path_text:
+            continue
+        path = ROOT / path_text
+        if not path.exists():
+            continue
+        chunk_payload = load_json(path)
+        chunk_rows = (
+            chunk_payload.get("rows") if isinstance(chunk_payload, dict) else chunk_payload
+        )
+        if isinstance(chunk_rows, list):
+            rows.extend(row for row in chunk_rows if isinstance(row, dict))
+    return rows
+
+
 def published_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if str(payload.get("published_benchmark_rows_inlined") or "") == "summary_only":
+        rows = chunked_published_rows(payload)
+        if rows:
+            return rows
     rows = payload.get("published_benchmark_rows") or payload.get("rows") or []
     return [row for row in rows if isinstance(row, dict)]
 
@@ -120,6 +211,14 @@ def top_rows(
     stage_field: str,
     top_n: int,
 ) -> list[dict[str, Any]]:
+    projection_target = OptimizationTarget(
+        target_id="_row_contract",
+        stage_field=stage_field,
+        route_metric_field=route_metric_field,
+        predicate=lambda candidate: True,
+        rationale="row contract projection",
+        next_slice="row contract projection",
+    )
     ranked = sorted(
         rows,
         key=lambda row: numeric(row.get(route_metric_field)) or 0.0,
@@ -142,6 +241,10 @@ def top_rows(
                     row.get("prepared_state_lookup_or_create_ms")
                 ),
                 "operator_compute_ms": numeric(row.get("operator_compute_ms")),
+                "stage_contract_status": stage_contract_status(
+                    row, projection_target
+                ),
+                "stage_route_share": stage_route_share(row, projection_target),
             }
         )
     return result
@@ -154,9 +257,24 @@ def target_summary(
     top_n: int,
 ) -> dict[str, Any]:
     target_rows = [row for row in rows if target.predicate(row)]
+    contract_statuses = {
+        status: sum(
+            1 for row in target_rows if stage_contract_status(row, target) == status
+        )
+        for status in (
+            "included_additive",
+            "non_additive_stage_exceeds_route_total",
+            "stage_not_included_in_hot_runtime",
+            "route_metric_missing",
+            "stage_zero_or_missing",
+        )
+    }
+    included_additive_rows = [
+        row for row in target_rows if stage_contract_status(row, target) == "included_additive"
+    ]
     stage_values = [
         value
-        for value in (numeric(row.get(target.stage_field)) for row in target_rows)
+        for value in (numeric(row.get(target.stage_field)) for row in included_additive_rows)
         if value is not None
     ]
     nonzero_stage_values = [value for value in stage_values if value > 0]
@@ -169,7 +287,20 @@ def target_summary(
     if evidence_present:
         target_status = "evidence_present"
         target_evidence_class = "measured_hotspot"
-        diagnostic_reason = "stage_timing_present_in_hot_runtime_rows"
+        diagnostic_reason = "included_additive_stage_timing_present_in_hot_runtime_rows"
+    elif target_rows and any(
+        status
+        in {
+            "non_additive_stage_exceeds_route_total",
+            "stage_not_included_in_hot_runtime",
+            "route_metric_missing",
+        }
+        and count
+        for status, count in contract_statuses.items()
+    ):
+        target_status = "diagnostic_stage_excluded_or_non_additive"
+        target_evidence_class = "timing_contract_blocked"
+        diagnostic_reason = "stage_timing_not_included_or_non_additive_for_hot_runtime"
     elif target_rows:
         target_status = "diagnostic_stage_zero_or_retired"
         target_evidence_class = "diagnostic_absent_or_retired"
@@ -190,6 +321,14 @@ def target_summary(
         "stage_field": target.stage_field,
         "route_metric_field": target.route_metric_field,
         "row_count": len(target_rows),
+        "included_additive_stage_row_count": len(included_additive_rows),
+        "non_additive_stage_row_count": contract_statuses[
+            "non_additive_stage_exceeds_route_total"
+        ],
+        "excluded_stage_row_count": contract_statuses[
+            "stage_not_included_in_hot_runtime"
+        ],
+        "stage_contract_status_counts": contract_statuses,
         "nonzero_stage_row_count": len(nonzero_stage_values),
         "stage_avg_ms": round(sum(stage_values) / len(stage_values), 6) if stage_values else None,
         "stage_p95_ms": percentile(stage_values, 0.95),
@@ -301,10 +440,15 @@ def build_report(artifact_path: Path, *, top_n: int = DEFAULT_TOP_N) -> dict[str
         for summary in summaries
         if summary["evidence_present"]
     ]
+    timing_contract_blocked_targets = [
+        summary["target_id"]
+        for summary in summaries
+        if summary["target_evidence_class"] == "timing_contract_blocked"
+    ]
     diagnostic_absent_or_retired_targets = [
         summary["target_id"]
         for summary in summaries
-        if not summary["evidence_present"]
+        if summary["target_evidence_class"] == "diagnostic_absent_or_retired"
     ]
     return {
         "schema_version": SCHEMA_VERSION,
@@ -320,6 +464,8 @@ def build_report(artifact_path: Path, *, top_n: int = DEFAULT_TOP_N) -> dict[str
         "target_count": len(summaries),
         "evidence_present_target_count": len(evidence_present_targets),
         "evidence_present_targets": evidence_present_targets,
+        "timing_contract_blocked_target_count": len(timing_contract_blocked_targets),
+        "timing_contract_blocked_targets": timing_contract_blocked_targets,
         "diagnostic_absent_or_retired_target_count": len(
             diagnostic_absent_or_retired_targets
         ),

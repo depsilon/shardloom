@@ -1981,6 +1981,63 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(by_surface["hot_runtime"][5], "0.34 ms")
         self.assertEqual(by_surface["publication_proof"][5], "13.82 ms")
 
+    def test_route_share_fails_closed_on_excluded_hot_stage(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_route_share_non_additive_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-prepared-vortex",
+            "storage_format": "vortex",
+            "scenario_name": "warm prepared non-additive operator timing",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "requested_execution_mode": "prepared_vortex",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "source_state_id": "source-state://non-additive",
+            "source_state_digest": "sha256:non-additive-source",
+            "prepared_state_id": "prepared-state://non-additive",
+            "prepared_state_digest": "sha256:non-additive-prepared",
+            "data_decoded": False,
+            "data_materialized": False,
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:non-additive",
+            "correctness_digest_stable": True,
+            "runtime_execution_certificate_id": "execution.non-additive",
+            "runtime_execution_certificate_status": "certified",
+            "runtime_execution_certificate_plan_ref": "plan://non-additive",
+            "claim_gate_status": "not_claim_grade",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": ["fixture_not_claim_grade"],
+            "requested_evidence_tier": "metadata_sink",
+            "actual_evidence_tier": "metadata_sink",
+            "metrics": {
+                "query_runtime_millis": 0.12,
+                "vortex_scan_millis": 0.0,
+                "operator_compute_millis": 1.4,
+                "total_runtime_millis": 0.12,
+                "cli_process_wall_millis": 0.2,
+            },
+        }
+
+        [published] = module.published_rows([row])
+        route_share = module.route_share_amdahl_table([published])
+        [route_row] = route_share["rows"]
+
+        self.assertEqual(route_row[1], "hot_runtime")
+        self.assertEqual(route_row[4], "Operator compute (excluded diagnostic)")
+        self.assertEqual(route_row[6], "n/a")
+        self.assertEqual(
+            route_row[7],
+            "fix_timing_surface_stage_inclusion_before_optimization",
+        )
+        self.assertEqual(route_row[8], "not_optimization_ready")
+        self.assertEqual(route_row[9], "operator_compute")
+
     def test_benchmark_promoter_marks_expensive_stage_without_substages_not_ready(
         self,
     ) -> None:
@@ -5403,6 +5460,9 @@ class ReleaseScriptTests(unittest.TestCase):
             "operator_compute_ms": 0.5,
             "materialized_temporary_operators": "none",
             "operator_temporary_materialization_used": False,
+            "route_timing_stage_inclusion_classes": self._packed_route_stage_map(
+                "included_hot_runtime"
+            ),
         }
         rows = [
             {
@@ -5501,6 +5561,106 @@ class ReleaseScriptTests(unittest.TestCase):
             by_target["operator_materialization"]["top_rows"][0]["scenario_name"],
             "group by aggregation",
         )
+        self.assertEqual(
+            by_target["operator_materialization"][
+                "included_additive_stage_row_count"
+            ],
+            1,
+        )
+        self.assertEqual(
+            by_target["operator_materialization"]["top_rows"][0][
+                "stage_contract_status"
+            ],
+            "included_additive",
+        )
+
+    def test_benchmark_optimization_targets_load_summary_only_row_chunks(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_optimization_targets.py",
+            "check_benchmark_optimization_targets_row_chunks_for_test",
+        )
+
+        (REPO_ROOT / "target").mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "target") as tempdir:
+            temp_path = Path(tempdir)
+            chunk_path = temp_path / "published-benchmark-rows-000.json"
+            chunk_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "shardloom.website.benchmark_row_chunk.v1",
+                        "rows": self._optimization_target_rows(),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            artifact = temp_path / "benchmark-results.json"
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "shardloom.website.benchmark_evidence.v1",
+                        "benchmark_profile": "fixture",
+                        "published_benchmark_rows": [],
+                        "published_benchmark_rows_inlined": "summary_only",
+                        "published_benchmark_row_chunks": [
+                            {"path": str(chunk_path.relative_to(REPO_ROOT))}
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            report = module.build_report(artifact, top_n=2)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["published_benchmark_row_count"], 5)
+        self.assertEqual(report["evidence_present_target_count"], 6)
+        self.assertEqual(report["timing_contract_blocked_target_count"], 0)
+
+    def test_benchmark_optimization_targets_fail_closed_on_non_additive_stage(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_benchmark_optimization_targets.py",
+            "check_benchmark_optimization_targets_non_additive_for_test",
+        )
+
+        rows = self._optimization_target_rows()
+        for row in rows:
+            if row["scenario_name"] == "group by aggregation":
+                row["hot_route_total_ms"] = 0.12
+                row["operator_compute_ms"] = 1.4
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            artifact = Path(tempdir) / "benchmark-results.json"
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "shardloom.website.benchmark_evidence.v1",
+                        "benchmark_profile": "fixture",
+                        "published_benchmark_rows": rows,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            report = module.build_report(artifact, top_n=2)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(
+            report["timing_contract_blocked_targets"], ["operator_materialization"]
+        )
+        by_target = {target["target_id"]: target for target in report["targets"]}
+        operator_target = by_target["operator_materialization"]
+        self.assertEqual(
+            operator_target["status"], "diagnostic_stage_excluded_or_non_additive"
+        )
+        self.assertEqual(operator_target["target_evidence_class"], "timing_contract_blocked")
+        self.assertEqual(operator_target["included_additive_stage_row_count"], 0)
+        self.assertEqual(operator_target["non_additive_stage_row_count"], 1)
+        self.assertEqual(
+            operator_target["top_rows"][0]["stage_contract_status"],
+            "non_additive_stage_exceeds_route_total",
+        )
+        self.assertIsNone(operator_target["top_rows"][0]["stage_route_share"])
 
     def test_benchmark_optimization_targets_do_not_block_retired_hotspots(self) -> None:
         module = self._load_script_module(
