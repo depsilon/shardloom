@@ -87,6 +87,9 @@ TIMING_SURFACES = {
     "publication_proof",
     "external_baseline",
 }
+ROW_ADMISSION_MANIFEST_SCHEMA_VERSION = (
+    "shardloom.website.benchmark_row_admission_manifest.v1"
+)
 
 
 def runtime_envelope_required(row: dict[str, Any]) -> bool:
@@ -545,6 +548,71 @@ def result_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     if isinstance(rows, list):
         return [row for row in rows if isinstance(row, dict)]
     return []
+
+
+def validate_row_admission_manifest(
+    manifest: dict[str, Any],
+    manifest_path: Path,
+    payload: dict[str, Any],
+    blockers: list[str],
+) -> None:
+    artifact_paths = manifest.get("artifact_paths")
+    if not isinstance(artifact_paths, dict):
+        return
+    path_text = artifact_paths.get("row_admission_manifest")
+    if not path_text:
+        return
+    admission_path = repo_path(str(path_text), manifest_path)
+    if not admission_path.exists():
+        blockers.append(
+            "artifact_paths.row_admission_manifest does not exist: "
+            + str(path_text)
+        )
+        return
+    admission = load_json(admission_path)
+    if not isinstance(admission, dict):
+        blockers.append("row admission manifest must contain an object")
+        return
+    if admission.get("schema_version") != ROW_ADMISSION_MANIFEST_SCHEMA_VERSION:
+        blockers.append("row admission manifest schema_version mismatch")
+    if admission.get("fallback_attempted") is not False:
+        blockers.append("row admission manifest fallback_attempted must be false")
+    if admission.get("external_engine_invoked") is not False:
+        blockers.append("row admission manifest external_engine_invoked must be false")
+    chunks = payload.get("published_benchmark_row_chunks")
+    if not isinstance(chunks, list):
+        blockers.append("row admission manifest present but payload has no row chunks")
+        return
+    if admission.get("chunk_count") != len(chunks):
+        blockers.append("row admission manifest chunk_count mismatch")
+    expected_row_count = payload.get("published_benchmark_row_count")
+    if (
+        isinstance(expected_row_count, int)
+        and admission.get("row_count") != expected_row_count
+    ):
+        blockers.append("row admission manifest row_count mismatch")
+    admitted_chunks = admission.get("chunks")
+    if not isinstance(admitted_chunks, list):
+        blockers.append("row admission manifest chunks must be a list")
+        return
+    admitted_by_path = {
+        str(chunk.get("path")): chunk
+        for chunk in admitted_chunks
+        if isinstance(chunk, dict) and chunk.get("path")
+    }
+    for chunk in chunks:
+        if not isinstance(chunk, dict):
+            continue
+        path_text = str(chunk.get("path") or "")
+        admitted = admitted_by_path.get(path_text)
+        if not admitted:
+            blockers.append(f"row admission manifest missing chunk: {path_text}")
+            continue
+        for field in ("row_count", "sha256"):
+            if admitted.get(field) != chunk.get(field):
+                blockers.append(
+                    f"row admission manifest chunk {path_text} {field} mismatch"
+                )
 
 
 def lane_evidence_counts(payload: dict[str, Any]) -> Counter[str]:
@@ -1812,6 +1880,12 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
                 validate_cold_lane_attribution(payload, blockers)
                 validate_public_front_door_rows(payload, manifest, blockers)
                 validate_profile_scope(payload, profile, blockers)
+                validate_row_admission_manifest(
+                    manifest,
+                    manifest_path,
+                    payload,
+                    blockers,
+                )
                 if recursive_text_contains(payload, "spark-retire"):
                     blockers.append(
                         "published benchmark artifact must not reference spark-retire"

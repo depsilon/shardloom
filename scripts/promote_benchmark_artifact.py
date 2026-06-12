@@ -11,6 +11,7 @@ import math
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 from collections import Counter, defaultdict
@@ -122,6 +123,13 @@ DEFAULT_BASE_SUMMARY = DEFAULT_PUBLIC_WEBSITE_DATA
 BENCHMARK_PROFILE_ROSTER = ("full_local",)
 PUBLISHED_ROW_CHUNK_PREFIX = "published-benchmark-rows"
 PUBLISHED_ROW_CHUNK_SIZE = 200
+PUBLISHED_ROW_CHUNK_SCHEMA_VERSION = "shardloom.website.benchmark_row_chunk.v1"
+PUBLISHED_ROW_RUN_DIR = "published-row-runs"
+ROW_ADMISSION_MANIFEST_SCHEMA_VERSION = (
+    "shardloom.website.benchmark_row_admission_manifest.v1"
+)
+ROW_ADMISSION_MANIFEST_NAME = "benchmark-row-admission-manifest.json"
+DUPLICATE_SUFFIX_RE = re.compile(r" \d+(?:\.[^.]+)?$")
 WEBSITE_ROW_KEYS = (
     "engine",
     "engine_display_name",
@@ -1249,8 +1257,22 @@ def load_json(path: Path) -> Any:
 
 
 def write_json(path: Path, payload: Any) -> None:
+    write_text_atomic(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def write_text_atomic(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path.write_text(text, encoding="utf-8")
+    temp_path.replace(path)
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def write_json_once(paths: list[Path], payload: Any) -> None:
@@ -1270,29 +1292,138 @@ def clear_row_chunks(directory: Path) -> None:
         path.unlink()
 
 
-def write_row_chunks(directory: Path, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    directory.mkdir(parents=True, exist_ok=True)
-    clear_row_chunks(directory)
-    chunks: list[dict[str, Any]] = []
-    for index in range(0, len(rows), PUBLISHED_ROW_CHUNK_SIZE):
-        chunk_rows = rows[index : index + PUBLISHED_ROW_CHUNK_SIZE]
-        chunk_index = index // PUBLISHED_ROW_CHUNK_SIZE
-        path = directory / f"{PUBLISHED_ROW_CHUNK_PREFIX}-{chunk_index:03d}.json"
-        payload = {
-            "schema_version": "shardloom.website.benchmark_row_chunk.v1",
-            "chunk_index": chunk_index,
-            "row_count": len(chunk_rows),
-            "rows": chunk_rows,
-        }
+def remove_duplicate_suffixed_artifacts(directory: Path) -> list[str]:
+    removed: list[str] = []
+    if not directory.exists():
+        return removed
+    for path in sorted(directory.rglob("*"), reverse=True):
+        if DUPLICATE_SUFFIX_RE.search(path.name):
+            removed.append(str(path))
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+    return removed
+
+
+def row_chunk_payload(chunk_index: int, chunk_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schema_version": PUBLISHED_ROW_CHUNK_SCHEMA_VERSION,
+        "chunk_index": chunk_index,
+        "row_count": len(chunk_rows),
+        "rows": chunk_rows,
+    }
+
+
+def row_chunk_specs(
+    rows: list[dict[str, Any]],
+    chunk_size: int,
+) -> list[dict[str, Any]]:
+    specs: list[dict[str, Any]] = []
+    for index in range(0, len(rows), chunk_size):
+        chunk_rows = rows[index : index + chunk_size]
+        chunk_index = index // chunk_size
+        payload = row_chunk_payload(chunk_index, chunk_rows)
         text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
-        path.write_text(text, encoding="utf-8")
-        chunks.append(
+        specs.append(
             {
-                "path": repo_relative(path),
+                "chunk_index": chunk_index,
                 "row_count": len(chunk_rows),
+                "text": text,
                 "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
             }
         )
+    return specs
+
+
+def row_admission_run_id(specs: list[dict[str, Any]]) -> str:
+    digest = hashlib.sha256()
+    for spec in specs:
+        digest.update(str(spec["chunk_index"]).encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(spec["sha256"]).encode("utf-8"))
+        digest.update(b"\0")
+    return digest.hexdigest()[:16]
+
+
+def row_admission_manifest_path_for_chunks(
+    chunks: list[dict[str, Any]],
+    directory: Path,
+) -> Path:
+    if not chunks:
+        return directory / ROW_ADMISSION_MANIFEST_NAME
+    first_path = Path(str(chunks[0]["path"]))
+    if not first_path.is_absolute():
+        first_path = ROOT / first_path
+    return first_path.parent / ROW_ADMISSION_MANIFEST_NAME
+
+
+def write_row_chunks(
+    directory: Path,
+    rows: list[dict[str, Any]],
+    *,
+    chunk_size: int = PUBLISHED_ROW_CHUNK_SIZE,
+) -> list[dict[str, Any]]:
+    directory.mkdir(parents=True, exist_ok=True)
+    duplicate_removed = remove_duplicate_suffixed_artifacts(directory)
+    specs = row_chunk_specs(rows, chunk_size)
+    run_id = row_admission_run_id(specs)
+    chunk_directory = directory / PUBLISHED_ROW_RUN_DIR / f"rows-{run_id}"
+    chunk_directory.mkdir(parents=True, exist_ok=True)
+    chunks: list[dict[str, Any]] = []
+    expected_paths: set[Path] = set()
+    reused_chunk_count = 0
+    written_chunk_count = 0
+    for spec in specs:
+        chunk_index = int(spec["chunk_index"])
+        path = chunk_directory / f"{PUBLISHED_ROW_CHUNK_PREFIX}-{chunk_index:03d}.json"
+        expected_paths.add(path)
+        text = str(spec["text"])
+        digest = str(spec["sha256"])
+        if path.exists() and file_sha256(path) == digest:
+            reused_chunk_count += 1
+        else:
+            write_text_atomic(path, text)
+            written_chunk_count += 1
+        chunks.append(
+            {
+                "path": repo_relative(path),
+                "row_count": int(spec["row_count"]),
+                "sha256": digest,
+            }
+        )
+    stale_removed: list[str] = []
+    for path in sorted(chunk_directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*.json")):
+        if path not in expected_paths:
+            stale_removed.append(str(path))
+            path.unlink()
+    admission_manifest = {
+        "schema_version": ROW_ADMISSION_MANIFEST_SCHEMA_VERSION,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "run_id": f"rows-{run_id}",
+        "row_count": len(rows),
+        "chunk_count": len(chunks),
+        "chunk_size": chunk_size,
+        "chunks": chunks,
+        "resume_status": (
+            "reused_existing_chunks"
+            if chunks and reused_chunk_count == len(chunks) and written_chunk_count == 0
+            else "admitted_incremental_chunks"
+        ),
+        "reused_chunk_count": reused_chunk_count,
+        "written_chunk_count": written_chunk_count,
+        "stale_chunk_files_removed": [repo_relative(Path(path)) for path in stale_removed],
+        "duplicate_suffixed_artifacts_removed": [
+            repo_relative(Path(path)) for path in duplicate_removed
+        ],
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "claim_boundary": (
+            "benchmark row admission manifest only; not performance, production, "
+            "or replacement evidence"
+        ),
+    }
+    write_json(chunk_directory / ROW_ADMISSION_MANIFEST_NAME, admission_manifest)
     return chunks
 
 
@@ -4687,6 +4818,17 @@ def artifact_rows(artifact: dict[str, Any]) -> list[dict[str, Any]]:
         return [row for row in published_rows if isinstance(row, dict)]
     rows = artifact.get("rows")
     return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+
+def existing_published_rows(directory: Path) -> list[dict[str, Any]]:
+    summary_path = directory / "benchmark-results.json"
+    if summary_path.exists():
+        summary = load_json(summary_path)
+        if isinstance(summary, dict):
+            rows = artifact_rows(summary)
+            if rows:
+                return rows
+    return load_row_chunks(directory)
 
 
 def coverage_rows(artifact: dict[str, Any]) -> list[dict[str, Any]]:
@@ -8324,7 +8466,7 @@ def main() -> int:
     if args.merge_existing_row_chunks:
         existing_rows = rows_with_prepare_once_first_query(
             published_rows_with_current_route_timing_ledger(
-                load_row_chunks(args.output_dir)
+                existing_published_rows(args.output_dir)
             )
         )
         if existing_rows:
@@ -8336,6 +8478,11 @@ def main() -> int:
     public_front_door_rows = public_front_door_benchmark_rows()
     row_chunks = write_row_chunks(args.output_dir, full_published_rows)
     write_row_chunks(args.public_output_dir, full_published_rows)
+    row_admission_manifest_path = row_admission_manifest_path_for_chunks(
+        row_chunks,
+        args.output_dir,
+    )
+    row_admission_manifest = load_json(row_admission_manifest_path)
     format_order = benchmark_format_order(artifact, full_published_rows, args.profile)
     scenario_order = benchmark_scenario_order(
         artifact,
@@ -8353,6 +8500,15 @@ def main() -> int:
         runtime_validation_override=runtime_validation_override,
     )
     manifest["artifact_paths"]["row_chunks"] = row_chunks
+    manifest["artifact_paths"]["row_admission_manifest"] = repo_relative(
+        row_admission_manifest_path
+    )
+    manifest["benchmark_row_admission_schema_version"] = (
+        ROW_ADMISSION_MANIFEST_SCHEMA_VERSION
+    )
+    manifest["benchmark_row_admission_manifest"] = repo_relative(
+        row_admission_manifest_path
+    )
     manifest["published_benchmark_row_count"] = len(full_published_rows)
     summary = portable_public_value({
         **base,
@@ -8369,6 +8525,7 @@ def main() -> int:
         "published_benchmark_rows": website_rows(full_published_rows),
         "published_benchmark_rows_inlined": "summary_only",
         "published_benchmark_row_chunks": row_chunks,
+        "published_benchmark_row_admission": row_admission_manifest,
         "published_benchmark_row_count": len(full_published_rows),
         "public_front_door_benchmark_schema_version": (
             PUBLIC_FRONT_DOOR_BENCHMARK_SCHEMA_VERSION

@@ -844,6 +844,16 @@ or deploys the static site. `scripts/check_benchmark_environment.py` defaults to
 DataFusion, and Dask across CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC. Spark/PySpark lanes are
 explicit-only historical baselines, not required for the current public refresh; pass
 `--profile smoke` only for quick ShardLoom-lane bring-up.
+
+Benchmark row chunks are admitted incrementally by `scripts/promote_benchmark_artifact.py`. New
+promotions write full rows into run-scoped
+`website/assets/benchmarks/latest/published-row-runs/rows-<digest>/` chunks, emit a
+`benchmark-row-admission-manifest.json`, and then point the promoted manifest at that admitted run.
+Unchanged chunks are reused by digest, stale chunks inside the admitted run are removed, and
+duplicate suffixed generated artifacts such as ` 2`/` 3` files are deleted before admission. This
+keeps the existing `latest` bundle readable if a future promotion is interrupted before the manifest
+is updated.
+
 Use `scripts/check_benchmark_publish_doctor.py` before publishing or handing off benchmark
 artifacts. It wraps artifact completeness, publication claim-gate, mirror-drift, row-count, route
 runtime status, operator-mode, and next-command checks, and writes a compact agent route packet to

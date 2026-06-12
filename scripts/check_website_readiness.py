@@ -199,6 +199,10 @@ URL_RE = re.compile(r"https?://[^\s\"'<>)]+")
 STATUS_CHIP_RE = re.compile(r'<span class="status-chip[^"]*">([^<]+)</span>')
 ROUTE_CARD_ID_RE = re.compile(r'data-route-card-id="([^"]+)"')
 PUBLIC_FRONT_DOOR_ID_RE = re.compile(r'data-public-front-door-id="([^"]+)"')
+DUPLICATE_SUFFIX_RE = re.compile(r" \d+(?:\.[^.]+)?$")
+ROW_ADMISSION_MANIFEST_SCHEMA_VERSION = (
+    "shardloom.website.benchmark_row_admission_manifest.v1"
+)
 
 
 class HtmlRefs(HTMLParser):
@@ -333,6 +337,22 @@ def check_cloudflare_asset_sizes(website: Path, repo_root: Path, blockers: list[
                 blockers.append(
                     "Cloudflare Workers static asset exceeds 25 MiB: "
                     f"{rel(path, repo_root)} ({size} bytes)"
+                )
+
+
+def check_duplicate_suffixed_artifacts(
+    roots: list[Path],
+    repo_root: Path,
+    blockers: list[str],
+) -> None:
+    for root in roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if DUPLICATE_SUFFIX_RE.search(path.name):
+                blockers.append(
+                    "duplicate suffixed generated artifact remains: "
+                    f"{rel(path, repo_root)}"
                 )
 
 
@@ -680,6 +700,29 @@ def check_public_front_door_benchmark_manifest(
         blockers.append("benchmark manifest public front-door row count mismatch")
 
 
+def check_row_admission_payload(payload: dict[str, Any], blockers: list[str]) -> None:
+    admission = payload.get("published_benchmark_row_admission")
+    if admission is None:
+        return
+    if not isinstance(admission, dict):
+        blockers.append("benchmark row admission payload must be an object")
+        return
+    if admission.get("schema_version") != ROW_ADMISSION_MANIFEST_SCHEMA_VERSION:
+        blockers.append("benchmark row admission payload schema mismatch")
+    if admission.get("fallback_attempted") is not False:
+        blockers.append("benchmark row admission payload fallback_attempted must be false")
+    if admission.get("external_engine_invoked") is not False:
+        blockers.append(
+            "benchmark row admission payload external_engine_invoked must be false"
+        )
+    chunks = payload.get("published_benchmark_row_chunks")
+    if isinstance(chunks, list) and admission.get("chunk_count") != len(chunks):
+        blockers.append("benchmark row admission payload chunk_count mismatch")
+    row_count = payload.get("published_benchmark_row_count")
+    if isinstance(row_count, int) and admission.get("row_count") != row_count:
+        blockers.append("benchmark row admission payload row_count mismatch")
+
+
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
@@ -713,6 +756,15 @@ def main() -> int:
         if not (website / asset).exists():
             blockers.append(f"missing expected asset: {asset}")
     check_cloudflare_asset_sizes(website, repo_root, blockers)
+    check_duplicate_suffixed_artifacts(
+        [
+            website,
+            repo_root / "website-public",
+            repo_root / "website-src/src",
+        ],
+        repo_root,
+        blockers,
+    )
     check_benchmark_timing_surface_dashboard(website, blockers)
     check_field_guide_route_pair(website, blockers)
 
@@ -769,6 +821,7 @@ def main() -> int:
         ):
             blockers.append("benchmark optimization target disappearance policy drifted")
         check_public_front_door_benchmark_payload(benchmark_payload, blockers)
+        check_row_admission_payload(benchmark_payload, blockers)
         if benchmark_payload.get("published_benchmark_rows_inlined") != "summary_only":
             blockers.append("benchmark results must inline only summary rows for deployable asset safety")
         chunks = benchmark_payload.get("published_benchmark_row_chunks")
