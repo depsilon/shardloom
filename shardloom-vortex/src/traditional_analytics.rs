@@ -1484,6 +1484,7 @@ struct TraditionalGroupCategoryMetricState {
         std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum>,
     category_interner: TraditionalStringInterner,
     stats: TraditionalStreamingScanStats,
+    residual_operator_optimization: TraditionalResidualOperatorOptimizationEvidence,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -1527,11 +1528,17 @@ impl TraditionalGroupCategoryMetricState {
                 Ok(())
             },
         )?;
+        let residual_operator_optimization =
+            TraditionalResidualOperatorOptimizationEvidence::precomputed_group_category_metric_state(
+                &group_key_groups.optimization_evidence(),
+                &group_category_groups.optimization_evidence(),
+            );
         Ok(Self {
             group_key_groups: group_key_groups.into_btree_map(),
             group_category_groups: group_category_groups.into_hash_map(),
             category_interner,
             stats,
+            residual_operator_optimization,
         })
     }
 }
@@ -7263,6 +7270,7 @@ pub struct TraditionalAnalyticsVortexReport {
     pub streaming_reader_chunk_encoding_summary: Vec<String>,
     pub compressed_kernel_registry_pair_execution_evidence:
         Vec<TraditionalCompressedKernelPairExecutionEvidence>,
+    pub residual_operator_optimization: TraditionalResidualOperatorOptimizationEvidence,
     pub encoded_predicate_provider_filter_column_probe_requested: bool,
     pub encoded_predicate_provider_filter_column_probe_requested_columns: Vec<String>,
     pub encoded_predicate_provider_filter_column_probe_status: String,
@@ -11462,6 +11470,7 @@ impl TraditionalAnalyticsVortexReport {
         fields.extend(encoded_predicate_provider_fields(self));
         fields.extend(compressed_encoded_kernel_registry_fields(self));
         fields.extend(fused_pipeline_evidence_fields(self));
+        fields.extend(self.residual_operator_optimization.fields());
         fields.extend(traditional_vortex_provider_admission_fields(
             self.scenario,
             self.execution_mode_selection
@@ -18140,6 +18149,133 @@ const TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY: usize = 4_096;
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 type TraditionalPackedU32Pair = u64;
 
+const RESIDUAL_OPERATOR_OPTIMIZATION_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.residual_operator_optimization.v1";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraditionalResidualOperatorOptimizationEvidence {
+    family: &'static str,
+    status: &'static str,
+    dense_accumulator_used: bool,
+    sparse_rollover_used: bool,
+    dense_max_key: Option<usize>,
+    dense_slot_budget: Option<usize>,
+}
+
+impl TraditionalResidualOperatorOptimizationEvidence {
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn not_applicable() -> Self {
+        Self {
+            family: "none",
+            status: "not_applicable_non_group_accumulator_operator",
+            dense_accumulator_used: false,
+            sparse_rollover_used: false,
+            dense_max_key: None,
+            dense_slot_budget: None,
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn dense_u32_group_accumulator() -> Self {
+        Self {
+            family: "single_key_group_by",
+            status: "applied_residual_dense_u32_group_accumulator",
+            dense_accumulator_used: true,
+            sparse_rollover_used: false,
+            dense_max_key: Some(TRADITIONAL_DENSE_GROUP_MAX_KEY),
+            dense_slot_budget: Some(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1),
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn dense_packed_group_accumulator() -> Self {
+        Self {
+            family: "multi_key_group_by",
+            status: "applied_residual_dense_packed_group_accumulator",
+            dense_accumulator_used: true,
+            sparse_rollover_used: false,
+            dense_max_key: Some(TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY),
+            dense_slot_budget: Some(TRADITIONAL_DENSE_PACKED_GROUP_SLOT_BUDGET),
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn sparse_rollover(family: &'static str) -> Self {
+        Self {
+            family,
+            status: "rolled_to_sparse_accumulator_wide_key_or_slot_budget",
+            dense_accumulator_used: false,
+            sparse_rollover_used: true,
+            dense_max_key: None,
+            dense_slot_budget: None,
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn precomputed_group_category_metric_state(group_key: &Self, group_category: &Self) -> Self {
+        if group_key.sparse_rollover_used || group_category.sparse_rollover_used {
+            Self::sparse_rollover("precomputed_group_category_metric_state")
+        } else {
+            Self {
+                family: "precomputed_group_category_metric_state",
+                status: "applied_residual_dense_group_category_metric_state",
+                dense_accumulator_used: group_key.dense_accumulator_used
+                    || group_category.dense_accumulator_used,
+                sparse_rollover_used: false,
+                dense_max_key: Some(TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY),
+                dense_slot_budget: Some(TRADITIONAL_DENSE_PACKED_GROUP_SLOT_BUDGET),
+            }
+        }
+    }
+
+    fn fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "residual_operator_optimization_schema_version".to_string(),
+                RESIDUAL_OPERATOR_OPTIMIZATION_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "residual_operator_optimization_family".to_string(),
+                self.family.to_string(),
+            ),
+            (
+                "residual_operator_optimization_status".to_string(),
+                self.status.to_string(),
+            ),
+            (
+                "residual_operator_dense_accumulator_used".to_string(),
+                self.dense_accumulator_used.to_string(),
+            ),
+            (
+                "residual_operator_sparse_rollover_used".to_string(),
+                self.sparse_rollover_used.to_string(),
+            ),
+            (
+                "residual_operator_dense_max_key".to_string(),
+                self.dense_max_key
+                    .map_or_else(|| "not_applicable".to_string(), |value| value.to_string()),
+            ),
+            (
+                "residual_operator_dense_slot_budget".to_string(),
+                self.dense_slot_budget
+                    .map_or_else(|| "not_applicable".to_string(), |value| value.to_string()),
+            ),
+            (
+                "residual_operator_optimization_claim_boundary".to_string(),
+                "residual-native hot-loop optimization only; operator_encoded_native_claim_allowed remains false until encoded-native correctness and certificate evidence are attached".to_string(),
+            ),
+            (
+                "residual_operator_optimization_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "residual_operator_optimization_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+        ]
+    }
+}
+
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Default, Clone, PartialEq)]
 struct TraditionalDenseU32GroupAccum {
@@ -18220,6 +18356,17 @@ impl TraditionalU32GroupAccumulator {
                 groups.entry(key).or_default().add(metric);
                 Ok(())
             }
+        }
+    }
+
+    fn optimization_evidence(&self) -> TraditionalResidualOperatorOptimizationEvidence {
+        match self {
+            Self::Dense(_) => {
+                TraditionalResidualOperatorOptimizationEvidence::dense_u32_group_accumulator()
+            }
+            Self::Sparse(_) => TraditionalResidualOperatorOptimizationEvidence::sparse_rollover(
+                "single_key_group_by",
+            ),
         }
     }
 
@@ -18371,6 +18518,17 @@ impl TraditionalPackedGroupAccumulator {
                 add_packed_group_accum(groups, left, right, metric);
                 Ok(())
             }
+        }
+    }
+
+    fn optimization_evidence(&self) -> TraditionalResidualOperatorOptimizationEvidence {
+        match self {
+            Self::Dense(_) => {
+                TraditionalResidualOperatorOptimizationEvidence::dense_packed_group_accumulator()
+            }
+            Self::Sparse(_) => TraditionalResidualOperatorOptimizationEvidence::sparse_rollover(
+                "multi_key_group_by",
+            ),
         }
     }
 
@@ -18586,6 +18744,7 @@ struct TraditionalScenarioExecutionEvidence {
     encoded_predicate_provider: TraditionalEncodedPredicateProviderRuntimeEvidence,
     compressed_kernel_registry_pair_execution_evidence:
         Vec<TraditionalCompressedKernelPairExecutionEvidence>,
+    residual_operator_optimization: TraditionalResidualOperatorOptimizationEvidence,
     data_decoded: bool,
     data_materialized: bool,
     row_read: bool,
@@ -18624,6 +18783,8 @@ impl TraditionalScenarioExecutionEvidence {
             encoded_predicate_provider:
                 TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
             compressed_kernel_registry_pair_execution_evidence: Vec::new(),
+            residual_operator_optimization:
+                TraditionalResidualOperatorOptimizationEvidence::not_applicable(),
             data_decoded: true,
             data_materialized: true,
             row_read: false,
@@ -18656,6 +18817,7 @@ impl TraditionalScenarioExecutionEvidence {
             vortex_scan_segments_skipped,
             vortex_scan_columns_touched,
             vortex_scan_decoded_values,
+            residual_operator_optimization,
             ..
         } = stats;
         Self {
@@ -18688,6 +18850,7 @@ impl TraditionalScenarioExecutionEvidence {
             encoded_predicate_provider:
                 TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
             compressed_kernel_registry_pair_execution_evidence: Vec::new(),
+            residual_operator_optimization,
             data_decoded: true,
             data_materialized: false,
             row_read: false,
@@ -21289,10 +21452,19 @@ struct TraditionalStreamingScanStats {
     vortex_scan_segments_skipped: u64,
     vortex_scan_columns_touched: u64,
     vortex_scan_decoded_values: u64,
+    residual_operator_optimization: TraditionalResidualOperatorOptimizationEvidence,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalStreamingScanStats {
+    fn with_residual_operator_optimization(
+        mut self,
+        evidence: TraditionalResidualOperatorOptimizationEvidence,
+    ) -> Self {
+        self.residual_operator_optimization = evidence;
+        self
+    }
+
     fn with_operator_finalize_micros(mut self, micros: u64) -> Result<Self> {
         self.operator_finalize_micros = checked_u64_sum(self.operator_finalize_micros, micros)?;
         Ok(self)
@@ -24129,6 +24301,7 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         compressed_kernel_registry_pair_execution_evidence: scenario_execution
             .evidence
             .compressed_kernel_registry_pair_execution_evidence,
+        residual_operator_optimization: scenario_execution.evidence.residual_operator_optimization,
         encoded_predicate_provider_filter_column_probe_requested: scenario_execution
             .evidence
             .encoded_predicate_provider
@@ -30245,6 +30418,8 @@ fn combine_fact_delta_overlay_streaming_evidence(
         encoded_predicate_provider:
             TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
         compressed_kernel_registry_pair_execution_evidence: Vec::new(),
+        residual_operator_optimization:
+            TraditionalResidualOperatorOptimizationEvidence::not_applicable(),
         data_decoded: base.data_decoded || delta.data_decoded,
         data_materialized: base.data_materialized || delta.data_materialized,
         row_read: base.row_read || delta.row_read,
@@ -30735,6 +30910,8 @@ fn run_streaming_hash_join_scenario_with_dim_state(
             dim_stats.vortex_scan_decoded_values,
             fact_stats.vortex_scan_decoded_values,
         )?,
+        residual_operator_optimization:
+            TraditionalResidualOperatorOptimizationEvidence::not_applicable(),
     };
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -30904,6 +31081,8 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
             dim_stats.vortex_scan_decoded_values,
             fact_stats.vortex_scan_decoded_values,
         )?,
+        residual_operator_optimization:
+            TraditionalResidualOperatorOptimizationEvidence::not_applicable(),
     };
     Ok(TraditionalScenarioExecution {
         result_json,
@@ -31316,6 +31495,7 @@ fn run_streaming_multi_key_group_by_scenario_with_dim_rows(
             Ok(())
         },
     )?;
+    let stats = stats.with_residual_operator_optimization(groups.optimization_evidence());
     let assembly_start = std::time::Instant::now();
     let result_json =
         group_category_packed_id_rows_json(groups.into_hash_map(), &category_interner)?;
@@ -31337,7 +31517,10 @@ fn run_streaming_multi_key_group_by_scenario_with_group_category_metric_state(
     dim_rows: u64,
     group_state: &TraditionalGroupCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
-    let stats = group_state.stats.clone();
+    let stats = group_state
+        .stats
+        .clone()
+        .with_residual_operator_optimization(group_state.residual_operator_optimization.clone());
     let assembly_start = std::time::Instant::now();
     let result_json = group_category_packed_id_rows_json(
         group_state.group_category_groups.clone(),
@@ -31399,6 +31582,7 @@ fn run_streaming_group_by_aggregation_scenario_with_dim_rows(
     let kernel_pair_evidence = dictionary_group_by_pair.finish()?;
     let stats =
         stats.with_operator_finalize_micros(duration_to_micros(finalize_start.elapsed()))?;
+    let stats = stats.with_residual_operator_optimization(groups.optimization_evidence());
     let assembly_start = std::time::Instant::now();
     let result_json = numeric_group_rows_json(groups.into_btree_map(), "group_key");
     let rows_materialized = result_rows_materialized(&result_json)?;
@@ -31422,7 +31606,10 @@ fn run_streaming_group_by_aggregation_scenario_with_group_category_metric_state(
     dim_rows: u64,
     group_state: &TraditionalGroupCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
-    let stats = group_state.stats.clone();
+    let stats = group_state
+        .stats
+        .clone()
+        .with_residual_operator_optimization(group_state.residual_operator_optimization.clone());
     let assembly_start = std::time::Instant::now();
     let result_json = numeric_group_rows_json(group_state.group_key_groups.clone(), "group_key");
     let rows_materialized = result_rows_materialized(&result_json)?;
@@ -31996,6 +32183,8 @@ fn run_streaming_small_change_over_large_base_scenario_with_dim_rows(
             fact_stats.vortex_scan_decoded_values,
             cdc_stats.vortex_scan_decoded_values,
         )?,
+        residual_operator_optimization:
+            TraditionalResidualOperatorOptimizationEvidence::not_applicable(),
     };
     let mut result_ids = rows.keys().copied().collect::<Vec<_>>();
     result_ids.sort_unstable();
@@ -34051,6 +34240,8 @@ fn scan_fact_vortex_projected_with_encoded_inputs(
         vortex_scan_segments_skipped: 0,
         vortex_scan_columns_touched,
         vortex_scan_decoded_values,
+        residual_operator_optimization:
+            TraditionalResidualOperatorOptimizationEvidence::not_applicable(),
     })
 }
 
@@ -37972,6 +38163,72 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn assert_dense_packed_residual_operator_fields(
+        fields: &std::collections::HashMap<String, String>,
+    ) {
+        assert_field_eq(
+            fields,
+            "residual_operator_optimization_schema_version",
+            RESIDUAL_OPERATOR_OPTIMIZATION_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            fields,
+            "residual_operator_optimization_family",
+            "multi_key_group_by",
+        );
+        assert_field_eq(
+            fields,
+            "residual_operator_optimization_status",
+            "applied_residual_dense_packed_group_accumulator",
+        );
+        assert_field_eq(fields, "residual_operator_dense_accumulator_used", "true");
+        assert_field_eq(fields, "residual_operator_sparse_rollover_used", "false");
+        assert_field_eq(
+            fields,
+            "residual_operator_optimization_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            fields,
+            "residual_operator_optimization_external_engine_invoked",
+            "false",
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn assert_dense_u32_residual_operator_fields(
+        fields: &std::collections::HashMap<String, String>,
+    ) {
+        assert_field_eq(
+            fields,
+            "residual_operator_optimization_schema_version",
+            RESIDUAL_OPERATOR_OPTIMIZATION_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            fields,
+            "residual_operator_optimization_family",
+            "single_key_group_by",
+        );
+        assert_field_eq(
+            fields,
+            "residual_operator_optimization_status",
+            "applied_residual_dense_u32_group_accumulator",
+        );
+        assert_field_eq(fields, "residual_operator_dense_accumulator_used", "true");
+        assert_field_eq(fields, "residual_operator_sparse_rollover_used", "false");
+        assert_field_eq(
+            fields,
+            "residual_operator_optimization_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            fields,
+            "residual_operator_optimization_external_engine_invoked",
+            "false",
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn field_u64(fields: &std::collections::HashMap<String, String>, name: &str) -> u64 {
         fields
             .get(name)
@@ -40611,6 +40868,37 @@ mod tests {
                 .proofbound
                 .certificate_status,
             "certified"
+        );
+        let group_fields = field_map(group_report.fields());
+        assert_field_eq(
+            &group_fields,
+            "residual_operator_optimization_schema_version",
+            RESIDUAL_OPERATOR_OPTIMIZATION_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &group_fields,
+            "residual_operator_optimization_family",
+            "single_key_group_by",
+        );
+        assert_field_eq(
+            &group_fields,
+            "residual_operator_optimization_status",
+            "applied_residual_dense_u32_group_accumulator",
+        );
+        assert_field_eq(
+            &group_fields,
+            "residual_operator_dense_accumulator_used",
+            "true",
+        );
+        assert_field_eq(
+            &group_fields,
+            "residual_operator_sparse_rollover_used",
+            "false",
+        );
+        assert_field_eq(
+            &group_fields,
+            "operator_encoded_native_claim_allowed",
+            "false",
         );
 
         let hash_report = report
@@ -46041,6 +46329,7 @@ mod tests {
                 .map(String::as_str),
             Some("false")
         );
+        assert_dense_packed_residual_operator_fields(&native_fields);
         assert_eq!(
             native_fields
                 .get("provider_admission_fallback_attempted")
@@ -46123,6 +46412,7 @@ mod tests {
                 .map(String::as_str),
             Some("false")
         );
+        assert_dense_u32_residual_operator_fields(&native_fields);
         assert_eq!(
             native_fields
                 .get("provider_admission_fallback_attempted")

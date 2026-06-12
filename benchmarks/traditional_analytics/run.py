@@ -635,6 +635,32 @@ OPERATOR_BLOCKER_MATRIX_FIELDS = (
     "operator_blocker_reason",
     "operator_encoded_native_claim_allowed",
 )
+RESIDUAL_OPERATOR_OPTIMIZATION_FIELDS = (
+    "residual_operator_optimization_schema_version",
+    "residual_operator_optimization_family",
+    "residual_operator_optimization_status",
+    "residual_operator_dense_accumulator_used",
+    "residual_operator_sparse_rollover_used",
+    "residual_operator_dense_max_key",
+    "residual_operator_dense_slot_budget",
+    "residual_operator_optimization_claim_boundary",
+    "residual_operator_optimization_fallback_attempted",
+    "residual_operator_optimization_external_engine_invoked",
+)
+RESIDUAL_OPERATOR_OPTIMIZATION_BOOLEAN_FIELDS = frozenset(
+    {
+        "residual_operator_dense_accumulator_used",
+        "residual_operator_sparse_rollover_used",
+        "residual_operator_optimization_fallback_attempted",
+        "residual_operator_optimization_external_engine_invoked",
+    }
+)
+RESIDUAL_OPERATOR_OPTIMIZATION_INTEGER_FIELDS = frozenset(
+    {
+        "residual_operator_dense_max_key",
+        "residual_operator_dense_slot_budget",
+    }
+)
 FUSED_PIPELINE_FIELDS = (
     "fused_pipeline_schema_version",
     "fused_pipeline_report_id",
@@ -21551,6 +21577,16 @@ def successful_result_from_iterations(
                 metrics.setdefault(field, parse_optional_int(value))
             else:
                 metrics.setdefault(field, value)
+        for field in RESIDUAL_OPERATOR_OPTIMIZATION_FIELDS:
+            if field not in evidence:
+                continue
+            value = evidence.get(field)
+            if field in RESIDUAL_OPERATOR_OPTIMIZATION_BOOLEAN_FIELDS:
+                metrics.setdefault(field, parse_optional_bool(value))
+            elif field in RESIDUAL_OPERATOR_OPTIMIZATION_INTEGER_FIELDS:
+                metrics.setdefault(field, parse_optional_int(value))
+            else:
+                metrics.setdefault(field, value)
     for field in RUNTIME_EXECUTION_VALIDATION_EVIDENCE_FIELDS:
         value = evidence.get(field)
         if field in ("runtime_fallback_attempted", "runtime_external_query_engine_invoked"):
@@ -22697,6 +22733,9 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
             SOURCE_TO_VORTEX_ARRAY_GUARD_CONTRACT_FIELDS
         ),
         "operator_blocker_matrix_fields": list(OPERATOR_BLOCKER_MATRIX_FIELDS),
+        "residual_operator_optimization_fields": list(
+            RESIDUAL_OPERATOR_OPTIMIZATION_FIELDS
+        ),
         "fused_pipeline_fields": list(FUSED_PIPELINE_FIELDS),
         "compressed_kernel_registry_fields": list(COMPRESSED_KERNEL_REGISTRY_FIELDS),
         "scan_pushdown_fields": list(SCAN_PUSHDOWN_FIELDS),
