@@ -132,6 +132,13 @@ The benchmark-page ETL scenarios use the same primary ShardLoom front door from 
 snippets show the user-facing shape; measured route timing comes from the promoted benchmark
 artifact and remains claim-gated.
 
+To run these local scenario snippets from a source checkout and inspect timing components:
+
+```powershell
+python examples\local-python-benchmark-scenarios\run.py --repo-root .
+python examples\local-python-benchmark-scenarios\timing_review.py --repo-root .
+```
+
 ```python
 from shardloom import context
 import shardloom as sl

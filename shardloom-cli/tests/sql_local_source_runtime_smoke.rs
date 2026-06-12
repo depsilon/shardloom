@@ -12952,7 +12952,7 @@ fn sql_local_source_smoke_blocks_invalid_date_literals_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_nested_jsonl_values_without_fallback() {
+fn sql_local_source_smoke_skips_unselected_nested_jsonl_values_without_fallback() {
     let source_path = unique_path("sql-local-source-jsonl-nested-blocked", "jsonl");
     fs::write(&source_path, "{\"id\":1,\"payload\":{\"x\":1}}\n").expect("write source jsonl");
 
@@ -12960,8 +12960,30 @@ fn sql_local_source_smoke_blocks_nested_jsonl_values_without_fallback() {
         "SELECT id FROM '{}' WHERE id >= 1 LIMIT 10",
         source_path.display()
     );
+    let stdout = run_sql_local_source_smoke_json(&statement);
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "jsonl")));
+    assert!(stdout.contains(&field("source_columns", "id,payload")));
+    assert!(stdout.contains(&field("source_state_read_plan", "required_columns")));
+    assert!(stdout.contains(&field("source_state_requested_columns", "id")));
+    assert!(stdout.contains(&field("source_state_reader_projection_columns", "id")));
+    assert!(stdout.contains(&field("source_state_pruned_column_count", "1")));
+    assert!(stdout.contains(&field("source_state_column_pruning_applied", "true")));
+    assert!(stdout.contains("\"result_jsonl\",\"value\":\"{\\\"id\\\":1}\\n\""));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let selected_statement = format!(
+        "SELECT payload FROM '{}' WHERE id >= 1 LIMIT 10",
+        source_path.display()
+    );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .args([
+            "sql-local-source-smoke",
+            &selected_statement,
+            "--format",
+            "json",
+        ])
         .output()
         .expect("sql-local-source-smoke command runs");
 

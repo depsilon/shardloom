@@ -4396,7 +4396,7 @@ class LazyFrame:
         return self.client.public_workflow_route(
             "dataframe",
             input_uri=self.source.uri,
-            input_format=self.source.source_format,
+            input_format=_public_workflow_input_format(self.source),
             plan_summary=self.operation_summary,
             requested_output=requested_output,
             output_ref=output_ref,
@@ -4428,7 +4428,7 @@ class LazyFrame:
         return self.client.public_workflow_run(
             "dataframe",
             input_uri=self.source.uri,
-            input_format=self.source.source_format,
+            input_format=_public_workflow_input_format(self.source),
             sql_statement=self._sql_local_source_statement(),
             plan_summary=self.operation_summary,
             requested_output=requested_output,
@@ -4452,7 +4452,7 @@ class LazyFrame:
         return self.client.public_workflow_prepare(
             "dataframe",
             input_uri=self.source.uri,
-            input_format=self.source.source_format,
+            input_format=_public_workflow_input_format(self.source),
             output_ref=target_vortex_path,
             plan_summary=self.operation_summary,
             evidence_level=evidence_level,
@@ -4508,7 +4508,7 @@ class LazyFrame:
             execution = self.client.public_workflow_run(
                 "dataframe",
                 input_uri=self.source.uri,
-                input_format=self.source.source_format,
+                input_format=_public_workflow_input_format(self.source),
                 sql_statement=statement,
                 plan_summary=self.operation_summary,
                 requested_output="collect",
@@ -4992,7 +4992,7 @@ class LazyFrame:
         execution = self.client.public_workflow_run(
             "dataframe",
             input_uri=self.source.uri,
-            input_format=self.source.source_format,
+            input_format=_public_workflow_input_format(self.source),
             sql_statement=statement,
             plan_summary=self.operation_summary,
             requested_output=requested_output,
@@ -6145,7 +6145,10 @@ class LazyFrame:
                     or limit is not None
                 ):
                     return None
-                predicate = operation.values[0]
+                predicate = _rewrite_predicate_with_computed_columns(
+                    operation.values[0],
+                    tuple(literal_columns),
+                )
             elif operation.kind == "having" and having is None:
                 if aggregate_list is None or sort_key is not None or limit is not None:
                     return None
@@ -10452,6 +10455,18 @@ def _source_format_for_local_source_ref(value: str) -> str | None:
     return None
 
 
+def _public_workflow_input_format(source: WorkflowSource) -> str:
+    """Return the input format to pass to the public workflow CLI facade."""
+
+    if source.source_format == "json":
+        lower = source.uri.strip().lower()
+        if lower.endswith(".jsonl"):
+            return "jsonl"
+        if lower.endswith(".ndjson"):
+            return "ndjson"
+    return source.source_format
+
+
 def _is_local_json_source_ref(value: str) -> bool:
     return _source_format_for_local_source_ref(value) == "json"
 
@@ -10732,6 +10747,70 @@ def _optional_sql_where_clause(predicate: str | None) -> str:
     if predicate is None:
         return ""
     return f" WHERE {predicate}"
+
+
+def _rewrite_predicate_with_computed_columns(
+    predicate: str,
+    computed_columns: tuple[tuple[str, str], ...],
+) -> str:
+    rewritten = predicate
+    for alias, expression in computed_columns:
+        rewritten = _replace_sql_identifier_outside_quotes(
+            rewritten,
+            alias,
+            expression,
+        )
+    return rewritten
+
+
+def _replace_sql_identifier_outside_quotes(
+    statement: str,
+    identifier: str,
+    replacement: str,
+) -> str:
+    if not identifier or identifier not in statement:
+        return statement
+    rewritten: list[str] = []
+    in_quote = False
+    index = 0
+    while index < len(statement):
+        char = statement[index]
+        if char == "'":
+            rewritten.append(char)
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                rewritten.append(statement[index + 1])
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if (
+            not in_quote
+            and statement.startswith(identifier, index)
+            and _sql_identifier_rewrite_boundary(statement, index, len(identifier))
+        ):
+            rewritten.append(replacement)
+            index += len(identifier)
+            continue
+        rewritten.append(char)
+        index += 1
+    return "".join(rewritten)
+
+
+def _sql_identifier_rewrite_boundary(
+    statement: str,
+    start: int,
+    length: int,
+) -> bool:
+    before = statement[start - 1] if start > 0 else ""
+    after_index = start + length
+    after = statement[after_index] if after_index < len(statement) else ""
+    return (
+        not _is_identifier_char(before)
+        and not _is_identifier_char(after)
+        and before != "."
+        and after != "."
+    )
 
 
 def _optional_sql_having_clause(predicate: str | None) -> str:

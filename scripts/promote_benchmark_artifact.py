@@ -425,6 +425,16 @@ WEBSITE_ROW_KEYS = (
     "source_read_row_materialization_status",
     "source_read_unsupported_shape_diagnostic",
     "source_read_scout_claim_boundary",
+    "source_state_read_plan",
+    "source_state_projection_pushdown_status",
+    "source_state_reader_projection_columns",
+    "source_state_reader_projection_column_count",
+    "source_state_projected_field_mask",
+    "source_state_filter_field_mask",
+    "source_state_decoded_columns",
+    "source_state_skipped_columns",
+    "source_state_decoded_column_count",
+    "source_state_skipped_column_count",
     "vortex_writer_context_schema_version",
     "vortex_writer_context_status",
     "vortex_writer_context_open_ms",
@@ -3138,6 +3148,171 @@ def source_read_scout_fields_for_row(
             "read composition only; it does not authorize performance, production, or "
             "Spark-displacement claims"
         ),
+    }
+
+
+def source_state_column_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    text = str(value).strip()
+    if text.lower() in {
+        "",
+        "none",
+        "not_applicable",
+        "not_evaluated",
+        "not_executed",
+        "not_reported",
+        "not_requested",
+        "unknown",
+    }:
+        return []
+    separator = "|" if "|" in text else ","
+    return [column.strip() for column in text.split(separator) if column.strip()]
+
+
+def source_state_column_text(value: Any) -> str:
+    columns = source_state_column_list(value)
+    return ",".join(columns) if columns else "none"
+
+
+def source_state_column_count(
+    fields: dict[str, Any],
+    direct_count_field: str,
+    column_text: str,
+    *,
+    fallback_count_field: str | None = None,
+) -> int:
+    direct = numeric_value(fields.get(direct_count_field))
+    if direct is not None:
+        return int(direct)
+    if fallback_count_field is not None:
+        fallback = numeric_value(fields.get(fallback_count_field))
+        if fallback is not None:
+            return int(fallback)
+    return len(source_state_column_list(column_text))
+
+
+def source_state_projection_fields_for_row(
+    row: dict[str, Any],
+    source_read_scout_fields: dict[str, Any],
+) -> dict[str, Any]:
+    fields = {
+        **runtime_validation_field_map(row),
+        **source_read_scout_fields,
+    }
+    if not is_shardloom_engine(str(row.get("engine") or "")):
+        default_status = "external_baseline_only"
+        return {
+            "source_state_read_plan": default_status,
+            "source_state_projection_pushdown_status": default_status,
+            "source_state_reader_projection_columns": "none",
+            "source_state_reader_projection_column_count": 0,
+            "source_state_projected_field_mask": "0x00000000",
+            "source_state_filter_field_mask": "0x00000000",
+            "source_state_decoded_columns": "none",
+            "source_state_skipped_columns": "none",
+            "source_state_decoded_column_count": 0,
+            "source_state_skipped_column_count": 0,
+        }
+
+    scout_status = str(fields.get("source_read_scout_status") or "not_reported")
+    timing_status = str(
+        fields.get("source_read_scout_timing_split_status") or "not_reported"
+    )
+    if scout_status == "external_baseline_only":
+        default_status = "external_baseline_only"
+    elif timing_status == "not_applicable":
+        default_status = "not_applicable_no_source_read_stage"
+    else:
+        default_status = "not_reported"
+
+    decoded_columns = source_state_column_text(
+        first_meaningful_field(
+            fields,
+            ("source_state_decoded_columns", "source_read_decoded_columns"),
+        )
+    )
+    skipped_columns = source_state_column_text(
+        first_meaningful_field(
+            fields,
+            ("source_state_skipped_columns", "source_read_skipped_columns"),
+        )
+    )
+    reader_projection_columns = source_state_column_text(
+        first_meaningful_field(
+            fields,
+            (
+                "source_state_reader_projection_columns",
+                "reader_projection_columns",
+                "source_read_decoded_columns",
+            ),
+        )
+    )
+    decoded_count = source_state_column_count(
+        fields,
+        "source_state_decoded_column_count",
+        decoded_columns,
+        fallback_count_field="source_read_decoded_column_count",
+    )
+    skipped_count = source_state_column_count(
+        fields,
+        "source_state_skipped_column_count",
+        skipped_columns,
+        fallback_count_field="source_read_skipped_column_count",
+    )
+    reader_projection_count = source_state_column_count(
+        fields,
+        "source_state_reader_projection_column_count",
+        reader_projection_columns,
+    )
+    if (
+        reader_projection_columns == "none"
+        and decoded_columns != "none"
+        and reader_projection_count == 0
+    ):
+        reader_projection_columns = decoded_columns
+        reader_projection_count = decoded_count
+
+    read_plan = first_meaningful_field(
+        fields,
+        ("source_state_read_plan", "vortex_scout_ingress_read_plan"),
+    ) or (
+        "projection_aware_source_scout"
+        if skipped_count > 0
+        else "full_source_read"
+        if decoded_count > 0
+        else default_status
+    )
+    projection_status = first_meaningful_field(
+        fields,
+        ("source_state_projection_pushdown_status",),
+    ) or (
+        "reader_projection_applied"
+        if skipped_count > 0
+        else "not_requested_full_read"
+        if decoded_count > 0
+        else default_status
+    )
+
+    return {
+        "source_state_read_plan": read_plan,
+        "source_state_projection_pushdown_status": projection_status,
+        "source_state_reader_projection_columns": reader_projection_columns,
+        "source_state_reader_projection_column_count": reader_projection_count,
+        "source_state_projected_field_mask": first_meaningful_field(
+            fields,
+            ("source_state_projected_field_mask", "source_read_projected_field_mask"),
+        )
+        or "0x00000000",
+        "source_state_filter_field_mask": first_meaningful_field(
+            fields,
+            ("source_state_filter_field_mask", "source_read_filter_field_mask"),
+        )
+        or "0x00000000",
+        "source_state_decoded_columns": decoded_columns,
+        "source_state_skipped_columns": skipped_columns,
+        "source_state_decoded_column_count": decoded_count,
+        "source_state_skipped_column_count": skipped_count,
     }
 
 
@@ -8142,6 +8317,9 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         source_read_scout_fields = source_read_scout_fields_for_row(
             adjusted_row, route_stage_fields
         )
+        source_state_projection_fields = source_state_projection_fields_for_row(
+            adjusted_row, source_read_scout_fields
+        )
         prepared_state_optimization_fields = prepared_state_optimization_fields_for_row(
             adjusted_row
         )
@@ -8166,6 +8344,7 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             **adjusted_row,
             **route_stage_fields,
             **source_read_scout_fields,
+            **source_state_projection_fields,
             **prepared_state_optimization_fields,
             **vortex_reopen_scan_fields,
             **route_timing_ledger,
@@ -8222,6 +8401,7 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rendered_row.update(route_diagnostics)
         rendered_row.update(route_stage_fields)
         rendered_row.update(source_read_scout_fields)
+        rendered_row.update(source_state_projection_fields)
         rendered_row.update(prepared_state_optimization_fields)
         rendered_row.update(vortex_reopen_scan_fields)
         rendered_row.update(route_timing_ledger)
@@ -8275,7 +8455,13 @@ def published_rows_with_current_route_timing_ledger(
         updated = dict(row)
         route_stage_fields = route_stage_fields_for_row(updated)
         updated.update(route_stage_fields)
-        updated.update(source_read_scout_fields_for_row(updated, route_stage_fields))
+        source_read_scout_fields = source_read_scout_fields_for_row(
+            updated, route_stage_fields
+        )
+        updated.update(source_read_scout_fields)
+        updated.update(
+            source_state_projection_fields_for_row(updated, source_read_scout_fields)
+        )
         updated.update(prepared_state_optimization_fields_for_row(updated))
         updated.update(
             vortex_reopen_scan_attribution_fields_for_row(updated, route_stage_fields)

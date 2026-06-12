@@ -523,6 +523,43 @@ class ReleaseScriptTests(unittest.TestCase):
             "source_read_unsupported_shape_diagnostic": (
                 "none_admitted_text_shape" if cold_route else "not_applicable"
             ),
+            "source_state_read_plan": (
+                "projection_aware_source_scout"
+                if cold_route
+                else "not_applicable_no_source_read_stage"
+            ),
+            "source_state_projection_pushdown_status": (
+                "reader_projection_applied"
+                if cold_route
+                else "not_applicable_no_source_read_stage"
+            ),
+            "source_state_reader_projection_columns": (
+                "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|"
+                "fact.category|dim.dim_key|dim.dim_label|dim.weight"
+                if cold_route
+                else "none"
+            ),
+            "source_state_reader_projection_column_count": 10 if cold_route else 0,
+            "source_state_projected_field_mask": (
+                "0x0000e07f" if cold_route else "0x00000000"
+            ),
+            "source_state_filter_field_mask": (
+                "0x00000028" if cold_route else "0x00000000"
+            ),
+            "source_state_decoded_columns": (
+                "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|"
+                "fact.category|dim.dim_key|dim.dim_label|dim.weight"
+                if cold_route
+                else "none"
+            ),
+            "source_state_skipped_columns": (
+                "fact.event_date|fact.nullable_metric_00|fact.nested_payload|"
+                "fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+                if cold_route
+                else "none"
+            ),
+            "source_state_decoded_column_count": 10 if cold_route else 0,
+            "source_state_skipped_column_count": 6 if cold_route else 0,
             "source_read_scout_claim_boundary": "fixture_no_claim",
             "vortex_writer_context_schema_version": (
                 "shardloom.traditional_analytics.vortex_writer_context.v1"
@@ -786,6 +823,16 @@ class ReleaseScriptTests(unittest.TestCase):
             "source_read_skipped_column_count": 0,
             "source_read_row_materialization_status": "external_baseline_only",
             "source_read_unsupported_shape_diagnostic": "external_baseline_only",
+            "source_state_read_plan": "external_baseline_only",
+            "source_state_projection_pushdown_status": "external_baseline_only",
+            "source_state_reader_projection_columns": "none",
+            "source_state_reader_projection_column_count": 0,
+            "source_state_projected_field_mask": "0x00000000",
+            "source_state_filter_field_mask": "0x00000000",
+            "source_state_decoded_columns": "none",
+            "source_state_skipped_columns": "none",
+            "source_state_decoded_column_count": 0,
+            "source_state_skipped_column_count": 0,
             "source_read_scout_claim_boundary": "external_baseline_only",
             "vortex_writer_context_schema_version": (
                 "shardloom.traditional_analytics.vortex_writer_context.v1"
@@ -2108,6 +2155,12 @@ class ReleaseScriptTests(unittest.TestCase):
                 "source_read_columnar_handoff_millis": 2.0,
                 "source_read_scout_status": "source_read_scout_split_recorded",
                 "source_read_scout_reuse_status": "not_reused_fresh_source_read",
+                "source_read_projected_field_mask": "0x00000007",
+                "source_read_filter_field_mask": "0x00000004",
+                "source_read_decoded_columns": "fact.id|fact.metric|fact.flag",
+                "source_read_skipped_columns": "fact.event_date|fact.raw_event_time",
+                "source_read_decoded_column_count": 3,
+                "source_read_skipped_column_count": 2,
                 "compatibility_parse_millis": 6.0,
                 "source_to_columnar_millis": 2.0,
                 "vortex_write_millis": 25.0,
@@ -2148,6 +2201,29 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["source_read_anomaly_quarantine_ms"], 0.0)
         self.assertEqual(published["source_read_columnar_handoff_ms"], 2.0)
         self.assertEqual(published["source_read_scout_residual_ms"], 0.0)
+        self.assertEqual(
+            published["source_state_read_plan"], "projection_aware_source_scout"
+        )
+        self.assertEqual(
+            published["source_state_projection_pushdown_status"],
+            "reader_projection_applied",
+        )
+        self.assertEqual(
+            published["source_state_reader_projection_columns"],
+            "fact.id,fact.metric,fact.flag",
+        )
+        self.assertEqual(published["source_state_reader_projection_column_count"], 3)
+        self.assertEqual(published["source_state_projected_field_mask"], "0x00000007")
+        self.assertEqual(published["source_state_filter_field_mask"], "0x00000004")
+        self.assertEqual(
+            published["source_state_decoded_columns"], "fact.id,fact.metric,fact.flag"
+        )
+        self.assertEqual(
+            published["source_state_skipped_columns"],
+            "fact.event_date,fact.raw_event_time",
+        )
+        self.assertEqual(published["source_state_decoded_column_count"], 3)
+        self.assertEqual(published["source_state_skipped_column_count"], 2)
         self.assertEqual(
             published["vortex_reopen_scan_attribution_schema_version"],
             "shardloom.traditional_analytics.vortex_reopen_scan_attribution.v1",
@@ -3845,6 +3921,16 @@ class ReleaseScriptTests(unittest.TestCase):
                 "source_read_columnar_handoff_micros": "2000",
                 "source_read_scout_status": "measured",
                 "source_read_scout_reuse_status": "reuse_hit",
+                "source_state_read_plan": "projected_csv_reader",
+                "source_state_projection_pushdown_status": "reader_level_projection",
+                "source_state_reader_projection_columns": "id,metric",
+                "source_state_reader_projection_column_count": "2",
+                "source_read_projected_field_mask": "0x00000005",
+                "source_read_filter_field_mask": "0x00000004",
+                "source_read_decoded_columns": "id|metric",
+                "source_read_skipped_columns": "value|flag",
+                "source_read_decoded_column_count": "2",
+                "source_read_skipped_column_count": "2",
                 "vortex_footer_open_micros": "800",
                 "vortex_metadata_verify_micros": "1000",
                 "vortex_scan_open_micros": "1200",
@@ -3875,6 +3961,12 @@ class ReleaseScriptTests(unittest.TestCase):
             if field not in metrics
         ]
         self.assertEqual(missing_stage_fields, [])
+        missing_source_state_fields = [
+            field
+            for field in benchmark_run.SOURCE_STATE_CONTRACT_FIELDS
+            if field not in metrics
+        ]
+        self.assertEqual(missing_source_state_fields, [])
         self.assertEqual(metrics["source_read_header_scout_millis"], 2.0)
         self.assertEqual(metrics["source_read_byte_acquisition_millis"], 3.0)
         self.assertEqual(metrics["source_read_full_body_millis"], 4.0)
@@ -3884,6 +3976,18 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(metrics["source_read_columnar_handoff_millis"], 1.5)
         self.assertEqual(metrics["source_read_header_scout_micros"], 3000)
         self.assertEqual(metrics["source_read_scout_reuse_status"], "reuse_hit")
+        self.assertEqual(metrics["source_state_read_plan"], "projected_csv_reader")
+        self.assertEqual(
+            metrics["source_state_projection_pushdown_status"], "reader_level_projection"
+        )
+        self.assertEqual(metrics["source_state_reader_projection_columns"], "id,metric")
+        self.assertEqual(metrics["source_state_reader_projection_column_count"], 2)
+        self.assertEqual(metrics["source_state_projected_field_mask"], "0x00000005")
+        self.assertEqual(metrics["source_state_filter_field_mask"], "0x00000004")
+        self.assertEqual(metrics["source_state_decoded_columns"], "id,metric")
+        self.assertEqual(metrics["source_state_skipped_columns"], "value,flag")
+        self.assertEqual(metrics["source_state_decoded_column_count"], 2)
+        self.assertEqual(metrics["source_state_skipped_column_count"], 2)
         self.assertEqual(metrics["vortex_footer_open_millis"], 0.6)
         self.assertEqual(metrics["vortex_scenario_scan_millis"], 1.05)
         self.assertEqual(metrics["vortex_scan_bytes_touched"], 4096)
@@ -6436,6 +6540,8 @@ jobs:
                 clean_conda_status="skipped_tool_missing",
                 clean_conda_tool=None,
                 clean_conda_required=False,
+                package_python=repo_root / "tools" / "python3.12",
+                package_python_version="3.12.13",
             )
 
             report = json.loads(transcript.read_text(encoding="utf-8"))
@@ -6447,6 +6553,9 @@ jobs:
             self.assertEqual(report["clean_conda_env"], "conda")
             self.assertEqual(report["local_cli_binary"], "target/debug/shardloom")
             self.assertEqual(report["local_wheel"], "python/dist/shardloom.whl")
+            self.assertEqual(report["package_python"], "tools/python3.12")
+            self.assertEqual(report["package_python_version"], "3.12.13")
+            self.assertEqual(report["package_python_min_version"], "3.10")
             self.assertNotIn(str(repo_root), json.dumps(report, sort_keys=True))
 
     def test_release_dry_run_transcript_redacts_command_paths(self) -> None:
@@ -6469,6 +6578,32 @@ jobs:
             self.assertEqual(redacted[2], "target/release-dry-run-proof/venv")
             self.assertEqual(redacted[3], "external-path:python3")
             self.assertNotIn(str(repo_root), " ".join(redacted))
+
+    def test_release_dry_run_selects_package_python_satisfying_requires_python(self) -> None:
+        module = self._load_script_module(
+            "release_dry_run_proof.py", "release_dry_run_proof_python_selection_for_test"
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            py39 = root / "python3.9"
+            py312 = root / "python3.12"
+            py39.write_text("#!/bin/sh\n", encoding="utf-8")
+            py312.write_text("#!/bin/sh\n", encoding="utf-8")
+
+            def fake_runner(command, **_kwargs):  # type: ignore[no-untyped-def]
+                executable = Path(command[0])
+                version = "Python 3.9.6"
+                if executable == py312.resolve():
+                    version = "Python 3.12.13"
+                return subprocess.CompletedProcess(command, 0, stdout=version, stderr="")
+
+            selected, version = module.select_package_python(
+                [py39, py312],
+                runner=fake_runner,
+            )
+
+            self.assertEqual(selected, py312.resolve())
+            self.assertEqual(version, "3.12.13")
 
     def test_release_dry_run_python_artifact_build_falls_back_to_pip_wheel(self) -> None:
         module = self._load_script_module(

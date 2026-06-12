@@ -582,6 +582,73 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(execution.public_workflow_external_engine_invoked)
         self.assertIsNone(execution.blocker_id)
 
+    def test_read_json_jsonl_collect_passes_jsonl_to_public_facade(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "target/events.jsonl",
+                    "--input-format",
+                    "jsonl",
+                    "--sql",
+                    "SELECT id,nested_payload FROM 'target/events.jsonl' WHERE nested_payload LIKE '%target%' LIMIT 10",
+                    "--plan",
+                    "read_json(target/events.jsonl) -> filter(nested_payload LIKE '%target%') -> select(id,nested_payload) -> limit(10)",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "public workflow run",
+                    "human_text": "run",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"nested_payload\\":\\"target\\"}\\n"},
+                        {"key": "source_format", "value": "jsonl"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            ),
+            rewrite_public_run=False,
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_json("target/events.jsonl")
+            .filter(sl.col("nested_payload").contains("target"))
+            .select("id", "nested_payload")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "run")
+        self.assertEqual(report.envelope.field("source_format"), "jsonl")
+        self.assertEqual(report.output_row_count, 1)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_lazyframe_fanout_uses_public_run_facade_payload(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -9593,6 +9660,26 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_with_column_alias_filter_rewrites_to_expression(
+        self,
+    ) -> None:
+        workflow = (
+            sl.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "dirty_numeric": "utf8"},
+                binary=["definitely-missing-shardloom"],
+            )
+            .with_column("amount_float", sl.col("dirty_numeric").cast("float64"))
+            .filter(sl.col("amount_float") >= 0)
+            .limit(1000)
+        )
+
+        self.assertEqual(
+            workflow._sql_local_source_statement(),
+            "SELECT *,CAST(dirty_numeric AS float64) AS amount_float FROM "
+            "'target/input.csv' WHERE CAST(dirty_numeric AS float64) >= 0 LIMIT 1000",
+        )
 
     def test_local_json_query_builder_with_column_without_select_invokes_sql_smoke(
         self,

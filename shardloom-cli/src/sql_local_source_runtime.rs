@@ -29606,7 +29606,7 @@ fn parse_jsonl_source_content_with_plan(
         } else {
             line
         };
-        let fields = parse_flat_json_object(line).map_err(|error| {
+        let fields = parse_flat_json_object_with_plan(line, read_plan).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "JSONL row {} is not admitted by this scoped source runtime: {error}",
                 line_index + 1
@@ -29642,7 +29642,8 @@ fn parse_json_source_content_with_plan(
     let mut raw_rows = Vec::new();
     match chars.get(index) {
         Some('{') => {
-            let (fields, next_index) = parse_flat_json_object_at(&chars, index, "JSON")?;
+            let (fields, next_index) =
+                parse_flat_json_object_at_with_plan(&chars, index, "JSON", read_plan)?;
             index = skip_json_ws(&chars, next_index);
             if index != chars.len() {
                 return Err(unsupported_sql_error(
@@ -29659,7 +29660,8 @@ fn parse_json_source_content_with_plan(
                     index += 1;
                     break;
                 }
-                let (fields, next_index) = parse_flat_json_object_at(&chars, index, "JSON")?;
+                let (fields, next_index) =
+                    parse_flat_json_object_at_with_plan(&chars, index, "JSON", read_plan)?;
                 raw_rows.push(fields);
                 index = skip_json_ws(&chars, next_index);
                 match chars.get(index) {
@@ -29732,9 +29734,13 @@ fn materialize_flat_json_rows(
     Ok((header, rows))
 }
 
-fn parse_flat_json_object(raw: &str) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
+fn parse_flat_json_object_with_plan(
+    raw: &str,
+    read_plan: &LocalSourceReadPlan,
+) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
     let chars = raw.trim().chars().collect::<Vec<_>>();
-    let (fields, index) = parse_flat_json_object_at(&chars, skip_json_ws(&chars, 0), "JSONL")?;
+    let (fields, index) =
+        parse_flat_json_object_at_with_plan(&chars, skip_json_ws(&chars, 0), "JSONL", read_plan)?;
     if skip_json_ws(&chars, index) != chars.len() {
         return Err(unsupported_sql_error(
             "JSONL rows must contain exactly one JSON object per line",
@@ -29743,10 +29749,11 @@ fn parse_flat_json_object(raw: &str) -> Result<Vec<(String, ScalarValue)>, Shard
     Ok(fields)
 }
 
-fn parse_flat_json_object_at(
+fn parse_flat_json_object_at_with_plan(
     chars: &[char],
     mut index: usize,
     source_label: &str,
+    read_plan: &LocalSourceReadPlan,
 ) -> Result<(Vec<(String, ScalarValue)>, usize), ShardLoomError> {
     if chars.get(index) != Some(&'{') {
         return Err(unsupported_sql_error(&format!(
@@ -29770,9 +29777,15 @@ fn parse_flat_json_object_at(
             ));
         }
         index += 1;
-        let (value, next_index) = parse_json_value(chars, index)?;
-        fields.push((key, value));
-        index = skip_json_ws(chars, next_index);
+        if read_plan.should_materialize(&key) {
+            let (value, next_index) = parse_json_value(chars, index)?;
+            fields.push((key, value));
+            index = next_index;
+        } else {
+            index = skip_json_value(chars, index)?;
+            fields.push((key, ScalarValue::Null));
+        }
+        index = skip_json_ws(chars, index);
         match chars.get(index) {
             Some(',') => index += 1,
             Some('}') => {
@@ -29829,6 +29842,142 @@ fn parse_json_value(
             Ok((value, index))
         }
         None => Err(unsupported_sql_error("JSONL object value is missing")),
+    }
+}
+
+fn skip_json_value(chars: &[char], mut index: usize) -> Result<usize, ShardLoomError> {
+    index = skip_json_ws(chars, index);
+    match chars.get(index) {
+        Some('"') => skip_json_string_value(chars, index),
+        Some('{') => skip_json_object_value(chars, index),
+        Some('[') => skip_json_array_value(chars, index),
+        Some(_) => {
+            let start = index;
+            while let Some(ch) = chars.get(index) {
+                if *ch == ',' || *ch == '}' || *ch == ']' {
+                    break;
+                }
+                index += 1;
+            }
+            let token = chars[start..index]
+                .iter()
+                .collect::<String>()
+                .trim()
+                .to_string();
+            if token.is_empty() {
+                return Err(unsupported_sql_error(
+                    "JSON scalar values must not be empty",
+                ));
+            }
+            parse_json_bare_scalar(&token)?;
+            Ok(index)
+        }
+        None => Err(unsupported_sql_error("JSONL object value is missing")),
+    }
+}
+
+fn skip_json_string_value(chars: &[char], mut index: usize) -> Result<usize, ShardLoomError> {
+    if chars.get(index) != Some(&'"') {
+        return Err(unsupported_sql_error(
+            "JSON object keys and string values must be quoted strings",
+        ));
+    }
+    index += 1;
+    while let Some(ch) = chars.get(index).copied() {
+        index += 1;
+        match ch {
+            '"' => return Ok(index),
+            '\\' => {
+                let Some(escaped) = chars.get(index).copied() else {
+                    return Err(unsupported_sql_error("JSONL string escape is incomplete"));
+                };
+                index += 1;
+                match escaped {
+                    '"' | '\\' | '/' | 'b' | 'f' | 'n' | 'r' | 't' => {}
+                    'u' => {
+                        for _ in 0..4 {
+                            let Some(hex) = chars.get(index).copied() else {
+                                return Err(unsupported_sql_error(
+                                    "JSON unicode escape is incomplete",
+                                ));
+                            };
+                            if !hex.is_ascii_hexdigit() {
+                                return Err(unsupported_sql_error(
+                                    "JSON unicode escape must contain four hex digits",
+                                ));
+                            }
+                            index += 1;
+                        }
+                    }
+                    _ => {
+                        return Err(unsupported_sql_error(
+                            "JSON string contains an unsupported escape sequence",
+                        ));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Err(unsupported_sql_error("JSON string is not closed"))
+}
+
+fn skip_json_object_value(chars: &[char], mut index: usize) -> Result<usize, ShardLoomError> {
+    if chars.get(index) != Some(&'{') {
+        return Err(unsupported_sql_error(
+            "JSON object value must start with '{'",
+        ));
+    }
+    index += 1;
+    loop {
+        index = skip_json_ws(chars, index);
+        if chars.get(index) == Some(&'}') {
+            return Ok(index + 1);
+        }
+        index = skip_json_string_value(chars, index)?;
+        index = skip_json_ws(chars, index);
+        if chars.get(index) != Some(&':') {
+            return Err(unsupported_sql_error(
+                "JSON object fields must use ':' between key and value",
+            ));
+        }
+        index = skip_json_value(chars, index + 1)?;
+        index = skip_json_ws(chars, index);
+        match chars.get(index) {
+            Some(',') => index += 1,
+            Some('}') => return Ok(index + 1),
+            _ => {
+                return Err(unsupported_sql_error(
+                    "JSON object fields must be separated by ','",
+                ));
+            }
+        }
+    }
+}
+
+fn skip_json_array_value(chars: &[char], mut index: usize) -> Result<usize, ShardLoomError> {
+    if chars.get(index) != Some(&'[') {
+        return Err(unsupported_sql_error(
+            "JSON array value must start with '['",
+        ));
+    }
+    index += 1;
+    loop {
+        index = skip_json_ws(chars, index);
+        if chars.get(index) == Some(&']') {
+            return Ok(index + 1);
+        }
+        index = skip_json_value(chars, index)?;
+        index = skip_json_ws(chars, index);
+        match chars.get(index) {
+            Some(',') => index += 1,
+            Some(']') => return Ok(index + 1),
+            _ => {
+                return Err(unsupported_sql_error(
+                    "JSON array values must be separated by ','",
+                ));
+            }
+        }
     }
 }
 
@@ -51077,6 +51226,46 @@ mod tests {
         assert_eq!(header, vec!["id", "label"]);
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].get("id"), Some(&ScalarValue::Int64(1)));
+    }
+
+    #[test]
+    fn jsonl_source_read_plan_skips_unselected_nested_and_escaped_values() {
+        let plan = LocalSourceReadPlan::required(
+            BTreeSet::from(["id".to_string(), "label".to_string()]),
+            "test_projected_jsonl_columns",
+        );
+
+        let (header, rows) = parse_jsonl_source_content_with_plan(
+            "{\"id\":1,\"payload\":{\"nested\":[1,2]},\"label\":\"alpha\",\"tail\":\"\\u263A\"}\n",
+            &plan,
+        )
+        .expect("projected JSONL parse skips unselected values");
+
+        assert_eq!(header, vec!["id", "payload", "label", "tail"]);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].get("id"), Some(&ScalarValue::Int64(1)));
+        assert_eq!(
+            rows[0].get("label"),
+            Some(&ScalarValue::Utf8("alpha".into()))
+        );
+        assert!(!rows[0].contains_key("payload"));
+        assert!(!rows[0].contains_key("tail"));
+    }
+
+    #[test]
+    fn jsonl_source_read_plan_blocks_selected_nested_values() {
+        let plan = LocalSourceReadPlan::required(
+            BTreeSet::from(["id".to_string(), "payload".to_string()]),
+            "test_selected_jsonl_nested_column",
+        );
+
+        let error = parse_jsonl_source_content_with_plan(
+            "{\"id\":1,\"payload\":{\"nested\":[1,2]}}\n",
+            &plan,
+        )
+        .expect_err("selected nested JSONL value remains blocked");
+
+        assert!(error.to_string().contains("scalar values only"));
     }
 
     #[test]
