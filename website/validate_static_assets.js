@@ -7,26 +7,22 @@ const cloudflareStaticAssetMaxBytes = 25 * 1024 * 1024;
 
 const requiredFiles = [
   "index.html",
+  "about.html",
+  "about/index.html",
   "start.html",
   "start/index.html",
   "field-guide.html",
   "field-guide/index.html",
+  "field-guide/start-local-proof/index.html",
+  "field-guide/python-surface/index.html",
+  "field-guide/benchmark-methodology/index.html",
+  "field-guide/limitations/index.html",
   "field-guide/no-fallback/index.html",
   "field-guide/vortex-ingest/index.html",
-  "use-cases.html",
-  "use-cases/index.html",
-  "use-cases/first-10-minutes-local-smoke/index.html",
-  "use-cases/compatibility-import-certified-local/index.html",
   "benchmarks.html",
   "benchmarks/index.html",
-  "architecture.html",
-  "architecture/index.html",
   "compute-engine-flow.html",
   "compute-engine-flow/index.html",
-  "status.html",
-  "status/index.html",
-  "docs.html",
-  "docs/index.html",
   "404.html",
   "robots.txt",
   "sitemap.xml",
@@ -39,11 +35,20 @@ const requiredFiles = [
   "assets/logo/shardloom-logo-trim.png",
   "assets/data/compute-engine-flow-reference.md",
   "assets/data/benchmark-evidence.json",
-  "assets/data/runs-today-support-matrix.json",
-  "assets/data/use-case-index.json",
   "assets/benchmarks/latest/manifest.json",
   "assets/benchmarks/latest/benchmark-results.json",
   "pagefind/pagefind-entry.json",
+];
+
+const removedWebsiteSurfaces = [
+  "architecture.html",
+  "architecture/index.html",
+  "docs.html",
+  "docs/index.html",
+  "status.html",
+  "status/index.html",
+  "use-cases.html",
+  "use-cases/index.html",
 ];
 
 const forbiddenRuntimeText = [
@@ -108,6 +113,9 @@ function collectFiles(directory, prefix = "") {
 for (const file of requiredFiles) {
   assert(exists(file), `Missing required website file: ${file}`);
 }
+for (const file of removedWebsiteSurfaces) {
+  assert(!exists(file), `Removed website surface still exists: ${file}`);
+}
 for (const file of collectFiles(root)) {
   const size = fs.statSync(path.join(root, file)).size;
   assert(
@@ -144,18 +152,18 @@ for (const file of runtimeFiles) {
 
 const htmlFiles = [
   "index.html",
+  "about.html",
   "start.html",
   "field-guide.html",
+  "field-guide/start-local-proof/index.html",
+  "field-guide/python-surface/index.html",
+  "field-guide/benchmark-methodology/index.html",
+  "field-guide/limitations/index.html",
   "field-guide/no-fallback/index.html",
-  "use-cases.html",
-  "use-cases/first-10-minutes-local-smoke/index.html",
   "benchmarks.html",
   "benchmarks/index.html",
-  "architecture.html",
   "compute-engine-flow.html",
   "compute-engine-flow/index.html",
-  "status.html",
-  "docs.html",
   "404.html",
 ];
 for (const file of htmlFiles) {
@@ -371,7 +379,7 @@ for (const required of [
 
 const fieldGuide = read("field-guide.html");
 for (const required of [
-  "A compact atlas for ShardLoom vocabulary.",
+  "A compact Starlight docs shell",
   "UniversalIngress",
   "vortex_ingest",
   "VortexPreparedState",
@@ -381,46 +389,59 @@ for (const required of [
   assert(fieldGuide.includes(required), `field guide missing ${required}`);
 }
 
-const useCases = read("use-cases.html");
+const startLocalProof = read("field-guide/start-local-proof/index.html");
 for (const required of [
-  "Can ShardLoom do my thing?",
-  "compatibility_import_certified",
-  "fallback_attempted=false",
-  "claim_gate_status",
-]) {
-  assert(useCases.includes(required), `use cases page missing ${required}`);
-}
-
-const status = read("status.html");
-for (const required of [
-  "Support status stays visible.",
-  "Generated current-support matrix",
-  "claim performance superiority",
-  "feature_gated",
-  "diagnostic_only",
-  "Local CSV",
-  "Local JSONL / NDJSON",
-  "S3 / GCS / ADLS",
-  "Iceberg / Delta / Hudi",
-  "Foundry",
-  "Package / release",
-]) {
-  assert(status.includes(required), `status page missing ${required}`);
-}
-
-const docs = read("docs.html");
-for (const required of [
-  "Source docs, routed for evidence.",
   "Start local proof",
-  "Open Field Guide",
-  "Completed execution ledger",
+  "fallback_attempted=false",
+  "external_engine_invoked=false",
   "claim_gate_status",
 ]) {
-  assert(docs.includes(required), `docs page missing ${required}`);
+  assert(startLocalProof.includes(required), `start local proof doc missing ${required}`);
+}
+
+const pythonSurface = read("field-guide/python-surface/index.html");
+for (const required of [
+  "Python surface",
+  "ctx = context",
+  "read_csv",
+  "nested_payload",
+]) {
+  assert(pythonSurface.includes(required), `python surface doc missing ${required}`);
+}
+
+const benchmarkMethodology = read("field-guide/benchmark-methodology/index.html");
+for (const required of [
+  "Benchmark methodology",
+  "hot_runtime",
+  "publication_proof",
+  "external_baseline",
+]) {
+  assert(benchmarkMethodology.includes(required), `benchmark methodology doc missing ${required}`);
+}
+
+const limitations = read("field-guide/limitations/index.html");
+for (const required of [
+  "Limitations",
+  "production support",
+  "Spark displacement",
+  "fallback engine",
+]) {
+  assert(limitations.includes(required), `limitations doc missing ${required}`);
 }
 
 const redirects = read("_redirects");
-for (const legacy of ["/can-i-use-this", "/status.html", "/readme", "/docs.html"]) {
+for (const legacy of [
+  "/architecture",
+  "/architecture.html",
+  "/use-cases",
+  "/use-cases.html",
+  "/status",
+  "/status.html",
+  "/docs",
+  "/docs.html",
+  "/can-i-use-this",
+  "/readme",
+]) {
   assert(redirects.includes(legacy), `_redirects must preserve legacy route: ${legacy}`);
 }
 
@@ -429,23 +450,5 @@ assert(manifest.performance_claim_allowed === false, "benchmark manifest must bl
 assert(Array.isArray(manifest.expected_lanes), "benchmark manifest must expose expected_lanes");
 assert(Array.isArray(manifest.available_lanes), "benchmark manifest must expose available_lanes");
 assert(Array.isArray(manifest.missing_lanes), "benchmark manifest must expose missing_lanes");
-
-const runsToday = JSON.parse(read("assets/data/runs-today-support-matrix.json"));
-assert(
-  runsToday.schema_version === "shardloom.runs_today_support_matrix.v1",
-  "runs-today matrix schema must remain stable",
-);
-assert(
-  Array.isArray(runsToday.rows) && runsToday.rows.length >= 20,
-  "runs-today matrix must expose support rows",
-);
-assert(
-  runsToday.all_rows_no_fallback_no_external_engine === true,
-  "runs-today matrix must keep no-fallback proof",
-);
-assert(
-  runsToday.performance_claim_allowed === false,
-  "runs-today matrix must block performance claims",
-);
 
 console.log("website static asset validation passed");

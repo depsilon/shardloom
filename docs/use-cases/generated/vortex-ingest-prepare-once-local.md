@@ -151,7 +151,7 @@ A local .vortex artifact plus VortexPreparedState id/digest, certification-level
 
 ## Related Field Guide Terms
 
-- `website/field-guide/universal-ingress.html` - UniversalIngress (`UniversalIngress` / `report_only`)
-- `website/field-guide/vortex-ingest.html` - vortex_ingest (`Vortex Ingest` / `smoke_supported`)
-- `website/field-guide/vortex-prepared-state.html` - VortexPreparedState (`Vortex Ingest` / `smoke_supported`)
-- `website/field-guide/prepared-vortex.html` - prepared_vortex (`Prepared/Native Vortex` / `smoke_supported`)
+- [UniversalIngress](https://shardloom.io/field-guide/universal-ingress) (`UniversalIngress` / `report_only`)
+- [vortex_ingest](https://shardloom.io/field-guide/vortex-ingest) (`Vortex Ingest` / `smoke_supported`)
+- [VortexPreparedState](https://shardloom.io/field-guide/vortex-prepared-state) (`Vortex Ingest` / `smoke_supported`)
+- [prepared_vortex](https://shardloom.io/field-guide/prepared-vortex) (`Prepared/Native Vortex` / `smoke_supported`)

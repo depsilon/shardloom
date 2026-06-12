@@ -81,11 +81,11 @@ Timing rows and coverage rows that keep ShardLoom runtime lanes separate from op
 
 ## Related Field Guide Terms
 
-- `website/field-guide/evidence-gated-compute.html` - Evidence-gated compute (`Start Here` / `smoke_supported`)
-- `website/field-guide/native-vortex.html` - native_vortex (`Prepared/Native Vortex` / `smoke_supported`)
-- `website/field-guide/claim-gate-status.html` - claim_gate_status (`Evidence + Certificates` / `runtime_supported`)
-- `website/field-guide/benchmark-evidence.html` - Benchmark evidence (`Benchmarks` / `smoke_supported`)
-- `website/field-guide/certified-cold-route.html` - Certified cold route (`Benchmarks` / `smoke_supported`)
-- `website/field-guide/prepared-warm-route.html` - Prepared warm route (`Benchmarks` / `smoke_supported`)
-- `website/field-guide/external-baseline-only.html` - external_baseline_only (`Benchmarks` / `runtime_supported`)
-- `website/field-guide/scale-classes.html` - Scale classes (`Scale + Resource Envelope` / `planned`)
+- [Evidence-gated compute](https://shardloom.io/field-guide/evidence-gated-compute) (`Start Here` / `smoke_supported`)
+- [native_vortex](https://shardloom.io/field-guide/native-vortex) (`Prepared/Native Vortex` / `smoke_supported`)
+- [claim_gate_status](https://shardloom.io/field-guide/claim-gate-status) (`Evidence + Certificates` / `runtime_supported`)
+- [Benchmark evidence](https://shardloom.io/field-guide/benchmark-evidence) (`Benchmarks` / `smoke_supported`)
+- [Certified cold route](https://shardloom.io/field-guide/certified-cold-route) (`Benchmarks` / `smoke_supported`)
+- [Prepared warm route](https://shardloom.io/field-guide/prepared-warm-route) (`Benchmarks` / `smoke_supported`)
+- [external_baseline_only](https://shardloom.io/field-guide/external-baseline-only) (`Benchmarks` / `runtime_supported`)
+- [Scale classes](https://shardloom.io/field-guide/scale-classes) (`Scale + Resource Envelope` / `planned`)

@@ -67,9 +67,9 @@ A local benchmark smoke artifact with certificate, result-sink, materialization,
 
 ## Related Field Guide Terms
 
-- `website/field-guide/what-is-shardloom.html` - What is ShardLoom? (`Start Here` / `runtime_supported`)
-- `website/field-guide/evidence-gated-compute.html` - Evidence-gated compute (`Start Here` / `smoke_supported`)
-- `website/field-guide/claim-gate-status.html` - claim_gate_status (`Evidence + Certificates` / `runtime_supported`)
-- `website/field-guide/materialization-boundary.html` - Materialization boundary (`Evidence + Certificates` / `smoke_supported`)
-- `website/field-guide/result-sink-replay.html` - Result-sink replay (`Evidence + Certificates` / `smoke_supported`)
-- `website/field-guide/external-baseline-only.html` - external_baseline_only (`Benchmarks` / `runtime_supported`)
+- [What is ShardLoom?](https://shardloom.io/field-guide/what-is-shardloom) (`Start Here` / `runtime_supported`)
+- [Evidence-gated compute](https://shardloom.io/field-guide/evidence-gated-compute) (`Start Here` / `smoke_supported`)
+- [claim_gate_status](https://shardloom.io/field-guide/claim-gate-status) (`Evidence + Certificates` / `runtime_supported`)
+- [Materialization boundary](https://shardloom.io/field-guide/materialization-boundary) (`Evidence + Certificates` / `smoke_supported`)
+- [Result-sink replay](https://shardloom.io/field-guide/result-sink-replay) (`Evidence + Certificates` / `smoke_supported`)
+- [external_baseline_only](https://shardloom.io/field-guide/external-baseline-only) (`Benchmarks` / `runtime_supported`)

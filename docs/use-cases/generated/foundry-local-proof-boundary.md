@@ -78,5 +78,5 @@ A local proof report plus local result/evidence dataset-shaped artifacts showing
 
 ## Related Field Guide Terms
 
-- `website/field-guide/generated-source-route.html` - Generated source route (`Execution Routes` / `smoke_supported`)
-- `website/field-guide/foundry-boundary.html` - Foundry boundary (`Platform Boundaries` / `smoke_supported`)
+- [Generated source route](https://shardloom.io/field-guide/generated-source-route) (`Execution Routes` / `smoke_supported`)
+- [Foundry boundary](https://shardloom.io/field-guide/foundry-boundary) (`Platform Boundaries` / `smoke_supported`)

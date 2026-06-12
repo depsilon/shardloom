@@ -90,9 +90,9 @@ A public fixture report with parsed provider/bucket/key fields, no credential/ne
 
 ## Related Field Guide Terms
 
-- `website/field-guide/no-fallback.html` - No fallback (`Start Here` / `runtime_supported`)
-- `website/field-guide/universal-ingress.html` - UniversalIngress (`UniversalIngress` / `report_only`)
-- `website/field-guide/native-io-certificate.html` - Native I/O certificate (`Evidence + Certificates` / `smoke_supported`)
-- `website/field-guide/scale-classes.html` - Scale classes (`Scale + Resource Envelope` / `planned`)
-- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `smoke_supported`)
-- `website/field-guide/deterministic-blockers.html` - Deterministic blockers (`Unsupported Diagnostics` / `runtime_supported`)
+- [No fallback](https://shardloom.io/field-guide/no-fallback) (`Start Here` / `runtime_supported`)
+- [UniversalIngress](https://shardloom.io/field-guide/universal-ingress) (`UniversalIngress` / `report_only`)
+- [Native I/O certificate](https://shardloom.io/field-guide/native-io-certificate) (`Evidence + Certificates` / `smoke_supported`)
+- [Scale classes](https://shardloom.io/field-guide/scale-classes) (`Scale + Resource Envelope` / `planned`)
+- [Object-store boundary](https://shardloom.io/field-guide/object-store-boundary) (`Platform Boundaries` / `smoke_supported`)
+- [Deterministic blockers](https://shardloom.io/field-guide/deterministic-blockers) (`Unsupported Diagnostics` / `runtime_supported`)

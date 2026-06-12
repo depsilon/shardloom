@@ -88,6 +88,6 @@ Benchmark JSON with compatibility import timing separated from Vortex scan/opera
 
 ## Related Field Guide Terms
 
-- `website/field-guide/compatibility-import-certified.html` - compatibility_import_certified (`Execution Routes` / `smoke_supported`)
-- `website/field-guide/source-adapter-status.html` - Source adapter status (`UniversalIngress` / `smoke_supported`)
-- `website/field-guide/certified-cold-route.html` - Certified cold route (`Benchmarks` / `smoke_supported`)
+- [compatibility_import_certified](https://shardloom.io/field-guide/compatibility-import-certified) (`Execution Routes` / `smoke_supported`)
+- [Source adapter status](https://shardloom.io/field-guide/source-adapter-status) (`UniversalIngress` / `smoke_supported`)
+- [Certified cold route](https://shardloom.io/field-guide/certified-cold-route) (`Benchmarks` / `smoke_supported`)

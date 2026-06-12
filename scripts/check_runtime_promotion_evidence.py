@@ -339,11 +339,13 @@ def validate_runtime_promotion_evidence(
     status_rows_path: Path = STATUS_ROWS_PATH,
     benchmark_manifest_path: Path = BENCHMARK_MANIFEST_PATH,
     benchmark_results_path: Path = BENCHMARK_RESULTS_PATH,
+    require_status_rows: bool = False,
 ) -> list[str]:
     repo_root = repo_root.resolve()
     blockers: list[str] = []
     _validate_use_cases(repo_root, index_path, blockers)
-    _validate_status_rows(status_rows_path, blockers)
+    if status_rows_path.exists() or require_status_rows:
+        _validate_status_rows(status_rows_path, blockers)
     _validate_benchmark_manifest(benchmark_manifest_path, blockers)
     _validate_benchmark_results(benchmark_results_path, blockers)
     return blockers
@@ -354,6 +356,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo-root", type=Path, default=REPO_ROOT)
     parser.add_argument("--index", type=Path, default=INDEX_PATH)
     parser.add_argument("--status-rows", type=Path, default=STATUS_ROWS_PATH)
+    parser.add_argument(
+        "--require-status-rows",
+        action="store_true",
+        help="Require and validate the retired website status-row data file.",
+    )
     parser.add_argument("--benchmark-manifest", type=Path, default=BENCHMARK_MANIFEST_PATH)
     parser.add_argument("--benchmark-results", type=Path, default=BENCHMARK_RESULTS_PATH)
     return parser.parse_args()
@@ -378,6 +385,7 @@ def main() -> int:
             if args.benchmark_results.is_absolute()
             else repo_root / args.benchmark_results
         ),
+        require_status_rows=args.require_status_rows,
     )
     if blockers:
         print("runtime promotion evidence validation failed:", file=sys.stderr)

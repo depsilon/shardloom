@@ -101,27 +101,32 @@ python examples\local-python-smoke\run.py --repo-root .
 Normal Python use:
 
 ```python
+from shardloom import context
 import shardloom as sl
 
-ctx = sl.context()
+ctx = context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
 result = (
-    ctx.read("target/orders.csv")
+    ctx.read_csv("data/orders.csv", schema={
+        "id": "int64",
+        "amount": "float64",
+        "status": "utf8",
+    })
     .filter(sl.col("amount") >= 10)
-    .select("id", "amount")
+    .select("id", "amount", "status")
     .limit(100)
-    .write_jsonl("target/orders-out.jsonl", allow_overwrite=True)
+    .collect()
 )
 
 print(result.output_row_count)
 print(result.first_result_row)
-print(result.evidence_summary.output_path)
 print(result.claim_summary.claim_gate_status)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
-`sl.context()` is the normal entry point. Source-tree or CI runs can set `SHARDLOOM_BIN` or
-`SHARDLOOM_REPO_ROOT` when the CLI is not on `PATH`; ordinary Python snippets should not need
-repo-root or build-profile arguments.
+`context(...)` is the user-facing entry point in the source-checkout workflow. Source-tree or CI
+runs can set `SHARDLOOM_BIN` or `SHARDLOOM_REPO_ROOT` when the CLI is not on `PATH`; ordinary
+installed-package snippets should not need repo-root or build-profile arguments once package
+publication is authorized.
 
 The benchmark-page ETL scenarios use the same primary ShardLoom front door from Python. These
 snippets show the user-facing shape; measured route timing comes from the promoted benchmark
@@ -200,7 +205,7 @@ Bounded local-source workflows can collect or write through admitted ShardLoom p
 convenience materialization returns deterministic evidence rather than invoking another engine:
 
 ```python
-materialization_report = ctx.read("target/orders.csv").select("id").to_pandas()
+materialization_report = ctx.read_csv("data/orders.csv", schema={"id": "int64"}).select("id").to_pandas()
 print(materialization_report.blocker_id)
 print(materialization_report.fallback_attempted, materialization_report.external_engine_invoked)
 ```
@@ -313,8 +318,9 @@ cargo test --workspace --all-targets
 ```
 
 The public website is generated from `website-src/` Astro/Starlight source and committed static
-assets under `website/`. `npm run sync-content` copies canonical docs, use-case/status rows, and
-benchmark artifacts into the site build; do not hand-edit generated website copies independently.
+assets under `website/`. `npm run sync-content` copies the canonical compute-flow snapshot and
+benchmark artifacts into the site build; repository use-case and status records remain source docs,
+not generated public website browsers. Do not hand-edit generated website copies independently.
 
 ## License
 

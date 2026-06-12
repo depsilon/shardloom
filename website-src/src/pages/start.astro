@@ -1,5 +1,27 @@
 ---
 import SiteLayout from "../layouts/SiteLayout.astro";
+
+const pythonFrontDoorSnippet = `from shardloom import context
+import shardloom as sl
+
+ctx = context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
+
+fact = ctx.read_csv("data/fact.csv", schema={
+    "id": "int64",
+    "group_key": "int64",
+    "value": "int64",
+    "metric": "float64",
+    "flag": "boolean",
+})
+
+result = (
+    fact.filter(sl.col("flag") == True)
+        .select("id", "group_key", "value")
+        .limit(1000)
+        .collect()
+)
+
+print(result.fallback_attempted, result.external_engine_invoked)`;
 ---
 
 <SiteLayout title="Start Local Proof" description="Run a local ShardLoom proof without package-publication or production claims." path="/start" active="start">
@@ -37,16 +59,7 @@ python scripts\check_production_usability_gate.py</code></pre>
     </div>
     <div class="code-panel">
       <div class="panel-label">Python</div>
-      <pre><code>result = (
-    ctx.read("target/local-python-smoke/orders.csv")
-    .filter(sl.col("amount") &gt;= 10)
-    .select("id", "amount")
-    .write_jsonl("target/local-python-smoke/orders-out.jsonl", allow_overwrite=True)
-)
-
-# ctx.read(...).filter(...).select(...).write_jsonl(...)
-print(result.evidence_summary.output_path)
-print(result.fallback_attempted, result.external_engine_invoked)</code></pre>
+      <pre><code>{pythonFrontDoorSnippet}</code></pre>
       <div class="code-evidence"><span><strong>gate</strong>check_python_user_surface_completion.py</span><span><strong>scope</strong>admitted local runtime only</span></div>
     </div>
   </section>
@@ -54,7 +67,7 @@ print(result.fallback_attempted, result.external_engine_invoked)</code></pre>
     <div class="route">
       <article class="route-step"><span>1</span><h3>Read the first proof</h3><p>Open the repository first-10-minutes guide for exact commands and expected outputs.</p></article>
       <article class="route-step"><span>2</span><h3>Run local evidence checks</h3><p>Use the repo scripts and contract tests; do not infer release/package status from local source execution.</p></article>
-      <article class="route-step"><span>3</span><h3>Inspect status</h3><p>Use the status matrix to distinguish runtime-supported, smoke-supported, report-only, blocked, and unsupported paths.</p></article>
+      <article class="route-step"><span>3</span><h3>Inspect boundaries</h3><p>Use the Field Guide limitations and benchmark methodology pages to distinguish admitted local proof from broader claims outside current evidence.</p></article>
     </div>
   </section>
 </SiteLayout>

@@ -81,8 +81,8 @@ A local JSONL/CSV output, feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC o
 
 ## Related Field Guide Terms
 
-- `website/field-guide/generated-source-route.html` - Generated source route (`Execution Routes` / `smoke_supported`)
-- `website/field-guide/output-plan.html` - OutputPlan (`I/O + Outputs` / `smoke_supported`)
-- `website/field-guide/sink-artifact.html` - SinkArtifact (`I/O + Outputs` / `smoke_supported`)
-- `website/field-guide/output-fanout.html` - Output fanout (`I/O + Outputs` / `planned`)
-- `website/field-guide/foundry-boundary.html` - Foundry boundary (`Platform Boundaries` / `smoke_supported`)
+- [Generated source route](https://shardloom.io/field-guide/generated-source-route) (`Execution Routes` / `smoke_supported`)
+- [OutputPlan](https://shardloom.io/field-guide/output-plan) (`I/O + Outputs` / `smoke_supported`)
+- [SinkArtifact](https://shardloom.io/field-guide/sink-artifact) (`I/O + Outputs` / `smoke_supported`)
+- [Output fanout](https://shardloom.io/field-guide/output-fanout) (`I/O + Outputs` / `planned`)
+- [Foundry boundary](https://shardloom.io/field-guide/foundry-boundary) (`Platform Boundaries` / `smoke_supported`)

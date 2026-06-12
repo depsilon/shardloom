@@ -1,0 +1,19 @@
+---
+title: "Benchmark methodology"
+description: "How to read hot runtime, publication proof, claim gates, and baseline rows."
+sidebar: {"label":"Benchmark methodology","order":3}
+---
+
+
+The benchmark page renders a promoted artifact. It is evidence, not a leaderboard.
+
+## Timing Surfaces
+
+- `hot_runtime`: the default ShardLoom route grid for runtime timing.
+- `full_replay_proof`: machine replay proof when present.
+- `publication_proof`: result-sink, replay, and human evidence rendering when included by the row formula.
+- `external_baseline`: comparison context only, never fallback execution.
+
+## Claim Rules
+
+Do not compare rows without naming the timing surface, evidence tier, and claim gate. If `performance_claim_allowed=false`, the page may show timing evidence but must not claim superiority.

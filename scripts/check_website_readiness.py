@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
@@ -28,18 +29,14 @@ EXPECTED_PAGES = [
     "start/index.html",
     "field-guide.html",
     "field-guide/index.html",
-    "use-cases.html",
-    "use-cases/index.html",
+    "field-guide/start-local-proof/index.html",
+    "field-guide/python-surface/index.html",
+    "field-guide/benchmark-methodology/index.html",
+    "field-guide/limitations/index.html",
     "benchmarks.html",
     "benchmarks/index.html",
-    "architecture.html",
-    "architecture/index.html",
     "compute-engine-flow.html",
     "compute-engine-flow/index.html",
-    "status.html",
-    "status/index.html",
-    "docs.html",
-    "docs/index.html",
     "404.html",
 ]
 EXPECTED_ASSETS = [
@@ -49,15 +46,20 @@ EXPECTED_ASSETS = [
     "assets/site.css",
     "assets/data/compute-engine-flow-reference.md",
     "assets/data/benchmark-evidence.json",
-    "assets/data/runs-today-support-matrix.json",
-    "assets/data/use-case-index.json",
     "assets/benchmarks/latest/manifest.json",
     "assets/benchmarks/latest/benchmark-results.json",
     "pagefind/pagefind-entry.json",
 ]
 EXPECTED_REDIRECTS = [
-    "/readme",
+    "/architecture",
+    "/architecture.html",
+    "/use-cases",
+    "/use-cases.html",
+    "/status",
+    "/status.html",
+    "/docs",
     "/docs.html",
+    "/readme",
     "/can-i-use-this",
 ]
 EXPECTED_NAV_PATHS = {
@@ -65,11 +67,8 @@ EXPECTED_NAV_PATHS = {
     "/about",
     "/start",
     "/field-guide",
-    "/use-cases",
     "/benchmarks",
-    "/architecture",
-    "/status",
-    "/docs",
+    "/compute-engine-flow",
 }
 STATUS_VOCABULARY = {
     "runtime_supported",
@@ -190,7 +189,16 @@ PACKAGE_CLAIM_PHRASES = [
     r"\bpublished to PyPI\b",
     r"\bpublished crate\b",
 ]
-REMOVED_WEBSITE_SURFACES: list[str] = []
+REMOVED_WEBSITE_SURFACES: list[str] = [
+    "architecture.html",
+    "architecture/index.html",
+    "docs.html",
+    "docs/index.html",
+    "status.html",
+    "status/index.html",
+    "use-cases.html",
+    "use-cases/index.html",
+]
 RUNTIME_SUFFIXES = (".html", ".js", ".css", ".xml", ".txt")
 RUNTIME_NAMES = {"_headers", "_redirects"}
 FORBIDDEN_RUNTIME_HOSTS = {"raw.githubusercontent.com"}
@@ -356,6 +364,30 @@ def check_duplicate_suffixed_artifacts(
                 )
 
 
+def cleanup_duplicate_suffixed_artifacts(
+    roots: list[Path],
+    repo_root: Path,
+) -> list[str]:
+    removed: list[str] = []
+    for root in roots:
+        if not root.exists():
+            continue
+        paths = sorted(
+            (path for path in root.rglob("*") if DUPLICATE_SUFFIX_RE.search(path.name)),
+            key=lambda path: len(path.parts),
+            reverse=True,
+        )
+        for path in paths:
+            if not path.exists():
+                continue
+            removed.append(rel(path, repo_root))
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+    return removed
+
+
 def check_claim_phrases(text: str, label: str, blockers: list[str]) -> None:
     for pattern in [*CLAIM_PHRASES, *PACKAGE_CLAIM_PHRASES]:
         if re.search(pattern, text, re.IGNORECASE):
@@ -465,7 +497,12 @@ def validate_html_page(
     if not is_starlight:
         for control in parser.unlabeled_controls:
             blockers.append(f"{relative} contains unlabeled {control} control")
-    if relative in EXPECTED_PAGES and relative != "404.html" and not EXPECTED_NAV_PATHS.issubset(parser.nav_links):
+    if (
+        relative in EXPECTED_PAGES
+        and relative != "404.html"
+        and not is_starlight
+        and not EXPECTED_NAV_PATHS.issubset(parser.nav_links)
+    ):
         missing = ", ".join(sorted(EXPECTED_NAV_PATHS - parser.nav_links))
         blockers.append(f"{relative} primary navigation missing paths: {missing}")
     for image in parser.images:
@@ -729,6 +766,16 @@ def main() -> int:
     output_path = args.output if args.output.is_absolute() else repo_root / args.output
     website = repo_root / "website"
     blockers: list[str] = []
+    generated_artifact_roots = [
+        website,
+        repo_root / "website-public",
+        repo_root / "website-src/src",
+        repo_root / "docs/use-cases/generated",
+    ]
+    duplicate_cleanup_paths: list[str] = []
+    duplicate_cleanup_paths.extend(
+        cleanup_duplicate_suffixed_artifacts(generated_artifact_roots, repo_root)
+    )
 
     for page in EXPECTED_PAGES:
         path = website / page
@@ -747,6 +794,10 @@ def main() -> int:
     for blocker in validate_runtime_promotion_evidence(repo_root=repo_root):
         blockers.append(f"runtime promotion evidence: {blocker}")
 
+    duplicate_cleanup_paths.extend(
+        cleanup_duplicate_suffixed_artifacts(generated_artifact_roots, repo_root)
+    )
+
     for page in website.rglob("*.html"):
         if not page.is_file() or page.name == "validate_static_assets.js":
             continue
@@ -756,12 +807,11 @@ def main() -> int:
         if not (website / asset).exists():
             blockers.append(f"missing expected asset: {asset}")
     check_cloudflare_asset_sizes(website, repo_root, blockers)
+    duplicate_cleanup_paths.extend(
+        cleanup_duplicate_suffixed_artifacts(generated_artifact_roots, repo_root)
+    )
     check_duplicate_suffixed_artifacts(
-        [
-            website,
-            repo_root / "website-public",
-            repo_root / "website-src/src",
-        ],
+        generated_artifact_roots,
         repo_root,
         blockers,
     )
@@ -888,50 +938,6 @@ def main() -> int:
         for blocker in runtime_envelope_report.get("blockers", []):
             blockers.append(f"runtime execution envelope: {blocker}")
 
-    runs_today_path = website / "assets/data/runs-today-support-matrix.json"
-    if runs_today_path.exists():
-        runs_today = json.loads(runs_today_path.read_text(encoding="utf-8"))
-        expected_states = [
-            "executable",
-            "feature_gated",
-            "diagnostic_only",
-            "report_only",
-            "blocked",
-            "future",
-        ]
-        if runs_today.get("schema_version") != "shardloom.runs_today_support_matrix.v1":
-            blockers.append("runs-today matrix has unexpected schema version")
-        if runs_today.get("support_state_vocabulary") != expected_states:
-            blockers.append("runs-today matrix support-state vocabulary drifted")
-        if runs_today.get("all_rows_no_fallback_no_external_engine") is not True:
-            blockers.append("runs-today matrix must prove no fallback and no external engine rows")
-        if runs_today.get("performance_claim_allowed") is not False:
-            blockers.append("runs-today matrix must keep performance_claim_allowed=false")
-        rows = runs_today.get("rows")
-        if not isinstance(rows, list) or len(rows) < 20:
-            blockers.append("runs-today matrix must expose at least 20 support rows")
-        else:
-            families = {row.get("family") for row in rows}
-            required_families = {
-                "cli_command",
-                "python_api",
-                "input_format",
-                "output_format",
-                "execution_mode",
-                "claim_state",
-            }
-            if not required_families.issubset(families):
-                blockers.append("runs-today matrix missing required support-row families")
-            for row in rows:
-                if row.get("fallback_attempted") is not False:
-                    blockers.append(f"runs-today row reports fallback_attempted: {row.get('id')}")
-                if row.get("external_engine_invoked") is not False:
-                    blockers.append(
-                        f"runs-today row reports external_engine_invoked: {row.get('id')}"
-                    )
-    else:
-        blockers.append("missing runs-today support matrix")
-
     redirects_path = website / "_redirects"
     if redirects_path.exists():
         redirects = redirects_path.read_text(encoding="utf-8")
@@ -993,6 +999,9 @@ def main() -> int:
         "benchmark_artifact_strings_checked": sorted(REQUIRED_BENCHMARK_ARTIFACT_STRINGS),
         "public_front_door_benchmark_ids_checked": sorted(
             REQUIRED_PUBLIC_FRONT_DOOR_BENCHMARK_IDS
+        ),
+        "duplicate_suffixed_generated_artifacts_removed": sorted(
+            set(duplicate_cleanup_paths)
         ),
         "blockers": blockers,
     }

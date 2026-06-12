@@ -81,5 +81,5 @@ SQLite smoke JSON exposes single-table-scan/no-query-pushdown fields, workspace-
 
 ## Related Field Guide Terms
 
-- `website/field-guide/local-sqlite-fixture.html` - Local SQLite fixture (`UniversalIngress` / `smoke_supported`)
-- `website/field-guide/effectful-operation-admission.html` - Effectful operation admission (`Evidence + Certificates` / `smoke_supported`)
+- [Local SQLite fixture](https://shardloom.io/field-guide/local-sqlite-fixture) (`UniversalIngress` / `smoke_supported`)
+- [Effectful operation admission](https://shardloom.io/field-guide/effectful-operation-admission) (`Evidence + Certificates` / `smoke_supported`)

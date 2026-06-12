@@ -58,10 +58,10 @@ public_release_claim_allowed=false
 public_package_claim_allowed=false
 ```
 
-The validator also checks `docs/status/runs-today-support-matrix.json`,
-`website-src/src/data/runs-today-support-matrix.json`, `website/assets/data/runs-today-support-matrix.json`,
-and `website-public/assets/data/runs-today-support-matrix.json` so the website/current-support rows stay
-aligned with the runnable workflows.
+The validator also checks `docs/status/runs-today-support-matrix.json` so the repository current-
+support rows stay aligned with the runnable workflows. The clean-slate website does not publish a
+separate runs-today support-matrix data mirror; public status context now routes through the
+Field Guide limitations page and repository evidence.
 
 ## Non-Goals
 

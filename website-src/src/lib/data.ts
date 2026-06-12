@@ -1,15 +1,8 @@
 import fieldGuide from "../data/field-guide.json";
-import runsTodaySupportMatrix from "../data/runs-today-support-matrix.json";
-import statusRows from "../data/status-rows.json";
-import useCaseIndex from "../data/use-case-index.json";
 import benchmarkEvidence from "../data/benchmark-evidence.json";
 import benchmarkManifest from "../data/benchmark-manifest.json";
 
 export type FieldGuideTerm = (typeof fieldGuide)[number];
-export type RunsTodaySupportMatrix = typeof runsTodaySupportMatrix;
-export type RunsTodaySupportRow = RunsTodaySupportMatrix["rows"][number];
-export type StatusRow = (typeof statusRows)[number];
-export type UseCase = (typeof useCaseIndex.use_cases)[number];
 type BenchmarkRow = Record<string, unknown> & {
   engine?: unknown;
   claim_gate_status?: unknown;
@@ -19,23 +12,15 @@ type BenchmarkRow = Record<string, unknown> & {
 
 export const siteNav = [
   ["Home", "/", "home"],
-  ["About", "/about", "about"],
   ["Start", "/start", "start"],
-  ["Field Guide", "/field-guide", "field-guide"],
-  ["Use Cases", "/use-cases", "use-cases"],
   ["Benchmarks", "/benchmarks", "benchmarks"],
-  ["Architecture", "/architecture", "architecture"],
-  ["Status", "/status", "status"],
-  ["Docs", "/docs", "docs"],
+  ["Compute Flow", "/compute-engine-flow", "compute-flow"],
+  ["Field Guide", "/field-guide", "field-guide"],
+  ["About", "/about", "about"],
   ["GitHub", "https://github.com/depsilon/shardloom", "github"],
 ] as const;
 
 export const fieldGuideTerms = fieldGuide;
-export const runsTodayMatrix = runsTodaySupportMatrix;
-export const runsTodayRows = runsTodaySupportMatrix.rows;
-export const publicStatusRows = statusRows;
-export const useCases = useCaseIndex.use_cases;
-export const capabilityFamilies = useCaseIndex.capability_families;
 export const benchmark = benchmarkEvidence;
 export const manifest = benchmarkManifest;
 
@@ -100,10 +85,6 @@ export function formatList(values: unknown, fallback = "not reported"): string {
   if (Array.isArray(values)) return values.join(", ") || fallback;
   if (typeof values === "string") return values || fallback;
   return fallback;
-}
-
-export function fieldGuideTermsForUseCase(useCaseId: string): FieldGuideTerm[] {
-  return fieldGuideTerms.filter((term) => term.related_use_cases.includes(useCaseId));
 }
 
 export function referenceProof(reference: string): string {

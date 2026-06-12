@@ -67,5 +67,5 @@ A per-run target/local-vortex-benchmark/<run-id>/smoke.json artifact with timing
 
 ## Related Field Guide Terms
 
-- `website/field-guide/compatibility-import-certified.html` - compatibility_import_certified (`Execution Routes` / `smoke_supported`)
-- `website/field-guide/native-io-certificate.html` - Native I/O certificate (`Evidence + Certificates` / `smoke_supported`)
+- [compatibility_import_certified](https://shardloom.io/field-guide/compatibility-import-certified) (`Execution Routes` / `smoke_supported`)
+- [Native I/O certificate](https://shardloom.io/field-guide/native-io-certificate) (`Evidence + Certificates` / `smoke_supported`)

@@ -5780,8 +5780,7 @@ const RUNS_TODAY_COMMAND: &str = "runs-today";
 const RUNS_TODAY_SCHEMA_VERSION: &str = "shardloom.runs_today_support_matrix.v1";
 const RUNS_TODAY_MATRIX_ID: &str = "review-p0-1.current-support";
 const RUNS_TODAY_DOCS_REF: &str = "docs/status/runs-today-support-matrix.json";
-const RUNS_TODAY_WEBSITE_DATA_REF: &str =
-    "website-public/assets/data/runs-today-support-matrix.json";
+const RUNS_TODAY_WEBSITE_DATA_REF: &str = "not_published_to_clean_slate_website";
 const RUNS_TODAY_SUPPORT_STATE_VOCABULARY: [&str; 6] = [
     "executable",
     "feature_gated",

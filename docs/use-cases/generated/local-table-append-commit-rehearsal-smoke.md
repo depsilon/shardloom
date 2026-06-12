@@ -95,6 +95,6 @@ A fixture-smoke report with base/append/committed snapshot ids, committed manife
 
 ## Related Field Guide Terms
 
-- `website/field-guide/native-io-certificate.html` - Native I/O certificate (`Evidence + Certificates` / `smoke_supported`)
-- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `smoke_supported`)
-- `website/field-guide/table-lakehouse-boundary.html` - Table/lakehouse boundary (`Platform Boundaries` / `blocked`)
+- [Native I/O certificate](https://shardloom.io/field-guide/native-io-certificate) (`Evidence + Certificates` / `smoke_supported`)
+- [Object-store boundary](https://shardloom.io/field-guide/object-store-boundary) (`Platform Boundaries` / `smoke_supported`)
+- [Table/lakehouse boundary](https://shardloom.io/field-guide/table-lakehouse-boundary) (`Platform Boundaries` / `blocked`)

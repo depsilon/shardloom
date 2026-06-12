@@ -67,5 +67,5 @@ Benchmark rows and fixture metadata for the selected messy-data scenario with no
 
 ## Related Field Guide Terms
 
-- `website/field-guide/source-adapter-status.html` - Source adapter status (`UniversalIngress` / `smoke_supported`)
-- `website/field-guide/benchmark-evidence.html` - Benchmark evidence (`Benchmarks` / `smoke_supported`)
+- [Source adapter status](https://shardloom.io/field-guide/source-adapter-status) (`UniversalIngress` / `smoke_supported`)
+- [Benchmark evidence](https://shardloom.io/field-guide/benchmark-evidence) (`Benchmarks` / `smoke_supported`)

@@ -167,11 +167,10 @@ REQUIRED_UNSUPPORTED_METHODS = [
 
 REQUIRED_DOC_MARKERS = {
     "README.md": [
-        "ctx.read(\"target/orders.csv\")",
-        ".filter(sl.col(\"amount\") >= 10)",
-        ".select(\"id\", \"amount\")",
-        ".write_jsonl(\"target/orders-out.jsonl\", allow_overwrite=True)",
-        "result.evidence_summary.output_path",
+        "ctx.read_csv(\"data/fact.csv\", schema={",
+        "fact.filter(sl.col(\"flag\") == True)",
+        ".select(\"id\", \"group_key\", \"value\")",
+        ".write_vortex(\"target/clean-cast-filter-write.vortex\", allow_overwrite=True)",
         "materialization_report.blocker_id",
         "fallback_attempted, result.external_engine_invoked",
     ],
@@ -190,7 +189,9 @@ REQUIRED_DOC_MARKERS = {
     ],
     "website-src/src/pages/start.astro": [
         "examples\\local-python-smoke\\run.py --repo-root .",
-        "ctx.read(...).filter(...).select(...).write_jsonl(...)",
+        "ctx.read_csv(\"data/fact.csv\", schema={",
+        "fact.filter(sl.col(\"flag\") == True)",
+        ".select(\"id\", \"group_key\", \"value\")",
         "check_python_user_surface_completion.py",
     ],
 }

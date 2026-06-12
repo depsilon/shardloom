@@ -1,5 +1,5 @@
 ---
-import { benchmark, manifest, routeMetrics, runsTodayMatrix } from "../lib/data";
+import { benchmark, manifest, routeMetrics } from "../lib/data";
 
 type TablePayload = {
   heading?: string;
@@ -18,8 +18,6 @@ const publicFrontDoorRows = Array.isArray((benchmark as any).public_front_door_b
 const shardloomRows = publishedRows.filter((row: any) => String(row.engine ?? "").startsWith("shardloom"));
 const sourceStateRows = batchRows.filter((row: any) => row.source_state_coverage_matrix);
 const manifestAny = manifest as any;
-const supportCounts = (runsTodayMatrix as any).support_state_counts ?? {};
-const supportRowCount = (runsTodayMatrix as any).row_count ?? 0;
 
 function table(name: string): TablePayload {
   return (dashboard[name] ?? {}) as TablePayload;
@@ -494,8 +492,6 @@ events.filter(sl.col("nested_payload").contains("target")).select(
       <div class="metric"><strong>{shardloomUnsupportedRows}</strong><span>ShardLoom unsupported rows</span></div>
       <div class="metric"><strong>{externalUnsupportedRows}</strong><span>External baseline unsupported rows</span></div>
       <div class="metric"><strong>{metrics.claimGrade}</strong><span>claim-grade evidence rows</span></div>
-      <div class="metric"><strong>{supportRowCount}</strong><span>support matrix rows</span></div>
-      <div class="metric"><strong>{supportCounts.blocked ?? 0}</strong><span>blocked support rows</span></div>
     </div>
     <div class="readiness-groups" aria-label="ShardLoom runtime and evidence status">
       <div>

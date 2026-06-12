@@ -76,9 +76,9 @@ A public no-credential fixture smoke report with parsed provider/bucket/key fiel
 
 ## Related Field Guide Terms
 
-- `website/field-guide/no-fallback.html` - No fallback (`Start Here` / `runtime_supported`)
-- `website/field-guide/universal-ingress.html` - UniversalIngress (`UniversalIngress` / `report_only`)
-- `website/field-guide/scale-classes.html` - Scale classes (`Scale + Resource Envelope` / `planned`)
-- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `smoke_supported`)
-- `website/field-guide/table-lakehouse-boundary.html` - Table/lakehouse boundary (`Platform Boundaries` / `blocked`)
-- `website/field-guide/deterministic-blockers.html` - Deterministic blockers (`Unsupported Diagnostics` / `runtime_supported`)
+- [No fallback](https://shardloom.io/field-guide/no-fallback) (`Start Here` / `runtime_supported`)
+- [UniversalIngress](https://shardloom.io/field-guide/universal-ingress) (`UniversalIngress` / `report_only`)
+- [Scale classes](https://shardloom.io/field-guide/scale-classes) (`Scale + Resource Envelope` / `planned`)
+- [Object-store boundary](https://shardloom.io/field-guide/object-store-boundary) (`Platform Boundaries` / `smoke_supported`)
+- [Table/lakehouse boundary](https://shardloom.io/field-guide/table-lakehouse-boundary) (`Platform Boundaries` / `blocked`)
+- [Deterministic blockers](https://shardloom.io/field-guide/deterministic-blockers) (`Unsupported Diagnostics` / `runtime_supported`)

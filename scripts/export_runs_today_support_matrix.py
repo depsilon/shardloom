@@ -13,7 +13,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = Path("docs/status/runs-today-support-matrix.json")
-DEFAULT_WEBSITE_OUTPUT = Path("website-src/src/data/runs-today-support-matrix.json")
+DEFAULT_WEBSITE_DATA_REF = "not_published_to_clean_slate_website"
 SUPPORT_STATES = (
     "executable",
     "feature_gated",
@@ -29,7 +29,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo-root", type=Path, default=ROOT)
     parser.add_argument("--binary", type=Path)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--website-output", type=Path, default=DEFAULT_WEBSITE_OUTPUT)
+    parser.add_argument(
+        "--website-output",
+        type=Path,
+        help=(
+            "optional legacy mirror path; omitted by default because the clean-slate website no "
+            "longer publishes runs-today support-matrix data"
+        ),
+    )
     parser.add_argument(
         "--check",
         action="store_true",
@@ -134,7 +141,10 @@ def normalize(envelope: dict[str, Any]) -> dict[str, Any]:
         "matrix_id": fields["runs_today_matrix_id"],
         "command": envelope.get("command"),
         "docs_ref": fields["runs_today_docs_ref"],
-        "website_data_ref": fields["runs_today_website_data_ref"],
+        "website_data_ref": fields.get(
+            "runs_today_website_data_ref",
+            DEFAULT_WEBSITE_DATA_REF,
+        ),
         "support_state_vocabulary": support_state_vocabulary,
         "family_order": csv_values(fields["runs_today_family_order"]),
         "row_order": row_ids,
@@ -204,7 +214,7 @@ def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
     docs_output = resolve(args.output, repo_root)
-    website_output = resolve(args.website_output, repo_root)
+    website_output = resolve(args.website_output, repo_root) if args.website_output else None
     envelope = run_runs_today(repo_root, args.binary)
     matrix = normalize(envelope)
     content = render(matrix)
@@ -212,8 +222,9 @@ def main() -> int:
     if args.check:
         blockers = [
             *check_matches(docs_output, content),
-            *check_matches(website_output, content),
         ]
+        if website_output is not None:
+            blockers.extend(check_matches(website_output, content))
         if blockers:
             for blocker in blockers:
                 print(f"runs-today matrix blocker: {blocker}")
@@ -222,9 +233,10 @@ def main() -> int:
         return 0
 
     write(docs_output, content)
-    write(website_output, content)
     print(f"wrote {docs_output}")
-    print(f"wrote {website_output}")
+    if website_output is not None:
+        write(website_output, content)
+        print(f"wrote {website_output}")
     return 0
 
 

@@ -1,0 +1,22 @@
+---
+title: "Limitations"
+description: "Current public claim boundaries and unsupported behavior."
+sidebar: {"label":"Limitations","order":4}
+---
+
+
+ShardLoom is not public production infrastructure yet.
+
+## Not Claimed
+
+- package publication readiness
+- production support
+- broad SQL/DataFrame parity
+- Spark displacement
+- object-store or lakehouse production runtime
+- Foundry production runtime
+- performance superiority
+
+## Failure Behavior
+
+Unsupported work must produce a deterministic blocker or report-only posture. It must not execute through Spark, DataFusion, DuckDB, Polars, pandas, Velox, Trino, a database, a warehouse, or another fallback engine.
