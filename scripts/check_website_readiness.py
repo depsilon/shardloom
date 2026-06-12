@@ -378,12 +378,33 @@ def forbidden_runtime_hosts(text: str) -> set[str]:
     return hosts
 
 
-def validate_html_page(path: Path, root: Path, website: Path, blockers: list[str]) -> None:
+def resolve_html_page(path: Path) -> Path:
+    if path.is_dir():
+        index = path / "index.html"
+        if index.is_file():
+            return index
+    return path
+
+
+def html_relative(path: Path, website: Path) -> str:
+    if path.name == "index.html" and path.parent.name.endswith(".html"):
+        return rel(path.parent, website)
+    return rel(path, website)
+
+
+def validate_html_page(
+    path: Path,
+    root: Path,
+    website: Path,
+    blockers: list[str],
+    *,
+    relative_override: str | None = None,
+) -> None:
     html = path.read_text(encoding="utf-8")
     is_starlight = "Starlight v" in html or "starlight__sidebar" in html
     parser = HtmlRefs()
     parser.feed(html)
-    relative = rel(path, website)
+    relative = relative_override or html_relative(path, website)
     if parser.html_lang != "en":
         blockers.append(f"{relative} must declare html lang=en")
     if not parser.title:
@@ -465,7 +486,7 @@ def validate_html_page(path: Path, root: Path, website: Path, blockers: list[str
 
 
 def check_benchmark_timing_surface_dashboard(website: Path, blockers: list[str]) -> None:
-    path = website / "benchmarks.html"
+    path = resolve_html_page(website / "benchmarks.html")
     if not path.exists():
         blockers.append("missing benchmark page for timing-surface validation")
         return
@@ -547,17 +568,25 @@ def check_benchmark_timing_surface_dashboard(website: Path, blockers: list[str])
             )
 
 
-def check_field_guide_legacy_alias(website: Path, blockers: list[str]) -> None:
-    alias_path = website / "field-guide.html"
+def check_field_guide_route_pair(website: Path, blockers: list[str]) -> None:
+    alias_path = resolve_html_page(website / "field-guide.html")
     canonical_path = website / "field-guide" / "index.html"
     if not alias_path.exists() or not canonical_path.exists():
         return
     alias_html = alias_path.read_text(encoding="utf-8")
     canonical_html = canonical_path.read_text(encoding="utf-8")
-    if "starlight__sidebar" not in alias_html and "Starlight v" not in alias_html:
-        blockers.append("field-guide.html must serve the Starlight Field Guide alias")
-    if alias_html != canonical_html:
-        blockers.append("field-guide.html must match field-guide/index.html")
+    alias_parser = HtmlRefs()
+    alias_parser.feed(alias_html)
+    canonical_parser = HtmlRefs()
+    canonical_parser.feed(canonical_html)
+    if alias_parser.canonical != "https://shardloom.io/field-guide":
+        blockers.append("field-guide.html must canonicalize to /field-guide")
+    if canonical_parser.canonical != "https://shardloom.io/field-guide":
+        blockers.append("field-guide/index.html must canonicalize to /field-guide")
+    if "/field-guide" not in alias_parser.local_links:
+        blockers.append("field-guide.html must link to the canonical Field Guide route")
+    if "starlight__sidebar" not in canonical_html and "Starlight v" not in canonical_html:
+        blockers.append("field-guide/index.html must serve the Starlight Field Guide")
 
 
 def check_public_front_door_benchmark_payload(
@@ -660,10 +689,17 @@ def main() -> int:
 
     for page in EXPECTED_PAGES:
         path = website / page
-        if not path.exists():
+        html_path = resolve_html_page(path)
+        if not html_path.exists():
             blockers.append(f"missing expected page: {page}")
         else:
-            validate_html_page(path, repo_root, website, blockers)
+            validate_html_page(
+                html_path,
+                repo_root,
+                website,
+                blockers,
+                relative_override=page,
+            )
 
     for blocker in validate_runtime_promotion_evidence(repo_root=repo_root):
         blockers.append(f"runtime promotion evidence: {blocker}")
@@ -678,7 +714,7 @@ def main() -> int:
             blockers.append(f"missing expected asset: {asset}")
     check_cloudflare_asset_sizes(website, repo_root, blockers)
     check_benchmark_timing_surface_dashboard(website, blockers)
-    check_field_guide_legacy_alias(website, blockers)
+    check_field_guide_route_pair(website, blockers)
 
     for removed in REMOVED_WEBSITE_SURFACES:
         if (website / removed).exists():

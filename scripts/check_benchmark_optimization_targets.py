@@ -268,8 +268,6 @@ def validate_rows(rows: list[dict[str, Any]]) -> list[str]:
     if not shardloom_rows:
         blockers.append("no ShardLoom benchmark rows found")
     hot_rows = [row for row in shardloom_rows if is_hot_runtime_row(row)]
-    if not hot_rows:
-        blockers.append("no ShardLoom hot_runtime rows found")
     publication_rows = [row for row in shardloom_rows if is_publication_proof_row(row)]
     if not publication_rows:
         blockers.append("no ShardLoom publication_proof rows found")
@@ -286,6 +284,11 @@ def build_report(artifact_path: Path, *, top_n: int = DEFAULT_TOP_N) -> dict[str
     rows = published_rows(payload if isinstance(payload, dict) else {})
     blockers = validate_rows(rows)
     hot_rows = hot_shardloom_rows(rows)
+    publication_rows = [
+        row
+        for row in rows
+        if is_shardloom_row(row) and is_publication_proof_row(row)
+    ]
     summaries = [target_summary(target, hot_rows, top_n=top_n) for target in targets()]
     evidence_present_targets = [
         summary["target_id"]
@@ -307,6 +310,7 @@ def build_report(artifact_path: Path, *, top_n: int = DEFAULT_TOP_N) -> dict[str
         "benchmark_profile": payload.get("benchmark_profile") if isinstance(payload, dict) else None,
         "published_benchmark_row_count": len(rows),
         "shardloom_hot_runtime_row_count": len(hot_rows),
+        "shardloom_publication_proof_row_count": len(publication_rows),
         "target_count": len(summaries),
         "evidence_present_target_count": len(evidence_present_targets),
         "evidence_present_targets": evidence_present_targets,

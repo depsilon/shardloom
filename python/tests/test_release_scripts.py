@@ -2604,6 +2604,42 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertNotIn("pyspark", benchmark_run.CLAIM_READINESS_RERUN_ENGINES)
 
+    def test_claim_readiness_rerun_uses_all_scenario_fixture_profile(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        args = benchmark_run.parse_args(["--claim-readiness-rerun"])
+
+        self.assertEqual(args.dataset_profile, "tiny_smoke")
+        self.assertIsNone(
+            benchmark_run.scenario_dataset_profile_block_reason(
+                "partition pruning", args.dataset_profile
+            )
+        )
+        self.assertIsNone(
+            benchmark_run.scenario_dataset_profile_block_reason(
+                "many-small-files scan", args.dataset_profile
+            )
+        )
+        self.assertIsNone(
+            benchmark_run.scenario_dataset_profile_block_reason(
+                "malformed timestamp / dirty CSV", args.dataset_profile
+            )
+        )
+
+    def test_claim_readiness_rerun_respects_explicit_dataset_profile(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        args = benchmark_run.parse_args(
+            ["--claim-readiness-rerun", "--dataset-profile", "narrow_fact_dim"]
+        )
+
+        self.assertEqual(args.dataset_profile, "narrow_fact_dim")
+        self.assertIsNotNone(
+            benchmark_run.scenario_dataset_profile_block_reason(
+                "partition pruning", args.dataset_profile
+            )
+        )
+
     def test_benchmark_runner_canonicalizes_scan_chunk_iteration_alias(self) -> None:
         from benchmarks.traditional_analytics import run as benchmark_run
 
@@ -4353,6 +4389,48 @@ class ReleaseScriptTests(unittest.TestCase):
             by_target["vortex_write_and_reopen_verify"]["target_disappearance_policy"],
             "diagnostic_absent_or_retired_not_release_blocker",
         )
+
+    def test_benchmark_optimization_targets_do_not_block_publication_only_bundle(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_benchmark_optimization_targets.py",
+            "check_benchmark_optimization_targets_publication_only_for_test",
+        )
+
+        rows = [
+            {
+                "engine": "shardloom",
+                "storage_format": "csv",
+                "scenario_name": "publication proof row",
+                "timing_surface": "publication_proof",
+                "actual_evidence_tier": "publication_full",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+            }
+        ]
+        with tempfile.TemporaryDirectory() as tempdir:
+            artifact = Path(tempdir) / "benchmark-results.json"
+            artifact.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "shardloom.website.benchmark_evidence.v1",
+                        "benchmark_profile": "fixture",
+                        "published_benchmark_rows": rows,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            report = module.build_report(artifact)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["shardloom_hot_runtime_row_count"], 0)
+        self.assertEqual(report["shardloom_publication_proof_row_count"], 1)
+        self.assertEqual(
+            report["diagnostic_absent_or_retired_target_count"],
+            report["target_count"],
+        )
+        self.assertEqual(report["release_blocking_target_count"], 0)
 
     def test_benchmark_optimization_targets_fail_closed_on_fallback_row(self) -> None:
         module = self._load_script_module(
@@ -6563,37 +6641,35 @@ jobs:
 
         self.assertEqual(blockers, [])
 
-    def test_website_readiness_requires_starlight_field_guide_alias(self) -> None:
+    def test_website_readiness_validates_field_guide_route_pair(self) -> None:
         module = self._load_script_module(
             "check_website_readiness.py", "check_website_field_guide_alias_for_test"
         )
 
         with tempfile.TemporaryDirectory() as tempdir:
             website = Path(tempdir) / "website"
-            alias = website / "field-guide.html"
+            alias = website / "field-guide.html" / "index.html"
             canonical = website / "field-guide" / "index.html"
+            alias.parent.mkdir(parents=True)
             canonical.parent.mkdir(parents=True)
-            starlight_html = (
-                "<!doctype html><html><head><meta name=\"generator\" "
-                "content=\"Starlight v0.39.2\"></head>"
-                "<body><nav id=\"starlight__sidebar\"></nav></body></html>"
-            )
             alias.write_text(
-                "<!doctype html><html><body>legacy atlas</body></html>",
+                "<!doctype html><html><head><link rel=\"canonical\" "
+                "href=\"https://shardloom.io/field-guide\"></head>"
+                "<body><a href=\"/field-guide\">Open Field Guide</a></body></html>",
                 encoding="utf-8",
             )
-            canonical.write_text(starlight_html, encoding="utf-8")
+            canonical.write_text(
+                "<!doctype html><html><head><meta name=\"generator\" "
+                "content=\"Starlight v0.39.2\"><link rel=\"canonical\" "
+                "href=\"https://shardloom.io/field-guide\"></head>"
+                "<body><nav id=\"starlight__sidebar\"></nav></body></html>",
+                encoding="utf-8",
+            )
 
             blockers: list[str] = []
-            module.check_field_guide_legacy_alias(website, blockers)
+            module.check_field_guide_route_pair(website, blockers)
 
-        self.assertEqual(
-            blockers,
-            [
-                "field-guide.html must serve the Starlight Field Guide alias",
-                "field-guide.html must match field-guide/index.html",
-            ],
-        )
+        self.assertEqual(blockers, [])
 
     def test_foundry_dev_stack_starter_accepts_local_runtime_proof(self) -> None:
         module = self._load_script_module(
