@@ -895,6 +895,10 @@ STAGE_VALUE_FIELD_BY_ID = {
     "evidence_render": "evidence_render_ms",
     "cli_process_wall": "cli_process_wall_millis",
 }
+ROUTE_STAGE_ID_BY_FIELD = {
+    field: stage_id for stage_id, field in STAGE_VALUE_FIELD_BY_ID.items()
+}
+ROUTE_SHARE_ADDITIVE_TOLERANCE = 1.000001
 STAGE_OWNER_BY_ID = {
     "source_admission": "shardloom_source_admission",
     "source_read": "shardloom_source_reader",
@@ -6492,6 +6496,8 @@ def source_state_lazy_family_table(rows: list[dict[str, Any]]) -> dict[str, Any]
 
 
 def route_share_next_step(stage_field: str, route_display: str) -> str:
+    if stage_field == "timing_surface_stage_contract":
+        return "fix_timing_surface_stage_inclusion_before_optimization"
     if stage_field == "source_read_ms":
         return "finish_source_read_scout_split_before_reader_tuning"
     if stage_field == "source_parse_or_columnar_decode_ms":
@@ -6515,6 +6521,29 @@ def route_share_next_step(stage_field: str, route_display: str) -> str:
     if "Native Vortex" in route_display:
         return "preserve_native_vortex_fast_path_before_new_pushdown"
     return "use_route_share_before_selecting_next_optimization"
+
+
+def route_share_included_class_for_surface(timing_surface: str) -> str:
+    return {
+        "hot_runtime": "included_hot_runtime",
+        "full_replay_proof": "included_full_replay_proof",
+        "publication_proof": "included_publication_proof",
+    }.get(timing_surface, "included")
+
+
+def route_share_stage_included_for_surface(
+    row: dict[str, Any], stage_field: str, timing_surface: str
+) -> bool:
+    stage_id = ROUTE_STAGE_ID_BY_FIELD.get(stage_field)
+    if stage_id is None:
+        return False
+    classes = unpack_stage_map(row.get("route_timing_stage_inclusion_classes"))
+    if not classes:
+        return False
+    return classes.get(stage_id) in {
+        "included",
+        route_share_included_class_for_surface(timing_surface),
+    }
 
 
 def route_share_stage_fields_for_lane(
@@ -6558,15 +6587,18 @@ def route_share_stage_fields_for_lane(
 
 
 def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in route_table_rows(rows):
         if not is_shardloom_engine(str(row.get("engine") or "")):
             continue
-        key = str(row.get("route_display_name") or row.get("route_lane_id") or "unknown")
+        key = (
+            str(row.get("route_lane_id") or "unknown"),
+            str(row.get("route_display_name") or row.get("route_lane_id") or "unknown"),
+        )
         groups[key].append(row)
 
     rendered_rows: list[list[Any]] = []
-    for display_name, group_rows in groups.items():
+    for (lane_id, display_name), group_rows in groups.items():
         surface_rows = [
             row
             for row in group_rows
@@ -6581,18 +6613,37 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             ]
         )
         stage_geomeans: dict[str, float] = {}
-        lane_id = str(group_rows[0].get("route_lane_id") or "")
+        non_additive_stage_geomeans: dict[str, float] = {}
+        excluded_diagnostic_stage_geomeans: dict[str, float] = {}
         for field in route_share_stage_fields_for_lane(lane_id, DEFAULT_ROUTE_TIMING_SURFACE):
+            included_values: list[float] = []
+            excluded_diagnostic_values: list[float] = []
+            for row in surface_rows:
+                parsed = numeric_value(row.get(field))
+                if parsed is None or parsed < 0.0:
+                    continue
+                if route_share_stage_included_for_surface(
+                    row, field, DEFAULT_ROUTE_TIMING_SURFACE
+                ):
+                    included_values.append(parsed)
+                elif parsed > 0.0:
+                    excluded_diagnostic_values.append(parsed)
             value = geomean_non_negative(
-                [
-                    parsed
-                    for row in surface_rows
-                    for parsed in [numeric_value(row.get(field))]
-                    if parsed is not None and parsed >= 0.0
-                ]
+                included_values
             )
-            if value is not None:
-                stage_geomeans[field] = value
+            if value is not None and value > 0.0:
+                if (
+                    total_geomean is not None
+                    and total_geomean >= 0.0
+                    and value > total_geomean * ROUTE_SHARE_ADDITIVE_TOLERANCE
+                ):
+                    non_additive_stage_geomeans[field] = value
+                else:
+                    stage_geomeans[field] = value
+            excluded_value = geomean_non_negative(excluded_diagnostic_values)
+            if excluded_value is not None and excluded_value > 0.0:
+                excluded_diagnostic_stage_geomeans[field] = excluded_value
+        contract_stage_id: str | None = None
         if stage_geomeans:
             dominant_field, dominant_ms = max(
                 stage_geomeans.items(), key=lambda item: item[1]
@@ -6606,6 +6657,32 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 dominant_field, dominant_field
             )
             next_step = route_share_next_step(dominant_field, display_name)
+        elif non_additive_stage_geomeans:
+            dominant_field, dominant_ms = max(
+                non_additive_stage_geomeans.items(), key=lambda item: item[1]
+            )
+            share = None
+            dominant_label = (
+                f"{ROUTE_STAGE_DISPLAY_NAMES.get(dominant_field, dominant_field)} "
+                "(non-additive diagnostic)"
+            )
+            next_step = route_share_next_step(
+                "timing_surface_stage_contract", display_name
+            )
+            contract_stage_id = ROUTE_STAGE_ID_BY_FIELD.get(dominant_field)
+        elif excluded_diagnostic_stage_geomeans:
+            dominant_field, dominant_ms = max(
+                excluded_diagnostic_stage_geomeans.items(), key=lambda item: item[1]
+            )
+            share = None
+            dominant_label = (
+                f"{ROUTE_STAGE_DISPLAY_NAMES.get(dominant_field, dominant_field)} "
+                "(excluded diagnostic)"
+            )
+            next_step = route_share_next_step(
+                "timing_surface_stage_contract", display_name
+            )
+            contract_stage_id = ROUTE_STAGE_ID_BY_FIELD.get(dominant_field)
         else:
             dominant_field = "missing"
             dominant_ms = None
@@ -6622,12 +6699,16 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         )
         readiness_status = (
             "not_optimization_ready"
-            if readiness_statuses.get("not_optimization_ready", 0)
+            if contract_stage_id
+            or readiness_statuses.get("not_optimization_ready", 0)
             else "optimization_ready"
             if surface_rows
             else "hot_runtime_row_missing"
         )
-        not_ready_stage_ids = sorted(
+        not_ready_stage_ids = {
+            contract_stage_id
+        } if contract_stage_id else set()
+        not_ready_stage_ids.update(
             {
                 stage_id
                 for row in surface_rows
@@ -6637,6 +6718,7 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 if stage_id and stage_id != "none"
             }
         )
+        not_ready_stage_ids = sorted(not_ready_stage_ids)
         rendered_rows.append(
             [
                 display_name,
@@ -6673,7 +6755,10 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "route-share attribution uses committed local benchmark evidence to choose the next "
             "optimization target. It defaults to hot_runtime rows and does not let "
             "full replay or publication proof timing redefine the hot route; it is not a "
-            "public speed, production, or replacement claim"
+            "public speed, production, or replacement claim. Stage shares are ranked only "
+            "when the stage is included in the selected timing surface and additive to the "
+            "authoritative route total; non-additive diagnostic timing fails closed before "
+            "optimization targeting"
         ),
     }
 

@@ -189,7 +189,7 @@ Current autonomous execution order:
 Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 
 - Source artifact:
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9`, 1,920
+  `website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209`, 1,920
   published rows, including 1,200 ShardLoom rows and 720 external-baseline rows. External rows are
   baselines only, never fallback execution. The ShardLoom-family row set includes
   `shardloom`, `shardloom-vortex`, `shardloom-prepared-vortex`, and
@@ -224,11 +224,13 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
   hot-query wall timings than the published rows, so it remains a regression/attribution
   investigation input only. Do not refresh latest website benchmark rows from those artifacts.
 - Optimization-target validator posture: `python3 scripts/check_benchmark_optimization_targets.py`
-  over `website-public/assets/benchmarks/latest/benchmark-results.json` reports measured
-  diagnostic targets for `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`,
-  `vortex_write_and_reopen_verify`, `source_read_scout_timing`, and `operator_materialization`.
-  `prepared_state_lookup_or_create` is restored as a measured diagnostic target for prepared-batch
-  rows; the refreshed CSV metadata-sink rows report manifest reuse with
+  over `website-public/assets/benchmarks/latest/benchmark-results.json` now loads full summary-only
+  row chunks and reports additive hot-runtime targets for `jsonl_parse_decode_hot_runtime`,
+  `avro_hot_runtime_outliers`, `prepared_state_lookup_or_create`,
+  `vortex_write_and_reopen_verify`, and `source_read_scout_timing`. `operator_materialization`
+  remains visible but is timing-contract-blocked because current `operator_compute_ms` fields are
+  excluded diagnostic timing for the selected hot/runtime surface rather than additive route-share
+  evidence. The refreshed CSV metadata-sink rows report manifest reuse with
   `prepare_batch_preparation_millis=0.0`, `prepare_batch_prepared_state_lookup_or_create_millis`
   about `0.517 ms`, two reused artifacts, zero rewritten artifacts, and no Vortex reopen.
 - Publication/proof posture: prepared/native publication-proof geomeans sit around `4.7-7.2 ms`,
@@ -267,9 +269,10 @@ Lane-to-design mapping from the 1,200 ShardLoom-family rows:
 - `PERF-DESIGN-2`: all hot/runtime ShardLoom rows still report `residual_native` or
   `materialized_temporary` operator posture, and the highest operator families are multi-key group
   by, nested JSON scan, high-cardinality string group/distinct, join+aggregate, and group-by
-  aggregation. The global design change is to promote the highest-value family to encoded-native
-  execution with decoded-reference parity, while keeping residual operator timing diagnostic until
-  inclusion-aware route attribution is coherent.
+  aggregation. Route-share attribution now fails closed when residual operator timing is excluded
+  from or non-additive to the selected hot/runtime surface, so the next global design change is to
+  promote the highest-value family to encoded-native execution with decoded-reference parity before
+  ranking operator timing as additive route-share evidence.
 - `PERF-DESIGN-3`: `publication_proof` rows intentionally include result-sink and evidence-render
   work; prepared publication rows are slower than hot-runtime rows because they do more proof/output
   work. The global design change is to add an incremental publication-proof artifact path so
@@ -290,7 +293,7 @@ Timing aggregation guardrail:
 ### PERF-DESIGN-2 - Encoded-native operator promotion and stage-timing attribution cleanup
 
 - Source: PR #1174 route rows; current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9`; operator
+  `website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209`; operator
   mode inventory fields; `operator_hot_path_candidate`; `route_timing_exclusive_stage_sum_ms`;
   `route_timing_exclusive_residual_ms`.
 - Current state: prepared/native hot-route query totals are around `0.11-0.12 ms` geomean, but
@@ -299,9 +302,12 @@ Timing aggregation guardrail:
   multi-key group by, nested JSON field scan, high-cardinality string group/distinct,
   join+aggregate, and group-by aggregation. Diagnostic source/import/write fields can remain
   present on native/warm rows while excluded from authoritative hot totals, so stage attribution
-  must stay explicit before using those fields for optimization ranking. A local current-code
-  optimization rerun exposed a query-wall/stage-timing inconsistency and slower repeated CSV
-  operator rows; treat that as an open timing-contract issue, not a publishable performance refresh.
+  must stay explicit before using those fields for optimization ranking. Route-share and the
+  optimization-target validator now reject excluded or non-additive timing fields before selecting a
+  target, leaving residual operator promotion as a real encoded-native implementation item instead
+  of a route-share labeling problem. A local current-code optimization rerun exposed a
+  query-wall/stage-timing inconsistency and slower repeated CSV operator rows; treat that as an open
+  timing-contract issue, not a publishable performance refresh.
 - Next slice outcome: select the highest-value operator family from the benchmark scenarios and
   promote it from residual/materialized execution toward encoded-native execution with correctness
   evidence, while normalizing exclusive stage timing so diagnostic stage costs cannot contradict
@@ -337,7 +343,7 @@ Timing aggregation guardrail:
 
 - Source: completed `PERF-DESIGN-4` session-routing evidence, `docs/architecture/pulseweave-runtime-control.md`,
   current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9`, and benchmark
+  `website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209`, and benchmark
   rows showing repeated native/prepared scenario groups with residual route-open/scan-open/result
   assembly overhead.
 - Current state: session route evidence is present and correctly separates process wall, shared
@@ -491,7 +497,7 @@ Timing aggregation guardrail:
 ### PERF-DESIGN-3 - Publication-proof sink/evidence pipeline optimization
 
 - Source: `publication_proof` rows in PR #1174 and current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9`;
+  `website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209`;
   `PERF-SPLIT-FIX-1`; user request to reduce benchmark errors and write values incrementally.
 - Current state: publication-proof rows intentionally include result-sink and evidence-render work.
   Prepared/native publication rows add roughly `2.8-3.1 ms` evidence render geomean and
