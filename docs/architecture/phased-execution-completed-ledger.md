@@ -16,6 +16,80 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-DESIGN-6 source-adapter specialization and scout-stage closeout
+  - Date: 2026-06-12
+  - Branch/PR: `codex/perf-design-6-source-closeout` / cohesive source-closeout PR.
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-6`.
+    - Current benchmark artifact:
+      `website-public/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4`.
+    - Local Python benchmark-scenario simulation under
+      `target/local-python-benchmark-scenarios/codex-final-timing`.
+    - `scripts/check_benchmark_optimization_targets.py`.
+  - Scope:
+    - Closed the source-adapter execution-spine slice for the JSONL/AVRO source-heavy cold routes:
+      `partition pruning`, `clean/cast/filter/write`, `malformed timestamp / dirty CSV`, and
+      `nested JSON field scan`.
+    - Added AVRO projection fixtures proving scenario-specific optional-column projection for
+      nested payload and dirty-field routes, preserving selected values while skipped optional
+      fields normalize to empty values in the full provider schema without row materialization.
+    - Preserved the previously folded-in Python simulation fixes: JSONL public `read_json(...).collect()`
+      routes pass `jsonl` into the public facade, and computed-column alias filters rewrite to the
+      admitted source expression before route execution.
+    - Refreshed the targeted benchmark rows at the full-local row scale and merged them into the
+      existing 1,920-row artifact instead of replacing publication-proof or external-baseline rows.
+    - Fixed targeted artifact promotion so `--merge-existing-row-chunks` derives published format
+      order from merged rows when a narrow raw artifact declares only the targeted formats.
+    - Updated optimization-target wording: remaining JSONL cost is typed text decode after
+      projection-aware row assembly is measured at zero.
+    - Removed `PERF-DESIGN-6` from the active phase-plan queue; the next autonomous item is
+      `PERF-DESIGN-4`.
+  - Local evidence:
+    - Local Python scenario simulation produced 9 snippets: 8 successful ETL paths and 1 intentional
+      fail-closed malformed timestamp cast, all with `fallback_attempted=false` and
+      `external_engine_invoked=false`. Representative one-shot Python wall timings were about
+      `5.38-6.53 ms` for collect routes, `11.95 ms` for `write_vortex`, and `4.25 ms` for the
+      expected malformed timestamp error.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark avro_provider_batch_ -- --nocapture`
+      passed with 3 tests.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark jsonl -- --nocapture`
+      passed with 9 tests.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_read_json_jsonl_collect_passes_jsonl_to_public_facade python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_alias_filter_rewrites_to_expression`
+      passed.
+    - Targeted benchmark rerun command:
+      `python3 benchmarks/traditional_analytics/run.py --engines shardloom --formats jsonl,avro --scenario "partition pruning" --scenario "clean/cast/filter/write" --scenario "malformed timestamp / dirty CSV" --scenario "nested JSON field scan" --dataset-profile tiny_smoke --rows 100000 --dim-rows 1000 --iterations 3 --data-dir target/benchmark-artifacts/traditional-full-local-current-7f66eb57-data --output target/perf-design-6-source-closeout/source-adapter-targeted.json --no-markdown --shardloom-build-profile release --shardloom-evidence-tier metadata_sink`
+      passed after installing benchmark-only `fastavro` for Avro sidecar generation.
+    - Refreshed targeted hot-runtime rows now report `source_state_read_plan=projection_aware_source_scout`,
+      `source_read_scout_timing_split_status=complete`, and `source_read_row_assembly_ms=0.0` for
+      the refreshed JSONL and AVRO rows.
+    - Refreshed hot route totals for the targeted rows:
+      JSONL `155.59 ms`, `191.98 ms`, `187.04 ms`, and `221.95 ms`; AVRO `37.25 ms`, `45.49 ms`,
+      `41.36 ms`, and `54.42 ms` for partition, clean/cast/write, malformed timestamp, and nested
+      JSON respectively. These are local diagnostic timings, not public performance claims.
+    - `python3 scripts/check_benchmark_optimization_targets.py --artifact website-public/assets/benchmarks/latest/benchmark-results.json --output target/perf-design-6-source-closeout/optimization-targets-after.json --top-n 20`
+      passed with `published_benchmark_row_count=1920`.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/perf-design-6-source-closeout/artifact-completeness.json`
+      passed with no blockers.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git`
+      passed with all required formats and 1,200 ShardLoom rows.
+    - `python3 scripts/check_website_readiness.py --output target/perf-design-6-source-closeout/website-readiness-report.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/run_python_test_shard.py --shard release_scripts --output-dir target/perf-design-6-source-closeout/python-test-shards`
+      passed with 130 tests and 2 skips.
+    - `PYTHONPATH=python/src python3 scripts/run_python_test_shard.py --shard front_door_benchmark_publication --output-dir target/perf-design-6-source-closeout/python-test-shards`
+      passed with 2 tests.
+    - Required broad Rust gates passed: `cargo fmt --all -- --check`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, and
+      `cargo test --workspace --all-targets`.
+  - Claim boundary:
+    - This closes workload-scoped source-adapter projection/scout attribution for the targeted
+      JSONL/AVRO cold routes. It does not claim cold routes are sub-ms, production-ready,
+      package-release-ready, Spark-displacement-grade, or broadly superior.
+  - Fallback boundary:
+    - Source-adapter execution, Vortex handoff, Python simulation routes, and benchmark publication
+      evidence preserve `fallback_attempted=false` and `external_engine_invoked=false`. External
+      engines remain comparison baselines only and were not used to execute ShardLoom work.
+
 - [x] Session label: PERF-DESIGN-1B prepared role-repair artifact and manifest gate
   - Date: 2026-06-12
   - Branch/PR: pending cohesive PR after local validation.

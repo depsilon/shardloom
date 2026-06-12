@@ -179,7 +179,6 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-- [ ] `PERF-DESIGN-6` - Source-adapter specialization and scout-stage execution split.
 - [ ] `PERF-DESIGN-4` - Session-native route and process-wall amortization.
 - [ ] `PERF-DESIGN-5` - Vortex preparation write/reopen and copy-budget optimization.
 - [ ] `PERF-DESIGN-2` - Encoded-native operator promotion and stage-timing attribution cleanup.
@@ -188,7 +187,7 @@ Current autonomous execution order:
 Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 
 - Source artifact:
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`, 1,920
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4`, 1,920
   published rows, including 1,200 ShardLoom rows and 720 external-baseline rows. External rows are
   baselines only, never fallback execution. The ShardLoom-family row set includes
   `shardloom`, `shardloom-vortex`, `shardloom-prepared-vortex`, and
@@ -204,9 +203,10 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
   warm-prepared, prepare-once-batch, and prepare-once-first-query hot geomeans are about
   `0.10-0.12 ms` but have process-wall measurements around `34-40 ms` when driven through the
   CLI/harness boundary.
-- Cold certified route bottlenecks: `source_parse_or_columnar_decode_ms` averages about `37.48 ms`
-  and `vortex_write_ms` averages about `23.86 ms`; JSONL outliers reach `219.49 ms` hot route
-  total with `174.20 ms` source parse/decode.
+- Cold certified route bottlenecks: `source_parse_or_columnar_decode_ms` and `vortex_write_ms`
+  remain material diagnostic targets; refreshed JSONL outliers reach `221.95 ms` hot route total
+  with about `174.27 ms` source parse/decode, but source-read scout timing is now complete and row
+  assembly is measured at `0.0 ms` for the refreshed JSONL/AVRO source-adapter rows.
 - Operator posture: all 600 hot/runtime ShardLoom rows remain `residual_native` or
   `materialized_temporary`; multi-key group by, nested JSON scan, high-cardinality string
   group/distinct, join+aggregate, and group-by aggregation are the highest measured
@@ -229,14 +229,14 @@ Lane-to-design mapping from the 1,200 ShardLoom-family rows:
 - `PERF-DESIGN-1` is closed for the prepared traditional route: SourceState and
   VortexPreparedState now reuse unchanged fact/dim/CDC artifacts and repair changed roles with
   targeted evidence. Remaining cold certified route work maps to `PERF-DESIGN-5` and
-  `PERF-DESIGN-6`: JSONL rows reach `219.49 ms` hot route total and the cold lane averages about
-  `37.48 ms` `source_parse_or_columnar_decode_ms` plus `23.86 ms` `vortex_write_ms`.
-- `PERF-DESIGN-6`: `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`, and
-  `source_read_scout_timing` are measured optimization targets, with JSONL parse/decode averaging
-  about `51.02 ms` across the diagnostic target rows and AVRO still showing outlier decode/import
-  tails. The global design change is to split source adapters into projection-aware scout, byte
-  acquisition, typed decode, row assembly, and columnar handoff stages, avoiding unused column
-  construction before Vortex preparation.
+  `PERF-DESIGN-6`: refreshed JSONL rows reach `221.95 ms` hot route total and the cold lane still
+  exposes material `source_parse_or_columnar_decode_ms` plus `vortex_write_ms` cost.
+- `PERF-DESIGN-6` is closed: `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`, and
+  `source_read_scout_timing` remain measured diagnostic targets, but the source adapters now expose
+  projection-aware scout plans, byte acquisition, typed decode, row assembly, and columnar handoff
+  stages. The refreshed JSONL/AVRO source-heavy rows avoid unused row-buffer assembly and report
+  row assembly as `0.0 ms`; future work should target remaining typed text decode and Vortex write
+  cost without hiding it inside route totals.
 - `PERF-DESIGN-4`: native Vortex, warm-prepared, prepare-once-batch, and
   prepare-once-first-query hot lanes are query-scale once prepared, but their rows still expose
   `cli_process_wall_millis` around `34-40 ms` through the benchmark/Python harness. The global
@@ -271,92 +271,10 @@ Timing aggregation guardrail:
   The report is diagnostic evidence only and does not authorize public performance, production,
   package-release, or Spark-displacement claims.
 
-### PERF-DESIGN-6 - Source-adapter specialization and scout-stage execution split
-
-- Source: current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`;
-  `scripts/check_benchmark_optimization_targets.py`;
-  `target/benchmark-optimization-targets-review.json` when regenerated locally from
-  `website-public/assets/benchmarks/latest/benchmark-results.json`;
-  `docs/architecture/cold-ingestion-preparation-research-carryforward.md`;
-  `docs/architecture/universal-input-contract.md`.
-- Current state: prepared/native hot query lanes are fast, but cold certified hot rows are dominated
-  by compatibility source work before Vortex-native query execution. The optimization-target report
-  shows JSONL parse/decode as a measured hotspot with `40` nonzero rows, about `51.02 ms` average
-  stage time, `192.02 ms` p95/max stage time, and a `219.49 ms` hot-route max. AVRO rows remain a
-  smaller but visible parse/decode outlier family with about `13.05 ms` average stage time and
-  `33.20 ms` p95 stage time. Source-read scout timing is present but still too coarse, with source
-  read averaging about `1.95 ms` and p95 about `12.96 ms`, so the engine cannot yet distinguish
-  open, byte acquisition, typed decode, row assembly, and columnar handoff costs well enough to
-  choose the right cold-lane optimization.
-- Implementation evidence in progress: the local source-adapter slice now routes fact-columnar
-  readers through scenario-specific projected field masks for Parquet, Arrow IPC, AVRO, and ORC
-  reader provider surfaces, records projection-aware source evidence for the direct columnar
-  provider path, locks the JSONL provider path so unselected malformed optional tails are not
-  decoded while full preservation still fails closed, and tightens benchmark row promotion so
-  source-read scout timing is not marked complete unless typed decode, row assembly, anomaly
-  quarantine, and columnar handoff substages are present. The next runtime evidence-contract slice
-  now extends SourceState benchmark rows with read plan, projection pushdown status, reader
-  projection columns/count, projected/filter field masks, decoded/skipped column lists, and
-  decoded/skipped counts so route timing cannot expose source-adapter scout detail while
-  SourceState remains opaque. The local Python simulation also found and folded in two user-surface
-  correctness fixes: JSONL reads must pass `jsonl` into the public workflow route, and
-  computed-column filters must rewrite aliases to their admitted source expressions before route
-  execution. Runtime parser slices now let local JSON/JSONL projected reads preserve the full
-  source header while structurally skipping unselected values, and make the traditional benchmark
-  JSONL source adapter split generic fallback rows by top-level JSON fields so unselected nested
-  objects/arrays are skipped by projected hot-route reads. Selected scalar paths remain fail-closed
-  and unselected unsupported values are not decoded. This does not complete PERF-DESIGN-6: targeted
-  JSONL/AVRO benchmark reruns, broader malformed/nested anomaly fixtures, and the updated
-  optimization-target artifact are still required before moving the item to the completed ledger.
-- Next slice outcome: implement one cohesive source-adapter execution-spine optimization batch that
-  specializes JSONL and AVRO cold-ingest paths around projected field masks, typed decode plans,
-  anomaly/quarantine policy, columnar handoff into Vortex preparation, and explicit source-read scout
-  substages. The result should reduce unnecessary row assembly and broad-body parsing for benchmark
-  shapes while making the remaining cold source cost attributable.
-- User-visible surface: benchmark stage attribution, Python/CLI read diagnostics, SourceState
-  reports, capability/status rows, and website benchmark stage tables after a targeted artifact
-  refresh.
-- Implementation scope: local compatibility input adapters and read plans in the CLI/Python-backed
-  route, `shardloom-vortex` ingest handoff/report fields where Vortex arrays or write providers are
-  involved, benchmark harness timing promotion, source-read scout substage fields, and validators
-  for projected-mask/typed-decode evidence. Check upstream Vortex Source/Scan/Split/provider
-  surfaces first and wrap admitted provider concepts rather than inventing parallel abstractions.
-- Evidence required: correctness fixtures for projected JSONL/AVRO fields, dirty/null/nested edge
-  cases, deterministic anomaly/quarantine blockers, no stale projection-mask reuse, stage timing
-  rows for open/byte acquisition/typed decode/row assembly/columnar handoff, and no-fallback/native
-  input-output certificates where the route writes or reopens Vortex artifacts.
-- Acceptance: JSONL and AVRO cold-ingest rows no longer require assembling or decoding columns that
-  are neither projected nor required for filters; malformed/nested values fail closed or quarantine
-  explicitly according to the current policy; source-read scout substages are populated and
-  optimization-ready; route totals remain timing-surface aware; unchanged prepared/native query
-  lanes continue to report hot runtime separately from diagnostic preparation fields.
-- Verification: focused adapter/source-state tests for JSONL and AVRO projection masks; malformed
-  input and nested-field edge fixtures; benchmark row contract tests for source-read scout
-  substages; targeted benchmark rerun for `nested_json_field_scan`, `clean_cast_filter_write`,
-  `malformed_timestamp_dirty_csv`, and `partition_pruning` over JSONL/AVRO; rerun
-  `python3 scripts/check_benchmark_optimization_targets.py`,
-  `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`,
-  `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and
-  `cargo test --workspace --all-targets` when Rust behavior changes.
-- Non-goals: do not claim cold routes become sub-ms; do not hide source parse/decode inside
-  preparation reuse; do not broaden support to object-store/table inputs; do not silently drop dirty
-  records; do not use pandas, Polars, DuckDB, Spark, DataFusion, Dask, or Vortex query-engine
-  integrations to satisfy residual source parsing.
-- Claim boundary: may claim only workload-scoped source-adapter optimization after refreshed
-  benchmark rows show the selected scenarios, formats, timing surface, and evidence tier. It does
-  not authorize production, package-release, Spark-displacement, SQL/DataFrame breadth, or broad
-  superiority claims.
-- Fallback boundary: source-adapter execution, Vortex handoff, and diagnostics remain
-  ShardLoom/Vortex-native with `fallback_attempted=false` and `external_engine_invoked=false`;
-  external engines remain comparison baselines only.
-- Ledger rule: when complete, move the completed session summary to
-  `docs/architecture/phased-execution-completed-ledger.md`.
-
 ### PERF-DESIGN-4 - Session-native route and process-wall amortization
 
 - Source: current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`;
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4`;
   `docs/architecture/in-process-session-runtime.md`;
   `docs/architecture/benchmark-persistent-runner-decision.md`; Python context/session surface.
 - Current state: warm/prepared/native `hot_runtime` route geomeans are about `0.10-0.12 ms`, but
@@ -400,7 +318,7 @@ Timing aggregation guardrail:
 ### PERF-DESIGN-5 - Vortex preparation write/reopen and copy-budget optimization
 
 - Source: current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`;
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4`;
   `docs/architecture/io-reuse-and-fanout-architecture.md`;
   `docs/architecture/allocation-buffer-pool-optimization.md`;
   `docs/architecture/vortex-adapter-integration-plan.md`.
@@ -447,7 +365,7 @@ Timing aggregation guardrail:
 ### PERF-DESIGN-2 - Encoded-native operator promotion and stage-timing attribution cleanup
 
 - Source: PR #1174 route rows; current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`; operator
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4`; operator
   mode inventory fields; `operator_hot_path_candidate`; `route_timing_exclusive_stage_sum_ms`;
   `route_timing_exclusive_residual_ms`.
 - Current state: prepared/native hot-route query totals are around `0.11-0.12 ms` geomean, but
@@ -490,7 +408,7 @@ Timing aggregation guardrail:
 ### PERF-DESIGN-3 - Publication-proof sink/evidence pipeline optimization
 
 - Source: `publication_proof` rows in PR #1174 and current published row chunks
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-5f4038b208f96e0c`;
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-7fbcd2000581d8a4`;
   `PERF-SPLIT-FIX-1`; user request to reduce benchmark errors and write values incrementally.
 - Current state: publication-proof rows intentionally include result-sink and evidence-render work.
   Prepared/native publication rows add roughly `2.8-3.1 ms` evidence render geomean and

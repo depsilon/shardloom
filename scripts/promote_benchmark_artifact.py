@@ -6849,18 +6849,18 @@ def benchmark_format_order(
     artifact: dict[str, Any], rows: list[dict[str, Any]], profile: str
 ) -> list[str]:
     metadata = promoted_metadata(artifact)
-    declared = [
-        str(value)
-        for value in metadata.get("format_order", [])
-        if isinstance(value, str) and value
-    ]
-    if declared:
-        return list(dict.fromkeys(declared))
     row_formats = {
         str(row.get("storage_format"))
         for row in rows
         if isinstance(row.get("storage_format"), str) and row.get("storage_format")
     }
+    declared = [
+        str(value)
+        for value in metadata.get("format_order", [])
+        if isinstance(value, str) and value
+    ]
+    if declared and row_formats.issubset(set(declared)):
+        return list(dict.fromkeys(declared))
     if profile in PROFILES:
         profile_order = list(
             dict.fromkeys(

@@ -4360,6 +4360,27 @@ class ReleaseScriptTests(unittest.TestCase):
             self.assertEqual(by_format[data_format][1], "required")
             self.assertEqual(by_format[data_format][2], "available")
 
+    def test_benchmark_promoter_derives_formats_from_merged_rows_for_targeted_refresh(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_targeted_format_merge_for_test",
+        )
+        rows = [
+            {"storage_format": data_format}
+            for data_format in ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
+        ]
+
+        self.assertEqual(
+            module.benchmark_format_order(
+                {"format_order": ["jsonl", "avro"]},
+                rows,
+                "full_local",
+            ),
+            ["csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"],
+        )
+
     def test_benchmark_publication_claim_gate_blocks_stale_git_and_age(self) -> None:
         module = self._load_script_module(
             "check_benchmark_publication_claim_gate.py",
@@ -4901,7 +4922,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertTrue(
-            str(packet["next_implementation_slice"]).startswith("`PERF-DESIGN-6`"),
+            str(packet["next_implementation_slice"]).startswith("`PERF-DESIGN-4`"),
             packet["next_implementation_slice"],
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
