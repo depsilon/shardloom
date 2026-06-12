@@ -1488,12 +1488,7 @@ struct TraditionalGroupCategoryMetricState {
 impl TraditionalGroupCategoryMetricState {
     fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
         let mut group_key_groups = TraditionalU32GroupAccumulator::default();
-        let mut group_category_groups = std::collections::HashMap::<
-            TraditionalPackedU32Pair,
-            TraditionalGroupAccum,
-        >::with_capacity(
-            TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY
-        );
+        let mut group_category_groups = TraditionalPackedGroupAccumulator::default();
         let mut category_interner =
             TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
         let stats = scan_fact_vortex_projected(
@@ -1525,19 +1520,14 @@ impl TraditionalGroupCategoryMetricState {
                         index,
                     )?;
                     group_key_groups.add(group_key, metric)?;
-                    add_packed_group_accum(
-                        &mut group_category_groups,
-                        group_key,
-                        category_id,
-                        metric,
-                    );
+                    group_category_groups.add(group_key, category_id, metric)?;
                 }
                 Ok(())
             },
         )?;
         Ok(Self {
             group_key_groups: group_key_groups.into_btree_map(),
-            group_category_groups,
+            group_category_groups: group_category_groups.into_hash_map(),
             category_interner,
             stats,
         })
@@ -18022,6 +18012,12 @@ impl TraditionalGroupAccum {
 const TRADITIONAL_DENSE_GROUP_MAX_KEY: usize = 1_000_000;
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY: usize = 100_000;
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const TRADITIONAL_DENSE_PACKED_GROUP_SLOT_BUDGET: usize = 1_000_000;
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 const TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY: usize = 4_096;
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -18125,7 +18121,10 @@ fn pack_traditional_u32_pair(left: u32, right: u32) -> TraditionalPackedU32Pair 
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn unpack_traditional_u32_pair(pair: TraditionalPackedU32Pair) -> (u32, u32) {
-    ((pair >> 32) as u32, pair as u32)
+    let left = u32::try_from(pair >> 32).expect("packed group left key fits in u32");
+    let right = u32::try_from(pair & u64::from(u32::MAX))
+        .expect("masked packed group right key fits in u32");
+    (left, right)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -18139,6 +18138,133 @@ fn add_packed_group_accum(
         .entry(pack_traditional_u32_pair(left, right))
         .or_default()
         .add(metric);
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Default, Clone, PartialEq)]
+struct TraditionalDensePackedGroupAccum {
+    groups: Vec<Option<TraditionalDenseU32GroupAccum>>,
+    populated_group_keys: Vec<u32>,
+    inner_slot_count: usize,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalDensePackedGroupAccum {
+    fn can_admit(left: u32, right: u32) -> bool {
+        usize::try_from(left)
+            .ok()
+            .zip(usize::try_from(right).ok())
+            .is_some_and(|(left, right)| {
+                left <= TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY
+                    && right <= TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY
+            })
+    }
+
+    fn add(&mut self, left: u32, right: u32, metric: f64) -> Result<bool> {
+        if !Self::can_admit(left, right) {
+            return Ok(false);
+        }
+        let left_index = usize::try_from(left).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "traditional analytics dense packed group left key {left} exceeded usize: {error}; fallback execution was not attempted"
+            ))
+        })?;
+        let right_index = usize::try_from(right).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "traditional analytics dense packed group right key {right} exceeded usize: {error}; fallback execution was not attempted"
+            ))
+        })?;
+        if left_index >= self.groups.len() {
+            self.groups.resize_with(left_index + 1, || None);
+        }
+        let inner = self.groups[left_index].get_or_insert_with(|| {
+            self.populated_group_keys.push(left);
+            TraditionalDenseU32GroupAccum::default()
+        });
+        if right_index >= inner.groups.len() {
+            let additional_slots = right_index + 1 - inner.groups.len();
+            if self
+                .inner_slot_count
+                .checked_add(additional_slots)
+                .is_none_or(|slots| slots > TRADITIONAL_DENSE_PACKED_GROUP_SLOT_BUDGET)
+            {
+                return Ok(false);
+            }
+            self.inner_slot_count += additional_slots;
+        }
+        inner.add(right, metric)?;
+        Ok(true)
+    }
+
+    fn into_hash_map(
+        self,
+    ) -> std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum> {
+        let Self {
+            mut groups,
+            mut populated_group_keys,
+            ..
+        } = self;
+        let mut out =
+            std::collections::HashMap::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
+        populated_group_keys.sort_unstable();
+        for left in populated_group_keys {
+            let Some(index) = usize::try_from(left).ok() else {
+                continue;
+            };
+            let Some(inner) = groups.get_mut(index).and_then(Option::take) else {
+                continue;
+            };
+            for (right, accum) in inner.into_btree_map() {
+                out.insert(pack_traditional_u32_pair(left, right), accum);
+            }
+        }
+        out
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+enum TraditionalPackedGroupAccumulator {
+    Dense(TraditionalDensePackedGroupAccum),
+    Sparse(std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum>),
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl Default for TraditionalPackedGroupAccumulator {
+    fn default() -> Self {
+        Self::Dense(TraditionalDensePackedGroupAccum::default())
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalPackedGroupAccumulator {
+    fn add(&mut self, left: u32, right: u32, metric: f64) -> Result<()> {
+        match self {
+            Self::Dense(dense) => {
+                if dense.add(left, right, metric)? {
+                    Ok(())
+                } else {
+                    let mut sparse = std::mem::take(dense).into_hash_map();
+                    add_packed_group_accum(&mut sparse, left, right, metric);
+                    *self = Self::Sparse(sparse);
+                    Ok(())
+                }
+            }
+            Self::Sparse(groups) => {
+                add_packed_group_accum(groups, left, right, metric);
+                Ok(())
+            }
+        }
+    }
+
+    fn into_hash_map(
+        self,
+    ) -> std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum> {
+        match self {
+            Self::Dense(dense) => dense.into_hash_map(),
+            Self::Sparse(groups) => groups,
+        }
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -20948,6 +21074,7 @@ fn run_traditional_direct_transient_local_input_smoke_enabled(
         &request.fact_csv,
         request.input_format,
         resource_policy,
+        fact_category_required_for_scenario(request.scenario),
     )?;
     let dim_source = read_traditional_dim_rows_with_evidence(
         &request.dim_csv,
@@ -25008,6 +25135,7 @@ impl TraditionalFactVortexColumns {
         &mut self,
         batch: &arrow_array::RecordBatch,
         path: &std::path::Path,
+        category_required: bool,
     ) -> Result<()> {
         self.id.extend(arrow_u64_column(batch, path, "id")?);
         self.group_key
@@ -25017,8 +25145,16 @@ impl TraditionalFactVortexColumns {
         self.value.extend(arrow_u32_column(batch, path, "value")?);
         self.metric.extend(arrow_f64_column(batch, path, "metric")?);
         self.flag.extend(arrow_u8_column(batch, path, "flag")?);
-        self.category
-            .extend(arrow_string_column(batch, path, "category")?);
+        if category_required {
+            self.category
+                .extend(arrow_string_column(batch, path, "category")?);
+        } else {
+            self.category.extend(
+                arrow_optional_string_column(batch, path, "category")?
+                    .into_iter()
+                    .map(Option::unwrap_or_default),
+            );
+        }
         self.event_date.extend(
             arrow_optional_string_column(batch, path, "event_date")?
                 .into_iter()
@@ -25105,6 +25241,7 @@ impl TraditionalFactVortexColumns {
 fn fact_vortex_record_batch_from_arrow_batches(
     batches: &[arrow_array::RecordBatch],
     path: &std::path::Path,
+    category_required: bool,
 ) -> Result<arrow_array::RecordBatch> {
     let total_rows = batches
         .iter()
@@ -25112,7 +25249,7 @@ fn fact_vortex_record_batch_from_arrow_batches(
         .sum::<usize>();
     let mut columns = TraditionalFactVortexColumns::with_capacity(total_rows);
     for batch in batches {
-        columns.extend_arrow_batch(batch, path)?;
+        columns.extend_arrow_batch(batch, path, category_required)?;
     }
     columns.into_record_batch()
 }
@@ -25491,6 +25628,12 @@ fn fact_record_batch(fact: &VortexFactTable) -> Result<arrow_array::RecordBatch>
         Field::new("metric", DataType::Float64, false),
         Field::new("flag", DataType::Int8, false),
         Field::new("category", DataType::Utf8, false),
+        Field::new("event_date", DataType::Utf8, false),
+        Field::new("nullable_metric_00", DataType::Utf8, false),
+        Field::new("nested_payload", DataType::Utf8, false),
+        Field::new("raw_event_time", DataType::Utf8, false),
+        Field::new("dirty_numeric", DataType::Utf8, false),
+        Field::new("dirty_flag", DataType::Utf8, false),
     ]);
     RecordBatch::try_new(
         Arc::new(schema),
@@ -25511,6 +25654,12 @@ fn fact_record_batch(fact: &VortexFactTable) -> Result<arrow_array::RecordBatch>
             Arc::new(Float64Array::from(fact.metric.clone())) as ArrayRef,
             Arc::new(Int8Array::from(u8_values_to_i8(&fact.flag, "fact.flag")?)) as ArrayRef,
             Arc::new(StringArray::from(fact.category.clone())) as ArrayRef,
+            Arc::new(StringArray::from(fact.event_date.clone())) as ArrayRef,
+            Arc::new(StringArray::from(fact.nullable_metric_00.clone())) as ArrayRef,
+            Arc::new(StringArray::from(fact.nested_payload.clone())) as ArrayRef,
+            Arc::new(StringArray::from(fact.raw_event_time.clone())) as ArrayRef,
+            Arc::new(StringArray::from(fact.dirty_numeric.clone())) as ArrayRef,
+            Arc::new(StringArray::from(fact.dirty_flag.clone())) as ArrayRef,
         ],
     )
     .map_err(|error| {
@@ -26002,7 +26151,7 @@ fn read_traditional_fact_rows(
     input_format: TraditionalAnalyticsInputFormat,
     resource_policy: TraditionalAnalyticsResourcePolicy,
 ) -> Result<Vec<TraditionalFactRow>> {
-    read_traditional_fact_rows_with_evidence(path, input_format, resource_policy)
+    read_traditional_fact_rows_with_evidence(path, input_format, resource_policy, true)
         .map(|source| source.rows)
 }
 
@@ -26011,12 +26160,18 @@ fn read_traditional_fact_rows_with_evidence(
     path: &std::path::Path,
     input_format: TraditionalAnalyticsInputFormat,
     resource_policy: TraditionalAnalyticsResourcePolicy,
+    category_required: bool,
 ) -> Result<TraditionalSourceRead<TraditionalFactRow>> {
     if path.is_dir() {
         let mut rows = Vec::new();
         let mut evidence = TraditionalSourceReadEvidence::default();
         for part in fact_input_part_paths(path, input_format, "fact input")? {
-            match read_traditional_fact_rows_with_evidence(&part, input_format, resource_policy) {
+            match read_traditional_fact_rows_with_evidence(
+                &part,
+                input_format,
+                resource_policy,
+                category_required,
+            ) {
                 Ok(part_source) => {
                     rows.extend(part_source.rows);
                     evidence = evidence.add(part_source.evidence)?;
@@ -26066,7 +26221,7 @@ fn read_traditional_fact_rows_with_evidence(
             let source_to_columnar_micros = duration_to_micros(source_to_columnar_start.elapsed());
             let record_batch_count = batches.len();
             let source_parse_start = std::time::Instant::now();
-            let rows = fact_rows_from_arrow_batches(&batches, path)?;
+            let rows = fact_rows_from_arrow_batches(&batches, path, category_required)?;
             let source_parse_micros = duration_to_micros(source_parse_start.elapsed());
             Ok(TraditionalSourceRead {
                 rows,
@@ -26161,7 +26316,11 @@ fn read_traditional_fact_vortex_provider_batch_with_evidence(
     let source_to_columnar_micros = duration_to_micros(source_to_columnar_start.elapsed());
     let record_batch_count = batches.len();
     let source_parse_start = std::time::Instant::now();
-    let batch = fact_vortex_record_batch_from_arrow_batches(&batches, path)?;
+    let batch = fact_vortex_record_batch_from_arrow_batches(
+        &batches,
+        path,
+        fact_category_required_for_scenario(scenario),
+    )?;
     let source_parse_micros = duration_to_micros(source_parse_start.elapsed());
     let row_count = batch.num_rows();
     Ok(TraditionalVortexProviderBatchRead {
@@ -26332,6 +26491,17 @@ impl TraditionalFactTextColumnSelection {
     const fn selected_optional_mask(self) -> u32 {
         self.decoded_mask() & SOURCE_READ_FACT_OPTIONAL_MASK
     }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const fn fact_category_required_for_scenario(scenario: TraditionalAnalyticsScenario) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::DistinctCount
+            | TraditionalAnalyticsScenario::MultiKeyGroupBy
+            | TraditionalAnalyticsScenario::JoinAggregate
+            | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct
+    )
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -28876,6 +29046,7 @@ where
 fn fact_rows_from_arrow_batches(
     batches: &[arrow_array::RecordBatch],
     path: &std::path::Path,
+    category_required: bool,
 ) -> Result<Vec<TraditionalFactRow>> {
     let mut rows = Vec::new();
     for batch in batches {
@@ -28885,7 +29056,14 @@ fn fact_rows_from_arrow_batches(
         let values = arrow_u32_column(batch, path, "value")?;
         let metrics = arrow_f64_column(batch, path, "metric")?;
         let flags = arrow_u8_column(batch, path, "flag")?;
-        let categories = arrow_string_column(batch, path, "category")?;
+        let categories = if category_required {
+            arrow_string_column(batch, path, "category")?
+        } else {
+            arrow_optional_string_column(batch, path, "category")?
+                .into_iter()
+                .map(Option::unwrap_or_default)
+                .collect()
+        };
         let event_dates = arrow_optional_string_column(batch, path, "event_date")?;
         let nullable_metrics =
             arrow_optional_value_string_column(batch, path, "nullable_metric_00")?;
@@ -30775,10 +30953,7 @@ fn run_streaming_multi_key_group_by_scenario_with_dim_rows(
     fact_path: &std::path::Path,
     dim_rows: u64,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut groups =
-        std::collections::HashMap::<TraditionalPackedU32Pair, TraditionalGroupAccum>::with_capacity(
-            TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY,
-        );
+    let mut groups = TraditionalPackedGroupAccumulator::default();
     let mut category_interner =
         TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
     let stats = scan_fact_vortex_projected(
@@ -30805,13 +30980,14 @@ fn run_streaming_multi_key_group_by_scenario_with_dim_rows(
             for (index, (&group_key, &metric)) in group_keys.iter().zip(metrics).enumerate() {
                 let category_id =
                     intern_utf8_value_at(&mut category_interner, &categories, "category", index)?;
-                add_packed_group_accum(&mut groups, group_key, category_id, metric);
+                groups.add(group_key, category_id, metric)?;
             }
             Ok(())
         },
     )?;
     let assembly_start = std::time::Instant::now();
-    let result_json = group_category_packed_id_rows_json(groups, &category_interner)?;
+    let result_json =
+        group_category_packed_id_rows_json(groups.into_hash_map(), &category_interner)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
     let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
@@ -35382,7 +35558,7 @@ mod tests {
                 r#"{"event":{"flag":false},"metrics":{"score":3.75}}"#.to_string(),
             ]
         );
-        assert_eq!(dirty_numeric, vec!["".to_string(), "".to_string()]);
+        assert_eq!(dirty_numeric, vec![String::new(), String::new()]);
         assert_eq!(source.evidence.row_assembly_micros, 0);
         assert!(source.evidence.columnar_handoff_micros > 0);
         assert!(source.evidence.columnar_preserved);
@@ -35442,7 +35618,7 @@ mod tests {
             vec!["6000".to_string(), "bad-number".to_string()]
         );
         assert_eq!(dirty_flag, vec!["Y".to_string(), "N".to_string()]);
-        assert_eq!(nested_payloads, vec!["".to_string(), "".to_string()]);
+        assert_eq!(nested_payloads, vec![String::new(), String::new()]);
         assert_eq!(source.evidence.row_assembly_micros, 0);
         assert!(source.evidence.columnar_handoff_micros > 0);
         assert!(source.evidence.columnar_preserved);
@@ -44344,12 +44520,15 @@ mod tests {
         let rows = groups.into_btree_map();
 
         assert_eq!(rows.get(&2).unwrap().row_count, 2);
-        assert_eq!(rows.get(&2).unwrap().metric_sum, 4.0);
-        assert_eq!(
-            rows.get(&u32::try_from(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1).unwrap())
+        assert!((rows.get(&2).unwrap().metric_sum - 4.0).abs() < f64::EPSILON);
+        assert!(
+            (rows
+                .get(&u32::try_from(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1).unwrap())
                 .unwrap()
-                .metric_sum,
-            5.0
+                .metric_sum
+                - 5.0)
+                .abs()
+                < f64::EPSILON
         );
     }
 
@@ -44382,6 +44561,52 @@ mod tests {
             result_json,
             "[{\"group_key\":1,\"category\":\"a\",\"row_count\":1,\"metric_sum\":1.5},{\"group_key\":2,\"category\":\"b\",\"row_count\":2,\"metric_sum\":2.5}]"
         );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dense_packed_group_accumulator_preserves_sorted_group_results() {
+        let mut category_interner = TraditionalStringInterner::default();
+        let b_id = category_interner.intern("b").unwrap();
+        let a_id = category_interner.intern("a").unwrap();
+        let mut groups = TraditionalPackedGroupAccumulator::default();
+        groups.add(2, b_id, 2.5).unwrap();
+        groups.add(1, a_id, 1.5).unwrap();
+        groups.add(2, b_id, 3.5).unwrap();
+
+        let result_json =
+            group_category_packed_id_rows_json(groups.into_hash_map(), &category_interner).unwrap();
+
+        assert_eq!(
+            result_json,
+            "[{\"group_key\":1,\"category\":\"a\",\"row_count\":1,\"metric_sum\":1.5},{\"group_key\":2,\"category\":\"b\",\"row_count\":2,\"metric_sum\":6.0}]"
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dense_packed_group_accumulator_rolls_to_sparse_for_wide_keys() {
+        let mut groups = TraditionalPackedGroupAccumulator::default();
+        groups.add(2, 1, 1.0).unwrap();
+        groups
+            .add(
+                u32::try_from(TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY + 1).unwrap(),
+                1,
+                5.0,
+            )
+            .unwrap();
+        groups.add(2, 1, 3.0).unwrap();
+
+        let rows = groups.into_hash_map();
+        let dense_key = pack_traditional_u32_pair(2, 1);
+        let sparse_key = pack_traditional_u32_pair(
+            u32::try_from(TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY + 1).unwrap(),
+            1,
+        );
+
+        assert_eq!(rows.get(&dense_key).unwrap().row_count, 2);
+        assert!((rows.get(&dense_key).unwrap().metric_sum - 4.0).abs() < f64::EPSILON);
+        assert!((rows.get(&sparse_key).unwrap().metric_sum - 5.0).abs() < f64::EPSILON);
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -46529,12 +46754,12 @@ mod tests {
                 assert_field_eq(
                     &replay_fields,
                     "source_state_materialization_layout",
-                    "columnar_record_batches_normalized_to_vortex_provider_batch",
+                    "projected_columnar_provider_record_batch_without_persistent_traditional_rows",
                 );
                 assert_field_eq(
                     &replay_fields,
                     "source_state_parse_normalization",
-                    "arrow_record_batches_to_vortex_provider_record_batch_no_row_boundary",
+                    "projected_arrow_record_batches_to_vortex_provider_record_batch_no_row_boundary",
                 );
                 assert_field_eq(&replay_fields, "source_state_columnar_preserved", "true");
                 assert!(

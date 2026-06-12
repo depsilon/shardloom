@@ -180,10 +180,10 @@ not by numeric CG order.
 Current autonomous execution order:
 
 - [ ] `PERF-DESIGN-2` - Encoded-native operator promotion and stage-timing attribution cleanup.
-- [ ] `PERF-DESIGN-4R` - PulseWeave session/runtime coalescing follow-through.
-- [ ] `PERF-DESIGN-1R` - Dynamic prepared-state reuse and role-repair optimization follow-through.
-- [ ] `PERF-DESIGN-5R` - Capillary preparation spine write/reopen/copy optimization follow-through.
-- [ ] `PERF-DESIGN-6R` - Dynamic source-adapter parse/decode and scout-ingress optimization follow-through.
+- [ ] `PERF-DESIGN-4R` - PulseWeave session/runtime coalescing optimization pass.
+- [ ] `PERF-DESIGN-1R` - Dynamic prepared-state reuse and role-repair optimization pass.
+- [ ] `PERF-DESIGN-5R` - Capillary preparation spine write/reopen/copy optimization pass.
+- [ ] `PERF-DESIGN-6R` - Dynamic source-adapter parse/decode and scout-ingress optimization pass.
 - [ ] `PERF-DESIGN-3` - Publication-proof sink/evidence pipeline optimization.
 
 Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
@@ -239,33 +239,51 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 - Claim boundary: these numbers are current local benchmark evidence and optimization direction,
   not performance, production, Spark-displacement, superiority, or package-release claims.
 
+Completed-design reopen policy:
+
+- Completed `PERF-DESIGN-*` items may return to Planned only as explicit `*R` optimization passes
+  when current benchmark rows, validator output, or targeted local simulation identify a remaining
+  measured bottleneck. Do not re-add completed evidence/attribution work merely to polish wording or
+  rerun artifacts.
+- A reopened `*R` item must preserve the original closeout contract and add a narrower optimization
+  contract: the control surface being changed, the rows or timing fields proving it is still worth
+  changing, the fail-closed blocker vocabulary, and the benchmark/test evidence required before any
+  claim is made.
+- Reopened optimization passes should use ShardLoom-native dynamic, PulseWeave, or capillary
+  controls only where those controls match the bottleneck shape:
+  dynamic admission for repeated dependency/source decisions, PulseWeave for run-local coalescing
+  and bounded work-in-progress, and capillary windows for small typed source/preparation/sink work
+  units. If none of those controls fit, keep the work under the direct open item instead of forcing a
+  label.
+- The currently reopened completed-design items are `PERF-DESIGN-1R`, `PERF-DESIGN-4R`,
+  `PERF-DESIGN-5R`, and `PERF-DESIGN-6R`. `PERF-DESIGN-2` and `PERF-DESIGN-3` are not reopened
+  closeouts; they remain direct open implementation items.
+
 Lane-to-design mapping from the 1,200 ShardLoom-family rows:
 
-- `PERF-DESIGN-1` is closed for correctness and evidence, but reopened as `PERF-DESIGN-1R` for
-  optimization follow-through: SourceState and VortexPreparedState reuse unchanged fact/dim/CDC
-  artifacts and repair changed roles with targeted evidence, but the benchmark lanes still need a
-  dynamic reuse policy that avoids manifest/digest/write work when a run-local capillary has already
-  proven the same source/prepared-state dependency set.
-- `PERF-DESIGN-6` is closed for attribution, but reopened as `PERF-DESIGN-6R` for optimization
-  follow-through: `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`, and
-  `source_read_scout_timing` remain measured diagnostic targets. The source adapters expose
-  projection-aware scout plans, byte acquisition, typed decode, row assembly, and columnar handoff
-  stages; the next work must reduce typed text decode/source parse cost through dynamic scout
-  admission and capillary chunk sizing rather than hiding it inside route totals.
-- `PERF-DESIGN-4` is closed for session evidence, but reopened as `PERF-DESIGN-4R` for
-  optimization follow-through: repeated warm/native/prepared benchmark groups report caller-owned
-  session route use, process-spawn count, shared batch wall timing, and no hidden daemon/global
-  cache posture separately from hot route totals. The next work should let PulseWeave coalesce
-  admitted local scenario groups inside the existing session/runtime envelope so repeated
-  route-open, scan-open, and result assembly overhead is bounded by evidence rather than repeated by
+- `PERF-DESIGN-1` is closed for correctness and evidence, but reopened as `PERF-DESIGN-1R` because
+  the remaining target is dynamic reuse work, not role-repair correctness. SourceState and
+  VortexPreparedState already reuse unchanged fact/dim/CDC artifacts and repair changed roles with
+  targeted evidence; the optimization pass should avoid repeated manifest, digest, metadata-open,
+  and writer-context work only when the same run has capillary proof for the source/prepared-state
+  dependency tuple.
+- `PERF-DESIGN-6` is closed for source-adapter attribution, but reopened as `PERF-DESIGN-6R`
+  because `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`, and
+  `source_read_scout_timing` remain measured diagnostic targets. The optimization pass should use
+  dynamic scout admission and capillary chunk sizing to reduce typed text/binary decode and handoff
+  cost without hiding source work inside route totals.
+- `PERF-DESIGN-4` is closed for session evidence, but reopened as `PERF-DESIGN-4R` because
+  repeated warm/native/prepared benchmark groups now prove caller-owned session routes,
+  process-spawn count, shared batch wall timing, and no hidden daemon/global cache posture. The
+  optimization pass should use PulseWeave to coalesce only admitted local scenario groups so
+  route-open, scan-open, and result-assembly pressure is bounded by evidence instead of repeated by
   default.
-- `PERF-DESIGN-5` is closed for timing attribution, but reopened as `PERF-DESIGN-5R` for
-  optimization follow-through: prepare-batch lifecycle timing now separates
-  `prepared_state_lookup_or_create`, narrow preparation/create timing, and full prepare route total
-  instead of sourcing narrow preparation from `total_runtime_micros`. Targeted CSV metadata-sink
-  rows show manifest metadata verification with no new writer/reopen work; the next work should
-  reduce cold/prepared write, reopen, and copy cost through capillary preparation windows, writer
-  context reuse, and dynamic metadata-first verification admission.
+- `PERF-DESIGN-5` is closed for timing attribution, but reopened as `PERF-DESIGN-5R` because
+  cold/prepared rows still expose material Vortex write, reopen/verify, and copy-budget work.
+  Preparation timing now separates lookup/create, narrow preparation, and full route total; the
+  optimization pass should use capillary preparation windows, writer-context reuse, and dynamic
+  metadata-first verification admission to reduce repeated write/reopen/copy work without weakening
+  Native I/O proof.
 - `PERF-DESIGN-2`: all hot/runtime ShardLoom rows still report `residual_native` or
   `materialized_temporary` operator posture, and the highest operator families are multi-key group
   by, nested JSON scan, high-cardinality string group/distinct, join+aggregate, and group-by
@@ -307,11 +325,18 @@ Timing aggregation guardrail:
   target, leaving residual operator promotion as a real encoded-native implementation item instead
   of a route-share labeling problem. A local current-code optimization rerun exposed a
   query-wall/stage-timing inconsistency and slower repeated CSV operator rows; treat that as an open
-  timing-contract issue, not a publishable performance refresh.
+  timing-contract issue, not a publishable performance refresh. The first follow-up implementation
+  slice targets the measured top residual family, multi-key group by, by replacing hash-map-only
+  packed `(group_key, category_id)` accumulation with a bounded dense packed accumulator that rolls
+  over deterministically to the existing sparse path for wide keys. This is a residual hot-loop
+  optimization, not a full encoded-native operator claim.
 - Next slice outcome: select the highest-value operator family from the benchmark scenarios and
   promote it from residual/materialized execution toward encoded-native execution with correctness
   evidence, while normalizing exclusive stage timing so diagnostic stage costs cannot contradict
-  authoritative route totals and current-code reruns cannot regress silently.
+  authoritative route totals and current-code reruns cannot regress silently. The current multi-key
+  accumulator slice may close only the residual hot-loop reduction part; the item remains open until
+  encoded-native admission, unsupported blockers, row contract promotion, and comparable benchmark
+  evidence are attached.
 - User-visible surface: benchmark route-share attribution, explain/capability diagnostics,
   operator inventory, and encoded-native claim gates.
 - Implementation scope: operator registry/capability selection, encoded kernel implementation for
@@ -330,8 +355,8 @@ Timing aggregation guardrail:
   `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo test --workspace --all-targets` when Rust behavior changes.
 - Non-goals: do not promote every operator in one PR; do not remove residual/materialized paths
-  before supported encoded-native equivalents exist; do not make performance claims from diagnostic
-  stage timing alone.
+  before supported encoded-native equivalents exist; do not relabel residual dense accumulation as
+  encoded-native; do not make performance claims from diagnostic stage timing alone.
 - Claim boundary: encoded-native claims are family/scenario-scoped until CG-5/CG-6 evidence covers
   broader correctness and benchmark claims.
 - Fallback boundary: unsupported operator families must fail or report deterministic blockers; no
@@ -339,13 +364,16 @@ Timing aggregation guardrail:
 - Ledger rule: when complete, move the completed session summary to
   `docs/architecture/phased-execution-completed-ledger.md`.
 
-### PERF-DESIGN-4R - PulseWeave session/runtime coalescing follow-through
+### PERF-DESIGN-4R - PulseWeave session/runtime coalescing optimization pass
 
 - Source: completed `PERF-DESIGN-4` session-routing evidence, `docs/architecture/pulseweave-runtime-control.md`,
   current published row chunks
   `website/assets/benchmarks/latest/published-row-runs/rows-b81bbdc3217d3209`, and benchmark
   rows showing repeated native/prepared scenario groups with residual route-open/scan-open/result
   assembly overhead.
+- Reopen reason: `PERF-DESIGN-4` proved the session envelope and attribution contract; this `4R`
+  pass exists only because the completed evidence exposes repeated local scenario overhead that is a
+  natural PulseWeave coalescing target.
 - Current state: session route evidence is present and correctly separates process wall, shared
   batch wall, hot route totals, and no hidden daemon/global cache posture. The runtime still mostly
   executes scenario work as independently shaped chunks inside the benchmark harness, and PulseWeave
@@ -381,12 +409,15 @@ Timing aggregation guardrail:
 - Ledger rule: when complete, move the completed session summary to
   `docs/architecture/phased-execution-completed-ledger.md`.
 
-### PERF-DESIGN-1R - Dynamic prepared-state reuse and role-repair optimization follow-through
+### PERF-DESIGN-1R - Dynamic prepared-state reuse and role-repair optimization pass
 
 - Source: completed `PERF-DESIGN-1` prepared-state role repair evidence,
   `docs/architecture/io-reuse-and-fanout-architecture.md`, current manifest
   `website/assets/benchmarks/latest/manifest.json`, and benchmark rows where prepared-state
   lookup/metadata verification remains visible even when artifacts are reused.
+- Reopen reason: `PERF-DESIGN-1` proved prepared-state correctness, manifest reuse, and role repair;
+  this `1R` pass is limited to reducing redundant same-run dependency and metadata work through a
+  dynamic, proof-bound reuse controller.
 - Current state: SourceState and VortexPreparedState dependency checks, manifest reuse, and role
   repair are correctness/evidence complete for scoped local traditional analytics. The optimized
   path still needs dynamic reuse admission that can recognize a run-local prepared dependency set
@@ -419,12 +450,15 @@ Timing aggregation guardrail:
 - Ledger rule: when complete, move the completed session summary to
   `docs/architecture/phased-execution-completed-ledger.md`.
 
-### PERF-DESIGN-5R - Capillary preparation spine write/reopen/copy optimization follow-through
+### PERF-DESIGN-5R - Capillary preparation spine write/reopen/copy optimization pass
 
 - Source: completed `PERF-DESIGN-5` timing-attribution fix,
   `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
   `docs/architecture/io-reuse-and-fanout-architecture.md`, and current benchmark rows where cold
   certified routes still expose material `vortex_write_ms`, reopen/verify, and copy-budget cost.
+- Reopen reason: `PERF-DESIGN-5` proved lifecycle timing attribution and metadata-first reuse; this
+  `5R` pass is only for reducing repeated preparation write/reopen/copy work through capillary
+  windows and scoped writer-context reuse.
 - Current state: preparation timing is no longer sourced from route totals, and the artifact reports
   narrow `prepared_state_lookup_or_create`, preparation/create, full prepare route, writer context,
   metadata-first verification, and copy-budget fields. The path remains mostly evidence-bearing and
@@ -456,12 +490,15 @@ Timing aggregation guardrail:
 - Ledger rule: when complete, move the completed session summary to
   `docs/architecture/phased-execution-completed-ledger.md`.
 
-### PERF-DESIGN-6R - Dynamic source-adapter parse/decode and scout-ingress optimization follow-through
+### PERF-DESIGN-6R - Dynamic source-adapter parse/decode and scout-ingress optimization pass
 
 - Source: completed `PERF-DESIGN-6` source-adapter attribution, `docs/architecture/dynamic-work-shaping.md`,
   `docs/architecture/vortex-runtime-utilization-audit.md`, current benchmark rows where
   `source_parse_or_columnar_decode_ms` remains a cold-lane bottleneck, and optimization-target
   reports for JSONL/AVRO/source-scout timing.
+- Reopen reason: `PERF-DESIGN-6` proved source-adapter attribution and projection-aware scout
+  evidence; this `6R` pass is limited to reducing admitted source parse/decode and handoff work
+  through dynamic scout ingress and capillary chunk sizing.
 - Current state: source adapters expose projection-aware scout plans, byte acquisition, typed
   decode, row assembly, and columnar handoff stages, and refreshed rows avoid unused row-buffer
   assembly where supported. Remaining overhead is still real typed text/binary decode and
