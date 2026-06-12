@@ -51,6 +51,25 @@ function syncBenchmarkRowChunks() {
       );
     }
   }
+  const admissionManifest = "benchmark-row-admission-manifest.json";
+  const publicAdmissionManifest = path.join(publicBenchmarkRoot, admissionManifest);
+  const legacyAdmissionManifest = path.join(legacyWebsiteBenchmarkRoot, admissionManifest);
+  if (fs.existsSync(publicAdmissionManifest)) {
+    fs.copyFileSync(publicAdmissionManifest, legacyAdmissionManifest);
+  } else if (fs.existsSync(legacyAdmissionManifest)) {
+    fs.rmSync(legacyAdmissionManifest, { force: true });
+  }
+  const runDirectory = "published-row-runs";
+  const publicRunDirectory = path.join(publicBenchmarkRoot, runDirectory);
+  const legacyRunDirectory = path.join(legacyWebsiteBenchmarkRoot, runDirectory);
+  if (fs.existsSync(publicRunDirectory)) {
+    if (fs.existsSync(legacyRunDirectory)) {
+      fs.rmSync(legacyRunDirectory, { recursive: true, force: true });
+    }
+    fs.cpSync(publicRunDirectory, legacyRunDirectory, { recursive: true, force: true });
+  } else if (fs.existsSync(legacyRunDirectory)) {
+    fs.rmSync(legacyRunDirectory, { recursive: true, force: true });
+  }
 }
 
 function syncSourceOfTruthData() {

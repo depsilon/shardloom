@@ -2100,6 +2100,140 @@ class ReleaseScriptTests(unittest.TestCase):
 
         self.assertEqual(module.artifact_rows(artifact), [])
 
+    def test_benchmark_promoter_admits_row_chunks_incrementally(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_incremental_row_admission_for_test",
+        )
+
+        target = REPO_ROOT / "target"
+        target.mkdir(exist_ok=True)
+        rows = [
+            {"engine": "shardloom", "scenario_id": f"scenario-{index}"}
+            for index in range(5)
+        ]
+        with tempfile.TemporaryDirectory(dir=target) as tempdir:
+            output_dir = Path(tempdir)
+            chunks = module.write_row_chunks(output_dir, rows, chunk_size=2)
+            admission_path = module.row_admission_manifest_path_for_chunks(
+                chunks,
+                output_dir,
+            )
+            admission = json.loads(admission_path.read_text(encoding="utf-8"))
+            chunk_dir = admission_path.parent
+
+            self.assertEqual(len(chunks), 3)
+            self.assertEqual(
+                admission["schema_version"],
+                module.ROW_ADMISSION_MANIFEST_SCHEMA_VERSION,
+            )
+            self.assertTrue(str(chunks[0]["path"]).startswith("target/"))
+            self.assertIn("/published-row-runs/rows-", str(chunks[0]["path"]))
+            self.assertEqual(admission["row_count"], 5)
+            self.assertEqual(admission["chunk_count"], 3)
+            self.assertEqual(admission["written_chunk_count"], 3)
+            self.assertEqual(admission["reused_chunk_count"], 0)
+            self.assertFalse(admission["fallback_attempted"])
+            self.assertFalse(admission["external_engine_invoked"])
+
+            duplicate = output_dir / "published-benchmark-rows-001 2.json"
+            duplicate.write_text("duplicate", encoding="utf-8")
+            stale = chunk_dir / "published-benchmark-rows-099.json"
+            stale.write_text("stale", encoding="utf-8")
+
+            chunks = module.write_row_chunks(output_dir, rows, chunk_size=2)
+            admission_path = module.row_admission_manifest_path_for_chunks(
+                chunks,
+                output_dir,
+            )
+            admission = json.loads(admission_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(len(chunks), 3)
+            self.assertEqual(admission["resume_status"], "reused_existing_chunks")
+            self.assertEqual(admission["written_chunk_count"], 0)
+            self.assertEqual(admission["reused_chunk_count"], 3)
+            self.assertFalse(duplicate.exists())
+            self.assertFalse(stale.exists())
+            self.assertTrue(admission["duplicate_suffixed_artifacts_removed"])
+            self.assertTrue(admission["stale_chunk_files_removed"])
+
+    def test_benchmark_completeness_validates_row_admission_manifest(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_artifact_completeness.py",
+            "benchmark_completeness_row_admission_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            temp = Path(tempdir)
+            admission_path = temp / "benchmark-row-admission-manifest.json"
+            admission_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": module.ROW_ADMISSION_MANIFEST_SCHEMA_VERSION,
+                        "row_count": 2,
+                        "chunk_count": 1,
+                        "chunks": [
+                            {
+                                "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
+                                "row_count": 2,
+                                "sha256": "sha256:chunk",
+                            }
+                        ],
+                        "fallback_attempted": False,
+                        "external_engine_invoked": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            manifest_path = temp / "manifest.json"
+            manifest = {
+                "artifact_paths": {
+                    "row_admission_manifest": admission_path.as_posix()
+                }
+            }
+            payload = {
+                "published_benchmark_row_count": 2,
+                "published_benchmark_row_chunks": [
+                    {
+                        "path": "website/assets/benchmarks/latest/published-benchmark-rows-000.json",
+                        "row_count": 2,
+                        "sha256": "sha256:chunk",
+                    }
+                ],
+            }
+            blockers: list[str] = []
+
+            module.validate_row_admission_manifest(
+                manifest,
+                manifest_path,
+                payload,
+                blockers,
+            )
+
+        self.assertEqual(blockers, [])
+
+    def test_website_readiness_flags_duplicate_suffixed_artifacts(self) -> None:
+        module = self._load_script_module(
+            "check_website_readiness.py",
+            "website_readiness_duplicate_suffix_for_test",
+        )
+
+        target = REPO_ROOT / "target"
+        target.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=target) as tempdir:
+            duplicate = Path(tempdir) / "benchmarks 2.json"
+            duplicate.write_text("{}", encoding="utf-8")
+            blockers: list[str] = []
+
+            module.check_duplicate_suffixed_artifacts(
+                [Path(tempdir)],
+                REPO_ROOT,
+                blockers,
+            )
+
+        self.assertEqual(len(blockers), 1)
+        self.assertIn("duplicate suffixed generated artifact remains", blockers[0])
+
     def test_benchmark_promoter_blocks_sparse_exclusive_query_split(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",

@@ -184,11 +184,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "documentation",
-      "line_count": 1283,
+      "line_count": 1293,
       "path": "benchmarks/traditional_analytics/README.md",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "38c7706dd26ab110b565c3e719b4cec0374e765ec7cb0777544d86221469aae4"
+      "sha256": "3f217517232750cfa02b99385f92ca161bb109d17cc61472643df51e5799349e"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -746,7 +746,7 @@
       "path": "docs/architecture/repo-wide-audit-inventory.json",
       "review_state": "reviewed",
       "section": "Architecture/Documentation",
-      "sha256": "ae6850359d2d996b52cb04dcb1bd522e2c30043b1ac8788e163af26f844d416f"
+      "sha256": "01bb22cf7f2999c37ef10003e7ade8b94fd51b71fe9f26a948655fc4c332daaf"
     },
     {
       "boundary_owner": "architecture_docs_policy",
@@ -3136,11 +3136,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 6740,
+      "line_count": 6877,
       "path": "python/tests/test_release_scripts.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "297ec254082ebc706c2a58efd28619457be88cf09259659a5e241761ced7486e"
+      "sha256": "2fd9272764753c29aaec6ed00ab076a77063f4cad690fd9850ae73c1cc3dd470"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3208,11 +3208,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 1872,
+      "line_count": 1946,
       "path": "scripts/check_benchmark_artifact_completeness.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "c60950bea885e3d633b1a68dd985dc20d49ae004c401d9b35186a35178cbe21e"
+      "sha256": "73880ffac0f3df88b2a0de936a6806efddd6c85b744adf63e1ecbd3b08777b67"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3550,11 +3550,11 @@
     {
       "boundary_owner": "website_validation",
       "file_kind": "python",
-      "line_count": 957,
+      "line_count": 1010,
       "path": "scripts/check_website_readiness.py",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "c15321de50c3dcf7440e62bea144c9c67c93e46773faeca2b9b0fa1029d6d616"
+      "sha256": "e846d59e0acd51f46c27df2f31e7f9874af273cba59024cd1041e1f4be5a0ce9"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -3613,11 +3613,11 @@
     {
       "boundary_owner": "runtime_tests_tools",
       "file_kind": "python",
-      "line_count": 8422,
+      "line_count": 8579,
       "path": "scripts/promote_benchmark_artifact.py",
       "review_state": "reviewed",
       "section": "Shardloom Code",
-      "sha256": "e7f7900b49fd4ac992e9b35b0d7ef161a7c85f9a3ece8dbd4d9f36ccb6f273ca"
+      "sha256": "6b573a99fe0012e9a7bbbb3d3a398b02c25b0a94330328a8eea406fb1167c19d"
     },
     {
       "boundary_owner": "runtime_tests_tools",
@@ -6385,11 +6385,11 @@
     {
       "boundary_owner": "website_public_surface",
       "file_kind": "website_source",
-      "line_count": 351,
+      "line_count": 370,
       "path": "website-src/scripts/sync-content.mjs",
       "review_state": "reviewed",
       "section": "Website",
-      "sha256": "9ac130d1131975af1e4d2d9f9c032d248b974969f63f7b03b407dd8eae239d14"
+      "sha256": "530d8424fad458e8d35cb244d3fc0314867817400bc9e5837dd0dea7c0a1d693"
     },
     {
       "boundary_owner": "website_public_surface",
@@ -8989,7 +8989,7 @@
     "typed": 1,
     "website_source": 127
   },
-  "generated_at_utc": "2026-06-12T02:20:14.053865+00:00",
+  "generated_at_utc": "2026-06-12T03:14:09.457546+00:00",
   "reviewed_tracked_files": 996,
   "schema_version": "shardloom.repo_wide_audit_inventory.v1",
   "section_counts": {
@@ -8998,6 +8998,6 @@
     "Website": 320
   },
   "skipped_tracked_files": 0,
-  "source_head_at_generation": "9a3336ac4023f84a9db508135a7d88e74423b413",
+  "source_head_at_generation": "b9bd863c1baabddb8106e1364a5d879f64e124a1",
   "total_tracked_files": 996
 }
