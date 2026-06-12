@@ -9679,7 +9679,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             workflow._sql_local_source_statement(),
             "SELECT *,CAST(dirty_numeric AS float64) AS amount_float FROM "
-            "'target/input.csv' WHERE CAST(dirty_numeric AS float64) >= 0 LIMIT 1000",
+            "'target/input.csv' WHERE (CAST(dirty_numeric AS float64)) >= 0 LIMIT 1000",
         )
 
     def test_local_json_query_builder_with_column_without_select_invokes_sql_smoke(
