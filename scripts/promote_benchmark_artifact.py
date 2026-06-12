@@ -54,6 +54,11 @@ FAST_PATH_ATTRIBUTION_SCHEMA_VERSION = "shardloom.route_fast_path_attribution.v1
 EVIDENCE_RENDER_PROOF_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.evidence_render_proof.v1"
 )
+PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.publication_proof_sidecar.v1"
+)
+PUBLICATION_PROOF_SIDECAR_NAME = "publication-proof-sidecar.json"
+ENCODED_KERNEL_PROMOTION_SCHEMA_VERSION = "shardloom.encoded_kernel_promotion.v1"
 EVIDENCE_RENDER_PROOF_FIELD_KEYS = (
     "evidence_render_proof_schema_version",
     "evidence_render_proof_status",
@@ -521,10 +526,29 @@ WEBSITE_ROW_KEYS = (
     "query_runtime_millis",
     "total_runtime_millis",
     "prepare_batch_preparation_millis",
+    "prepare_batch_preparation_timing_source",
+    "prepare_batch_prepared_state_lookup_or_create_millis",
+    "prepare_batch_prepare_route_total_millis",
     "prepare_batch_source_to_columnar_millis",
     "prepare_batch_vortex_array_build_millis",
     "prepare_batch_vortex_write_millis",
     "prepare_batch_vortex_reopen_verify_millis",
+    "prepare_batch_vortex_preparation_spine_schema_version",
+    "prepare_batch_vortex_preparation_spine_status",
+    "prepare_batch_vortex_preparation_spine_artifact_count",
+    "prepare_batch_vortex_preparation_spine_reused_artifact_count",
+    "prepare_batch_vortex_preparation_spine_rewritten_artifact_count",
+    "prepare_batch_vortex_preparation_spine_metadata_first_verify_status",
+    "prepare_batch_vortex_preparation_spine_metadata_first_verify_hit_count",
+    "prepare_batch_vortex_preparation_spine_reopen_verify_strategy",
+    "prepare_batch_vortex_preparation_spine_full_reopen_verify_count",
+    "prepare_batch_vortex_preparation_spine_writer_context_write_count",
+    "prepare_batch_vortex_preparation_spine_writer_context_reuse_hit_count",
+    "prepare_batch_vortex_preparation_spine_write_coalescing_status",
+    "prepare_batch_vortex_preparation_spine_shared_writer_context",
+    "prepare_batch_vortex_preparation_spine_copy_budget_total_measured_copy_bytes",
+    "prepare_batch_vortex_preparation_spine_buffer_pool_status",
+    "prepare_batch_vortex_preparation_spine_buffer_reuse_count",
     "batch_scenario_count",
     "session_requested_scenario_count",
     "vortex_scan_millis",
@@ -557,6 +581,23 @@ WEBSITE_SUMMARY_ROW_KEYS = (
     "includes_evidence",
     "route_comparable_to_external_end_to_end",
     "prepared_state_reuse_scope",
+    "source_state_reuse_status",
+    "source_state_reused",
+    "source_state_reuse_scope",
+    "source_state_reuse_consumer_count",
+    "source_state_recompute_avoided_count",
+    "source_state_category_metric_reuse_status",
+    "source_state_category_metric_reused",
+    "source_state_category_metric_reuse_consumer_count",
+    "source_state_category_metric_recompute_avoided_count",
+    "source_state_group_category_metric_reuse_status",
+    "source_state_group_category_metric_reused",
+    "source_state_group_category_metric_reuse_consumer_count",
+    "source_state_group_category_metric_recompute_avoided_count",
+    "source_state_ranked_metric_reuse_status",
+    "source_state_ranked_metric_reused",
+    "source_state_ranked_metric_reuse_consumer_count",
+    "source_state_ranked_metric_recompute_avoided_count",
     "session_route_used",
     "process_spawn_count",
     "benchmark_timing_boundary",
@@ -592,6 +633,15 @@ WEBSITE_SUMMARY_ROW_KEYS = (
     "total_route_ms",
     "query_runtime_millis",
     "total_runtime_millis",
+    "prepare_batch_preparation_millis",
+    "prepare_batch_preparation_timing_source",
+    "prepare_batch_prepared_state_lookup_or_create_millis",
+    "prepare_batch_prepare_route_total_millis",
+    "prepare_batch_vortex_preparation_spine_status",
+    "prepare_batch_vortex_preparation_spine_reused_artifact_count",
+    "prepare_batch_vortex_preparation_spine_rewritten_artifact_count",
+    "prepare_batch_vortex_preparation_spine_metadata_first_verify_status",
+    "prepare_batch_vortex_preparation_spine_reopen_verify_strategy",
     "vortex_scan_millis",
     "operator_compute_millis",
     "result_sink_write_millis",
@@ -733,7 +783,11 @@ EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "runtime_execution",
     "operator_execution",
     "encoded_native",
+    "encoded_kernel",
+    "encoded_predicate_provider",
+    "compressed_kernel_registry",
     "residual_native",
+    "fused_pipeline",
     "source_read_scout",
     "vortex_reopen",
     "vortex_scan_counter",
@@ -1466,6 +1520,166 @@ def write_row_chunks(
     }
     write_json(chunk_directory / ROW_ADMISSION_MANIFEST_NAME, admission_manifest)
     return chunks
+
+
+def publication_proof_record_for_row(row: dict[str, Any]) -> dict[str, Any] | None:
+    if str(row.get("timing_surface") or "") != "publication_proof":
+        return None
+    proof_digest = str(row.get("evidence_render_proof_digest") or "").strip()
+    if not proof_digest or proof_digest.lower() in {"none", "missing", "not_reported"}:
+        return None
+    identity = {
+        "engine": str(row.get("engine") or "unknown"),
+        "scenario_id": str(row.get("scenario_id") or row.get("scenario_name") or "unknown"),
+        "scenario_name": str(row.get("scenario_name") or "unknown"),
+        "storage_format": str(row.get("storage_format") or "unknown"),
+        "route_lane_id": str(row.get("route_lane_id") or "unknown"),
+        "timing_surface": "publication_proof",
+        "actual_evidence_tier": str(row.get("actual_evidence_tier") or "unknown"),
+    }
+    payload = {
+        **identity,
+        "claim_gate_status": str(row.get("claim_gate_status") or "unknown"),
+        "evidence_render_proof_status": str(
+            row.get("evidence_render_proof_status") or "unknown"
+        ),
+        "evidence_render_proof_digest": proof_digest,
+        "computed_result_vortex_digest": str(
+            row.get("computed_result_vortex_digest") or "none"
+        ),
+        "computed_result_sink_replay_verified": row.get(
+            "computed_result_sink_replay_verified"
+        )
+        is True,
+        "runtime_execution_certificate_id": str(
+            row.get("runtime_execution_certificate_id")
+            or row.get("execution_certificate_id")
+            or "none"
+        ),
+        "runtime_execution_certificate_status": str(
+            row.get("runtime_execution_certificate_status")
+            or row.get("execution_certificate_status")
+            or "unknown"
+        ),
+        "result_sink_write_ms": numeric_value(row.get("result_sink_write_ms")),
+        "evidence_render_ms": numeric_value(row.get("evidence_render_ms")),
+        "publication_proof_route_total_ms": numeric_value(
+            row.get("publication_proof_route_total_ms")
+        ),
+        "route_total_formula": str(row.get("route_total_formula") or "not_reported"),
+        "fallback_attempted": row.get("fallback_attempted") is True,
+        "external_engine_invoked": row.get("external_engine_invoked") is True,
+    }
+    digest_text = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    record_digest = "sha256:" + hashlib.sha256(digest_text.encode("utf-8")).hexdigest()
+    record_id_parts = [
+        identity["engine"],
+        identity["scenario_id"],
+        identity["storage_format"],
+        identity["route_lane_id"],
+        identity["timing_surface"],
+        proof_digest,
+    ]
+    record_id = hashlib.sha256("\0".join(record_id_parts).encode("utf-8")).hexdigest()[
+        :24
+    ]
+    return {
+        "record_id": f"publication-proof:{record_id}",
+        "record_digest": record_digest,
+        **payload,
+    }
+
+
+def publication_proof_sidecar_payload(
+    rows: list[dict[str, Any]],
+    existing_payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    records = [
+        record
+        for row in rows
+        for record in [publication_proof_record_for_row(row)]
+        if record is not None
+    ]
+    existing_records = {
+        str(record.get("record_id")): record
+        for record in (existing_payload or {}).get("records", [])
+        if isinstance(record, dict)
+    }
+    reused = 0
+    written = 0
+    for record in records:
+        existing = existing_records.get(str(record["record_id"]))
+        if existing and existing.get("record_digest") == record.get("record_digest"):
+            record["reuse_status"] = "reused_unchanged_publication_proof_record"
+            reused += 1
+        else:
+            record["reuse_status"] = "written_publication_proof_record"
+            written += 1
+    current_ids = {str(record["record_id"]) for record in records}
+    stale = sorted(set(existing_records) - current_ids)
+    return {
+        "schema_version": PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "record_count": len(records),
+        "reused_record_count": reused,
+        "written_record_count": written,
+        "stale_record_count": len(stale),
+        "stale_record_ids": stale,
+        "resume_status": (
+            "reused_existing_publication_proof_sidecar"
+            if records and reused == len(records) and written == 0 and not stale
+            else "admitted_incremental_publication_proof_sidecar"
+            if records
+            else "not_applicable_no_publication_proof_rows"
+        ),
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "records": records,
+        "claim_boundary": (
+            "publication proof sidecar records cache stable sink/replay/evidence proof "
+            "metadata for benchmark publication rows only; hot-runtime route totals and "
+            "performance, production, package-release, or Spark-displacement claims are "
+            "not authorized"
+        ),
+    }
+
+
+def write_publication_proof_sidecar(
+    directory: Path,
+    rows: list[dict[str, Any]],
+    chunks: list[dict[str, Any]],
+) -> dict[str, Any]:
+    _ = chunks
+    path = directory / PUBLICATION_PROOF_SIDECAR_NAME
+    existing_payload = load_json(path) if path.exists() else None
+    payload = publication_proof_sidecar_payload(
+        rows,
+        existing_payload if isinstance(existing_payload, dict) else None,
+    )
+    existing_records = (
+        existing_payload.get("records")
+        if isinstance(existing_payload, dict)
+        else None
+    )
+    if existing_records != payload["records"]:
+        write_json(path, payload)
+    elif isinstance(existing_payload, dict):
+        payload = {**existing_payload, **{k: payload[k] for k in payload if k != "records"}}
+        payload["records"] = existing_records
+        payload["resume_status"] = "reused_existing_publication_proof_sidecar"
+    return {
+        "path": repo_relative(path),
+        "publication_proof_sidecar_schema_version": PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION,
+        "publication_proof_sidecar_status": payload["resume_status"],
+        "publication_proof_sidecar_record_count": payload["record_count"],
+        "publication_proof_sidecar_reused_record_count": payload["reused_record_count"],
+        "publication_proof_sidecar_written_record_count": payload["written_record_count"],
+        "publication_proof_sidecar_stale_record_count": payload["stale_record_count"],
+        "publication_proof_sidecar_fallback_attempted": payload["fallback_attempted"],
+        "publication_proof_sidecar_external_engine_invoked": payload[
+            "external_engine_invoked"
+        ],
+    }
 
 
 def load_row_chunks(directory: Path) -> list[dict[str, Any]]:
@@ -2276,6 +2490,7 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
     prepared_state_lookup = first_numeric_field(
         fields,
         (
+            "prepare_batch_prepared_state_lookup_or_create_millis",
             "prepared_state_lookup_millis",
             "prepared_state_create_millis",
         ),
@@ -2847,7 +3062,12 @@ def route_stage_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
         "full_replay_proof_route_total_ms": full_replay_proof_route_total,
         "publication_proof_route_total_ms": publication_proof_route_total,
         "prepare_route_total_ms": first_numeric_field(
-            fields, ("prepare_route_total_ms", "prepare_route_total_millis")
+            fields,
+            (
+                "prepare_route_total_ms",
+                "prepare_route_total_millis",
+                "prepare_batch_prepare_route_total_millis",
+            ),
         ),
         "prepare_cli_wall_ms": first_numeric_field(
             fields,
@@ -4656,6 +4876,25 @@ def csv_unique(values: list[Any]) -> str:
     return ",".join(seen) if seen else "none"
 
 
+def pipe_values(value: Any) -> list[str]:
+    if value is None:
+        return []
+    return [part.strip() for part in str(value).split("|")]
+
+
+def pipe_bool(values: list[str], index: int) -> bool:
+    if index >= len(values):
+        return False
+    return values[index].strip().lower() == "true"
+
+
+def pipe_value(values: list[str], index: int, default: str = "none") -> str:
+    if index >= len(values):
+        return default
+    value = values[index].strip()
+    return value or default
+
+
 def normalized_operator_mode(fields: dict[str, Any], is_shardloom: bool) -> str:
     if not is_shardloom:
         return "external_baseline_only"
@@ -4704,6 +4943,15 @@ def operator_hot_path_candidate_fields(
             "blocked_selection_vector_metric_aggregation_not_admitted",
             "implement selection-vector-backed metric aggregation with decoded-reference correctness, execution certificate, and Native I/O evidence before changing encoded_native_claim_allowed",
         )
+    promoted_kernel_count = int(
+        numeric_value(fields.get("encoded_kernel_promoted_pair_count")) or 0
+    )
+    if promoted_kernel_count and mode == "residual_native":
+        return (
+            "partial_encoded_kernel_to_full_operator_promotion",
+            "partial_encoded_kernel_promoted_full_operator_residual_boundary",
+            "complete the remaining residual operator path, result assembly, and decoded-reference certificate before changing operator_encoded_native_claim_allowed",
+        )
     if mode == "materialized_temporary":
         return (
             "compatibility_import_materialization_elimination",
@@ -4727,6 +4975,100 @@ def operator_hot_path_candidate_fields(
         "blocked_operator_mode_evidence_missing",
         "emit operator blocker matrix evidence before attempting encoded-native promotion",
     )
+
+
+def encoded_kernel_promotion_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    engine = str(row.get("engine") or "")
+    if not is_shardloom_engine(engine):
+        return {
+            "encoded_kernel_promotion_schema_version": ENCODED_KERNEL_PROMOTION_SCHEMA_VERSION,
+            "encoded_kernel_promotion_status": "external_baseline_only",
+            "encoded_kernel_promoted_pair_count": 0,
+            "encoded_kernel_promoted_pair_ids": "external_baseline_only",
+            "encoded_kernel_promoted_operator_families": "external_baseline_only",
+            "encoded_kernel_selection_vector_metric_bridge_consumed": False,
+            "encoded_kernel_selection_vector_metric_data_decoded": False,
+            "encoded_kernel_full_operator_claim_allowed": False,
+            "encoded_kernel_promotion_fallback_attempted": False,
+            "encoded_kernel_promotion_external_engine_invoked": False,
+            "encoded_kernel_promotion_claim_boundary": (
+                "external baseline rows cannot satisfy ShardLoom encoded-kernel evidence"
+            ),
+        }
+
+    pair_ids = pipe_values(fields.get("compressed_kernel_registry_pair_ids"))
+    families = pipe_values(fields.get("compressed_kernel_registry_operator_families"))
+    admitted = pipe_values(fields.get("compressed_kernel_registry_kernel_admitted"))
+    executed = pipe_values(fields.get("compressed_kernel_registry_kernel_executed"))
+    decoded = pipe_values(fields.get("compressed_kernel_registry_decoded"))
+    materialized = pipe_values(fields.get("compressed_kernel_registry_materialized"))
+    compared = pipe_values(
+        fields.get("compressed_kernel_registry_decoded_reference_compared")
+    )
+    correctness = pipe_values(
+        fields.get("compressed_kernel_registry_correctness_digest_status")
+    )
+    promoted_pairs: list[str] = []
+    promoted_families: list[str] = []
+    for index, pair_id in enumerate(pair_ids):
+        if not pair_id or pair_id in {"none", "not_available"}:
+            continue
+        if not (
+            pipe_bool(admitted, index)
+            and pipe_bool(executed, index)
+            and not pipe_bool(decoded, index)
+            and not pipe_bool(materialized, index)
+            and pipe_bool(compared, index)
+            and pipe_value(correctness, index) == "decoded_reference_match"
+        ):
+            continue
+        promoted_pairs.append(pair_id)
+        promoted_families.append(pipe_value(families, index))
+
+    selected_metric_selection_vector = field_bool(
+        fields,
+        "encoded_predicate_provider_selected_metric_selection_vector_consumed",
+        False,
+    )
+    selected_metric_decoded = field_bool(
+        fields,
+        "encoded_predicate_provider_selected_metric_data_decoded",
+        False,
+    )
+    if promoted_pairs:
+        status = "partial_encoded_kernel_pairs_promoted"
+    elif selected_metric_selection_vector and selected_metric_decoded:
+        status = "selection_vector_bridge_promoted_metric_residual"
+    else:
+        status = "no_promoted_encoded_kernel_pairs"
+    full_operator_claim_allowed = (
+        str(fields.get("operator_execution_class") or "") == "encoded_native"
+        and field_bool(fields, "operator_encoded_native_claim_allowed", False)
+    )
+    return {
+        "encoded_kernel_promotion_schema_version": ENCODED_KERNEL_PROMOTION_SCHEMA_VERSION,
+        "encoded_kernel_promotion_status": status,
+        "encoded_kernel_promoted_pair_count": len(promoted_pairs),
+        "encoded_kernel_promoted_pair_ids": csv_unique(promoted_pairs) or "none",
+        "encoded_kernel_promoted_operator_families": csv_unique(promoted_families)
+        or "none",
+        "encoded_kernel_selection_vector_metric_bridge_consumed": (
+            selected_metric_selection_vector
+        ),
+        "encoded_kernel_selection_vector_metric_data_decoded": selected_metric_decoded,
+        "encoded_kernel_full_operator_claim_allowed": full_operator_claim_allowed,
+        "encoded_kernel_promotion_fallback_attempted": False,
+        "encoded_kernel_promotion_external_engine_invoked": False,
+        "encoded_kernel_promotion_claim_boundary": (
+            "encoded-kernel promotion is narrower than a full encoded-native operator "
+            "claim. Promoted kernel pairs require admitted/executed compressed-kernel "
+            "evidence, no decode/materialization, and decoded-reference parity; the "
+            "route remains residual-native until the complete operator, residual "
+            "remainder, result assembly, Native I/O certificate, and claim gate are "
+            "admitted."
+        ),
+    }
 
 
 def operator_mode_fields_for_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -5193,6 +5535,7 @@ def prepare_once_preparation_millis(
     preparation = first_numeric_field(
         fields,
         (
+            "prepare_batch_prepared_state_lookup_or_create_millis",
             "prepare_batch_preparation_millis",
             "preparation_millis",
             "vortex_prepare_millis",
@@ -6805,6 +7148,66 @@ def operator_hot_path_candidate_table(rows: list[dict[str, Any]]) -> dict[str, A
     }
 
 
+def encoded_kernel_promotion_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    grouped: dict[tuple[str, str, str, str], int] = Counter()
+    for row in route_table_rows(rows):
+        if not is_shardloom_engine(str(row.get("engine") or "")):
+            continue
+        status = str(
+            row.get("encoded_kernel_promotion_status")
+            or "encoded_kernel_promotion_missing"
+        )
+        pairs = str(row.get("encoded_kernel_promoted_pair_ids") or "none")
+        families = str(row.get("encoded_kernel_promoted_operator_families") or "none")
+        full_claim = str(
+            row.get("encoded_kernel_full_operator_claim_allowed") is True
+        ).lower()
+        grouped[(status, pairs, families, full_claim)] += 1
+
+    promoted_count = sum(
+        count
+        for (status, _pairs, _families, _full_claim), count in grouped.items()
+        if status == "partial_encoded_kernel_pairs_promoted"
+    )
+    bridge_count = sum(
+        count
+        for (status, _pairs, _families, _full_claim), count in grouped.items()
+        if status == "selection_vector_bridge_promoted_metric_residual"
+    )
+    return {
+        "heading": "Encoded-Kernel Promotion",
+        "headers": [
+            "Promotion status",
+            "Rows",
+            "Promoted pairs",
+            "Operator families",
+            "Full operator claim allowed",
+        ],
+        "rows": [
+            [status, count, pairs, families, full_claim]
+            for (status, pairs, families, full_claim), count in sorted(
+                grouped.items(),
+                key=lambda item: (
+                    0
+                    if item[0][0] == "partial_encoded_kernel_pairs_promoted"
+                    else 1,
+                    -item[1],
+                    item[0],
+                ),
+            )
+        ],
+        "schema_version": ENCODED_KERNEL_PROMOTION_SCHEMA_VERSION,
+        "partial_encoded_kernel_promoted_row_count": promoted_count,
+        "selection_vector_metric_residual_bridge_row_count": bridge_count,
+        "claim_boundary": (
+            "encoded-kernel promotion rows are narrower than full operator mode. "
+            "A row may expose promoted compressed-kernel pairs or a selection-vector "
+            "bridge while the full route remains residual-native until the complete "
+            "operator contract is certified."
+        ),
+    }
+
+
 def runtime_status_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     decorated = [decorated_route_row(row) for row in rows]
     shardloom_rows = [
@@ -6997,17 +7400,50 @@ def claim_grade_closeout_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         row for row in rows if not str(row.get("engine", "")).startswith("shardloom")
     ]
     counts = Counter(str(row.get("claim_gate_status", "unknown")) for row in shardloom_rows)
+    surface_counts = Counter(str(row.get("timing_surface", "unknown")) for row in shardloom_rows)
+    tier_counts = Counter(str(row.get("actual_evidence_tier", "unknown")) for row in shardloom_rows)
+    hot_rows = [
+        row for row in shardloom_rows if str(row.get("timing_surface")) == "hot_runtime"
+    ]
+    publication_rows = [
+        row for row in shardloom_rows if str(row.get("timing_surface")) == "publication_proof"
+    ]
+    hot_claim_counts = Counter(str(row.get("claim_gate_status", "unknown")) for row in hot_rows)
+    publication_claim_counts = Counter(
+        str(row.get("claim_gate_status", "unknown")) for row in publication_rows
+    )
     shardloom_unsupported = sum(1 for row in shardloom_rows if row.get("status") == "unsupported")
     external_unsupported = sum(1 for row in external_rows if row.get("status") == "unsupported")
-    blockers = counts["blocked"] + counts["unsupported"] + counts["not_claim_grade"] + counts["fixture_smoke_only"]
     return {
         "heading": "ShardLoom Claim-Grade Closeout",
         "headers": ["Scope", "Current rows", "Target", "Owning plan item"],
         "rows": [
             [
-                "ShardLoom runtime rows",
-                f"{len(shardloom_rows)} rows; {blockers} not claim-grade/blocked/unsupported/fixture rows",
-                "claim_grade for every admitted row in the published comparative profile",
+                "ShardLoom timing-surface rows",
+                (
+                    f"{len(shardloom_rows)} rows; "
+                    f"{surface_counts['hot_runtime']} hot_runtime / "
+                    f"{surface_counts['publication_proof']} publication_proof"
+                ),
+                "keep hot-runtime and publication-proof rows separate",
+                "PERF-SPLIT-FIX-1 / GAR-RUNTIME-IMPL-5J",
+            ],
+            [
+                "Hot-runtime metadata rows",
+                (
+                    f"{len(hot_rows)} rows; {tier_counts['metadata_sink']} metadata_sink; "
+                    f"{hot_claim_counts['not_claim_grade']} compact hot-evidence rows"
+                ),
+                "not_claim_grade is expected for compact metadata-sink timing rows",
+                "PERF-SPLIT-FIX-1",
+            ],
+            [
+                "Publication-proof rows",
+                (
+                    f"{len(publication_rows)} rows; "
+                    f"{publication_claim_counts['claim_grade']} claim_grade"
+                ),
+                "claim_grade for every admitted publication-proof row",
                 "GAR-RUNTIME-IMPL-5J",
             ],
             [
@@ -8387,6 +8823,9 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             route_timing_ledger,
             fast_path_fields,
         )
+        encoded_kernel_promotion_fields = encoded_kernel_promotion_fields_for_row(
+            adjusted_row
+        )
         rendered_row = {
             "engine": row.get("engine"),
             "status": row.get("status"),
@@ -8429,6 +8868,7 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rendered_row.update(route_timing_instrument_fields)
         rendered_row.update(fast_path_fields)
         rendered_row.update(evidence_render_proof_fields)
+        rendered_row.update(encoded_kernel_promotion_fields)
         rendered_row.update(cold_lane_fields)
         if runtime_validation is not None:
             rendered_row["runtime_execution_validation"] = runtime_validation
@@ -8459,7 +8899,11 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 continue
             if any(fragment in key for fragment in EXTRA_PUBLISHED_KEY_FRAGMENTS):
                 rendered_row[key] = value
-        rendered_row.update(operator_mode_fields_for_row(adjusted_row))
+        rendered_row.update(
+            operator_mode_fields_for_row(
+                {**adjusted_row, **encoded_kernel_promotion_fields}
+            )
+        )
         rendered.append(
             portable_public_value(normalize_published_runtime_evidence(rendered_row))
         )
@@ -8528,6 +8972,8 @@ def published_rows_with_current_route_timing_ledger(
                 fast_path_fields,
             )
         )
+        encoded_kernel_promotion_fields = encoded_kernel_promotion_fields_for_row(updated)
+        updated.update(encoded_kernel_promotion_fields)
         updated.update(operator_mode_fields_for_row(updated))
         updated.update(route_diagnostics)
         updated.update(cold_lane_fields)
@@ -8607,6 +9053,7 @@ def comparative_summary(
         "operator_hot_path_candidates": operator_hot_path_candidate_table(
             claim_adjusted_rows
         ),
+        "encoded_kernel_promotion": encoded_kernel_promotion_table(claim_adjusted_rows),
         "route_runtime_status": runtime_status_table(claim_adjusted_rows),
         "vortex_oriented_lanes": vortex_lane_table(rows),
         "claim_gate_distribution": claim_gate_table(claim_adjusted_rows),
@@ -8635,6 +9082,7 @@ def manifest_for_artifact(
     profile: str,
     results_path: Path,
     public_front_door_rows: list[dict[str, Any]],
+    publication_proof_sidecar: dict[str, Any] | None = None,
     *,
     runtime_validation_override: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -8667,6 +9115,8 @@ def manifest_for_artifact(
         artifact_paths["prepare_batch_role_repair_evidence"] = role_repair_evidence[
             "path"
         ]
+    if publication_proof_sidecar:
+        artifact_paths["publication_proof_sidecar"] = publication_proof_sidecar["path"]
     runtime_validation = runtime_validation_override or runtime_validation_table(rows)
     readiness_counts = Counter(
         str(row.get("route_timing_instrument_status") or "missing")
@@ -8747,6 +9197,11 @@ def manifest_for_artifact(
         **{
             key: value
             for key, value in role_repair_evidence.items()
+            if key != "path"
+        },
+        **{
+            key: value
+            for key, value in (publication_proof_sidecar or {}).items()
             if key != "path"
         },
         "runtime_envelope_validation": runtime_validation,
@@ -8834,7 +9289,17 @@ def main() -> int:
             summary_rows = full_published_rows
     public_front_door_rows = public_front_door_benchmark_rows()
     row_chunks = write_row_chunks(args.output_dir, full_published_rows)
-    write_row_chunks(args.public_output_dir, full_published_rows)
+    public_row_chunks = write_row_chunks(args.public_output_dir, full_published_rows)
+    publication_proof_sidecar = write_publication_proof_sidecar(
+        args.output_dir,
+        full_published_rows,
+        row_chunks,
+    )
+    write_publication_proof_sidecar(
+        args.public_output_dir,
+        full_published_rows,
+        public_row_chunks,
+    )
     row_admission_manifest_path = row_admission_manifest_path_for_chunks(
         row_chunks,
         args.output_dir,
@@ -8854,6 +9319,7 @@ def main() -> int:
         args.profile,
         results_path,
         public_front_door_rows,
+        publication_proof_sidecar,
         runtime_validation_override=runtime_validation_override,
     )
     manifest["artifact_paths"]["row_chunks"] = row_chunks

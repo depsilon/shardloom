@@ -4,57 +4,58 @@
     "json": "website/assets/benchmarks/latest/benchmark-results.json",
     "markdown": null,
     "prepare_batch_role_repair_evidence": "website/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json",
-    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/benchmark-row-admission-manifest.json",
+    "publication_proof_sidecar": "website/assets/benchmarks/latest/publication-proof-sidecar.json",
+    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/benchmark-row-admission-manifest.json",
     "row_chunks": [
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/published-benchmark-rows-000.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/published-benchmark-rows-000.json",
         "row_count": 200,
-        "sha256": "a966754c6ecf972dffe5f162489f8cc0619c18fb3ff7dd9a5e199797b42298b3"
+        "sha256": "a190c42444b59a39d992776644dfe16d70def834001f448845ae78a373867bc5"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/published-benchmark-rows-001.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/published-benchmark-rows-001.json",
         "row_count": 200,
-        "sha256": "d5ec2302fb63abc9175070e4c3ae5bd69d22e36d242d6a1a6620cbf37361f026"
+        "sha256": "ac03884c0dd9cab2641b75f70b49e9a51554d95ae9fffc975c43bdd52e5b3c1b"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/published-benchmark-rows-002.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/published-benchmark-rows-002.json",
         "row_count": 200,
-        "sha256": "7c5f4babdb88534883ebf18bba42a1c46f028932d213a626b03f7b4a1e0024de"
+        "sha256": "fc9bc2edb1cdf681667d20634977f51b37893d141c712116f49c19c0b536b208"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/published-benchmark-rows-003.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/published-benchmark-rows-003.json",
         "row_count": 200,
-        "sha256": "2cc02dc3d63c51283cecd69a98ab6ab9ee0cbf0e1a5f04ddcd98fa31bb22eb8c"
+        "sha256": "0173790e1adeb57c8cd5d90341a0cd8290c172134736563b975f692ba5ec8ea3"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/published-benchmark-rows-004.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/published-benchmark-rows-004.json",
         "row_count": 200,
-        "sha256": "c9074a19315e5b5482a354bf6556a96d39ead26c083160d15ca047092400969c"
+        "sha256": "463a826b4f35596d849d20c299315961ecf6b09ff897fd926b4de147447baf1d"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/published-benchmark-rows-005.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/published-benchmark-rows-005.json",
         "row_count": 200,
-        "sha256": "922d49204f8edcd852f2fe97108c71ce28989c34655e1b103c12b1118483e162"
+        "sha256": "515c6598195c2a42a883d7354fb56777c35ccb3be41f675dcda165b6fed38d0c"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/published-benchmark-rows-006.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/published-benchmark-rows-006.json",
         "row_count": 200,
-        "sha256": "816d45ed92631f95a01336d3fe8fd20f22b663e1f5fb1a7e59cd752d7d5c67e4"
+        "sha256": "2c98254c2a3caf38e72ca9e44aa3f2ec0ca35541f22c02a6b426853e83710977"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/published-benchmark-rows-007.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/published-benchmark-rows-007.json",
         "row_count": 200,
-        "sha256": "b58ab174ee249427a7771f355df3ccda3ac7e1107f29ada40f0a42a2fcf19de0"
+        "sha256": "4ad71b2e218c97fc858aee017044adeafe6b84318cd0237925fbf39c6daeac34"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/published-benchmark-rows-008.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/published-benchmark-rows-008.json",
         "row_count": 200,
-        "sha256": "dec366dcb9a18ca090e1c1007ff11a249cf26418a0abc8404200d20d701bd688"
+        "sha256": "eef2f2428493995f4571c5f058f8035de963d6f9df21c64bf7dc54939b674859"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/published-benchmark-rows-009.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/published-benchmark-rows-009.json",
         "row_count": 120,
-        "sha256": "8dd1247ef2d5e005801bf0b4dfc46b6dc5e7230816304ffd646d2d8777e1d961"
+        "sha256": "c95b531a7d11d4327bef4bcfbeb3492963962403b334d49b5f8cb33d69bd8ed6"
       }
     ]
   },
@@ -95,9 +96,9 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "219f76c56a83d114283cba60cd7923bca12d9659",
+  "benchmark_git_sha": "4f0420f06859e6c489c49645e2d4ba6693a6d61b",
   "benchmark_profile": "full_local",
-  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-2d514fef051c16ed/benchmark-row-admission-manifest.json",
+  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-2b42db97e817bdb9/benchmark-row-admission-manifest.json",
   "benchmark_row_admission_schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -126,7 +127,7 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-12T12:14:25.904965+00:00",
+  "generated_at_utc": "2026-06-12T14:07:04.300200+00:00",
   "lane_availability_reasons": {
     "dask": "available in promoted benchmark artifact",
     "datafusion": "available in promoted benchmark artifact",
@@ -134,10 +135,10 @@
     "pandas": "available in promoted benchmark artifact",
     "polars-eager": "available in promoted benchmark artifact",
     "polars-lazy": "available in promoted benchmark artifact",
-    "shardloom": "available in promoted benchmark artifact",
-    "shardloom-prepare-batch": "available, version workspace-local-release-219f76c5-dirty",
-    "shardloom-prepared-vortex": "available, version workspace-local-release-219f76c5-dirty",
-    "shardloom-vortex": "available, version workspace-local-release-219f76c5-dirty"
+    "shardloom": "available, version workspace-local-release-4f0420f0-dirty",
+    "shardloom-prepare-batch": "available, version workspace-local-release-4f0420f0-dirty",
+    "shardloom-prepared-vortex": "available, version workspace-local-release-4f0420f0-dirty",
+    "shardloom-vortex": "available, version workspace-local-release-4f0420f0-dirty"
   },
   "lane_versions": {
     "dask": "from promoted benchmark artifact",
@@ -146,10 +147,10 @@
     "pandas": "from promoted benchmark artifact",
     "polars-eager": "from promoted benchmark artifact",
     "polars-lazy": "from promoted benchmark artifact",
-    "shardloom": "from promoted benchmark artifact",
-    "shardloom-prepare-batch": "workspace-local-release-219f76c5-dirty",
-    "shardloom-prepared-vortex": "workspace-local-release-219f76c5-dirty",
-    "shardloom-vortex": "workspace-local-release-219f76c5-dirty"
+    "shardloom": "workspace-local-release-4f0420f0-dirty",
+    "shardloom-prepare-batch": "workspace-local-release-4f0420f0-dirty",
+    "shardloom-prepared-vortex": "workspace-local-release-4f0420f0-dirty",
+    "shardloom-vortex": "workspace-local-release-4f0420f0-dirty"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
@@ -167,6 +168,14 @@
     "generated_source_prepare_vortex_front_door"
   ],
   "public_front_door_benchmark_schema_version": "shardloom.public_front_door_benchmark_rows.v1",
+  "publication_proof_sidecar_external_engine_invoked": false,
+  "publication_proof_sidecar_fallback_attempted": false,
+  "publication_proof_sidecar_record_count": 600,
+  "publication_proof_sidecar_reused_record_count": 600,
+  "publication_proof_sidecar_schema_version": "shardloom.traditional_analytics.publication_proof_sidecar.v1",
+  "publication_proof_sidecar_stale_record_count": 0,
+  "publication_proof_sidecar_status": "reused_existing_publication_proof_sidecar",
+  "publication_proof_sidecar_written_record_count": 0,
   "published_benchmark_row_count": 1920,
   "route_runtime_status_schema_version": "shardloom.website.route_runtime_status.v1",
   "route_runtime_status_vocabulary": [
@@ -803,5 +812,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "219f76c56a83d114283cba60cd7923bca12d9659"
+  "shardloom_git_sha": "4f0420f06859e6c489c49645e2d4ba6693a6d61b"
 }

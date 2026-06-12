@@ -1345,6 +1345,56 @@ class ReleaseScriptTests(unittest.TestCase):
             "larger_than_memory_spill_io_not_required_for_local_runtime_envelope",
         )
 
+    def test_benchmark_promoter_claim_grade_closeout_separates_timing_surfaces(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_artifact_claim_grade_closeout",
+        )
+        rows = [
+            {
+                "engine": "shardloom-vortex",
+                "status": "success",
+                "timing_surface": "hot_runtime",
+                "actual_evidence_tier": "metadata_sink",
+                "claim_gate_status": "not_claim_grade",
+            },
+            {
+                "engine": "shardloom-vortex",
+                "status": "success",
+                "timing_surface": "publication_proof",
+                "actual_evidence_tier": "publication_full",
+                "claim_gate_status": "claim_grade",
+            },
+            {
+                "engine": "duckdb",
+                "status": "success",
+                "timing_surface": "external_baseline",
+                "claim_gate_status": "external_baseline_only",
+            },
+        ]
+
+        table = module.claim_grade_closeout_table(rows)
+        by_scope = {row[0]: row for row in table["rows"]}
+
+        self.assertEqual(
+            by_scope["ShardLoom timing-surface rows"][1],
+            "2 rows; 1 hot_runtime / 1 publication_proof",
+        )
+        self.assertEqual(
+            by_scope["Hot-runtime metadata rows"][1],
+            "1 rows; 1 metadata_sink; 1 compact hot-evidence rows",
+        )
+        self.assertEqual(
+            by_scope["Hot-runtime metadata rows"][2],
+            "not_claim_grade is expected for compact metadata-sink timing rows",
+        )
+        self.assertEqual(
+            by_scope["Publication-proof rows"][1],
+            "1 rows; 1 claim_grade",
+        )
+
     def test_benchmark_promoter_preserves_shared_batch_cold_lane_split(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",
@@ -1376,6 +1426,19 @@ class ReleaseScriptTests(unittest.TestCase):
             "correctness_digest": "sha256:correct",
             "correctness_digest_stable": True,
             "computed_result_sink_replay_verified": True,
+            "source_state_reuse_status": "per_batch_group_category_metric_state_reused",
+            "source_state_reused": True,
+            "source_state_reuse_scope": (
+                "group_category_metric_state_for_group_by_aggregation_and_multi_key_group_by"
+            ),
+            "source_state_reuse_consumer_count": 2,
+            "source_state_recompute_avoided_count": 1,
+            "source_state_group_category_metric_reuse_status": (
+                "per_batch_group_category_metric_state_reused"
+            ),
+            "source_state_group_category_metric_reused": True,
+            "source_state_group_category_metric_reuse_consumer_count": 2,
+            "source_state_group_category_metric_recompute_avoided_count": 1,
             "metrics": {
                 "persistent_runner_status": "single_process_batch_runner_supported",
                 "vortex_scan_millis": 0.2,
@@ -1403,6 +1466,18 @@ class ReleaseScriptTests(unittest.TestCase):
         [website_row] = module.website_rows([published])
         self.assertTrue(website_row["session_route_used"])
         self.assertEqual(website_row["process_spawn_count"], 1)
+        self.assertEqual(
+            website_row["source_state_reuse_status"],
+            "per_batch_group_category_metric_state_reused",
+        )
+        self.assertTrue(website_row["source_state_reused"])
+        self.assertEqual(website_row["source_state_reuse_consumer_count"], 2)
+        self.assertEqual(website_row["source_state_recompute_avoided_count"], 1)
+        self.assertEqual(
+            website_row["source_state_group_category_metric_reuse_status"],
+            "per_batch_group_category_metric_state_reused",
+        )
+        self.assertTrue(website_row["source_state_group_category_metric_reused"])
 
     def test_benchmark_promoter_backfills_session_process_fields_for_legacy_rows(self) -> None:
         module = self._load_script_module(
@@ -3204,6 +3279,169 @@ class ReleaseScriptTests(unittest.TestCase):
             "selective_filter_selection_vector_metric_aggregation",
         )
 
+    def test_benchmark_promoter_emits_partial_encoded_kernel_promotion(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_encoded_kernel_promotion_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-prepared-vortex",
+            "storage_format": "csv",
+            "scenario_name": "group by aggregation",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "requested_execution_mode": "prepared_vortex",
+            "source_state_id": "source-state://encoded-kernel-row",
+            "source_state_digest": "sha256:source",
+            "prepared_state_id": "prepared-state://encoded-kernel-row",
+            "prepared_state_digest": "sha256:prepared",
+            "data_decoded": False,
+            "data_materialized": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.encoded-kernel-row",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:correct",
+            "correctness_digest_stable": True,
+            "computed_result_sink_replay_verified": True,
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "vortex_scan_millis": 0.2,
+                "operator_compute_millis": 0.5,
+                "operator_execution_class": "residual_native",
+                "operator_admission_status": "residual_native_supported",
+                "operator_blocker_id": (
+                    "gar-flow-2b.residual_native_operator_not_encoded_native"
+                ),
+                "operator_encoded_native_claim_allowed": False,
+                "operator_residual_native_used": True,
+                "operator_temporary_materialization_used": False,
+                "operator_blocker_matrix_ref": "operator-blocker://group-by",
+                "compressed_kernel_registry_pair_ids": (
+                    "bitpacked_boolean_integer_filter|dictionary_equality_group_by"
+                ),
+                "compressed_kernel_registry_operator_families": (
+                    "filter_predicate|equality_group_by"
+                ),
+                "compressed_kernel_registry_kernel_admitted": "false|true",
+                "compressed_kernel_registry_kernel_executed": "false|true",
+                "compressed_kernel_registry_decoded": "false|false",
+                "compressed_kernel_registry_materialized": "false|false",
+                "compressed_kernel_registry_decoded_reference_compared": "false|true",
+                "compressed_kernel_registry_correctness_digest_status": (
+                    "not_emitted_pair_not_executed|decoded_reference_match"
+                ),
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(
+            published["encoded_kernel_promotion_schema_version"],
+            "shardloom.encoded_kernel_promotion.v1",
+        )
+        self.assertEqual(
+            published["encoded_kernel_promotion_status"],
+            "partial_encoded_kernel_pairs_promoted",
+        )
+        self.assertEqual(published["encoded_kernel_promoted_pair_count"], 1)
+        self.assertEqual(
+            published["encoded_kernel_promoted_pair_ids"],
+            "dictionary_equality_group_by",
+        )
+        self.assertEqual(
+            published["encoded_kernel_promoted_operator_families"],
+            "equality_group_by",
+        )
+        self.assertFalse(published["encoded_kernel_full_operator_claim_allowed"])
+        self.assertEqual(published["operator_execution_mode"], "residual_native")
+        self.assertEqual(
+            published["operator_hot_path_candidate"],
+            "partial_encoded_kernel_to_full_operator_promotion",
+        )
+
+        promotion = module.encoded_kernel_promotion_table([published])
+        self.assertEqual(
+            promotion["partial_encoded_kernel_promoted_row_count"],
+            1,
+        )
+        self.assertIn(
+            "narrower than full operator mode",
+            promotion["claim_boundary"],
+        )
+
+    def test_benchmark_promoter_publication_proof_sidecar_reuses_and_invalidates(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_publication_proof_sidecar_for_test",
+        )
+
+        row = {
+            "engine": "shardloom-prepared-vortex",
+            "scenario_id": "selective_filter",
+            "scenario_name": "selective filter",
+            "storage_format": "csv",
+            "route_lane_id": "warm_prepared_query",
+            "timing_surface": "publication_proof",
+            "actual_evidence_tier": "publication_full",
+            "claim_gate_status": "claim_grade",
+            "evidence_render_proof_status": "compact_machine_evidence_derived",
+            "evidence_render_proof_digest": "sha256:proof-a",
+            "computed_result_vortex_digest": "sha256:sink-a",
+            "computed_result_sink_replay_verified": True,
+            "runtime_execution_certificate_id": "execution.sidecar",
+            "runtime_execution_certificate_status": "certified",
+            "result_sink_write_ms": 0.5,
+            "evidence_render_ms": 3.0,
+            "publication_proof_route_total_ms": 4.0,
+            "route_total_formula": (
+                "timing_surface=publication_proof; total_route_ms = "
+                "query_runtime_millis + result_sink_write_millis + evidence_render_millis"
+            ),
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+        }
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            output_dir = Path(tempdir)
+            chunks = module.write_row_chunks(output_dir, [row])
+            first = module.write_publication_proof_sidecar(output_dir, [row], chunks)
+            self.assertEqual(
+                first["publication_proof_sidecar_status"],
+                "admitted_incremental_publication_proof_sidecar",
+            )
+            self.assertEqual(first["publication_proof_sidecar_record_count"], 1)
+            self.assertEqual(first["publication_proof_sidecar_written_record_count"], 1)
+
+            second = module.write_publication_proof_sidecar(output_dir, [row], chunks)
+            self.assertEqual(
+                second["publication_proof_sidecar_status"],
+                "reused_existing_publication_proof_sidecar",
+            )
+            self.assertEqual(second["publication_proof_sidecar_reused_record_count"], 1)
+
+            changed = {**row, "evidence_render_proof_digest": "sha256:proof-b"}
+            changed_chunks = module.write_row_chunks(output_dir, [changed])
+            third = module.write_publication_proof_sidecar(
+                output_dir,
+                [changed],
+                changed_chunks,
+            )
+            self.assertEqual(
+                third["publication_proof_sidecar_status"],
+                "admitted_incremental_publication_proof_sidecar",
+            )
+            self.assertEqual(third["publication_proof_sidecar_written_record_count"], 1)
+            self.assertEqual(third["publication_proof_sidecar_stale_record_count"], 1)
+
     def test_benchmark_promoter_demotes_claim_grade_without_cold_lane_split(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py", "promote_benchmark_cold_lane_gate_for_test"
@@ -3789,6 +4027,18 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             benchmark_run.preparation_engine_millis(
                 {
+                    "prepare_batch_prepared_state_lookup_or_create_micros": "1400",
+                    "prepare_batch_preparation_micros": "1100",
+                    "total_runtime_micros": "26108",
+                    "compatibility_to_vortex_import_micros": "25207",
+                },
+                34.5943,
+            ),
+            1.4,
+        )
+        self.assertEqual(
+            benchmark_run.preparation_engine_millis(
+                {
                     "prepare_batch_preparation_micros": "1100",
                     "total_runtime_micros": "26108",
                     "compatibility_to_vortex_import_micros": "25207",
@@ -3810,6 +4060,16 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertEqual(
             benchmark_run.preparation_route_total_millis(
+                {
+                    "prepare_batch_prepare_route_total_micros": "27108",
+                    "total_runtime_micros": "26108",
+                },
+                34.5943,
+            ),
+            27.108,
+        )
+        self.assertEqual(
+            benchmark_run.preparation_route_total_millis(
                 {"total_runtime_micros": "26108"},
                 34.5943,
             ),
@@ -3823,6 +4083,9 @@ class ReleaseScriptTests(unittest.TestCase):
             {
                 "source_parse_micros": "1773",
                 "compatibility_to_vortex_import_micros": "25207",
+                "prepare_batch_preparation_timing_source": "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
+                "prepare_batch_prepared_state_lookup_or_create_micros": "26000",
+                "prepare_batch_prepare_route_total_micros": "26108",
                 "vortex_write_micros": "21850",
                 "vortex_write_strategy": "upstream_vortex_table_flat_leaf_strategy",
                 "vortex_write_strategy_fallback_attempted": "false",
@@ -3839,6 +4102,9 @@ class ReleaseScriptTests(unittest.TestCase):
             {
                 "source_parse_micros": "1773",
                 "compatibility_to_vortex_import_micros": "25207",
+                "prepare_batch_preparation_timing_source": "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
+                "prepare_batch_prepared_state_lookup_or_create_micros": "26000",
+                "prepare_batch_prepare_route_total_micros": "26108",
                 "vortex_write_micros": "21850",
                 "vortex_write_strategy": "upstream_vortex_table_flat_leaf_strategy",
                 "vortex_write_strategy_fallback_attempted": "false",
@@ -3948,6 +4214,25 @@ class ReleaseScriptTests(unittest.TestCase):
                 "vortex_scan_segments_skipped": "0",
                 "vortex_scan_columns_touched": "3",
                 "vortex_scan_decoded_values": "16",
+                "prepare_batch_preparation_timing_source": "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
+                "prepare_batch_prepared_state_lookup_or_create_micros": "1200",
+                "prepare_batch_prepare_route_total_micros": "2600",
+                "prepare_batch_vortex_preparation_spine_schema_version": "shardloom.traditional_analytics.vortex_preparation_spine.v1",
+                "prepare_batch_vortex_preparation_spine_status": "full_prepare_wrote_artifacts_with_shared_vortex_context",
+                "prepare_batch_vortex_preparation_spine_artifact_count": "2",
+                "prepare_batch_vortex_preparation_spine_reused_artifact_count": "0",
+                "prepare_batch_vortex_preparation_spine_rewritten_artifact_count": "2",
+                "prepare_batch_vortex_preparation_spine_metadata_first_verify_status": "new_artifacts_written_reopened_or_scanned",
+                "prepare_batch_vortex_preparation_spine_metadata_first_verify_hit_count": "0",
+                "prepare_batch_vortex_preparation_spine_reopen_verify_strategy": "new_artifact_write_then_reopen_scan",
+                "prepare_batch_vortex_preparation_spine_full_reopen_verify_count": "2",
+                "prepare_batch_vortex_preparation_spine_writer_context_write_count": "2",
+                "prepare_batch_vortex_preparation_spine_writer_context_reuse_hit_count": "1",
+                "prepare_batch_vortex_preparation_spine_write_coalescing_status": "scheduled_multi_artifact_writes_on_shared_context",
+                "prepare_batch_vortex_preparation_spine_shared_writer_context": "true",
+                "prepare_batch_vortex_preparation_spine_copy_budget_total_measured_copy_bytes": "8192",
+                "prepare_batch_vortex_preparation_spine_buffer_pool_status": "scoped_buffer_pool_disabled_no_hidden_reuse",
+                "prepare_batch_vortex_preparation_spine_buffer_reuse_count": "0",
                 "persistent_runner_status": benchmark_run.PERSISTENT_RUNNER_STATUS,
                 "session_route_used": "false",
                 "process_spawn_count": "1",
@@ -3981,6 +4266,25 @@ class ReleaseScriptTests(unittest.TestCase):
                 "vortex_scan_segments_skipped": "1",
                 "vortex_scan_columns_touched": "5",
                 "vortex_scan_decoded_values": "32",
+                "prepare_batch_preparation_timing_source": "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
+                "prepare_batch_prepared_state_lookup_or_create_micros": "1600",
+                "prepare_batch_prepare_route_total_micros": "3000",
+                "prepare_batch_vortex_preparation_spine_schema_version": "shardloom.traditional_analytics.vortex_preparation_spine.v1",
+                "prepare_batch_vortex_preparation_spine_status": "full_prepare_wrote_artifacts_with_shared_vortex_context",
+                "prepare_batch_vortex_preparation_spine_artifact_count": "2",
+                "prepare_batch_vortex_preparation_spine_reused_artifact_count": "0",
+                "prepare_batch_vortex_preparation_spine_rewritten_artifact_count": "2",
+                "prepare_batch_vortex_preparation_spine_metadata_first_verify_status": "new_artifacts_written_reopened_or_scanned",
+                "prepare_batch_vortex_preparation_spine_metadata_first_verify_hit_count": "0",
+                "prepare_batch_vortex_preparation_spine_reopen_verify_strategy": "new_artifact_write_then_reopen_scan",
+                "prepare_batch_vortex_preparation_spine_full_reopen_verify_count": "2",
+                "prepare_batch_vortex_preparation_spine_writer_context_write_count": "2",
+                "prepare_batch_vortex_preparation_spine_writer_context_reuse_hit_count": "1",
+                "prepare_batch_vortex_preparation_spine_write_coalescing_status": "scheduled_multi_artifact_writes_on_shared_context",
+                "prepare_batch_vortex_preparation_spine_shared_writer_context": "true",
+                "prepare_batch_vortex_preparation_spine_copy_budget_total_measured_copy_bytes": "8192",
+                "prepare_batch_vortex_preparation_spine_buffer_pool_status": "scoped_buffer_pool_disabled_no_hidden_reuse",
+                "prepare_batch_vortex_preparation_spine_buffer_reuse_count": "0",
                 "persistent_runner_status": benchmark_run.PERSISTENT_RUNNER_STATUS,
                 "session_route_used": "false",
                 "process_spawn_count": "1",
@@ -4039,6 +4343,112 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(metrics["vortex_scan_bytes_touched"], 4096)
         self.assertEqual(metrics["vortex_scan_segments_skipped"], 1)
         self.assertEqual(metrics["vortex_scan_decoded_values"], 32)
+        self.assertEqual(
+            metrics["prepare_batch_preparation_timing_source"],
+            "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
+        )
+        self.assertEqual(
+            metrics["prepare_batch_prepared_state_lookup_or_create_millis"],
+            1.4,
+        )
+        self.assertEqual(metrics["prepare_batch_prepare_route_total_millis"], 2.8)
+        self.assertEqual(
+            metrics["prepare_batch_vortex_preparation_spine_status"],
+            "full_prepare_wrote_artifacts_with_shared_vortex_context",
+        )
+        self.assertEqual(
+            metrics["prepare_batch_vortex_preparation_spine_rewritten_artifact_count"],
+            2,
+        )
+        self.assertTrue(
+            metrics["prepare_batch_vortex_preparation_spine_shared_writer_context"]
+        )
+
+    def test_benchmark_runner_uses_current_prepare_batch_lifecycle_timing(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+
+            def fixture(name: str) -> Path:
+                path = root / name
+                path.write_text("id\n1\n", encoding="utf-8")
+                return path
+
+            paths = benchmark_run.DatasetPaths(
+                root=root,
+                fact_csv=fixture("fact.csv"),
+                dim_csv=fixture("dim.csv"),
+                fact_jsonl=fixture("fact.jsonl"),
+                dim_jsonl=fixture("dim.jsonl"),
+                fact_parquet=fixture("fact.parquet"),
+                dim_parquet=fixture("dim.parquet"),
+                fact_arrow_ipc=fixture("fact.arrow"),
+                dim_arrow_ipc=fixture("dim.arrow"),
+                fact_avro=fixture("fact.avro"),
+                dim_avro=fixture("dim.avro"),
+                fact_orc=fixture("fact.orc"),
+                dim_orc=fixture("dim.orc"),
+                rows=8,
+                dim_rows=2,
+            )
+            runner = benchmark_run.EngineRunner("shardloom-prepare-batch", "test", {})
+            full_prepare = {
+                "source_read_micros": "1000",
+                "prepare_batch_preparation_timing_source": "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
+                "prepare_batch_preparation_micros": "120000",
+                "prepare_batch_prepared_state_lookup_or_create_micros": "125000",
+                "prepare_batch_prepare_route_total_micros": "150000",
+                "prepare_batch_source_to_columnar_micros": "40000",
+                "prepare_batch_vortex_array_build_micros": "30000",
+                "prepare_batch_vortex_write_micros": "20000",
+                "prepare_batch_vortex_reopen_verify_micros": "10000",
+                "prepare_batch_vortex_preparation_spine_status": "full_prepare_wrote_artifacts_with_shared_vortex_context",
+            }
+            manifest_hit = {
+                "source_read_micros": "3000",
+                "prepare_batch_preparation_timing_source": "workspace_manifest_hit_zero_prepare",
+                "prepare_batch_preparation_micros": "0",
+                "prepare_batch_prepared_state_lookup_or_create_micros": "491",
+                "prepare_batch_prepare_route_total_micros": "110165",
+                "prepare_batch_source_to_columnar_micros": "0",
+                "prepare_batch_vortex_array_build_micros": "0",
+                "prepare_batch_vortex_write_micros": "0",
+                "prepare_batch_vortex_reopen_verify_micros": "0",
+                "prepare_batch_vortex_preparation_spine_status": "manifest_reuse_metadata_verified",
+            }
+
+            result = benchmark_run.successful_result_from_iterations(
+                runner,
+                paths,
+                "selective filter",
+                "csv",
+                2,
+                [{"row_count": 1}, {"row_count": 1}],
+                [full_prepare, manifest_hit],
+                [10.0, 12.0],
+                [],
+            )
+
+        metrics = result["metrics"]
+        self.assertEqual(metrics["source_read_millis"], 2.0)
+        self.assertEqual(
+            metrics["prepare_batch_preparation_timing_source"],
+            "workspace_manifest_hit_zero_prepare",
+        )
+        self.assertEqual(metrics["prepare_batch_preparation_millis"], 0.0)
+        self.assertEqual(
+            metrics["prepare_batch_prepared_state_lookup_or_create_millis"], 0.491
+        )
+        self.assertEqual(metrics["prepare_batch_prepare_route_total_millis"], 110.165)
+        self.assertEqual(metrics["prepare_batch_source_to_columnar_millis"], 0.0)
+        self.assertEqual(metrics["prepare_batch_vortex_array_build_millis"], 0.0)
+        self.assertEqual(metrics["prepare_batch_vortex_write_millis"], 0.0)
+        self.assertEqual(metrics["prepare_batch_vortex_reopen_verify_millis"], 0.0)
+        self.assertEqual(
+            metrics["prepare_batch_vortex_preparation_spine_status"],
+            "manifest_reuse_metadata_verified",
+        )
 
     def test_benchmark_harness_regenerate_uses_output_scoped_data_dir(self) -> None:
         from benchmarks.traditional_analytics import run as benchmark_run
@@ -4970,7 +5380,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertTrue(
-            str(packet["next_implementation_slice"]).startswith("`PERF-DESIGN-5`"),
+            str(packet["next_implementation_slice"]).startswith("`PERF-DESIGN-2`"),
             packet["next_implementation_slice"],
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])

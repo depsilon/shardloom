@@ -90,6 +90,8 @@ const VORTEX_WRITER_CONTEXT_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_writer_context.v1";
 const VORTEX_WRITE_PLAN_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_write_plan.v1";
+const VORTEX_PREPARATION_SPINE_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.vortex_preparation_spine.v1";
 const VORTEX_WRITE_STRATEGY_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.vortex_write_strategy.v1";
 const TRADITIONAL_ALLOCATION_BUFFER_POOL_SCHEMA_VERSION: &str =
@@ -1432,15 +1434,19 @@ struct TraditionalCategoryMetricState {
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalCategoryMetricState {
     fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
-        let mut groups = std::collections::HashMap::<u32, TraditionalGroupAccum>::new();
-        let mut category_interner = TraditionalStringInterner::default();
+        let mut groups = std::collections::HashMap::<u32, TraditionalGroupAccum>::with_capacity(
+            TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY,
+        );
+        let mut category_interner =
+            TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
         let stats = scan_fact_vortex_projected(
             fact_vortex,
             &["category", "metric"],
             None,
             |fields, chunk_rows| {
                 let categories = varbin_view_field(fields, "category")?;
-                let metrics = primitive_field::<f64>(fields, "metric")?;
+                let metrics = primitive_array_field(fields, "metric")?;
+                let metrics = metrics.as_slice::<f64>();
                 if categories.len() != chunk_rows || metrics.len() != chunk_rows {
                     return Err(ShardLoomError::InvalidOperation(format!(
                         "batch category metric state Vortex chunk length mismatch: chunk_rows={chunk_rows}, category_len={}, metric_len={}",
@@ -1448,7 +1454,7 @@ impl TraditionalCategoryMetricState {
                         metrics.len()
                     )));
                 }
-                for (index, metric) in metrics.into_iter().enumerate() {
+                for (index, &metric) in metrics.iter().enumerate() {
                     let category_id = intern_utf8_value_at(
                         &mut category_interner,
                         &categories,
@@ -1472,7 +1478,8 @@ impl TraditionalCategoryMetricState {
 #[derive(Debug, Clone, PartialEq)]
 struct TraditionalGroupCategoryMetricState {
     group_key_groups: std::collections::BTreeMap<u32, TraditionalGroupAccum>,
-    group_category_groups: std::collections::HashMap<(u32, u32), TraditionalGroupAccum>,
+    group_category_groups:
+        std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum>,
     category_interner: TraditionalStringInterner,
     stats: TraditionalStreamingScanStats,
 }
@@ -1480,18 +1487,25 @@ struct TraditionalGroupCategoryMetricState {
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalGroupCategoryMetricState {
     fn from_path(fact_vortex: &std::path::Path) -> Result<Self> {
-        let mut group_key_groups = std::collections::BTreeMap::<u32, TraditionalGroupAccum>::new();
-        let mut group_category_groups =
-            std::collections::HashMap::<(u32, u32), TraditionalGroupAccum>::new();
-        let mut category_interner = TraditionalStringInterner::default();
+        let mut group_key_groups = TraditionalU32GroupAccumulator::default();
+        let mut group_category_groups = std::collections::HashMap::<
+            TraditionalPackedU32Pair,
+            TraditionalGroupAccum,
+        >::with_capacity(
+            TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY
+        );
+        let mut category_interner =
+            TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
         let stats = scan_fact_vortex_projected(
             fact_vortex,
             &["group_key", "category", "metric"],
             None,
             |fields, chunk_rows| {
-                let group_keys = primitive_field::<u32>(fields, "group_key")?;
+                let group_keys = primitive_array_field(fields, "group_key")?;
+                let group_keys = group_keys.as_slice::<u32>();
                 let categories = varbin_view_field(fields, "category")?;
-                let metrics = primitive_field::<f64>(fields, "metric")?;
+                let metrics = primitive_array_field(fields, "metric")?;
+                let metrics = metrics.as_slice::<f64>();
                 if group_keys.len() != chunk_rows
                     || categories.len() != chunk_rows
                     || metrics.len() != chunk_rows
@@ -1503,25 +1517,26 @@ impl TraditionalGroupCategoryMetricState {
                         metrics.len()
                     )));
                 }
-                for (index, (group_key, metric)) in group_keys.into_iter().zip(metrics).enumerate()
-                {
+                for (index, (&group_key, &metric)) in group_keys.iter().zip(metrics).enumerate() {
                     let category_id = intern_utf8_value_at(
                         &mut category_interner,
                         &categories,
                         "category",
                         index,
                     )?;
-                    group_key_groups.entry(group_key).or_default().add(metric);
-                    group_category_groups
-                        .entry((group_key, category_id))
-                        .or_default()
-                        .add(metric);
+                    group_key_groups.add(group_key, metric)?;
+                    add_packed_group_accum(
+                        &mut group_category_groups,
+                        group_key,
+                        category_id,
+                        metric,
+                    );
                 }
                 Ok(())
             },
         )?;
         Ok(Self {
-            group_key_groups,
+            group_key_groups: group_key_groups.into_btree_map(),
             group_category_groups,
             category_interner,
             stats,
@@ -1547,9 +1562,12 @@ impl TraditionalRankedMetricState {
             &["group_key", "id", "metric"],
             None,
             |fields, chunk_rows| {
-                let group_keys = primitive_field::<u32>(fields, "group_key")?;
-                let ids = primitive_field::<u64>(fields, "id")?;
-                let metrics = primitive_field::<f64>(fields, "metric")?;
+                let group_keys = primitive_array_field(fields, "group_key")?;
+                let group_keys = group_keys.as_slice::<u32>();
+                let ids = primitive_array_field(fields, "id")?;
+                let ids = ids.as_slice::<u64>();
+                let metrics = primitive_array_field(fields, "metric")?;
+                let metrics = metrics.as_slice::<f64>();
                 if group_keys.len() != chunk_rows
                     || ids.len() != chunk_rows
                     || metrics.len() != chunk_rows
@@ -1561,7 +1579,7 @@ impl TraditionalRankedMetricState {
                         metrics.len()
                     )));
                 }
-                for ((group_key, id), metric) in group_keys.into_iter().zip(ids).zip(metrics) {
+                for ((&group_key, &id), &metric) in group_keys.iter().zip(ids).zip(metrics) {
                     global_top_rows.push(GlobalTopKCandidate::new(id, metric));
                     if global_top_rows.len() > 10 {
                         let _ = global_top_rows.pop();
@@ -1649,9 +1667,12 @@ impl TraditionalSelectiveFilterState {
             &["id", "value", "metric"],
             Some(selective_filter_expr()),
             |fields, chunk_rows| {
-                let ids = primitive_field::<u64>(fields, "id")?;
-                let values = primitive_field::<u32>(fields, "value")?;
-                let metrics = primitive_field::<f64>(fields, "metric")?;
+                let ids = primitive_array_field(fields, "id")?;
+                let ids = ids.as_slice::<u64>();
+                let values = primitive_array_field(fields, "value")?;
+                let values = values.as_slice::<u32>();
+                let metrics = primitive_array_field(fields, "metric")?;
+                let metrics = metrics.as_slice::<f64>();
                 if ids.len() != chunk_rows
                     || values.len() != chunk_rows
                     || metrics.len() != chunk_rows
@@ -1663,7 +1684,7 @@ impl TraditionalSelectiveFilterState {
                         metrics.len()
                     )));
                 }
-                for ((id, value), metric) in ids.into_iter().zip(values).zip(metrics) {
+                for ((&id, &value), &metric) in ids.iter().zip(values).zip(metrics) {
                     selected_metric_accum.add(metric);
                     push_filter_projection_limit_candidate(
                         &mut filtered_projection_limit_rows,
@@ -1808,7 +1829,8 @@ impl TraditionalDateNullMetricState {
             None,
             |fields, chunk_rows| {
                 let event_dates = varbin_view_field(fields, "event_date")?;
-                let metrics = primitive_field::<f64>(fields, "metric")?;
+                let metrics = primitive_array_field(fields, "metric")?;
+                let metrics = metrics.as_slice::<f64>();
                 let nullable_metrics = varbin_view_field(fields, "nullable_metric_00")?;
                 if event_dates.len() != chunk_rows
                     || metrics.len() != chunk_rows
@@ -1821,7 +1843,7 @@ impl TraditionalDateNullMetricState {
                         nullable_metrics.len()
                     )));
                 }
-                for (index, metric) in metrics.into_iter().enumerate() {
+                for (index, &metric) in metrics.iter().enumerate() {
                     let event_date = event_dates.bytes_at(index);
                     let event_date = event_date.as_slice();
                     let nullable_metric = nullable_metrics.bytes_at(index);
@@ -7798,10 +7820,33 @@ impl TraditionalAnalyticsPreparedBatchReport {
         let prepare_field_u64 =
             |key: &str| -> u64 { prepare_field(key).parse::<u64>().unwrap_or_default() };
         let prepare_field_bool = |key: &str| -> bool { prepare_field(key) == "true" };
+        let prepare_field_path_present = |key: &str| -> bool {
+            let value = prepare_field(key);
+            !value.is_empty() && value != "none" && value != "not_applicable"
+        };
+        let role_list_count = |roles: &str| -> usize {
+            roles
+                .split(',')
+                .filter(|role| {
+                    let role = role.trim();
+                    !role.is_empty() && role != "none"
+                })
+                .count()
+        };
         let prepare_batch_scale_data_volume_bytes = prepare_field_u64("fact_vortex_bytes")
             .saturating_add(prepare_field_u64("fact_delta_overlay_vortex_bytes"))
             .saturating_add(prepare_field_u64("dim_vortex_bytes"))
             .saturating_add(prepare_field_u64("cdc_delta_vortex_bytes"));
+        let prepare_batch_source_bytes_read = prepare_field_u64("source_bytes_read");
+        let prepare_batch_prepared_artifact_count =
+            usize::from(prepare_field_path_present("fact_vortex_path"))
+                .saturating_add(usize::from(prepare_field_path_present(
+                    "fact_delta_overlay_vortex_path",
+                )))
+                .saturating_add(usize::from(prepare_field_path_present("dim_vortex_path")))
+                .saturating_add(usize::from(prepare_field_path_present(
+                    "cdc_delta_vortex_path",
+                )));
         let prepare_batch_scale_split_manifest_digests = self
             .batch_report
             .reports
@@ -8203,6 +8248,14 @@ impl TraditionalAnalyticsPreparedBatchReport {
         } else {
             prepare_field("timing_scope")
         };
+        let full_prepare_import_micros =
+            match prepare_field_u64("compatibility_to_vortex_import_micros") {
+                0 => prepare_field_u64("source_read_micros")
+                    .saturating_add(prepare_field_u64("vortex_array_build_micros"))
+                    .saturating_add(prepare_field_u64("vortex_write_micros")),
+                micros => micros,
+            };
+        let prepare_batch_prepare_route_total_micros = prepare_field("total_runtime_micros");
         let prepare_batch_preparation_micros = if workspace_reuse_hit {
             "0".to_string()
         } else if workspace_delta_overlay_performed || workspace_partial_repair_performed {
@@ -8212,7 +8265,24 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 .saturating_add(lifecycle_timing.replay_verification_micros)
                 .to_string()
         } else {
-            prepare_field("total_runtime_micros")
+            full_prepare_import_micros.to_string()
+        };
+        let prepare_batch_prepared_state_lookup_or_create_micros = if workspace_reuse_hit {
+            lifecycle_timing
+                .manifest_lookup_micros
+                .saturating_add(lifecycle_timing.cache_hit_micros)
+        } else if workspace_delta_overlay_performed || workspace_partial_repair_performed {
+            lifecycle_timing
+                .manifest_lookup_micros
+                .saturating_add(lifecycle_timing.cache_miss_create_micros)
+                .saturating_add(lifecycle_timing.artifact_write_micros)
+                .saturating_add(lifecycle_timing.artifact_register_micros)
+                .saturating_add(lifecycle_timing.replay_verification_micros)
+        } else {
+            lifecycle_timing
+                .manifest_lookup_micros
+                .saturating_add(full_prepare_import_micros)
+                .saturating_add(lifecycle_timing.artifact_register_micros)
         };
         let prepare_batch_source_to_columnar_micros = if workspace_reuse_hit {
             "0".to_string()
@@ -8234,6 +8304,79 @@ impl TraditionalAnalyticsPreparedBatchReport {
         } else {
             prepare_field("vortex_reopen_verify_micros")
         };
+        let prepare_batch_reused_artifact_count = if workspace_reuse_hit {
+            prepare_batch_prepared_artifact_count
+        } else if workspace_delta_overlay_performed || workspace_partial_repair_performed {
+            role_list_count(&self.prepared_state_reuse.repair_reused_roles)
+        } else {
+            0
+        };
+        let prepare_batch_rewritten_artifact_count = if workspace_reuse_hit {
+            0
+        } else if workspace_delta_overlay_performed || workspace_partial_repair_performed {
+            role_list_count(&self.prepared_state_reuse.repair_repaired_roles)
+        } else {
+            prepare_batch_prepared_artifact_count
+        };
+        let prepare_batch_metadata_first_verify_hit_count = if workspace_reuse_hit
+            || workspace_delta_overlay_performed
+            || workspace_partial_repair_performed
+        {
+            prepare_batch_reused_artifact_count
+        } else {
+            0
+        };
+        let prepare_batch_full_reopen_verify_count = if workspace_reuse_hit {
+            0
+        } else if workspace_delta_overlay_performed || workspace_partial_repair_performed {
+            prepare_batch_rewritten_artifact_count
+        } else if prepare_field_bool("vortex_file_read")
+            || prepare_field_bool("upstream_vortex_scan_called")
+        {
+            prepare_batch_prepared_artifact_count
+        } else {
+            0
+        };
+        let prepare_batch_metadata_first_verify_status = if workspace_reuse_hit {
+            "manifest_metadata_fingerprints_verified_no_vortex_reopen"
+        } else if workspace_delta_overlay_performed {
+            "base_artifact_metadata_fingerprint_verified_delta_artifact_replayed"
+        } else if workspace_partial_repair_performed {
+            "unchanged_artifact_metadata_fingerprints_verified_changed_artifact_reopened"
+        } else if prepare_batch_full_reopen_verify_count > 0 {
+            "new_artifacts_written_reopened_or_scanned"
+        } else {
+            "new_artifact_metadata_verification_incomplete"
+        };
+        let prepare_batch_reopen_verify_strategy = if workspace_reuse_hit {
+            "metadata_fingerprint_only_no_vortex_reopen"
+        } else if workspace_delta_overlay_performed {
+            "base_metadata_fingerprint_plus_delta_artifact_replay"
+        } else if workspace_partial_repair_performed {
+            "unchanged_metadata_fingerprint_plus_changed_role_reopen"
+        } else {
+            "new_artifact_write_then_reopen_scan"
+        };
+        let prepare_batch_copy_budget_total_measured_copy_bytes =
+            prepare_batch_source_bytes_read.saturating_add(prepare_batch_scale_data_volume_bytes);
+        let prepare_batch_writer_context_write_count = if workspace_reuse_hit {
+            0
+        } else {
+            prepare_field_u64("vortex_writer_context_write_count")
+        };
+        let prepare_batch_writer_context_reuse_hit_count = if workspace_reuse_hit {
+            0
+        } else {
+            prepare_field_u64("vortex_writer_context_reuse_hit_count")
+        };
+        let prepare_batch_write_coalescing_status = if workspace_reuse_hit {
+            "not_applicable_manifest_reuse_no_new_write".to_string()
+        } else {
+            prepare_field("vortex_write_coalescing_status")
+        };
+        let prepare_batch_shared_writer_context = prepare_batch_writer_context_write_count
+            == u64::try_from(prepare_batch_rewritten_artifact_count).unwrap_or(u64::MAX)
+            && prepare_batch_rewritten_artifact_count > 0;
         let prepare_batch_lifecycle_pushdown_statuses = self
             .batch_report
             .reports
@@ -8694,6 +8837,25 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 prepare_batch_preparation_micros,
             ),
             (
+                "prepare_batch_preparation_timing_source".to_string(),
+                if workspace_reuse_hit {
+                    "workspace_manifest_hit_zero_prepare"
+                } else if workspace_delta_overlay_performed || workspace_partial_repair_performed {
+                    "prepared_state_lifecycle_role_scoped_create_write_replay"
+                } else {
+                    "compatibility_to_vortex_import_micros_excludes_query_total_runtime"
+                }
+                .to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_lookup_or_create_micros".to_string(),
+                prepare_batch_prepared_state_lookup_or_create_micros.to_string(),
+            ),
+            (
+                "prepare_batch_prepare_route_total_micros".to_string(),
+                prepare_batch_prepare_route_total_micros,
+            ),
+            (
                 "prepare_batch_source_to_columnar_micros".to_string(),
                 prepare_batch_source_to_columnar_micros.clone(),
             ),
@@ -8708,6 +8870,82 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_vortex_reopen_verify_micros".to_string(),
                 prepare_batch_vortex_reopen_verify_micros.clone(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_schema_version".to_string(),
+                VORTEX_PREPARATION_SPINE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_status".to_string(),
+                if workspace_reuse_hit {
+                    "manifest_reuse_metadata_verified"
+                } else if workspace_delta_overlay_performed {
+                    "delta_overlay_reused_base_and_verified_delta_artifact"
+                } else if workspace_partial_repair_performed {
+                    "role_repair_reused_unchanged_artifacts_and_verified_rewrite"
+                } else {
+                    "full_prepare_wrote_artifacts_with_shared_vortex_context"
+                }
+                .to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_artifact_count".to_string(),
+                prepare_batch_prepared_artifact_count.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_reused_artifact_count".to_string(),
+                prepare_batch_reused_artifact_count.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_rewritten_artifact_count".to_string(),
+                prepare_batch_rewritten_artifact_count.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_metadata_first_verify_status".to_string(),
+                prepare_batch_metadata_first_verify_status.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_metadata_first_verify_hit_count"
+                    .to_string(),
+                prepare_batch_metadata_first_verify_hit_count.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_reopen_verify_strategy".to_string(),
+                prepare_batch_reopen_verify_strategy.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_full_reopen_verify_count".to_string(),
+                prepare_batch_full_reopen_verify_count.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_writer_context_write_count".to_string(),
+                prepare_batch_writer_context_write_count.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_writer_context_reuse_hit_count"
+                    .to_string(),
+                prepare_batch_writer_context_reuse_hit_count.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_write_coalescing_status".to_string(),
+                prepare_batch_write_coalescing_status,
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_shared_writer_context".to_string(),
+                prepare_batch_shared_writer_context.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_copy_budget_total_measured_copy_bytes"
+                    .to_string(),
+                prepare_batch_copy_budget_total_measured_copy_bytes.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_buffer_pool_status".to_string(),
+                "scoped_buffer_pool_disabled_no_hidden_reuse".to_string(),
+            ),
+            (
+                "prepare_batch_vortex_preparation_spine_buffer_reuse_count".to_string(),
+                "0".to_string(),
             ),
             (
                 "prepare_batch_preparation_included_in_batch_timing".to_string(),
@@ -17781,6 +18019,129 @@ impl TraditionalGroupAccum {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const TRADITIONAL_DENSE_GROUP_MAX_KEY: usize = 1_000_000;
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY: usize = 4_096;
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+type TraditionalPackedU32Pair = u64;
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Default, Clone, PartialEq)]
+struct TraditionalDenseU32GroupAccum {
+    groups: Vec<Option<TraditionalGroupAccum>>,
+    populated_keys: Vec<u32>,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalDenseU32GroupAccum {
+    fn can_admit(key: u32) -> bool {
+        usize::try_from(key).is_ok_and(|key| key <= TRADITIONAL_DENSE_GROUP_MAX_KEY)
+    }
+
+    fn add(&mut self, key: u32, metric: f64) -> Result<()> {
+        let index = usize::try_from(key).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "traditional analytics dense group key {key} exceeded usize: {error}; fallback execution was not attempted"
+            ))
+        })?;
+        if index >= self.groups.len() {
+            self.groups.resize_with(index + 1, || None);
+        }
+        let accum = self.groups[index].get_or_insert_with(|| {
+            self.populated_keys.push(key);
+            TraditionalGroupAccum::default()
+        });
+        accum.add(metric);
+        Ok(())
+    }
+
+    fn into_btree_map(self) -> std::collections::BTreeMap<u32, TraditionalGroupAccum> {
+        let Self {
+            mut groups,
+            mut populated_keys,
+        } = self;
+        populated_keys.sort_unstable();
+        populated_keys
+            .into_iter()
+            .filter_map(|key| {
+                let index = usize::try_from(key).ok()?;
+                groups
+                    .get_mut(index)
+                    .and_then(Option::take)
+                    .map(|accum| (key, accum))
+            })
+            .collect()
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+enum TraditionalU32GroupAccumulator {
+    Dense(TraditionalDenseU32GroupAccum),
+    Sparse(std::collections::BTreeMap<u32, TraditionalGroupAccum>),
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl Default for TraditionalU32GroupAccumulator {
+    fn default() -> Self {
+        Self::Dense(TraditionalDenseU32GroupAccum::default())
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalU32GroupAccumulator {
+    fn add(&mut self, key: u32, metric: f64) -> Result<()> {
+        match self {
+            Self::Dense(dense) if TraditionalDenseU32GroupAccum::can_admit(key) => {
+                dense.add(key, metric)
+            }
+            Self::Dense(dense) => {
+                let mut sparse = std::mem::take(dense).into_btree_map();
+                sparse.entry(key).or_default().add(metric);
+                *self = Self::Sparse(sparse);
+                Ok(())
+            }
+            Self::Sparse(groups) => {
+                groups.entry(key).or_default().add(metric);
+                Ok(())
+            }
+        }
+    }
+
+    fn into_btree_map(self) -> std::collections::BTreeMap<u32, TraditionalGroupAccum> {
+        match self {
+            Self::Dense(dense) => dense.into_btree_map(),
+            Self::Sparse(groups) => groups,
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn pack_traditional_u32_pair(left: u32, right: u32) -> TraditionalPackedU32Pair {
+    (u64::from(left) << 32) | u64::from(right)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn unpack_traditional_u32_pair(pair: TraditionalPackedU32Pair) -> (u32, u32) {
+    ((pair >> 32) as u32, pair as u32)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn add_packed_group_accum(
+    groups: &mut std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum>,
+    left: u32,
+    right: u32,
+    metric: f64,
+) {
+    groups
+        .entry(pack_traditional_u32_pair(left, right))
+        .or_default()
+        .add(metric);
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Default, Clone, PartialEq)]
 struct TraditionalStringInterner {
     values: Vec<String>,
@@ -17789,6 +18150,13 @@ struct TraditionalStringInterner {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalStringInterner {
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            values: Vec::with_capacity(capacity),
+            by_value: std::collections::HashMap::with_capacity(capacity),
+        }
+    }
+
     fn intern(&mut self, value: &str) -> Result<u32> {
         if let Some(id) = self.by_value.get(value) {
             return Ok(*id);
@@ -17798,8 +18166,9 @@ impl TraditionalStringInterner {
                 "traditional analytics string interner exceeded u32 ids: {error}"
             ))
         })?;
-        self.values.push(value.to_string());
-        self.by_value.insert(value.to_string(), id);
+        let value = value.to_string();
+        self.values.push(value.clone());
+        self.by_value.insert(value, id);
         Ok(id)
     }
 
@@ -25471,6 +25840,15 @@ fn primitive_field<T>(
 where
     T: vortex::array::dtype::NativePType + Copy,
 {
+    let primitive = primitive_array_field(fields, name)?;
+    Ok(primitive.as_slice::<T>().to_vec())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn primitive_array_field(
+    fields: &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
+    name: &str,
+) -> Result<vortex::array::arrays::PrimitiveArray> {
     use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::PrimitiveArray;
 
@@ -25482,7 +25860,7 @@ where
         .clone()
         .execute::<PrimitiveArray>(&mut ctx)
         .map_err(vortex_error)?;
-    Ok(primitive.as_slice::<T>().to_vec())
+    Ok(primitive)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -29728,14 +30106,16 @@ fn run_streaming_hash_join_scenario_with_dim_state(
 ) -> Result<TraditionalScenarioExecution> {
     let dim_by_key = &dim_state.dim_by_key;
     let dim_stats = &dim_state.stats;
-    let mut groups = std::collections::BTreeMap::<u32, TraditionalGroupAccum>::new();
+    let mut groups = TraditionalU32GroupAccumulator::default();
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
         &["dim_key", "metric"],
         None,
         |fields, chunk_rows| {
-            let dim_keys = primitive_field::<u32>(fields, "dim_key")?;
-            let metrics = primitive_field::<f64>(fields, "metric")?;
+            let dim_keys = primitive_array_field(fields, "dim_key")?;
+            let dim_keys = dim_keys.as_slice::<u32>();
+            let metrics = primitive_array_field(fields, "metric")?;
+            let metrics = metrics.as_slice::<f64>();
             if dim_keys.len() != chunk_rows || metrics.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "hash join fact Vortex chunk length mismatch: chunk_rows={chunk_rows}, dim_key_len={}, metric_len={}",
@@ -29743,16 +30123,16 @@ fn run_streaming_hash_join_scenario_with_dim_state(
                     metrics.len()
                 )));
             }
-            for (dim_key, metric) in dim_keys.into_iter().zip(metrics) {
+            for (&dim_key, &metric) in dim_keys.iter().zip(metrics) {
                 if dim_by_key.contains_key(&dim_key) {
-                    groups.entry(dim_key).or_default().add(metric);
+                    groups.add(dim_key, metric)?;
                 }
             }
             Ok(())
         },
     )?;
 
-    let result_json = dim_key_group_rows_json(groups, dim_by_key)?;
+    let result_json = dim_key_group_rows_json(groups.into_btree_map(), dim_by_key)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
     let rows_scanned = checked_u64_sum(fact_stats.source_row_count, dim_stats.source_row_count)?;
     let stats = TraditionalStreamingScanStats {
@@ -29879,16 +30259,22 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
 ) -> Result<TraditionalScenarioExecution> {
     let dim_by_key = &dim_state.dim_by_key;
     let dim_stats = &dim_state.stats;
-    let mut category_interner = TraditionalStringInterner::default();
-    let mut groups = std::collections::HashMap::<(u32, u32), TraditionalGroupAccum>::new();
+    let mut category_interner =
+        TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
+    let mut groups =
+        std::collections::HashMap::<TraditionalPackedU32Pair, TraditionalGroupAccum>::with_capacity(
+            TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY,
+        );
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
         &["dim_key", "category", "metric"],
         Some(join_aggregate_fact_filter_expr()),
         |fields, chunk_rows| {
-            let dim_keys = primitive_field::<u32>(fields, "dim_key")?;
+            let dim_keys = primitive_array_field(fields, "dim_key")?;
+            let dim_keys = dim_keys.as_slice::<u32>();
             let categories = varbin_view_field(fields, "category")?;
-            let metrics = primitive_field::<f64>(fields, "metric")?;
+            let metrics = primitive_array_field(fields, "metric")?;
+            let metrics = metrics.as_slice::<f64>();
             if dim_keys.len() != chunk_rows
                 || categories.len() != chunk_rows
                 || metrics.len() != chunk_rows
@@ -29900,7 +30286,7 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
                     metrics.len()
                 )));
             }
-            for (index, (dim_key, metric)) in dim_keys.into_iter().zip(metrics).enumerate() {
+            for (index, (&dim_key, &metric)) in dim_keys.iter().zip(metrics).enumerate() {
                 if dim_by_key.contains_key(&dim_key) {
                     let category_id = intern_utf8_value_at(
                         &mut category_interner,
@@ -29908,21 +30294,14 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
                         "category",
                         index,
                     )?;
-                    groups
-                        .entry((dim_key, category_id))
-                        .or_default()
-                        .add(metric);
+                    add_packed_group_accum(&mut groups, dim_key, category_id, metric);
                 }
             }
             Ok(())
         },
     )?;
 
-    let result_json = dim_key_category_id_rows_json(
-        groups.into_iter().collect(),
-        dim_by_key,
-        &category_interner,
-    )?;
+    let result_json = dim_key_category_packed_id_rows_json(groups, dim_by_key, &category_interner)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
     let rows_scanned = checked_u64_sum(fact_stats.source_row_count, dim_stats.source_row_count)?;
     let stats = TraditionalStreamingScanStats {
@@ -30064,8 +30443,10 @@ fn run_streaming_sort_top_k_scenario_with_dim_rows(
         &["id", "metric"],
         None,
         |fields, chunk_rows| {
-            let ids = primitive_field::<u64>(fields, "id")?;
-            let metrics = primitive_field::<f64>(fields, "metric")?;
+            let ids = primitive_array_field(fields, "id")?;
+            let ids = ids.as_slice::<u64>();
+            let metrics = primitive_array_field(fields, "metric")?;
+            let metrics = metrics.as_slice::<f64>();
             if ids.len() != chunk_rows || metrics.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "sort and top-k Vortex chunk length mismatch: chunk_rows={chunk_rows}, id_len={}, metric_len={}",
@@ -30073,7 +30454,7 @@ fn run_streaming_sort_top_k_scenario_with_dim_rows(
                     metrics.len()
                 )));
             }
-            for (id, metric) in ids.into_iter().zip(metrics) {
+            for (&id, &metric) in ids.iter().zip(metrics) {
                 top_rows.push(GlobalTopKCandidate::new(id, metric));
                 if top_rows.len() > 10 {
                     let _ = top_rows.pop();
@@ -30154,9 +30535,12 @@ fn run_streaming_ranked_per_group_scenario_with_dim_rows(
         &["group_key", "id", "metric"],
         None,
         |fields, chunk_rows| {
-            let group_keys = primitive_field::<u32>(fields, "group_key")?;
-            let ids = primitive_field::<u64>(fields, "id")?;
-            let metrics = primitive_field::<f64>(fields, "metric")?;
+            let group_keys = primitive_array_field(fields, "group_key")?;
+            let group_keys = group_keys.as_slice::<u32>();
+            let ids = primitive_array_field(fields, "id")?;
+            let ids = ids.as_slice::<u64>();
+            let metrics = primitive_array_field(fields, "metric")?;
+            let metrics = metrics.as_slice::<f64>();
             if group_keys.len() != chunk_rows
                 || ids.len() != chunk_rows
                 || metrics.len() != chunk_rows
@@ -30168,7 +30552,7 @@ fn run_streaming_ranked_per_group_scenario_with_dim_rows(
                     metrics.len()
                 )));
             }
-            for ((group_key, id), metric) in group_keys.into_iter().zip(ids).zip(metrics) {
+            for ((&group_key, &id), &metric) in group_keys.iter().zip(ids).zip(metrics) {
                 let rows = top_by_group.entry(group_key).or_default();
                 rows.push((id, metric));
                 rows.sort_by(|left, right| {
@@ -30244,15 +30628,19 @@ fn run_streaming_string_group_distinct_scenario_with_dim_rows(
     fact_path: &std::path::Path,
     dim_rows: u64,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut groups = std::collections::HashMap::<u32, TraditionalGroupAccum>::new();
-    let mut category_interner = TraditionalStringInterner::default();
+    let mut groups = std::collections::HashMap::<u32, TraditionalGroupAccum>::with_capacity(
+        TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY,
+    );
+    let mut category_interner =
+        TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
     let stats = scan_fact_vortex_projected(
         fact_path,
         &["category", "metric"],
         None,
         |fields, chunk_rows| {
             let categories = varbin_view_field(fields, "category")?;
-            let metrics = primitive_field::<f64>(fields, "metric")?;
+            let metrics = primitive_array_field(fields, "metric")?;
+            let metrics = metrics.as_slice::<f64>();
             if categories.len() != chunk_rows || metrics.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "high-cardinality string group/distinct Vortex chunk length mismatch: chunk_rows={chunk_rows}, category_len={}, metric_len={}",
@@ -30260,7 +30648,7 @@ fn run_streaming_string_group_distinct_scenario_with_dim_rows(
                     metrics.len()
                 )));
             }
-            for (index, metric) in metrics.into_iter().enumerate() {
+            for (index, &metric) in metrics.iter().enumerate() {
                 let category_id =
                     intern_utf8_value_at(&mut category_interner, &categories, "category", index)?;
                 groups.entry(category_id).or_default().add(metric);
@@ -30387,16 +30775,22 @@ fn run_streaming_multi_key_group_by_scenario_with_dim_rows(
     fact_path: &std::path::Path,
     dim_rows: u64,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut groups = std::collections::HashMap::<(u32, u32), TraditionalGroupAccum>::new();
-    let mut category_interner = TraditionalStringInterner::default();
+    let mut groups =
+        std::collections::HashMap::<TraditionalPackedU32Pair, TraditionalGroupAccum>::with_capacity(
+            TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY,
+        );
+    let mut category_interner =
+        TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
     let stats = scan_fact_vortex_projected(
         fact_path,
         &["group_key", "category", "metric"],
         None,
         |fields, chunk_rows| {
-            let group_keys = primitive_field::<u32>(fields, "group_key")?;
+            let group_keys = primitive_array_field(fields, "group_key")?;
+            let group_keys = group_keys.as_slice::<u32>();
             let categories = varbin_view_field(fields, "category")?;
-            let metrics = primitive_field::<f64>(fields, "metric")?;
+            let metrics = primitive_array_field(fields, "metric")?;
+            let metrics = metrics.as_slice::<f64>();
             if group_keys.len() != chunk_rows
                 || categories.len() != chunk_rows
                 || metrics.len() != chunk_rows
@@ -30408,19 +30802,16 @@ fn run_streaming_multi_key_group_by_scenario_with_dim_rows(
                     metrics.len()
                 )));
             }
-            for (index, (group_key, metric)) in group_keys.into_iter().zip(metrics).enumerate() {
+            for (index, (&group_key, &metric)) in group_keys.iter().zip(metrics).enumerate() {
                 let category_id =
                     intern_utf8_value_at(&mut category_interner, &categories, "category", index)?;
-                groups
-                    .entry((group_key, category_id))
-                    .or_default()
-                    .add(metric);
+                add_packed_group_accum(&mut groups, group_key, category_id, metric);
             }
             Ok(())
         },
     )?;
     let assembly_start = std::time::Instant::now();
-    let result_json = group_category_id_rows_json(groups, &category_interner)?;
+    let result_json = group_category_packed_id_rows_json(groups, &category_interner)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
     let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
@@ -30441,7 +30832,7 @@ fn run_streaming_multi_key_group_by_scenario_with_group_category_metric_state(
 ) -> Result<TraditionalScenarioExecution> {
     let stats = group_state.stats.clone();
     let assembly_start = std::time::Instant::now();
-    let result_json = group_category_id_rows_json(
+    let result_json = group_category_packed_id_rows_json(
         group_state.group_category_groups.clone(),
         &group_state.category_interner,
     )?;
@@ -30472,15 +30863,17 @@ fn run_streaming_group_by_aggregation_scenario_with_dim_rows(
     fact_path: &std::path::Path,
     dim_rows: u64,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut groups = std::collections::BTreeMap::<u32, TraditionalGroupAccum>::new();
+    let mut groups = TraditionalU32GroupAccumulator::default();
     let mut dictionary_group_by_pair = TraditionalDictionaryGroupByPairAccumulator::new();
     let stats = scan_fact_vortex_projected_with_encoded_inputs(
         fact_path,
         &["group_key", "metric"],
         None,
         |fields, chunk_rows, encoded_inputs| {
-            let group_keys = primitive_field::<u32>(fields, "group_key")?;
-            let metrics = primitive_field::<f64>(fields, "metric")?;
+            let group_keys = primitive_array_field(fields, "group_key")?;
+            let group_keys = group_keys.as_slice::<u32>();
+            let metrics = primitive_array_field(fields, "metric")?;
+            let metrics = metrics.as_slice::<f64>();
             if group_keys.len() != chunk_rows || metrics.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "group by aggregation Vortex chunk length mismatch: chunk_rows={chunk_rows}, group_key_len={}, metric_len={}",
@@ -30488,9 +30881,9 @@ fn run_streaming_group_by_aggregation_scenario_with_dim_rows(
                     metrics.len()
                 )));
             }
-            dictionary_group_by_pair.observe(encoded_inputs, &group_keys)?;
-            for (group_key, metric) in group_keys.into_iter().zip(metrics) {
-                groups.entry(group_key).or_default().add(metric);
+            dictionary_group_by_pair.observe(encoded_inputs, group_keys)?;
+            for (&group_key, &metric) in group_keys.iter().zip(metrics) {
+                groups.add(group_key, metric)?;
             }
             Ok(())
         },
@@ -30500,7 +30893,7 @@ fn run_streaming_group_by_aggregation_scenario_with_dim_rows(
     let stats =
         stats.with_operator_finalize_micros(duration_to_micros(finalize_start.elapsed()))?;
     let assembly_start = std::time::Instant::now();
-    let result_json = numeric_group_rows_json(groups, "group_key");
+    let result_json = numeric_group_rows_json(groups.into_btree_map(), "group_key");
     let rows_materialized = result_rows_materialized(&result_json)?;
     let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
@@ -30552,8 +30945,10 @@ fn run_streaming_distinct_count_scenario_with_dim_rows(
     fact_path: &std::path::Path,
     dim_rows: u64,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut distinct = std::collections::HashSet::<u32>::new();
-    let mut category_interner = TraditionalStringInterner::default();
+    let mut distinct =
+        std::collections::HashSet::<u32>::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
+    let mut category_interner =
+        TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
     let stats = scan_fact_vortex_projected(
         fact_path,
         &["category"],
@@ -31303,7 +31698,8 @@ fn scan_selective_filter_metric_by_selection_vectors(
                 "selected metric aggregation missing bridge selection vector for metric split {split_index}; fallback execution was not attempted"
             ))
         })?;
-            let metrics = primitive_field::<f64>(fields, "metric")?;
+            let metrics = primitive_array_field(fields, "metric")?;
+            let metrics = metrics.as_slice::<f64>();
             if metrics.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "selected metric aggregation Vortex chunk length mismatch: chunk_rows={chunk_rows}, metric_len={}; fallback execution was not attempted",
@@ -31311,7 +31707,7 @@ fn scan_selective_filter_metric_by_selection_vectors(
                 )));
             }
             let (selected_rows, selected_sum) =
-                selected_metric_sum_for_selection_vector(selection_vector, &metrics, split_index)?;
+                selected_metric_sum_for_selection_vector(selection_vector, metrics, split_index)?;
             row_count = checked_u64_sum(row_count, selected_rows)?;
             metric_sum += selected_sum;
             split_index += 1;
@@ -32762,11 +33158,12 @@ fn run_streaming_fact_metric_sum_scenario_with_dim_rows(
     let stats =
         scan_fact_vortex_projected(fact_path, &[sum_column], filter, |fields, _chunk_rows| {
             if sum_column == "metric" {
-                metric_sum += primitive_field::<f64>(fields, sum_column)?
-                    .iter()
-                    .sum::<f64>();
+                let values = primitive_array_field(fields, sum_column)?;
+                metric_sum += values.as_slice::<f64>().iter().sum::<f64>();
             } else {
-                metric_sum += primitive_field::<u32>(fields, sum_column)?
+                let values = primitive_array_field(fields, sum_column)?;
+                metric_sum += values
+                    .as_slice::<u32>()
                     .iter()
                     .map(|value| f64::from(*value))
                     .sum::<f64>();
@@ -32807,8 +33204,10 @@ fn run_streaming_filter_projection_limit_scenario_with_dim_rows(
         &["id", "value"],
         Some(selective_filter_expr()),
         |fields, chunk_rows| {
-            let ids = primitive_field::<u64>(fields, "id")?;
-            let values = primitive_field::<u32>(fields, "value")?;
+            let ids = primitive_array_field(fields, "id")?;
+            let ids = ids.as_slice::<u64>();
+            let values = primitive_array_field(fields, "value")?;
+            let values = values.as_slice::<u32>();
             if ids.len() != chunk_rows || values.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "filter + projection + limit Vortex chunk length mismatch: chunk_rows={chunk_rows}, id_len={}, value_len={}",
@@ -32816,7 +33215,7 @@ fn run_streaming_filter_projection_limit_scenario_with_dim_rows(
                     values.len()
                 )));
             }
-            for (id, value) in ids.into_iter().zip(values) {
+            for (&id, &value) in ids.iter().zip(values) {
                 push_filter_projection_limit_candidate(
                     &mut filtered_projection_limit_rows,
                     filtered_projection_sequence,
@@ -33870,12 +34269,13 @@ fn group_category_rows_json(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn group_category_id_rows_json(
-    groups: impl IntoIterator<Item = ((u32, u32), TraditionalGroupAccum)>,
+fn group_category_packed_id_rows_json(
+    groups: impl IntoIterator<Item = (TraditionalPackedU32Pair, TraditionalGroupAccum)>,
     category_interner: &TraditionalStringInterner,
 ) -> Result<String> {
     let mut category_groups = Vec::new();
-    for ((group_key, category_id), accum) in groups {
+    for (packed, accum) in groups {
+        let (group_key, category_id) = unpack_traditional_u32_pair(packed);
         let category = category_interner.value(category_id).ok_or_else(|| {
             ShardLoomError::InvalidOperation(format!(
                 "category label missing for grouped category id {category_id}; fallback execution was not attempted"
@@ -33912,6 +34312,33 @@ fn dim_key_category_rows_json(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn dim_key_category_packed_id_rows_json(
+    groups: impl IntoIterator<Item = (TraditionalPackedU32Pair, TraditionalGroupAccum)>,
+    dim_by_key: &std::collections::HashMap<u32, String>,
+    category_interner: &TraditionalStringInterner,
+) -> Result<String> {
+    let mut category_groups =
+        std::collections::BTreeMap::<(u32, String), TraditionalGroupAccum>::new();
+    for (packed, accum) in groups {
+        let (dim_key, category_id) = unpack_traditional_u32_pair(packed);
+        let category = category_interner.value(category_id).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "category label missing for joined category id {category_id}; fallback execution was not attempted"
+            ))
+        })?;
+        let category_accum = category_groups
+            .entry((dim_key, category.to_string()))
+            .or_default();
+        merge_traditional_group_accum(
+            category_accum,
+            &accum,
+            "join aggregate category group row count overflow",
+        )?;
+    }
+    dim_key_category_rows_json(category_groups, dim_by_key)
+}
+
+#[cfg(all(feature = "vortex-traditional-analytics-benchmark", test))]
 fn dim_key_category_id_rows_json(
     groups: std::collections::BTreeMap<(u32, u32), TraditionalGroupAccum>,
     dim_by_key: &std::collections::HashMap<u32, String>,
@@ -38403,6 +38830,73 @@ mod tests {
         );
         assert_field_eq(
             &first_fields,
+            "prepare_batch_preparation_timing_source",
+            "compatibility_to_vortex_import_micros_excludes_query_total_runtime",
+        );
+        let first_prepare_micros = first_fields
+            .get("prepare_batch_preparation_micros")
+            .and_then(|value| value.parse::<u64>().ok())
+            .expect("first prepare micros");
+        let first_prepare_route_total_micros = first_fields
+            .get("prepare_batch_prepare_route_total_micros")
+            .and_then(|value| value.parse::<u64>().ok())
+            .expect("first prepare route total micros");
+        assert!(
+            first_prepare_route_total_micros >= first_prepare_micros,
+            "prepare route total should remain separate from narrow prepare timing"
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_vortex_preparation_spine_schema_version",
+            VORTEX_PREPARATION_SPINE_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_vortex_preparation_spine_status",
+            "full_prepare_wrote_artifacts_with_shared_vortex_context",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_vortex_preparation_spine_artifact_count",
+            "2",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_vortex_preparation_spine_reused_artifact_count",
+            "0",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_vortex_preparation_spine_rewritten_artifact_count",
+            "2",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_vortex_preparation_spine_metadata_first_verify_hit_count",
+            "0",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_vortex_preparation_spine_full_reopen_verify_count",
+            "2",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_vortex_preparation_spine_writer_context_write_count",
+            "2",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_vortex_preparation_spine_writer_context_reuse_hit_count",
+            "1",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_vortex_preparation_spine_shared_writer_context",
+            "true",
+        );
+        assert_field_eq(
+            &first_fields,
             "prepare_batch_prepared_state_cache_hit_micros",
             "0",
         );
@@ -38613,6 +39107,56 @@ mod tests {
             "prepare_batch_prepared_state_lookup_status",
             "workspace_manifest_hit",
         );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_preparation_timing_source",
+            "workspace_manifest_hit_zero_prepare",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_vortex_preparation_spine_status",
+            "manifest_reuse_metadata_verified",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_vortex_preparation_spine_artifact_count",
+            "2",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_vortex_preparation_spine_reused_artifact_count",
+            "2",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_vortex_preparation_spine_rewritten_artifact_count",
+            "0",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_vortex_preparation_spine_metadata_first_verify_status",
+            "manifest_metadata_fingerprints_verified_no_vortex_reopen",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_vortex_preparation_spine_metadata_first_verify_hit_count",
+            "2",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_vortex_preparation_spine_full_reopen_verify_count",
+            "0",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_vortex_preparation_spine_writer_context_write_count",
+            "0",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_vortex_preparation_spine_write_coalescing_status",
+            "not_applicable_manifest_reuse_no_new_write",
+        );
         assert_eq!(
             second_fields
                 .get("prepare_batch_prepared_state_attractor_key")
@@ -38772,6 +39316,46 @@ mod tests {
             &third_fields,
             "prepare_batch_prepared_state_lookup_status",
             "workspace_manifest_partial_repair",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_preparation_timing_source",
+            "prepared_state_lifecycle_role_scoped_create_write_replay",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_vortex_preparation_spine_status",
+            "role_repair_reused_unchanged_artifacts_and_verified_rewrite",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_vortex_preparation_spine_artifact_count",
+            "2",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_vortex_preparation_spine_reused_artifact_count",
+            "1",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_vortex_preparation_spine_rewritten_artifact_count",
+            "1",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_vortex_preparation_spine_metadata_first_verify_hit_count",
+            "1",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_vortex_preparation_spine_full_reopen_verify_count",
+            "1",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_vortex_preparation_spine_writer_context_write_count",
+            "1",
         );
         assert_field_eq(
             &third_fields,
@@ -43706,6 +44290,137 @@ mod tests {
 
         let result_json =
             dim_key_category_id_rows_json(groups, &dim_by_key, &category_interner).unwrap();
+
+        assert_eq!(
+            result_json,
+            "[{\"dim_label\":\"same\",\"category\":\"b\",\"row_count\":5,\"metric_sum\":6.0},{\"dim_label\":\"zzz\",\"category\":\"a\",\"row_count\":1,\"metric_sum\":10.0}]"
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dense_u32_group_accumulator_preserves_sorted_group_results() {
+        let mut groups = TraditionalU32GroupAccumulator::default();
+        groups.add(3, 1.5).unwrap();
+        groups.add(1, 2.25).unwrap();
+        groups.add(3, 2.5).unwrap();
+
+        let rows = groups.into_btree_map();
+
+        assert_eq!(
+            rows.into_iter().collect::<Vec<_>>(),
+            vec![
+                (
+                    1,
+                    TraditionalGroupAccum {
+                        row_count: 1,
+                        metric_sum: 2.25,
+                    },
+                ),
+                (
+                    3,
+                    TraditionalGroupAccum {
+                        row_count: 2,
+                        metric_sum: 4.0,
+                    },
+                ),
+            ]
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dense_u32_group_accumulator_rolls_to_sparse_for_large_keys() {
+        let mut groups = TraditionalU32GroupAccumulator::default();
+        groups.add(2, 1.0).unwrap();
+        groups
+            .add(
+                u32::try_from(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1).unwrap(),
+                5.0,
+            )
+            .unwrap();
+        groups.add(2, 3.0).unwrap();
+
+        let rows = groups.into_btree_map();
+
+        assert_eq!(rows.get(&2).unwrap().row_count, 2);
+        assert_eq!(rows.get(&2).unwrap().metric_sum, 4.0);
+        assert_eq!(
+            rows.get(&u32::try_from(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1).unwrap())
+                .unwrap()
+                .metric_sum,
+            5.0
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn packed_group_category_rows_preserve_output_order() {
+        let mut category_interner = TraditionalStringInterner::default();
+        let b_id = category_interner.intern("b").unwrap();
+        let a_id = category_interner.intern("a").unwrap();
+        let groups = std::collections::HashMap::from([
+            (
+                pack_traditional_u32_pair(2, b_id),
+                TraditionalGroupAccum {
+                    row_count: 2,
+                    metric_sum: 2.5,
+                },
+            ),
+            (
+                pack_traditional_u32_pair(1, a_id),
+                TraditionalGroupAccum {
+                    row_count: 1,
+                    metric_sum: 1.5,
+                },
+            ),
+        ]);
+
+        let result_json = group_category_packed_id_rows_json(groups, &category_interner).unwrap();
+
+        assert_eq!(
+            result_json,
+            "[{\"group_key\":1,\"category\":\"a\",\"row_count\":1,\"metric_sum\":1.5},{\"group_key\":2,\"category\":\"b\",\"row_count\":2,\"metric_sum\":2.5}]"
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn packed_dim_key_category_rows_coalesce_labels_after_hot_loop() {
+        let dim_by_key = std::collections::HashMap::from([
+            (1, "same".to_string()),
+            (2, "same".to_string()),
+            (3, "zzz".to_string()),
+        ]);
+        let mut category_interner = TraditionalStringInterner::default();
+        let b_id = category_interner.intern("b").unwrap();
+        let a_id = category_interner.intern("a").unwrap();
+        let groups = std::collections::HashMap::from([
+            (
+                pack_traditional_u32_pair(1, b_id),
+                TraditionalGroupAccum {
+                    row_count: 2,
+                    metric_sum: 2.5,
+                },
+            ),
+            (
+                pack_traditional_u32_pair(2, b_id),
+                TraditionalGroupAccum {
+                    row_count: 3,
+                    metric_sum: 3.5,
+                },
+            ),
+            (
+                pack_traditional_u32_pair(3, a_id),
+                TraditionalGroupAccum {
+                    row_count: 1,
+                    metric_sum: 10.0,
+                },
+            ),
+        ]);
+
+        let result_json =
+            dim_key_category_packed_id_rows_json(groups, &dim_by_key, &category_interner).unwrap();
 
         assert_eq!(
             result_json,
