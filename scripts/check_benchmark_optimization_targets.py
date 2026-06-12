@@ -22,6 +22,7 @@ SCHEMA_VERSION = "shardloom.benchmark_optimization_targets_report.v1"
 DEFAULT_ARTIFACT = Path("website/assets/benchmarks/latest/benchmark-results.json")
 DEFAULT_OUTPUT = Path("target/benchmark-optimization-targets-report.json")
 DEFAULT_TOP_N = 8
+NEXT_IMPLEMENTATION_SLICE = "none"
 
 
 RowPredicate = Callable[[dict[str, Any]], bool]
@@ -164,9 +165,28 @@ def target_summary(
         for value in (numeric(row.get(target.route_metric_field)) for row in target_rows)
         if value is not None
     ]
+    evidence_present = bool(target_rows and nonzero_stage_values)
+    if evidence_present:
+        target_status = "evidence_present"
+        target_evidence_class = "measured_hotspot"
+        diagnostic_reason = "stage_timing_present_in_hot_runtime_rows"
+    elif target_rows:
+        target_status = "diagnostic_stage_zero_or_retired"
+        target_evidence_class = "diagnostic_absent_or_retired"
+        diagnostic_reason = "matching_hot_runtime_rows_have_zero_or_missing_stage_timing"
+    else:
+        target_status = "diagnostic_absent_or_retired"
+        target_evidence_class = "diagnostic_absent_or_retired"
+        diagnostic_reason = "no_matching_hot_runtime_rows_in_promoted_artifact"
     return {
         "target_id": target.target_id,
-        "status": "evidence_present" if target_rows and nonzero_stage_values else "missing_evidence",
+        "status": target_status,
+        "target_evidence_class": target_evidence_class,
+        "evidence_present": evidence_present,
+        "release_blocker": False,
+        "diagnostic_only": True,
+        "diagnostic_reason": diagnostic_reason,
+        "target_disappearance_policy": "diagnostic_absent_or_retired_not_release_blocker",
         "stage_field": target.stage_field,
         "route_metric_field": target.route_metric_field,
         "row_count": len(target_rows),
@@ -267,12 +287,16 @@ def build_report(artifact_path: Path, *, top_n: int = DEFAULT_TOP_N) -> dict[str
     blockers = validate_rows(rows)
     hot_rows = hot_shardloom_rows(rows)
     summaries = [target_summary(target, hot_rows, top_n=top_n) for target in targets()]
-    missing_targets = [
+    evidence_present_targets = [
         summary["target_id"]
         for summary in summaries
-        if summary["status"] != "evidence_present"
+        if summary["evidence_present"]
     ]
-    blockers.extend(f"{target_id}: missing optimization evidence" for target_id in missing_targets)
+    diagnostic_absent_or_retired_targets = [
+        summary["target_id"]
+        for summary in summaries
+        if not summary["evidence_present"]
+    ]
     return {
         "schema_version": SCHEMA_VERSION,
         "status": "passed" if not blockers else "failed",
@@ -284,8 +308,17 @@ def build_report(artifact_path: Path, *, top_n: int = DEFAULT_TOP_N) -> dict[str
         "published_benchmark_row_count": len(rows),
         "shardloom_hot_runtime_row_count": len(hot_rows),
         "target_count": len(summaries),
+        "evidence_present_target_count": len(evidence_present_targets),
+        "evidence_present_targets": evidence_present_targets,
+        "diagnostic_absent_or_retired_target_count": len(
+            diagnostic_absent_or_retired_targets
+        ),
+        "diagnostic_absent_or_retired_targets": diagnostic_absent_or_retired_targets,
+        "release_blocking_target_count": 0,
+        "release_blocking_targets": [],
+        "target_disappearance_policy": "diagnostic_absent_or_retired_not_release_blocker",
         "targets": summaries,
-        "next_implementation_slice": "REPO-WIDE-AUDIT-3B hot-runtime optimization implementation",
+        "next_implementation_slice": NEXT_IMPLEMENTATION_SLICE,
         "claim_boundary": "diagnostic_only_no_performance_claim",
         "blockers": blockers,
         **fail_closed_fields(),

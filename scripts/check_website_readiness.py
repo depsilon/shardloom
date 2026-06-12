@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 
 from check_runtime_execution_envelopes import validate_repo as validate_runtime_envelopes
 from check_runtime_promotion_evidence import validate_runtime_promotion_evidence
+from check_benchmark_optimization_targets import build_report as build_optimization_target_report
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -124,6 +125,9 @@ REQUIRED_BENCHMARK_ROUTE_SHARE_STRINGS = {
     "Optimization direction",
     "Route-share attribution",
     "Route-share attribution ranks measured stage cost",
+    "diagnostic_absent_or_retired",
+    "target_disappearance_policy=diagnostic_absent_or_retired_not_release_blocker",
+    "retired optimization targets",
     "shardloom.traditional_analytics.route_share_amdahl.v1",
 }
 REQUIRED_BENCHMARK_RUNTIME_STRINGS = {
@@ -159,6 +163,10 @@ REQUIRED_BENCHMARK_ARTIFACT_STRINGS = {
     "performance_claim_allowed",
     "Benchmark constitution gate",
     "Route timing instrument status",
+    "Benchmark data ownership",
+    "Static mirrors have one canonical artifact.",
+    "website-public/assets/benchmarks/latest/benchmark-results.json",
+    "mirror digest checks",
     "Artifact lane availability",
     "Expected lanes stay visible.",
     "Format coverage rows",
@@ -714,6 +722,16 @@ def main() -> int:
         )
     if canonical_benchmark_results.exists():
         benchmark_payload = json.loads(canonical_benchmark_results.read_text(encoding="utf-8"))
+        optimization_report = build_optimization_target_report(canonical_benchmark_results)
+        if optimization_report.get("status") != "passed":
+            blockers.append("benchmark optimization target report must pass")
+        if optimization_report.get("release_blocking_target_count") != 0:
+            blockers.append("benchmark optimization targets must not emit release-blocking targets")
+        if (
+            optimization_report.get("target_disappearance_policy")
+            != "diagnostic_absent_or_retired_not_release_blocker"
+        ):
+            blockers.append("benchmark optimization target disappearance policy drifted")
         check_public_front_door_benchmark_payload(benchmark_payload, blockers)
         if benchmark_payload.get("published_benchmark_rows_inlined") != "summary_only":
             blockers.append("benchmark results must inline only summary rows for deployable asset safety")

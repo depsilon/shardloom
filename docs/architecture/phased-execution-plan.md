@@ -179,26 +179,11 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-1. [ ] `REPO-WIDE-AUDIT-4` - website/public benchmark surface cleanup and data ownership.
-   - Source: `docs/architecture/repo-wide-audit.md` section `Website`.
-   - Next slice outcome: implement a cohesive website cleanup/overhaul batch selected from findings
-     `WB-1` through `WB-6`, prioritizing benchmark timing-surface clarity, static data ownership,
-     and public wording freshness.
-   - Implementation scope:
-     - Keep `hot_runtime`, replay/publication proof, and external baseline views visually and
-       semantically separate.
-     - Make static benchmark artifact ownership and mirror validation explicit.
-     - Keep website source, checked-in static output, and public mirror artifacts synchronized in
-       the same PR when touched.
-   - Verification:
-     - `python3 scripts/check_repo_wide_audit.py`
-     - `python3 scripts/check_website_readiness.py --output target/website-readiness-repo-wide-audit.json`
-     - `node website/validate_static_assets.js` using the repo-supported Node path when needed.
-     - Browser/visual QA for rendered layout changes.
-   - Claim boundary: website cleanup must not imply production readiness, package publication,
-     benchmark superiority, Spark displacement, or unsupported timing-surface substitution.
+No unchecked autonomous implementation item is currently promoted. After the repo-wide audit
+website cleanup PR merges, pause for manual audit/cleanup/polish direction before promoting new
+work here.
 
-Plan state after REPO-WIDE-AUDIT-3B source-parse optimization:
+Plan state after REPO-WIDE-AUDIT-4 website and benchmark-publication cleanup:
 
 - The `SECURITY-DEEP-SCAN-R3-FOLLOWUP` item completed in PR #1167 and its detailed session record
   lives in `docs/architecture/phased-execution-completed-ledger.md`.
@@ -217,6 +202,10 @@ Plan state after REPO-WIDE-AUDIT-3B source-parse optimization:
   source parse/decode work for benchmark-shaped profile tails and selected generic fallback rows.
   Remaining benchmark targets are diagnostic-only until a refreshed artifact identifies a concrete
   claim-blocking runtime regression or a new phase-plan item is promoted.
+- `REPO-WIDE-AUDIT-4` completed the first Website cleanup batch: the benchmark page now names
+  benchmark static data ownership, keeps timing-surface views separate, and states the retired
+  optimization-target policy. Website readiness validates benchmark mirror ownership and the
+  optimization target report's diagnostic disappearance policy.
 - Completed runtime and release details live in
   `docs/architecture/phased-execution-completed-ledger.md`; keep this file as the compact planned
   queue.
@@ -235,7 +224,7 @@ Remaining work snapshot:
 
 | Order | Work item | Remaining outcome |
 | --- | --- | --- |
-| Active | `REPO-WIDE-AUDIT-4` | Website/public benchmark surface cleanup and data ownership. |
+| Closed | `REPO-WIDE-AUDIT-4` | Website/public benchmark surface cleanup and data ownership. |
 | Closed | `REPO-WIDE-AUDIT-3B` | Hot-runtime JSONL source parse/decode optimization from benchmark target evidence. |
 | Closed | `REPO-WIDE-AUDIT-3A` | Release-report helper modularization and benchmark optimization target evidence. |
 | Closed | `REPO-WIDE-AUDIT-2` | Architecture/documentation coherence and claim-boundary cleanup. |
@@ -255,10 +244,9 @@ Runtime and release queue status:
   completed ledger and generated status artifacts.
 - Production usability closeout anchor: completed benchmark/profile, sub-evidence, user-surface,
   and package-readiness proof detail lives in the completed ledger.
-- Deferred Non-Runtime Closeout Queue: `REPO-WIDE-AUDIT-4` is the active audit follow-up
-  implementation batch. Completed non-runtime history lives in the completed ledger; any additional
-  work discovered by manual review must be promoted here as a concrete unchecked item before editing
-  behavior.
+- Deferred Non-Runtime Closeout Queue: the current repo-wide audit follow-up batch is closed.
+  Completed non-runtime history lives in the completed ledger; any additional work discovered by
+  manual review must be promoted here as a concrete unchecked item before editing behavior.
 - Final Pre-Release Sequential Closeout Queue: closed as no-publication evidence. Publication,
   signing, tags, uploads, package-channel submission, release assets, and public claims still require
   explicit maintainer approval and passing hard gates.
