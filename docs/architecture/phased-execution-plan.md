@@ -258,6 +258,11 @@ Completed-design reopen policy:
 - The currently reopened completed-design items are `PERF-DESIGN-1R`, `PERF-DESIGN-4R`,
   `PERF-DESIGN-5R`, and `PERF-DESIGN-6R`. `PERF-DESIGN-2` and `PERF-DESIGN-3` are not reopened
   closeouts; they remain direct open implementation items.
+- Completed-ledger review scope: the completed `PERF-DESIGN` closeouts are `PERF-DESIGN-1`,
+  `PERF-DESIGN-4`, `PERF-DESIGN-5`, and `PERF-DESIGN-6`, and each now has exactly one open
+  optimization reopen pass above. Do not create additional `*R` variants unless a new benchmark row
+  or local simulation identifies a distinct measured bottleneck and a matching dynamic, PulseWeave,
+  or capillary control surface.
 
 Lane-to-design mapping from the 1,200 ShardLoom-family rows:
 
@@ -376,13 +381,18 @@ Timing aggregation guardrail:
   natural PulseWeave coalescing target.
 - Current state: session route evidence is present and correctly separates process wall, shared
   batch wall, hot route totals, and no hidden daemon/global cache posture. The runtime still mostly
-  executes scenario work as independently shaped chunks inside the benchmark harness, and PulseWeave
-  fields are evidence-bearing but not yet used to coalesce compatible local scenario groups into a
-  bounded run-local work plan.
-- Next slice outcome: apply PulseWeave only inside admitted local prepared/native scenario groups so
-  FlowInventory can coalesce compatible scenario scans, ScarcityLedger can account for repeated
-  route-open/scan-open/result-assembly pressure, EndoPulse can keep the policy run-local, and
-  ProofBound can block coalescing when certificate, no-fallback, or timing-surface evidence is
+  executes scenario operators independently inside the benchmark harness. First implementation
+  slice landed: prepared/native batch runs now collect the Vortex reader-backed split inventory once
+  per compatible local artifact set, reuse that inventory for later scenarios in the same batch, and
+  emit `pulseweave_route_coalescing_*` plus per-scenario
+  `prepared_vortex_scale_split_inventory_*` fields. Result assembly remains per-scenario with an
+  explicit `blocked_per_scenario_result_semantics` status, and targeted benchmark evidence is still
+  required before closeout or any performance claim.
+- Next slice outcome: extend the run-local PulseWeave coalescing evidence from split-inventory
+  reuse into the remaining safe repeated-prepared/native pressure points. FlowInventory should keep
+  compatible scenario scans bounded, ScarcityLedger should account for any remaining
+  route-open/scan-open/result-assembly pressure, EndoPulse must stay run-local, and ProofBound must
+  block coalescing when certificate, no-fallback, result semantics, or timing-surface evidence is
   incomplete.
 - User-visible surface: benchmark route rows, session/runtime envelope fields, Python simulation
   timing reports, optimization-target validator, and benchmark website route/lane attribution.
@@ -391,7 +401,8 @@ Timing aggregation guardrail:
   route timing validators, focused Rust tests, and targeted benchmark artifacts.
 - Evidence required: before/after targeted local benchmark rows for repeated warm/native/prepared
   scenario groups, PulseWeave applied/blocked fields, unchanged correctness digests, no fallback,
-  no external engine, and explicit timing-surface inclusion flags.
+  no external engine, explicit timing-surface inclusion flags, route/scan-open reuse counts, and a
+  deterministic result-assembly coalescing status.
 - Acceptance: compatible local scenario groups report coalesced PulseWeave route use with reduced
   repeated route-open/scan-open/result-assembly overhead or a deterministic `blocked_*` reason;
   unsupported groups continue through the non-PulseWeave ShardLoom-native path without hidden cache

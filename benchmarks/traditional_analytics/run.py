@@ -5099,6 +5099,16 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "ShardLoom batch local split runtime certificate was not certified for "
                 + scenario
             )
+        if fields.get("prepared_vortex_scale_split_inventory_status") not in {
+            "run_local_pulseweave_split_inventory_created",
+            "run_local_pulseweave_split_inventory_reused",
+        }:
+            raise RuntimeError(
+                "ShardLoom batch split inventory coalescing evidence was missing for "
+                + scenario
+                + ": "
+                + str(fields.get("prepared_vortex_scale_split_inventory_status", "missing"))
+            )
         for field, expected in (
             ("pulseweave_status", "applied"),
             ("pulseweave_runtime_decision_applied", "true"),
@@ -5186,9 +5196,34 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             )
         prepared_ref, prepared_digest = prepared_refs_for_batch(prepared)
         batch_wall = completed.get("process_wall_millis", "not_measured")
-        batch_scenario_count = (
-            parse_optional_int(batch_fields.get("scenario_count")) or len(scenarios)
+        batch_scenario_count = parse_optional_int(batch_fields.get("scenario_count")) or 1
+        route_coalescing_group_count = parse_optional_int(
+            batch_fields.get("pulseweave_route_coalescing_group_count")
         )
+        route_open_reuse_count = parse_optional_int(
+            batch_fields.get("pulseweave_route_open_reuse_count")
+        )
+        if batch_scenario_count > 1:
+            if route_coalescing_group_count is None or route_open_reuse_count is None:
+                raise RuntimeError(
+                    "ShardLoom batch PulseWeave route coalescing rollup was missing"
+                )
+            if (
+                route_coalescing_group_count <= 0
+                or route_coalescing_group_count > batch_scenario_count
+            ):
+                raise RuntimeError(
+                    "ShardLoom batch PulseWeave route coalescing group count was incoherent: "
+                    + str(route_coalescing_group_count)
+                )
+            expected_reuse_count = batch_scenario_count - route_coalescing_group_count
+            if route_open_reuse_count != expected_reuse_count:
+                raise RuntimeError(
+                    "ShardLoom batch PulseWeave route-open reuse count was incoherent: "
+                    + str(route_open_reuse_count)
+                    + " expected "
+                    + str(expected_reuse_count)
+                )
         batch_wall_amortized = amortized_batch_cli_process_wall_millis(
             batch_wall,
             batch_scenario_count,
@@ -5255,6 +5290,45 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "batch_process_startup_attribution": BATCH_PROCESS_STARTUP_ATTRIBUTION,
                 "batch_runner_kind": batch_fields.get(
                     "runner_kind", "single_process_prepared_native_batch"
+                ),
+                "pulseweave_route_coalescing_schema_version": batch_fields.get(
+                    "pulseweave_route_coalescing_schema_version", "not_applicable"
+                ),
+                "pulseweave_route_coalescing_status": batch_fields.get(
+                    "pulseweave_route_coalescing_status", "unknown"
+                ),
+                "pulseweave_route_coalescing_blocker": batch_fields.get(
+                    "pulseweave_route_coalescing_blocker", "unknown"
+                ),
+                "pulseweave_route_coalescing_group_count": batch_fields.get(
+                    "pulseweave_route_coalescing_group_count", "unknown"
+                ),
+                "pulseweave_route_coalescing_group_digests": batch_fields.get(
+                    "pulseweave_route_coalescing_group_digests", "unknown"
+                ),
+                "pulseweave_route_coalescing_scenario_count": batch_fields.get(
+                    "pulseweave_route_coalescing_scenario_count", "unknown"
+                ),
+                "pulseweave_route_open_reuse_count": batch_fields.get(
+                    "pulseweave_route_open_reuse_count", "unknown"
+                ),
+                "pulseweave_scan_open_reuse_count": batch_fields.get(
+                    "pulseweave_scan_open_reuse_count", "unknown"
+                ),
+                "pulseweave_split_inventory_collection_micros": batch_fields.get(
+                    "pulseweave_split_inventory_collection_micros", "unknown"
+                ),
+                "pulseweave_result_assembly_coalescing_status": batch_fields.get(
+                    "pulseweave_result_assembly_coalescing_status", "unknown"
+                ),
+                "pulseweave_result_assembly_reuse_count": batch_fields.get(
+                    "pulseweave_result_assembly_reuse_count", "unknown"
+                ),
+                "pulseweave_route_coalescing_fallback_attempted": batch_fields.get(
+                    "pulseweave_route_coalescing_fallback_attempted", "unknown"
+                ),
+                "pulseweave_route_coalescing_external_engine_invoked": batch_fields.get(
+                    "pulseweave_route_coalescing_external_engine_invoked", "unknown"
                 ),
                 "prepare_batch_scale_schema_version": batch_fields.get(
                     "prepare_batch_scale_schema_version", "not_applicable"

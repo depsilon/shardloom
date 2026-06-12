@@ -163,6 +163,8 @@ const PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_native_vortex_lifecycle.v1";
 const PREPARED_VORTEX_LOCAL_SCALE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_vortex_local_scale.v1";
+const PULSEWEAVE_ROUTE_COALESCING_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.pulseweave_route_coalescing.v1";
 const SCALE_CLAIM_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.scale_claim_gate.v1";
 const SPLIT_MANIFEST_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.split_manifest.v1";
 const MEMORY_SPILL_SCHEMA_VERSION: &str =
@@ -2840,13 +2842,17 @@ impl TraditionalPreparedNativeSession {
         })
     }
 
-    fn execute(
+    fn execute_with_split_inventory(
         &self,
         request: TraditionalAnalyticsVortexRequest,
+        split_inventory: &TraditionalPreparedVortexSplitInventory,
+        split_inventory_cache_hit: bool,
     ) -> Result<TraditionalAnalyticsVortexReport> {
         run_traditional_analytics_vortex_benchmark_with_batch_source_state(
             request,
             &self.source_state,
+            Some(split_inventory),
+            split_inventory_cache_hit,
         )
     }
 
@@ -10025,6 +10031,61 @@ impl TraditionalAnalyticsVortexBatchReport {
         ]);
         let source_admission_policy_micros =
             u64::try_from(source_admission_policy_start.elapsed().as_micros()).unwrap_or(u64::MAX);
+        let pulseweave_route_coalescing_group_digests = self
+            .reports
+            .iter()
+            .map(|report| {
+                report
+                    .local_scale_evidence
+                    .split_runtime_evidence
+                    .split_inventory_digest
+                    .clone()
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+        let pulseweave_route_coalescing_group_count =
+            pulseweave_route_coalescing_group_digests.len();
+        let pulseweave_route_coalescing_scenario_count = self.reports.len();
+        let pulseweave_route_open_reuse_count = self
+            .reports
+            .iter()
+            .filter(|report| {
+                report
+                    .local_scale_evidence
+                    .split_runtime_evidence
+                    .split_inventory_coalesced_open_reuse_hit
+            })
+            .count();
+        let pulseweave_scan_open_reuse_count = pulseweave_route_open_reuse_count;
+        let pulseweave_split_inventory_collection_micros = self
+            .reports
+            .iter()
+            .map(|report| {
+                report
+                    .local_scale_evidence
+                    .split_runtime_evidence
+                    .split_inventory_collection_micros
+            })
+            .fold(0_u64, u64::saturating_add);
+        let pulseweave_route_coalescing_status = if pulseweave_route_open_reuse_count > 0 {
+            "applied_run_local_split_inventory_coalescing"
+        } else if self.reports.len() <= 1 {
+            "blocked_single_scenario_no_repeated_route_open"
+        } else {
+            "blocked_no_compatible_artifact_group_repeated"
+        };
+        let pulseweave_route_coalescing_blocker = if pulseweave_route_open_reuse_count > 0 {
+            "none"
+        } else if self.reports.len() <= 1 {
+            "single_scenario_no_repeated_route_open"
+        } else {
+            "no_compatible_artifact_group_repeated"
+        };
+        let pulseweave_route_coalescing_group_digest_csv =
+            pulseweave_route_coalescing_group_digests
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(",");
         let mut fields = vec![
             (
                 "schema_version".to_string(),
@@ -10204,6 +10265,62 @@ impl TraditionalAnalyticsVortexBatchReport {
                 "single_process_batch_runner_supported".to_string(),
             ),
             ("session_route_used".to_string(), "true".to_string()),
+            (
+                "pulseweave_route_coalescing_schema_version".to_string(),
+                PULSEWEAVE_ROUTE_COALESCING_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "pulseweave_route_coalescing_status".to_string(),
+                pulseweave_route_coalescing_status.to_string(),
+            ),
+            (
+                "pulseweave_route_coalescing_blocker".to_string(),
+                pulseweave_route_coalescing_blocker.to_string(),
+            ),
+            (
+                "pulseweave_route_coalescing_group_count".to_string(),
+                pulseweave_route_coalescing_group_count.to_string(),
+            ),
+            (
+                "pulseweave_route_coalescing_group_digests".to_string(),
+                pulseweave_route_coalescing_group_digest_csv,
+            ),
+            (
+                "pulseweave_route_coalescing_scenario_count".to_string(),
+                pulseweave_route_coalescing_scenario_count.to_string(),
+            ),
+            (
+                "pulseweave_route_open_reuse_count".to_string(),
+                pulseweave_route_open_reuse_count.to_string(),
+            ),
+            (
+                "pulseweave_scan_open_reuse_count".to_string(),
+                pulseweave_scan_open_reuse_count.to_string(),
+            ),
+            (
+                "pulseweave_split_inventory_collection_micros".to_string(),
+                pulseweave_split_inventory_collection_micros.to_string(),
+            ),
+            (
+                "pulseweave_result_assembly_coalescing_status".to_string(),
+                "blocked_per_scenario_result_semantics".to_string(),
+            ),
+            (
+                "pulseweave_result_assembly_reuse_count".to_string(),
+                "0".to_string(),
+            ),
+            (
+                "pulseweave_route_coalescing_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "pulseweave_route_coalescing_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "pulseweave_route_coalescing_claim_boundary".to_string(),
+                "scoped run-local prepared/native split-inventory coalescing only; no daemon, hidden global cache, persistent learning, result-assembly coalescing, object-store, distributed, production, performance, or Spark-displacement claim".to_string(),
+            ),
             ("process_spawn_count".to_string(), "1".to_string()),
             (
                 "persistent_runner_claim_boundary".to_string(),
@@ -18806,6 +18923,102 @@ struct TraditionalRuntimeEvidence {
     execution_certificate: ExecutionCertificate,
 }
 
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct TraditionalPreparedVortexSplitInventoryKey {
+    fact: PathBuf,
+    fact_delta_overlay: Option<PathBuf>,
+    dim: PathBuf,
+    cdc_delta: Option<PathBuf>,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalPreparedVortexSplitInventoryKey {
+    fn from_paths(
+        fact_vortex: &std::path::Path,
+        dim_vortex: &std::path::Path,
+        cdc_delta_vortex: Option<&std::path::Path>,
+        fact_delta_overlay_vortex: Option<&std::path::Path>,
+    ) -> Self {
+        Self {
+            fact: fact_vortex.to_path_buf(),
+            fact_delta_overlay: fact_delta_overlay_vortex.map(PathBuf::from),
+            dim: dim_vortex.to_path_buf(),
+            cdc_delta: cdc_delta_vortex.map(PathBuf::from),
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TraditionalPreparedVortexSplitInventory {
+    inventory_digest: String,
+    source_ref_count: usize,
+    collection_micros: u64,
+    reader_splits: Vec<VortexReaderBackedSplitEvidence>,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalPreparedVortexSplitInventory {
+    fn collect(
+        fact_vortex: &std::path::Path,
+        dim_vortex: &std::path::Path,
+        cdc_delta_vortex: Option<&std::path::Path>,
+        fact_delta_overlay_vortex: Option<&std::path::Path>,
+        source_snapshot: &TraditionalVortexSourceSnapshot,
+    ) -> Result<Self> {
+        let collection_start = std::time::Instant::now();
+        let mut reader_splits = Vec::new();
+        collect_prepared_vortex_reader_splits("fact", fact_vortex, &mut reader_splits)?;
+        if let Some(fact_delta_overlay_vortex) = fact_delta_overlay_vortex {
+            collect_prepared_vortex_reader_splits(
+                "fact-delta-overlay",
+                fact_delta_overlay_vortex,
+                &mut reader_splits,
+            )?;
+        }
+        collect_prepared_vortex_reader_splits("dim", dim_vortex, &mut reader_splits)?;
+        if let Some(cdc_delta_vortex) = cdc_delta_vortex {
+            collect_prepared_vortex_reader_splits(
+                "cdc-delta",
+                cdc_delta_vortex,
+                &mut reader_splits,
+            )?;
+        }
+        if reader_splits.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "prepared Vortex local split inventory requires at least one reader-backed split; fallback execution was not attempted"
+                    .to_string(),
+            ));
+        }
+        let source_ref_count = 2
+            + usize::from(cdc_delta_vortex.is_some())
+            + usize::from(fact_delta_overlay_vortex.is_some());
+        let split_count = reader_splits.len().to_string();
+        let inventory_digest = route_evidence_digest(&[
+            "prepared_vortex_run_local_split_inventory",
+            &source_snapshot.fact_vortex_digest,
+            source_snapshot
+                .fact_delta_overlay_vortex_digest
+                .as_deref()
+                .unwrap_or("none"),
+            &source_snapshot.dim_vortex_digest,
+            source_snapshot
+                .cdc_delta_vortex_digest
+                .as_deref()
+                .unwrap_or("none"),
+            &source_snapshot.source_bytes_read.to_string(),
+            &split_count,
+        ]);
+        Ok(Self {
+            inventory_digest,
+            source_ref_count,
+            collection_micros: duration_to_micros(collection_start.elapsed()),
+            reader_splits,
+        })
+    }
+}
+
 /// Evidence for the prepared Vortex route's local reader-chunk scheduler.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -18826,6 +19039,13 @@ pub struct TraditionalPreparedVortexLocalSplitRuntimeEvidence {
     pub rows_observed: u64,
     pub bytes_scheduled: u64,
     pub reader_split_digest: String,
+    pub split_inventory_schema_version: String,
+    pub split_inventory_status: String,
+    pub split_inventory_cache_hit: bool,
+    pub split_inventory_digest: String,
+    pub split_inventory_source_ref_count: usize,
+    pub split_inventory_collection_micros: u64,
+    pub split_inventory_coalesced_open_reuse_hit: bool,
     pub memory_reservations_requested: usize,
     pub memory_reservations_granted: usize,
     pub memory_reservations_released: usize,
@@ -18851,24 +19071,33 @@ impl TraditionalPreparedVortexLocalSplitRuntimeEvidence {
         fact_delta_overlay_vortex: Option<&std::path::Path>,
         source_snapshot: &TraditionalVortexSourceSnapshot,
     ) -> Result<Self> {
+        let split_inventory = TraditionalPreparedVortexSplitInventory::collect(
+            fact_vortex,
+            dim_vortex,
+            cdc_delta_vortex,
+            fact_delta_overlay_vortex,
+            source_snapshot,
+        )?;
+        Self::build_from_inventory(
+            scenario,
+            resource_policy,
+            source_snapshot,
+            &split_inventory,
+            false,
+        )
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[allow(clippy::too_many_lines)]
+    fn build_from_inventory(
+        scenario: TraditionalAnalyticsScenario,
+        resource_policy: TraditionalAnalyticsResourcePolicy,
+        source_snapshot: &TraditionalVortexSourceSnapshot,
+        split_inventory: &TraditionalPreparedVortexSplitInventory,
+        split_inventory_cache_hit: bool,
+    ) -> Result<Self> {
         let runtime_start = std::time::Instant::now();
-        let mut reader_splits = Vec::new();
-        collect_prepared_vortex_reader_splits("fact", fact_vortex, &mut reader_splits)?;
-        if let Some(fact_delta_overlay_vortex) = fact_delta_overlay_vortex {
-            collect_prepared_vortex_reader_splits(
-                "fact-delta-overlay",
-                fact_delta_overlay_vortex,
-                &mut reader_splits,
-            )?;
-        }
-        collect_prepared_vortex_reader_splits("dim", dim_vortex, &mut reader_splits)?;
-        if let Some(cdc_delta_vortex) = cdc_delta_vortex {
-            collect_prepared_vortex_reader_splits(
-                "cdc-delta",
-                cdc_delta_vortex,
-                &mut reader_splits,
-            )?;
-        }
+        let reader_splits = &split_inventory.reader_splits;
         if reader_splits.is_empty() {
             return Err(ShardLoomError::InvalidOperation(
                 "prepared Vortex local split runtime requires at least one reader-backed split; fallback execution was not attempted"
@@ -18956,11 +19185,17 @@ impl TraditionalPreparedVortexLocalSplitRuntimeEvidence {
             scenario,
             &scheduler_ref,
             &reader_split_digest,
-            &reader_splits,
+            reader_splits,
             rows_observed,
             failed_task_count == 0 && !forbidden_effects_detected,
         )?;
-        let runtime_micros = duration_to_micros(runtime_start.elapsed());
+        let split_inventory_collection_micros = if split_inventory_cache_hit {
+            0
+        } else {
+            split_inventory.collection_micros
+        };
+        let runtime_micros = duration_to_micros(runtime_start.elapsed())
+            .saturating_add(split_inventory_collection_micros);
         Ok(Self {
             runtime_status: if execution_certificate.is_certified() {
                 "scheduled_reader_chunk_execution_completed".to_string()
@@ -18982,6 +19217,17 @@ impl TraditionalPreparedVortexLocalSplitRuntimeEvidence {
             rows_observed,
             bytes_scheduled: source_snapshot.source_bytes_read,
             reader_split_digest,
+            split_inventory_schema_version: PULSEWEAVE_ROUTE_COALESCING_SCHEMA_VERSION.to_string(),
+            split_inventory_status: if split_inventory_cache_hit {
+                "run_local_pulseweave_split_inventory_reused".to_string()
+            } else {
+                "run_local_pulseweave_split_inventory_created".to_string()
+            },
+            split_inventory_cache_hit,
+            split_inventory_digest: split_inventory.inventory_digest.clone(),
+            split_inventory_source_ref_count: split_inventory.source_ref_count,
+            split_inventory_collection_micros,
+            split_inventory_coalesced_open_reuse_hit: split_inventory_cache_hit,
             memory_reservations_requested,
             memory_reservations_granted,
             memory_reservations_released,
@@ -19061,6 +19307,34 @@ impl TraditionalPreparedVortexLocalSplitRuntimeEvidence {
             (
                 "prepared_vortex_scale_split_reader_digest".to_string(),
                 self.reader_split_digest.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_inventory_schema_version".to_string(),
+                self.split_inventory_schema_version.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_inventory_status".to_string(),
+                self.split_inventory_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_inventory_cache_hit".to_string(),
+                self.split_inventory_cache_hit.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_inventory_digest".to_string(),
+                self.split_inventory_digest.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_inventory_source_ref_count".to_string(),
+                self.split_inventory_source_ref_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_inventory_collection_micros".to_string(),
+                self.split_inventory_collection_micros.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_inventory_coalesced_open_reuse_hit".to_string(),
+                self.split_inventory_coalesced_open_reuse_hit.to_string(),
             ),
             (
                 "prepared_vortex_scale_split_memory_reservations_requested".to_string(),
@@ -19655,16 +19929,28 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
         native_io_certificate_status: &str,
         computed_result_sink: Option<&TraditionalComputedResultSinkVerification>,
         route: &'static str,
+        split_inventory: Option<&TraditionalPreparedVortexSplitInventory>,
+        split_inventory_cache_hit: bool,
     ) -> Result<Self> {
-        let split_runtime_evidence = TraditionalPreparedVortexLocalSplitRuntimeEvidence::build(
-            scenario,
-            resource_policy,
-            fact_vortex,
-            dim_vortex,
-            cdc_delta_vortex,
-            fact_delta_overlay_vortex,
-            source_snapshot,
-        )?;
+        let split_runtime_evidence = if let Some(split_inventory) = split_inventory {
+            TraditionalPreparedVortexLocalSplitRuntimeEvidence::build_from_inventory(
+                scenario,
+                resource_policy,
+                source_snapshot,
+                split_inventory,
+                split_inventory_cache_hit,
+            )?
+        } else {
+            TraditionalPreparedVortexLocalSplitRuntimeEvidence::build(
+                scenario,
+                resource_policy,
+                fact_vortex,
+                dim_vortex,
+                cdc_delta_vortex,
+                fact_delta_overlay_vortex,
+                source_snapshot,
+            )?
+        };
         let tasks = traditional_prepared_vortex_scale_tasks(
             scenario,
             resource_policy,
@@ -23266,6 +23552,10 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         TraditionalVortexBatchSourceState::dim_row_count_cache_consumer_count(&scenarios);
 
     let mut reports = Vec::with_capacity(scenarios.len());
+    let mut split_inventory_cache = std::collections::BTreeMap::<
+        TraditionalPreparedVortexSplitInventoryKey,
+        TraditionalPreparedVortexSplitInventory,
+    >::new();
     for (index, scenario) in scenarios.into_iter().enumerate() {
         let scenario_workspace = result_workspace_dir.as_ref().map(|workspace| {
             workspace.join(format!(
@@ -23280,6 +23570,29 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
             } else {
                 None
             };
+        let split_inventory_key = TraditionalPreparedVortexSplitInventoryKey::from_paths(
+            &fact_vortex,
+            &dim_vortex,
+            child_cdc_delta_vortex.as_deref(),
+            fact_delta_overlay_vortex.as_deref(),
+        );
+        let split_inventory_cache_hit = split_inventory_cache.contains_key(&split_inventory_key);
+        if !split_inventory_cache_hit {
+            let split_inventory = TraditionalPreparedVortexSplitInventory::collect(
+                &fact_vortex,
+                &dim_vortex,
+                child_cdc_delta_vortex.as_deref(),
+                fact_delta_overlay_vortex.as_deref(),
+                &session.source_state.source_snapshot,
+            )?;
+            split_inventory_cache.insert(split_inventory_key.clone(), split_inventory);
+        }
+        let split_inventory = split_inventory_cache.get(&split_inventory_key).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "prepared/native batch split inventory cache did not contain the just-admitted key; fallback execution was not attempted"
+                    .to_string(),
+            )
+        })?;
         let child_request = TraditionalAnalyticsVortexRequest::new(
             scenario,
             fact_vortex.clone(),
@@ -23291,7 +23604,11 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         .with_resource_policy(resource_policy)
         .with_result_workspace_dir(scenario_workspace)
         .with_result_vortex_write(write_result_vortex);
-        reports.push(session.execute(child_request)?);
+        reports.push(session.execute_with_split_inventory(
+            child_request,
+            split_inventory,
+            split_inventory_cache_hit,
+        )?);
     }
     let source_state_family_runtime_evidence =
         session.source_state.source_state_family_runtime_evidence();
@@ -23509,7 +23826,13 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
         request.cdc_delta_vortex.as_deref(),
         request.fact_delta_overlay_vortex.as_deref(),
     )?;
-    run_traditional_analytics_vortex_benchmark_with_source_context(request, &source_snapshot, None)
+    run_traditional_analytics_vortex_benchmark_with_source_context(
+        request,
+        &source_snapshot,
+        None,
+        None,
+        false,
+    )
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -23517,6 +23840,8 @@ fn run_traditional_analytics_vortex_benchmark_enabled(
 fn run_traditional_analytics_vortex_benchmark_with_batch_source_state(
     request: TraditionalAnalyticsVortexRequest,
     source_state: &TraditionalVortexBatchSourceState,
+    split_inventory: Option<&TraditionalPreparedVortexSplitInventory>,
+    split_inventory_cache_hit: bool,
 ) -> Result<TraditionalAnalyticsVortexReport> {
     let source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
         &request.fact_vortex,
@@ -23528,6 +23853,8 @@ fn run_traditional_analytics_vortex_benchmark_with_batch_source_state(
         request,
         &source_snapshot,
         Some(source_state),
+        split_inventory,
+        split_inventory_cache_hit,
     )
 }
 
@@ -23537,6 +23864,8 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
     request: TraditionalAnalyticsVortexRequest,
     source_snapshot: &TraditionalVortexSourceSnapshot,
     batch_source_state: Option<&TraditionalVortexBatchSourceState>,
+    split_inventory: Option<&TraditionalPreparedVortexSplitInventory>,
+    split_inventory_cache_hit: bool,
 ) -> Result<TraditionalAnalyticsVortexReport> {
     let execution_mode_selection = ShardLoomExecutionModeSelectionReport::from_request(
         ShardLoomExecutionModeSelectionRequest::new(request.requested_execution_mode)
@@ -23669,6 +23998,8 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         native_io_certificate.status(),
         computed_result_sink.as_ref(),
         prepared_vortex_local_scale_route(request.requested_execution_mode),
+        split_inventory,
+        split_inventory_cache_hit,
     )?;
 
     Ok(TraditionalAnalyticsVortexReport {
@@ -38162,6 +38493,57 @@ mod tests {
             "single_process_batch_runner_supported",
         );
         assert_field_eq(&fields, "session_route_used", "true");
+        assert_field_eq(
+            &fields,
+            "pulseweave_route_coalescing_schema_version",
+            PULSEWEAVE_ROUTE_COALESCING_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "pulseweave_route_coalescing_status",
+            "applied_run_local_split_inventory_coalescing",
+        );
+        assert_field_eq(&fields, "pulseweave_route_coalescing_blocker", "none");
+        assert_field_eq(&fields, "pulseweave_route_coalescing_group_count", "1");
+        assert_field_eq(&fields, "pulseweave_route_coalescing_scenario_count", "4");
+        assert_field_eq(&fields, "pulseweave_route_open_reuse_count", "3");
+        assert_field_eq(&fields, "pulseweave_scan_open_reuse_count", "3");
+        assert_field_eq(
+            &fields,
+            "pulseweave_result_assembly_coalescing_status",
+            "blocked_per_scenario_result_semantics",
+        );
+        assert_field_eq(&fields, "pulseweave_result_assembly_reuse_count", "0");
+        assert_field_eq(
+            &fields,
+            "pulseweave_route_coalescing_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "pulseweave_route_coalescing_external_engine_invoked",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_vortex_scale_split_inventory_status",
+            "run_local_pulseweave_split_inventory_created",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_vortex_scale_split_inventory_cache_hit",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_inventory_status",
+            "run_local_pulseweave_split_inventory_reused",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_inventory_cache_hit",
+            "true",
+        );
         assert_field_eq(&fields, "process_spawn_count", "1");
         assert_field_eq(
             &fields,
@@ -40322,6 +40704,35 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "pulseweave_route_coalescing_status",
+            "applied_run_local_split_inventory_coalescing",
+        );
+        assert_field_eq(&fields, "pulseweave_route_coalescing_group_count", "1");
+        assert_field_eq(&fields, "pulseweave_route_coalescing_scenario_count", "2");
+        assert_field_eq(&fields, "pulseweave_route_open_reuse_count", "1");
+        assert_field_eq(&fields, "pulseweave_scan_open_reuse_count", "1");
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_inventory_status",
+            "run_local_pulseweave_split_inventory_created",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_inventory_cache_hit",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_hash-join_prepared_vortex_scale_split_inventory_status",
+            "run_local_pulseweave_split_inventory_reused",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_hash-join_prepared_vortex_scale_split_inventory_cache_hit",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
             "prepare_batch_lifecycle_status",
             "prepared_vortex_lifecycle_complete_with_output_replay",
         );
@@ -40751,6 +41162,83 @@ mod tests {
 
             let _ = std::fs::remove_dir_all(root);
         }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn prepared_native_vortex_batch_run_blocks_pulseweave_coalescing_for_single_scenario() {
+        let root = traditional_analytics_test_root("prepared-native-single-coalescing-block");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
+            .with_native_vortex_replay_verification(true),
+        )
+        .unwrap();
+
+        let batch_report = run_traditional_analytics_vortex_batch_benchmark(
+            TraditionalAnalyticsVortexBatchRequest::new(
+                vec![TraditionalAnalyticsScenario::SelectiveFilter],
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex),
+        )
+        .unwrap();
+        let fields = field_map(batch_report.fields());
+
+        assert_field_eq(
+            &fields,
+            "pulseweave_route_coalescing_status",
+            "blocked_single_scenario_no_repeated_route_open",
+        );
+        assert_field_eq(
+            &fields,
+            "pulseweave_route_coalescing_blocker",
+            "single_scenario_no_repeated_route_open",
+        );
+        assert_field_eq(&fields, "pulseweave_route_coalescing_group_count", "1");
+        assert_field_eq(&fields, "pulseweave_route_coalescing_scenario_count", "1");
+        assert_field_eq(&fields, "pulseweave_route_open_reuse_count", "0");
+        assert_field_eq(&fields, "pulseweave_scan_open_reuse_count", "0");
+        assert_field_eq(
+            &fields,
+            "pulseweave_result_assembly_coalescing_status",
+            "blocked_per_scenario_result_semantics",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_vortex_scale_split_inventory_status",
+            "run_local_pulseweave_split_inventory_created",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_vortex_scale_split_inventory_cache_hit",
+            "false",
+        );
+        assert!(
+            fields
+                .get("scenario_selective-filter_prepared_vortex_scale_split_inventory_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert_field_eq(
+            &fields,
+            "pulseweave_route_coalescing_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "pulseweave_route_coalescing_external_engine_invoked",
+            "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
