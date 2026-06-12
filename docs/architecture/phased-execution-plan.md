@@ -160,6 +160,8 @@ Current autonomous execution order:
     `group_by_aggregation` and `multi_key_group_by` result payloads once per shared source-state
     family, reports result-cache/preassembly timing fields, and keeps hot scenario execution from
     rebuilding aggregate maps into JSON on each consumer.
+  - Progress: nested JSON field scan parser now keeps marker detection and boolean/numeric field
+    extraction on byte-level hot paths while preserving deterministic malformed-payload diagnostics.
   - Verification: focused Rust operator/correctness tests, Python row-contract tests, targeted
     benchmark rerun for the selected family, `cargo fmt --all -- --check`,
     `cargo clippy --workspace --all-targets -- -D warnings`, and
