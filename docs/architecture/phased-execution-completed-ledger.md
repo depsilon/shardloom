@@ -16,6 +16,78 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-DESIGN-1B prepared role-repair artifact and manifest gate
+  - Date: 2026-06-12
+  - Branch/PR: pending cohesive PR after local validation.
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-1`.
+    - Prior `PERF-DESIGN-1A` evidence-contract closeout.
+    - User request to finish the performance phased-plan items without repeated full benchmark
+      refresh churn.
+  - Scope:
+    - Added explicit prepared role-repair substage fields to the real ShardLoom prepared-batch
+      runtime envelope for source-to-columnar, Vortex array build, Vortex write, and Vortex
+      reopen/verify timing.
+    - Extended the benchmark harness admission vocabulary for prepared manifest partial-repair and
+      CDC-delta overlay route statuses.
+    - Added `scripts/generate_prepare_batch_role_repair_evidence.py`, which recreates targeted
+      evidence through the real `shardloom-prepare-batch` runner over an isolated CSV tiny-smoke
+      dataset and stores compact evidence rows rather than duplicating the full benchmark row
+      payload.
+    - Added `scripts/check_prepare_batch_role_repair_evidence.py`, validating full prepare,
+      manifest reuse, fact role repair, dim role repair, and CDC-delta role repair cases.
+    - Wired `prepare-batch-role-repair-evidence.json` into the promoted benchmark manifest and the
+      benchmark completeness gate for `full_local` artifacts.
+    - Kept the existing 1,920-row deployable benchmark bundle and row chunks intact, then added a
+      standalone targeted role-repair evidence artifact plus manifest wiring instead of forcing a
+      full benchmark refresh.
+    - Removed `PERF-DESIGN-1` from the active phase-plan queue; the next autonomous item is
+      `PERF-DESIGN-6`.
+  - Local evidence:
+    - `python3 -m py_compile scripts/check_prepare_batch_role_repair_evidence.py scripts/generate_prepare_batch_role_repair_evidence.py scripts/promote_benchmark_artifact.py scripts/check_benchmark_artifact_completeness.py python/tests/test_release_scripts.py`
+      passed.
+    - `python3 scripts/generate_prepare_batch_role_repair_evidence.py --rows 96 --dim-rows 24`
+      passed and wrote matching website and website-public role-repair evidence artifacts.
+    - `python3 scripts/check_prepare_batch_role_repair_evidence.py --artifact website/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json --output target/prepare-batch-role-repair-evidence-report.json`
+      passed with `case_count=5`, `row_count=10`,
+      `repaired_roles=["cdc_delta_input","dim_input","fact_input"]`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_prepare_batch_role_repair_evidence_validator_requires_all_roles python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_completeness_validates_prepare_batch_role_repair_evidence python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_completeness_requires_role_repair_evidence_for_full_local`
+      passed.
+    - `cargo test -p shardloom-vortex traditional_prepared_batch_workspace_reuse_traditional_prepared_partial_repair --features vortex-traditional-analytics-benchmark`
+      passed.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed with `artifact_status=complete`, `available_lane_count=10`, and no blockers after the
+      manifest-only role-repair evidence wiring.
+    - `python3 scripts/check_benchmark_publish_doctor.py --allow-incomplete --allow-stale-git --allow-dirty-worktree`
+      passed with `row_count=1920`, `shardloom_row_count=1200`,
+      `publication_claim_gate_status=passed`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publish_doctor_accepts_current_static_artifact`
+      passed after updating the expected next implementation slice to `PERF-DESIGN-6`.
+    - `cargo fmt --all -- --check` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts` passed with
+      127 tests and 2 skips.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `python3 scripts/check_website_readiness.py` passed and wrote
+      `target/website-readiness-report.json`.
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website/validate_static_assets.js`
+      passed.
+    - `python3 scripts/check_benchmark_optimization_targets.py --artifact website-public/assets/benchmarks/latest/benchmark-results.json --output target/benchmark-optimization-targets-review.json --top-n 12`
+      passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This closes targeted prepared traditional route role-repair evidence for fact, dim, and
+      CDC-delta inputs. It does not refresh the full benchmark suite, claim broad cold-route speedup,
+      authorize production/package release, or make Spark-displacement/performance-superiority
+      claims.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Vortex query-engine integration, external engine
+      execution, or fallback execution was introduced. The generated role-repair artifact and
+      benchmark validators preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: PERF-DESIGN-1A prepared-source reuse and role-repair evidence contract
   - Date: 2026-06-12
   - Branch/PR: `codex/perf-design-1-role-repair-evidence` / local branch before PR.

@@ -129,6 +129,10 @@ ROW_ADMISSION_MANIFEST_SCHEMA_VERSION = (
     "shardloom.website.benchmark_row_admission_manifest.v1"
 )
 ROW_ADMISSION_MANIFEST_NAME = "benchmark-row-admission-manifest.json"
+PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_NAME = "prepare-batch-role-repair-evidence.json"
+PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_SCHEMA_VERSION = (
+    "shardloom.prepare_batch_role_repair_evidence.v1"
+)
 DUPLICATE_SUFFIX_RE = re.compile(r" \d+(?:\.[^.]+)?$")
 WEBSITE_ROW_KEYS = (
     "engine",
@@ -8441,6 +8445,13 @@ def manifest_for_artifact(
         "markdown": None,
         "html": None,
     }
+    role_repair_evidence = prepare_batch_role_repair_evidence_manifest(
+        results_path.parent
+    )
+    if role_repair_evidence:
+        artifact_paths["prepare_batch_role_repair_evidence"] = role_repair_evidence[
+            "path"
+        ]
     runtime_validation = runtime_validation_override or runtime_validation_table(rows)
     readiness_counts = Counter(
         str(row.get("route_timing_instrument_status") or "missing")
@@ -8518,8 +8529,47 @@ def manifest_for_artifact(
         ],
         "benchmark_constitution_claim_gate_status": "not_claim_grade",
         "benchmark_constitution_performance_claim_allowed": False,
+        **{
+            key: value
+            for key, value in role_repair_evidence.items()
+            if key != "path"
+        },
         "runtime_envelope_validation": runtime_validation,
         "artifact_paths": artifact_paths,
+    }
+
+
+def prepare_batch_role_repair_evidence_manifest(directory: Path) -> dict[str, Any]:
+    path = directory / PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_NAME
+    if not path.exists():
+        return {}
+    payload = load_json(path)
+    valid_payload = isinstance(payload, dict)
+    runs = payload.get("runs") if valid_payload else None
+    run_count = len(runs) if isinstance(runs, list) else 0
+    row_count = payload.get("row_count") if valid_payload else None
+    fallback_attempted = True
+    external_engine_invoked = True
+    if valid_payload:
+        fallback_attempted = payload.get("fallback_attempted") is True
+        external_engine_invoked = payload.get("external_engine_invoked") is True
+    return {
+        "path": repo_relative(path),
+        "prepare_batch_role_repair_evidence_schema_version": (
+            payload.get("schema_version") if valid_payload else None
+        ),
+        "prepare_batch_role_repair_evidence_expected_schema_version": (
+            PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_SCHEMA_VERSION
+        ),
+        "prepare_batch_role_repair_evidence_status": (
+            "present" if valid_payload else "invalid"
+        ),
+        "prepare_batch_role_repair_evidence_run_count": run_count,
+        "prepare_batch_role_repair_evidence_row_count": row_count,
+        "prepare_batch_role_repair_evidence_fallback_attempted": fallback_attempted,
+        "prepare_batch_role_repair_evidence_external_engine_invoked": (
+            external_engine_invoked
+        ),
     }
 
 

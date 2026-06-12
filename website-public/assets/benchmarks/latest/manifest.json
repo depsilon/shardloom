@@ -3,6 +3,7 @@
     "html": null,
     "json": "website/assets/benchmarks/latest/benchmark-results.json",
     "markdown": null,
+    "prepare_batch_role_repair_evidence": "website/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json",
     "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2/benchmark-row-admission-manifest.json",
     "row_chunks": [
       {
@@ -146,6 +147,13 @@
   "missing_lanes": [],
   "missing_required_lanes": [],
   "performance_claim_allowed": false,
+  "prepare_batch_role_repair_evidence_expected_schema_version": "shardloom.prepare_batch_role_repair_evidence.v1",
+  "prepare_batch_role_repair_evidence_external_engine_invoked": false,
+  "prepare_batch_role_repair_evidence_fallback_attempted": false,
+  "prepare_batch_role_repair_evidence_row_count": 10,
+  "prepare_batch_role_repair_evidence_run_count": 5,
+  "prepare_batch_role_repair_evidence_schema_version": "shardloom.prepare_batch_role_repair_evidence.v1",
+  "prepare_batch_role_repair_evidence_status": "present",
   "public_front_door_benchmark_row_count": 2,
   "public_front_door_benchmark_row_ids": [
     "local_source_auto_prepare_vortex_front_door",

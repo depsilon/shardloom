@@ -179,7 +179,6 @@ not by numeric CG order.
 
 Current autonomous execution order:
 
-- [ ] `PERF-DESIGN-1` - Prepared-source and compatibility-ingest amortization design.
 - [ ] `PERF-DESIGN-6` - Source-adapter specialization and scout-stage execution split.
 - [ ] `PERF-DESIGN-4` - Session-native route and process-wall amortization.
 - [ ] `PERF-DESIGN-5` - Vortex preparation write/reopen and copy-budget optimization.
@@ -195,6 +194,11 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
   `shardloom`, `shardloom-vortex`, `shardloom-prepared-vortex`, and
   `shardloom-prepare-batch` engine IDs; filtering only `engine=shardloom` selects the 240-row cold
   certified lane, not the full 1,200-row ShardLoom timing surface.
+- Prepared role-repair evidence:
+  `website-public/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json` records 5
+  targeted runs and 10 rows across full prepare, manifest reuse, fact role repair, dim role repair,
+  and CDC-delta role repair. It is targeted runtime evidence for the completed `PERF-DESIGN-1`
+  item, not a full benchmark-suite refresh or performance claim.
 - ShardLoom timing surfaces: 600 `hot_runtime` rows and 600 `publication_proof` rows.
 - Hot/runtime lane shape: cold certified route geomean is about `63.90 ms`; native Vortex,
   warm-prepared, prepare-once-batch, and prepare-once-first-query hot geomeans are about
@@ -222,12 +226,11 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 
 Lane-to-design mapping from the 1,200 ShardLoom-family rows:
 
-- `PERF-DESIGN-1` and `PERF-DESIGN-5`: `cold_certified_route` hot rows remain the slowest
-  ShardLoom lane; JSONL rows reach `219.49 ms` hot route total and the cold lane averages about
-  `37.48 ms` `source_parse_or_columnar_decode_ms` plus `23.86 ms` `vortex_write_ms`. The global
-  design change is to make SourceState and VortexPreparedState reuse the normal steady-state route,
-  so unchanged raw compatibility inputs do not repeatedly parse, decode, write, reopen, or verify
-  the same prepared artifact.
+- `PERF-DESIGN-1` is closed for the prepared traditional route: SourceState and
+  VortexPreparedState now reuse unchanged fact/dim/CDC artifacts and repair changed roles with
+  targeted evidence. Remaining cold certified route work maps to `PERF-DESIGN-5` and
+  `PERF-DESIGN-6`: JSONL rows reach `219.49 ms` hot route total and the cold lane averages about
+  `37.48 ms` `source_parse_or_columnar_decode_ms` plus `23.86 ms` `vortex_write_ms`.
 - `PERF-DESIGN-6`: `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`, and
   `source_read_scout_timing` are measured optimization targets, with JSONL parse/decode averaging
   about `51.02 ms` across the diagnostic target rows and AVRO still showing outlier decode/import
@@ -267,56 +270,6 @@ Timing aggregation guardrail:
   `python3 scripts/check_benchmark_optimization_targets.py --artifact website-public/assets/benchmarks/latest/benchmark-results.json --output target/benchmark-optimization-targets-review.json --top-n 12`.
   The report is diagnostic evidence only and does not authorize public performance, production,
   package-release, or Spark-displacement claims.
-
-### PERF-DESIGN-1 - Prepared-source and compatibility-ingest amortization design
-
-- Source: PR #1174 promoted artifact route timing; `website/assets/benchmarks/latest/benchmark-results.json`;
-  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`;
-  runtime docs for UniversalIngress, SourceState, VortexPreparedState, and Vortex-native output.
-- Current state: among the 1,200 ShardLoom rows, cold certified `hot_runtime` route geomean is
-  about `63.90 ms`, with compatibility/import stages dominating:
-  `source_parse_or_columnar_decode_ms` averages about `37.48 ms`, `vortex_write_ms` averages about
-  `23.86 ms`, and JSONL outliers reach `219.49 ms` hot route total with `174.20 ms`
-  source parse/decode. Prepared/native query lanes are sub-ms hot-route geomeans, so the clear
-  global design opportunity is to avoid repeating source parse/decode/write work and make
-  preparation reuse the normal path. PR #1179 added stable prepared-route source fingerprints,
-  manifest-keyed VortexPreparedState reuse, role-scoped repair for the traditional route's fact,
-  dim, and optional CDC artifacts, and separated timing fields for prepared-state lookup/create,
-  prepare-route total, and prepare CLI wall time. The checked-in 1,200-row ShardLoom-family artifact
-  still proves manifest reuse and separated timing surfaces, but it does not yet include a row that
-  exercises actual role-scoped repair after changed source fingerprints.
-- Next slice outcome: close the prepared-source evidence gap without broad benchmark churn:
-  preserve role-scoped repair substage timing through the runner/promoter/public row contract, then
-  run a targeted prepare-batch artifact refresh that proves unchanged fact/dim/CDC roles are reused,
-  changed fact/dim/CDC roles are repaired deterministically, and hot/prepared query totals remain
-  separate from preparation/proof work. Nested JSON/event-source specialization stays under
-  `PERF-DESIGN-6`, not this prepared traditional route.
-- User-visible surface: Python/CLI prepare/query flow, benchmark rows, explain/diagnostic fields,
-  and source/prepared-state evidence.
-- Implementation scope: source identity/fingerprint helpers, prepared-state manifest/index logic,
-  role-scoped repair, benchmark row promotion, route diagnostics, and tests covering unchanged,
-  changed, missing, and stale fact/dim/CDC source roles.
-- Evidence required: correctness tests for source-state reuse and repair, no stale artifact reuse,
-  benchmark rows proving preparation skip/repair status, role-repair substage attribution for
-  source-to-columnar, Vortex array build, Vortex write, and reopen/verify work, and route timing
-  fields separating `prepared_state_lookup_or_create_ms`, `prepare_route_total_ms`, and
-  `prepare_cli_wall_ms`.
-- Acceptance: repeated prepared routes do not reparse/rewrite unchanged source roles; changed roles
-  repair deterministically; stale/missing artifacts fail closed; cold route timing remains explicit
-  when preparation really occurs; hot/prepared routes keep query/runtime totals separate from
-  preparation.
-- Verification: focused Python/Rust tests for prepared-state manifest behavior; benchmark targeted
-  rerun over `shardloom-prepare-batch`, `shardloom-prepared-vortex`, and `shardloom-vortex`;
-  publication claim gate with `--allow-stale-git`; no-fallback validators.
-- Non-goals: do not claim all cold routes become sub-ms, do not bypass Vortex write/verify when a
-  new prepared artifact is actually required, and do not use DuckDB/Polars/DataFusion/Spark as
-  preparation fallback.
-- Claim boundary: may claim workload-scoped preparation reuse only when the source fingerprint and
-  benchmark evidence show reuse; no broad engine superiority claim.
-- Fallback boundary: preparation, repair, and query execution remain ShardLoom/Vortex-native with
-  `fallback_attempted=false` and `external_engine_invoked=false`.
-- Ledger rule: when complete, move the completed session summary to
-  `docs/architecture/phased-execution-completed-ledger.md`.
 
 ### PERF-DESIGN-6 - Source-adapter specialization and scout-stage execution split
 

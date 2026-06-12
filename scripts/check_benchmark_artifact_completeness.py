@@ -23,6 +23,10 @@ from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
     expected_lanes_for_profile,
     lane_required_for_profile,
 )
+from check_prepare_batch_role_repair_evidence import (  # noqa: E402
+    EVIDENCE_SCHEMA_VERSION as PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_SCHEMA_VERSION,
+    validate_artifact_payload as validate_prepare_batch_role_repair_payload,
+)
 from shardloom import validate_runtime_execution_fields  # noqa: E402
 
 
@@ -89,6 +93,9 @@ TIMING_SURFACES = {
 }
 ROW_ADMISSION_MANIFEST_SCHEMA_VERSION = (
     "shardloom.website.benchmark_row_admission_manifest.v1"
+)
+PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_PATH_FIELD = (
+    "prepare_batch_role_repair_evidence"
 )
 
 
@@ -613,6 +620,40 @@ def validate_row_admission_manifest(
                 blockers.append(
                     f"row admission manifest chunk {path_text} {field} mismatch"
                 )
+
+
+def validate_prepare_batch_role_repair_evidence(
+    manifest: dict[str, Any],
+    manifest_path: Path,
+    blockers: list[str],
+) -> None:
+    artifact_paths = manifest.get("artifact_paths")
+    if not isinstance(artifact_paths, dict):
+        return
+    path_text = artifact_paths.get(PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_PATH_FIELD)
+    profile = str(manifest.get("benchmark_profile") or "")
+    if not path_text:
+        if profile == "full_local":
+            blockers.append(
+                "full_local benchmark manifest is missing "
+                "artifact_paths.prepare_batch_role_repair_evidence"
+            )
+        return
+    evidence_path = repo_path(str(path_text), manifest_path)
+    if not evidence_path.exists():
+        blockers.append(
+            "artifact_paths.prepare_batch_role_repair_evidence does not exist: "
+            + str(path_text)
+        )
+        return
+    payload = load_json(evidence_path)
+    if not isinstance(payload, dict):
+        blockers.append("prepare-batch role-repair evidence artifact must be an object")
+        return
+    if payload.get("schema_version") != PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_SCHEMA_VERSION:
+        blockers.append("prepare-batch role-repair evidence schema_version mismatch")
+    evidence_blockers, _summary = validate_prepare_batch_role_repair_payload(payload)
+    blockers.extend(evidence_blockers)
 
 
 def lane_evidence_counts(payload: dict[str, Any]) -> Counter[str]:
@@ -1884,6 +1925,11 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
                     manifest,
                     manifest_path,
                     payload,
+                    blockers,
+                )
+                validate_prepare_batch_role_repair_evidence(
+                    manifest,
+                    manifest_path,
                     blockers,
                 )
                 if recursive_text_contains(payload, "spark-retire"):

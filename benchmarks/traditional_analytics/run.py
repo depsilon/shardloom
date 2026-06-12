@@ -5883,6 +5883,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         if fields.get("prepare_batch_runtime_status") not in {
             "single_process_compatibility_prepare_then_prepared_batch_supported",
             "workspace_prepared_state_reused_then_prepared_batch_supported",
+            "workspace_prepared_state_partially_repaired_then_prepared_batch_supported",
+            "workspace_prepared_state_delta_overlay_then_prepared_batch_supported",
         }:
             raise RuntimeError(
                 "ShardLoom prepare/batch runtime status was unexpected: "
@@ -5891,6 +5893,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         if fields.get("prepare_batch_route") not in {
             "compatibility_import_certified_to_prepared_vortex_batch",
             "compatibility_import_certified_manifest_reuse_to_prepared_vortex_batch",
+            "compatibility_import_certified_manifest_partial_repair_to_prepared_vortex_batch",
+            "compatibility_import_certified_manifest_delta_overlay_to_prepared_vortex_batch",
         }:
             raise RuntimeError(
                 "ShardLoom prepare/batch route was unexpected: "
@@ -5907,6 +5911,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         if fields.get("prepare_batch_lifecycle_write_reopen_status") not in {
             "prepared_artifacts_written_reopened_scanned",
             "prepared_artifacts_reused_manifest_fingerprints_verified",
+            "changed_prepared_artifact_repaired_replay_verified_unchanged_artifacts_reused",
+            "base_prepared_artifact_reused_delta_artifact_written_replay_verified",
         }:
             raise RuntimeError(
                 "ShardLoom prepare/batch did not certify write/reopen/scan lifecycle"

@@ -8668,19 +8668,19 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
             (
                 "prepare_batch_source_to_columnar_micros".to_string(),
-                prepare_batch_source_to_columnar_micros,
+                prepare_batch_source_to_columnar_micros.clone(),
             ),
             (
                 "prepare_batch_vortex_array_build_micros".to_string(),
-                prepare_batch_vortex_array_build_micros,
+                prepare_batch_vortex_array_build_micros.clone(),
             ),
             (
                 "prepare_batch_vortex_write_micros".to_string(),
-                prepare_batch_vortex_write_micros,
+                prepare_batch_vortex_write_micros.clone(),
             ),
             (
                 "prepare_batch_vortex_reopen_verify_micros".to_string(),
-                prepare_batch_vortex_reopen_verify_micros,
+                prepare_batch_vortex_reopen_verify_micros.clone(),
             ),
             (
                 "prepare_batch_preparation_included_in_batch_timing".to_string(),
@@ -9015,6 +9015,41 @@ impl TraditionalAnalyticsPreparedBatchReport {
                     .saturating_add(lifecycle_timing.artifact_write_micros)
                     .saturating_add(lifecycle_timing.replay_verification_micros)
                     .to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros"
+                    .to_string(),
+                if workspace_partial_repair_performed {
+                    prepare_batch_source_to_columnar_micros.clone()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros"
+                    .to_string(),
+                if workspace_partial_repair_performed {
+                    prepare_batch_vortex_array_build_micros.clone()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_vortex_write_micros".to_string(),
+                if workspace_partial_repair_performed {
+                    prepare_batch_vortex_write_micros.clone()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros"
+                    .to_string(),
+                if workspace_partial_repair_performed {
+                    prepare_batch_vortex_reopen_verify_micros.clone()
+                } else {
+                    "0".to_string()
+                },
             ),
             (
                 "prepare_batch_prepared_state_partial_repair_replay_proof".to_string(),
@@ -38179,6 +38214,34 @@ mod tests {
             &third_fields,
             "prepare_batch_prepared_state_partial_repair_regeneration_performed",
             "true",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros",
+            third_fields
+                .get("prepare_batch_source_to_columnar_micros")
+                .expect("partial repair source-to-columnar micros"),
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros",
+            third_fields
+                .get("prepare_batch_vortex_array_build_micros")
+                .expect("partial repair Vortex array-build micros"),
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_partial_repair_vortex_write_micros",
+            third_fields
+                .get("prepare_batch_vortex_write_micros")
+                .expect("partial repair Vortex write micros"),
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros",
+            third_fields
+                .get("prepare_batch_vortex_reopen_verify_micros")
+                .expect("partial repair Vortex reopen verify micros"),
         );
         assert_field_eq(
             &third_fields,
