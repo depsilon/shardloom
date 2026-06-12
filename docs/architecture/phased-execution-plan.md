@@ -180,6 +180,7 @@ not by numeric CG order.
 Current autonomous execution order:
 
 - [ ] `PERF-DESIGN-1` - Prepared-source and compatibility-ingest amortization design.
+- [ ] `PERF-DESIGN-6` - Source-adapter specialization and scout-stage execution split.
 - [ ] `PERF-DESIGN-4` - Session-native route and process-wall amortization.
 - [ ] `PERF-DESIGN-5` - Vortex preparation write/reopen and copy-budget optimization.
 - [ ] `PERF-DESIGN-2` - Encoded-native operator promotion and stage-timing attribution cleanup.
@@ -190,7 +191,10 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
 - Source artifact:
   `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`, 1,920
   published rows, including 1,200 ShardLoom rows and 720 external-baseline rows. External rows are
-  baselines only, never fallback execution.
+  baselines only, never fallback execution. The ShardLoom-family row set includes
+  `shardloom`, `shardloom-vortex`, `shardloom-prepared-vortex`, and
+  `shardloom-prepare-batch` engine IDs; filtering only `engine=shardloom` selects the 240-row cold
+  certified lane, not the full 1,200-row ShardLoom timing surface.
 - ShardLoom timing surfaces: 600 `hot_runtime` rows and 600 `publication_proof` rows.
 - Hot/runtime lane shape: cold certified route geomean is about `63.90 ms`; native Vortex,
   warm-prepared, prepare-once-batch, and prepare-once-first-query hot geomeans are about
@@ -203,6 +207,13 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
   `materialized_temporary`; multi-key group by, nested JSON scan, high-cardinality string
   group/distinct, join+aggregate, and group-by aggregation are the highest measured
   `operator_compute_ms` families.
+- Optimization-target validator posture: `python3 scripts/check_benchmark_optimization_targets.py`
+  over `website-public/assets/benchmarks/latest/benchmark-results.json` reports measured
+  diagnostic targets for `jsonl_parse_decode_hot_runtime`, `avro_hot_runtime_outliers`,
+  `vortex_write_and_reopen_verify`, `source_read_scout_timing`, and `operator_materialization`.
+  `prepared_state_lookup_or_create` is currently zero/retired in the promoted artifact, so future
+  prepared-state optimization work must first restore separated lookup/create/digest timing before
+  treating it as an active hotspot.
 - Publication/proof posture: prepared/native publication-proof geomeans sit around `4.7-7.2 ms`,
   while prepare-once-first-query publication proof is about `42.91 ms` because it includes
   first-query preparation plus result-sink/evidence work.
@@ -247,6 +258,68 @@ Benchmark timing evidence snapshot for the `PERF-DESIGN-*` queue:
   benchmark evidence show reuse; no broad engine superiority claim.
 - Fallback boundary: preparation, repair, and query execution remain ShardLoom/Vortex-native with
   `fallback_attempted=false` and `external_engine_invoked=false`.
+- Ledger rule: when complete, move the completed session summary to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+
+### PERF-DESIGN-6 - Source-adapter specialization and scout-stage execution split
+
+- Source: current published row chunks
+  `website-public/assets/benchmarks/latest/published-row-runs/rows-101a09da6437eac2`;
+  `scripts/check_benchmark_optimization_targets.py`;
+  `target/benchmark-optimization-targets-review.json` when regenerated locally from
+  `website-public/assets/benchmarks/latest/benchmark-results.json`;
+  `docs/architecture/cold-ingestion-preparation-research-carryforward.md`;
+  `docs/architecture/universal-input-contract.md`.
+- Current state: prepared/native hot query lanes are fast, but cold certified hot rows are dominated
+  by compatibility source work before Vortex-native query execution. The optimization-target report
+  shows JSONL parse/decode as a measured hotspot with `40` nonzero rows, about `51.02 ms` average
+  stage time, `192.02 ms` p95/max stage time, and a `219.49 ms` hot-route max. AVRO rows remain a
+  smaller but visible parse/decode outlier family with about `13.05 ms` average stage time and
+  `33.20 ms` p95 stage time. Source-read scout timing is present but still too coarse, with source
+  read averaging about `1.95 ms` and p95 about `12.96 ms`, so the engine cannot yet distinguish
+  open, byte acquisition, typed decode, row assembly, and columnar handoff costs well enough to
+  choose the right cold-lane optimization.
+- Next slice outcome: implement one cohesive source-adapter execution-spine optimization batch that
+  specializes JSONL and AVRO cold-ingest paths around projected field masks, typed decode plans,
+  anomaly/quarantine policy, columnar handoff into Vortex preparation, and explicit source-read scout
+  substages. The result should reduce unnecessary row assembly and broad-body parsing for benchmark
+  shapes while making the remaining cold source cost attributable.
+- User-visible surface: benchmark stage attribution, Python/CLI read diagnostics, SourceState
+  reports, capability/status rows, and website benchmark stage tables after a targeted artifact
+  refresh.
+- Implementation scope: local compatibility input adapters and read plans in the CLI/Python-backed
+  route, `shardloom-vortex` ingest handoff/report fields where Vortex arrays or write providers are
+  involved, benchmark harness timing promotion, source-read scout substage fields, and validators
+  for projected-mask/typed-decode evidence. Check upstream Vortex Source/Scan/Split/provider
+  surfaces first and wrap admitted provider concepts rather than inventing parallel abstractions.
+- Evidence required: correctness fixtures for projected JSONL/AVRO fields, dirty/null/nested edge
+  cases, deterministic anomaly/quarantine blockers, no stale projection-mask reuse, stage timing
+  rows for open/byte acquisition/typed decode/row assembly/columnar handoff, and no-fallback/native
+  input-output certificates where the route writes or reopens Vortex artifacts.
+- Acceptance: JSONL and AVRO cold-ingest rows no longer require assembling or decoding columns that
+  are neither projected nor required for filters; malformed/nested values fail closed or quarantine
+  explicitly according to the current policy; source-read scout substages are populated and
+  optimization-ready; route totals remain timing-surface aware; unchanged prepared/native query
+  lanes continue to report hot runtime separately from diagnostic preparation fields.
+- Verification: focused adapter/source-state tests for JSONL and AVRO projection masks; malformed
+  input and nested-field edge fixtures; benchmark row contract tests for source-read scout
+  substages; targeted benchmark rerun for `nested_json_field_scan`, `clean_cast_filter_write`,
+  `malformed_timestamp_dirty_csv`, and `partition_pruning` over JSONL/AVRO; rerun
+  `python3 scripts/check_benchmark_optimization_targets.py`,
+  `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`,
+  `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and
+  `cargo test --workspace --all-targets` when Rust behavior changes.
+- Non-goals: do not claim cold routes become sub-ms; do not hide source parse/decode inside
+  preparation reuse; do not broaden support to object-store/table inputs; do not silently drop dirty
+  records; do not use pandas, Polars, DuckDB, Spark, DataFusion, Dask, or Vortex query-engine
+  integrations to satisfy residual source parsing.
+- Claim boundary: may claim only workload-scoped source-adapter optimization after refreshed
+  benchmark rows show the selected scenarios, formats, timing surface, and evidence tier. It does
+  not authorize production, package-release, Spark-displacement, SQL/DataFrame breadth, or broad
+  superiority claims.
+- Fallback boundary: source-adapter execution, Vortex handoff, and diagnostics remain
+  ShardLoom/Vortex-native with `fallback_attempted=false` and `external_engine_invoked=false`;
+  external engines remain comparison baselines only.
 - Ledger rule: when complete, move the completed session summary to
   `docs/architecture/phased-execution-completed-ledger.md`.
 

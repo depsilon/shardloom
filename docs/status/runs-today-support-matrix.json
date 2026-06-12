@@ -3,7 +3,7 @@
   "matrix_id": "review-p0-1.current-support",
   "command": "runs-today",
   "docs_ref": "docs/status/runs-today-support-matrix.json",
-  "website_data_ref": "website-public/assets/data/runs-today-support-matrix.json",
+  "website_data_ref": "not_published_to_clean_slate_website",
   "support_state_vocabulary": [
     "executable",
     "feature_gated",
@@ -29,6 +29,7 @@
     "cli_udf_local_scalar_fixture_smoke",
     "cli_embedding_vector_local_fixture_smoke",
     "cli_pre_oom_memory_guard_smoke",
+    "cli_object_store_write_recovery_smoke",
     "cli_local_table_commit_recovery_smoke",
     "cli_prepared_vortex_batch_benchmark",
     "cli_direct_transient_local_adapter_benchmark",
@@ -58,9 +59,9 @@
     "claim_package_publication",
     "claim_object_store_lakehouse_foundry_production"
   ],
-  "row_count": 36,
+  "row_count": 37,
   "support_state_counts": {
-    "executable": 21,
+    "executable": 22,
     "feature_gated": 5,
     "diagnostic_only": 3,
     "report_only": 1,
@@ -68,7 +69,7 @@
     "future": 1
   },
   "family_counts": {
-    "cli_command": 11,
+    "cli_command": 12,
     "python_api": 5,
     "input_format": 6,
     "output_format": 3,
@@ -110,6 +111,9 @@
     "python.tests.test_cli_client",
     "pre_oom_memory_guard_smoke",
     "cg14_memory_runtime_hardening_gate",
+    "object_store_write_smoke",
+    "object_store_write_recovery_smoke",
+    "cg10_object_store_runtime_gate",
     "local_table_append_commit_rehearsal_smoke",
     "commit_execution_promotion_gate",
     "traditional_benchmark_harness",
@@ -346,6 +350,30 @@
       "runtime_execution": true,
       "data_read": false,
       "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "cli_object_store_write_recovery_smoke",
+      "family": "cli_command",
+      "surface": [
+        "object-store-write-smoke",
+        "object-store-write-recovery-smoke"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "object_store_write_smoke",
+        "object_store_write_recovery_smoke",
+        "python.tests.test_cli_client",
+        "cg10_object_store_runtime_gate"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "scoped local-emulator object write plus sidecar recovery replay only; no live S3/GCS/ADLS, remote delivery, table/lakehouse production commit, exactly-once recovery, distributed, performance, or fallback claim",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": true,
       "fallback_attempted": false,
       "external_engine_invoked": false
     },

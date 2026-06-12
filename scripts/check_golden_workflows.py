@@ -441,9 +441,6 @@ print(json.dumps({
 def validate_support_matrix(repo_root: Path) -> dict[str, Any]:
     paths = [
         Path("docs/status/runs-today-support-matrix.json"),
-        Path("website-src/src/data/runs-today-support-matrix.json"),
-        Path("website/assets/data/runs-today-support-matrix.json"),
-        Path("website-public/assets/data/runs-today-support-matrix.json"),
     ]
     blockers: list[str] = []
     rows_verified: list[dict[str, Any]] = []
