@@ -2390,6 +2390,201 @@ class ReleaseScriptTests(unittest.TestCase):
 
         self.assertEqual(blockers, [])
 
+    def _prepare_batch_role_repair_row(
+        self,
+        *,
+        strategy: str,
+        partial_repair_status: str,
+        repaired_roles: str,
+        reused_roles: str = "dim_input,cdc_delta_input",
+        regeneration_performed: bool = True,
+    ) -> dict[str, object]:
+        return {
+            "engine": "shardloom-prepare-batch",
+            "status": "success",
+            "storage_format": "csv",
+            "selected_execution_mode": "prepared_vortex",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "metrics": {
+                "prepare_batch_fallback_attempted": False,
+                "prepare_batch_external_engine_invoked": False,
+                "prepare_batch_prepared_state_dependency_fallback_attempted": False,
+                "prepare_batch_prepared_state_dependency_external_engine_invoked": False,
+                "prepare_batch_prepared_state_optimization_strategy": strategy,
+                "prepare_batch_prepared_state_optimization_status": (
+                    "prepared_state_role_repair_admitted"
+                    if strategy == "role_scoped_repair"
+                    else f"prepared_state_{strategy}"
+                ),
+                "prepare_batch_prepared_state_optimization_repaired_roles": repaired_roles,
+                "prepare_batch_prepared_state_optimization_no_fallback_policy_status": (
+                    "passed_fallback_false_external_engine_false"
+                ),
+                "prepare_batch_prepared_state_optimization_fallback_attempted": False,
+                "prepare_batch_prepared_state_optimization_external_engine_invoked": False,
+                "prepare_batch_prepared_state_optimization_stale_artifact_reuse_allowed": False,
+                "prepare_batch_prepared_state_partial_repair_status": partial_repair_status,
+                "prepare_batch_prepared_state_partial_repair_reused_roles": reused_roles,
+                "prepare_batch_prepared_state_partial_repair_repaired_roles": repaired_roles,
+                "prepare_batch_prepared_state_partial_repair_regeneration_performed": (
+                    regeneration_performed
+                ),
+                "prepare_batch_prepared_state_partial_repair_stale_segment_reuse_allowed": False,
+                "prepare_batch_prepared_state_partial_repair_replay_proof": "fnv1a64:proof",
+                "prepare_batch_prepared_state_partial_repair_micros": 10,
+                "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros": 2,
+                "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros": 3,
+                "prepare_batch_prepared_state_partial_repair_vortex_write_micros": 4,
+                "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros": 1,
+            },
+        }
+
+    def _prepare_batch_role_repair_payload(self) -> dict[str, object]:
+        return {
+            "schema_version": "shardloom.prepare_batch_role_repair_evidence.v1",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "claim_boundary": "fixture",
+            "runs": [
+                {
+                    "case_id": "full_prepare_register",
+                    "rows": [
+                        self._prepare_batch_role_repair_row(
+                            strategy="full_prepare_register",
+                            partial_repair_status=(
+                                "blocked_missing_base_manifest_full_prepare_required"
+                            ),
+                            repaired_roles="all_prepared_artifacts_created",
+                            reused_roles="none",
+                            regeneration_performed=False,
+                        )
+                    ],
+                },
+                {
+                    "case_id": "manifest_reuse",
+                    "rows": [
+                        self._prepare_batch_role_repair_row(
+                            strategy="manifest_reuse",
+                            partial_repair_status="not_needed_manifest_hit",
+                            repaired_roles="none",
+                            reused_roles="fact_input,dim_input,cdc_delta_input",
+                            regeneration_performed=False,
+                        )
+                    ],
+                },
+                {
+                    "case_id": "fact_role_repair",
+                    "rows": [
+                        self._prepare_batch_role_repair_row(
+                            strategy="role_scoped_repair",
+                            partial_repair_status="admitted_role_repair_completed",
+                            repaired_roles="fact_input",
+                        )
+                    ],
+                },
+                {
+                    "case_id": "dim_role_repair",
+                    "rows": [
+                        self._prepare_batch_role_repair_row(
+                            strategy="role_scoped_repair",
+                            partial_repair_status="admitted_role_repair_completed",
+                            repaired_roles="dim_input",
+                            reused_roles="fact_input,cdc_delta_input",
+                        )
+                    ],
+                },
+                {
+                    "case_id": "cdc_delta_role_repair",
+                    "rows": [
+                        self._prepare_batch_role_repair_row(
+                            strategy="role_scoped_repair",
+                            partial_repair_status="admitted_role_repair_completed",
+                            repaired_roles="cdc_delta_input",
+                            reused_roles="fact_input,dim_input",
+                        )
+                    ],
+                },
+            ],
+        }
+
+    def test_prepare_batch_role_repair_evidence_validator_requires_all_roles(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_prepare_batch_role_repair_evidence.py",
+            "prepare_batch_role_repair_evidence_for_test",
+        )
+
+        payload = self._prepare_batch_role_repair_payload()
+        blockers, summary = module.validate_artifact_payload(payload)
+
+        self.assertEqual(blockers, [])
+        self.assertEqual(summary["case_count"], 5)
+        self.assertEqual(
+            summary["repaired_roles"],
+            ["cdc_delta_input", "dim_input", "fact_input"],
+        )
+
+        payload["runs"] = [
+            run
+            for run in payload["runs"]
+            if run["case_id"] != "cdc_delta_role_repair"
+        ]
+        blockers, _summary = module.validate_artifact_payload(payload)
+        self.assertTrue(any("cdc_delta_role_repair" in blocker for blocker in blockers))
+
+    def test_benchmark_completeness_validates_prepare_batch_role_repair_evidence(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_benchmark_artifact_completeness.py",
+            "benchmark_completeness_role_repair_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            temp = Path(tempdir)
+            evidence_path = temp / "prepare-batch-role-repair-evidence.json"
+            evidence_path.write_text(
+                json.dumps(self._prepare_batch_role_repair_payload()),
+                encoding="utf-8",
+            )
+            manifest_path = temp / "manifest.json"
+            manifest = {
+                "benchmark_profile": "full_local",
+                "artifact_paths": {
+                    "prepare_batch_role_repair_evidence": evidence_path.as_posix()
+                },
+            }
+            blockers: list[str] = []
+
+            module.validate_prepare_batch_role_repair_evidence(
+                manifest,
+                manifest_path,
+                blockers,
+            )
+
+        self.assertEqual(blockers, [])
+
+    def test_benchmark_completeness_requires_role_repair_evidence_for_full_local(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_benchmark_artifact_completeness.py",
+            "benchmark_completeness_role_repair_required_for_test",
+        )
+        blockers: list[str] = []
+
+        module.validate_prepare_batch_role_repair_evidence(
+            {"benchmark_profile": "full_local", "artifact_paths": {}},
+            REPO_ROOT / "website" / "assets" / "benchmarks" / "latest" / "manifest.json",
+            blockers,
+        )
+
+        self.assertTrue(
+            any("prepare_batch_role_repair_evidence" in blocker for blocker in blockers)
+        )
+
     def test_website_readiness_flags_duplicate_suffixed_artifacts(self) -> None:
         module = self._load_script_module(
             "check_website_readiness.py",
@@ -4526,7 +4721,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertTrue(
-            str(packet["next_implementation_slice"]).startswith("`PERF-DESIGN-1`"),
+            str(packet["next_implementation_slice"]).startswith("`PERF-DESIGN-6`"),
             packet["next_implementation_slice"],
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
