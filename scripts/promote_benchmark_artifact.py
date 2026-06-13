@@ -228,6 +228,8 @@ WEBSITE_ROW_KEYS = (
     "prepare_batch_prepared_state_dependency_manifest_digest",
     "prepare_batch_prepared_state_dependency_source_packet_digest",
     "prepare_batch_prepared_state_dependency_artifact_manifest_hash",
+    "prepare_batch_prepared_state_dependency_packet_reuse_status",
+    "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count",
     "prepare_batch_prepared_state_dependency_recheck_policy",
     "prepare_batch_prepared_state_dependency_fallback_attempted",
     "prepare_batch_prepared_state_dependency_external_engine_invoked",
@@ -4588,6 +4590,25 @@ def prepared_state_optimization_fields_for_row(row: dict[str, Any]) -> dict[str,
             ),
         )
         or "not_reported",
+        "prepare_batch_prepared_state_dependency_packet_reuse_status": first_meaningful_field(
+            fields,
+            ("prepare_batch_prepared_state_dependency_packet_reuse_status",),
+        )
+        or (
+            "single_evaluation_packet_manifest_hit"
+            if strategy == "manifest_reuse"
+            else "not_reported"
+        ),
+        "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count": int(
+            round(
+                numeric_value(
+                    fields.get(
+                        "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count"
+                    )
+                )
+                or 0
+            )
+        ),
         "prepare_batch_prepared_state_optimization_changed_roles": first_meaningful_field(
             fields,
             (

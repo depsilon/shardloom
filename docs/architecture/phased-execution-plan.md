@@ -234,6 +234,10 @@ Current autonomous execution order:
   - Next outcome: add a run-local dynamic prepared-state reuse controller that batches dependency
     checks, records capillary proof refs, and skips redundant lookup/create work when the digest
     tuple is unchanged.
+  - Progress: prepared-batch reuse evaluation now carries the run-local dependency/request packet
+    into manifest hit/miss, delta-overlay, role-repair, and full-registration paths. The route avoids
+    rebuilding the same fingerprint/admission packet on miss handling and reports
+    `prepare_batch_prepared_state_dependency_packet_*` evidence for published rows.
   - Acceptance: repeated same-run prepared lookups report dynamic reuse with no rewritten artifacts,
     no full reopen verify, no duplicate writer context, stable certificate refs, and deterministic
     repair/reprepare when source roles drift.
