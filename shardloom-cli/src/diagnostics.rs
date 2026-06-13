@@ -8,11 +8,16 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     CommandStatus, FeatureFootprintReport, ObservabilityPlan, ObservabilitySchemaCoverageReport,
-    OutputFormat, RuntimeObservabilityReport, plan_observability_schema_coverage,
+    OutputFormat, RedactionPolicy, RuntimeObservabilityReport, ShardLoomError,
+    plan_observability_schema_coverage, redact_credential_like_values,
 };
 use shardloom_plan::{EstimateReport, ExplainReport};
 
-use crate::cli_output::emit;
+use crate::cli_output::{emit, emit_error};
+
+const DOCTOR_SCHEMA_VERSION: &str = "shardloom.doctor.v1";
+const SUPPORT_BUNDLE_SCHEMA_VERSION: &str = "shardloom.support_bundle.v1";
+const DOCTOR_CHECK_ORDER: &str = "cli_version,python_package_version,package_channel,feature_support,vortex_support,local_write_support,no_fallback_invariant,environment_details";
 
 pub(crate) fn handle_feature_footprint(format: OutputFormat) -> ExitCode {
     let report = FeatureFootprintReport::contract_only();
@@ -27,6 +32,7 @@ pub(crate) fn handle_feature_footprint(format: OutputFormat) -> ExitCode {
 pub(crate) fn handle_doctor(format: OutputFormat) -> ExitCode {
     let report = FeatureFootprintReport::contract_only();
     let mut fields = feature_footprint_fields(&report);
+    append_doctor_v1_fields(&mut fields, &report);
     fields.push(("native_input".to_string(), "vortex".to_string()));
     fields.push(("native_output".to_string(), "vortex".to_string()));
     fields.push((
@@ -51,6 +57,126 @@ pub(crate) fn handle_doctor(format: OutputFormat) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+pub(crate) fn handle_support_bundle(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let note = match support_bundle_note(args) {
+        Ok(note) => note,
+        Err(error) => {
+            return emit_error(
+                "support-bundle",
+                format,
+                "support bundle argument parsing failed",
+                &error,
+            );
+        }
+    };
+    let report = FeatureFootprintReport::contract_only();
+    let fields = support_bundle_fields(&note, &report);
+    emit(
+        "support-bundle",
+        format,
+        CommandStatus::Success,
+        "support bundle generated in JSON envelope".to_string(),
+        "ShardLoom support bundle\nredaction_status=redacted\nfilesystem_write_performed=false\nnetwork_probe_performed=false\nfallback_attempted=false".to_string(),
+        Vec::new(),
+        fields,
+    );
+    ExitCode::SUCCESS
+}
+
+pub(crate) fn support_bundle_fields(
+    note: &str,
+    report: &FeatureFootprintReport,
+) -> Vec<(String, String)> {
+    let redacted_note = redact_credential_like_values(note);
+    let input_contains_redacted_tokens = !note.is_empty() && note != redacted_note;
+    let redaction = RedactionPolicy::strict();
+    let mut fields = vec![
+        (
+            "schema_version".to_string(),
+            SUPPORT_BUNDLE_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "bundle_id".to_string(),
+            "support.bundle.local.v1".to_string(),
+        ),
+        ("generated_by".to_string(), "shardloom".to_string()),
+        (
+            "support_bundle_status".to_string(),
+            "generated_in_envelope".to_string(),
+        ),
+        ("support_bundle_generated".to_string(), "true".to_string()),
+        ("support_bundle_written".to_string(), "false".to_string()),
+        ("redaction_status".to_string(), "redacted".to_string()),
+        ("redaction_policy".to_string(), redaction.summary()),
+        ("raw_secret_values_present".to_string(), "false".to_string()),
+        (
+            "input_contains_redacted_tokens".to_string(),
+            input_contains_redacted_tokens.to_string(),
+        ),
+        ("redacted_note_preview".to_string(), redacted_note),
+        (
+            "included_reports".to_string(),
+            "doctor,feature_footprint,command_metadata,v1_api_schema_stability".to_string(),
+        ),
+        (
+            "included_report_refs".to_string(),
+            "doctor,feature_footprint,command_metadata,v1_api_schema_stability".to_string(),
+        ),
+        ("included_report_count".to_string(), "4".to_string()),
+        ("secret_values_included".to_string(), "false".to_string()),
+        (
+            "v1_api_schema_stability_report_ref".to_string(),
+            "target/v1-api-schema-stability-report.json".to_string(),
+        ),
+        (
+            "diagnostic_code_stability_doc_ref".to_string(),
+            "docs/release/diagnostic-code-stability.md".to_string(),
+        ),
+        (
+            "filesystem_write_performed".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "filesystem_probe_performed".to_string(),
+            "false".to_string(),
+        ),
+        ("network_probe_performed".to_string(), "false".to_string()),
+        ("external_effects_executed".to_string(), "false".to_string()),
+        ("runtime_execution".to_string(), "false".to_string()),
+        ("fallback_attempted".to_string(), "false".to_string()),
+        ("external_engine_invoked".to_string(), "false".to_string()),
+    ];
+    fields.extend(doctor_v1_fields(report));
+    fields
+}
+
+fn support_bundle_note(args: impl Iterator<Item = String>) -> Result<String, ShardLoomError> {
+    let mut args = args.peekable();
+    let mut notes = Vec::new();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--note" => {
+                let Some(value) = args.next() else {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "support-bundle --note requires a value".to_string(),
+                    ));
+                };
+                notes.push(value);
+            }
+            "--include-defaults" => {}
+            other => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "support-bundle unknown argument: {other}"
+                )));
+            }
+        }
+    }
+    Ok(notes.join(" "))
 }
 
 pub(crate) fn handle_explain(
@@ -510,6 +636,71 @@ pub(crate) fn feature_footprint_fields(report: &FeatureFootprintReport) -> Vec<(
             report.diagnostics.len().to_string(),
         ),
     ]
+}
+
+pub(crate) fn doctor_v1_fields(report: &FeatureFootprintReport) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    append_doctor_v1_fields(&mut fields, report);
+    fields
+}
+
+fn append_doctor_v1_fields(fields: &mut Vec<(String, String)>, report: &FeatureFootprintReport) {
+    push_field(fields, "doctor_schema_version", DOCTOR_SCHEMA_VERSION);
+    push_field(fields, "doctor_report_id", "doctor.local_v1");
+    push_count_field(fields, "doctor_check_count", 8);
+    push_field(fields, "doctor_check_order", DOCTOR_CHECK_ORDER);
+    push_field(fields, "cli_version", &report.engine_version);
+    push_field(fields, "doctor_check_cli_version_status", "available");
+    push_field(fields, "python_package_version", "not_probed");
+    push_field(
+        fields,
+        "doctor_check_python_package_version_status",
+        "not_probed_no_python_import",
+    );
+    push_field(fields, "package_channel", "source_tree_local");
+    push_field(
+        fields,
+        "doctor_check_package_channel_status",
+        "local_source_tree_no_publication",
+    );
+    push_field(
+        fields,
+        "doctor_check_feature_support_status",
+        "contract_only",
+    );
+    push_field(
+        fields,
+        "doctor_check_vortex_support_status",
+        &report.upstream_vortex_dependency_status,
+    );
+    push_field(
+        fields,
+        "doctor_check_local_write_support_status",
+        "local_workspace_feature_gated",
+    );
+    push_field(
+        fields,
+        "doctor_check_no_fallback_invariant_status",
+        "verified",
+    );
+    push_field(
+        fields,
+        "doctor_check_environment_details_status",
+        "static_no_probe",
+    );
+    push_field(fields, "environment_details", "static_no_probe");
+    push_bool_field(fields, "environment_probe_performed", false);
+    push_bool_field(fields, "filesystem_probe_performed", false);
+    push_bool_field(fields, "network_probe_performed", false);
+    push_bool_field(fields, "runtime_execution", false);
+    push_bool_field(fields, "fallback_attempted", false);
+    push_bool_field(fields, "external_engine_invoked", false);
+    push_bool_field(fields, "support_bundle_available", true);
+    push_field(
+        fields,
+        "support_bundle_command",
+        "support-bundle --format json",
+    );
 }
 
 fn observability_schema_coverage_fields(

@@ -68,6 +68,11 @@
       "fixture_key": "package_release_report"
     },
     {
+      "surface_id": "doctor_report",
+      "schema_path": "docs/release/schemas/v1/doctor-report.schema.json",
+      "fixture_key": "doctor_report"
+    },
+    {
       "surface_id": "support_bundle",
       "schema_path": "docs/release/schemas/v1/support-bundle.schema.json",
       "fixture_key": "support_bundle"

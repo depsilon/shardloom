@@ -32,6 +32,7 @@ REQUIRED_SURFACES = (
     "native_io_certificate",
     "capability_report",
     "package_release_report",
+    "doctor_report",
     "support_bundle",
 )
 DIAGNOSTIC_CODE_DOC = Path("docs/release/diagnostic-code-stability.md")

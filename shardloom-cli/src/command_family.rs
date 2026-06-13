@@ -296,6 +296,7 @@ fn is_diagnostics_command(command: &str) -> bool {
         command,
         "feature-footprint"
             | "doctor"
+            | "support-bundle"
             | "explain"
             | "estimate"
             | "profile-plan"

@@ -9,13 +9,36 @@
     {"path": "schema_version", "type": "string"},
     {"path": "bundle_id", "type": "string"},
     {"path": "generated_by", "type": "string"},
+    {"path": "support_bundle_status", "type": "string"},
+    {"path": "support_bundle_generated", "type": "boolean"},
+    {"path": "support_bundle_written", "type": "boolean"},
     {"path": "redaction_status", "type": "string"},
+    {"path": "redaction_policy", "type": "string"},
     {"path": "included_report_refs", "type": "array"},
+    {"path": "included_report_count", "type": "string"},
     {"path": "secret_values_included", "type": "boolean"},
+    {"path": "raw_secret_values_present", "type": "boolean"},
+    {"path": "input_contains_redacted_tokens", "type": "boolean"},
+    {"path": "redacted_note_preview", "type": "string"},
+    {"path": "filesystem_write_performed", "type": "boolean"},
+    {"path": "filesystem_probe_performed", "type": "boolean"},
+    {"path": "network_probe_performed", "type": "boolean"},
+    {"path": "external_effects_executed", "type": "boolean"},
     {"path": "runtime_execution", "type": "boolean"},
     {"path": "fallback_attempted", "type": "boolean"},
     {"path": "external_engine_invoked", "type": "boolean"}
   ],
-  "no_fallback_fields": ["secret_values_included", "runtime_execution", "fallback_attempted", "external_engine_invoked"],
-  "claim_boundary": "Stable support-bundle field contract only; support-bundle generation and redaction tests are governed by a separate v1 gate."
+  "no_fallback_fields": [
+    "support_bundle_written",
+    "secret_values_included",
+    "raw_secret_values_present",
+    "filesystem_write_performed",
+    "filesystem_probe_performed",
+    "network_probe_performed",
+    "external_effects_executed",
+    "runtime_execution",
+    "fallback_attempted",
+    "external_engine_invoked"
+  ],
+  "claim_boundary": "Stable support-bundle field contract only; support-bundle generation is local, redacted, and side-effect-free unless a future explicit write target is admitted by policy."
 }

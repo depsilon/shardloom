@@ -858,7 +858,7 @@ def main() -> int:
                     ["v1 API/schema stability report blocked"],
                 )
             )
-        if v1_api_schema_stability.get("stable_surface_count") != 11:
+        if v1_api_schema_stability.get("stable_surface_count") != 12:
             v1_api_schema_stability_blockers.append(
                 "v1 API/schema stable_surface_count="
                 + str(v1_api_schema_stability.get("stable_surface_count"))

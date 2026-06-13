@@ -36,11 +36,11 @@ fn agent_contract_pack_json_exposes_machine_contract_inventory() {
     assert!(output.contains(&field("pack_id", "agent.contract_pack.default")));
     assert!(output.contains(&field(
         "surface_order",
-        "output_envelope,diagnostics,capabilities,feature_footprint,effect_budget,doctor,explain_estimate,plan_portability,native_io_envelope,execution_certificate,benchmark_evidence,world_class_sufficiency,security_governance"
+        "output_envelope,diagnostics,capabilities,feature_footprint,effect_budget,doctor,support_bundle,explain_estimate,plan_portability,native_io_envelope,execution_certificate,benchmark_evidence,world_class_sufficiency,security_governance"
     )));
     assert!(output.contains(&field(
         "recommended_sequence",
-        "feature-footprint --format json -> effect-budget-plan --format json -> doctor --format json -> capabilities certification --format json -> world-class-sufficiency-plan --format json -> benchmark-plan --format json -> benchmark-claim-evidence-plan --format json"
+        "feature-footprint --format json -> effect-budget-plan --format json -> doctor --format json -> support-bundle --format json -> capabilities certification --format json -> world-class-sufficiency-plan --format json -> benchmark-plan --format json -> benchmark-claim-evidence-plan --format json"
     )));
     assert!(output.contains("benchmark-claim-evidence-plan"));
 }
@@ -49,9 +49,9 @@ fn agent_contract_pack_json_exposes_machine_contract_inventory() {
 fn agent_contract_pack_json_preserves_safe_agent_defaults() {
     let output = run_agent_contract_pack_json();
 
-    assert!(output.contains(&field("surface_count", "13")));
-    assert!(output.contains(&field("available_surface_count", "13")));
-    assert!(output.contains(&field("side_effect_free_surface_count", "13")));
+    assert!(output.contains(&field("surface_count", "14")));
+    assert!(output.contains(&field("available_surface_count", "14")));
+    assert!(output.contains(&field("side_effect_free_surface_count", "14")));
     assert!(output.contains(&field("fallback_allowed_surface_count", "0")));
     assert!(output.contains(&field("deterministic_json_required", "true")));
     assert!(output.contains(&field("text_is_authoritative", "false")));

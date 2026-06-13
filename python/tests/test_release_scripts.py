@@ -6087,7 +6087,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-2A` Result envelope, diagnostics, doctor, and API/schema stability gate.",
+            "`PROD-V1-2B` Correctness, conformance, and golden workflow closure for v1.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -7176,7 +7176,7 @@ class ReleaseScriptTests(unittest.TestCase):
         )
 
         self.assertEqual(report["status"], "passed", report["blockers"])
-        self.assertEqual(report["stable_surface_count"], 11)
+        self.assertEqual(report["stable_surface_count"], 12)
         self.assertEqual(report["diagnostic_code_count"], 22)
         self.assertEqual(
             report["diagnostic_code_doc_ref"],

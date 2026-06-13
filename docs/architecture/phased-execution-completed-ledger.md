@@ -16,6 +16,87 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-2A doctor/support-bundle and v1 accessor closeout
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-2A` in `docs/architecture/phased-execution-plan.md`.
+    - RFC 0010 developer/agent usability.
+    - RFC 0012 diagnostics/explain/doctor/capabilities.
+    - RFC 0024 release engineering/API compatibility/packaging.
+    - `docs/architecture/agent-contract-pack.md`.
+    - `docs/release/v1-api-schema-stability.md`.
+  - Branch/PR: `codex/v1-doctor-support-bundle-stability`; PR #1216.
+  - Scope:
+    - Added `doctor_report` as the 12th declared stable v1 API/schema surface with
+      `docs/release/schemas/v1/doctor-report.schema.json` and golden fixture coverage.
+    - Expanded `support_bundle` stable fields to cover redaction policy, redacted preview,
+      included report refs/count, no secret inclusion, no file writes, no filesystem/network
+      probes, no external effects, no runtime execution, no fallback, and no external engine
+      invocation.
+    - Added `shardloom support-bundle` as a diagnostics-family command with `--format json`,
+      optional `--note`, strict redaction, no file writes, no probes, and deterministic errors for
+      malformed arguments.
+    - Added v1 doctor fields to `shardloom doctor` for CLI version, Python package version,
+      package channel, feature support, Vortex support, local write support, no-fallback invariant,
+      environment details, and support-bundle availability without effectful probes.
+    - Added Python `ShardLoomClient.doctor()` and `ShardLoomClient.support_bundle()` accessors.
+    - Added Python accessor coverage that walks every declared stable v1 schema field and verifies
+      no-fallback fields remain false.
+    - Registered doctor/support-bundle CLI commands and Python client accessors in the
+      user-surface graduation matrix as diagnostic-only, side-effect-free public surfaces.
+    - Added real CLI JSON/text-envelope coverage for doctor and support-bundle and updated the
+      agent contract pack to expose `support_bundle` in the recommended no-probe inspection
+      sequence.
+    - Removed accidental untracked duplicate ` 2`, ` 3`, and ` 4` files from docs and generated
+      website output.
+  - Stable v1 schema surfaces:
+    - `output_envelope`.
+    - `diagnostic`.
+    - `fallback_status`.
+    - `route_fields`.
+    - `evidence_summary`.
+    - `claim_summary`.
+    - `execution_certificate`.
+    - `native_io_certificate`.
+    - `capability_report`.
+    - `package_release_report`.
+    - `doctor_report`.
+    - `support_bundle`.
+  - Stable diagnostic-code count: 22.
+  - Evidence commands:
+    - `python3 scripts/check_v1_api_schema_stability.py`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_v1_api_schema_stability python.tests.test_cli_client.ShardLoomClientTests.test_doctor_returns_v1_stable_no_probe_fields python.tests.test_cli_client.ShardLoomClientTests.test_support_bundle_redacts_note_and_keeps_effects_disabled python.tests.test_release_scripts.ReleaseScriptTests.test_v1_api_schema_stability_validator_passes_current_contracts`.
+    - `python3 -m py_compile scripts/check_v1_api_schema_stability.py scripts/check_release_readiness.py python/src/shardloom/client.py python/tests/test_v1_api_schema_stability.py python/tests/test_cli_client.py python/tests/test_release_scripts.py`.
+    - `cargo test -p shardloom-core agent_contract`.
+    - `cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`.
+    - `cargo test -p shardloom-cli --test agent_contract_pack_snapshots`.
+    - `cargo test -p shardloom-cli --bin shardloom command_registry::tests -- --nocapture`.
+    - `cargo test -p shardloom-cli --bin shardloom support_bundle`.
+    - `cargo test -p shardloom-cli --bin shardloom doctor_v1_fields_include_safe_no_probe_checks`.
+    - `cargo test -p shardloom-cli --bin shardloom agent_contract_pack_fields_include_no_probe_and_no_fallback`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`.
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `python3 scripts/check_user_surface_graduation_matrix.py`.
+    - `python3 scripts/run_python_test_shard.py --shard core`.
+    - `python3 -m compileall -q python/src python/tests scripts benchmarks/traditional_analytics examples`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts`.
+    - `cargo fmt --all -- --check`.
+    - `git diff --check`.
+    - `cargo clippy --workspace --all-targets -- -D warnings`.
+    - `cargo test --workspace --all-targets`.
+  - Claim boundary:
+    - May claim local v1 machine-readable schema contract evidence for the declared 12 stable
+      surfaces and side-effect-free local doctor/support-bundle command behavior.
+    - Does not authorize public package/release claims, package publication, release tags, signing,
+      production platform claims, performance claims, or broad API stability beyond the declared
+      local v1 schema surfaces.
+  - Fallback boundary:
+    - Doctor/support-bundle/schema validation remain side-effect-free and report
+      `runtime_execution=false`, `fallback_attempted=false`, and `external_engine_invoked=false`
+      where applicable.
+    - Public package identity, signing, checksum/SBOM publication grade, package-channel proof, and
+      human publication approval remain blocked until their release items close.
 - [x] Session label: PROD-V1-2A v1 API/schema stability contract foundation
   - Date: 2026-06-13
   - Source:
@@ -23,7 +104,7 @@ phase plan first.
     - RFC 0012 diagnostics/explain/doctor/capabilities.
     - RFC 0024 release engineering/API compatibility/packaging.
     - `docs/release/publication-api-schema-stability-gate.md`.
-  - Branch/PR: `codex/v1-api-schema-stability-contract`; PR pending for this session.
+  - Branch/PR: `codex/v1-api-schema-stability-contract`; PR #1215 merged.
   - Scope:
     - Added `docs/release/v1-api-schema-stability-matrix.json` with additive v1 compatibility,
       stable flat-field alias policy, no-publication flags, and no-fallback/no-external-engine
@@ -79,10 +160,10 @@ phase plan first.
   - Fallback boundary:
     - `runtime_execution=false`, `fallback_attempted=false`, and `external_engine_invoked=false`
       for schema validation and publication/readiness evidence.
-  - Residual `PROD-V1-2A` work:
+  - Follow-up status:
     - Doctor v1 checks, support bundle generation/redaction tests, Python accessor coverage, CLI
-      text/JSON stability tests, and publication/API/schema row closeout remain open in the phase
-      plan.
+      text/JSON stability tests, and local schema/API closeout were completed by the subsequent
+      `PROD-V1-2A doctor/support-bundle and v1 accessor closeout` ledger entry.
 - [x] Session label: PROD-V1-1D local output and sink runtime closure
   - Date: 2026-06-13
   - Source:
