@@ -7181,6 +7181,141 @@ class ReleaseScriptTests(unittest.TestCase):
             resolved.parent.mkdir(parents=True, exist_ok=True)
             resolved.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
+        write(
+            module.DEFAULT_MATRIX,
+            {
+                "schema_version": module.MATRIX_SCHEMA_VERSION,
+                "matrix_id": module.GATE_ID,
+                "status": "v1_correctness_scope_declared",
+                "correctness_claim_requires_report": True,
+                "external_engines_allowed_as_oracles_only": True,
+                "external_oracle_required_for_v1": False,
+                "public_release_claim_allowed": False,
+                "public_package_claim_allowed": False,
+                "performance_claim_allowed": False,
+                "production_claim_allowed": False,
+                "spark_replacement_claim_allowed": False,
+                "runtime_execution": False,
+                "publication_attempted": False,
+                "tag_created": False,
+                "package_upload_attempted": False,
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "report_inputs": [
+                    {
+                        "report_id": "golden_workflow",
+                        "path": "target/golden-workflow-report.json",
+                        "schema_version": "shardloom.golden_workflow_validation_report.v1",
+                        "required_status": "passed",
+                    },
+                    {
+                        "report_id": "admitted_semantics",
+                        "path": "target/admitted-semantics-matrix-report.json",
+                        "schema_version": "shardloom.admitted_semantics_matrix_report.v1",
+                        "required_status": "passed",
+                    },
+                    {
+                        "report_id": "front_door",
+                        "path": "target/v1-front-door-runtime-scope-report.json",
+                        "schema_version": (
+                            "shardloom.v1_front_door_runtime_scope_report.v1"
+                        ),
+                        "required_status": "passed",
+                    },
+                    {
+                        "report_id": "vortex_runtime",
+                        "path": "target/v1-vortex-runtime-scope-report.json",
+                        "schema_version": "shardloom.v1_vortex_runtime_scope_report.v1",
+                        "required_status": "passed",
+                    },
+                    {
+                        "report_id": "source_prepared_state",
+                        "path": "target/v1-source-prepared-state-scope-report.json",
+                        "schema_version": (
+                            "shardloom.v1_source_prepared_state_scope_report.v1"
+                        ),
+                        "required_status": "passed",
+                    },
+                    {
+                        "report_id": "local_output_sink",
+                        "path": "target/v1-local-output-sink-scope-report.json",
+                        "schema_version": (
+                            "shardloom.v1_local_output_sink_scope_report.v1"
+                        ),
+                        "required_status": "passed",
+                    },
+                ],
+                "expected_counts": {
+                    "front_door_supported_rows": (
+                        module.EXPECTED_FRONT_DOOR_SUPPORTED_ROWS
+                    ),
+                    "front_door_pending_rows": module.EXPECTED_FRONT_DOOR_PENDING_ROWS,
+                    "front_door_example_scenarios": len(
+                        module.EXPECTED_EXAMPLE_SCENARIOS
+                    ),
+                    "front_door_expected_error_scenarios": len(
+                        module.EXPECTED_ERROR_SCENARIOS
+                    ),
+                    "vortex_primitive_routes": module.EXPECTED_VORTEX_PRIMITIVE_ROUTES,
+                    "vortex_local_file_routes": module.EXPECTED_VORTEX_LOCAL_FILE_ROUTES,
+                    "source_input_formats": module.EXPECTED_SOURCE_INPUT_FORMATS,
+                    "source_prepared_routes": module.EXPECTED_SOURCE_PREPARED_ROUTE_IDS,
+                    "source_direct_routes": module.EXPECTED_SOURCE_DIRECT_ROUTE_IDS,
+                    "source_generated_routes": module.EXPECTED_SOURCE_GENERATED_ROUTE_IDS,
+                    "source_invalidation_cases": (
+                        module.EXPECTED_SOURCE_INVALIDATION_CASES
+                    ),
+                    "output_formats": module.EXPECTED_OUTPUT_FORMATS,
+                    "output_write_methods": module.EXPECTED_OUTPUT_WRITE_METHODS,
+                    "output_routes": module.EXPECTED_OUTPUT_ROUTE_IDS,
+                    "golden_workflows": len(module.EXPECTED_GOLDEN_WORKFLOWS),
+                    "golden_stage_count_min": module.EXPECTED_GOLDEN_STAGE_COUNT_MIN,
+                    "executable_fixtures": module.EXPECTED_EXECUTABLE_FIXTURES,
+                    "diagnostic_cases": module.EXPECTED_DIAGNOSTIC_CASES,
+                    "unsupported_diagnostics": module.EXPECTED_UNSUPPORTED_DIAGNOSTICS,
+                    "runtime_error_diagnostics": (
+                        module.EXPECTED_RUNTIME_ERROR_DIAGNOSTICS
+                    ),
+                    "invalid_shape_diagnostics": (
+                        module.EXPECTED_INVALID_SHAPE_DIAGNOSTICS
+                    ),
+                    "admitted_stage_count_min": module.EXPECTED_ADMITTED_STAGE_COUNT_MIN,
+                },
+                "front_door_example_scenario_ids": sorted(
+                    module.EXPECTED_EXAMPLE_SCENARIOS
+                ),
+                "front_door_expected_error_scenario_ids": sorted(
+                    module.EXPECTED_ERROR_SCENARIOS
+                ),
+                "golden_workflow_ids": sorted(module.EXPECTED_GOLDEN_WORKFLOWS),
+                "required_semantic_case_ids": sorted(module.REQUIRED_SEMANTIC_CASE_IDS),
+                "required_unsupported_case_ids": sorted(
+                    module.REQUIRED_UNSUPPORTED_CASE_IDS
+                ),
+                "residual_gap_dispositions": [
+                    {
+                        "gap_id": "broad_ansi_subquery_parity_beyond_admitted_v1_scope",
+                        "v1_closeout_status": "outside_declared_v1_scope",
+                        "reason": "fixture",
+                    },
+                    {
+                        "gap_id": "external_oracle_result_artifact_population",
+                        "v1_closeout_status": (
+                            "not_required_for_current_v1_correctness_claim"
+                        ),
+                        "reason": "fixture",
+                    },
+                    {
+                        "gap_id": "general_fuzz_beyond_seeded_property_lane",
+                        "v1_closeout_status": (
+                            "not_required_for_current_v1_correctness_claim"
+                        ),
+                        "reason": "fixture",
+                    },
+                ],
+            },
+        )
+
         unsupported_cases = sorted(
             case
             for case in module.REQUIRED_UNSUPPORTED_CASE_IDS
@@ -7395,6 +7530,31 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "admitted_semantics: missing report" in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_matrix_drift(self) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_matrix_drift_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            matrix_path = repo_root / module.DEFAULT_MATRIX
+            matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+            matrix["required_semantic_case_ids"].remove("decimal_arithmetic_projection")
+            matrix_path.write_text(json.dumps(matrix), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertEqual(report["matrix_status"], "failed")
+        self.assertTrue(
+            any(
+                "matrix required_semantic_case_ids mismatch" in blocker
                 for blocker in report["blockers"]
             ),
             report["blockers"],

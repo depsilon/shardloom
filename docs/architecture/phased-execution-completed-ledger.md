@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-2B v1 correctness/conformance aggregate gate
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-2B` in `docs/architecture/phased-execution-plan.md`.
+    - RFC 0015 correctness, semantics, differential testing, and fuzzing.
+    - `target/golden-workflow-report.json`.
+    - `target/admitted-semantics-matrix-report.json`.
+    - v1 front-door, Vortex runtime, source/prepared-state, and local output/sink scope reports.
+  - Branch/PR: `codex/v1-correctness-conformance-closure`; PR #1217 merged.
+  - Scope:
+    - Added `scripts/check_v1_correctness_conformance.py` as the fail-closed aggregate report for
+      PROD-V1-2B local correctness/conformance evidence.
+    - Required six upstream reports: golden workflow, admitted semantics, front-door runtime scope,
+      Vortex runtime scope, source/prepared-state scope, and local output/sink scope.
+    - Required 3 golden workflows, 9 golden stages, 103 executable admitted semantics fixtures,
+      24 diagnostic cases, 22 unsupported diagnostics, 1 runtime-error diagnostic, 1 invalid-shape
+      diagnostic, 129 admitted-semantics stages, 33 required semantic cases, and 10 required
+      unsupported/error cases.
+    - Required deterministic property-lane evidence and decoded-reference differential execution
+      evidence from the admitted semantics report.
+    - Wired the aggregate gate into release validation evidence, hard release readiness, CI drift
+      validation, GitHub Actions release-readiness artifacts, and release docs.
+    - Added release-script regression coverage for complete fixtures, missing required semantic
+      cases, and missing upstream report fail-closed behavior.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/check_v1_correctness_conformance.py scripts/check_release_readiness.py scripts/run_release_validation_evidence.py scripts/check_ci_gate_matrix.py python/tests/test_release_scripts.py`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_passes_complete_fixture python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_semantic_case python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_closed_when_report_missing`.
+    - `python3 scripts/check_golden_workflows.py`.
+    - `python3 scripts/check_admitted_semantics_matrix.py`.
+    - `python3 scripts/check_v1_front_door_runtime_scope.py`.
+    - `python3 scripts/check_v1_vortex_runtime_scope.py`.
+    - `python3 scripts/check_v1_source_prepared_state_scope.py`.
+    - `python3 scripts/check_v1_local_output_sink_scope.py`.
+    - `python3 scripts/check_v1_api_schema_stability.py`.
+    - `python3 scripts/check_v1_correctness_conformance.py`.
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+    - `PYTHONPATH=python/src python3 scripts/run_python_test_shard.py --shard release_scripts`.
+    - `git diff --check`.
+  - GitHub check evidence:
+    - PR #1217 merged only after all checks passed: Rust baseline, Rust feature matrix, Python test
+      shards and aggregate Python tests, Python/package smoke, dependency/security gates, release
+      runtime core, release package/governance, release user-surface, release benchmark claim,
+      release readiness reports, website/docs validation, CodeQL Python/Rust, CodeQL aggregate, and
+      Workers build.
+  - Generated report:
+    - `target/v1-correctness-conformance-report.json`.
+    - Local status: `passed`.
+    - Local `fallback_attempted=false`.
+    - Local `external_engine_invoked=false`.
+  - Claim boundary:
+    - May claim local v1 correctness/conformance evidence is aggregated and release-gated for the
+      declared current v1 scope.
+    - Does not authorize public release/package claims, production readiness, performance claims,
+      broad SQL/DataFrame parity, Spark replacement, or package publication.
+  - Residual work:
+    - Explicit v1 correctness matrix contract, broader fixture/digest/accessor coverage, general
+      fuzzing, docs-example replay coverage, and no-fallback negative tests remain open under
+      `PROD-V1-2B` until closed by subsequent evidence.
+  - Fallback boundary:
+    - Aggregate validation is local and report-only. External engines are allowed only as explicit
+      test oracles where separately approved and are never ShardLoom runtime fallback.
 - [x] Session label: PROD-V1-2A doctor/support-bundle and v1 accessor closeout
   - Date: 2026-06-13
   - Source:
