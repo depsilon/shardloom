@@ -17,6 +17,8 @@ Finished-product v1 scope is defined in
 from supported ShardLoom surfaces, not from broad external-engine replacement framing.
 The active v1 queue and feasibility firewall is tracked in
 [`docs/release/v1-inclusion-scope-matrix.md`](v1-inclusion-scope-matrix.md).
+The scoped local SQL/Python/DataFrame front-door runtime boundary is defined in
+[`docs/architecture/v1-front-door-runtime-scope.md`](../architecture/v1-front-door-runtime-scope.md).
 
 ## Claim Boundary
 
@@ -60,6 +62,7 @@ external_engine_invoked=false
 | `README.md` | Compact public entry point and support-posture summary. | This matrix plus `docs/architecture/compute-engine-flow-reference.md`. |
 | `docs/release/finished-product-scope.md` | Canonical v1 support boundary and allowed public claim language. | Phase plan plus per-claim evidence matrix. |
 | `docs/release/v1-inclusion-scope-matrix.md` | V1 required/candidate/deferred row classification and unsupported-surface firewall. | Phase plan plus known unsupported paths. |
+| `docs/architecture/v1-front-door-runtime-scope.md` | Scoped local v1 SQL/Python/DataFrame front-door boundary. | Python parity matrix, user route capability report, and local scenario runner. |
 | `docs/getting-started/install.md` | Source checkout and local install path. | This matrix plus package-channel readiness docs. |
 | `docs/getting-started/first-10-minutes.md` | Local proof walkthrough. | This matrix plus release dry-run proof docs. |
 | `docs/getting-started/examples.md` | Copyable scoped examples and blockers. | This matrix plus relevant capability docs. |

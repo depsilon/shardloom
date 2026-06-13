@@ -21,6 +21,12 @@ from check_public_claim_language import (
 from check_public_claim_language import build_report as build_public_claim_language_report
 from check_v1_inclusion_scope import SCHEMA_VERSION as V1_INCLUSION_SCOPE_SCHEMA_VERSION
 from check_v1_inclusion_scope import build_report as build_v1_inclusion_scope_report
+from check_v1_front_door_runtime_scope import (
+    SCHEMA_VERSION as V1_FRONT_DOOR_RUNTIME_SCOPE_SCHEMA_VERSION,
+)
+from check_v1_front_door_runtime_scope import (
+    build_report as build_v1_front_door_runtime_scope_report,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,6 +90,14 @@ PUBLIC_DOC_MARKERS = {
         "shardloom.v1_inclusion_scope_matrix.v1",
         "v1_inclusion_scope_required_rows_cannot_be_report_only=true",
         "v1_inclusion_scope_deferred_rows_require_unsupported_diagnostics=true",
+    ),
+    "docs/architecture/v1-front-door-runtime-scope.md": (
+        "shardloom.v1_front_door_runtime_scope.v1",
+        "ShardLoomContext.front_door_parity_matrix()",
+        "ShardLoomContext.user_route_capability_report()",
+        "runtime_execution=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
     ),
 }
 
@@ -158,6 +172,17 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             f"v1 inclusion scope: {blocker}"
             for blocker in v1_inclusion_scope_report.get("blockers", [])
         )
+    v1_front_door_runtime_scope_report = build_v1_front_door_runtime_scope_report(repo_root)
+    if (
+        v1_front_door_runtime_scope_report.get("schema_version")
+        != V1_FRONT_DOOR_RUNTIME_SCOPE_SCHEMA_VERSION
+    ):
+        blockers.append("v1 front-door runtime-scope report schema mismatch")
+    if v1_front_door_runtime_scope_report.get("status") != "passed":
+        blockers.extend(
+            f"v1 front-door runtime scope: {blocker}"
+            for blocker in v1_front_door_runtime_scope_report.get("blockers", [])
+        )
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -169,6 +194,11 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "public_claim_language_status": claim_language_report.get("status", "missing"),
         "v1_inclusion_scope_report": v1_inclusion_scope_report,
         "v1_inclusion_scope_status": v1_inclusion_scope_report.get("status", "missing"),
+        "v1_front_door_runtime_scope_report": v1_front_door_runtime_scope_report,
+        "v1_front_door_runtime_scope_status": v1_front_door_runtime_scope_report.get(
+            "status",
+            "missing",
+        ),
         "claim_gate_status": "not_claim_grade",
         "blockers": blockers,
         **fail_closed_fields(),

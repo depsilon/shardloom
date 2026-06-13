@@ -6087,7 +6087,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-1A` Scoped local front-door runtime closure.",
+            "`PROD-V1-1B` Native and prepared Vortex runtime closure for v1.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -7134,6 +7134,10 @@ class ReleaseScriptTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
+            commands["v1_front_door_runtime_scope_gate"],
+            ["/tool/python3.12", "scripts/check_v1_front_door_runtime_scope.py"],
+        )
+        self.assertEqual(
             commands["release_dry_run_proof"],
             [
                 "/tool/python3.12",
@@ -7604,6 +7608,14 @@ jobs:
             "check_v1_inclusion_scope_public_status_fixture",
         )
         self._write_v1_inclusion_scope_fixture(v1_module, repo_root)
+        v1_front_door_module = self._load_script_module(
+            "check_v1_front_door_runtime_scope.py",
+            "check_v1_front_door_runtime_scope_public_status_fixture",
+        )
+        self._write_v1_front_door_runtime_scope_fixture(
+            v1_front_door_module,
+            repo_root,
+        )
 
     def _write_public_claim_language_fixture(
         self,
@@ -7716,6 +7728,132 @@ jobs:
             existing = path.read_text(encoding="utf-8") if path.exists() else ""
             path.write_text(existing + text + "\n", encoding="utf-8")
 
+    def _write_v1_front_door_runtime_scope_fixture(
+        self,
+        module: object,
+        repo_root: Path,
+    ) -> None:
+        scenario_names = sorted(module.EXPECTED_EXAMPLE_SCENARIOS)
+        supported_rows = sorted(module.SUPPORTED_PARITY_ROWS)
+        pending_rows = sorted(module.BROAD_PENDING_PARITY_ROWS)
+
+        for rel_path, markers in {
+            module.DOC_PATH.as_posix(): module.DOC_MARKERS,
+            **module.PUBLIC_DOC_MARKERS,
+        }.items():
+            path = repo_root / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            existing = path.read_text(encoding="utf-8") if path.exists() else ""
+            path.write_text(existing + "\n".join(markers) + "\n", encoding="utf-8")
+
+        scenario_path = repo_root / module.SCENARIO_SUPPORT_PATH
+        scenario_path.parent.mkdir(parents=True, exist_ok=True)
+        scenario_path.write_text(
+            textwrap.dedent(
+                f'''
+                from __future__ import annotations
+
+                from typing import Any, Callable, Sequence
+
+                EXPECTED_ERROR_SCENARIOS = frozenset({{"malformed_timestamp_cast"}})
+                profile_order: Sequence[str] = ("release", "debug")
+                fallback_attempted = False
+                external_engine_invoked = False
+                timing_components = {{}}
+                python_wall_millis = 0.0
+
+
+                def scenario_actions(ctx: Any, sl: Any) -> list[tuple[str, Callable[[], Any]]]:
+                    return [
+                        {", ".join(f'("{name}", lambda: None)' for name in scenario_names)}
+                    ]
+                '''
+            ),
+            encoding="utf-8",
+        )
+
+        package_dir = repo_root / "python" / "src" / "shardloom"
+        package_dir.mkdir(parents=True, exist_ok=True)
+        package_dir.joinpath("__init__.py").write_text(
+            textwrap.dedent(
+                f'''
+                from types import SimpleNamespace
+
+
+                _SUPPORTED_ROWS = {supported_rows!r}
+                _PENDING_ROWS = {pending_rows!r}
+
+
+                class ShardLoomContext:
+                    def __init__(self, client=None):
+                        self.client = client
+
+                    def front_door_parity_matrix(self):
+                        rows = [
+                            SimpleNamespace(
+                                row_id=row_id,
+                                support_status="runtime_supported",
+                                runtime_gap_status="admitted_scope",
+                                parity_status="equivalent_admitted_scope",
+                                shared_runtime_path="scoped_local_front_door",
+                                blocker_id=None,
+                                fallback_attempted=False,
+                                external_engine_invoked=False,
+                                claim_boundary="scoped_v1_front_door_only",
+                            )
+                            for row_id in _SUPPORTED_ROWS
+                        ]
+                        rows.extend(
+                            SimpleNamespace(
+                                row_id=row_id,
+                                support_status="pending_broad_scope",
+                                runtime_gap_status="pending_precise_scope",
+                                parity_status="front_door_gap",
+                                shared_runtime_path="not_admitted_for_broad_scope",
+                                blocker_id=f"v1.front_door.{{row_id}}",
+                                fallback_attempted=False,
+                                external_engine_invoked=False,
+                                claim_boundary="outside_scoped_v1_front_door",
+                            )
+                            for row_id in _PENDING_ROWS
+                        )
+                        return SimpleNamespace(
+                            rows=tuple(rows),
+                            scoped_local_front_door_parity_supported=True,
+                            flexible_anything_claim_allowed=False,
+                            performance_equivalence_claim_allowed=False,
+                            all_no_fallback_no_external_engine=True,
+                        )
+
+                    def user_route_capability_report(self):
+                        rows = (
+                            SimpleNamespace(
+                                front_door_id="python_prepare_vortex",
+                                route_runtime_status="scoped_runtime_supported",
+                                fallback_attempted=False,
+                                external_engine_invoked=False,
+                                public_user_surface="ctx.prepare_vortex / prepare_vortex",
+                                claim_boundary="scoped_v1_front_door_only",
+                            ),
+                            SimpleNamespace(
+                                front_door_id="sql_prepare_vortex",
+                                route_runtime_status="scoped_runtime_supported",
+                                fallback_attempted=False,
+                                external_engine_invoked=False,
+                                public_user_surface="sql prepare_vortex",
+                                claim_boundary="scoped_v1_front_door_only",
+                            ),
+                        )
+                        return SimpleNamespace(
+                            public_front_door_route_rows=rows,
+                            all_no_fallback_no_external_engine=True,
+                            unsupported_local_benchmark_route_ids=(),
+                        )
+                '''
+            ),
+            encoding="utf-8",
+        )
+
     def test_public_status_docs_validator_accepts_required_markers(self) -> None:
         module = self._load_script_module(
             "check_public_status_docs.py",
@@ -7739,6 +7877,7 @@ jobs:
         self.assertFalse(report["external_engine_invoked"])
         self.assertEqual(report["public_claim_language_status"], "passed")
         self.assertEqual(report["v1_inclusion_scope_status"], "passed")
+        self.assertEqual(report["v1_front_door_runtime_scope_status"], "passed")
 
     def test_public_status_docs_validator_blocks_missing_marker(self) -> None:
         module = self._load_script_module(

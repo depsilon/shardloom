@@ -247,6 +247,10 @@ def required_validation_commands(
             [python_executable, "scripts/check_sql_python_dataframe_parity.py"],
         ),
         (
+            "v1_front_door_runtime_scope_gate",
+            [python_executable, "scripts/check_v1_front_door_runtime_scope.py"],
+        ),
+        (
             "user_surface_runtime_gap_inventory",
             [python_executable, "scripts/check_user_surface_runtime_gap_inventory.py"],
         ),

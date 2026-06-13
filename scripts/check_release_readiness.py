@@ -122,6 +122,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/sql-python-dataframe-parity-gate.json"),
     )
     parser.add_argument(
+        "--v1-front-door-runtime-scope-report",
+        type=Path,
+        default=Path("target/v1-front-door-runtime-scope-report.json"),
+    )
+    parser.add_argument(
         "--user-surface-runtime-gap-inventory-report",
         type=Path,
         default=Path("target/user-surface-runtime-gap-inventory.json"),
@@ -409,6 +414,10 @@ def main() -> int:
     sql_python_dataframe_parity_report_path = resolve(
         repo_root,
         args.sql_python_dataframe_parity_report,
+    )
+    v1_front_door_runtime_scope_report_path = resolve(
+        repo_root,
+        args.v1_front_door_runtime_scope_report,
     )
     user_surface_runtime_gap_inventory_path = resolve(
         repo_root,
@@ -1346,6 +1355,70 @@ def main() -> int:
         )
     )
 
+    v1_front_door_runtime_scope = load_json(v1_front_door_runtime_scope_report_path)
+    v1_front_door_blockers: list[str] = []
+    if v1_front_door_runtime_scope is None:
+        v1_front_door_blockers.append("missing v1 front-door runtime scope report")
+    else:
+        if (
+            v1_front_door_runtime_scope.get("schema_version")
+            != "shardloom.v1_front_door_runtime_scope_report.v1"
+        ):
+            v1_front_door_blockers.append(
+                "v1 front-door runtime scope schema_version="
+                + str(v1_front_door_runtime_scope.get("schema_version", "missing"))
+            )
+        if v1_front_door_runtime_scope.get("status") != "passed":
+            v1_front_door_blockers.extend(
+                v1_front_door_runtime_scope.get(
+                    "blockers", ["v1 front-door runtime scope gate blocked"]
+                )
+            )
+        if (
+            v1_front_door_runtime_scope.get("scoped_local_front_door_parity_supported")
+            is not True
+        ):
+            v1_front_door_blockers.append(
+                "v1 front-door scoped_local_front_door_parity_supported must be true"
+            )
+        if v1_front_door_runtime_scope.get("all_no_fallback_no_external_engine") is not True:
+            v1_front_door_blockers.append(
+                "v1 front-door all_no_fallback_no_external_engine must be true"
+            )
+        if set(v1_front_door_runtime_scope.get("example_scenario_ids", [])) != {
+            "selective_filter",
+            "filter_projection_limit",
+            "group_by_aggregation",
+            "hash_join",
+            "global_top_n",
+            "clean_cast_filter_write",
+            "malformed_timestamp_cast",
+            "null_heavy_aggregate",
+            "nested_json_field_scan",
+        }:
+            v1_front_door_blockers.append("v1 front-door example scenario coverage mismatch")
+        for field in [
+            "flexible_anything_claim_allowed",
+            "performance_equivalence_claim_allowed",
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+        ]:
+            if v1_front_door_runtime_scope.get(field) is not False:
+                v1_front_door_blockers.append(f"v1 front-door {field} must be false")
+        if v1_front_door_runtime_scope.get("claim_gate_status") != "not_claim_grade":
+            v1_front_door_blockers.append(
+                "v1 front-door claim_gate_status="
+                + str(v1_front_door_runtime_scope.get("claim_gate_status", "missing"))
+            )
+    checks.append(
+        check(
+            "v1_front_door_runtime_scope_gate",
+            str(args.v1_front_door_runtime_scope_report).replace("\\", "/"),
+            v1_front_door_blockers,
+        )
+    )
+
     user_surface_runtime_gap_inventory = load_json(user_surface_runtime_gap_inventory_path)
     user_surface_runtime_gap_blockers: list[str] = []
     if user_surface_runtime_gap_inventory is None:
@@ -1718,6 +1791,7 @@ def main() -> int:
         "python scripts/check_production_usability_gate.py",
         "python scripts/check_python_user_surface_completion.py",
         "python scripts/check_sql_python_dataframe_parity.py",
+        "python scripts/check_v1_front_door_runtime_scope.py",
         "python scripts/check_user_surface_runtime_gap_inventory.py",
         "python scripts/check_user_surface_graduation_matrix.py",
         "python scripts/check_runtime_gap_family_burn_down.py",
@@ -1772,6 +1846,9 @@ def main() -> int:
         ).replace("\\", "/"),
         "front_door_benchmark_publication_report_ref": str(
             args.front_door_benchmark_publication_report
+        ).replace("\\", "/"),
+        "v1_front_door_runtime_scope_report_ref": str(
+            args.v1_front_door_runtime_scope_report
         ).replace("\\", "/"),
         "user_surface_runtime_gap_inventory_ref": str(
             args.user_surface_runtime_gap_inventory_report

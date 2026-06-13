@@ -36,6 +36,22 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(report["schema_version"], "shardloom.user_route_capability_report.v1")
         self.assertGreaterEqual(report["route_count"], 15)
+        self.assertEqual(
+            report["v1_scope_document"],
+            "docs/architecture/v1-front-door-runtime-scope.md",
+        )
+        self.assertIn("selective_filter", report["v1_example_scenario_ids"])
+        self.assertEqual(
+            report["v1_expected_error_scenario_ids"],
+            ["malformed_timestamp_cast"],
+        )
+        self.assertEqual(
+            set(report["v1_public_front_door_ids"]),
+            {
+                "local_source_auto_prepare_vortex_front_door",
+                "generated_source_prepare_vortex_front_door",
+            },
+        )
         self.assertEqual(report["unsupported_local_benchmark_route_ids"], [])
         self.assertTrue(report["all_no_fallback_no_external_engine"])
         self.assertFalse(report["flexible_anything_claim_allowed"])
