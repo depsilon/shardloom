@@ -6087,7 +6087,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-1C` Source normalization and prepared-state reuse closure.",
+            "`PROD-V1-1D` Local output and sink runtime closure.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -7113,6 +7113,10 @@ class ReleaseScriptTests(unittest.TestCase):
             ["/tool/python3.12", "scripts/check_benchmark_constitution.py"],
         )
         self.assertEqual(
+            commands["v1_source_prepared_state_scope_gate"],
+            ["/tool/python3.12", "scripts/check_v1_source_prepared_state_scope.py"],
+        )
+        self.assertEqual(
             commands["benchmark_artifact_completeness"],
             [
                 "/tool/python3.12",
@@ -7621,6 +7625,14 @@ jobs:
             "check_v1_vortex_runtime_scope_public_status_fixture",
         )
         self._write_v1_vortex_runtime_scope_fixture(v1_vortex_module, repo_root)
+        v1_source_prepared_module = self._load_script_module(
+            "check_v1_source_prepared_state_scope.py",
+            "check_v1_source_prepared_state_scope_public_status_fixture",
+        )
+        self._write_v1_source_prepared_state_scope_fixture(
+            v1_source_prepared_module,
+            repo_root,
+        )
 
     def _write_public_claim_language_fixture(
         self,
@@ -8065,6 +8077,309 @@ jobs:
             encoding="utf-8",
         )
 
+    def _write_v1_source_prepared_state_scope_fixture(
+        self,
+        module: object,
+        repo_root: Path,
+    ) -> None:
+        scenario_ids = [
+            "selective_filter",
+            "filter_projection_limit",
+            "group_by_aggregation",
+            "multi_key_group_by",
+            "join_aggregate",
+            "sort_top_k",
+            "row_number_window",
+            "top_n_per_group",
+            "clean_cast_filter_write",
+            "partition_pruning",
+            "many_small_files_scan",
+            "null_heavy_aggregate",
+            "high_cardinality_string_group_distinct",
+            "nested_json_field_scan",
+            "small_change_over_large_base",
+        ]
+        invalidation_cases = [
+            "cold_prepare_no_manifest",
+            "warm_reuse_manifest_match",
+            "source_changed",
+            "artifact_changed",
+            "schema_changed",
+            "policy_changed",
+            "version_changed",
+            "missing_artifact",
+            "corrupted_manifest",
+        ]
+        required_fields = [
+            "source_state_id",
+            "source_state_digest",
+            "source_state_fingerprint",
+            "source_schema_fingerprint",
+            "source_parse_plan_id",
+            "source_split_manifest_id",
+            "prepared_state_id",
+            "prepared_state_digest",
+            "prepared_state_reuse_hit",
+            "prepared_state_reuse_reason",
+            "prepared_state_reuse_manifest_digest",
+            "prepared_state_invalidation_reason",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]
+        fixture_paths = [
+            "docs/architecture/fixtures/v1-source-prepared-state/source-state-golden.json",
+            "docs/architecture/fixtures/v1-source-prepared-state/vortex-prepared-state-golden.json",
+            "docs/architecture/fixtures/v1-source-prepared-state/reuse-invalidation-matrix.json",
+        ]
+
+        for rel_path, markers in {
+            module.DOC_PATH.as_posix(): module.DOC_MARKERS,
+            **module.PUBLIC_DOC_MARKERS,
+        }.items():
+            path = repo_root / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            existing = path.read_text(encoding="utf-8") if path.exists() else ""
+            path.write_text(existing + "\n".join(markers) + "\n", encoding="utf-8")
+
+        for rel_path in fixture_paths[:2]:
+            path = repo_root / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "fixture.v1",
+                        "scope_document": module.DOC_PATH.as_posix(),
+                        "claim_gate_status": "not_claim_grade",
+                        "fallback_attempted": False,
+                        "external_engine_invoked": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+        matrix_path = repo_root / fixture_paths[2]
+        matrix_path.parent.mkdir(parents=True, exist_ok=True)
+        matrix_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": (
+                        "shardloom.v1_source_prepared_state_reuse_invalidation_matrix.v1"
+                    ),
+                    "scope_document": module.DOC_PATH.as_posix(),
+                    "cases": [
+                        {
+                            "case_id": case_id,
+                            "reuse_hit": case_id == "warm_reuse_manifest_match",
+                            "reuse_reason": (
+                                "manifest_fingerprints_match"
+                                if case_id == "warm_reuse_manifest_match"
+                                else case_id
+                            ),
+                            "invalidation_reason": (
+                                "none"
+                                if case_id == "warm_reuse_manifest_match"
+                                else case_id
+                            ),
+                        }
+                        for case_id in invalidation_cases
+                    ],
+                    "claim_gate_status": "not_claim_grade",
+                    "fallback_attempted": False,
+                    "external_engine_invoked": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        benchmark_path = repo_root / module.LATEST_BENCHMARK_ARTIFACT
+        benchmark_path.parent.mkdir(parents=True, exist_ok=True)
+        benchmark_path.write_text(
+            json.dumps(
+                {
+                    "published_benchmark_rows": [
+                        {
+                            "engine": "shardloom-prepared-vortex",
+                            "scenario_id": scenario_id,
+                            "route_lane_id": "warm_prepared_query",
+                            **{
+                                field: (
+                                    False
+                                    if field
+                                    in {"fallback_attempted", "external_engine_invoked"}
+                                    else f"{field}:{scenario_id}"
+                                )
+                                for field in required_fields
+                            },
+                        }
+                        for scenario_id in scenario_ids
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        package_init = repo_root / "python" / "src" / "shardloom" / "__init__.py"
+        existing = package_init.read_text(encoding="utf-8")
+        package_init.write_text(
+            existing
+            + textwrap.dedent(
+                f'''
+
+                _V1_SOURCE_PREPARED_SCENARIO_IDS = {tuple(scenario_ids)!r}
+                _V1_SOURCE_PREPARED_INVALIDATION_CASES = {tuple(invalidation_cases)!r}
+                _V1_SOURCE_PREPARED_REQUIRED_FIELDS = {tuple(required_fields)!r}
+                _V1_SOURCE_PREPARED_FIXTURES = {tuple(fixture_paths)!r}
+
+
+                def _source_prepared_row(route_id, scope, *, scenario_id=None):
+                    return SimpleNamespace(
+                        route_id=route_id,
+                        route_display_name=route_id,
+                        scenario_id=scenario_id or route_id,
+                        scenario_name=scenario_id or route_id,
+                        start_state="raw_compat_source",
+                        vortex_normalization_point=(
+                            "local compatibility source -> SourceState -> "
+                            "no persistent VortexPreparedState"
+                            if scope == "not_applicable_no_prepared_state"
+                            else "SourceState -> vortex_ingest -> VortexPreparedState"
+                        ),
+                        source_route="UniversalIngress -> SourceState",
+                        preparation_route=(
+                            "direct_compatibility_transient_no_persistent_preparation"
+                            if scope == "not_applicable_no_prepared_state"
+                            else "vortex_ingest_prepare_once"
+                        ),
+                        execution_mode="prepared_vortex",
+                        selected_execution_mode="prepared_vortex",
+                        output_route="bounded report",
+                        evidence_route="execution certificate and Native I/O evidence",
+                        materialization_decode_boundary="bounded report",
+                        source_state_fingerprint="sha256:source",
+                        source_schema_fingerprint="sha256:schema",
+                        source_parse_plan_id="parse-plan://fixture",
+                        source_split_manifest_id="split-manifest://fixture",
+                        prepared_state_fingerprint="sha256:prepared",
+                        prepared_state_reuse_scope=scope,
+                        prepared_state_reuse_manifest_path=(
+                            "target/.shardloom/prepared-state-reuse.manifest"
+                            if scope == "artifact_adjacent_manifest_local_vortex_artifacts"
+                            else "target/.shardloom/prepared-vortex-reuse-manifest.json"
+                        ),
+                        prepared_state_reuse_policy=(
+                            "artifact_adjacent_local_prepared_state_reuse.v1"
+                            if scope == "artifact_adjacent_manifest_local_vortex_artifacts"
+                            else "shardloom.python.prepared_vortex_reuse_manifest.v1"
+                        ),
+                        prepared_state_reuse_hit=True,
+                        prepared_state_reuse_reason="manifest_fingerprints_match",
+                        prepared_state_reuse_manifest_digest="sha256:manifest",
+                        prepared_state_invalidation_reason="none",
+                        route_runtime_status="scoped_runtime_supported",
+                        fallback_attempted=False,
+                        external_engine_invoked=False,
+                        required_evidence=("execution_certificate", "native_io_certificate"),
+                        claim_gate_status="not_claim_grade",
+                        claim_boundary="scoped source/prepared-state fixture",
+                    )
+
+
+                def _v1_source_prepared_scope_report(self):
+                    prepared_routes = (
+                        "local_file_cold_certified_route",
+                        "local_file_prepare_once_first_query",
+                        "local_file_prepare_once_batch",
+                        "prepared_vortex_warm_query",
+                    )
+                    prepared_user = tuple(
+                        _source_prepared_row(
+                            route_id,
+                            "explicit_prepared_state_input"
+                            if route_id == "prepared_vortex_warm_query"
+                            else "workspace_manifest_local_vortex_artifacts",
+                        )
+                        for route_id in prepared_routes
+                    )
+                    direct_user = (
+                        _source_prepared_row(
+                            "local_file_direct_transient_route",
+                            "not_applicable_no_prepared_state",
+                        ),
+                    )
+                    generated_user = (
+                        _source_prepared_row(
+                            "generated_rows_local_output",
+                            "artifact_adjacent_manifest_local_vortex_artifacts",
+                        ),
+                    )
+                    prepared_local = tuple(
+                        _source_prepared_row(
+                            "local_file_prepare_once_first_query",
+                            "workspace_manifest_local_vortex_artifacts",
+                            scenario_id=scenario_id,
+                        )
+                        for scenario_id in _V1_SOURCE_PREPARED_SCENARIO_IDS
+                    )
+                    direct_local = tuple(
+                        _source_prepared_row(
+                            "local_file_direct_transient_route",
+                            "not_applicable_no_prepared_state",
+                            scenario_id=scenario_id,
+                        )
+                        for scenario_id in _V1_SOURCE_PREPARED_SCENARIO_IDS
+                    )
+                    return SimpleNamespace(
+                        schema_version="shardloom.v1_source_prepared_state_scope.v1",
+                        report_id="prod-v1-1c.source_prepared_state_scope",
+                        scope_document="docs/architecture/v1-source-prepared-state-scope.md",
+                        canonical_route=(
+                            "UniversalIngress -> SourceState -> vortex_ingest -> "
+                            "VortexPreparedState -> prepared_vortex"
+                        ),
+                        direct_transient_route=(
+                            "UniversalIngress -> SourceState -> direct_compatibility_transient"
+                        ),
+                        supported_input_formats=("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"),
+                        prepared_route_ids=prepared_routes,
+                        direct_transient_route_ids=("local_file_direct_transient_route",),
+                        generated_route_ids=("generated_rows_local_output",),
+                        invalidation_case_ids=_V1_SOURCE_PREPARED_INVALIDATION_CASES,
+                        golden_fixture_paths=_V1_SOURCE_PREPARED_FIXTURES,
+                        required_runtime_fields=_V1_SOURCE_PREPARED_REQUIRED_FIELDS,
+                        unsupported_boundary_ids=(
+                            "global_hidden_cache",
+                            "external_cache_service",
+                            "object_store_prepared_state_reuse",
+                            "table_catalog_prepared_state_reuse",
+                            "broad_non_local_preparation",
+                        ),
+                        prepared_user_route_rows=prepared_user,
+                        direct_transient_user_route_rows=direct_user,
+                        generated_user_route_rows=generated_user,
+                        prepared_local_file_rows=prepared_local,
+                        direct_transient_local_file_rows=direct_local,
+                        local_file_routes=SimpleNamespace(
+                            scenario_ids=_V1_SOURCE_PREPARED_SCENARIO_IDS
+                        ),
+                        all_no_fallback_no_external_engine=True,
+                        all_prepared_routes_expose_reuse_contract=True,
+                        all_generated_routes_expose_artifact_adjacent_reuse=True,
+                        all_direct_transient_routes_are_labeled_non_persistent=True,
+                        all_local_file_prepared_rows_expose_source_and_reuse_evidence=True,
+                        v1_scope_ready=True,
+                        claim_gate_status="not_claim_grade",
+                        performance_claim_allowed=False,
+                        production_claim_allowed=False,
+                        spark_replacement_claim_allowed=False,
+                    )
+
+
+                ShardLoomContext.source_prepared_state_scope_report = (
+                    _v1_source_prepared_scope_report
+                )
+                '''
+            ),
+            encoding="utf-8",
+        )
+
     def test_public_status_docs_validator_accepts_required_markers(self) -> None:
         module = self._load_script_module(
             "check_public_status_docs.py",
@@ -8090,6 +8405,7 @@ jobs:
         self.assertEqual(report["v1_inclusion_scope_status"], "passed")
         self.assertEqual(report["v1_front_door_runtime_scope_status"], "passed")
         self.assertEqual(report["v1_vortex_runtime_scope_status"], "passed")
+        self.assertEqual(report["v1_source_prepared_state_scope_status"], "passed")
 
     def test_public_status_docs_validator_blocks_missing_marker(self) -> None:
         module = self._load_script_module(

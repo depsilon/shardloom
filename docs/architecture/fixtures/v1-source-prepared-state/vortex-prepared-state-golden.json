@@ -1,0 +1,24 @@
+{
+  "schema_version": "shardloom.v1_vortex_prepared_state_golden.v1",
+  "fixture_id": "v1_vortex_prepared_state_golden.local_csv_fact_dim",
+  "scope_document": "docs/architecture/v1-source-prepared-state-scope.md",
+  "canonical_route": "UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+  "prepared_state": {
+    "prepared_state_id": "vortex-prepared-state:local-csv:fact-dim:v1",
+    "prepared_state_digest": "sha256:89f7123d7576fb3142c8e9f8f26d3fe6ddf10ecf5c71924930f96d9b0bf8db76",
+    "prepared_state_source_state_id": "source-state:local-csv:fact-dim:v1",
+    "prepared_state_source_state_digest": "sha256:4bb3ac10b94f5874a97f02f70a3f27e5981ef8de54172db93b92e1847c1e5e00",
+    "vortex_artifact_ref": "target/.shardloom/prepared/fact.vortex",
+    "vortex_artifact_digest": "sha256:prepared-vortex-artifact-fact-dim-v1",
+    "prepared_state_reuse_scope": "workspace_manifest_local_vortex_artifacts",
+    "prepared_state_reuse_manifest_path": "target/.shardloom/prepared/.shardloom/prepared-vortex-reuse-manifest.json",
+    "prepared_state_reuse_policy": "shardloom.python.prepared_vortex_reuse_manifest.v1",
+    "prepared_state_reuse_hit": true,
+    "prepared_state_reuse_reason": "manifest_fingerprints_match",
+    "prepared_state_invalidation_reason": "none"
+  },
+  "native_io_certificate_status": "scoped_local_fixture",
+  "claim_gate_status": "not_claim_grade",
+  "fallback_attempted": false,
+  "external_engine_invoked": false
+}

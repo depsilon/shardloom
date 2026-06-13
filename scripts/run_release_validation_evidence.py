@@ -255,6 +255,10 @@ def required_validation_commands(
             [python_executable, "scripts/check_v1_vortex_runtime_scope.py"],
         ),
         (
+            "v1_source_prepared_state_scope_gate",
+            [python_executable, "scripts/check_v1_source_prepared_state_scope.py"],
+        ),
+        (
             "user_surface_runtime_gap_inventory",
             [python_executable, "scripts/check_user_surface_runtime_gap_inventory.py"],
         ),

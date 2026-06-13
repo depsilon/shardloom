@@ -1,0 +1,64 @@
+{
+  "schema_version": "shardloom.v1_source_prepared_state_reuse_invalidation_matrix.v1",
+  "scope_document": "docs/architecture/v1-source-prepared-state-scope.md",
+  "canonical_route": "UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+  "cases": [
+    {
+      "case_id": "cold_prepare_no_manifest",
+      "reuse_hit": false,
+      "reuse_reason": "no_reuse_manifest",
+      "invalidation_reason": "no_reuse_manifest"
+    },
+    {
+      "case_id": "warm_reuse_manifest_match",
+      "reuse_hit": true,
+      "reuse_reason": "manifest_fingerprints_match",
+      "invalidation_reason": "none"
+    },
+    {
+      "case_id": "source_changed",
+      "reuse_hit": false,
+      "reuse_reason": "fact_input_fingerprint_changed",
+      "invalidation_reason": "fact_input_fingerprint_changed"
+    },
+    {
+      "case_id": "artifact_changed",
+      "reuse_hit": false,
+      "reuse_reason": "fact_prepared_artifact_fingerprint_changed",
+      "invalidation_reason": "fact_prepared_artifact_fingerprint_changed"
+    },
+    {
+      "case_id": "schema_changed",
+      "reuse_hit": false,
+      "reuse_reason": "source_admission_packet_changed",
+      "invalidation_reason": "source_admission_packet_changed"
+    },
+    {
+      "case_id": "policy_changed",
+      "reuse_hit": false,
+      "reuse_reason": "prepare_policy_changed",
+      "invalidation_reason": "prepare_policy_changed"
+    },
+    {
+      "case_id": "version_changed",
+      "reuse_hit": false,
+      "reuse_reason": "reuse_manifest_schema_mismatch",
+      "invalidation_reason": "reuse_manifest_schema_mismatch"
+    },
+    {
+      "case_id": "missing_artifact",
+      "reuse_hit": false,
+      "reuse_reason": "fact_prepared_artifact_manifest_missing",
+      "invalidation_reason": "fact_prepared_artifact_manifest_missing"
+    },
+    {
+      "case_id": "corrupted_manifest",
+      "reuse_hit": false,
+      "reuse_reason": "reuse_manifest_unreadable",
+      "invalidation_reason": "reuse_manifest_unreadable:JSONDecodeError"
+    }
+  ],
+  "claim_gate_status": "not_claim_grade",
+  "fallback_attempted": false,
+  "external_engine_invoked": false
+}

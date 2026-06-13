@@ -299,6 +299,8 @@ jobs:
         run: python scripts/check_v1_front_door_runtime_scope.py
       - name: V1 Vortex runtime scope gate
         run: python scripts/check_v1_vortex_runtime_scope.py
+      - name: V1 SourceState/prepared-state scope gate
+        run: python scripts/check_v1_source_prepared_state_scope.py
       - name: User-surface runtime gap inventory
         run: python scripts/check_user_surface_runtime_gap_inventory.py
       - name: User-surface graduation matrix
@@ -316,6 +318,7 @@ jobs:
             target/sql-python-dataframe-parity-gate.json
             target/v1-front-door-runtime-scope-report.json
             target/v1-vortex-runtime-scope-report.json
+            target/v1-source-prepared-state-scope-report.json
             target/user-surface-runtime-gap-inventory.json
             target/user-surface-graduation-matrix.json
             target/runtime-gap-family-burn-down.json
@@ -464,6 +467,7 @@ jobs:
           test -f target/sql-python-dataframe-parity-gate.json
           test -f target/v1-front-door-runtime-scope-report.json
           test -f target/v1-vortex-runtime-scope-report.json
+          test -f target/v1-source-prepared-state-scope-report.json
           test -f target/user-surface-runtime-gap-inventory.json
           test -f target/user-surface-graduation-matrix.json
           test -f target/runtime-gap-family-burn-down.json
@@ -507,6 +511,7 @@ jobs:
             target/sql-python-dataframe-parity-gate.json
             target/v1-front-door-runtime-scope-report.json
             target/v1-vortex-runtime-scope-report.json
+            target/v1-source-prepared-state-scope-report.json
             target/user-surface-runtime-gap-inventory.json
             target/user-surface-graduation-matrix.json
             target/runtime-gap-family-burn-down.json

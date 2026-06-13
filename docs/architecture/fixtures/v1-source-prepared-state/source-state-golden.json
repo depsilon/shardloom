@@ -1,0 +1,24 @@
+{
+  "schema_version": "shardloom.v1_source_state_golden.v1",
+  "fixture_id": "v1_source_state_golden.local_csv_fact_dim",
+  "scope_document": "docs/architecture/v1-source-prepared-state-scope.md",
+  "canonical_route": "UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+  "source_state": {
+    "source_state_id": "source-state:local-csv:fact-dim:v1",
+    "source_state_digest": "sha256:4bb3ac10b94f5874a97f02f70a3f27e5981ef8de54172db93b92e1847c1e5e00",
+    "source_state_fingerprint": "sha256:source-content-fact-dim-v1",
+    "source_schema_fingerprint": "sha256:source-schema-fact-dim-v1",
+    "source_parse_plan_id": "parse-plan:csv:flat-scalar:v1",
+    "source_split_manifest_id": "split-manifest:local-whole-file:fact-dim:v1",
+    "source_format": "csv",
+    "source_location_scope": "local_filesystem",
+    "row_count_known": true,
+    "file_count": 2,
+    "source_state_reuse_allowed": true,
+    "source_state_reuse_hit": false,
+    "source_state_reuse_reason": "cold_prepare_no_manifest"
+  },
+  "claim_gate_status": "not_claim_grade",
+  "fallback_attempted": false,
+  "external_engine_invoked": false
+}

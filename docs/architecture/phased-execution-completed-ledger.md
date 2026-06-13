@@ -16,6 +16,97 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-1C Source normalization and prepared-state reuse closure
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-1C` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/universal-input-contract.md`.
+    - `docs/architecture/v1-source-prepared-state-scope.md`.
+    - `ShardLoomContext.source_prepared_state_scope_report()`.
+    - `ShardLoomContext.user_route_capability_report()`.
+    - `ShardLoomContext.local_file_benchmark_route_report()`.
+  - Branch/PR: `codex/v1-source-prepared-state-scope`; publication pending for this session.
+  - Scope:
+    - Added `docs/architecture/v1-source-prepared-state-scope.md` as the canonical v1
+      SourceState and VortexPreparedState reuse boundary.
+    - Added `SourcePreparedStateScopeReport` and exported v1 source/prepared constants from the
+      Python context/package surface.
+    - Added `scripts/check_v1_source_prepared_state_scope.py` and wired it into public-status docs,
+      release validation evidence, hard release readiness, GitHub Actions, and the CI gate matrix.
+    - Added golden fixtures for SourceState, VortexPreparedState, and the reuse/invalidation
+      matrix.
+    - Updated README, Python README, public status docs, v1 inclusion matrix, and benchmark page
+      source to link the v1 SourceState/prepared-state boundary.
+    - Added focused unit coverage for the scope validator, context report, public-status fixture
+      integration, and the prepared-route reuse/invalidation matrix.
+  - Canonical route:
+    - `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex`.
+  - Direct transient route:
+    - `UniversalIngress -> SourceState -> direct_compatibility_transient`.
+  - Scoped v1 local compatibility formats:
+    - `csv`.
+    - `jsonl`.
+    - `parquet`.
+    - `arrow-ipc`.
+    - `avro`.
+    - `orc`.
+  - Prepared route ids:
+    - `local_file_cold_certified_route`.
+    - `local_file_prepare_once_first_query`.
+    - `local_file_prepare_once_batch`.
+    - `prepared_vortex_warm_query`.
+  - Direct/generated route ids:
+    - `local_file_direct_transient_route`.
+    - `generated_rows_local_output`.
+  - Golden fixture refs:
+    - `docs/architecture/fixtures/v1-source-prepared-state/source-state-golden.json`.
+    - `docs/architecture/fixtures/v1-source-prepared-state/vortex-prepared-state-golden.json`.
+    - `docs/architecture/fixtures/v1-source-prepared-state/reuse-invalidation-matrix.json`.
+  - Reuse/invalidation matrix:
+    - `cold_prepare_no_manifest`.
+    - `warm_reuse_manifest_match`.
+    - `source_changed`.
+    - `artifact_changed`.
+    - `schema_changed`.
+    - `policy_changed`.
+    - `version_changed`.
+    - `missing_artifact`.
+    - `corrupted_manifest`.
+  - Current benchmark artifact evidence:
+    - `website/assets/benchmarks/latest/benchmark-results.json` loads as chunked rows.
+    - 1,080 ShardLoom rows expose all required SourceState/prepared-state runtime fields.
+    - All checked ShardLoom rows preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+  - Vortex-first provider decision:
+    - `use_vortex_native_provider` for the existing feature-gated local `vortex_ingest`
+      preparation path and admitted Vortex array/write/reopen provider surfaces.
+    - `wrap_vortex_concept` for SourceState, VortexPreparedState, reuse manifest, invalidation,
+      and route-scope evidence reports.
+    - `blocked_until_vortex_or_shardloom_evidence` for unproved global/non-local preparation and
+      cache shapes.
+  - Residual unsupported input/cache shapes:
+    - `global_hidden_cache`.
+    - `external_cache_service`.
+    - `object_store_prepared_state_reuse`.
+    - `table_catalog_prepared_state_reuse`.
+    - `broad_non_local_preparation`.
+  - Verification evidence:
+    - `python3 -m py_compile scripts/check_release_readiness.py scripts/run_release_validation_evidence.py scripts/check_ci_gate_matrix.py scripts/check_public_status_docs.py scripts/check_v1_source_prepared_state_scope.py`
+    - `python3 scripts/check_v1_source_prepared_state_scope.py`
+    - `python3 scripts/check_public_status_docs.py`
+    - `python3 scripts/check_ci_gate_matrix.py`
+    - `python3 -m unittest python.tests.test_v1_source_prepared_state_scope python.tests.test_release_scripts.ReleaseScriptTests.test_public_status_docs_validator_accepts_required_markers python.tests.test_release_scripts.ReleaseScriptTests.test_public_status_docs_validator_blocks_missing_marker python.tests.test_release_scripts.ReleaseScriptTests.test_release_validation_evidence_uses_configured_python_and_conda`
+  - Claim boundary:
+    - This closes scoped local SourceState normalization and prepared-state reuse/invalidation
+      behavior. It does not claim global cache, external cache service, object-store/table
+      prepared-state reuse, broad non-local preparation, production adapter certification, package
+      publication, production readiness, performance superiority, Spark displacement, or external
+      engine replacement.
+  - Fallback boundary:
+    - Compatibility preparation remains ShardLoom-native and preserves `fallback_attempted=false`
+      and `external_engine_invoked=false`; no external query engine executes, validates, repairs,
+      or merges prepared-state reuse.
+
 - [x] Session label: PROD-V1-1B scoped v1 Vortex runtime closure
   - Date: 2026-06-13
   - Source:
