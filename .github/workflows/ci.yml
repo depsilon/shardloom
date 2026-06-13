@@ -295,6 +295,8 @@ jobs:
         run: python scripts/check_python_user_surface_completion.py
       - name: SQL/Python/DataFrame parity gate
         run: python scripts/check_sql_python_dataframe_parity.py
+      - name: V1 front-door runtime scope gate
+        run: python scripts/check_v1_front_door_runtime_scope.py
       - name: User-surface runtime gap inventory
         run: python scripts/check_user_surface_runtime_gap_inventory.py
       - name: User-surface graduation matrix
@@ -310,6 +312,7 @@ jobs:
           path: |
             target/python-user-surface-completion-gate.json
             target/sql-python-dataframe-parity-gate.json
+            target/v1-front-door-runtime-scope-report.json
             target/user-surface-runtime-gap-inventory.json
             target/user-surface-graduation-matrix.json
             target/runtime-gap-family-burn-down.json
@@ -456,6 +459,7 @@ jobs:
           test -f target/package-channel-readiness-report.json
           test -f target/python-user-surface-completion-gate.json
           test -f target/sql-python-dataframe-parity-gate.json
+          test -f target/v1-front-door-runtime-scope-report.json
           test -f target/user-surface-runtime-gap-inventory.json
           test -f target/user-surface-graduation-matrix.json
           test -f target/runtime-gap-family-burn-down.json
@@ -497,6 +501,7 @@ jobs:
             target/production-usability-gate.json
             target/python-user-surface-completion-gate.json
             target/sql-python-dataframe-parity-gate.json
+            target/v1-front-door-runtime-scope-report.json
             target/user-surface-runtime-gap-inventory.json
             target/user-surface-graduation-matrix.json
             target/runtime-gap-family-burn-down.json

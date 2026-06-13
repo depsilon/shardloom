@@ -1664,7 +1664,8 @@ data-governance engine.
 When the question is broader than one DataFrame method, use the front-door parity matrix. It
 separates workflows that already lower SQL, Python, and DataFrame-style code to the same ShardLoom
 runtime path from the gaps that still block arbitrary SQL/Python/DataFrame flexibility and
-performance-equivalence claims:
+performance-equivalence claims. The scoped v1 boundary is owned by
+`docs/architecture/v1-front-door-runtime-scope.md`:
 
 ```python
 parity = ctx.front_door_parity_matrix()

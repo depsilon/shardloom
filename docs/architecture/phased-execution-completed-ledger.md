@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-1A scoped local front-door runtime closure
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-1A` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/v1-front-door-runtime-scope.md`.
+    - `ShardLoomContext.front_door_parity_matrix()`.
+    - `ShardLoomContext.user_route_capability_report()`.
+    - `examples/local-python-benchmark-scenarios/scenario_support.py`.
+  - Branch/PR: `codex/v1-front-door-runtime-scope` / #1211.
+  - Scope:
+    - Added the canonical v1 front-door runtime scope document with exact supported Python,
+      SQL, and DataFrame-style forms, non-goals, unsupported diagnostics, ShardLoom technique
+      review, scenario ids, and claim boundaries.
+    - Added `scripts/check_v1_front_door_runtime_scope.py` and wired it into public-status docs,
+      release validation evidence, hard release readiness, GitHub Actions, and the CI gate matrix.
+    - Updated `front_door_parity_matrix()` with v1 supported rows, broad pending rows, executable
+      scenario ids, expected fail-closed scenario ids, and `v1_scope_ready`.
+    - Updated `user_route_capability_report()` with v1 scope document and public front-door
+      scenario metadata.
+    - Updated README, Python README, public status docs, benchmark page source, and generated
+      benchmark pages to point readers at the v1 front-door boundary.
+    - Added unit coverage for the scope validator, sequential local Python benchmark-scenario
+      execution through a fake CLI, unsupported front-door reports, parity snapshot fields, route
+      capability fields, and public-status fixture coverage.
+  - Supported v1 subset:
+    - Local `context()` / `ShardLoomContext` file reads for CSV, JSON/JSONL/NDJSON, local Vortex,
+      generated rows/range/sequence/calendar, scoped local SQL, and bounded query-builder forms.
+    - Query-builder/DataFrame-style operations: filter/where, select/project, limit, bounded
+      collect, group-by aggregate, scoped local equi-join/merge aliases where admitted, sort,
+      global top-N, dropna, schema-declared astype/with_column, and explicit local writes.
+    - Benchmark ETL scenarios: `selective_filter`, `filter_projection_limit`,
+      `group_by_aggregation`, `hash_join`, `global_top_n`, `clean_cast_filter_write`,
+      `malformed_timestamp_cast`, `null_heavy_aggregate`, and `nested_json_field_scan`.
+  - Unsupported subset:
+    - Arbitrary ANSI SQL, recursive CTEs, arbitrary subqueries/functions, broad pandas/Polars/
+      Spark/DataFusion/DuckDB parity, hidden external execution, unbounded materialization,
+      unsupported UDF/plugin/effect paths, unsupported nested/complex shapes, object-store/table/
+      Foundry/live/distributed workflows, and unsupported write/effect paths.
+    - Unsupported reports preserve `runtime_execution=false`, `data_read=false`, `write_io=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Residual parity blockers:
+    - `native_vortex_general_runtime`.
+    - `object_store_lakehouse_catalog`.
+    - `arbitrary_sql_python_dataframe_breadth`.
+    - `performance_equivalence`.
+  - Evidence:
+    - `python3 scripts/check_v1_front_door_runtime_scope.py`.
+    - `python3 -m unittest python.tests.test_v1_front_door_runtime_scope python.tests.test_sql_python_dataframe_parity python.tests.test_user_route_capability_report`.
+    - `python3 scripts/run_python_test_shard.py --shard core`.
+    - `python3 scripts/run_python_test_shard.py --shard release_scripts`.
+    - `python3 scripts/check_sql_python_dataframe_parity.py`.
+    - `python3 scripts/check_user_route_capability_report.py`.
+    - `python3 scripts/check_public_status_docs.py`.
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+    - `python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`.
+    - `cargo fmt --all -- --check`.
+    - `website-src/node_modules/.bin/astro build`.
+    - `website-src/node_modules/.bin/astro check`.
+    - `python3 scripts/check_website_readiness.py`.
+    - `node website/validate_static_assets.js`.
+  - Claim boundary: ShardLoom may claim scoped local front-door support only for the documented v1
+    subset. Broad SQL/DataFrame parity, front-door performance equivalence, production readiness,
+    package publication, and engine-replacement claims remain false unless later required v1 items
+    close with evidence.
 - [x] Session label: PROD-V1-0B v1 inclusion scope and unsupported-surface firewall
   - Date: 2026-06-13
   - Source:

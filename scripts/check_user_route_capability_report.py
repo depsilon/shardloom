@@ -1360,6 +1360,12 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         ),
         "route_count": len(rows),
         "route_order": list(route_report.route_order),
+        "v1_scope_document": route_report.v1_scope_document,
+        "v1_example_scenario_ids": list(route_report.v1_example_scenario_ids),
+        "v1_expected_error_scenario_ids": list(
+            route_report.v1_expected_error_scenario_ids
+        ),
+        "v1_public_front_door_ids": list(route_report.v1_public_front_door_ids),
         "route_runtime_status_counts": runtime_status_counts,
         "local_benchmark_range_route_ids": local_benchmark_route_ids,
         "local_benchmark_range_route_count": len(local_benchmark_route_ids),

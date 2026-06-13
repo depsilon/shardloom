@@ -185,6 +185,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         commands=(
             "python scripts/check_python_user_surface_completion.py",
             "python scripts/check_sql_python_dataframe_parity.py",
+            "python scripts/check_v1_front_door_runtime_scope.py",
             "python scripts/check_user_surface_runtime_gap_inventory.py",
             "python scripts/check_user_surface_graduation_matrix.py",
             "python scripts/check_runtime_gap_family_burn_down.py",
@@ -193,6 +194,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         artifact_refs=(
             "target/python-user-surface-completion-gate.json",
             "target/sql-python-dataframe-parity-gate.json",
+            "target/v1-front-door-runtime-scope-report.json",
             "target/user-surface-runtime-gap-inventory.json",
             "target/user-surface-graduation-matrix.json",
             "target/runtime-gap-family-burn-down.json",
@@ -201,6 +203,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         release_blocker_refs=(
             "Python user-surface completion gate",
             "SQL/Python/DataFrame parity gate",
+            "v1 front-door runtime scope gate",
             "user-surface runtime gap inventory",
             "user-surface graduation matrix",
             "runtime gap family burn-down",
@@ -275,6 +278,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/production-usability-gate.json",
             "target/python-user-surface-completion-gate.json",
             "target/sql-python-dataframe-parity-gate.json",
+            "target/v1-front-door-runtime-scope-report.json",
             "target/user-surface-runtime-gap-inventory.json",
             "target/user-surface-graduation-matrix.json",
             "target/runtime-gap-family-burn-down.json",

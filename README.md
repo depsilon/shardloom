@@ -130,8 +130,9 @@ installed-package snippets should not need repo-root or build-profile arguments 
 publication is authorized.
 
 The benchmark-page ETL scenarios use the same primary ShardLoom front door from Python. These
-snippets show the user-facing shape; measured route timing comes from the promoted benchmark
-artifact and remains claim-gated.
+snippets show the user-facing shape for the scoped v1 front door defined in
+[`docs/architecture/v1-front-door-runtime-scope.md`](docs/architecture/v1-front-door-runtime-scope.md);
+measured route timing comes from the promoted benchmark artifact and remains claim-gated.
 
 To run these local scenario snippets from a source checkout and inspect timing components:
 

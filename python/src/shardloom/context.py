@@ -91,6 +91,34 @@ DEFAULT_CAPABILITY_SCOPES = (
     "cross-cg",
 )
 SUPPORTED_ENGINE_MODES = ("auto", "batch", "live", "hybrid")
+V1_FRONT_DOOR_SCOPE_DOCUMENT = "docs/architecture/v1-front-door-runtime-scope.md"
+V1_FRONT_DOOR_SUPPORTED_PARITY_ROW_IDS = (
+    "local_file_filter_project_limit",
+    "local_file_join_aggregate_sort_window",
+    "generated_source_output",
+    "schema_quality_preview",
+    "local_vortex_primitive_runtime",
+    "typed_nested_compatibility_sink",
+    "decoded_materialization_interop",
+)
+V1_FRONT_DOOR_PENDING_PARITY_ROW_IDS = (
+    "native_vortex_general_runtime",
+    "object_store_lakehouse_catalog",
+    "arbitrary_sql_python_dataframe_breadth",
+    "performance_equivalence",
+)
+V1_FRONT_DOOR_EXAMPLE_SCENARIO_IDS = (
+    "selective_filter",
+    "filter_projection_limit",
+    "group_by_aggregation",
+    "hash_join",
+    "global_top_n",
+    "clean_cast_filter_write",
+    "malformed_timestamp_cast",
+    "null_heavy_aggregate",
+    "nested_json_field_scan",
+)
+V1_FRONT_DOOR_EXPECTED_ERROR_SCENARIO_IDS = ("malformed_timestamp_cast",)
 _OBJECT_STORE_GENERATED_OUTPUT_DEFAULT_ROWS: tuple[Mapping[str, object], ...] = (
     {"value": 1},
 )
@@ -871,6 +899,36 @@ class FrontDoorParityMatrix:
         return tuple(row.row_id for row in self.rows)
 
     @property
+    def v1_scope_document(self) -> str:
+        """Return the canonical v1 front-door scope document path."""
+
+        return V1_FRONT_DOOR_SCOPE_DOCUMENT
+
+    @property
+    def v1_supported_row_ids(self) -> tuple[str, ...]:
+        """Return parity row ids included in the scoped v1 front door."""
+
+        return V1_FRONT_DOOR_SUPPORTED_PARITY_ROW_IDS
+
+    @property
+    def v1_pending_row_ids(self) -> tuple[str, ...]:
+        """Return broad front-door rows that remain outside the v1 support claim."""
+
+        return V1_FRONT_DOOR_PENDING_PARITY_ROW_IDS
+
+    @property
+    def v1_example_scenario_ids(self) -> tuple[str, ...]:
+        """Return executable local Python benchmark-scenario examples for v1."""
+
+        return V1_FRONT_DOOR_EXAMPLE_SCENARIO_IDS
+
+    @property
+    def v1_expected_error_scenario_ids(self) -> tuple[str, ...]:
+        """Return examples that succeed by failing closed with no fallback."""
+
+        return V1_FRONT_DOOR_EXPECTED_ERROR_SCENARIO_IDS
+
+    @property
     def admitted_rows(self) -> tuple[FrontDoorParityRow, ...]:
         """Return rows with scoped cross-front-door parity."""
 
@@ -907,17 +965,21 @@ class FrontDoorParityMatrix:
     def scoped_local_front_door_parity_supported(self) -> bool:
         """Whether the currently admitted local workflow families have parity."""
 
-        required = {
-            "local_file_filter_project_limit",
-            "local_file_join_aggregate_sort_window",
-            "generated_source_output",
-            "schema_quality_preview",
-            "local_vortex_primitive_runtime",
-            "typed_nested_compatibility_sink",
-            "decoded_materialization_interop",
-        }
+        required = set(V1_FRONT_DOOR_SUPPORTED_PARITY_ROW_IDS)
         admitted = {row.row_id for row in self.admitted_rows}
         return required.issubset(admitted)
+
+    @property
+    def v1_scope_ready(self) -> bool:
+        """Whether v1 supported rows are admitted and broad gaps stay explicit."""
+
+        admitted = {row.row_id for row in self.admitted_rows}
+        pending = {row.row_id for row in self.broad_gap_rows}
+        return (
+            set(V1_FRONT_DOOR_SUPPORTED_PARITY_ROW_IDS).issubset(admitted)
+            and set(V1_FRONT_DOOR_PENDING_PARITY_ROW_IDS).issubset(pending)
+            and self.all_no_fallback_no_external_engine
+        )
 
     @property
     def flexible_anything_claim_allowed(self) -> bool:
@@ -1079,6 +1141,24 @@ class UserRouteCapabilityReport:
         """Return route ids in stable route-selection order."""
 
         return tuple(row.route_id for row in self.rows)
+
+    @property
+    def v1_scope_document(self) -> str:
+        """Return the canonical v1 front-door scope document path."""
+
+        return V1_FRONT_DOOR_SCOPE_DOCUMENT
+
+    @property
+    def v1_example_scenario_ids(self) -> tuple[str, ...]:
+        """Return executable local Python benchmark-scenario examples for v1."""
+
+        return V1_FRONT_DOOR_EXAMPLE_SCENARIO_IDS
+
+    @property
+    def v1_expected_error_scenario_ids(self) -> tuple[str, ...]:
+        """Return examples that succeed by failing closed with no fallback."""
+
+        return V1_FRONT_DOOR_EXPECTED_ERROR_SCENARIO_IDS
 
     @property
     def claim_gate_status(self) -> str:
@@ -1263,6 +1343,12 @@ class UserRouteCapabilityReport:
                 claim_boundary=generated.claim_boundary,
             ),
         )
+
+    @property
+    def v1_public_front_door_ids(self) -> tuple[str, ...]:
+        """Return public front-door ids included in the scoped v1 route surface."""
+
+        return tuple(row.front_door_id for row in self.public_front_door_route_rows)
 
     @property
     def public_front_door_route_ids(self) -> tuple[str, ...]:
