@@ -223,7 +223,7 @@ with a recorded infeasibility reason, not merely because they are broad.
       rows, expected output digests, no-fallback proof, and Python accessor coverage where exposed.
     - [x] Expand admitted semantics only for v1-supported behavior and keep unsupported rows
       explicit with deterministic blockers.
-    - [ ] Add property tests for filters, projections, limits, supported joins, supported
+    - [x] Add property tests for filters, projections, limits, supported joins, supported
       aggregates, supported sort/top-N, supported subqueries, supported string/temporal/decimal/
       binary functions, and supported output formats.
     - [x] Add fuzz tests for SQL parsing subset, expression parsing, route selection, output

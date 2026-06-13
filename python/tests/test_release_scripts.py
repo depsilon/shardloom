@@ -7484,6 +7484,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 ),
                 "property_execution_performed": True,
                 "property_lane_count": module.EXPECTED_PROPERTY_LANE_COUNT,
+                "property_case_ids": sorted(module.REQUIRED_PROPERTY_CASE_IDS),
                 "deterministic_fuzz_execution_performed": True,
                 "deterministic_fuzz_case_count": (
                     module.EXPECTED_DETERMINISTIC_FUZZ_CASES
@@ -7699,6 +7700,10 @@ class ReleaseScriptTests(unittest.TestCase):
             module.EXPECTED_DETERMINISTIC_FUZZ_CASES,
         )
         self.assertEqual(
+            set(report["summaries"]["admitted_semantics"]["property_case_ids"]),
+            module.REQUIRED_PROPERTY_CASE_IDS,
+        )
+        self.assertEqual(
             set(report["summaries"]["source_prepared_state"]["invalidation_case_ids"]),
             module.REQUIRED_SOURCE_INVALIDATION_CASE_IDS,
         )
@@ -7809,6 +7814,33 @@ class ReleaseScriptTests(unittest.TestCase):
             any(
                 "missing deterministic fuzz cases route_selection_join_fuzz_seed_20260615"
                 in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_missing_property_case(self) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_missing_property_case_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            admitted_path = repo_root / module.ReportPaths().admitted_semantics
+            admitted = json.loads(admitted_path.read_text(encoding="utf-8"))
+            admitted["property_case_ids"].remove(
+                "filter_project_limit_property_seed_20260618"
+            )
+            admitted_path.write_text(json.dumps(admitted), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "missing deterministic property cases "
+                "filter_project_limit_property_seed_20260618" in blocker
                 for blocker in report["blockers"]
             ),
             report["blockers"],

@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-2B seeded v1 property semantic coverage
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-2B` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/release/v1-correctness-conformance-matrix.json`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_v1_correctness_conformance.py`.
+    - `scripts/check_release_readiness.py`.
+  - Branch: `codex/v1-property-semantics-coverage`.
+  - Scope:
+    - Added deterministic seeded property rows for filter/projection/limit/order/top-N, joins,
+      grouped aggregate top-N, bounded IN subquery, string functions, temporal arithmetic/diff,
+      decimal arithmetic, binary helpers, and JSONL output format.
+    - Promoted the new property rows into the v1 correctness/conformance required semantic set,
+      property-case ID gate, hard release-readiness expectations, and public operation crosswalk.
+    - Updated the admitted semantics status doc, hard release gate docs, static v1 correctness
+      matrix, and Rust metadata contract markers to the 144-row / 117-executable / 10-property
+      current matrix.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_v1_correctness_conformance.py scripts/check_release_readiness.py python/tests/test_release_scripts.py`.
+    - `python3 scripts/check_admitted_semantics_matrix.py`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_passes_complete_fixture python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_fuzz_case python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_property_case`.
+    - `python3 scripts/check_v1_correctness_conformance.py`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+    - `git diff --check`.
+    - `cargo fmt --all -- --check`.
+    - `cargo clippy --workspace --all-targets -- -D warnings`.
+    - `cargo test --workspace --all-targets`.
+  - Generated report:
+    - `target/admitted-semantics-matrix-report.json`.
+    - `target/v1-correctness-conformance-report.json`.
+    - Admitted semantics status: `passed`.
+    - V1 correctness/conformance status: `passed`.
+    - Matrix rows: `144`.
+    - Executable fixtures: `117`.
+    - Diagnostic cases: `25`.
+    - Unsupported diagnostics: `23`.
+    - Property lanes: `10`.
+    - Deterministic fuzz cases: `5`.
+    - V1 expected validator case count: `142`.
+    - V1 required runtime row count: `142`.
+    - Required semantic case count: `47`.
+    - Operation semantic links: `28`.
+  - Claim boundary:
+    - May claim the declared v1 correctness gate includes deterministic seeded property coverage
+      for the listed local SQL/operator/output surfaces, with decoded-reference digests and
+      no-fallback/no-external-engine stage evidence.
+    - Does not close docs-example replay, broad randomized fuzzing, broad ANSI/DataFrame parity,
+      production readiness, performance claims, package publication, or Spark-replacement claims.
+  - Fallback boundary:
+    - The validator executes local ShardLoom CLI fixtures only. External engines remain allowed
+      only as explicit test oracles where separately approved and are never ShardLoom runtime
+      fallback.
 - [x] Session label: PROD-V1-2B deterministic fuzz and no-fallback diagnostic coverage
   - Date: 2026-06-13
   - Source:
