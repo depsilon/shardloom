@@ -64,6 +64,19 @@ EXPECTED_RUNTIME_ERROR_DIAGNOSTICS = 1
 EXPECTED_INVALID_SHAPE_DIAGNOSTICS = 1
 EXPECTED_ADMITTED_STAGE_COUNT_MIN = 129
 ADMITTED_ARTIFACT_REF_PREFIX = "target/admitted-semantics-matrix/artifacts/"
+SEMANTIC_EXPECTED_OUTPUT_DIGEST_SOURCES = {
+    "decoded_reference_result_jsonl",
+    "decoded_reference_output_artifact",
+}
+SEMANTIC_OBSERVED_OUTPUT_DIGEST_SOURCES = {
+    "envelope_result_jsonl",
+    "sink_output_artifact",
+}
+UNSUPPORTED_STAGE_KINDS = {
+    "unsupported_diagnostic",
+    "runtime_error_diagnostic",
+    "invalid_shape_diagnostic",
+}
 REQUIRED_SEMANTIC_CASE_IDS = {
     "numeric_generic_property_seed_20260521",
     "try_cast_projection_null_on_invalid",
@@ -414,6 +427,7 @@ def _validate_stage_contract(
     case_id: str,
     *,
     require_semantic_digests: bool,
+    require_diagnostic_fields: bool,
 ) -> list[str]:
     blockers: list[str] = []
     if stage.get("status") != "passed":
@@ -441,6 +455,46 @@ def _validate_stage_contract(
             blockers.append(
                 f"admitted_semantics: {case_id} result_digest must be fnv64-prefixed"
             )
+        if not _is_hex_digest(stage.get("expected_output_digest"), "sha256:", 64):
+            blockers.append(
+                f"admitted_semantics: {case_id} expected_output_digest must be sha256-prefixed"
+            )
+        if not _is_hex_digest(stage.get("observed_output_digest"), "sha256:", 64):
+            blockers.append(
+                f"admitted_semantics: {case_id} observed_output_digest must be sha256-prefixed"
+            )
+        if (
+            _is_hex_digest(stage.get("expected_output_digest"), "sha256:", 64)
+            and _is_hex_digest(stage.get("observed_output_digest"), "sha256:", 64)
+            and stage.get("expected_output_digest") != stage.get("observed_output_digest")
+        ):
+            blockers.append(
+                f"admitted_semantics: {case_id} expected/observed output digests must match"
+            )
+        if (
+            stage.get("expected_output_digest_source")
+            not in SEMANTIC_EXPECTED_OUTPUT_DIGEST_SOURCES
+        ):
+            blockers.append(
+                f"admitted_semantics: {case_id} expected_output_digest_source is invalid"
+            )
+        if (
+            stage.get("observed_output_digest_source")
+            not in SEMANTIC_OBSERVED_OUTPUT_DIGEST_SOURCES
+        ):
+            blockers.append(
+                f"admitted_semantics: {case_id} observed_output_digest_source is invalid"
+            )
+    if require_diagnostic_fields:
+        if stage.get("kind") not in UNSUPPORTED_STAGE_KINDS:
+            blockers.append(f"admitted_semantics: {case_id} diagnostic kind is invalid")
+        if not isinstance(stage.get("diagnostic_code"), str) or not stage.get("diagnostic_code"):
+            blockers.append(f"admitted_semantics: {case_id} diagnostic_code is required")
+        if (
+            not isinstance(stage.get("diagnostic_fragment"), str)
+            or not stage.get("diagnostic_fragment")
+        ):
+            blockers.append(f"admitted_semantics: {case_id} diagnostic_fragment is required")
     return blockers
 
 
@@ -456,8 +510,14 @@ def _validate_required_stage_evidence(
             "required_unsupported_stage_evidence_count": 0,
             "required_stage_artifact_ref_count": 0,
             "required_stage_decoded_reference_digest_count": 0,
+            "required_stage_expected_output_digest_count": 0,
+            "required_stage_observed_output_digest_count": 0,
+            "required_stage_output_digest_match_count": 0,
+            "required_stage_expected_output_digest_source_count": 0,
+            "required_stage_observed_output_digest_source_count": 0,
             "required_stage_correctness_digest_count": 0,
             "required_stage_result_digest_count": 0,
+            "required_unsupported_stage_diagnostic_field_count": 0,
             "required_stage_no_fallback_count": 0,
             "required_stage_no_external_engine_count": 0,
         }, ["admitted_semantics: stages must be a list"]
@@ -481,8 +541,14 @@ def _validate_required_stage_evidence(
     unsupported_stage_count = 0
     artifact_ref_count = 0
     decoded_digest_count = 0
+    expected_output_digest_count = 0
+    observed_output_digest_count = 0
+    output_digest_match_count = 0
+    expected_output_digest_source_count = 0
+    observed_output_digest_source_count = 0
     correctness_digest_count = 0
     result_digest_count = 0
+    diagnostic_field_count = 0
     no_fallback_count = 0
     no_external_count = 0
 
@@ -493,7 +559,12 @@ def _validate_required_stage_evidence(
             continue
         executable_stage_count += 1
         blockers.extend(
-            _validate_stage_contract(stage, case_id, require_semantic_digests=True)
+            _validate_stage_contract(
+                stage,
+                case_id,
+                require_semantic_digests=True,
+                require_diagnostic_fields=False,
+            )
         )
 
     for case_id in sorted(REQUIRED_UNSUPPORTED_CASE_IDS):
@@ -503,7 +574,12 @@ def _validate_required_stage_evidence(
             continue
         unsupported_stage_count += 1
         blockers.extend(
-            _validate_stage_contract(stage, case_id, require_semantic_digests=False)
+            _validate_stage_contract(
+                stage,
+                case_id,
+                require_semantic_digests=False,
+                require_diagnostic_fields=True,
+            )
         )
 
     for case_id in sorted(required_stage_ids):
@@ -514,10 +590,38 @@ def _validate_required_stage_evidence(
             artifact_ref_count += 1
         if _is_hex_digest(stage.get("decoded_reference_digest"), "sha256:", 64):
             decoded_digest_count += 1
+        if _is_hex_digest(stage.get("expected_output_digest"), "sha256:", 64):
+            expected_output_digest_count += 1
+        if _is_hex_digest(stage.get("observed_output_digest"), "sha256:", 64):
+            observed_output_digest_count += 1
+        if (
+            _is_hex_digest(stage.get("expected_output_digest"), "sha256:", 64)
+            and _is_hex_digest(stage.get("observed_output_digest"), "sha256:", 64)
+            and stage.get("expected_output_digest") == stage.get("observed_output_digest")
+        ):
+            output_digest_match_count += 1
+        if (
+            stage.get("expected_output_digest_source")
+            in SEMANTIC_EXPECTED_OUTPUT_DIGEST_SOURCES
+        ):
+            expected_output_digest_source_count += 1
+        if (
+            stage.get("observed_output_digest_source")
+            in SEMANTIC_OBSERVED_OUTPUT_DIGEST_SOURCES
+        ):
+            observed_output_digest_source_count += 1
         if _is_hex_digest(stage.get("correctness_digest"), "fnv64:", 16):
             correctness_digest_count += 1
         if _is_hex_digest(stage.get("result_digest"), "fnv64:", 16):
             result_digest_count += 1
+        if (
+            stage.get("kind") in UNSUPPORTED_STAGE_KINDS
+            and isinstance(stage.get("diagnostic_code"), str)
+            and bool(stage.get("diagnostic_code"))
+            and isinstance(stage.get("diagnostic_fragment"), str)
+            and bool(stage.get("diagnostic_fragment"))
+        ):
+            diagnostic_field_count += 1
         if stage.get("fallback_attempted") is False:
             no_fallback_count += 1
         if stage.get("external_engine_invoked") is False:
@@ -529,8 +633,14 @@ def _validate_required_stage_evidence(
         "required_unsupported_stage_evidence_count": unsupported_stage_count,
         "required_stage_artifact_ref_count": artifact_ref_count,
         "required_stage_decoded_reference_digest_count": decoded_digest_count,
+        "required_stage_expected_output_digest_count": expected_output_digest_count,
+        "required_stage_observed_output_digest_count": observed_output_digest_count,
+        "required_stage_output_digest_match_count": output_digest_match_count,
+        "required_stage_expected_output_digest_source_count": expected_output_digest_source_count,
+        "required_stage_observed_output_digest_source_count": observed_output_digest_source_count,
         "required_stage_correctness_digest_count": correctness_digest_count,
         "required_stage_result_digest_count": result_digest_count,
+        "required_unsupported_stage_diagnostic_field_count": diagnostic_field_count,
         "required_stage_no_fallback_count": no_fallback_count,
         "required_stage_no_external_engine_count": no_external_count,
     }, blockers

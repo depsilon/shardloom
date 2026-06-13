@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-2B output digest and diagnostic-field evidence gate
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-2B` in `docs/architecture/phased-execution-plan.md`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_v1_correctness_conformance.py`.
+    - `target/admitted-semantics-matrix-report.json`.
+    - `target/v1-correctness-conformance-report.json`.
+  - Branch: `codex/v1-output-digest-diagnostic-evidence`.
+  - Scope:
+    - Populated `expected_output_digest` / `observed_output_digest` for required semantic stages
+      that do not write sink artifacts by using the decoded-reference result JSONL and observed
+      CLI `result_jsonl` output surface.
+    - Preserved explicit sink-output artifact digest behavior for semantic cases that do request a
+      sink output artifact.
+    - Added `expected_output_digest_source` and `observed_output_digest_source` labels so the
+      digest surface is explicit.
+    - Extended the v1 correctness/conformance gate and hard release-readiness gate to require 33
+      expected output digests, 33 observed output digests, 33 digest matches, and 33 source labels
+      for required semantic cases.
+    - Extended required unsupported/error stage validation to require deterministic diagnostic
+      kind/code/fragment fields for all 10 required unsupported/error cases.
+    - Added release-script regression coverage for output digest mismatch and missing diagnostic
+      fields.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_v1_correctness_conformance.py scripts/check_release_readiness.py python/tests/test_release_scripts.py`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_passes_complete_fixture python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_semantic_case python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_stage_digest python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_stage_artifact python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_output_digest_mismatch python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_diagnostic_field python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_stage_fallback_marker python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_closed_when_report_missing python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_matrix_drift`.
+    - `python3 scripts/check_admitted_semantics_matrix.py`.
+    - `python3 scripts/check_v1_correctness_conformance.py`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+    - `PYTHONPATH=python/src python3 scripts/run_python_test_shard.py --shard release_scripts`.
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `git diff --check`.
+  - Generated report:
+    - `target/admitted-semantics-matrix-report.json`.
+    - `target/v1-correctness-conformance-report.json`.
+    - Local v1 correctness/conformance status: `passed`.
+    - Required semantic expected output digest count: 33.
+    - Required semantic observed output digest count: 33.
+    - Required semantic output digest match count: 33.
+    - Required semantic expected/observed digest source counts: 33/33.
+    - Required unsupported/error diagnostic field count: 10.
+  - Claim boundary:
+    - May claim required admitted semantic output digests and required unsupported/error diagnostic
+      fields are now produced and release-gated for the declared current v1 scope.
+    - Does not close broader Python accessor coverage, property/fuzz breadth, docs-example replay,
+      production readiness, performance claims, package publication, or Spark-replacement claims.
+  - Fallback boundary:
+    - Validation is local and report-only. External engines remain allowed only as explicit test
+      oracles where separately approved and are never ShardLoom runtime fallback.
 - [x] Session label: PROD-V1-2B required semantic fixture evidence gate
   - Date: 2026-06-13
   - Source:

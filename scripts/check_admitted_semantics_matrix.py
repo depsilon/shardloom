@@ -5123,19 +5123,24 @@ def run_executable_case(
         },
     )
     expected_digest = digest_text(case.expected_jsonl)
-    expected_output_digest = (
-        digest_text(case.expected_output_text)
-        if case.expected_output_text is not None
-        else None
-    )
+    expected_output_digest = expected_digest
+    expected_output_digest_source = "decoded_reference_result_jsonl"
+    if case.expected_output_text is not None:
+        expected_output_digest = digest_text(case.expected_output_text)
+        expected_output_digest_source = "decoded_reference_output_artifact"
     observed_output_digest = ""
+    observed_output_digest_source = ""
     if output_path is not None:
         if not output_path.exists():
             blockers.append(f"{case.case_id}: expected output artifact was not written")
         else:
             observed_output_text = output_path.read_text(encoding="utf-8")
             observed_output_digest = digest_text(observed_output_text)
-            if case.expected_output_text is not None and observed_output_text != case.expected_output_text:
+            observed_output_digest_source = "sink_output_artifact"
+            if (
+                case.expected_output_text is not None
+                and observed_output_text != case.expected_output_text
+            ):
                 blockers.append(f"{case.case_id}: output artifact does not match decoded reference")
     if completed.returncode != 0:
         blockers.append(f"{case.case_id}: returncode={completed.returncode}")
@@ -5147,6 +5152,9 @@ def run_executable_case(
         observed_jsonl = fields.get("result_jsonl")
         if observed_jsonl != case.expected_jsonl:
             blockers.append(f"{case.case_id}: result_jsonl does not match decoded reference")
+        if output_path is None and observed_jsonl is not None:
+            observed_output_digest = digest_text(observed_jsonl)
+            observed_output_digest_source = "envelope_result_jsonl"
         for key, value in case.expected_fields.items():
             observed = fields.get(key)
             if observed != value:
@@ -5154,6 +5162,8 @@ def run_executable_case(
         correctness_digest = fields.get("correctness_digest", "")
         if not correctness_digest.startswith("fnv64:"):
             blockers.append(f"{case.case_id}: correctness_digest must be fnv64-prefixed")
+        if observed_output_digest and observed_output_digest != expected_output_digest:
+            blockers.append(f"{case.case_id}: observed output digest does not match expected")
     else:
         fields = {}
 
@@ -5186,7 +5196,9 @@ def run_executable_case(
         "output_ref": rel(repo_root, output_path) if output_path is not None else "",
         "decoded_reference_digest": expected_digest,
         "expected_output_digest": expected_output_digest or "",
+        "expected_output_digest_source": expected_output_digest_source,
         "observed_output_digest": observed_output_digest,
+        "observed_output_digest_source": observed_output_digest_source,
         "correctness_digest": fields.get("correctness_digest", "") if payload else "",
         "result_digest": fields.get("result_digest", "") if payload else "",
         "property_seed": case.property_seed,
