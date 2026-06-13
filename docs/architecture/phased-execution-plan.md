@@ -141,112 +141,18 @@ Current autonomous execution order:
 
 ### Open Work Checklist
 
-- [ ] `RELEASE-PACKAGE-15` - Clean-source benchmark publication refresh and strict release evidence
-      finalization.
-  - Source:
-    - `target/release-readiness-audit/benchmark-publication-claim-gate-strict-after-live-pre5j.json`
-      from the strict benchmark publication gate.
-    - `target/release-readiness-audit/benchmark-publication-claim-gate-strict-after-static-descendant-contract.json`
-      from the strict benchmark publication gate after the static-publication descendant contract
-      fix.
-    - `target/pre-5j-dependency-freshness-gate.json`.
-    - `target/release-readiness-audit/release-validation-evidence-conda-pip-audit-current.json`.
-    - `target/release-readiness-audit/hard-release-readiness-gate-current-final.json`.
-  - Current state:
-    - Current runtime/performance planned queue is otherwise closed.
-    - Live pre-5J dependency freshness now passes with
-      `benchmark_refresh_allowed=true`, `open_dependabot_check_status=passed`, and
-      `open_dependabot_pr_count=0`.
-    - Clean local Conda proof, target-local `pip-audit` dependency audit, release security,
-      package-channel local gate, production-usability gate, compute-engine completion gate, and
-      release architecture tracker pass locally without publication, tag creation, secrets,
-      fallback execution, or external engine invocation.
-    - Strict benchmark publication remains blocked because the public benchmark manifest records
-      `benchmark_git_sha=a693e299988830b0587d66df0f088a80b6038f75` and
-      `shardloom_git_sha=a693e299988830b0587d66df0f088a80b6038f75`, while current `HEAD` is
-      `173f88c25b36736aa51a6c50bafe0c6ec9bf5fed`; strict output now reports
-      `git_currentness_status=blocked_mismatched_source_revision`,
-      non-publication source deltas after the benchmark source revision, and tracked local changes.
-    - The strict publication validator now distinguishes the benchmarked source revision from a
-      later checked-in static publication commit: a clean descendant is current only when all
-      post-source changes are checked-in generated website/public static publication artifacts or
-      benchmark data mirrors, plus the phase-plan ledger/handoff release bookkeeping needed to
-      record the completed refresh.
-    - Public package-channel readiness, publication/API/schema stability, and per-claim evidence
-      approval remain maintainer/publication gates, not autonomous Codex publication actions.
-  - Next outcome:
-    - After the current cohesive source changes are committed/merged or otherwise stabilized at the
-      exact source revision to be claimed, regenerate or promote the benchmark publication bundle
-      from that clean source revision, refresh website/public mirrors and generated site output,
-      and rerun strict publication and release evidence without dirty/stale-git allowances. The
-      final publication commit may be a clean static-publication descendant of the benchmarked
-      source revision, but no code, tests, scripts, benchmark harness source, README/public docs, or
-      website source may change after the source revision recorded in the manifest.
-  - User-visible surface:
-    - Website benchmark page/static assets, benchmark manifest/results, release-readiness reports,
-      maintainer publication handoff, and hard release gate output.
-  - Implementation scope:
-    - Source and generated benchmark assets under `website/assets/benchmarks/latest/`,
-      `website-public/assets/benchmarks/latest/`, `website/assets/data/`,
-      `website-public/assets/data/`, and `website-src/src/data/`.
-    - Checked-in generated static website output under `website/` and `website-public/` when the
-      benchmark data refresh changes rendered pages.
-    - Release evidence under `target/release-readiness-audit/` for local proof only.
-    - Documentation updates only for current blocker/evidence references.
-  - Evidence required:
-    - Live pre-5J dependency freshness immediately before refresh.
-    - Full or approved benchmark-publication artifact refresh from the exact clean source revision.
-    - Artifact completeness, publication claim gate without `--allow-stale-git` and without
-      `--allow-dirty-worktree`, website readiness/static asset validation, release validation
-      evidence, and hard release-readiness aggregate.
-  - Acceptance:
-    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json`
-      passes without stale/dirty allowances.
-    - Manifest `benchmark_git_sha` and `shardloom_git_sha` identify the clean claimed source
-      revision; the strict report has `git_currentness_status=current_head` or
-      `git_currentness_status=static_publication_descendant`.
-    - If the final commit is a static-publication descendant, the strict report's
-      `static_publication_nonpublic_delta_paths` is empty and the changed paths are limited to
-      checked-in generated website/public static publication artifacts, benchmark data mirrors, and
-      the phase-plan ledger/handoff release bookkeeping files.
-    - Worktree dirty/currentness blockers are absent from the strict report.
-    - Benchmark mirrors remain digest-identical across website, website-public, and website-src
-      data refs.
-    - Hard release-readiness blocker list no longer contains benchmark currentness or required
-      validation command blockers; any remaining blockers are maintainer/publication gates.
-  - Verification:
-    - `python3 scripts/check_pre_5j_dependency_freshness.py --require-live-github --output target/pre-5j-dependency-freshness-gate.json`
-    - Benchmark refresh/promote command for the approved source revision and profile.
-    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
-    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json`
-    - `python3 scripts/check_benchmark_publish_doctor.py`
-    - `python3 scripts/check_website_readiness.py`
-    - `python3 scripts/run_release_validation_evidence.py --require-clean-conda --conda-executable /opt/homebrew/bin/micromamba --pip-audit-python target/release-readiness-audit/pip-audit-venv/bin/python`
-    - `python3 scripts/check_release_readiness.py`
-  - Non-goals:
-    - No package publication, release tag, signing key use, package-channel upload, feedstock
-      submission, OCI push, public API/schema stability approval, or per-claim promotion.
-    - No benchmark or performance claim until strict clean-source artifact and claim gates pass.
-  - Claim boundary:
-    - This item can make benchmark/publication evidence current for the claimed source revision.
-      It does not authorize package availability, production, Spark-displacement, superiority,
-      SQL/DataFrame production, object-store/lakehouse, Foundry/platform, or broad encoded-native
-      claims.
-  - Fallback boundary:
-    - Refresh must preserve `fallback_attempted=false` and `external_engine_invoked=false` for
-      ShardLoom rows; external engines remain benchmark baselines only.
-  - Ledger rule:
-    - Move completed detail to `docs/architecture/phased-execution-completed-ledger.md` after the
-      strict clean-source benchmark-publication evidence is generated and validated.
+No autonomous implementation items are open in this file. New audit, optimization, runtime, docs,
+website, release, or packaging work must be promoted here as a concrete unchecked item before
+editing behavior.
 
 ### Remaining work snapshot
 
 | Status | Work | Next decision |
 | --- | --- | --- |
-| Open | `RELEASE-PACKAGE-15` | Stabilize the current cohesive source changes, refresh benchmark publication artifacts from the exact clean source revision, and rerun strict release evidence. |
+| Closed | `RELEASE-PACKAGE-15` | Completed in the ledger with clean-source benchmark publication evidence for source revision `97fe8ec6890f5dc2992083647b252cbb0710237a`; no autonomous implementation item remains. |
 | Historical | PR #1174 benchmark row/readiness context, repo-wide audit closeout, release-sequence closeout, and completed benchmark/profile, sub-evidence, user-surface proof | Preserved in `docs/architecture/phased-execution-completed-ledger.md`; do not treat as active work. |
 | Mapped, not autonomous queue | Unchecked global architecture review rows | Governed by `docs/architecture/global-architecture-review.md` and `docs/architecture/runtime-gap-family-burn-down.md`; promote concrete implementation items here before work begins. |
-| Deferred approval/artifact gate | Public release/package and current benchmark publication | Clean local Conda proof and dependency/security/package local-gate evidence now pass in `target/release-readiness-audit/`; remaining blockers are package-channel approval/proof, publication/API/schema stability approval, per-claim evidence promotion, and strict clean-source benchmark-publication validation for the exact source revision before any public claim. |
+| Deferred approval/artifact gate | Public release/package approval | Clean local Conda proof, dependency/security/package local-gate evidence, and current benchmark-publication evidence now pass locally; remaining blockers are package-channel approval/proof, publication/API/schema stability approval, and per-claim evidence promotion before any public claim. |
 
 Deferred Non-Runtime Closeout Queue: closed for the current cleanup batch. Completed non-runtime history
 lives in `docs/architecture/phased-execution-completed-ledger.md`; any future work from manual

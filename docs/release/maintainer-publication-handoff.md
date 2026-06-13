@@ -2,15 +2,15 @@
 
 # Maintainer Publication Handoff
 
-Status: release handoff packet for `RELEASE-SEQUENCE-14`. This document does not approve
+Status: release handoff packet after `RELEASE-PACKAGE-15`. This document does not approve
 publication, create tags, publish packages, sign artifacts, upload SBOMs, submit package-channel
 manifests, add secrets, or authorize fallback execution.
 
-Date: 2026-06-11
+Date: 2026-06-13
 
 Current branch evidence was prepared from local branch
-`codex/compute-engine-remaining-6d-closeout` at `a7176479`. The branch has local changes, so the
-current checked-in benchmark publication bundle is not fresh for public benchmark claims.
+`codex/release-package-15-runtime-evidence`. The refreshed benchmark publication bundle records
+clean benchmark source revision `97fe8ec6890f5dc2992083647b252cbb0710237a`.
 
 Current local audit addendum, 2026-06-13:
 
@@ -22,27 +22,26 @@ Current local audit addendum, 2026-06-13:
 - The refreshed local hard release aggregate
   `target/release-readiness-audit/hard-release-readiness-gate-current-final.json` remains blocked
   for public release/package claims by package-channel proof/approval, publication/API/schema
-  stability approval, per-claim evidence promotion, and strict clean-source benchmark-publication
-  validation for the exact source revision.
+  stability approval, and per-claim evidence promotion. Benchmark-publication currentness is now
+  refreshed locally for source revision `97fe8ec6890f5dc2992083647b252cbb0710237a`.
 - Target-local dependency audit evidence now passes with `pip-audit` in
   `target/release-readiness-audit/pip-audit-venv/`; this is release/security tooling only and not a
   runtime dependency.
-- Live pre-5J dependency freshness now passes in `target/pre-5j-dependency-freshness-gate.json`.
-  The remaining strict benchmark-publication blocker is source currentness: the checked-in
-  publication bundle was generated from `a693e299988830b0587d66df0f088a80b6038f75`, while the
-  current local source revision is `173f88c25b36736aa51a6c50bafe0c6ec9bf5fed` with tracked local
-  changes. This is tracked as `RELEASE-PACKAGE-15` in the phase plan.
+- Live pre-5J dependency freshness passes in `target/pre-5j-dependency-freshness-gate.json`.
+  `RELEASE-PACKAGE-15` regenerated and promoted the full local benchmark artifact from clean
+  source revision `97fe8ec6890f5dc2992083647b252cbb0710237a`.
 - The strict benchmark-publication validator now permits a clean static-publication descendant of
   the benchmarked source revision when the only post-source changes are checked-in generated
   website/public static publication artifacts, benchmark data mirrors, or phase-plan
   ledger/handoff release bookkeeping. Code, tests, scripts, benchmark harness source,
   README/public docs, and website source changes after the manifest source SHA remain currentness
   blockers.
-- The current strict report with that contract is
-  `target/release-readiness-audit/benchmark-publication-claim-gate-strict-after-static-descendant-contract.json`;
-  it remains blocked with `git_currentness_status=blocked_mismatched_source_revision` and
-  `worktree_dirty=true`, while preserving `fallback_attempted=false` and
-  `external_engine_invoked=false`.
+- The current artifact completeness report
+  `target/release-readiness-audit/benchmark-completeness-release-package-15.json` passes. The
+  dirty-static publish doctor report
+  `target/release-readiness-audit/benchmark-publish-doctor-release-package-15-dirty-static.json`
+  passes with 1320 published rows, 600 ShardLoom claim-grade rows, no mirror drift, and
+  `fallback_attempted=false` / `external_engine_invoked=false`.
 
 ## Decision Summary
 
@@ -50,7 +49,8 @@ Nothing is approved for public publication yet.
 
 The current repository has local release-candidate evidence for build, package smoke,
 SBOM/checksum/provenance dry run, package-channel readiness classification, production-usability
-blocking, and final no-publication rehearsal. The hard release gate remains blocked, and all public
+blocking, final no-publication rehearsal, and current benchmark-publication artifacts. The hard
+release gate remains blocked for maintainer/publication approval gates, and all public
 release/package/performance/production/platform claims remain disallowed.
 
 Allowed now:
@@ -58,6 +58,8 @@ Allowed now:
 - Local no-publication rehearsal evidence.
 - Local package artifact, SBOM, checksum, and provenance inspection.
 - Scoped local usability evidence with `public_release_claim_allowed=false`.
+- Current scoped full-local benchmark-publication evidence with public performance claims still
+  disallowed.
 - Package-channel planning and maintainer review.
 
 Not allowed now:
@@ -120,23 +122,20 @@ The hard release gate remains blocked by:
 - Publication/API/schema stability: no public API/schema compatibility window is approved.
 - Per-claim evidence: release, package, performance, Spark-displacement, production, platform, and
   broad runtime claims remain not claim-grade.
-- Architecture tracker: currently passed for release tracking except for the explicitly open
-  `RELEASE-PACKAGE-15` clean-source benchmark-publication item.
-- Benchmark freshness: the promoted benchmark manifest records source revision
-  `a693e299988830b0587d66df0f088a80b6038f75`, while current local source has moved to
-  `173f88c25b36736aa51a6c50bafe0c6ec9bf5fed` with tracked local changes.
+- Architecture tracker: release tracking is expected to pass locally after the
+  `RELEASE-PACKAGE-15` phase-plan closeout commit.
+- Benchmark freshness: refreshed locally for clean source revision
+  `97fe8ec6890f5dc2992083647b252cbb0710237a`. The benchmark publication bundle remains local
+  evidence until the final static-publication commit is checked and reviewed.
 - Clean Conda proof: current local audit evidence now passes, but it is still local dry-run proof,
   not a conda-forge feedstock/channel proof.
-- Required validation evidence: strict release validation has current local evidence in
-  `target/release-readiness-audit/release-validation-evidence-conda-pip-audit-current.json`; the
-  only release-blocking command there is the strict benchmark publication claim gate, which still
-  needs a clean-worktree passing run at the exact source revision or a clean static-publication
-  descendant containing only generated website/public static publication artifacts, benchmark data
-  mirrors, and phase-plan ledger/handoff release bookkeeping.
-- Benchmark publication currentness: `RELEASE-PACKAGE-15` must refresh/promote benchmark
-  publication artifacts from the exact clean source revision before public benchmark/release
-  claims. A separate static-publication commit is acceptable only if the strict report records
-  `git_currentness_status=static_publication_descendant` and no non-publication delta paths.
+- Required validation evidence: strict release validation should be rerun after the final
+  static-publication commit so the aggregate no longer carries the older benchmark-currentness
+  blocker.
+- Benchmark publication currentness: the manifest now records source revision
+  `97fe8ec6890f5dc2992083647b252cbb0710237a`; a separate static-publication commit is acceptable
+  only if the strict report records `git_currentness_status=static_publication_descendant` and no
+  non-publication delta paths.
 - Human approval: no maintainer has approved publication, signing, tagging, package-channel upload,
   feedstock submission, release-asset upload, or public attestation.
 

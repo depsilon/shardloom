@@ -16,6 +16,76 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: RELEASE-PACKAGE-15 clean-source benchmark publication refresh
+  - Date: 2026-06-13
+  - Source:
+    - `RELEASE-PACKAGE-15` in `docs/architecture/phased-execution-plan.md`.
+    - `target/pre-5j-dependency-freshness-gate.json`.
+    - `target/release-package-15/benchmark-results-97fe8ec6.json`.
+    - `website/assets/benchmarks/latest/manifest.json`.
+  - Scope:
+    - Created a target-local benchmark virtual environment at
+      `target/release-package-15/benchmark-venv` using the repository benchmark-only
+      requirements. This did not add or change ShardLoom runtime dependencies.
+    - Fixed publication-proof sidecar refresh accounting in
+      `scripts/promote_benchmark_artifact.py` so obsolete records removed during a benchmark
+      refresh are reported as removed stale records while the generated sidecar keeps
+      `stale_record_count=0`.
+    - Updated `scripts/check_compute_engine_completion_gate.py` to classify
+      `pulseweave_result_assembly_coalescing_status`, `source_columnar_provider_status`, and
+      `source_state_query_dim_row_count_reuse_status` as optimization-claim blockers rather than
+      residual route-support blockers.
+    - Regenerated the full local benchmark publication artifact from clean source revision
+      `97fe8ec6890f5dc2992083647b252cbb0710237a` in a clean linked worktree, then promoted the
+      artifact to the checked-in website/public benchmark mirrors.
+    - Refreshed the benchmark manifest, benchmark-result mirrors, publication-proof sidecar, and
+      published row chunks under `website/assets/benchmarks/latest/`,
+      `website-public/assets/benchmarks/latest/`, `website/assets/data/`,
+      `website-public/assets/data/`, and `website-src/src/data/`.
+    - Moved `RELEASE-PACKAGE-15` out of the open phase-plan checklist. No autonomous
+      implementation item remains in `docs/architecture/phased-execution-plan.md`.
+  - Evidence:
+    - `python3 scripts/check_pre_5j_dependency_freshness.py --require-live-github --output target/pre-5j-dependency-freshness-gate.json`
+      passed with `benchmark_refresh_allowed=true`, `open_dependabot_check_status=passed`, and
+      `open_dependabot_pr_count=0`.
+    - `target/release-package-15/benchmark-venv/bin/python benchmarks/traditional_analytics/run.py --claim-readiness-rerun --rows 10000 --iterations 3 --shardloom-build-profile release --regenerate --data-dir target/release-package-15/generated-data --output target/release-package-15/benchmark-results-a575a206.json --markdown-output target/release-package-15/benchmark-results-a575a206.md --require-all-engines`
+      reproduced the benchmark but exposed stale sidecar accounting during promotion.
+    - `python3 -m py_compile scripts/promote_benchmark_artifact.py python/tests/test_release_scripts.py`
+      passed after the sidecar accounting fix.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_publication_proof_sidecar_reuses_and_invalidates`
+      passed.
+    - `python3 -m py_compile scripts/check_compute_engine_completion_gate.py python/tests/test_compute_engine_completion_gate.py python/tests/test_release_scripts.py`
+      passed after the optimization-status classification fix.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_compute_engine_completion_gate python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publish_doctor_accepts_current_static_artifact python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_publication_proof_sidecar_reuses_and_invalidates`
+      passed with 8 tests.
+    - `CARGO_TARGET_DIR=/Users/dylan/Documents/shardloom-local-repo/target /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/benchmark-venv/bin/python benchmarks/traditional_analytics/run.py --claim-readiness-rerun --rows 10000 --iterations 3 --shardloom-build-profile release --regenerate --data-dir /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/generated-data-97fe8ec6 --output /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/benchmark-results-97fe8ec6.json --markdown-output /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/benchmark-results-97fe8ec6.md --require-all-engines`
+      passed from a clean linked worktree at `97fe8ec6890f5dc2992083647b252cbb0710237a`.
+    - `target/release-package-15/benchmark-venv/bin/python scripts/promote_benchmark_artifact.py --input target/release-package-15/benchmark-results-97fe8ec6.json --profile full_local`
+      promoted the current artifact and wrote
+      `website/assets/benchmarks/latest/manifest.json`.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/release-readiness-audit/benchmark-completeness-release-package-15.json`
+      passed with `artifact_status=complete`, no missing lanes, and no blockers.
+    - `python3 scripts/check_benchmark_publish_doctor.py --allow-dirty-worktree --output target/release-readiness-audit/benchmark-publish-doctor-release-package-15-dirty-static.json --packet-json target/release-readiness-audit/benchmark-route-packet-release-package-15-dirty-static.json --packet-md target/release-readiness-audit/benchmark-route-packet-release-package-15-dirty-static.md`
+      passed with 1320 published rows, 600 ShardLoom claim-grade rows, 720 external-baseline rows,
+      digest-identical mirrors, `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Dirty-worktree strict publication validation before the final static-publication commit was
+      blocked only by `benchmark artifact cannot be current while the worktree is dirty`, while the
+      manifest already recorded `benchmark_git_sha=97fe8ec6890f5dc2992083647b252cbb0710237a`,
+      `shardloom_git_sha=97fe8ec6890f5dc2992083647b252cbb0710237a`, 600 ShardLoom claim-grade
+      rows, no ShardLoom runtime validation failures, and no fallback/external invocation.
+  - Claim boundary:
+    - This completes the local clean-source benchmark-publication evidence refresh for the scoped
+      full-local benchmark artifact. It does not publish packages, create tags, approve API/schema
+      stability, promote per-claim public evidence, or authorize production, superiority,
+      Spark-displacement, SQL/DataFrame production, object-store/lakehouse, Foundry/platform, or
+      broad encoded-native claims.
+    - `performance_claim_allowed` remains false in the published manifest; claim-grade here means
+      the scoped ShardLoom publication rows satisfy the benchmark publication proof contract, not a
+      broad public performance claim.
+  - Fallback boundary:
+    - ShardLoom rows preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+      External engines remain benchmark baselines only and are not ShardLoom runtime fallback.
+
 - [x] Session label: Traditional-analytics hash-join residual evidence validation fix
   - Date: 2026-06-13
   - Source:
