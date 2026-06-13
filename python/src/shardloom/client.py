@@ -10317,6 +10317,27 @@ class ShardLoomClient:
 
         return self.run(["status"], check=check)
 
+    def doctor(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the side-effect-free v1 doctor envelope."""
+
+        return self.run(["doctor"], check=check)
+
+    def support_bundle(
+        self,
+        *,
+        note: str | None = None,
+        include_defaults: bool = True,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return a redacted support-bundle envelope without writing files."""
+
+        args: list[CommandPart] = ["support-bundle"]
+        if note is not None:
+            args.extend(["--note", note])
+        if include_defaults:
+            args.append("--include-defaults")
+        return self.run(args, check=check)
+
     def runs_today(self, *, check: bool = True) -> RunsTodaySupportMatrix:
         """Return the generated current-support matrix."""
 

@@ -344,6 +344,147 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.fallback.attempted)
         self.assertEqual(result.field_map["engine"], "shardloom")
 
+    def test_doctor_returns_v1_stable_no_probe_fields(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["doctor", "--format", "json"], sys.argv
+                fields = [
+                    ["doctor_schema_version", "shardloom.doctor.v1"],
+                    ["doctor_report_id", "doctor.local_v1"],
+                    ["doctor_check_count", "8"],
+                    ["doctor_check_order", "cli_version,python_package_version,package_channel,feature_support,vortex_support,local_write_support,no_fallback_invariant,environment_details"],
+                    ["cli_version", "0.1.0"],
+                    ["doctor_check_cli_version_status", "available"],
+                    ["python_package_version", "not_probed"],
+                    ["doctor_check_python_package_version_status", "not_probed_no_python_import"],
+                    ["package_channel", "source_tree_local"],
+                    ["doctor_check_package_channel_status", "local_source_tree_no_publication"],
+                    ["doctor_check_feature_support_status", "contract_only"],
+                    ["doctor_check_vortex_support_status", "deferred"],
+                    ["doctor_check_local_write_support_status", "local_workspace_feature_gated"],
+                    ["doctor_check_no_fallback_invariant_status", "verified"],
+                    ["doctor_check_environment_details_status", "static_no_probe"],
+                    ["environment_details", "static_no_probe"],
+                    ["environment_probe_performed", "false"],
+                    ["filesystem_probe_performed", "false"],
+                    ["network_probe_performed", "false"],
+                    ["runtime_execution", "false"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                    ["support_bundle_available", "true"],
+                    ["support_bundle_command", "support-bundle --format json"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "doctor",
+                    "status": "success",
+                    "summary": "doctor checks",
+                    "human_text": "ShardLoom doctor",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).doctor()
+
+        self.assertEqual(result.command, "doctor")
+        self.assertEqual(result.field("doctor_schema_version"), "shardloom.doctor.v1")
+        self.assertEqual(result.field_int("doctor_check_count"), 8)
+        self.assertIn("vortex_support", result.field("doctor_check_order") or "")
+        self.assertEqual(
+            result.field("doctor_check_python_package_version_status"),
+            "not_probed_no_python_import",
+        )
+        self.assertEqual(result.field("package_channel"), "source_tree_local")
+        self.assertFalse(result.field_bool("environment_probe_performed", True))
+        self.assertFalse(result.field_bool("filesystem_probe_performed", True))
+        self.assertFalse(result.field_bool("network_probe_performed", True))
+        self.assertFalse(result.field_bool("fallback_attempted", True))
+        self.assertFalse(result.field_bool("external_engine_invoked", True))
+        self.assertTrue(result.field_bool("support_bundle_available", False))
+
+    def test_support_bundle_redacts_note_and_keeps_effects_disabled(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "support-bundle",
+                    "--note",
+                    "token=abc123 Authorization: Bearer secret-value",
+                    "--include-defaults",
+                    "--format",
+                    "json",
+                ], sys.argv
+                fields = [
+                    ["schema_version", "shardloom.support_bundle.v1"],
+                    ["bundle_id", "support.bundle.local.v1"],
+                    ["generated_by", "shardloom"],
+                    ["support_bundle_status", "generated_in_envelope"],
+                    ["support_bundle_generated", "true"],
+                    ["support_bundle_written", "false"],
+                    ["redaction_status", "redacted"],
+                    ["redaction_policy", "redaction(kind=strict, redact_prompts=true, redact_payloads=true, redact_paths=true)"],
+                    ["raw_secret_values_present", "false"],
+                    ["input_contains_redacted_tokens", "true"],
+                    ["redacted_note_preview", "token=<redacted> Authorization: Bearer <redacted>"],
+                    ["included_reports", "doctor,feature_footprint,command_metadata,v1_api_schema_stability"],
+                    ["included_report_refs", "doctor,feature_footprint,command_metadata,v1_api_schema_stability"],
+                    ["included_report_count", "4"],
+                    ["secret_values_included", "false"],
+                    ["filesystem_write_performed", "false"],
+                    ["filesystem_probe_performed", "false"],
+                    ["network_probe_performed", "false"],
+                    ["external_effects_executed", "false"],
+                    ["runtime_execution", "false"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                    ["doctor_schema_version", "shardloom.doctor.v1"],
+                    ["doctor_check_count", "8"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "support-bundle",
+                    "status": "success",
+                    "summary": "support bundle",
+                    "human_text": "ShardLoom support bundle",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).support_bundle(
+            note="token=abc123 Authorization: Bearer secret-value"
+        )
+
+        self.assertEqual(result.command, "support-bundle")
+        self.assertEqual(result.field("schema_version"), "shardloom.support_bundle.v1")
+        self.assertEqual(result.field("generated_by"), "shardloom")
+        self.assertTrue(result.field_bool("support_bundle_generated", False))
+        self.assertFalse(result.field_bool("support_bundle_written", True))
+        self.assertEqual(result.field("redaction_status"), "redacted")
+        self.assertFalse(result.field_bool("secret_values_included", True))
+        self.assertIn("doctor", result.field("included_report_refs") or "")
+        self.assertTrue(result.field_bool("input_contains_redacted_tokens", False))
+        preview = result.field("redacted_note_preview") or ""
+        self.assertIn("token=<redacted>", preview)
+        self.assertIn("Bearer <redacted>", preview)
+        self.assertNotIn("abc123", preview)
+        self.assertNotIn("secret-value", preview)
+        self.assertFalse(result.field_bool("raw_secret_values_present", True))
+        self.assertFalse(result.field_bool("filesystem_write_performed", True))
+        self.assertFalse(result.field_bool("network_probe_performed", True))
+        self.assertFalse(result.field_bool("fallback_attempted", True))
+        self.assertFalse(result.field_bool("external_engine_invoked", True))
+
     def test_runs_today_returns_typed_current_support_matrix(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

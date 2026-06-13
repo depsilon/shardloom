@@ -18,9 +18,10 @@ Agents should prefer stable JSON over human text:
 1. `shardloom feature-footprint --format json`
 2. `shardloom effect-budget-plan --format json`
 3. `shardloom doctor --format json`
-4. `shardloom capabilities certification --format json`
-5. `shardloom world-class-sufficiency-plan --format json`
-6. `shardloom benchmark-plan --format json`
+4. `shardloom support-bundle --format json`
+5. `shardloom capabilities certification --format json`
+6. `shardloom world-class-sufficiency-plan --format json`
+7. `shardloom benchmark-plan --format json`
 
 Human text is useful for explanations, but JSON fields are the authoritative automation surface.
 
@@ -45,6 +46,7 @@ Human text is useful for explanations, but JSON fields are the authoritative aut
   - feature footprint
   - effect budget
   - doctor
+  - support bundle
   - explain/estimate
   - plan portability
   - native I/O envelope

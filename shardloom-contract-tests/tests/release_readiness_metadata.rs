@@ -1385,7 +1385,7 @@ fn hard_release_readiness_gate_docs_are_present() {
         "python scripts\\check_v1_api_schema_stability.py",
         "target/v1-api-schema-stability-report.json",
         "shardloom.v1_api_schema_stability_matrix.v1",
-        "stable_surface_count=11",
+        "stable_surface_count=12",
         "diagnostic_code_count=22",
         "diagnostic_code_doc_ref=docs/release/diagnostic-code-stability.md",
         "compatibility_window=v1_additive_compatibility",

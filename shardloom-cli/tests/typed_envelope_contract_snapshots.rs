@@ -33,6 +33,71 @@ fn success_fixture_routes_status_into_typed_envelope() {
 }
 
 #[test]
+fn doctor_fixture_routes_v1_no_probe_fields_into_typed_envelope() {
+    let output = run_command(&["doctor", "--format", "json"], true);
+
+    assert_common_typed_slots(&output, "doctor", "success");
+    assert!(output.contains(&field("command_family", "diagnostics")));
+    assert!(output.contains(&field("doctor_schema_version", "shardloom.doctor.v1")));
+    assert!(output.contains(&field("doctor_report_id", "doctor.local_v1")));
+    assert!(output.contains(&field("doctor_check_count", "8")));
+    assert!(output.contains(&field(
+        "doctor_check_python_package_version_status",
+        "not_probed_no_python_import"
+    )));
+    assert!(output.contains(&field(
+        "doctor_check_no_fallback_invariant_status",
+        "verified"
+    )));
+    assert!(output.contains(&field("environment_probe_performed", "false")));
+    assert!(output.contains(&field("filesystem_probe_performed", "false")));
+    assert!(output.contains(&field("network_probe_performed", "false")));
+    assert!(output.contains(&field("runtime_execution", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+    assert!(output.contains(&field("support_bundle_available", "true")));
+}
+
+#[test]
+fn support_bundle_fixture_routes_redacted_no_effect_fields_into_typed_envelope() {
+    let output = run_command(
+        &[
+            "support-bundle",
+            "--note",
+            "token=abc123 Authorization: Bearer secret-value",
+            "--format",
+            "json",
+        ],
+        true,
+    );
+
+    assert_common_typed_slots(&output, "support-bundle", "success");
+    assert!(output.contains(&field("command_family", "diagnostics")));
+    assert!(output.contains(&field("schema_version", "shardloom.support_bundle.v1")));
+    assert!(output.contains(&field("generated_by", "shardloom")));
+    assert!(output.contains(&field("support_bundle_status", "generated_in_envelope")));
+    assert!(output.contains(&field("support_bundle_generated", "true")));
+    assert!(output.contains(&field("support_bundle_written", "false")));
+    assert!(output.contains(&field("redaction_status", "redacted")));
+    assert!(output.contains(&field("secret_values_included", "false")));
+    assert!(output.contains(&field("raw_secret_values_present", "false")));
+    assert!(output.contains(&field("input_contains_redacted_tokens", "true")));
+    assert!(output.contains(&field(
+        "redacted_note_preview",
+        "token=<redacted> Authorization: Bearer <redacted>"
+    )));
+    assert!(!output.contains("abc123"));
+    assert!(!output.contains("secret-value"));
+    assert!(output.contains(&field("filesystem_write_performed", "false")));
+    assert!(output.contains(&field("filesystem_probe_performed", "false")));
+    assert!(output.contains(&field("network_probe_performed", "false")));
+    assert!(output.contains(&field("external_effects_executed", "false")));
+    assert!(output.contains(&field("runtime_execution", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn invalid_input_fixture_preserves_typed_diagnostics_and_lifecycle() {
     let output = run_command(&["capabilities", "unknown", "--format", "json"], false);
 

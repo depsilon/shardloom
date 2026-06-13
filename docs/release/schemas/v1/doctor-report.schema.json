@@ -1,0 +1,43 @@
+{
+  "schema_version": "shardloom.stable_schema_contract.v1",
+  "schema_id": "shardloom.doctor_report.v1",
+  "surface_id": "doctor_report",
+  "stability_tier": "stable_v1",
+  "compatibility_window": "v1_additive_compatibility",
+  "legacy_flat_field_policy": "stable_aliases_for_v1_with_documented_deprecation_window",
+  "required_fields": [
+    {"path": "doctor_schema_version", "type": "string"},
+    {"path": "doctor_report_id", "type": "string"},
+    {"path": "doctor_check_count", "type": "string"},
+    {"path": "doctor_check_order", "type": "string"},
+    {"path": "cli_version", "type": "string"},
+    {"path": "doctor_check_cli_version_status", "type": "string"},
+    {"path": "python_package_version", "type": "string"},
+    {"path": "doctor_check_python_package_version_status", "type": "string"},
+    {"path": "package_channel", "type": "string"},
+    {"path": "doctor_check_package_channel_status", "type": "string"},
+    {"path": "doctor_check_feature_support_status", "type": "string"},
+    {"path": "doctor_check_vortex_support_status", "type": "string"},
+    {"path": "doctor_check_local_write_support_status", "type": "string"},
+    {"path": "doctor_check_no_fallback_invariant_status", "type": "string"},
+    {"path": "doctor_check_environment_details_status", "type": "string"},
+    {"path": "environment_details", "type": "string"},
+    {"path": "environment_probe_performed", "type": "boolean"},
+    {"path": "filesystem_probe_performed", "type": "boolean"},
+    {"path": "network_probe_performed", "type": "boolean"},
+    {"path": "runtime_execution", "type": "boolean"},
+    {"path": "fallback_attempted", "type": "boolean"},
+    {"path": "external_engine_invoked", "type": "boolean"},
+    {"path": "support_bundle_available", "type": "boolean"},
+    {"path": "support_bundle_command", "type": "string"}
+  ],
+  "no_fallback_fields": [
+    "environment_probe_performed",
+    "filesystem_probe_performed",
+    "network_probe_performed",
+    "runtime_execution",
+    "fallback_attempted",
+    "external_engine_invoked"
+  ],
+  "claim_boundary": "Stable local doctor report field contract only; doctor must not probe filesystem/network state, execute runtime work, publish packages, or invoke fallback engines."
+}

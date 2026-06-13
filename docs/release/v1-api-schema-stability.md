@@ -17,7 +17,7 @@ inside source-built/local ShardLoom workflows. It is narrower than public packag
 it does not publish packages, create tags, sign artifacts, upload attestations, run workloads,
 invoke external engines, or authorize fallback execution.
 
-Stable surface count: 11.
+Stable surface count: 12.
 
 Diagnostic code count: 22.
 
@@ -33,6 +33,7 @@ Stable surfaces:
 - `native_io_certificate`
 - `capability_report`
 - `package_release_report`
+- `doctor_report`
 - `support_bundle`
 
 Compatibility window: additive v1. Existing stable fields stay available for v1; field removal,

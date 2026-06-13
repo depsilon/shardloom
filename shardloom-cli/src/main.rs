@@ -1008,6 +1008,7 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("profile-plan") => diagnostics::handle_profile_plan(format),
         Some("feature-footprint") => diagnostics::handle_feature_footprint(format),
         Some("doctor") => diagnostics::handle_doctor(format),
+        Some("support-bundle") => diagnostics::handle_support_bundle(args, format),
         Some("explain") => diagnostics::handle_explain(args, format),
         Some("benchmark-plan") => benchmark_planning::handle_benchmark_plan(args, format),
         Some("benchmark-constitution") => {
@@ -7373,6 +7374,7 @@ mod tests {
                 "feature-footprint",
                 "effect-budget-plan",
                 "doctor",
+                "support-bundle",
                 "release-plan",
                 "rest-api-contract-plan",
                 "rest-api-security-governance",
@@ -7423,7 +7425,11 @@ mod tests {
         assert_eq!(output_field(&fields, "side_effect_free"), "true");
         assert!(output_field(&fields, "surface_order").contains("feature_footprint"));
         assert!(output_field(&fields, "surface_order").contains("effect_budget"));
+        assert!(output_field(&fields, "surface_order").contains("support_bundle"));
         assert!(output_field(&fields, "recommended_sequence").contains("doctor --format json"));
+        assert!(
+            output_field(&fields, "recommended_sequence").contains("support-bundle --format json")
+        );
     }
 
     #[test]
@@ -7611,6 +7617,65 @@ mod tests {
     }
 
     #[test]
+    fn doctor_v1_fields_include_safe_no_probe_checks() {
+        let report = shardloom_core::FeatureFootprintReport::contract_only();
+        let fields = crate::diagnostics::doctor_v1_fields(&report);
+
+        assert_eq!(
+            output_field(&fields, "doctor_schema_version"),
+            "shardloom.doctor.v1"
+        );
+        assert_eq!(output_field(&fields, "doctor_check_count"), "8");
+        assert!(output_field(&fields, "doctor_check_order").contains("cli_version"));
+        assert_eq!(
+            output_field(&fields, "doctor_check_python_package_version_status"),
+            "not_probed_no_python_import"
+        );
+        assert_eq!(
+            output_field(&fields, "environment_probe_performed"),
+            "false"
+        );
+        assert_eq!(output_field(&fields, "filesystem_probe_performed"), "false");
+        assert_eq!(output_field(&fields, "network_probe_performed"), "false");
+        assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+        assert_eq!(output_field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn support_bundle_fields_redact_secret_notes_without_effects() {
+        let report = shardloom_core::FeatureFootprintReport::contract_only();
+        let fields = crate::diagnostics::support_bundle_fields(
+            "token=abc123 Authorization: Bearer secret-value",
+            &report,
+        );
+
+        assert_eq!(
+            output_field(&fields, "schema_version"),
+            "shardloom.support_bundle.v1"
+        );
+        assert_eq!(output_field(&fields, "support_bundle_generated"), "true");
+        assert_eq!(output_field(&fields, "support_bundle_written"), "false");
+        assert_eq!(output_field(&fields, "generated_by"), "shardloom");
+        assert_eq!(output_field(&fields, "redaction_status"), "redacted");
+        assert_eq!(output_field(&fields, "secret_values_included"), "false");
+        assert_eq!(
+            output_field(&fields, "input_contains_redacted_tokens"),
+            "true"
+        );
+        assert!(output_field(&fields, "included_report_refs").contains("doctor"));
+        let preview = output_field(&fields, "redacted_note_preview");
+        assert!(preview.contains("token=<redacted>"));
+        assert!(preview.contains("Bearer <redacted>"));
+        assert!(!preview.contains("abc123"));
+        assert!(!preview.contains("secret-value"));
+        assert_eq!(output_field(&fields, "raw_secret_values_present"), "false");
+        assert_eq!(output_field(&fields, "filesystem_write_performed"), "false");
+        assert_eq!(output_field(&fields, "network_probe_performed"), "false");
+        assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+        assert_eq!(output_field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
     fn feature_footprint_command_returns_success() {
         let code = run(vec!["feature-footprint".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
@@ -7619,6 +7684,16 @@ mod tests {
     #[test]
     fn doctor_command_returns_success_through_feature_footprint() {
         let code = run(vec!["doctor".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn support_bundle_command_returns_success_and_redacts_note() {
+        let code = run(vec![
+            "support-bundle".to_string(),
+            "--note".to_string(),
+            "token=abc123 Authorization: Bearer secret-value".to_string(),
+        ]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
 

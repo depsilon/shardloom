@@ -21,6 +21,7 @@ pub enum AgentContractSurfaceKind {
     FeatureFootprint,
     EffectBudget,
     Doctor,
+    SupportBundle,
     ExplainEstimate,
     PlanPortability,
     NativeIoEnvelope,
@@ -40,6 +41,7 @@ impl AgentContractSurfaceKind {
             Self::FeatureFootprint => "feature_footprint",
             Self::EffectBudget => "effect_budget",
             Self::Doctor => "doctor",
+            Self::SupportBundle => "support_bundle",
             Self::ExplainEstimate => "explain_estimate",
             Self::PlanPortability => "plan_portability",
             Self::NativeIoEnvelope => "native_io_envelope",
@@ -167,7 +169,12 @@ impl AgentContractPack {
                 AgentContractSurface::available(
                     AgentContractSurfaceKind::Doctor,
                     Some("doctor"),
-                    "shardloom.feature_footprint.v1",
+                    "shardloom.doctor.v1",
+                ),
+                AgentContractSurface::available(
+                    AgentContractSurfaceKind::SupportBundle,
+                    Some("support-bundle"),
+                    "shardloom.support_bundle.v1",
                 ),
                 AgentContractSurface::available(
                     AgentContractSurfaceKind::ExplainEstimate,
@@ -209,6 +216,7 @@ impl AgentContractPack {
                 "feature-footprint --format json",
                 "effect-budget-plan --format json",
                 "doctor --format json",
+                "support-bundle --format json",
                 "capabilities certification --format json",
                 "world-class-sufficiency-plan --format json",
                 "benchmark-plan --format json",
@@ -338,6 +346,7 @@ mod tests {
         assert!(surfaces.contains(&"output_envelope"));
         assert!(surfaces.contains(&"feature_footprint"));
         assert!(surfaces.contains(&"effect_budget"));
+        assert!(surfaces.contains(&"support_bundle"));
         assert!(surfaces.contains(&"benchmark_evidence"));
         assert_eq!(pack.available_surface_count(), pack.surfaces.len());
     }

@@ -120,6 +120,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "profile-plan",
     "feature-footprint",
     "doctor",
+    "support-bundle",
     "explain",
     "benchmark-plan",
     "benchmark-constitution",
@@ -855,6 +856,7 @@ fn command_usage_fragment(command: &str) -> String {
         "run" => "run <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|write_vortex|write_parquet|write_csv|write_jsonl>] [--output <ref>]".to_string(),
         "prepare" => "prepare <sql|python|dataframe|cli> --input <uri> [--input-format <format>] --output <target.vortex>".to_string(),
         "capabilities" => format!("{command} [{}]", capability_scopes().join("|")),
+        "support-bundle" => format!("{command} [--note <redacted-text>] [--include-defaults]"),
         "rest-api-plan-preview" => format!("{command} [certified-local-batch|partial-hybrid-fixture|blocked-remote-object-store|invalid-input|unsupported-operator]"),
         "rest-api-local-lifecycle" => format!("{command} [certified-local-batch|certified-live-fixture|certified-hybrid-fixture|cancel-requested|retry-requested|blocked-uncertified]"),
         "rest-api-event-stream" => format!("{command} [certified-live-fixture|certified-hybrid-fixture|blocked-production-workload|broker-requested]"),
@@ -1052,6 +1054,7 @@ fn command_support_state(command: &str) -> &'static str {
     } else if matches!(
         command,
         "doctor"
+            | "support-bundle"
             | "explain"
             | "estimate"
             | "spill-payload-roundtrip"
@@ -1105,6 +1108,8 @@ fn command_side_effect_level(command: &str) -> &'static str {
             | "status"
             | "runs-today"
             | "capabilities"
+            | "doctor"
+            | "support-bundle"
             | "benchmark-constitution"
     ) || command.ends_with("-plan")
         || command.ends_with("-gate")
@@ -1354,6 +1359,7 @@ mod tests {
         assert!(seen.contains("evidence-schema"));
         assert!(seen.contains("route"));
         assert!(seen.contains("capabilities"));
+        assert!(seen.contains("support-bundle"));
         assert!(seen.contains("vortex-ingest-smoke"));
         assert!(seen.contains("vortex-local-commit-execute"));
     }
@@ -1429,6 +1435,7 @@ mod tests {
             "status",
             "runs-today",
             "capabilities",
+            "support-bundle",
         ] {
             assert_eq!(
                 command_support_state(command),
