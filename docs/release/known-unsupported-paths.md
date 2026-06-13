@@ -11,6 +11,12 @@ finished-product v1 support rows. A surface is outside the current finished-prod
 until a matching phase-plan item closes with implementation, correctness, benchmark, security,
 documentation, and no-fallback evidence.
 
+The v1 inclusion queue is tracked in
+[`docs/release/v1-inclusion-scope-matrix.md`](v1-inclusion-scope-matrix.md). Broad platform
+families that are marked as v1 candidates pending feasibility are not outside v1 by default;
+deferred rows require deterministic unsupported diagnostics, `fallback_attempted=false`, and
+`external_engine_invoked=false`.
+
 ShardLoom must not be described as a broad replacement for every SQL, DataFrame, streaming,
 object-store, platform, or Foundry workload until those exact paths have claim-grade evidence.
 

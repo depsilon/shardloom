@@ -19,6 +19,8 @@ from check_public_claim_language import (
     SCHEMA_VERSION as PUBLIC_CLAIM_LANGUAGE_SCHEMA_VERSION,
 )
 from check_public_claim_language import build_report as build_public_claim_language_report
+from check_v1_inclusion_scope import SCHEMA_VERSION as V1_INCLUSION_SCOPE_SCHEMA_VERSION
+from check_v1_inclusion_scope import build_report as build_v1_inclusion_scope_report
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,6 +31,7 @@ CANONICAL_PUBLIC_STATUS_MARKERS = (
     "shardloom.public_status_matrix.v1",
     "canonical public status and claim-boundary owner",
     "docs/release/finished-product-scope.md",
+    "docs/release/v1-inclusion-scope-matrix.md",
     "public_release_claim_allowed=false",
     "public_package_claim_allowed=false",
     "performance_claim_allowed=false",
@@ -76,6 +79,11 @@ PUBLIC_DOC_MARKERS = {
         PUBLIC_STATUS_REF.as_posix(),
         "Current public posture is owned by",
         "Historical validation snapshot",
+    ),
+    "docs/release/v1-inclusion-scope-matrix.md": (
+        "shardloom.v1_inclusion_scope_matrix.v1",
+        "v1_inclusion_scope_required_rows_cannot_be_report_only=true",
+        "v1_inclusion_scope_deferred_rows_require_unsupported_diagnostics=true",
     ),
 }
 
@@ -142,6 +150,14 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             f"public claim language: {blocker}"
             for blocker in claim_language_report.get("blockers", [])
         )
+    v1_inclusion_scope_report = build_v1_inclusion_scope_report(repo_root)
+    if v1_inclusion_scope_report.get("schema_version") != V1_INCLUSION_SCOPE_SCHEMA_VERSION:
+        blockers.append("v1 inclusion-scope report schema mismatch")
+    if v1_inclusion_scope_report.get("status") != "passed":
+        blockers.extend(
+            f"v1 inclusion scope: {blocker}"
+            for blocker in v1_inclusion_scope_report.get("blockers", [])
+        )
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -151,6 +167,8 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "checked_doc_count": len(checked_docs),
         "public_claim_language_report": claim_language_report,
         "public_claim_language_status": claim_language_report.get("status", "missing"),
+        "v1_inclusion_scope_report": v1_inclusion_scope_report,
+        "v1_inclusion_scope_status": v1_inclusion_scope_report.get("status", "missing"),
         "claim_gate_status": "not_claim_grade",
         "blockers": blockers,
         **fail_closed_fields(),

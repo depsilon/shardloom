@@ -186,63 +186,6 @@ referenced in the completed ledger or existing release gates. Broad platform/run
 should be included in v1 when they can be made real, safe, and evidence-backed; defer them only
 with a recorded infeasibility reason, not merely because they are broad.
 
-- [ ] `PROD-V1-0B` V1 inclusion-first queue classification and unsupported-surface firewall.
-  - Source: attached production-shift review sections 2 and 11;
-    `docs/architecture/runtime-gap-family-burn-down.md`;
-    `docs/architecture/global-architecture-review.md`;
-    `docs/release/known-unsupported-paths.md`; current Planned production rows.
-  - Current state: this file has production readiness rows for local formats and broad platform
-    families, but it does not yet present a clean v1 inclusion/feasibility queue. Broad
-    object-store, lakehouse/table, distributed, Foundry, live/hybrid, and extension/effect rows
-    should be treated as v1 candidates until a concrete feasibility review proves they must be
-    deferred or narrowed.
-  - Intake review: accepted the queue split but revised the attached deferral guidance for the
-    maintainer's v1 goal: merge broad production-family rows into existing `PROD-READY-*` items as
-    v1 candidates first; defer only with explicit infeasibility evidence. Keep local/emulated
-    fixture smokes as evidence only, not production claims.
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: applicable as planning contract. Each promoted runtime family must
-    record whether dynamic admission/work shaping, capillary work units, PulseWeave runtime
-    control, metadata-first execution, timing-surface separation, and evidence-tier controls were
-    applied, rejected, or not applicable before support status can change.
-  - Execution checklist:
-    - [ ] Add explicit `v1_scope_classification` fields to active release/runtime status data or
-      validator fixtures where those fields are machine-read.
-    - [ ] Classify all current Planned rows as required, v1 candidate pending feasibility,
-      deferred, documentation-only, or unsupported-boundary for v1 and ensure this file and
-      generated status surfaces agree.
-    - [ ] Review object-store, lakehouse/table, Foundry, live/hybrid, distributed,
-      UDF/plugin/effect, and broad SQL/DataFrame rows for v1 feasibility; promote feasible
-      subsets into v1-required implementation checklists and record concrete deferral reasons for
-      anything left out.
-    - [ ] Update known unsupported paths so broad families are not called outside v1 until the
-      feasibility review either narrows them to deterministic unsupported boundaries or promotes
-      them to v1-required scope.
-    - [ ] Add a validator that fails if a v1-required item remains `report_only`, `blocked`,
-      `unsupported`, or `not_claim_grade`.
-    - [ ] Add a validator that passes deferred rows only when deterministic unsupported
-      diagnostics and out-of-v1 scope labels exist.
-    - [ ] Move the closed classification matrix and command evidence to the completed ledger.
-  - Next outcome: maintainers can see exactly what must close before v1, which broad families are
-    still v1 candidates, and which rows have a defensible beyond-v1 reason.
-  - User-visible surface: phase plan, public status matrix, known unsupported paths, website
-    support matrix, capability reports, and release readiness output.
-  - Implementation scope: phase plan, status/capability data, release validators, docs/site
-    support tables, and tests.
-  - Evidence required: classification matrix, validator negative fixtures, docs/site generated
-    rows, and deterministic unsupported diagnostics.
-  - Acceptance: v1-required rows cannot pass with report-only evidence; v1-candidate rows are
-    either promoted to implementation, narrowed to a supported subset, or deferred with a concrete
-    infeasibility reason; deferred rows do not block v1 when unsupported diagnostics and public
-    scope boundaries are explicit.
-  - Verification: release-script tests, public-status docs validator, website readiness, release
-    readiness with expected blockers, and `git diff --check`.
-  - Non-goals: no runtime implementation by classification alone; no deletion of future platform
-    roadmap rows; no production claim.
-  - Claim boundary: may claim only that v1 scope classification exists and fails closed.
-  - Fallback boundary: deferred surfaces must not use external engines to become claim-grade.
-  - Ledger rule: ledger entry must include the v1 classification table, feasibility decisions,
-    promoted subsets, unsupported boundaries, and any deferred family reasons.
 - [ ] `PROD-V1-1A` Scoped local front-door runtime closure.
   - Source: attached production-shift review section 3; RFC 0010, RFC 0011, RFC 0012, RFC 0033;
     `ShardLoomContext.front_door_parity_matrix()`;
@@ -802,6 +745,7 @@ with a recorded infeasibility reason, not merely because they are broad.
     slowest format. The artifact reports mixed external-control movement, so treat this as current
     evidence and optimization direction, not a standalone ShardLoom regression or performance
     improvement claim.
+  - V1 scope classification: `required_for_v1`.
   - ShardLoom technique review: applicable. Cold-route work should consider dynamic admission for
     source-shape-specific typed builders, capillary windows for bounded source/read/write units,
     PulseWeave-style run-local coalescing for writer/open/reopen work, metadata-first source
@@ -879,6 +823,7 @@ with a recorded infeasibility reason, not merely because they are broad.
     `selective_filter_selection_vector_metric_aggregation`, and
     `compatibility_import_materialization_elimination`. Diagnostic operator fields are visible but
     many operator timings are not additive to selected route totals.
+  - V1 scope classification: `required_for_v1`.
   - ShardLoom technique review: applicable, but operator semantics come first. Dynamic kernel
     admission should select by cardinality/domain/null shape; encoded/partially encoded kernels
     should be preferred where decoded-reference parity exists. Capillary or PulseWeave controls
@@ -938,6 +883,7 @@ with a recorded infeasibility reason, not merely because they are broad.
   - Current state: prepared lookup/create is a moderate absolute cost and a large relative cost for
     first-query prepared routes. Route-share rows are optimization-ready, but some diagnostic
     fields are intentionally non-additive and can distract optimization targeting.
+  - V1 scope classification: `required_for_v1`.
   - ShardLoom technique review: applicable. Use dynamic admission for cache-hit/miss policy,
     metadata-first manifest verification, and PulseWeave-style run-local coalescing for repeated
     dependency-packet checks. Capillary work units apply only if manifest/artifact verification is
@@ -988,6 +934,7 @@ with a recorded infeasibility reason, not merely because they are broad.
     proof/publication throughput but not a core hot-runtime regression.
   - Current state: `publication_proof` rows are correctly separated from `hot_runtime`, but the
     proof path still spends more time rendering human evidence than executing warm/native queries.
+  - V1 scope classification: `required_for_v1`.
   - ShardLoom technique review: applicable for proof publication, not hot runtime. Use
     evidence-tier controls and timing-surface separation first, then PulseWeave-style coalescing or
     digest-keyed sidecar reuse for repeated publication records. Capillary units apply only to
