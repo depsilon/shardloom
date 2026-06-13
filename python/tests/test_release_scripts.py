@@ -5829,10 +5829,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertTrue(
-            str(packet["next_implementation_slice"]).startswith("`RELEASE-PACKAGE-15`"),
-            packet["next_implementation_slice"],
-        )
+        self.assertEqual(packet["next_implementation_slice"], "none")
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def _optimization_target_rows(self) -> list[dict[str, object]]:

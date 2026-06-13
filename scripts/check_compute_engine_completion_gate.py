@@ -52,8 +52,11 @@ OPTIMIZATION_ONLY_STATUS_FIELDS = {
     "fused_pipeline_correctness_digest_status",
     "fused_pipeline_selection_vector_status",
     "operator_hot_path_candidate_status",
+    "pulseweave_result_assembly_coalescing_status",
+    "source_columnar_provider_status",
     "source_read_scout_reuse_status",
     "source_read_scout_timing_split_status",
+    "source_state_query_dim_row_count_reuse_status",
     "vortex_reopen_verify_split_status",
 }
 EXTERNAL_UNSUPPORTED_ROW_STATUSES = {"unsupported", "unsupported_format"}
