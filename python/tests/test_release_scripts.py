@@ -5113,6 +5113,194 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(freshness["tracked_dirty_status_count"], 0)
         self.assertEqual(freshness["untracked_status_count"], 2)
 
+    def test_benchmark_publication_claim_gate_accepts_static_publication_descendant(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_publication_descendant_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo = Path(tempdir)
+            subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=repo,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "ShardLoom Test"],
+                cwd=repo,
+                check=True,
+            )
+            (repo / "shardloom-vortex" / "src").mkdir(parents=True)
+            (repo / "shardloom-vortex" / "src" / "lib.rs").write_text(
+                "pub fn source() {}\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "source revision"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+            source_sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                text=True,
+            ).strip()
+
+            (repo / "website" / "assets" / "benchmarks" / "latest").mkdir(
+                parents=True
+            )
+            (repo / "website" / "assets" / "benchmarks" / "latest" / "manifest.json").write_text(
+                "{}\n",
+                encoding="utf-8",
+            )
+            (repo / "website" / "benchmarks").mkdir(parents=True)
+            (repo / "website" / "benchmarks" / "index.html").write_text(
+                "<html><body>benchmark publication</body></html>\n",
+                encoding="utf-8",
+            )
+            (repo / "website" / "index.html").write_text(
+                "<html><body>home page generated with current benchmark data</body></html>\n",
+                encoding="utf-8",
+            )
+            (repo / "docs" / "architecture").mkdir(parents=True)
+            (repo / "docs" / "architecture" / "phased-execution-plan.md").write_text(
+                "# Phase plan\n\n- [x] release bookkeeping closed after publication evidence.\n",
+                encoding="utf-8",
+            )
+            (repo / "docs" / "release").mkdir(parents=True)
+            (repo / "docs" / "release" / "maintainer-publication-handoff.md").write_text(
+                "# Handoff\n\nStrict benchmark publication evidence passed.\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "publish static benchmark bundle"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+            publication_sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                text=True,
+            ).strip()
+
+            blockers: list[str] = []
+            freshness = module.validate_freshness(
+                {
+                    "generated_at_utc": "2026-05-31T00:00:00+00:00",
+                    "benchmark_git_sha": source_sha,
+                    "shardloom_git_sha": source_sha,
+                },
+                repo,
+                blockers,
+                now=datetime(2026, 5, 31, tzinfo=timezone.utc),
+                max_age_days=14,
+                require_current_git=True,
+                allow_dirty_worktree=False,
+                current_git_sha=publication_sha,
+                worktree_status="",
+            )
+
+        self.assertEqual(blockers, [])
+        self.assertEqual(
+            freshness["git_currentness_status"],
+            "static_publication_descendant",
+        )
+        self.assertEqual(
+            freshness["static_publication_delta_paths"],
+            [
+                "docs/architecture/phased-execution-plan.md",
+                "docs/release/maintainer-publication-handoff.md",
+                "website/assets/benchmarks/latest/manifest.json",
+                "website/benchmarks/index.html",
+                "website/index.html",
+            ],
+        )
+
+    def test_benchmark_publication_claim_gate_blocks_source_changes_after_artifact_source(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_source_drift_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo = Path(tempdir)
+            subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=repo,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "ShardLoom Test"],
+                cwd=repo,
+                check=True,
+            )
+            (repo / "shardloom-vortex" / "src").mkdir(parents=True)
+            source_file = repo / "shardloom-vortex" / "src" / "lib.rs"
+            source_file.write_text("pub fn source() {}\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "source revision"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+            source_sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                text=True,
+            ).strip()
+
+            source_file.write_text("pub fn changed_after_benchmark() {}\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "source changed after benchmark"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+            current_sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                text=True,
+            ).strip()
+
+            blockers: list[str] = []
+            freshness = module.validate_freshness(
+                {
+                    "generated_at_utc": "2026-05-31T00:00:00+00:00",
+                    "benchmark_git_sha": source_sha,
+                    "shardloom_git_sha": source_sha,
+                },
+                repo,
+                blockers,
+                now=datetime(2026, 5, 31, tzinfo=timezone.utc),
+                max_age_days=14,
+                require_current_git=True,
+                allow_dirty_worktree=False,
+                current_git_sha=current_sha,
+                worktree_status="",
+            )
+
+        self.assertEqual(
+            freshness["git_currentness_status"],
+            "blocked_mismatched_source_revision",
+        )
+        self.assertTrue(
+            any("non-publication files changed after benchmark source revision" in blocker for blocker in blockers),
+            blockers,
+        )
+        self.assertEqual(
+            freshness["static_publication_nonpublic_delta_paths"],
+            ["shardloom-vortex/src/lib.rs"],
+        )
+
     def test_benchmark_publication_claim_gate_blocks_dirty_lane_versions(self) -> None:
         module = self._load_script_module(
             "check_benchmark_publication_claim_gate.py",
@@ -5635,7 +5823,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertTrue(
-            str(packet["next_implementation_slice"]).startswith("`PERF-DESIGN-2`"),
+            str(packet["next_implementation_slice"]).startswith("`RELEASE-PACKAGE-15`"),
             packet["next_implementation_slice"],
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])

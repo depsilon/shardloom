@@ -47,6 +47,10 @@ SHARDLOOM_READY_STATUS_FIELDS = {
     "runtime_execution_validation_status": "passed",
 }
 OPTIMIZATION_ONLY_STATUS_FIELDS = {
+    "compressed_kernel_registry_claim_gate_status",
+    "fused_pipeline_claim_gate_status",
+    "fused_pipeline_correctness_digest_status",
+    "fused_pipeline_selection_vector_status",
     "operator_hot_path_candidate_status",
     "source_read_scout_reuse_status",
     "source_read_scout_timing_split_status",

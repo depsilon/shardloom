@@ -1418,16 +1418,87 @@ impl TraditionalVortexSourceSnapshot {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
+struct TraditionalDimensionKeyLookup {
+    dense_membership: Option<Vec<bool>>,
+    key_count: usize,
+    max_key: Option<u32>,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalDimensionKeyLookup {
+    fn from_dim_keys(keys: impl Iterator<Item = u32>) -> Self {
+        let keys = keys.collect::<Vec<_>>();
+        let max_key = keys.iter().copied().max();
+        let dense_membership = max_key
+            .filter(|key| TraditionalDenseU32GroupAccum::can_admit(*key))
+            .and_then(|key| {
+                let len = usize::try_from(key).ok()?.checked_add(1)?;
+                let mut membership = vec![false; len];
+                for key in &keys {
+                    let index = usize::try_from(*key).ok()?;
+                    membership[index] = true;
+                }
+                Some(membership)
+            });
+        Self {
+            dense_membership,
+            key_count: keys.len(),
+            max_key,
+        }
+    }
+
+    fn contains(&self, key: u32) -> Option<bool> {
+        self.dense_membership.as_ref().map(|membership| {
+            usize::try_from(key)
+                .ok()
+                .and_then(|index| membership.get(index))
+                .copied()
+                .unwrap_or(false)
+        })
+    }
+
+    fn status(&self) -> &'static str {
+        if self.key_count == 0 {
+            "empty_dimension_key_membership"
+        } else if self.dense_membership.is_some() {
+            "dense_dimension_key_membership"
+        } else {
+            "sparse_hash_dimension_key_membership"
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
 struct TraditionalDimensionLabelState {
     dim_by_key: std::collections::HashMap<u32, String>,
+    key_lookup: TraditionalDimensionKeyLookup,
     stats: TraditionalStreamingScanStats,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalDimensionLabelState {
+    fn new(
+        dim_by_key: std::collections::HashMap<u32, String>,
+        stats: TraditionalStreamingScanStats,
+    ) -> Self {
+        let key_lookup = TraditionalDimensionKeyLookup::from_dim_keys(dim_by_key.keys().copied());
+        Self {
+            dim_by_key,
+            key_lookup,
+            stats,
+        }
+    }
+
     fn from_path(dim_vortex: &std::path::Path) -> Result<Self> {
         let (dim_by_key, stats) = scan_dim_label_state(dim_vortex, "batch dimension label state")?;
-        Ok(Self { dim_by_key, stats })
+        Ok(Self::new(dim_by_key, stats))
+    }
+
+    fn contains_dim_key(&self, key: u32) -> bool {
+        self.key_lookup
+            .contains(key)
+            .unwrap_or_else(|| self.dim_by_key.contains_key(&key))
     }
 }
 
@@ -19360,6 +19431,9 @@ pub struct TraditionalResidualOperatorOptimizationEvidence {
     sparse_rollover_used: bool,
     dense_max_key: Option<usize>,
     dense_slot_budget: Option<usize>,
+    dimension_membership_status: &'static str,
+    dimension_membership_key_count: Option<usize>,
+    dimension_membership_max_key: Option<u32>,
 }
 
 impl TraditionalResidualOperatorOptimizationEvidence {
@@ -19372,6 +19446,9 @@ impl TraditionalResidualOperatorOptimizationEvidence {
             sparse_rollover_used: false,
             dense_max_key: None,
             dense_slot_budget: None,
+            dimension_membership_status: "not_applicable",
+            dimension_membership_key_count: None,
+            dimension_membership_max_key: None,
         }
     }
 
@@ -19384,6 +19461,9 @@ impl TraditionalResidualOperatorOptimizationEvidence {
             sparse_rollover_used: false,
             dense_max_key: Some(TRADITIONAL_DENSE_GROUP_MAX_KEY),
             dense_slot_budget: Some(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1),
+            dimension_membership_status: "not_applicable",
+            dimension_membership_key_count: None,
+            dimension_membership_max_key: None,
         }
     }
 
@@ -19396,6 +19476,72 @@ impl TraditionalResidualOperatorOptimizationEvidence {
             sparse_rollover_used: false,
             dense_max_key: Some(TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY),
             dense_slot_budget: Some(TRADITIONAL_DENSE_PACKED_GROUP_SLOT_BUDGET),
+            dimension_membership_status: "not_applicable",
+            dimension_membership_key_count: None,
+            dimension_membership_max_key: None,
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn dense_left_sparse_category_accumulator_for(
+        family: &'static str,
+        status: &'static str,
+    ) -> Self {
+        Self {
+            family,
+            status,
+            dense_accumulator_used: true,
+            sparse_rollover_used: false,
+            dense_max_key: Some(TRADITIONAL_DENSE_GROUP_MAX_KEY),
+            dense_slot_budget: Some(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1),
+            dimension_membership_status: "not_applicable",
+            dimension_membership_key_count: None,
+            dimension_membership_max_key: None,
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn nested_generated_payload_fast_parser() -> Self {
+        Self {
+            family: "nested_json_field_scan",
+            status: "applied_residual_fast_generated_nested_payload_parser",
+            dense_accumulator_used: false,
+            sparse_rollover_used: false,
+            dense_max_key: None,
+            dense_slot_budget: None,
+            dimension_membership_status: "not_applicable",
+            dimension_membership_key_count: None,
+            dimension_membership_max_key: None,
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn distinct_count_interner_cardinality() -> Self {
+        Self {
+            family: "distinct_count",
+            status: "applied_residual_interner_cardinality_distinct_count",
+            dense_accumulator_used: false,
+            sparse_rollover_used: false,
+            dense_max_key: None,
+            dense_slot_budget: None,
+            dimension_membership_status: "not_applicable",
+            dimension_membership_key_count: None,
+            dimension_membership_max_key: None,
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn top_k_heap_admission_guard() -> Self {
+        Self {
+            family: "sort_top_k",
+            status: "applied_residual_top_k_heap_admission_guard",
+            dense_accumulator_used: false,
+            sparse_rollover_used: false,
+            dense_max_key: None,
+            dense_slot_budget: None,
+            dimension_membership_status: "not_applicable",
+            dimension_membership_key_count: None,
+            dimension_membership_max_key: None,
         }
     }
 
@@ -19408,6 +19554,9 @@ impl TraditionalResidualOperatorOptimizationEvidence {
             sparse_rollover_used: true,
             dense_max_key: None,
             dense_slot_budget: None,
+            dimension_membership_status: "not_applicable",
+            dimension_membership_key_count: None,
+            dimension_membership_max_key: None,
         }
     }
 
@@ -19424,8 +19573,19 @@ impl TraditionalResidualOperatorOptimizationEvidence {
                 sparse_rollover_used: false,
                 dense_max_key: Some(TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY),
                 dense_slot_budget: Some(TRADITIONAL_DENSE_PACKED_GROUP_SLOT_BUDGET),
+                dimension_membership_status: "not_applicable",
+                dimension_membership_key_count: None,
+                dimension_membership_max_key: None,
             }
         }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn with_dimension_membership(mut self, lookup: &TraditionalDimensionKeyLookup) -> Self {
+        self.dimension_membership_status = lookup.status();
+        self.dimension_membership_key_count = Some(lookup.key_count);
+        self.dimension_membership_max_key = lookup.max_key;
+        self
     }
 
     fn fields(&self) -> Vec<(String, String)> {
@@ -19458,6 +19618,20 @@ impl TraditionalResidualOperatorOptimizationEvidence {
             (
                 "residual_operator_dense_slot_budget".to_string(),
                 self.dense_slot_budget
+                    .map_or_else(|| "not_applicable".to_string(), |value| value.to_string()),
+            ),
+            (
+                "residual_operator_dimension_membership_status".to_string(),
+                self.dimension_membership_status.to_string(),
+            ),
+            (
+                "residual_operator_dimension_membership_key_count".to_string(),
+                self.dimension_membership_key_count
+                    .map_or_else(|| "not_applicable".to_string(), |value| value.to_string()),
+            ),
+            (
+                "residual_operator_dimension_membership_max_key".to_string(),
+                self.dimension_membership_max_key
                     .map_or_else(|| "not_applicable".to_string(), |value| value.to_string()),
             ),
             (
@@ -19772,6 +19946,134 @@ impl TraditionalPackedGroupAccumulator {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Default, Clone, PartialEq)]
+struct TraditionalDenseDimCategoryAccum {
+    groups: Vec<Option<std::collections::HashMap<u32, TraditionalGroupAccum>>>,
+    populated_dim_keys: Vec<u32>,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalDenseDimCategoryAccum {
+    fn can_admit(dim_key: u32) -> bool {
+        TraditionalDenseU32GroupAccum::can_admit(dim_key)
+    }
+
+    fn add(&mut self, dim_key: u32, category_id: u32, metric: f64) -> Result<bool> {
+        if !Self::can_admit(dim_key) {
+            return Ok(false);
+        }
+        let index = usize::try_from(dim_key).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "traditional analytics dense join dimension key {dim_key} exceeded usize: {error}; fallback execution was not attempted"
+            ))
+        })?;
+        if index >= self.groups.len() {
+            self.groups.resize_with(index + 1, || None);
+        }
+        let category_groups = self.groups[index].get_or_insert_with(|| {
+            self.populated_dim_keys.push(dim_key);
+            std::collections::HashMap::new()
+        });
+        category_groups.entry(category_id).or_default().add(metric);
+        Ok(true)
+    }
+
+    fn into_btree_map(self) -> std::collections::BTreeMap<(u32, u32), TraditionalGroupAccum> {
+        let Self {
+            mut groups,
+            mut populated_dim_keys,
+        } = self;
+        let mut out = std::collections::BTreeMap::new();
+        populated_dim_keys.sort_unstable();
+        for dim_key in populated_dim_keys {
+            let Some(index) = usize::try_from(dim_key).ok() else {
+                continue;
+            };
+            let Some(category_groups) = groups.get_mut(index).and_then(Option::take) else {
+                continue;
+            };
+            for (category_id, accum) in category_groups {
+                out.insert((dim_key, category_id), accum);
+            }
+        }
+        out
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq)]
+enum TraditionalDimCategoryAccumulator {
+    Dense(TraditionalDenseDimCategoryAccum),
+    Sparse(std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum>),
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl Default for TraditionalDimCategoryAccumulator {
+    fn default() -> Self {
+        Self::Dense(TraditionalDenseDimCategoryAccum::default())
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalDimCategoryAccumulator {
+    fn add(&mut self, dim_key: u32, category_id: u32, metric: f64) -> Result<()> {
+        match self {
+            Self::Dense(dense) => {
+                if dense.add(dim_key, category_id, metric)? {
+                    Ok(())
+                } else {
+                    let mut sparse = std::mem::take(dense)
+                        .into_btree_map()
+                        .into_iter()
+                        .map(|((dim_key, category_id), accum)| {
+                            (pack_traditional_u32_pair(dim_key, category_id), accum)
+                        })
+                        .collect::<std::collections::HashMap<_, _>>();
+                    add_packed_group_accum(&mut sparse, dim_key, category_id, metric);
+                    *self = Self::Sparse(sparse);
+                    Ok(())
+                }
+            }
+            Self::Sparse(groups) => {
+                add_packed_group_accum(groups, dim_key, category_id, metric);
+                Ok(())
+            }
+        }
+    }
+
+    fn optimization_evidence_for_family(
+        &self,
+        family: &'static str,
+        dense_status: &'static str,
+    ) -> TraditionalResidualOperatorOptimizationEvidence {
+        match self {
+            Self::Dense(_) => {
+                TraditionalResidualOperatorOptimizationEvidence::dense_left_sparse_category_accumulator_for(
+                    family,
+                    dense_status,
+                )
+            }
+            Self::Sparse(_) => {
+                TraditionalResidualOperatorOptimizationEvidence::sparse_rollover(family)
+            }
+        }
+    }
+
+    fn into_btree_map(self) -> std::collections::BTreeMap<(u32, u32), TraditionalGroupAccum> {
+        match self {
+            Self::Dense(dense) => dense.into_btree_map(),
+            Self::Sparse(groups) => groups
+                .into_iter()
+                .map(|(packed, accum)| {
+                    let (dim_key, category_id) = unpack_traditional_u32_pair(packed);
+                    ((dim_key, category_id), accum)
+                })
+                .collect(),
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Default, Clone, PartialEq)]
 struct TraditionalStringInterner {
     values: Vec<String>,
     by_value: std::collections::HashMap<String, u32>,
@@ -19805,6 +20107,10 @@ impl TraditionalStringInterner {
         let index = usize::try_from(id).ok()?;
         self.values.get(index).map(String::as_str)
     }
+
+    fn len(&self) -> usize {
+        self.values.len()
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -19836,6 +20142,13 @@ impl GlobalTopKCandidate {
     const fn new(id: u64, metric: f64) -> Self {
         Self { id, metric }
     }
+
+    fn ranks_ahead_of(&self, other: &Self) -> bool {
+        self.metric
+            .total_cmp(&other.metric)
+            .then_with(|| other.id.cmp(&self.id))
+            .is_gt()
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -19862,6 +20175,23 @@ impl Ord for GlobalTopKCandidate {
             .metric
             .total_cmp(&self.metric)
             .then_with(|| self.id.cmp(&other.id))
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn push_global_top_k_candidate(
+    top_rows: &mut std::collections::BinaryHeap<GlobalTopKCandidate>,
+    candidate: GlobalTopKCandidate,
+) {
+    const GLOBAL_TOP_K_LIMIT: usize = 10;
+    if top_rows.len() < GLOBAL_TOP_K_LIMIT {
+        top_rows.push(candidate);
+    } else if top_rows
+        .peek()
+        .is_some_and(|worst| candidate.ranks_ahead_of(worst))
+    {
+        top_rows.push(candidate);
+        let _ = top_rows.pop();
     }
 }
 
@@ -22702,6 +23032,20 @@ impl TraditionalStreamingScanStats {
         self.result_assembly_micros = checked_u64_sum(self.result_assembly_micros, micros)?;
         Ok(self)
     }
+
+    fn cached_source_state_handoff(mut self) -> Self {
+        self.vortex_footer_open_micros = 0;
+        self.vortex_metadata_verify_micros = 0;
+        self.vortex_scan_open_micros = 0;
+        self.vortex_scenario_scan_micros = 0;
+        self.scan_chunk_iter_micros = 0;
+        self.vortex_projected_field_extract_micros = 0;
+        self.vortex_encoded_kernel_evidence_micros = 0;
+        self.operator_kernel_micros = 0;
+        self.operator_finalize_micros = 0;
+        self.result_assembly_micros = 0;
+        self
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -25048,7 +25392,7 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
                 &dim_vortex,
                 child_cdc_delta_vortex.as_deref(),
                 fact_delta_overlay_vortex.as_deref(),
-                &child_source_snapshot,
+                child_source_snapshot,
             )?;
             split_inventory_cache.insert(split_inventory_key.clone(), split_inventory);
         }
@@ -29501,6 +29845,7 @@ fn fact_row_from_fast_jsonl_values(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
 fn parse_benchmark_fact_jsonl_tail<'a>(
     cursor: &'a str,
     path: &std::path::Path,
@@ -32050,7 +32395,10 @@ fn run_fact_metric_batch_source_state_scenario(
             rows_scanned: fact_metric_state.stats.source_row_count,
             rows_materialized: fact_metric_state.metric_rows_materialized,
             evidence: TraditionalScenarioExecutionEvidence::streaming(
-                fact_metric_state.stats.clone(),
+                fact_metric_state
+                    .stats
+                    .clone()
+                    .cached_source_state_handoff(),
             ),
         },
         _ => return Ok(None),
@@ -32228,7 +32576,7 @@ fn run_date_null_metric_batch_source_state_scenario(
         return Ok(None);
     };
     let dim_rows = source_state.dim_rows;
-    let stats = date_null_state.stats.clone();
+    let stats = date_null_state.stats.clone().cached_source_state_handoff();
     let execution = match scenario {
         TraditionalAnalyticsScenario::PartitionPruning => {
             date_null_state.ensure_partition_pruning_supported()?;
@@ -32304,10 +32652,7 @@ fn run_streaming_hash_join_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let (dim_by_key, dim_stats) = scan_dim_label_state(dim_path, "hash join")?;
-    let dim_state = TraditionalDimensionLabelState {
-        dim_by_key,
-        stats: dim_stats,
-    };
+    let dim_state = TraditionalDimensionLabelState::new(dim_by_key, dim_stats);
     run_streaming_hash_join_scenario_with_dim_state(fact_path, &dim_state)
 }
 
@@ -32337,7 +32682,7 @@ fn run_streaming_hash_join_scenario_with_dim_state(
                 )));
             }
             for (&dim_key, &metric) in dim_keys.iter().zip(metrics) {
-                if dim_by_key.contains_key(&dim_key) {
+                if dim_state.contains_dim_key(dim_key) {
                     groups.add(dim_key, metric)?;
                 }
             }
@@ -32345,10 +32690,12 @@ fn run_streaming_hash_join_scenario_with_dim_state(
         },
     )?;
 
-    let residual_operator_optimization = groups.optimization_evidence_for_family(
-        "hash_join",
-        "applied_residual_dense_u32_hash_join_accumulator",
-    );
+    let residual_operator_optimization = groups
+        .optimization_evidence_for_family(
+            "hash_join",
+            "applied_residual_dense_u32_hash_join_accumulator",
+        )
+        .with_dimension_membership(&dim_state.key_lookup);
     let result_json = dim_key_group_rows_json(groups.into_btree_map(), dim_by_key)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
     let rows_scanned = checked_u64_sum(fact_stats.source_row_count, dim_stats.source_row_count)?;
@@ -32462,10 +32809,7 @@ fn run_streaming_join_aggregate_scenario(
     dim_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
     let (dim_by_key, dim_stats) = scan_dim_label_state(dim_path, "join aggregate")?;
-    let dim_state = TraditionalDimensionLabelState {
-        dim_by_key,
-        stats: dim_stats,
-    };
+    let dim_state = TraditionalDimensionLabelState::new(dim_by_key, dim_stats);
     run_streaming_join_aggregate_scenario_with_dim_state(fact_path, &dim_state)
 }
 
@@ -32479,7 +32823,7 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
     let dim_stats = &dim_state.stats;
     let mut category_interner =
         TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
-    let mut groups = TraditionalPackedGroupAccumulator::default();
+    let mut groups = TraditionalDimCategoryAccumulator::default();
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
         &["dim_key", "category", "metric"],
@@ -32502,7 +32846,7 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
                 )));
             }
             for (index, (&dim_key, &metric)) in dim_keys.iter().zip(metrics).enumerate() {
-                if dim_by_key.contains_key(&dim_key) {
+                if dim_state.contains_dim_key(dim_key) {
                     let category_id = intern_utf8_value_at(
                         &mut category_interner,
                         &categories,
@@ -32516,15 +32860,14 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
         },
     )?;
 
-    let residual_operator_optimization = groups.optimization_evidence_for_family(
-        "join_aggregate",
-        "applied_residual_dense_packed_join_aggregate_accumulator",
-    );
-    let result_json = dim_key_category_packed_id_rows_json(
-        groups.into_hash_map(),
-        dim_by_key,
-        &category_interner,
-    )?;
+    let residual_operator_optimization = groups
+        .optimization_evidence_for_family(
+            "join_aggregate",
+            "applied_residual_dense_left_sparse_category_join_aggregate_accumulator",
+        )
+        .with_dimension_membership(&dim_state.key_lookup);
+    let result_json =
+        dim_key_category_id_rows_json(groups.into_btree_map(), dim_by_key, &category_interner)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
     let rows_scanned = checked_u64_sum(fact_stats.source_row_count, dim_stats.source_row_count)?;
     let stats = TraditionalStreamingScanStats {
@@ -32679,14 +33022,14 @@ fn run_streaming_sort_top_k_scenario_with_dim_rows(
                 )));
             }
             for (&id, &metric) in ids.iter().zip(metrics) {
-                top_rows.push(GlobalTopKCandidate::new(id, metric));
-                if top_rows.len() > 10 {
-                    let _ = top_rows.pop();
-                }
+                push_global_top_k_candidate(&mut top_rows, GlobalTopKCandidate::new(id, metric));
             }
             Ok(())
         },
     )?;
+    let stats = stats.with_residual_operator_optimization(
+        TraditionalResidualOperatorOptimizationEvidence::top_k_heap_admission_guard(),
+    );
     let mut rows = top_rows.into_vec();
     rows.sort_by(|left, right| {
         right
@@ -32716,7 +33059,7 @@ fn run_streaming_sort_top_k_scenario_with_ranked_metric_state(
     dim_rows: u64,
     ranked_state: &TraditionalRankedMetricState,
 ) -> Result<TraditionalScenarioExecution> {
-    let stats = ranked_state.stats.clone();
+    let stats = ranked_state.stats.clone().cached_source_state_handoff();
     let result_json = top_rows_json(&ranked_state.global_top_rows);
     let rows_materialized = result_rows_materialized(&result_json)?;
     Ok(TraditionalScenarioExecution {
@@ -32816,7 +33159,7 @@ fn run_streaming_ranked_per_group_scenario_with_ranked_metric_state(
     ranked_state: &TraditionalRankedMetricState,
     max_rank: usize,
 ) -> Result<TraditionalScenarioExecution> {
-    let stats = ranked_state.stats.clone();
+    let stats = ranked_state.stats.clone().cached_source_state_handoff();
     let top_by_group = ranked_state.top_rows_by_group.clone();
     let mut ranked = Vec::new();
     for (group_key, mut rows) in top_by_group {
@@ -32900,7 +33243,7 @@ fn run_streaming_string_group_distinct_scenario_with_category_metric_state(
     dim_rows: u64,
     category_state: &TraditionalCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
-    let stats = category_state.stats.clone();
+    let stats = category_state.stats.clone().cached_source_state_handoff();
     let assembly_start = std::time::Instant::now();
     let result_json = category_state.string_group_result_json.clone();
     let rows_materialized = category_state.string_group_rows_materialized;
@@ -33053,6 +33396,7 @@ fn run_streaming_multi_key_group_by_scenario_with_group_category_metric_state(
     let stats = group_state
         .stats
         .clone()
+        .cached_source_state_handoff()
         .with_residual_operator_optimization(group_state.residual_operator_optimization.clone());
     let assembly_start = std::time::Instant::now();
     let result_json = group_state.multi_key_result_json.clone();
@@ -33139,6 +33483,7 @@ fn run_streaming_group_by_aggregation_scenario_with_group_category_metric_state(
     let stats = group_state
         .stats
         .clone()
+        .cached_source_state_handoff()
         .with_residual_operator_optimization(group_state.residual_operator_optimization.clone());
     let assembly_start = std::time::Instant::now();
     let result_json = group_state.group_by_result_json.clone();
@@ -33169,8 +33514,6 @@ fn run_streaming_distinct_count_scenario_with_dim_rows(
     fact_path: &std::path::Path,
     dim_rows: u64,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut distinct =
-        std::collections::HashSet::<u32>::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
     let mut category_interner =
         TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
     let stats = scan_fact_vortex_projected(
@@ -33186,17 +33529,18 @@ fn run_streaming_distinct_count_scenario_with_dim_rows(
                 )));
             }
             for index in 0..chunk_rows {
-                let category_id =
-                    intern_utf8_value_at(&mut category_interner, &categories, "category", index)?;
-                distinct.insert(category_id);
+                intern_utf8_value_at(&mut category_interner, &categories, "category", index)?;
             }
             Ok(())
         },
     )?;
+    let stats = stats.with_residual_operator_optimization(
+        TraditionalResidualOperatorOptimizationEvidence::distinct_count_interner_cardinality(),
+    );
     let assembly_start = std::time::Instant::now();
     let result_json = format!(
         "{{\"distinct_category_count\":{}}}",
-        usize_to_u64(distinct.len())?
+        usize_to_u64(category_interner.len())?
     );
     let stats = stats.with_result_assembly_micros(duration_to_micros(assembly_start.elapsed()))?;
     Ok(TraditionalScenarioExecution {
@@ -33215,7 +33559,7 @@ fn run_streaming_distinct_count_scenario_with_category_metric_state(
     dim_rows: u64,
     category_state: &TraditionalCategoryMetricState,
 ) -> Result<TraditionalScenarioExecution> {
-    let stats = category_state.stats.clone();
+    let stats = category_state.stats.clone().cached_source_state_handoff();
     let assembly_start = std::time::Instant::now();
     let result_json = category_state.distinct_count_result_json.clone();
     let rows_materialized = category_state.distinct_count_rows_materialized;
@@ -33453,7 +33797,9 @@ fn run_streaming_clean_cast_filter_write_scenario_with_dirty_input_state(
         cdc_delta_rows: 0,
         rows_scanned: dirty_state.stats.source_row_count,
         rows_materialized: 1,
-        evidence: TraditionalScenarioExecutionEvidence::streaming(dirty_state.stats.clone()),
+        evidence: TraditionalScenarioExecutionEvidence::streaming(
+            dirty_state.stats.clone().cached_source_state_handoff(),
+        ),
     })
 }
 
@@ -33473,7 +33819,9 @@ fn run_streaming_malformed_timestamp_dirty_csv_scenario_with_dirty_input_state(
         cdc_delta_rows: 0,
         rows_scanned: dirty_state.stats.source_row_count,
         rows_materialized: 1,
-        evidence: TraditionalScenarioExecutionEvidence::streaming(dirty_state.stats.clone()),
+        evidence: TraditionalScenarioExecutionEvidence::streaming(
+            dirty_state.stats.clone().cached_source_state_handoff(),
+        ),
     })
 }
 
@@ -33531,6 +33879,9 @@ fn run_streaming_nested_json_field_scan_scenario_with_dim_rows(
             Ok(())
         },
     )?;
+    let stats = stats.with_residual_operator_optimization(
+        TraditionalResidualOperatorOptimizationEvidence::nested_generated_payload_fast_parser(),
+    );
     if !saw_nested_payload {
         return Err(ShardLoomError::InvalidOperation(
             "nested JSON field scan requires nested_payload fixture column".to_string(),
@@ -33897,7 +34248,7 @@ fn run_streaming_selective_filter_scenario_with_selective_filter_state(
         rows_scanned: selective_state.stats.source_row_count,
         rows_materialized: 1,
         evidence: TraditionalScenarioExecutionEvidence::streaming_with_encoded_predicate_provider(
-            selective_state.stats.clone(),
+            selective_state.stats.clone().cached_source_state_handoff(),
             encoded_predicate_provider,
         ),
     })
@@ -35514,7 +35865,9 @@ fn run_streaming_filter_projection_limit_scenario_with_selective_filter_state(
         cdc_delta_rows: 0,
         rows_scanned: selective_state.stats.source_row_count,
         rows_materialized: 1,
-        evidence: TraditionalScenarioExecutionEvidence::streaming(selective_state.stats.clone()),
+        evidence: TraditionalScenarioExecutionEvidence::streaming(
+            selective_state.stats.clone().cached_source_state_handoff(),
+        ),
     }
 }
 
@@ -36252,6 +36605,61 @@ fn generated_nested_payload_fields_bytes(
     payload: &[u8],
     row_index: usize,
 ) -> Result<GeneratedNestedPayloadFields> {
+    if let Some(fields) = generated_nested_payload_fields_generated_shape(payload, row_index)? {
+        return Ok(fields);
+    }
+    generated_nested_payload_fields_bytes_generic(payload, row_index)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn generated_nested_payload_fields_generated_shape(
+    payload: &[u8],
+    row_index: usize,
+) -> Result<Option<GeneratedNestedPayloadFields>> {
+    const PREFIX: &[u8] = b"{\"event\":{\"date\":\"";
+    const FLAG_MARKER: &[u8] = b"\",\"flag\":";
+    const METRICS_MARKER: &[u8] = b"},\"metrics\":{\"value\":";
+    const SCORE_MARKER: &[u8] = b",\"score\":";
+
+    let Some(after_prefix) = consume_prefix(payload, PREFIX) else {
+        return Ok(None);
+    };
+    let Some(flag_marker_offset) = find_bytes(&payload[after_prefix..], FLAG_MARKER) else {
+        return Ok(None);
+    };
+    let mut cursor = after_prefix + flag_marker_offset + FLAG_MARKER.len();
+    let flag = if payload[cursor..].starts_with(b"true") {
+        cursor += b"true".len();
+        true
+    } else if payload[cursor..].starts_with(b"false") {
+        cursor += b"false".len();
+        false
+    } else {
+        return Ok(None);
+    };
+
+    let Some(after_metrics_marker) = consume_prefix(&payload[cursor..], METRICS_MARKER) else {
+        return Ok(None);
+    };
+    cursor += after_metrics_marker;
+    let Some(score_marker_offset) = find_bytes(&payload[cursor..], SCORE_MARKER) else {
+        return Ok(None);
+    };
+    let score_start = cursor + score_marker_offset + SCORE_MARKER.len();
+    let Some(score) = parse_generated_nested_score_simple(payload, score_start, row_index) else {
+        return Ok(None);
+    };
+    Ok(Some(GeneratedNestedPayloadFields {
+        score: score?,
+        flag,
+    }))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn generated_nested_payload_fields_bytes_generic(
+    payload: &[u8],
+    row_index: usize,
+) -> Result<GeneratedNestedPayloadFields> {
     const SCORE_MARKER: &[u8] = b"\"score\":";
     const FLAG_MARKER: &[u8] = b"\"flag\":";
 
@@ -36293,6 +36701,9 @@ fn generated_nested_payload_fields_bytes(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn parse_generated_nested_score(payload: &[u8], start: usize, row_index: usize) -> Result<f64> {
+    if let Some(parsed) = parse_generated_nested_score_simple(payload, start, row_index) {
+        return parsed;
+    }
     let mut end = start;
     while end < payload.len()
         && matches!(payload[end], b'-' | b'+' | b'.' | b'0'..=b'9' | b'e' | b'E')
@@ -36311,6 +36722,83 @@ fn parse_generated_nested_score(payload: &[u8], start: usize, row_index: usize) 
             row_index + 1
         ))
     })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_generated_nested_score_simple(
+    payload: &[u8],
+    start: usize,
+    row_index: usize,
+) -> Option<Result<f64>> {
+    let Some(first) = payload.get(start).copied() else {
+        return Some(Err(ShardLoomError::InvalidOperation(format!(
+            "nested_payload row {} has invalid metrics.score: empty score token",
+            row_index + 1
+        ))));
+    };
+    if matches!(first, b'-' | b'+' | b'.' | b'e' | b'E') {
+        return None;
+    }
+    if !first.is_ascii_digit() {
+        return Some(Err(ShardLoomError::InvalidOperation(format!(
+            "nested_payload row {} has invalid metrics.score",
+            row_index + 1
+        ))));
+    }
+
+    let mut cursor = start;
+    let mut value = 0.0;
+    let mut digit_count = 0_usize;
+    while let Some(byte) = payload.get(cursor).copied() {
+        if !byte.is_ascii_digit() {
+            break;
+        }
+        value = (value * 10.0) + f64::from(byte - b'0');
+        cursor += 1;
+        digit_count += 1;
+    }
+    if payload.get(cursor) == Some(&b'.') {
+        cursor += 1;
+        let mut scale = 0.1;
+        while let Some(byte) = payload.get(cursor).copied() {
+            if !byte.is_ascii_digit() {
+                break;
+            }
+            value += f64::from(byte - b'0') * scale;
+            scale /= 10.0;
+            cursor += 1;
+            digit_count += 1;
+        }
+    }
+    if digit_count == 0 {
+        return Some(Err(ShardLoomError::InvalidOperation(format!(
+            "nested_payload row {} has invalid metrics.score",
+            row_index + 1
+        ))));
+    }
+    match payload.get(cursor).copied() {
+        Some(b'e' | b'E') => None,
+        Some(b'}' | b',' | b']') | None => Some(Ok(value)),
+        Some(_) => Some(Err(ShardLoomError::InvalidOperation(format!(
+            "nested_payload row {} has invalid metrics.score",
+            row_index + 1
+        )))),
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn consume_prefix(payload: &[u8], prefix: &[u8]) -> Option<usize> {
+    payload.starts_with(prefix).then_some(prefix.len())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() {
+        return Some(0);
+    }
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -36554,7 +37042,7 @@ fn dim_key_category_rows_json(
     Ok(dim_category_rows_json(label_groups))
 }
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[cfg(all(feature = "vortex-traditional-analytics-benchmark", test))]
 fn dim_key_category_packed_id_rows_json(
     groups: impl IntoIterator<Item = (TraditionalPackedU32Pair, TraditionalGroupAccum)>,
     dim_by_key: &std::collections::HashMap<u32, String>,
@@ -36581,7 +37069,7 @@ fn dim_key_category_packed_id_rows_json(
     dim_key_category_rows_json(category_groups, dim_by_key)
 }
 
-#[cfg(all(feature = "vortex-traditional-analytics-benchmark", test))]
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn dim_key_category_id_rows_json(
     groups: std::collections::BTreeMap<(u32, u32), TraditionalGroupAccum>,
     dim_by_key: &std::collections::HashMap<u32, String>,
@@ -37069,6 +37557,16 @@ mod tests {
             &fields,
             "source_columnar_null_validity_status",
             "nullable_metric_skipped_by_projection",
+        );
+        assert_field_eq(
+            &fields,
+            "source_columnar_projection_pushdown_status",
+            "reader_projection_pushed_down",
+        );
+        assert_field_eq(
+            &fields,
+            "source_columnar_projection_pushdown_provider",
+            "parquet_projection_mask_roots",
         );
         assert_field_eq(
             &fields,
@@ -39850,6 +40348,26 @@ mod tests {
                 .map(String::as_str),
             Some("false")
         );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_family",
+            "nested_json_field_scan",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_status",
+            "applied_residual_fast_generated_nested_payload_parser",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_dense_accumulator_used",
+            "false",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_sparse_rollover_used",
+            "false",
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -40241,6 +40759,20 @@ mod tests {
             "residual_operator_optimization_external_engine_invoked",
             "false",
         );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn assert_cached_source_state_handoff_timings(report: &TraditionalAnalyticsVortexReport) {
+        let fields = field_map(report.fields());
+        assert_field_eq(&fields, "vortex_scan_micros", "0");
+        assert_field_eq(&fields, "vortex_footer_open_micros", "0");
+        assert_field_eq(&fields, "vortex_metadata_verify_micros", "0");
+        assert_field_eq(&fields, "vortex_scan_open_micros", "0");
+        assert_field_eq(&fields, "scan_chunk_iter_micros", "0");
+        assert_field_eq(&fields, "vortex_projected_field_extract_micros", "0");
+        assert_field_eq(&fields, "vortex_encoded_kernel_evidence_micros", "0");
+        assert_field_eq(&fields, "operator_kernel_micros", "0");
+        assert_field_eq(&fields, "operator_finalize_micros", "0");
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -44923,6 +45455,8 @@ mod tests {
             multi_key_report.result_json,
             "[{\"group_key\":10,\"category\":\"A\",\"row_count\":2,\"metric_sum\":6.5},{\"group_key\":11,\"category\":\"B\",\"row_count\":1,\"metric_sum\":3.5}]"
         );
+        assert_cached_source_state_handoff_timings(group_report);
+        assert_cached_source_state_handoff_timings(multi_key_report);
 
         let fields = field_map(batch_report.fields());
         assert_field_eq(
@@ -45122,6 +45656,9 @@ mod tests {
             row_number_report.result_json,
             "[{\"group_key\":10,\"id\":3,\"metric\":4.0,\"rank\":1},{\"group_key\":11,\"id\":2,\"metric\":3.5,\"rank\":1}]"
         );
+        assert_cached_source_state_handoff_timings(sort_report);
+        assert_cached_source_state_handoff_timings(top_n_report);
+        assert_cached_source_state_handoff_timings(row_number_report);
 
         let fields = field_map(batch_report.fields());
         assert_field_eq(
@@ -46352,6 +46889,16 @@ mod tests {
                 "source_columnar_unsupported_dtype_reason",
                 "row_boundary_before_direct_provider_admission",
             );
+            assert_field_eq(
+                &fields,
+                "source_columnar_projection_pushdown_status",
+                "not_admitted_no_reader_projection",
+            );
+            assert_field_eq(
+                &fields,
+                "source_columnar_projection_pushdown_provider",
+                "not_admitted_no_reader_projection",
+            );
             assert_field_eq(&fields, "source_columnar_fallback_attempted", "false");
             assert_field_eq(&fields, "source_columnar_external_engine_invoked", "false");
             assert_field_eq(
@@ -47509,14 +48056,17 @@ mod tests {
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
     fn generated_nested_payload_fields_extracts_score_and_flag_in_one_pass_shape() {
-        let fields = generated_nested_payload_fields(
-            r#"{"event":{"date":"2024-01-01","flag":true},"metrics":{"value":0,"score":7.25},"labels":["c0","g0"]}"#,
-            0,
-        )
-        .unwrap();
+        let generated_payload = r#"{"event":{"date":"2024-01-01","flag":true},"metrics":{"value":0,"score":7.25},"labels":["c0","g0"]}"#;
+        let fields = generated_nested_payload_fields(generated_payload, 0).unwrap();
 
         assert!((fields.score - 7.25).abs() < f64::EPSILON);
         assert!(fields.flag);
+        let fast_fields =
+            generated_nested_payload_fields_generated_shape(generated_payload.as_bytes(), 0)
+                .unwrap()
+                .unwrap();
+        assert!((fast_fields.score - fields.score).abs() < f64::EPSILON);
+        assert_eq!(fast_fields.flag, fields.flag);
 
         let reversed = generated_nested_payload_fields(
             r#"{"metrics":{"score":-3.5e1},"event":{"flag":false}}"#,
@@ -47552,6 +48102,14 @@ mod tests {
         .unwrap_err()
         .to_string();
         assert!(invalid_flag.contains("nested_payload row 3 has invalid event.flag"));
+
+        let invalid_generated_score = generated_nested_payload_fields(
+            r#"{"event":{"date":"2024-01-01","flag":true},"metrics":{"value":0,"score":NaN},"labels":["c0","g0"]}"#,
+            7,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(invalid_generated_score.contains("nested_payload row 8 has invalid metrics.score"));
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -47772,6 +48330,95 @@ mod tests {
         assert_eq!(rows.get(&dense_key).unwrap().row_count, 2);
         assert!((rows.get(&dense_key).unwrap().metric_sum - 4.0).abs() < f64::EPSILON);
         assert!((rows.get(&sparse_key).unwrap().metric_sum - 5.0).abs() < f64::EPSILON);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dense_dimension_key_lookup_admits_compact_dimension_domains() {
+        let lookup = TraditionalDimensionKeyLookup::from_dim_keys([2_u32, 4, 7].into_iter());
+
+        assert_eq!(lookup.status(), "dense_dimension_key_membership");
+        assert_eq!(lookup.key_count, 3);
+        assert_eq!(lookup.max_key, Some(7));
+        assert_eq!(lookup.contains(2), Some(true));
+        assert_eq!(lookup.contains(3), Some(false));
+        assert_eq!(lookup.contains(8), Some(false));
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dense_dimension_key_lookup_blocks_sparse_wide_domains() {
+        let lookup = TraditionalDimensionKeyLookup::from_dim_keys(
+            [u32::try_from(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1).unwrap()].into_iter(),
+        );
+
+        assert_eq!(lookup.status(), "sparse_hash_dimension_key_membership");
+        assert_eq!(lookup.contains(2), None);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dense_dim_category_accumulator_handles_high_category_cardinality_per_dim() {
+        let mut groups = TraditionalDimCategoryAccumulator::default();
+        for category_id in 0..=u32::try_from(TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY + 10).unwrap() {
+            groups.add(7, category_id, 1.0).unwrap();
+        }
+
+        let evidence = groups.optimization_evidence_for_family(
+            "join_aggregate",
+            "applied_residual_dense_left_sparse_category_join_aggregate_accumulator",
+        );
+        assert_eq!(
+            evidence.status,
+            "applied_residual_dense_left_sparse_category_join_aggregate_accumulator"
+        );
+        assert!(evidence.dense_accumulator_used);
+        assert!(!evidence.sparse_rollover_used);
+
+        let rows = groups.into_btree_map();
+        assert_eq!(rows.len(), TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY + 11);
+        assert_eq!(
+            rows.get(&(7, 0)).unwrap(),
+            &TraditionalGroupAccum {
+                row_count: 1,
+                metric_sum: 1.0
+            }
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dense_dim_category_accumulator_rolls_to_sparse_for_wide_dim_keys() {
+        let mut groups = TraditionalDimCategoryAccumulator::default();
+        groups.add(2, 1, 1.0).unwrap();
+        groups
+            .add(
+                u32::try_from(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1).unwrap(),
+                1,
+                5.0,
+            )
+            .unwrap();
+        groups.add(2, 1, 3.0).unwrap();
+
+        let evidence = groups.optimization_evidence_for_family(
+            "join_aggregate",
+            "applied_residual_dense_left_sparse_category_join_aggregate_accumulator",
+        );
+        assert!(evidence.sparse_rollover_used);
+        let rows = groups.into_btree_map();
+        assert_eq!(rows.get(&(2, 1)).unwrap().row_count, 2);
+        assert!(
+            (rows
+                .get(&(
+                    u32::try_from(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1).unwrap(),
+                    1
+                ))
+                .unwrap()
+                .metric_sum
+                - 5.0)
+                .abs()
+                < f64::EPSILON
+        );
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -47998,18 +48645,6 @@ mod tests {
                 .map(String::as_str),
             Some("false")
         );
-        assert_eq!(
-            native_fields
-                .get("provider_admission_fallback_attempted")
-                .map(String::as_str),
-            Some("false")
-        );
-        assert_eq!(
-            native_fields
-                .get("provider_admission_external_engine_invoked")
-                .map(String::as_str),
-            Some("false")
-        );
         assert_field_eq(
             &native_fields,
             "residual_operator_optimization_family",
@@ -48029,6 +48664,28 @@ mod tests {
             &native_fields,
             "residual_operator_sparse_rollover_used",
             "false",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_dimension_membership_status",
+            "dense_dimension_key_membership",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_dimension_membership_key_count",
+            "2",
+        );
+        assert_eq!(
+            native_fields
+                .get("provider_admission_fallback_attempted")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert_eq!(
+            native_fields
+                .get("provider_admission_external_engine_invoked")
+                .map(String::as_str),
+            Some("false")
         );
         assert_eq!(
             native_fields
@@ -48159,7 +48816,7 @@ mod tests {
         assert_field_eq(
             &native_fields,
             "residual_operator_optimization_status",
-            "applied_residual_dense_packed_join_aggregate_accumulator",
+            "applied_residual_dense_left_sparse_category_join_aggregate_accumulator",
         );
         assert_field_eq(
             &native_fields,
@@ -48170,6 +48827,16 @@ mod tests {
             &native_fields,
             "residual_operator_sparse_rollover_used",
             "false",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_dimension_membership_status",
+            "dense_dimension_key_membership",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_dimension_membership_key_count",
+            "2",
         );
 
         let _ = std::fs::remove_dir_all(root);
@@ -48935,6 +49602,26 @@ mod tests {
                 .get("operator_encoded_native_claim_allowed")
                 .map(String::as_str),
             Some("false")
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_family",
+            "distinct_count",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_status",
+            "applied_residual_interner_cardinality_distinct_count",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_dense_accumulator_used",
+            "false",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_sparse_rollover_used",
+            "false",
         );
 
         let _ = std::fs::remove_dir_all(root);

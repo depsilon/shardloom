@@ -16,6 +16,922 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Traditional-analytics hash-join residual evidence validation fix
+  - Date: 2026-06-13
+  - Source:
+    - Targeted validation for the current runtime/performance body of work in
+      `shardloom-vortex/src/traditional_analytics.rs`.
+  - Scope:
+    - Removed stale `sort_top_k` residual-operator assertions from
+      `enabled_hash_join_uses_prepared_native_vortex_scan`; the runtime now reports the more
+      precise `hash_join` residual evidence with dense dimension-key membership.
+    - Preserved no-fallback/provider-admission assertions for the hash-join route.
+  - Evidence:
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib traditional_analytics::tests::enabled_hash_join_uses_prepared_native_vortex_scan -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib traditional -- --nocapture`
+      passed with 107 tests.
+    - `cargo test -p shardloom-contract-tests source_state_reuse_coverage_matrix_classifies_every_traditional_family -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli parses_parenthesized_cast_predicate_expression_statement -- --nocapture`
+      passed the intended SQL parser test.
+    - `cargo test -p shardloom-cli source_read_plan -- --nocapture` passed 5 source-read-plan
+      tests.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 561 tests and
+      2 skipped.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This is a validation/test correction for the current local body of work. It does not create a
+      new public benchmark claim or complete `RELEASE-PACKAGE-15`.
+  - Fallback boundary:
+    - The validated hash-join evidence keeps `provider_admission_fallback_attempted=false` and
+      `provider_admission_external_engine_invoked=false`.
+
+- [x] Session label: Benchmark publication static-descendant currentness contract
+  - Date: 2026-06-13
+  - Source:
+    - `RELEASE-PACKAGE-15` strict benchmark-publication currentness blocker.
+    - `scripts/check_benchmark_publication_claim_gate.py`.
+    - `target/release-readiness-audit/benchmark-publication-claim-gate-strict-after-live-pre5j.json`.
+  - Scope:
+    - Updated the strict benchmark-publication claim gate so checked-in generated website/public
+      static publication artifacts, benchmark data mirrors, and phase-plan ledger/handoff release
+      bookkeeping may be committed on top of the clean benchmarked source revision without creating
+      an impossible self-referential manifest SHA requirement.
+    - Preserved fail-closed source currentness: code, tests, scripts, benchmark harness source,
+      README/public docs, and website source changes after the manifest source SHA still block
+      public benchmark claims.
+    - Added machine-readable freshness fields:
+      `git_currentness_status`, `static_publication_delta_paths`, and
+      `static_publication_nonpublic_delta_paths`.
+    - De-duplicated identical source-revision blockers when `benchmark_git_sha` and
+      `shardloom_git_sha` carry the same stale source revision.
+    - Updated the open `RELEASE-PACKAGE-15` checklist and maintainer handoff so acceptance now
+      allows `git_currentness_status=current_head` or
+      `git_currentness_status=static_publication_descendant` with no non-publication deltas.
+  - Evidence:
+    - `python3 -m py_compile scripts/check_benchmark_publication_claim_gate.py python/tests/test_release_scripts.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publication_claim_gate_blocks_stale_git_and_age python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publication_claim_gate_ignores_untracked_only_status python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publication_claim_gate_accepts_static_publication_descendant python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publication_claim_gate_blocks_source_changes_after_artifact_source python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publish_doctor_accepts_current_static_artifact`
+      passed with 5 tests.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --output target/release-readiness-audit/benchmark-publication-claim-gate-strict-after-static-descendant-contract.json`
+      remained correctly blocked with `git_currentness_status=blocked_mismatched_source_revision`,
+      `static_publication_nonpublic_delta_paths` listing source/docs/tests/scripts changes after
+      `a693e299988830b0587d66df0f088a80b6038f75`, `worktree_dirty=true`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `python3 scripts/check_benchmark_publish_doctor.py --allow-incomplete --allow-stale-git --allow-dirty-worktree --output target/release-readiness-audit/benchmark-publish-doctor-after-static-descendant-contract.json --packet-json target/release-readiness-audit/benchmark-route-packet-after-static-descendant-contract.json --packet-md target/release-readiness-audit/benchmark-route-packet-after-static-descendant-contract.md`
+      passed with artifact completeness and mirror status passed, 1200 ShardLoom rows, 600
+      claim-grade publication rows, 600 not-claim-grade hot-runtime rows, and
+      `next_implementation_slice=RELEASE-PACKAGE-15`.
+    - `python3 scripts/check_compute_engine_completion_gate.py --output target/release-readiness-audit/compute-engine-completion-gate-after-static-descendant-contract.json`
+      remained correctly blocked only by `phase plan still has unchecked items: 1`.
+    - `python3 scripts/check_release_architecture_tracker.py --allow-blocked --output target/release-readiness-audit/release-architecture-tracker-after-static-descendant-contract.json`
+      remained correctly blocked only by `phased execution plan has unchecked items: 1`.
+  - Claim boundary:
+    - This closes only the validator contract mismatch and release-documentation cleanup. It does
+      not refresh benchmark timings, approve public performance claims, publish packages, create
+      tags, approve API/schema stability, or complete `RELEASE-PACKAGE-15`.
+  - Fallback boundary:
+    - The static gate remains a read-only artifact validator and does not run benchmarks or invoke
+      external engines.
+
+- [x] Session label: Release dry-run clean Conda proof and hard-gate blocker narrowing
+  - Date: 2026-06-13
+  - Source:
+    - Hard release-readiness blocker audit in
+      `target/release-readiness-audit/hard-release-readiness-gate.json`.
+    - `docs/release/hard-release-readiness-gate.md`,
+      `docs/release/release-dry-run-proof.md`,
+      `docs/release/package-channel-readiness-matrix.json`,
+      `docs/release/publication-api-schema-stability-gate.md`, and
+      `docs/release/per-claim-evidence-attachment-matrix.md`.
+  - Scope:
+    - Ran the no-publication release dry-run proof with required clean Conda evidence using the
+      local Homebrew `micromamba` executable.
+    - Provisioned a target-local `pip-audit` tooling venv for release dependency-audit evidence
+      without adding project/runtime dependencies.
+    - Updated the benchmark publish doctor release-script regression test to expect
+      `next_implementation_slice=none` now that the phase plan has no unchecked runtime/performance
+      items.
+    - Refreshed production-usability and hard-release aggregate reports against the clean Conda
+      transcript, dependency audit, and package/security reports so
+      `clean_conda_env_install_status=skipped_by_request`, missing `pip-audit`, and the stale
+      benchmark doctor test no longer appear as current release-validation blockers.
+    - Updated the phase-plan release/package snapshot to distinguish completed local Conda proof
+      from remaining public package/publication approval gates.
+  - Evidence:
+    - `python3 scripts/release_dry_run_proof.py --rows 64 --iterations 1 --require-clean-conda --conda-executable /opt/homebrew/bin/micromamba --output target/release-readiness-audit/release-dry-run-proof-conda/transcript.json --venv-dir target/release-readiness-audit/release-dry-run-proof-conda/venv --conda-env-dir target/release-readiness-audit/release-dry-run-proof-conda/conda-env`
+      passed and wrote `target/release-readiness-audit/release-dry-run-proof-conda/transcript.json`.
+    - Transcript summary: `proof_status=passed`, `clean_venv_install_status=passed`,
+      `clean_conda_env_install_required=true`, `clean_conda_env_install_status=passed`,
+      `python_artifact_build_status=passed`, `cli_binary_build_status=passed`,
+      `prepared_native_benchmark_smoke_performed=true`, `publication_attempted=false`,
+      `tag_created=false`, `secrets_required=false`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `python3 scripts/check_production_usability_gate.py --output target/release-readiness-audit/production-usability-gate-conda.json --release-dry-run-transcript target/release-readiness-audit/release-dry-run-proof-conda/transcript.json --package-channel-report target/release-readiness-audit/package-channel-readiness.json --release-security-report target/release-readiness-audit/release-security-gate.json --final-release-rehearsal-report target/release-readiness-audit/final-release-rehearsal/final-release-rehearsal-report.json --website-readiness-report target/release-readiness-audit/website-readiness.json --benchmark-completeness-report target/release-readiness-audit/benchmark-completeness.json`
+      passed.
+    - `python3 scripts/check_release_readiness.py --allow-blocked --output target/release-readiness-audit/hard-release-readiness-gate-conda.json --release-dry-run-transcript target/release-readiness-audit/release-dry-run-proof-conda/transcript.json --security-gate-report target/release-readiness-audit/release-security-gate.json --package-channel-report target/release-readiness-audit/package-channel-readiness.json --architecture-tracker-report target/release-readiness-audit/release-architecture-tracker-after.json --final-release-rehearsal-report target/release-readiness-audit/final-release-rehearsal/final-release-rehearsal-report.json --production-usability-report target/release-readiness-audit/production-usability-gate-conda.json --python-user-surface-report target/release-readiness-audit/python-user-surface-completion.json --runtime-gap-family-burn-down-report target/release-readiness-audit/runtime-gap-family-burn-down-after.json --benchmark-completeness-report target/release-readiness-audit/benchmark-completeness.json --benchmark-publication-claim-report target/release-readiness-audit/benchmark-publication-claim-gate.json`
+      remained fail-closed for public release/package claims with six blockers: package channels
+      not ready, publication/API/schema stability blocked, per-claim evidence not claim-grade,
+      and strict `target/release-validation-evidence.json` still lacking clean-source benchmark
+      publication claim evidence for the exact source revision.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publish_doctor_accepts_current_static_artifact`
+      passed after updating the stale next-slice expectation.
+    - `PYTHONPATH=python/src python3 -m unittest discover python/tests` passed with 559 tests and
+      2 skipped.
+    - `target/release-readiness-audit/pip-audit-venv/bin/python -m pip_audit --version` reported
+      `pip-audit 2.9.0`; the venv is target-local release tooling only.
+    - `SHARDLOOM_PIP_AUDIT_PYTHON=target/release-readiness-audit/pip-audit-venv/bin/python python3 scripts/check_dependency_audit.py --release-gate --json-output target/release-readiness-audit/dependency-audit-report-with-pip-audit.json`
+      passed with `cargo_deny_status=passed`, `cargo_audit_status=passed`,
+      `pip_audit_status=passed`, and `fallback_dependency_absent=true`.
+    - `python3 scripts/check_release_security_gate.py --dependency-audit-report target/release-readiness-audit/dependency-audit-report-with-pip-audit.json --allow-blocked --output target/release-readiness-audit/release-security-gate-with-pip-audit.json`
+      passed.
+    - `python3 scripts/check_package_channel_readiness.py --require-local-evidence --dependency-audit-report target/release-readiness-audit/dependency-audit-report-with-pip-audit.json --release-dry-run-transcript target/release-readiness-audit/release-dry-run-proof-conda/transcript.json --output target/release-readiness-audit/package-channel-readiness-with-pip-audit-conda.json`
+      passed as local package-channel evidence with `claim_gate_status=not_claim_grade` and
+      `public_package_release_claim_allowed=false`.
+    - `python3 scripts/check_production_usability_gate.py --output target/release-readiness-audit/production-usability-gate-with-pip-audit-conda.json --release-dry-run-transcript target/release-readiness-audit/release-dry-run-proof-conda/transcript.json --package-channel-report target/release-readiness-audit/package-channel-readiness-with-pip-audit-conda.json --release-security-report target/release-readiness-audit/release-security-gate-with-pip-audit.json --final-release-rehearsal-report target/release-readiness-audit/final-release-rehearsal/final-release-rehearsal-report.json --website-readiness-report target/release-readiness-audit/website-readiness.json --benchmark-completeness-report target/release-readiness-audit/benchmark-completeness.json`
+      passed.
+    - `python3 scripts/run_release_validation_evidence.py --continue-on-failure --require-clean-conda --conda-executable /opt/homebrew/bin/micromamba --pip-audit-python target/release-readiness-audit/pip-audit-venv/bin/python --output target/release-readiness-audit/release-validation-evidence-conda-pip-audit-current.json`
+      reduced release-validation failures to one release-blocking command: strict
+      `python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json`,
+      which remains blocked until a clean worktree/source revision can be claimed.
+    - `python3 scripts/check_release_readiness.py --allow-blocked --output target/release-readiness-audit/hard-release-readiness-gate-current-final.json --release-dry-run-transcript target/release-readiness-audit/release-dry-run-proof-conda/transcript.json --security-gate-report target/release-readiness-audit/release-security-gate-with-pip-audit.json --package-channel-report target/release-readiness-audit/package-channel-readiness-with-pip-audit-conda.json --architecture-tracker-report target/release-readiness-audit/release-architecture-tracker-after-conda.json --final-release-rehearsal-report target/release-readiness-audit/final-release-rehearsal/final-release-rehearsal-report.json --production-usability-report target/release-readiness-audit/production-usability-gate-with-pip-audit-conda.json --python-user-surface-report target/release-readiness-audit/python-user-surface-completion.json --runtime-gap-family-burn-down-report target/release-readiness-audit/runtime-gap-family-burn-down-after.json --validation-evidence target/release-readiness-audit/release-validation-evidence-conda-pip-audit-current.json --benchmark-completeness-report target/release-readiness-audit/benchmark-completeness.json --benchmark-publication-claim-report target/release-readiness-audit/benchmark-publication-claim-gate.json`
+      remained fail-closed only for package-channel publication readiness, publication/API/schema
+      stability, per-claim evidence, and strict clean-source benchmark-publication validation.
+    - `python3 scripts/check_pre_5j_dependency_freshness.py --require-live-github --output target/pre-5j-dependency-freshness-gate.json`
+      passed with `benchmark_refresh_allowed=true`,
+      `open_dependabot_check_status=passed`, and `open_dependabot_pr_count=0`.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --output target/release-readiness-audit/benchmark-publication-claim-gate-strict-after-live-pre5j.json`
+      remained blocked only for benchmark publication currentness: the manifest records
+      `benchmark_git_sha` and `shardloom_git_sha` at
+      `a693e299988830b0587d66df0f088a80b6038f75`, current `HEAD` is
+      `173f88c25b36736aa51a6c50bafe0c6ec9bf5fed`, and the worktree has tracked local changes.
+    - Promoted the remaining clean-source benchmark-publication refresh into
+      `RELEASE-PACKAGE-15` in `docs/architecture/phased-execution-plan.md` so it is an explicit
+      autonomous release-evidence item rather than a hidden deferred-row note.
+  - Claim boundary:
+    - This is local release dry-run proof only. It does not publish packages, create tags, approve
+      signing, upload artifacts, mark package channels ready, or authorize public API/schema,
+      production, package, performance, Spark-displacement, platform, object-store/lakehouse,
+      SQL/DataFrame, or Foundry claims.
+    - The target-local `pip-audit` venv is packaging/security evidence tooling only. It is not a
+      ShardLoom runtime dependency or package publication artifact.
+  - Fallback boundary:
+    - The dry run and refreshed gates preserved `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
+- [x] Session label: Compute-engine completion gate claim-boundary correction and release-readiness
+      audit
+  - Date: 2026-06-13
+  - Source:
+    - Strict completion-gate audit output in
+      `target/release-readiness-audit/compute-engine-completion-gate.json`.
+    - Current phase-plan state in `docs/architecture/phased-execution-plan.md`.
+    - Claim-boundary references in `docs/architecture/compressed-encoded-kernel-registry.md`,
+      `docs/architecture/fused-operator-pipeline.md`, and
+      `docs/architecture/performance-attribution-and-execution-structure.md`.
+  - Scope:
+    - Corrected `scripts/check_compute_engine_completion_gate.py` so compressed-kernel registry and
+      fused-pipeline claim-boundary statuses are counted as optimization/encoded-native promotion
+      blockers instead of residual compute-engine completion blockers.
+    - Preserved strict top-level publication-proof requirements: publication rows still require
+      `claim_gate_status=claim_grade`; hot-runtime metadata rows remain allowed to be
+      `not_claim_grade`.
+    - Preserved the encoded/fused claim boundary: current rows still do not authorize broad
+      encoded-native operator claims, broad fusion claims, public performance claims, or package
+      release claims.
+    - Added regression coverage in `python/tests/test_compute_engine_completion_gate.py` so
+      `compressed_kernel_registry_claim_gate_status`, `fused_pipeline_claim_gate_status`,
+      `fused_pipeline_correctness_digest_status`, and
+      `fused_pipeline_selection_vector_status` stay out of residual runtime blockers while
+      remaining visible under `optimization_claim_blocker_*`.
+  - Evidence:
+    - `python3 -m py_compile scripts/check_compute_engine_completion_gate.py python/tests/test_compute_engine_completion_gate.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_compute_engine_completion_gate`
+      passed with 6 tests.
+    - `python3 scripts/check_compute_engine_completion_gate.py --output target/release-readiness-audit/compute-engine-completion-gate-after.json`
+      passed strictly with `completion_claim_allowed=true`, `phase_plan_unchecked_count=0`,
+      `top_level_blocker_count=0`, `external_invocation_blocker_count=0`,
+      `residual_blocker_count=0`, and `optimization_claim_blocker_count=3664`.
+    - `python3 scripts/check_runtime_gap_family_burn_down.py --output target/release-readiness-audit/runtime-gap-family-burn-down-after.json`
+      passed with no blockers.
+    - `python3 scripts/check_release_architecture_tracker.py --allow-blocked --output target/release-readiness-audit/release-architecture-tracker-after.json`
+      passed with `global_review_mapping_status=mapped_to_runtime_gap_family_claim_boundaries`,
+      `public_release_claim_allowed=false`, and `public_package_claim_allowed=false`.
+    - `python3 scripts/check_package_channel_readiness.py --require-local-evidence --output target/release-readiness-audit/package-channel-readiness.json`
+      passed as local package-channel evidence with `claim_gate_status=not_claim_grade`.
+    - `python3 scripts/check_release_security_gate.py --allow-blocked --output target/release-readiness-audit/release-security-gate.json`
+      passed.
+    - `python3 scripts/final_release_rehearsal.py --allow-blocked --output-dir target/release-readiness-audit/final-release-rehearsal --release-security-report target/release-readiness-audit/release-security-gate.json --architecture-tracker-report target/release-readiness-audit/release-architecture-tracker-after.json --package-channel-report target/release-readiness-audit/package-channel-readiness.json`
+      passed as a no-publication rehearsal with `publication_human_approved=false` and
+      `claim_gate_status=not_claim_grade`.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/release-readiness-audit/benchmark-completeness.json`
+      passed.
+    - `python3 scripts/check_website_readiness.py --output target/release-readiness-audit/website-readiness.json`
+      passed.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --output target/release-readiness-audit/benchmark-publication-claim-gate.json --allow-stale-git --allow-dirty-worktree`
+      passed for the local dirty-worktree audit with 1200 ShardLoom rows, 600 claim-grade
+      publication-proof rows, 600 not-claim-grade hot-runtime rows, no missing engine/format cells,
+      and no fallback/external invocation.
+    - `python3 scripts/check_production_usability_gate.py --output target/release-readiness-audit/production-usability-gate.json --package-channel-report target/release-readiness-audit/package-channel-readiness.json --release-security-report target/release-readiness-audit/release-security-gate.json --final-release-rehearsal-report target/release-readiness-audit/final-release-rehearsal/final-release-rehearsal-report.json --website-readiness-report target/release-readiness-audit/website-readiness.json --benchmark-completeness-report target/release-readiness-audit/benchmark-completeness.json`
+      passed with `production_claim_allowed=false`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked --output target/release-readiness-audit/hard-release-readiness-gate.json ...`
+      remained blocked only for public release/package gates, not runtime completion: clean Conda
+      install proof skipped by request, public package channels not ready, publication/API/schema
+      stability not claim-grade, per-claim evidence matrix not claim-grade, and stale strict
+      `target/release-validation-evidence.json` requiring a clean-worktree benchmark publication
+      gate rerun.
+  - Claim boundary:
+    - Compute-engine completion gate can pass for the current scoped runtime/published artifact
+      evidence, but this does not create a public package, public release, production,
+      Spark-displacement, broad SQL/DataFrame, broad encoded-native, broad fusion, or performance
+      superiority claim.
+    - Public release/package readiness remains intentionally fail-closed until maintainers provide
+      clean-source validation evidence, channel-specific package proof, per-claim evidence
+      promotion, API/schema stability approval, and explicit publication approval.
+  - Fallback boundary:
+    - All audited reports preserved `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
+- [x] Session label: PERF-DESIGN-3/3-A publication-proof sidecar and timing-surface tiering closeout
+  - Date: 2026-06-13
+  - Source:
+    - Active phase-plan items `PERF-DESIGN-3` and `PERF-DESIGN-3-A`.
+    - `PERF-SPLIT-FIX-1` timing-surface split requirements.
+    - Current published local artifact bundle in `website/assets/benchmarks/latest/` and mirrored
+      website data.
+  - Scope:
+    - Closed the publication-proof optimization batch because current promoter/runtime artifacts
+      already separate hot-runtime rows from publication-proof rows, write an incremental
+      `publication-proof-sidecar.json`, and carry sidecar reuse counts through the manifest and
+      website data.
+    - Added a static completeness validator for the publication-proof sidecar so schema drift,
+      count drift, stale proof records, fallback/external-engine flags, missing record digests, or
+      manifest/sidecar summary mismatches block artifact promotion.
+    - Synchronized the generated compute-flow public snapshot from the canonical
+      `docs/architecture/compute-engine-flow-reference.md` after website readiness identified drift.
+  - Local evidence:
+    - `website/assets/benchmarks/latest/manifest.json` reports
+      `publication_proof_sidecar_status=reused_existing_publication_proof_sidecar`,
+      `publication_proof_sidecar_record_count=600`,
+      `publication_proof_sidecar_reused_record_count=600`,
+      `publication_proof_sidecar_written_record_count=0`,
+      `publication_proof_sidecar_stale_record_count=0`,
+      `publication_proof_sidecar_fallback_attempted=false`, and
+      `publication_proof_sidecar_external_engine_invoked=false`.
+    - `website/assets/benchmarks/latest/publication-proof-sidecar.json` contains 600 records, zero
+      stale records, `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Published row surface counts from `website/assets/benchmarks/latest/benchmark-results.json`:
+      600 ShardLoom `hot_runtime` rows, 600 ShardLoom `publication_proof` rows, and 720 external
+      baseline rows. ShardLoom tiers split as 600 `metadata_sink` rows and 600 `publication_full`
+      rows.
+    - ShardLoom claim gates split as 600 `not_claim_grade` hot-runtime rows and 600 `claim_grade`
+      publication-proof rows.
+    - Timing inclusion flags match the surface: all 600 publication-proof rows have
+      `sink_timing_included_in_route_total=true`,
+      `output_timing_included_in_total=true`, and
+      `evidence_timing_included_in_total=true`; all 600 hot-runtime rows set those route-inclusion
+      fields to false.
+    - Route formulas are explicit for each surface, including hot formulas such as
+      `timing_surface=hot_runtime; total_route_ms = query_runtime_millis` and publication formulas
+      such as `timing_surface=publication_proof; total_route_ms = query_runtime_millis +
+      result_sink_write_millis + evidence_render_millis`.
+  - Verification:
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/perf-design-3-current/completeness-report-after-sidecar-check.json`
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --output target/perf-design-3-current/publication-claim-gate.json --allow-stale-git --allow-dirty-worktree`
+    - `python3 scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json --output target/perf-design-3-current/optimization-targets.json --top-n 10`
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node website-src/scripts/sync-content.mjs`
+    - `python3 scripts/check_website_readiness.py --output target/perf-design-3-current/website-readiness-after-sync.json`
+    - Final broad gate after closing the current phase-plan queue:
+      `cargo fmt --all -- --check`, `git diff --check`,
+      `python3 -m compileall -q benchmarks/traditional_analytics scripts`,
+      `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/perf-design-final/completeness-report.json`,
+      `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --output target/perf-design-final/publication-claim-gate.json --allow-stale-git --allow-dirty-worktree`,
+      `python3 scripts/check_website_readiness.py --output target/perf-design-final/website-readiness.json`,
+      `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, and
+      `cargo test --workspace --all-targets --quiet`.
+  - Vortex-first provider check:
+    - Subject area: result-sink proof metadata, publication-proof sidecar records, timing-surface
+      route attribution, and website/static artifact validation.
+    - Decision: keep proof reuse as ShardLoom benchmark-publication metadata over native Vortex
+      result-sink proof fields. The sidecar caches proof metadata only; it does not execute queries,
+      replay through an external engine, or redefine hot-runtime route totals.
+    - Residual handling: stale sidecar records now block completeness validation; publication-proof
+      rows remain visibly slower because they include real proof/output/evidence work; hot-runtime
+      rows remain non-claim-grade optimization context unless a future item adds separate proof.
+  - Claim boundary:
+    - This closeout proves static artifact consistency and timing-surface separation for the current
+      local published bundle. It is not a performance, production, package-release,
+      Spark-displacement, object-store/table, SQL/DataFrame, or public freshness claim.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, pandas, PyArrow execution fallback, external proof
+      engine, or Vortex query-engine integration was added or invoked.
+
+- [x] Session label: PERF-DESIGN-6R/6R-A/6R-B/6R-C source-adapter optimization closeout
+  - Date: 2026-06-13
+  - Source:
+    - Active phase-plan items `PERF-DESIGN-6R`, `PERF-DESIGN-6R-A`, `PERF-DESIGN-6R-B`, and
+      `PERF-DESIGN-6R-C`.
+    - Source/input contracts in `docs/architecture/universal-input-contract.md` and prior
+      SourceState projection-pushdown ledger entries.
+    - Current target-only artifacts
+      `target/perf-design-6r-text-cold-current/text-cold-current.json` and
+      `target/perf-design-6r-columnar-cold-after/columnar-cold-after.json`.
+  - Scope:
+    - Closed the 6R source-adapter reopen family as a current-evidence pass, not a public
+      benchmark claim.
+    - Verified admitted CSV/JSONL cold rows carry direct typed-column-builder evidence, projection
+      admission fields, zero persistent row-struct assembly where supported, nested-payload
+      projection blockers/admissions, and no-fallback/no-external-engine posture.
+    - Verified admitted Parquet/Arrow IPC cold rows carry direct columnar-provider evidence,
+      reader-level projection-pushdown provider fields, zero row assembly, preserved/skipped column
+      counts, handoff timing, and no-fallback/no-external-engine posture.
+    - Fixed benchmark row propagation so raw and promoted rows retain
+      `source_columnar_projection_pushdown_status` and
+      `source_columnar_projection_pushdown_provider` instead of forcing readers to infer 6R-C
+      pushdown from SourceState fields alone.
+  - Local evidence:
+    - Text-source artifact:
+      `target/perf-design-6r-text-cold-current/text-cold-current.json` has 18 successful
+      metadata-sink rows, covering CSV and JSONL across source-heavy scenarios.
+      CSV rows report `source_typed_column_builder_status=admitted_csv_jsonl_typed_column_builder`
+      with query-runtime geomean `60.7506 ms` and source-parse/decode geomean `22.3655 ms`.
+      JSONL rows report the same typed-builder admission with query-runtime geomean `117.7176 ms`
+      and source-parse/decode geomean `64.8649 ms`. Both source families report no fallback or
+      external parser/query engine execution.
+    - Columnar-source artifact:
+      `target/perf-design-6r-columnar-cold-after/columnar-cold-after.json` has 12 successful
+      metadata-sink rows, six Parquet and six Arrow IPC rows.
+      Parquet rows report
+      `source_columnar_provider_status=admitted_projected_direct_columnar_provider`,
+      `source_columnar_projection_pushdown_status=reader_projection_pushed_down`,
+      `source_columnar_projection_pushdown_provider=parquet_projection_mask_roots`,
+      query-runtime geomean `41.1761 ms`, source-parse geomean `5.8217 ms`, and columnar handoff
+      geomean `2133.9527 us`.
+      Arrow IPC rows report
+      `source_columnar_projection_pushdown_provider=arrow_ipc_file_reader_projection`,
+      query-runtime geomean `43.6885 ms`, source-parse geomean `5.2245 ms`, and columnar handoff
+      geomean `5242.2893 us`.
+      All 12 rows preserve the explicit reader-projection provider status and report zero
+      row-assembly micros, `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - The system `python3` environment lacks `pyarrow`; the columnar artifact was regenerated with
+      the bundled Codex Python runtime at
+      `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3`.
+      This is an environment/tooling note, not a ShardLoom runtime fallback.
+  - Verification:
+    - `/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 benchmarks/traditional_analytics/run.py --engines shardloom --formats parquet,arrow-ipc --scenario "selective filter" --scenario "filter + projection + limit" --scenario "wide projection" --scenario "group by aggregation" --scenario "distinct count" --scenario "null-heavy aggregate" --dataset-profile tiny_smoke --rows 100000 --dim-rows 1000 --iterations 3 --regenerate --data-dir target/perf-design-6r-columnar-cold-after/data --output target/perf-design-6r-columnar-cold-after/columnar-cold-after.json --no-markdown --shardloom-build-profile release --shardloom-evidence-tier metadata_sink`
+    - `python3 -m compileall -q benchmarks/traditional_analytics scripts/promote_benchmark_artifact.py`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark source_read_evidence_reports_projection_aware_columnar_provider_state -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark direct_transient_structured_formats_share_columnar_source_state_adapter_boundary -- --nocapture`
+  - Vortex-first provider check:
+    - Subject area: local source adapters, projected text decode, already-columnar Parquet/Arrow
+      IPC provider handoff, and benchmark evidence promotion.
+    - Decision: the source-adapter boundary stays ShardLoom-owned and uses admitted local reader
+      APIs plus upstream Vortex array/write/read surfaces only where already allowed. No Vortex
+      query-engine integration is used.
+    - Residual handling: Avro/ORC direct-columnar provider rows remain outside 6R-C claim scope,
+      direct-transient row-boundary adapters remain non-admitted, malformed/nested/coercion cases
+      retain deterministic blocker evidence, and field propagation now preserves reader pushdown
+      explicitly.
+  - Claim boundary:
+    - This is scoped local benchmark evidence for source-adapter optimization readiness. It is not a
+      public freshness claim, Spark-displacement claim, package-release claim, object-store/table
+      claim, production SQL/DataFrame claim, or broad structured-format support claim.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, pandas, PyArrow execution fallback, external parser
+      engine, or hidden query-engine residual evaluation was added or invoked. PyArrow availability
+      is only a local fixture-generation/tooling dependency for Parquet/Arrow benchmark files.
+
+- [x] Session label: PERF-DESIGN-5R/5R-A preparation spine and writer-context closeout
+  - Date: 2026-06-13
+  - Source:
+    - Active phase-plan items `PERF-DESIGN-5R` and `PERF-DESIGN-5R-A`.
+    - Completed ledger entry `PERF-DESIGN-5 Vortex preparation-spine lifecycle timing and
+      metadata-first reuse`.
+    - Current prepared/native metadata-sink artifacts
+      `target/perf-design-4r-current/repeated-current.json` and
+      `target/perf-design-2a-after/all-csv-after.json`.
+  - Scope:
+    - Closed the follow-on 5R/5R-A active checklist items because current runtime evidence covers
+      metadata-first verification, manifest reuse without Vortex reopen, role-scoped repair,
+      shared writer context evidence, write coalescing evidence, and fail-closed no-fallback
+      posture.
+    - Kept broader source-adapter decode/scout work in `PERF-DESIGN-6R*` and publication-proof
+      sidecar/reuse work in `PERF-DESIGN-3*`.
+  - Local evidence:
+    - Current manifest-reuse rows in `target/perf-design-4r-current/repeated-current.json` and
+      `target/perf-design-2a-after/all-csv-after.json` report
+      `prepare_batch_vortex_preparation_spine_status=manifest_reuse_metadata_verified`,
+      two reused artifacts, zero rewritten artifacts,
+      `prepare_batch_vortex_preparation_spine_metadata_first_verify_status=manifest_metadata_fingerprints_verified_no_vortex_reopen`,
+      two metadata-first verification hits, zero full reopen verifications, zero writer-context
+      writes, and `prepare_batch_vortex_preparation_spine_write_coalescing_status=not_applicable_manifest_reuse_no_new_write`.
+    - Focused writer-context merge validation passed:
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark record_batch_strategy_merge_preserves_mixed_provider_evidence -- --nocapture`.
+      The test proves one opened writer context can cover multiple artifact writes with reuse-hit
+      accounting and `scheduled_multi_artifact_writes_on_shared_context`.
+    - Focused cold compatibility import validation passed:
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state -- --nocapture`.
+      The test asserts Vortex write strategy fields, writer-context counts/reuse, shared writer
+      context write-plan fields, prepared-state identity, exclusive route timing, and no-fallback
+      evidence.
+    - Role-scoped repair coverage also passed in the `PERF-DESIGN-1R` closeout through
+      `traditional_prepared_batch_workspace_reuse_traditional_prepared_partial_repair`.
+  - Vortex-first provider check:
+    - Subject area: local compatibility-source to Vortex prepared-state writes, metadata-first
+      verification, and reusable writer context reporting.
+    - Decision: current implementation uses ShardLoom-owned preparation-spine orchestration around
+      upstream Vortex write/read/metadata surfaces; no Vortex query-engine integration is used.
+    - Residual handling: manifest reuse and role repair are admitted only with deterministic
+      dependency evidence; unsupported artifact role/schema/workspace/proof shapes remain blocked.
+    - No object-store writes, table commits, real query-data spill, hidden buffer pool, external
+      writer engine, or external query engine is introduced.
+  - Claim boundary:
+    - This is a local preparation-spine and writer-context evidence closeout. It is not a public
+      performance claim, production claim, package-release claim, object-store/table claim, or
+      Spark-displacement claim.
+
+- [x] Session label: PERF-DESIGN-1R dynamic prepared-state reuse and role-repair closeout
+  - Date: 2026-06-13
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-1R`.
+    - Current target-only role-repair evidence artifact
+      `target/perf-design-1r-current/role-repair-evidence.json`.
+    - Dedicated validation report `target/perf-design-1r-current/role-repair-report.json`.
+  - Scope:
+    - Closed the parent `PERF-DESIGN-1R` active checklist item because current runtime tests and
+      target-only artifact evidence cover full prepare/register, manifest reuse, and role-scoped
+      prepared-state repair.
+    - Kept cold preparation-spine write/reopen/copy optimization in `PERF-DESIGN-5R` and writer
+      context/coalescing in `PERF-DESIGN-5R-A`.
+  - Local evidence:
+    - `python3 scripts/generate_prepare_batch_role_repair_evidence.py --rows 96 --dim-rows 24 --output target/perf-design-1r-current/role-repair-evidence.json --data-dir target/perf-design-1r-current/data --no-public-output --shardloom-build-profile release --shardloom-evidence-tier metadata_sink`
+      generated target-only evidence without modifying public website artifacts.
+    - `python3 scripts/check_prepare_batch_role_repair_evidence.py --artifact target/perf-design-1r-current/role-repair-evidence.json --output target/perf-design-1r-current/role-repair-report.json`
+      passed with 10 evidence rows, 5 cases, `strategy_counts={full_prepare_register: 2,
+      manifest_reuse: 2, role_scoped_repair: 6}`, repaired roles `fact_input`, `dim_input`, and
+      `cdc_delta_input`, no blockers, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - Focused Rust validation passed:
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_prepared_batch_workspace_reuse_traditional_prepared_partial_repair -- --nocapture`.
+    - The focused Rust path verifies same-workspace manifest hit reuse, zero prepare on manifest
+      hit, no duplicate artifact writes, stable prepared-state attractor keys, metadata-first
+      verification, and deterministic role-scoped repair when fact input changes.
+  - Vortex-first provider check:
+    - Subject area: local prepared-state manifest reuse, dependency packet reuse, and role-scoped
+      repair around Vortex prepared artifacts.
+    - Decision: current implementation remains ShardLoom-owned prepared-state lifecycle control
+      around admitted local Vortex artifacts; Vortex file artifacts remain first-class native
+      prepared-state outputs.
+    - Residual handling: no stale prepared artifact reuse is allowed; role repair is admitted only
+      through deterministic dependency evidence and explicit repaired/reused roles.
+    - No external engine, process-global cache, object-store cache, hidden stale reuse, or Vortex
+      query-engine integration is used.
+  - Claim boundary:
+    - This is a local target-only prepared-state reuse/repair evidence closeout. It is not a public
+      performance claim, production claim, package-release claim, object-store/table claim, or
+      Spark-displacement claim.
+
+- [x] Session label: PERF-DESIGN-4R repeated prepared/native PulseWeave coalescing closeout
+  - Date: 2026-06-13
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-4R`.
+    - Current repeated prepared/native local metadata-sink artifact
+      `target/perf-design-4r-current/repeated-current.json`.
+  - Scope:
+    - Closed the parent `PERF-DESIGN-4R` active checklist item because current repeated-batch
+      evidence shows the intended run-local PulseWeave coalescing behavior is implemented.
+    - Preserved remaining prepared-state reuse, preparation-spine, source-adapter, and
+      publication-proof optimization work in their own open items.
+  - Local evidence:
+    - Artifact `target/perf-design-4r-current/repeated-current.json` produced 18 successful
+      ShardLoom prepared/native metadata-sink rows and no errors.
+    - `session_source_metadata_cache_seed_status=seeded_from_session_open_source_snapshot`,
+      `session_source_metadata_cache_seed_count=1`,
+      `session_source_metadata_cache_hit_count=18`, and
+      `session_source_metadata_cache_miss_count=0`.
+    - `source_state_family_prewarm_status=prewarmed_reused_source_state_families_before_child_routes`,
+      `source_state_family_prewarm_eligible_count=8`,
+      `source_state_family_prewarm_count=8`, and
+      `source_state_family_prewarm_prepared_before_child_route_count=8`.
+    - `source_state_reuse_status=per_batch_multi_family_source_state_reused` and
+      `source_state_family_count=8`.
+    - `pulseweave_status=applied`,
+      `pulseweave_runtime_decision_applied=true`,
+      `pulseweave_claim_gate_status=pulseweave_runtime_certified`,
+      `pulseweave_fallback_attempted=false`, and
+      `pulseweave_external_engine_invoked=false`.
+  - Validation:
+    - Required validation for the current runtime tree passed immediately before this closeout:
+      `cargo fmt --all -- --check`, `git diff --check`,
+      `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, and
+      `cargo test --workspace --all-targets --quiet`.
+  - Vortex-first provider check:
+    - Subject area: local prepared/native Vortex batch session metadata, source-state family
+      prewarm, and run-local PulseWeave coalescing evidence.
+    - Decision: current implementation remains ShardLoom-owned session/runtime control around
+      admitted Vortex source snapshots and projected scan routes.
+    - Residual handling: no external engine, global cache, daemon, persistent learning, or Vortex
+      query-engine integration is used.
+    - Gates still blocked: prepared-state reuse closeout, cold preparation-spine optimization,
+      source-adapter refresh, publication-proof optimization, public benchmark freshness,
+      production readiness, and Spark-displacement claims.
+  - Claim boundary:
+    - This is a local metadata-sink evidence closeout for run-local coalescing. It is not a public
+      performance claim, production claim, package-release claim, distributed runtime claim, or
+      Spark-displacement claim.
+
+- [x] Session label: PERF-DESIGN-2-A prepared/native scan/operator/result-path tightening closeout
+  - Date: 2026-06-13
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-2-A`.
+    - Current local prepared/native CSV metadata-sink artifact
+      `target/perf-design-2a-current/all-csv-current.json`.
+  - Scope:
+    - Added a standalone `sort_top_k` heap admission guard so rows that cannot beat the current
+      worst top-10 candidate do not mutate the heap.
+    - Preserved deterministic ranking semantics: metric descending, then ID ascending for ties.
+    - Added residual operator evidence
+      `residual_operator_optimization_family=sort_top_k` and
+      `residual_operator_optimization_status=applied_residual_top_k_heap_admission_guard`.
+    - Folded in the standalone `distinct_count` interner-cardinality shortcut from the companion
+      `PERF-DESIGN-2-A standalone distinct-count interner-cardinality shortcut` ledger entry.
+    - Closed `PERF-DESIGN-2-A` because the current default prepared/native metadata-sink rows no
+      longer show meaningful result-assembly pressure; remaining distinct-count runtime would
+      require a separate encoded/dictionary-kernel design item rather than more result-path cleanup.
+  - Local evidence:
+    - Sort/top-K before artifact: `target/perf-design-2a-current/all-csv-current.json`.
+      `sort_top_k` reported about `0.9150 ms` query runtime and about `0.7827 ms` operator time.
+    - Sort/top-K after artifact: `target/perf-design-2a-sort-after/sort-after.json`.
+      `sort_top_k` reported about `0.3703 ms` query runtime and about `0.1267 ms` operator time,
+      with `residual_operator_optimization_status=applied_residual_top_k_heap_admission_guard`.
+    - Combined after artifact: `target/perf-design-2a-after/all-csv-after.json`.
+      In the current default ShardLoom-only CSV metadata-sink run, `sort_top_k` reported about
+      `0.2763 ms`, `wide_projection` about `0.1233 ms`, `csv_file_ingest` about `0.3703 ms`,
+      `group_by_aggregation` about `0.3830 ms`, `hash_join` about `0.4290 ms`,
+      `selective_filter` about `0.5027 ms`, and standalone `distinct_count` about `3.6027 ms`.
+      Result assembly was zero or tiny in these rows and no route reported fallback or external
+      engine invocation.
+    - Focused Rust validation passed:
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_sort_top_k_uses_prepared_native_vortex_scan -- --nocapture`.
+    - Required validation passed:
+      `cargo fmt --all -- --check`, `git diff --check`,
+      `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, and
+      `cargo test --workspace --all-targets --quiet`.
+  - Vortex-first provider check:
+    - Subject area: prepared/native Vortex projected `id`/`metric` scan for standalone
+      `sort_top_k`.
+    - Upstream Vortex concepts checked: Vortex scan/projection provider and projected primitive
+      column access.
+    - Decision: `implement_shardloom_kernel` for the residual top-K admission guard because the
+      selected work is ShardLoom-owned heap state over already admitted projected Vortex values.
+    - Residual handling: ShardLoom-native residual execution only; no external sort/top-K engine,
+      query engine, or Vortex query-engine integration is used.
+    - Materialization/decode boundary: unchanged; Vortex scan/project remains admitted and
+      `operator_encoded_native_claim_allowed=false`.
+    - `fallback_attempted=false`; `external_engine_invoked=false`.
+  - Claim boundary:
+    - This is a targeted local metadata-sink benchmark smoke and residual-native hot-loop
+      optimization. It is not a public performance claim, encoded-native claim, production claim,
+      package-release claim, or Spark-displacement claim.
+
+- [x] Session label: PERF-DESIGN-2-A standalone distinct-count interner-cardinality shortcut
+  - Date: 2026-06-13
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-2-A`.
+    - Current local prepared/native CSV metadata-sink artifact
+      `target/perf-design-2a-current/all-csv-current.json`, where standalone `distinct_count`
+      remained the largest current default-scenario hot route because it interned category strings
+      and also inserted each returned category ID into a redundant distinct set.
+  - Scope:
+    - Removed the redundant standalone `HashSet<u32>` from `distinct_count`; the string interner's
+      own cardinality is now the distinct category count because interner IDs are unique by
+      construction.
+    - Added `TraditionalStringInterner::len()` so the route can read cardinality without exposing
+      or duplicating interner internals.
+    - Added residual operator evidence
+      `residual_operator_optimization_family=distinct_count` and
+      `residual_operator_optimization_status=applied_residual_interner_cardinality_distinct_count`.
+    - Preserved result JSON and the existing Vortex projected-category scan boundary; no
+      encoded-native claim was introduced.
+  - Local evidence:
+    - Before artifact: `target/perf-design-2a-current/all-csv-current.json`.
+      In that local run, standalone `distinct_count` reported about `4.1253 ms` query runtime and
+      about `3.4787 ms` operator time.
+    - After artifact: `target/perf-design-2a-distinct-after/distinct-after.json`.
+      In that local run, standalone `distinct_count` reported about `3.7410 ms` query runtime and
+      about `2.9857 ms` operator time, with the new residual optimization evidence.
+    - Focused Rust validation passed:
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_distinct_count_uses_prepared_native_vortex_scan -- --nocapture`.
+    - Required validation passed as part of the parent `PERF-DESIGN-2-A` closeout:
+      `cargo fmt --all -- --check`, `git diff --check`,
+      `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, and
+      `cargo test --workspace --all-targets --quiet`.
+  - Vortex-first provider check:
+    - Subject area: prepared/native Vortex projected `category` scan for standalone
+      `distinct_count`.
+    - Upstream Vortex concepts checked: Vortex scan/projection provider and projected variable-width
+      payload access.
+    - Decision: `implement_shardloom_kernel` for the residual cardinality shortcut because the
+      selected work is ShardLoom-owned distinct state over already admitted projected Vortex bytes.
+    - Residual handling: ShardLoom-native residual execution only; no external distinct engine,
+      query engine, or Vortex query-engine integration is used.
+    - Materialization/decode boundary: unchanged; Vortex scan/project remains admitted and
+      `operator_encoded_native_claim_allowed=false`.
+    - `fallback_attempted=false`; `external_engine_invoked=false`.
+  - Claim boundary:
+    - This is a targeted local metadata-sink benchmark smoke and residual-native hot-loop
+      optimization. It is not a public performance claim, encoded-native claim, production claim,
+      package-release claim, or Spark-displacement claim.
+
+- [x] Session label: PERF-DESIGN-2 operator-family closeout and active-queue cleanup
+  - Date: 2026-06-13
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-2`.
+    - Completed scoped ledger entries for cached source-state timing attribution, nested JSON
+      parsing, and join-family dense membership/accumulation.
+    - Current targeted local group/category artifact
+      `target/perf-design-2-group-category-current/group-category-current.json`.
+  - Scope:
+    - Closed the parent `PERF-DESIGN-2` active checklist item because its named high-value operator
+      families have now been handled through scoped ShardLoom-native residual execution,
+      timing-attribution cleanup, or explicit evidence fields.
+    - Kept broader prepared/native result-path, scan-open, PulseWeave coalescing, prepared-state,
+      source-adapter, and publication-proof optimization work in their own open phase-plan items.
+    - Removed stale active-plan wording that still listed group/category, high-cardinality string,
+      nested JSON, and join-family work as unresolved operator-family pressure.
+  - Local evidence:
+    - Group/category current artifact:
+      `target/perf-design-2-group-category-current/group-category-current.json`.
+      In that local metadata-sink run, `group_by_aggregation` reported about `0.0130 ms` query
+      runtime and about `0.0017 ms` operator time; `multi_key_group_by` reported about
+      `0.0173 ms` query runtime and about `0.0160 ms` operator time;
+      `high_cardinality_string_group_distinct` reported about `0.0010 ms` query runtime; and
+      `distinct_count` reported `0.0 ms` query/operator handoff.
+    - Nested JSON current after artifact:
+      `target/perf-design-2-nested-after/nested-after.json`.
+      `nested_json_field_scan` reported about `3.8497 ms` query runtime and about `2.6847 ms`
+      operator time with
+      `residual_operator_optimization_status=applied_residual_fast_generated_nested_payload_parser`.
+    - Join-family after artifact:
+      `target/perf-design-2-join-family-after/join-family-after-fields.json`.
+      `hash_join` reported about `0.5100 ms` query runtime and about `0.2787 ms` operator time;
+      `join_aggregate` reported about `8.5073 ms` query runtime and about `3.4650 ms` operator
+      time with dense membership and dense-left/sparse-category accumulator evidence.
+    - All cited rows preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+  - Validation:
+    - Required validation for the final nested/runtime closeout passed:
+      `cargo fmt --all -- --check`, `git diff --check`,
+      `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, and
+      `cargo test --workspace --all-targets --quiet`.
+  - Vortex-first provider check:
+    - Subject area: local prepared/native Vortex scan results and ShardLoom residual operator
+      kernels for the traditional analytics benchmark suite.
+    - Decision: keep these routes as ShardLoom-native residual/operator-family implementations
+      backed by explicit evidence until a later encoded-native claim has broader correctness and
+      certificate coverage.
+    - Residual handling: residual execution remains ShardLoom-owned; unsupported or non-admitted
+      shapes must fail or block deterministically, not delegate to external engines.
+    - Gates still blocked: broad encoded-native operator claim, publication-proof claim refresh,
+      public benchmark freshness, production readiness, and Spark-displacement claims.
+  - Claim boundary:
+    - This is a local phase-plan cleanup and scoped runtime evidence closeout. It is not a public
+      performance claim, broad encoded-native claim, package-release claim, production-readiness
+      claim, or Spark-displacement claim.
+
+- [x] Session label: PERF-DESIGN-2 nested JSON fast generated-payload residual parser
+  - Date: 2026-06-13
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-2`.
+    - Local targeted artifact
+      `target/perf-design-2-nested-current/nested-current.json`, where `nested JSON field scan`
+      remained residual-native and spent most warm query time in per-row payload parsing.
+  - Scope:
+    - Added a strict generated-fixture payload parser for the current benchmark shape
+      `event.date/event.flag/metrics.value/metrics.score/labels`.
+    - Kept a generic byte-scanning parser for reordered, exponent, and non-fixture JSON payloads so
+      diagnostics remain deterministic and no unsupported shape is silently delegated elsewhere.
+    - Added manual simple-decimal parsing for generated `metrics.score` values to avoid per-row
+      UTF-8 validation and `f64::parse` on the hot generated route.
+    - Added residual operator evidence
+      `residual_operator_optimization_family=nested_json_field_scan` and
+      `residual_operator_optimization_status=applied_residual_fast_generated_nested_payload_parser`.
+    - Added focused Rust coverage for the fast generated-shape parser, generic fallback behavior,
+      deterministic malformed score/flag diagnostics, and native nested-scenario evidence fields.
+  - Local evidence:
+    - Before artifact: `target/perf-design-2-nested-current/nested-current.json`.
+      In that local run, `nested_json_field_scan` reported about `6.1397 ms` query runtime,
+      about `4.9313 ms` operator time, and
+      `residual_operator_optimization_status=not_applicable_non_group_accumulator_operator`.
+    - After artifact: `target/perf-design-2-nested-after/nested-after.json`.
+      In that local run, `nested_json_field_scan` reported about `3.8497 ms` query runtime,
+      about `2.6847 ms` operator time, `vortex_scan_millis` stayed about `1.1017 ms`, and the row
+      reported `residual_operator_optimization_status=applied_residual_fast_generated_nested_payload_parser`.
+    - Focused Rust validation passed:
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark generated_nested_payload_fields -- --nocapture`
+      and
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark nested_json_field_scan_runs_jsonl_fixture -- --nocapture`.
+    - Required validation passed:
+      `cargo fmt --all -- --check`, `git diff --check`,
+      `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, and
+      `cargo test --workspace --all-targets --quiet`.
+  - Vortex-first provider check:
+    - Subject area: prepared/native local Vortex projected payload bytes for the nested JSON field
+      scan route.
+    - Upstream Vortex concepts checked: Vortex scan/projection provider, projected string payload
+      access, and the existing residual operator boundary.
+    - Decision: `implement_shardloom_kernel` for generated-payload residual parsing because the
+      selected work is ShardLoom-owned byte parsing over already admitted projected Vortex bytes.
+    - Residual handling: ShardLoom-native residual execution only; generic fallback remains inside
+      ShardLoom parsing and is not an external execution fallback.
+    - Materialization/decode boundary: unchanged from prepared/native rows; Vortex scan/project
+      remains admitted, operator path remains residual-native and
+      `operator_encoded_native_claim_allowed=false`.
+    - Evidence added: row fields, focused Rust tests, and targeted local artifact.
+    - Gates still blocked: broad encoded-native nested JSON claim, publication-proof claim refresh,
+      public benchmark freshness, production readiness, and Spark-displacement claims.
+    - `fallback_attempted=false`; `external_engine_invoked=false`.
+  - Claim boundary:
+    - This is a targeted local metadata-sink benchmark smoke and residual-native hot-loop
+      optimization. It is not a public performance claim, encoded-native claim, production claim,
+      or Spark-displacement claim.
+
+- [x] Session label: PERF-DESIGN-2 join-family dense membership and residual accumulator optimization
+  - Date: 2026-06-13
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-2`.
+    - Local targeted candidate artifact
+      `target/perf-design-2-next-candidates/candidates.json`, where `join + aggregate` still
+      rolled to sparse residual aggregation even though the fixture dimension key domain was compact.
+  - Scope:
+    - Added reusable dense dimension-key membership metadata to `TraditionalDimensionLabelState` so
+      hash join and join aggregate can avoid per-row `HashMap::contains_key` checks when the
+      dimension key domain is compact and admitted.
+    - Added a join-specific dense-left / sparse-category residual accumulator for join aggregate so
+      high category cardinality no longer forces the whole join path into the packed-pair sparse
+      map when dimension keys remain dense.
+    - Preserved ShardLoom-native residual execution and the existing Vortex scan/projection
+      provider boundary; no encoded-native claim was introduced.
+    - Added `residual_operator_dimension_membership_*` evidence fields and propagated them through
+      the benchmark runner and artifact promoter field contracts.
+    - Added Rust regression coverage for dense dimension membership admission/blocking,
+      dense-left/category-sparse join accumulation, sparse rollover for wide dimension keys, and
+      hash/join native evidence fields.
+  - Local evidence:
+    - Before artifact: `target/perf-design-2-next-candidates/candidates.json`.
+      In that local run, `hash_join` reported about `0.9053 ms` query runtime and about
+      `0.6397 ms` operator time. `join_aggregate` reported about `11.5117 ms` query runtime and
+      about `6.6823 ms` operator time, with
+      `residual_operator_optimization_status=rolled_to_sparse_accumulator_wide_key_or_slot_budget`.
+    - After artifact: `target/perf-design-2-join-family-after/join-family-after-fields.json`.
+      In that local run, `hash_join` reported about `0.5100 ms` query runtime and about
+      `0.2787 ms` operator time. `join_aggregate` reported about `8.5073 ms` query runtime and
+      about `3.4650 ms` operator time, with
+      `residual_operator_optimization_status=applied_residual_dense_left_sparse_category_join_aggregate_accumulator`,
+      `residual_operator_dimension_membership_status=dense_dimension_key_membership`,
+      `residual_operator_dimension_membership_key_count=1000`, and
+      `residual_operator_dimension_membership_max_key=999`.
+    - Focused Rust validation passed:
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark dense -- --nocapture`,
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_join_aggregate_uses_prepared_native_vortex_scan -- --nocapture`, and
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_hash_join_uses_prepared_native_vortex_scan -- --nocapture`.
+    - Benchmark contract validation passed:
+      `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture`.
+    - Python syntax validation passed:
+      `python3 -m compileall -q benchmarks/traditional_analytics scripts/promote_benchmark_artifact.py`.
+    - Feature-enabled clippy passed:
+      `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings`.
+  - Vortex-first provider check:
+    - Subject area: prepared/native local Vortex join-family residual operator hot loops.
+    - Upstream Vortex concepts checked: Vortex scan/projection provider, reader chunk arrays,
+      residual boundary reports, and existing prepared/native source-state reuse.
+    - Decision: `implement_shardloom_kernel` for residual join membership/aggregation work because
+      the selected operator work is ShardLoom residual-native scalar aggregation over already
+      admitted projected Vortex scan chunks.
+    - Residual handling: ShardLoom-native residual execution only; unsupported/wide dense domains
+      roll to ShardLoom sparse structures, not to an external engine.
+    - Materialization/decode boundary: unchanged from prepared/native rows; Vortex scan/project
+      remains admitted, operator path remains residual-native and `operator_encoded_native_claim_allowed=false`.
+    - Evidence added: row fields, focused Rust tests, contract tests, and targeted local artifact.
+    - Gates still blocked: broad encoded-native join/group operator claim, publication-proof claim
+      refresh, public benchmark freshness, production readiness, and Spark-displacement claims.
+    - `fallback_attempted=false`; `external_engine_invoked=false`.
+  - Claim boundary:
+    - This is a targeted local metadata-sink benchmark smoke and residual-native hot-loop
+      optimization. It does not make a public performance claim, broad encoded-native operator
+      claim, package-release claim, production-readiness claim, or Spark-displacement claim.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, external query engine, hidden fallback, or
+      Vortex query-engine integration was added or invoked.
+
+- [x] Session label: PERF-DESIGN-2 cached source-state child-route timing attribution cleanup
+  - Date: 2026-06-12
+  - Source:
+    - Active phase-plan item `PERF-DESIGN-2`.
+    - Targeted local evidence showing prepared/native group/category child rows inherited shared
+      source-state build timing as per-child scan/operator timing.
+  - Scope:
+    - Added a cached source-state handoff timing view for precomputed prepared/native source-state
+      families.
+    - Applied that view to fact metric, category metric, group/category metric, ranked metric,
+      selective filter, dirty-input, and date/null metric child executions that consume cached
+      batch source-state results.
+    - Kept shared build/prewarm work in source-state family fields such as
+      `source_state_*_family_build_micros` and `source_state_family_prewarm_micros`.
+    - Added Rust regression assertions that cached group/category and ranked child reports do not
+      inherit source-state scan/open/operator-kernel timing while the batch-level source-state reuse
+      evidence remains present.
+  - Local evidence:
+    - Before artifact:
+      `target/perf-design-2-group-category/group-category-targeted.json`.
+      The group/category child rows reported about `10.81 ms` operator time and about `1.29 ms`
+      Vortex scan time even though child route runtime was about `0.015-0.017 ms`; shared
+      source-state build/prewarm was separately recorded at about `15.4 ms`.
+    - After artifact:
+      `target/perf-design-2-group-category/group-category-after.json`.
+      The same child rows report `vortex_scan_millis=0.0`; `group_by_aggregation` reports about
+      `0.0003 ms` operator handoff and `multi_key_group_by` reports about `0.0133 ms` operator
+      handoff, while shared source-state build/prewarm remains recorded at about `12.3 ms`.
+    - Focused Rust validation passed:
+      `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_native_vortex_batch_run_reuses -- --nocapture`.
+    - Targeted benchmark rerun passed:
+      `python3 benchmarks/traditional_analytics/run.py --engines shardloom-prepare-batch --formats csv --scenario "group by aggregation" --scenario "multi-key group by" --dataset-profile tiny_smoke --rows 100000 --dim-rows 1000 --iterations 3 --regenerate --data-dir target/perf-design-2-group-category/data-after --output target/perf-design-2-group-category/group-category-after.json --no-markdown --shardloom-build-profile release --shardloom-evidence-tier metadata_sink`.
+  - Claim boundary:
+    - This closes a scoped prepared/native source-state timing-attribution bug. It does not claim
+      broad encoded-native operator execution, public performance improvement, package-release
+      readiness, Spark displacement, production readiness, or a full latest benchmark refresh.
+  - Fallback boundary:
+    - The path remains ShardLoom/Vortex-native with explicit source-state reuse evidence. No Spark,
+      DataFusion, DuckDB, Polars, Velox, external query engine, hidden fallback, or Vortex
+      query-engine integration was added.
+
+- [x] Session label: Sequential Python/SQL UAT simulation and cast-predicate parser closeout
+  - Date: 2026-06-12
+  - Source:
+    - User request to treat the local Python benchmark-scenario simulation as sequential UAT and
+      fold any small findings into the current work.
+    - Documented benchmark-scenario Python snippets in
+      `examples/local-python-benchmark-scenarios`.
+  - Scope:
+    - Ran the documented Python ETL snippets through the local ShardLoom Python surface with the
+      feature-enabled `vortex-write` binary.
+    - Expanded local sequential UAT coverage across Python and SQL user surfaces, including CSV,
+      JSONL, local SQL, generated/source-free SQL outputs, sessions, schema/profile helpers,
+      fanout writes, Vortex writes, prepare-vortex ingest, joins, aggregates, top-N, multi-key
+      routes, expected unsupported paths, remote-source blockers, feature-gated Parquet output,
+      `from_pandas`, and malformed timestamp handling.
+    - Fixed the small parser gap exposed by the documented
+      `with_column(...cast(...)).filter(...).write_vortex(...)` path: SQL local-source CAST
+      predicates now admit the Python-lowered expression shape
+      `(CAST(<column> AS <dtype>)) <op> <literal>` without treating it as unsupported.
+    - Added Rust parser coverage for the parenthesized CAST predicate expression statement.
+  - Local evidence:
+    - Baseline documented-scenario summary:
+      `target/local-uat-scenarios/uat-baseline-python-etl-vortex-write-enabled/scenario-summary.json`.
+      It passed 9/9 scenarios: 8 successful ETL paths and 1 intentional fail-closed malformed
+      timestamp cast, with `fallback_attempted=false` and `external_engine_invoked=false` on every
+      row.
+    - Wide sequential UAT summary:
+      `target/local-uat-scenarios/uat-wide-python-sql-vortex-write-enabled-pass2/uat-summary.json`.
+      It passed 45/45 cases: 34 success reports, 5 successful object/report surfaces, and 6
+      intentional unsupported/error blockers. No case reported fallback or external engine
+      invocation.
+    - Slowest Python-surface UAT rows in that single local run were `python_write_vortex_output`
+      at about `85.26 ms`, `python_prepare_vortex_ingest` at about `82.85 ms`,
+      `python_join_single_key_collect` at about `19.82 ms`, `python_global_top_n_collect` at about
+      `18.15 ms`, `sql_write_vortex_output` at about `14.56 ms`,
+      `python_join_multi_key_collect` at about `12.91 ms`, `python_fanout_jsonl_csv_outputs` at
+      about `12.15 ms`, and `session_fanout_reuse_second_hit` at about `11.97 ms`. These are local
+      UAT wall timings, not refreshed benchmark claims.
+    - Focused parser validation passed:
+      `cargo test -p shardloom-cli parses_parenthesized_cast_predicate_expression_statement`.
+    - Build validation passed:
+      `cargo build -q -p shardloom-cli` and
+      `cargo build -q -p shardloom-cli --features vortex-write`.
+    - Broad validation passed after the fix:
+      `cargo fmt --all -- --check`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, and
+      `cargo test --workspace --all-targets`.
+  - Claim boundary:
+    - This is fixture/UAT evidence and a scoped SQL parser admission fix. It does not close a broad
+      runtime optimization item, production-readiness claim, package-release gate, public benchmark
+      refresh, Spark-displacement claim, remote/object-store support, or broad SQL/DataFrame
+      completeness claim.
+  - Fallback boundary:
+    - The admitted CAST predicate path remains ShardLoom-local SQL execution. Expected unsupported
+      UAT cases fail closed with deterministic blockers; no Spark, DataFusion, DuckDB, Polars,
+      Velox, hidden external engine, or Vortex query-engine integration was invoked.
+
 - [x] Session label: Phase-plan open-queue cleanup and completed-state ledger migration
   - Date: 2026-06-12
   - Source:

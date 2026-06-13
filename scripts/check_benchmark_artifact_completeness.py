@@ -97,6 +97,10 @@ ROW_ADMISSION_MANIFEST_SCHEMA_VERSION = (
 PREPARE_BATCH_ROLE_REPAIR_EVIDENCE_PATH_FIELD = (
     "prepare_batch_role_repair_evidence"
 )
+PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.publication_proof_sidecar.v1"
+)
+PUBLICATION_PROOF_SIDECAR_PATH_FIELD = "publication_proof_sidecar"
 
 
 def runtime_envelope_required(row: dict[str, Any]) -> bool:
@@ -667,6 +671,109 @@ def validate_prepare_batch_role_repair_evidence(
         blockers.append("prepare-batch role-repair evidence schema_version mismatch")
     evidence_blockers, _summary = validate_prepare_batch_role_repair_payload(payload)
     blockers.extend(evidence_blockers)
+
+
+def validate_publication_proof_sidecar(
+    manifest: dict[str, Any],
+    manifest_path: Path,
+    payload: dict[str, Any],
+    blockers: list[str],
+) -> None:
+    publication_rows = [
+        row
+        for row in result_rows(payload)
+        if str(row.get("timing_surface") or "") == "publication_proof"
+    ]
+    artifact_paths = manifest.get("artifact_paths")
+    if not isinstance(artifact_paths, dict):
+        return
+    path_text = artifact_paths.get(PUBLICATION_PROOF_SIDECAR_PATH_FIELD)
+    if not path_text:
+        if publication_rows:
+            blockers.append(
+                "benchmark manifest is missing artifact_paths.publication_proof_sidecar"
+            )
+        return
+    sidecar_path = repo_path(str(path_text), manifest_path)
+    if not sidecar_path.exists():
+        blockers.append(
+            "artifact_paths.publication_proof_sidecar does not exist: "
+            + str(path_text)
+        )
+        return
+    sidecar = load_json(sidecar_path)
+    if not isinstance(sidecar, dict):
+        blockers.append("publication proof sidecar must contain an object")
+        return
+    if sidecar.get("schema_version") != PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION:
+        blockers.append("publication proof sidecar schema_version mismatch")
+    if sidecar.get("fallback_attempted") is not False:
+        blockers.append("publication proof sidecar fallback_attempted must be false")
+    if sidecar.get("external_engine_invoked") is not False:
+        blockers.append("publication proof sidecar external_engine_invoked must be false")
+    records = sidecar.get("records")
+    if not isinstance(records, list):
+        blockers.append("publication proof sidecar records must be a list")
+        records = []
+    record_count = sidecar.get("record_count")
+    if record_count != len(records):
+        blockers.append("publication proof sidecar record_count does not match records")
+    if record_count != len(publication_rows):
+        blockers.append(
+            "publication proof sidecar record_count does not match publication-proof rows"
+        )
+    stale_count = sidecar.get("stale_record_count")
+    if stale_count != 0:
+        blockers.append("publication proof sidecar has stale records")
+    reused_count = sidecar.get("reused_record_count")
+    written_count = sidecar.get("written_record_count")
+    if not isinstance(reused_count, int) or not isinstance(written_count, int):
+        blockers.append("publication proof sidecar reuse/write counts must be integers")
+    elif isinstance(record_count, int) and reused_count + written_count != record_count:
+        blockers.append("publication proof sidecar reuse/write counts do not sum to record_count")
+    if (
+        sidecar.get("resume_status") == "reused_existing_publication_proof_sidecar"
+        and isinstance(record_count, int)
+        and (reused_count != record_count or written_count != 0)
+    ):
+        blockers.append("reused publication proof sidecar must reuse every record")
+    for manifest_key, sidecar_key in (
+        ("publication_proof_sidecar_schema_version", "schema_version"),
+        ("publication_proof_sidecar_status", "resume_status"),
+        ("publication_proof_sidecar_record_count", "record_count"),
+        ("publication_proof_sidecar_reused_record_count", "reused_record_count"),
+        ("publication_proof_sidecar_written_record_count", "written_record_count"),
+        ("publication_proof_sidecar_stale_record_count", "stale_record_count"),
+        ("publication_proof_sidecar_fallback_attempted", "fallback_attempted"),
+        ("publication_proof_sidecar_external_engine_invoked", "external_engine_invoked"),
+    ):
+        if manifest.get(manifest_key) != sidecar.get(sidecar_key):
+            blockers.append(
+                f"manifest {manifest_key} does not match publication proof sidecar"
+            )
+    record_ids: set[str] = set()
+    for index, record in enumerate(records):
+        if not isinstance(record, dict):
+            blockers.append(f"publication proof sidecar record {index} must be an object")
+            continue
+        record_id = str(record.get("record_id") or "")
+        if not record_id.startswith("publication-proof:"):
+            blockers.append(f"publication proof sidecar record {index} has invalid record_id")
+        if record_id in record_ids:
+            blockers.append(f"publication proof sidecar record {index} duplicates record_id")
+        record_ids.add(record_id)
+        if not str(record.get("record_digest") or "").startswith("sha256:"):
+            blockers.append(f"publication proof sidecar record {index} missing digest")
+        if record.get("timing_surface") != "publication_proof":
+            blockers.append(f"publication proof sidecar record {index} has wrong surface")
+        if record.get("fallback_attempted") is not False:
+            blockers.append(
+                f"publication proof sidecar record {index} fallback_attempted must be false"
+            )
+        if record.get("external_engine_invoked") is not False:
+            blockers.append(
+                f"publication proof sidecar record {index} external_engine_invoked must be false"
+            )
 
 
 def lane_evidence_counts(payload: dict[str, Any]) -> Counter[str]:
@@ -1983,6 +2090,12 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
                 validate_prepare_batch_role_repair_evidence(
                     manifest,
                     manifest_path,
+                    blockers,
+                )
+                validate_publication_proof_sidecar(
+                    manifest,
+                    manifest_path,
+                    payload,
                     blockers,
                 )
                 if recursive_text_contains(payload, "spark-retire"):
