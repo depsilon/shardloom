@@ -7006,6 +7006,22 @@ class ReleaseScriptTests(unittest.TestCase):
                 expected,
             )
         )
+        pre_5j_expected = "python scripts/check_pre_5j_dependency_freshness.py"
+        self.assertTrue(
+            module.validation_command_passed(
+                {
+                    pre_5j_expected
+                    + " --require-live-github --output target/pre-5j-dependency-freshness-gate.json": "passed"
+                },
+                pre_5j_expected,
+            )
+        )
+        self.assertFalse(
+            module.validation_command_passed(
+                {pre_5j_expected + " --require-live-github": "failed"},
+                pre_5j_expected,
+            )
+        )
 
     def test_pre_5j_dependency_freshness_accepts_current_dependabot_prs(self) -> None:
         module = self._load_script_module(
