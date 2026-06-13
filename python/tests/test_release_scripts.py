@@ -7331,6 +7331,39 @@ class ReleaseScriptTests(unittest.TestCase):
             for case in module.REQUIRED_UNSUPPORTED_CASE_IDS
             if case.startswith("invalid_shape_")
         )
+        semantic_stage_rows = [
+            {
+                "case_id": case_id,
+                "status": "passed",
+                "artifact_ref": (
+                    "target/admitted-semantics-matrix/artifacts/"
+                    + f"{case_id}.json"
+                ),
+                "decoded_reference_digest": f"sha256:{index + 1:064x}",
+                "expected_output_digest": "",
+                "observed_output_digest": "",
+                "correctness_digest": f"fnv64:{index + 1:016x}",
+                "result_digest": f"fnv64:{index + 1:016x}",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "blockers": [],
+            }
+            for index, case_id in enumerate(sorted(module.REQUIRED_SEMANTIC_CASE_IDS))
+        ]
+        unsupported_stage_rows = [
+            {
+                "case_id": case_id,
+                "status": "passed",
+                "artifact_ref": (
+                    "target/admitted-semantics-matrix/artifacts/"
+                    + f"{case_id}.json"
+                ),
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "blockers": [],
+            }
+            for case_id in sorted(module.REQUIRED_UNSUPPORTED_CASE_IDS)
+        ]
         write(
             paths.golden_workflow,
             {
@@ -7370,6 +7403,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 "invalid_shape_case_ids": invalid_shape_cases,
                 "property_lane_count": 1,
                 "remaining_matrix_gaps": [],
+                "stages": semantic_stage_rows + unsupported_stage_rows,
                 **false_fields,
             },
         )
@@ -7452,7 +7486,8 @@ class ReleaseScriptTests(unittest.TestCase):
                     f"format-{index}" for index in range(module.EXPECTED_OUTPUT_FORMATS)
                 ],
                 "user_write_methods": [
-                    f"method-{index}" for index in range(module.EXPECTED_OUTPUT_WRITE_METHODS)
+                    f"method-{index}"
+                    for index in range(module.EXPECTED_OUTPUT_WRITE_METHODS)
                 ],
                 "output_route_ids": [
                     f"route-{index}" for index in range(module.EXPECTED_OUTPUT_ROUTE_IDS)
@@ -7485,6 +7520,27 @@ class ReleaseScriptTests(unittest.TestCase):
             report["summaries"]["admitted_semantics"]["required_semantic_case_count"],
             len(module.REQUIRED_SEMANTIC_CASE_IDS),
         )
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"][
+                "semantic_fixture_evidence_status"
+            ],
+            "passed",
+        )
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"][
+                "required_stage_artifact_ref_count"
+            ],
+            (
+                len(module.REQUIRED_SEMANTIC_CASE_IDS)
+                + len(module.REQUIRED_UNSUPPORTED_CASE_IDS)
+            ),
+        )
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"][
+                "required_stage_decoded_reference_digest_count"
+            ],
+            len(module.REQUIRED_SEMANTIC_CASE_IDS),
+        )
 
     def test_v1_correctness_conformance_gate_fails_missing_semantic_case(self) -> None:
         module = self._load_script_module(
@@ -7506,6 +7562,99 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "missing required executable cases decimal_arithmetic_projection" in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_missing_stage_digest(self) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_missing_stage_digest_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            admitted_path = repo_root / module.ReportPaths().admitted_semantics
+            admitted = json.loads(admitted_path.read_text(encoding="utf-8"))
+            for stage in admitted["stages"]:
+                if stage["case_id"] == "decimal_arithmetic_projection":
+                    stage["decoded_reference_digest"] = ""
+                    break
+            admitted_path.write_text(json.dumps(admitted), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"][
+                "semantic_fixture_evidence_status"
+            ],
+            "failed",
+        )
+        self.assertTrue(
+            any(
+                "decimal_arithmetic_projection decoded_reference_digest must be sha256-prefixed"
+                in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_missing_stage_artifact(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_missing_stage_artifact_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            admitted_path = repo_root / module.ReportPaths().admitted_semantics
+            admitted = json.loads(admitted_path.read_text(encoding="utf-8"))
+            for stage in admitted["stages"]:
+                if stage["case_id"] == "exists_subquery_semantics":
+                    stage["artifact_ref"] = ""
+                    break
+            admitted_path.write_text(json.dumps(admitted), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "exists_subquery_semantics missing artifact_ref" in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_stage_fallback_marker(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_stage_fallback_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            admitted_path = repo_root / module.ReportPaths().admitted_semantics
+            admitted = json.loads(admitted_path.read_text(encoding="utf-8"))
+            for stage in admitted["stages"]:
+                if stage["case_id"] == "runtime_error_numeric_division_by_zero":
+                    stage["fallback_attempted"] = True
+                    break
+            admitted_path.write_text(json.dumps(admitted), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "runtime_error_numeric_division_by_zero fallback_attempted must be false"
+                in blocker
                 for blocker in report["blockers"]
             ),
             report["blockers"],

@@ -63,6 +63,7 @@ EXPECTED_UNSUPPORTED_DIAGNOSTICS = 22
 EXPECTED_RUNTIME_ERROR_DIAGNOSTICS = 1
 EXPECTED_INVALID_SHAPE_DIAGNOSTICS = 1
 EXPECTED_ADMITTED_STAGE_COUNT_MIN = 129
+ADMITTED_ARTIFACT_REF_PREFIX = "target/admitted-semantics-matrix/artifacts/"
 REQUIRED_SEMANTIC_CASE_IDS = {
     "numeric_generic_property_seed_20260521",
     "try_cast_projection_null_on_invalid",
@@ -397,6 +398,144 @@ def _missing(observed: Any, expected: set[str]) -> list[str]:
     return sorted(expected - {str(value) for value in observed or []})
 
 
+def _is_hex_digest(value: Any, prefix: str, hex_chars: int) -> bool:
+    if not isinstance(value, str) or not value.startswith(prefix):
+        return False
+    digest = value[len(prefix) :]
+    return len(digest) == hex_chars and all(char in "0123456789abcdef" for char in digest)
+
+
+def _expected_stage_artifact_ref(case_id: str) -> str:
+    return ADMITTED_ARTIFACT_REF_PREFIX + case_id + ".json"
+
+
+def _validate_stage_contract(
+    stage: dict[str, Any],
+    case_id: str,
+    *,
+    require_semantic_digests: bool,
+) -> list[str]:
+    blockers: list[str] = []
+    if stage.get("status") != "passed":
+        blockers.append(f"admitted_semantics: {case_id} stage status must be passed")
+    if stage.get("artifact_ref") != _expected_stage_artifact_ref(case_id):
+        blockers.append(f"admitted_semantics: {case_id} missing artifact_ref")
+    if stage.get("fallback_attempted") is not False:
+        blockers.append(f"admitted_semantics: {case_id} fallback_attempted must be false")
+    if stage.get("external_engine_invoked") is not False:
+        blockers.append(
+            f"admitted_semantics: {case_id} external_engine_invoked must be false"
+        )
+    if stage.get("blockers") != []:
+        blockers.append(f"admitted_semantics: {case_id} blockers must be empty")
+    if require_semantic_digests:
+        if not _is_hex_digest(stage.get("decoded_reference_digest"), "sha256:", 64):
+            blockers.append(
+                f"admitted_semantics: {case_id} decoded_reference_digest must be sha256-prefixed"
+            )
+        if not _is_hex_digest(stage.get("correctness_digest"), "fnv64:", 16):
+            blockers.append(
+                f"admitted_semantics: {case_id} correctness_digest must be fnv64-prefixed"
+            )
+        if not _is_hex_digest(stage.get("result_digest"), "fnv64:", 16):
+            blockers.append(
+                f"admitted_semantics: {case_id} result_digest must be fnv64-prefixed"
+            )
+    return blockers
+
+
+def _validate_required_stage_evidence(
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
+    blockers: list[str] = []
+    stages = payload.get("stages")
+    if not isinstance(stages, list):
+        return {
+            "semantic_fixture_evidence_status": "failed",
+            "required_executable_stage_evidence_count": 0,
+            "required_unsupported_stage_evidence_count": 0,
+            "required_stage_artifact_ref_count": 0,
+            "required_stage_decoded_reference_digest_count": 0,
+            "required_stage_correctness_digest_count": 0,
+            "required_stage_result_digest_count": 0,
+            "required_stage_no_fallback_count": 0,
+            "required_stage_no_external_engine_count": 0,
+        }, ["admitted_semantics: stages must be a list"]
+
+    stage_by_case_id: dict[str, dict[str, Any]] = {}
+    for index, stage in enumerate(stages):
+        if not isinstance(stage, dict):
+            blockers.append(f"admitted_semantics: stages[{index}] must be an object")
+            continue
+        case_id = stage.get("case_id")
+        if not isinstance(case_id, str) or not case_id:
+            blockers.append(f"admitted_semantics: stages[{index}] missing case_id")
+            continue
+        if case_id in stage_by_case_id:
+            blockers.append(f"admitted_semantics: duplicate stage case_id {case_id}")
+            continue
+        stage_by_case_id[case_id] = stage
+
+    required_stage_ids = REQUIRED_SEMANTIC_CASE_IDS | REQUIRED_UNSUPPORTED_CASE_IDS
+    executable_stage_count = 0
+    unsupported_stage_count = 0
+    artifact_ref_count = 0
+    decoded_digest_count = 0
+    correctness_digest_count = 0
+    result_digest_count = 0
+    no_fallback_count = 0
+    no_external_count = 0
+
+    for case_id in sorted(REQUIRED_SEMANTIC_CASE_IDS):
+        stage = stage_by_case_id.get(case_id)
+        if stage is None:
+            blockers.append(f"admitted_semantics: missing required stage {case_id}")
+            continue
+        executable_stage_count += 1
+        blockers.extend(
+            _validate_stage_contract(stage, case_id, require_semantic_digests=True)
+        )
+
+    for case_id in sorted(REQUIRED_UNSUPPORTED_CASE_IDS):
+        stage = stage_by_case_id.get(case_id)
+        if stage is None:
+            blockers.append(f"admitted_semantics: missing required stage {case_id}")
+            continue
+        unsupported_stage_count += 1
+        blockers.extend(
+            _validate_stage_contract(stage, case_id, require_semantic_digests=False)
+        )
+
+    for case_id in sorted(required_stage_ids):
+        stage = stage_by_case_id.get(case_id)
+        if not isinstance(stage, dict):
+            continue
+        if stage.get("artifact_ref") == _expected_stage_artifact_ref(case_id):
+            artifact_ref_count += 1
+        if _is_hex_digest(stage.get("decoded_reference_digest"), "sha256:", 64):
+            decoded_digest_count += 1
+        if _is_hex_digest(stage.get("correctness_digest"), "fnv64:", 16):
+            correctness_digest_count += 1
+        if _is_hex_digest(stage.get("result_digest"), "fnv64:", 16):
+            result_digest_count += 1
+        if stage.get("fallback_attempted") is False:
+            no_fallback_count += 1
+        if stage.get("external_engine_invoked") is False:
+            no_external_count += 1
+
+    return {
+        "semantic_fixture_evidence_status": "passed" if not blockers else "failed",
+        "required_executable_stage_evidence_count": executable_stage_count,
+        "required_unsupported_stage_evidence_count": unsupported_stage_count,
+        "required_stage_artifact_ref_count": artifact_ref_count,
+        "required_stage_decoded_reference_digest_count": decoded_digest_count,
+        "required_stage_correctness_digest_count": correctness_digest_count,
+        "required_stage_result_digest_count": result_digest_count,
+        "required_stage_no_fallback_count": no_fallback_count,
+        "required_stage_no_external_engine_count": no_external_count,
+    }, blockers
+
+
 def _report_status(inputs: dict[str, dict[str, Any] | None], key: str) -> str:
     payload = inputs.get(key)
     return str(payload.get("status", "missing")) if isinstance(payload, dict) else "missing"
@@ -592,6 +731,8 @@ def _validate_admitted(payload: dict[str, Any]) -> tuple[dict[str, Any], list[st
             "admitted_semantics: missing required unsupported/error cases "
             + ",".join(missing_unsupported)
         )
+    stage_summary, stage_blockers = _validate_required_stage_evidence(payload)
+    blockers.extend(stage_blockers)
     return {
         "executable_fixture_count": payload.get("executable_fixture_count"),
         "diagnostic_case_count": payload.get("diagnostic_case_count"),
@@ -601,6 +742,7 @@ def _validate_admitted(payload: dict[str, Any]) -> tuple[dict[str, Any], list[st
         "required_semantic_case_count": len(REQUIRED_SEMANTIC_CASE_IDS),
         "required_unsupported_case_count": len(REQUIRED_UNSUPPORTED_CASE_IDS),
         "remaining_matrix_gaps": payload.get("remaining_matrix_gaps", []),
+        **stage_summary,
     }, blockers
 
 
