@@ -1,0 +1,19 @@
+{
+  "schema_version": "shardloom.stable_schema_contract.v1",
+  "schema_id": "shardloom.claim_summary.v1",
+  "surface_id": "claim_summary",
+  "stability_tier": "stable_v1",
+  "compatibility_window": "v1_additive_compatibility",
+  "legacy_flat_field_policy": "stable_aliases_for_v1_with_documented_deprecation_window",
+  "required_fields": [
+    {"path": "claim_gate_status", "type": "string"},
+    {"path": "claim_boundary", "type": "string"},
+    {"path": "public_release_claim_allowed", "type": "boolean"},
+    {"path": "public_package_claim_allowed", "type": "boolean"},
+    {"path": "performance_claim_allowed", "type": "boolean"},
+    {"path": "fallback_attempted", "type": "boolean"},
+    {"path": "external_engine_invoked", "type": "boolean"}
+  ],
+  "no_fallback_fields": ["public_release_claim_allowed", "public_package_claim_allowed", "performance_claim_allowed", "fallback_attempted", "external_engine_invoked"],
+  "claim_boundary": "Stable claim-summary shape only; it does not make public, package, or performance claims true."
+}

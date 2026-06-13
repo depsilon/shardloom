@@ -28,6 +28,13 @@ sbom_publication_grade=false
 runtime_execution=false
 fallback_attempted=false
 external_engine_invoked=false
+v1_api_schema_stability_report=target/v1-api-schema-stability-report.json
+v1_stable_schema_contract_status=passed
+v1_stable_schema_surface_count=11
+v1_schema_compatibility_window=v1_additive_compatibility
+v1_diagnostic_code_stability_doc=docs/release/diagnostic-code-stability.md
+v1_diagnostic_code_count=22
+legacy_flat_field_policy=stable_aliases_for_v1_with_documented_deprecation_window
 ```
 
 ## Purpose
@@ -41,12 +48,23 @@ decisions, or publication-grade SBOM/checksum attachment.
 This gate makes those missing release inputs visible through `release-plan` and through the hard
 release-readiness validator so release/package claims fail closed.
 
+`PROD-V1-2A` now adds a narrower local API/schema stability contract:
+
+- `docs/release/v1-api-schema-stability-matrix.json`
+- `docs/release/schemas/v1/*.schema.json`
+- `docs/release/fixtures/v1-api-schema-stability/golden-fixtures.json`
+- `scripts/check_v1_api_schema_stability.py`
+
+That contract validates stable v1 machine-readable fields for local source-built workflows. It does
+not unblock package identity, signing, checksum/SBOM publication grade, package-channel proof, tag
+creation, or human publication approval.
+
 ## Gate Rows
 
 | Gate row | Status | Required publication evidence | Current blocker |
 | --- | --- | --- | --- |
-| `api_compatibility_window` | blocked | Published API stability tiers, compatibility window, deprecation policy, breaking-change approval. | Current CLI/Rust/Python surfaces are experimental and do not have a public compatibility window. |
-| `schema_compatibility_window` | blocked | Schema version registry, compatibility window, migration notes, golden fixtures. | Machine-readable schemas are versioned/experimental but not approved as stable public contracts. |
+| `api_compatibility_window` | local_v1_contract_ready | Published API stability tiers, compatibility window, deprecation policy, breaking-change approval. | Local v1 stable-field aliases and deprecation policy are declared; public package/API approval remains blocked. |
+| `schema_compatibility_window` | local_v1_contract_ready | Schema version registry, compatibility window, migration notes, golden fixtures. | Stable schema files and golden fixtures exist for 11 v1 machine-readable surfaces; public schema approval remains blocked. |
 | `package_identity_approval` | blocked | Approved package identities, channel ownership, naming, install/uninstall/rollback proof. | Package channels are represented but none is approved for public publication. |
 | `signing_policy_decision` | blocked | Artifact signing policy, maintainer approval, key custody, signing workflow evidence. | No signing key may be used and no signing mechanism is approved before publication. |
 | `checksum_manifest` | dry_run_only | Publication-grade checksum manifest tied to release artifacts and source revision. | Local dry-run checksum evidence exists, but publication-grade checksums are not attached. |

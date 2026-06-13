@@ -1,0 +1,22 @@
+{
+  "schema_version": "shardloom.stable_schema_contract.v1",
+  "schema_id": "shardloom.output.v2",
+  "surface_id": "output_envelope",
+  "stability_tier": "stable_v1",
+  "compatibility_window": "v1_additive_compatibility",
+  "legacy_flat_field_policy": "stable_aliases_for_v1_with_documented_deprecation_window",
+  "required_fields": [
+    {"path": "schema_version", "type": "string"},
+    {"path": "command", "type": "string"},
+    {"path": "status", "type": "string"},
+    {"path": "summary", "type": "string"},
+    {"path": "human_text", "type": "string"},
+    {"path": "fallback", "type": "object"},
+    {"path": "diagnostics", "type": "array"},
+    {"path": "fields", "type": "array"},
+    {"path": "artifacts", "type": "array"},
+    {"path": "certificates", "type": "array"}
+  ],
+  "no_fallback_fields": ["fallback.attempted", "fallback.allowed"],
+  "claim_boundary": "Stable v1 CLI/agent output envelope shape only; command-specific payload support remains governed by each route report."
+}

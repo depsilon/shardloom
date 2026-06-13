@@ -1,0 +1,121 @@
+{
+  "schema_version": "shardloom.v1_api_schema_stability_fixtures.v1",
+  "fixtures": {
+    "output_envelope": {
+      "schema_version": "shardloom.output.v2",
+      "command": "doctor",
+      "status": "success",
+      "summary": "doctor checks",
+      "human_text": "ShardLoom doctor",
+      "fallback": {
+        "attempted": false,
+        "allowed": false,
+        "engine": null,
+        "reason": "ShardLoom prohibits fallback execution engines."
+      },
+      "diagnostics": [],
+      "fields": [],
+      "artifacts": [],
+      "certificates": []
+    },
+    "diagnostic": {
+      "code": "SL_NOT_IMPLEMENTED",
+      "severity": "error",
+      "category": "unsupported_feature",
+      "message": "feature is unsupported",
+      "feature": "fixture",
+      "reason": "Fixture diagnostic only.",
+      "suggested_next_step": "Use a supported route.",
+      "fallback": {
+        "attempted": false,
+        "allowed": false,
+        "engine": null,
+        "reason": "ShardLoom prohibits fallback execution engines."
+      }
+    },
+    "fallback_status": {
+      "attempted": false,
+      "allowed": false,
+      "engine": null,
+      "reason": "ShardLoom prohibits fallback execution engines."
+    },
+    "route_fields": {
+      "route_id": "local_file_direct_query",
+      "route_lane_id": "warm_native",
+      "timing_surface": "hot_runtime",
+      "actual_evidence_tier": "metadata_sink",
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    "evidence_summary": {
+      "evidence_tier": "metadata_sink",
+      "execution_certificate_status": "certified",
+      "native_io_certificate_status": "certified",
+      "evidence_refs": ["target/example-evidence.json"],
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    "claim_summary": {
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "Fixture claim summary only.",
+      "public_release_claim_allowed": false,
+      "public_package_claim_allowed": false,
+      "performance_claim_allowed": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    "execution_certificate": {
+      "certificate_id": "fixture.execution_certificate",
+      "certificate_status": "certified",
+      "plan_digest": "sha256:fixture-plan",
+      "input_digest": "sha256:fixture-input",
+      "output_digest": "sha256:fixture-output",
+      "runtime_execution": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    "native_io_certificate": {
+      "certificate_id": "fixture.native_io_certificate",
+      "certificate_status": "certified",
+      "source_uri_scheme": "file",
+      "sink_uri_scheme": "file",
+      "native_input": true,
+      "native_output": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    "capability_report": {
+      "schema_version": "shardloom.capability_report.v1",
+      "engine": "shardloom",
+      "version": "0.1.0",
+      "capabilities": {},
+      "fallback_execution_allowed": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    "package_release_report": {
+      "schema_version": "shardloom.package_release_report.v1",
+      "package_publication_performed": false,
+      "public_release_claim_allowed": false,
+      "public_package_claim_allowed": false,
+      "tag_created": false,
+      "signing_key_used": false,
+      "checksum_manifest_publication_grade": false,
+      "sbom_publication_grade": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    "support_bundle": {
+      "schema_version": "shardloom.support_bundle.v1",
+      "bundle_id": "fixture.support_bundle",
+      "generated_by": "shardloom",
+      "redaction_status": "redacted",
+      "included_report_refs": [],
+      "secret_values_included": false,
+      "runtime_execution": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    }
+  }
+}

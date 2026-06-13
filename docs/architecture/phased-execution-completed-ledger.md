@@ -16,6 +16,73 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-2A v1 API/schema stability contract foundation
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-2A` in `docs/architecture/phased-execution-plan.md`.
+    - RFC 0012 diagnostics/explain/doctor/capabilities.
+    - RFC 0024 release engineering/API compatibility/packaging.
+    - `docs/release/publication-api-schema-stability-gate.md`.
+  - Branch/PR: `codex/v1-api-schema-stability-contract`; PR pending for this session.
+  - Scope:
+    - Added `docs/release/v1-api-schema-stability-matrix.json` with additive v1 compatibility,
+      stable flat-field alias policy, no-publication flags, and no-fallback/no-external-engine
+      posture.
+    - Added stable v1 schema contract files under `docs/release/schemas/v1/` for output envelope,
+      diagnostic, fallback status, route fields, evidence summary, claim summary, execution
+      certificate, Native I/O certificate, capability report, package/release report, and support
+      bundle surfaces.
+    - Added golden fixtures in
+      `docs/release/fixtures/v1-api-schema-stability/golden-fixtures.json`.
+    - Added `scripts/check_v1_api_schema_stability.py` as a dependency-free, side-effect-free
+      validator that fails closed when required stable fields disappear or no-fallback fields are
+      not false.
+    - Added `docs/release/diagnostic-code-stability.md` and validator coverage that checks the
+      stable diagnostic-code list against `shardloom-core/src/diagnostics.rs`.
+    - Wired the validator into release validation evidence, hard release readiness, CI workflow,
+      CI gate matrix source, and release documentation.
+    - Updated the publication/API/schema gate docs to distinguish local v1 schema-contract evidence
+      from still-blocked package identity, signing, checksum/SBOM publication grade, channel proof,
+      tag creation, and human publication approval.
+  - Stable v1 schema surfaces:
+    - `output_envelope`.
+    - `diagnostic`.
+    - `fallback_status`.
+    - `route_fields`.
+    - `evidence_summary`.
+    - `claim_summary`.
+    - `execution_certificate`.
+    - `native_io_certificate`.
+    - `capability_report`.
+    - `package_release_report`.
+    - `support_bundle`.
+  - Stable diagnostic-code count: 22.
+  - Evidence commands:
+    - `python3 scripts/check_v1_api_schema_stability.py`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_v1_api_schema_stability_validator_passes_current_contracts python.tests.test_release_scripts.ReleaseScriptTests.test_v1_api_schema_stability_validator_fails_on_missing_stable_field python.tests.test_release_scripts.ReleaseScriptTests.test_release_validation_evidence_uses_configured_python_and_conda`.
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `python3 -m py_compile scripts/check_v1_api_schema_stability.py scripts/check_release_readiness.py scripts/run_release_validation_evidence.py scripts/check_ci_gate_matrix.py`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+    - `python3 -m unittest python.tests.test_release_scripts`.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`.
+    - `python3 scripts/check_public_status_docs.py`.
+    - `python3 -m compileall -q python/src python/tests scripts benchmarks/traditional_analytics examples`.
+    - `cargo fmt --all -- --check`.
+    - `git diff --check`.
+    - `cargo clippy --workspace --all-targets -- -D warnings`.
+    - `cargo test --workspace --all-targets`.
+  - Claim boundary:
+    - May claim only local v1 machine-readable schema contract evidence for the listed surfaces.
+    - Does not authorize public package/release claims, package publication, release tags, signing,
+      production platform claims, performance claims, or broad API stability beyond the declared
+      local v1 schema surfaces.
+  - Fallback boundary:
+    - `runtime_execution=false`, `fallback_attempted=false`, and `external_engine_invoked=false`
+      for schema validation and publication/readiness evidence.
+  - Residual `PROD-V1-2A` work:
+    - Doctor v1 checks, support bundle generation/redaction tests, Python accessor coverage, CLI
+      text/JSON stability tests, and publication/API/schema row closeout remain open in the phase
+      plan.
 - [x] Session label: PROD-V1-1D local output and sink runtime closure
   - Date: 2026-06-13
   - Source:

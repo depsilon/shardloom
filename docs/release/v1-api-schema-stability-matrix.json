@@ -1,0 +1,76 @@
+{
+  "schema_version": "shardloom.v1_api_schema_stability_matrix.v1",
+  "matrix_id": "prod-v1-2a.v1_api_schema_stability",
+  "status": "stable_schema_fixtures_declared",
+  "compatibility_window": "v1_additive_compatibility",
+  "legacy_flat_field_policy": "stable_aliases_for_v1_with_documented_deprecation_window",
+  "deprecation_policy": "field removal, semantic rename, or type narrowing requires migration notes, compatibility tests, and explicit breaking-change approval",
+  "claim_boundary": "Local v1 API/schema contract only; this does not approve package publication, release tags, signing, performance claims, production platform claims, or fallback execution.",
+  "publication_approval_required": true,
+  "public_release_claim_allowed": false,
+  "public_package_claim_allowed": false,
+  "package_publication_performed": false,
+  "tag_created": false,
+  "signing_key_used": false,
+  "runtime_execution": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "fixture_path": "docs/release/fixtures/v1-api-schema-stability/golden-fixtures.json",
+  "surfaces": [
+    {
+      "surface_id": "output_envelope",
+      "schema_path": "docs/release/schemas/v1/output-envelope.schema.json",
+      "fixture_key": "output_envelope"
+    },
+    {
+      "surface_id": "diagnostic",
+      "schema_path": "docs/release/schemas/v1/diagnostic.schema.json",
+      "fixture_key": "diagnostic"
+    },
+    {
+      "surface_id": "fallback_status",
+      "schema_path": "docs/release/schemas/v1/fallback-status.schema.json",
+      "fixture_key": "fallback_status"
+    },
+    {
+      "surface_id": "route_fields",
+      "schema_path": "docs/release/schemas/v1/route-fields.schema.json",
+      "fixture_key": "route_fields"
+    },
+    {
+      "surface_id": "evidence_summary",
+      "schema_path": "docs/release/schemas/v1/evidence-summary.schema.json",
+      "fixture_key": "evidence_summary"
+    },
+    {
+      "surface_id": "claim_summary",
+      "schema_path": "docs/release/schemas/v1/claim-summary.schema.json",
+      "fixture_key": "claim_summary"
+    },
+    {
+      "surface_id": "execution_certificate",
+      "schema_path": "docs/release/schemas/v1/execution-certificate.schema.json",
+      "fixture_key": "execution_certificate"
+    },
+    {
+      "surface_id": "native_io_certificate",
+      "schema_path": "docs/release/schemas/v1/native-io-certificate.schema.json",
+      "fixture_key": "native_io_certificate"
+    },
+    {
+      "surface_id": "capability_report",
+      "schema_path": "docs/release/schemas/v1/capability-report.schema.json",
+      "fixture_key": "capability_report"
+    },
+    {
+      "surface_id": "package_release_report",
+      "schema_path": "docs/release/schemas/v1/package-release-report.schema.json",
+      "fixture_key": "package_release_report"
+    },
+    {
+      "surface_id": "support_bundle",
+      "schema_path": "docs/release/schemas/v1/support-bundle.schema.json",
+      "fixture_key": "support_bundle"
+    }
+  ]
+}

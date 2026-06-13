@@ -1,0 +1,21 @@
+{
+  "schema_version": "shardloom.stable_schema_contract.v1",
+  "schema_id": "shardloom.support_bundle.v1",
+  "surface_id": "support_bundle",
+  "stability_tier": "stable_v1",
+  "compatibility_window": "v1_additive_compatibility",
+  "legacy_flat_field_policy": "stable_aliases_for_v1_with_documented_deprecation_window",
+  "required_fields": [
+    {"path": "schema_version", "type": "string"},
+    {"path": "bundle_id", "type": "string"},
+    {"path": "generated_by", "type": "string"},
+    {"path": "redaction_status", "type": "string"},
+    {"path": "included_report_refs", "type": "array"},
+    {"path": "secret_values_included", "type": "boolean"},
+    {"path": "runtime_execution", "type": "boolean"},
+    {"path": "fallback_attempted", "type": "boolean"},
+    {"path": "external_engine_invoked", "type": "boolean"}
+  ],
+  "no_fallback_fields": ["secret_values_included", "runtime_execution", "fallback_attempted", "external_engine_invoked"],
+  "claim_boundary": "Stable support-bundle field contract only; support-bundle generation and redaction tests are governed by a separate v1 gate."
+}

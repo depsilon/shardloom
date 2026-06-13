@@ -142,6 +142,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/v1-local-output-sink-scope-report.json"),
     )
     parser.add_argument(
+        "--v1-api-schema-stability-report",
+        type=Path,
+        default=Path("target/v1-api-schema-stability-report.json"),
+    )
+    parser.add_argument(
         "--user-surface-runtime-gap-inventory-report",
         type=Path,
         default=Path("target/user-surface-runtime-gap-inventory.json"),
@@ -445,6 +450,10 @@ def main() -> int:
     v1_local_output_sink_scope_report_path = resolve(
         repo_root,
         args.v1_local_output_sink_scope_report,
+    )
+    v1_api_schema_stability_report_path = resolve(
+        repo_root,
+        args.v1_api_schema_stability_report,
     )
     user_surface_runtime_gap_inventory_path = resolve(
         repo_root,
@@ -829,6 +838,58 @@ def main() -> int:
             "publication_api_schema_stability_gate",
             "docs/release/publication-api-schema-stability-gate.md",
             api_schema_gate_blockers,
+        )
+    )
+
+    v1_api_schema_stability = load_json(v1_api_schema_stability_report_path)
+    v1_api_schema_stability_blockers: list[str] = []
+    if v1_api_schema_stability is None:
+        v1_api_schema_stability_blockers.append("missing v1 API/schema stability report")
+    else:
+        if (
+            v1_api_schema_stability.get("schema_version")
+            != "shardloom.v1_api_schema_stability_report.v1"
+        ):
+            v1_api_schema_stability_blockers.append("v1 API/schema stability schema_version mismatch")
+        if v1_api_schema_stability.get("status") != "passed":
+            v1_api_schema_stability_blockers.extend(
+                v1_api_schema_stability.get(
+                    "blockers",
+                    ["v1 API/schema stability report blocked"],
+                )
+            )
+        if v1_api_schema_stability.get("stable_surface_count") != 11:
+            v1_api_schema_stability_blockers.append(
+                "v1 API/schema stable_surface_count="
+                + str(v1_api_schema_stability.get("stable_surface_count"))
+            )
+        if v1_api_schema_stability.get("compatibility_window") != "v1_additive_compatibility":
+            v1_api_schema_stability_blockers.append(
+                "v1 API/schema compatibility_window must be v1_additive_compatibility"
+            )
+        if not v1_api_schema_stability.get("legacy_flat_field_policy"):
+            v1_api_schema_stability_blockers.append("missing v1 API/schema legacy flat-field policy")
+        for field in [
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "package_publication_performed",
+            "tag_created",
+            "signing_key_used",
+            "runtime_execution",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if v1_api_schema_stability.get(field) is not False:
+                v1_api_schema_stability_blockers.append(f"v1 API/schema {field} must be false")
+        if v1_api_schema_stability.get("publication_approval_required") is not True:
+            v1_api_schema_stability_blockers.append(
+                "v1 API/schema publication_approval_required must be true"
+            )
+    checks.append(
+        check(
+            "v1_api_schema_stability",
+            str(args.v1_api_schema_stability_report).replace("\\", "/"),
+            v1_api_schema_stability_blockers,
         )
     )
 
@@ -2090,6 +2151,7 @@ def main() -> int:
         "python scripts/check_v1_vortex_runtime_scope.py",
         "python scripts/check_v1_source_prepared_state_scope.py",
         "python scripts/check_v1_local_output_sink_scope.py",
+        "python scripts/check_v1_api_schema_stability.py",
         "python scripts/check_user_surface_runtime_gap_inventory.py",
         "python scripts/check_user_surface_graduation_matrix.py",
         "python scripts/check_runtime_gap_family_burn_down.py",
@@ -2156,6 +2218,9 @@ def main() -> int:
         ).replace("\\", "/"),
         "v1_local_output_sink_scope_report_ref": str(
             args.v1_local_output_sink_scope_report
+        ).replace("\\", "/"),
+        "v1_api_schema_stability_report_ref": str(
+            args.v1_api_schema_stability_report
         ).replace("\\", "/"),
         "user_surface_runtime_gap_inventory_ref": str(
             args.user_surface_runtime_gap_inventory_report

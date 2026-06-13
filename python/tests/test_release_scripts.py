@@ -7121,6 +7121,10 @@ class ReleaseScriptTests(unittest.TestCase):
             ["/tool/python3.12", "scripts/check_v1_local_output_sink_scope.py"],
         )
         self.assertEqual(
+            commands["v1_api_schema_stability_gate"],
+            ["/tool/python3.12", "scripts/check_v1_api_schema_stability.py"],
+        )
+        self.assertEqual(
             commands["benchmark_artifact_completeness"],
             [
                 "/tool/python3.12",
@@ -7158,6 +7162,68 @@ class ReleaseScriptTests(unittest.TestCase):
                 "--conda-executable",
                 "/opt/homebrew/bin/micromamba",
             ],
+        )
+
+    def test_v1_api_schema_stability_validator_passes_current_contracts(self) -> None:
+        module = self._load_script_module(
+            "check_v1_api_schema_stability.py",
+            "check_v1_api_schema_stability_current_for_test",
+        )
+
+        report = module.build_report(
+            REPO_ROOT,
+            REPO_ROOT / "docs/release/v1-api-schema-stability-matrix.json",
+        )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["stable_surface_count"], 11)
+        self.assertEqual(report["diagnostic_code_count"], 22)
+        self.assertEqual(
+            report["diagnostic_code_doc_ref"],
+            "docs/release/diagnostic-code-stability.md",
+        )
+        self.assertIn("SL_NO_FALLBACK_EXECUTION", report["diagnostic_code_order"])
+        self.assertIn("output_envelope", report["stable_surfaces"])
+        self.assertFalse(report["public_release_claim_allowed"])
+        self.assertFalse(report["public_package_claim_allowed"])
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+
+    def test_v1_api_schema_stability_validator_fails_on_missing_stable_field(self) -> None:
+        module = self._load_script_module(
+            "check_v1_api_schema_stability.py",
+            "check_v1_api_schema_stability_missing_field_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fixture_path = root / "fixtures.json"
+            matrix_path = root / "matrix.json"
+            fixture = json.loads(
+                (
+                    REPO_ROOT
+                    / "docs/release/fixtures/v1-api-schema-stability/golden-fixtures.json"
+                ).read_text(encoding="utf-8")
+            )
+            del fixture["fixtures"]["output_envelope"]["command"]
+            fixture_path.write_text(json.dumps(fixture), encoding="utf-8")
+            matrix = json.loads(
+                (REPO_ROOT / "docs/release/v1-api-schema-stability-matrix.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            matrix["fixture_path"] = str(fixture_path)
+            matrix_path.write_text(json.dumps(matrix), encoding="utf-8")
+
+            report = module.validate_matrix(REPO_ROOT, matrix_path)
+
+        self.assertEqual(report["status"], "blocked")
+        self.assertTrue(
+            any(
+                "output_envelope: fixture missing required field command" in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
         )
 
     def test_release_validation_evidence_records_security_posture_and_pip_audit_env(self) -> None:

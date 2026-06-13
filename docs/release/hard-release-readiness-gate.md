@@ -564,6 +564,25 @@ The gate rows are `api_compatibility_window`, `schema_compatibility_window`,
 `publication_approval`. `scripts\check_release_readiness.py` must keep the hard release gate
 blocked while this gate reports `publication_api_schema_gate_status=blocked`.
 
+`PROD-V1-2A` adds local v1 API/schema stability evidence under the same release boundary:
+
+```text
+python scripts\check_v1_api_schema_stability.py
+target/v1-api-schema-stability-report.json
+shardloom.v1_api_schema_stability_matrix.v1
+stable_surface_count=11
+diagnostic_code_count=22
+diagnostic_code_doc_ref=docs/release/diagnostic-code-stability.md
+compatibility_window=v1_additive_compatibility
+legacy_flat_field_policy=stable_aliases_for_v1_with_documented_deprecation_window
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+This local schema evidence makes the source-built v1 machine-readable fields testable. It does not
+approve package identity, signing, channel publication, tag creation, checksum/SBOM publication
+grade, or public API/schema claims without the remaining publication rows.
+
 `GAR-0041-A` adds the per-claim evidence attachment matrix with schema
 `shardloom.per_claim_evidence_attachment_matrix.v1`. The release gate consumes
 `docs/release/per-claim-evidence-attachment-matrix.md` and keeps public claims blocked while that

@@ -190,8 +190,10 @@ with a recorded infeasibility reason, not merely because they are broad.
   - Source: attached production-shift review sections 7 and 12; RFC 0012; RFC 0024;
     `docs/release/publication-api-schema-stability-gate.md`; current release-readiness blockers.
   - Current state: `shardloom.output.v2`, diagnostics, capability reports, and release schemas
-    exist in scoped forms, while public API/schema compatibility windows, stable schema fixtures,
-    signing/package identity decisions, and publication approval remain blocked.
+    exist in scoped forms. Local v1 stable schema contracts and golden fixtures now exist under
+    `docs/release/v1-api-schema-stability-matrix.json` and
+    `docs/release/schemas/v1/`, while public package identity, signing, checksum/SBOM publication
+    grade, channel proof, and publication approval remain blocked.
   - Intake review: accepted schema/freezing work as second-order after v1 runtime scope; merge
     existing publication/API/schema stability gate rather than replacing it.
   - V1 scope classification: `required_for_v1`.
@@ -199,15 +201,15 @@ with a recorded infeasibility reason, not merely because they are broad.
     surfaces, evidence tiers, capillary/PulseWeave/dynamic decisions where they affect runtime
     evidence, and deterministic unsupported diagnostics without requiring effectful probes.
   - Execution checklist:
-    - [ ] Decide whether legacy flat fields remain stable or enter a documented deprecation window.
-    - [ ] Add stable schema files for output envelope, diagnostics, fallback status, route fields,
+    - [x] Decide whether legacy flat fields remain stable or enter a documented deprecation window.
+    - [x] Add stable schema files for output envelope, diagnostics, fallback status, route fields,
       evidence summary, claim summary, execution certificate, Native I/O certificate, capability
       report, package/release reports, and support bundles.
-    - [ ] Add golden JSON fixtures and compatibility tests that fail when stable fields disappear
+    - [x] Add golden JSON fixtures and compatibility tests that fail when stable fields disappear
       or change semantics without migration policy.
     - [ ] Add Python accessor tests for every stable field and CLI text/JSON stability tests for
       user-facing and machine/agent commands.
-    - [ ] Add diagnostic-code stability docs, diagnostic-code migration policy, compatibility
+    - [x] Add diagnostic-code stability docs, diagnostic-code migration policy, compatibility
       windows, breaking-change approval policy, and migration-notes policy.
     - [ ] Add `shardloom doctor` v1 checks for CLI version, Python package version, package
       channel, feature support, Vortex support, local write support, no-fallback invariant, and

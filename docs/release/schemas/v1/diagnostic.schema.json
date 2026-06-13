@@ -1,0 +1,20 @@
+{
+  "schema_version": "shardloom.stable_schema_contract.v1",
+  "schema_id": "shardloom.diagnostic.v1",
+  "surface_id": "diagnostic",
+  "stability_tier": "stable_v1",
+  "compatibility_window": "v1_additive_compatibility",
+  "legacy_flat_field_policy": "stable_aliases_for_v1_with_documented_deprecation_window",
+  "required_fields": [
+    {"path": "code", "type": "string"},
+    {"path": "severity", "type": "string"},
+    {"path": "category", "type": "string"},
+    {"path": "message", "type": "string"},
+    {"path": "feature", "type": "nullable_string"},
+    {"path": "reason", "type": "nullable_string"},
+    {"path": "suggested_next_step", "type": "nullable_string"},
+    {"path": "fallback", "type": "object"}
+  ],
+  "no_fallback_fields": ["fallback.attempted", "fallback.allowed"],
+  "claim_boundary": "Stable diagnostic record shape and no-fallback semantics only; diagnostic code additions remain additive."
+}
