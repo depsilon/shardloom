@@ -5,42 +5,42 @@
     "markdown": null,
     "prepare_batch_role_repair_evidence": "website/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json",
     "publication_proof_sidecar": "website/assets/benchmarks/latest/publication-proof-sidecar.json",
-    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-0bd10b73d029d848/benchmark-row-admission-manifest.json",
+    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-e5a962ec83ff6900/benchmark-row-admission-manifest.json",
     "row_chunks": [
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-0bd10b73d029d848/published-benchmark-rows-000.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-e5a962ec83ff6900/published-benchmark-rows-000.json",
         "row_count": 200,
-        "sha256": "916223896d1f3d8913b5eeba0f37af2a7f79c22652102a17635b245fa0002a99"
+        "sha256": "6ce3356b997625250e9df9203926fb6970bc58f366676742f253eba281de62db"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-0bd10b73d029d848/published-benchmark-rows-001.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-e5a962ec83ff6900/published-benchmark-rows-001.json",
         "row_count": 200,
-        "sha256": "4d2ff3071683457a05581a522f30f8d3cf187581348e86b98f3fb50088a5ebe8"
+        "sha256": "16f734694d11b618f1d92592ca6f81c7f8086575dc7efb9a9d381e9a7ed9cb87"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-0bd10b73d029d848/published-benchmark-rows-002.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-e5a962ec83ff6900/published-benchmark-rows-002.json",
         "row_count": 200,
-        "sha256": "c05b8b681375217734b3f5b3f0d9d750ab75b1316b92b77cd4c2875061c893d9"
+        "sha256": "71e566d2529ac11ae7a500df97b8eac179f59779fba55c37b74a562a809ffde5"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-0bd10b73d029d848/published-benchmark-rows-003.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-e5a962ec83ff6900/published-benchmark-rows-003.json",
         "row_count": 200,
-        "sha256": "e7afcdf1b4bf06b7a6e6ff0bc5a40533ad0e33da6be2091b901e8d324b1e5eca"
+        "sha256": "ad5fff0c54acc6d9f1acfc352c47616de2efd02f15410c039ffc1ed6985c2c5c"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-0bd10b73d029d848/published-benchmark-rows-004.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-e5a962ec83ff6900/published-benchmark-rows-004.json",
         "row_count": 200,
-        "sha256": "262814c53f1c0036f204e4b62537e1e8d005a27f0580993e3fa4ecd27fe8cd6e"
+        "sha256": "4bd638d75ac523347c6faba23580609b1e4ba49bc26997a87aff7eb1fdf9239a"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-0bd10b73d029d848/published-benchmark-rows-005.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-e5a962ec83ff6900/published-benchmark-rows-005.json",
         "row_count": 200,
-        "sha256": "2fe7d2f5eeb336f8d26488cf13df873ab46ba791e3f32f24b880f9184459390c"
+        "sha256": "234bf0f66863a98444fb6474dcbb76ba237472562c09cfd5edbb2259f21763e2"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-0bd10b73d029d848/published-benchmark-rows-006.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-e5a962ec83ff6900/published-benchmark-rows-006.json",
         "row_count": 120,
-        "sha256": "eee6021856e74249af8a20de3ba7237b739e725be6684a89577079308c199c17"
+        "sha256": "3347e062856d20b7ebe173a03b850441ed7a3d3630b6934a80b46fd0eff195de"
       }
     ]
   },
@@ -81,9 +81,9 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "97fe8ec6890f5dc2992083647b252cbb0710237a",
+  "benchmark_git_sha": "b4c430aacbf8988e5bc16786d1b273a51c8d7345",
   "benchmark_profile": "full_local",
-  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-0bd10b73d029d848/benchmark-row-admission-manifest.json",
+  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-e5a962ec83ff6900/benchmark-row-admission-manifest.json",
   "benchmark_row_admission_schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -112,7 +112,7 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-13T04:55:52.334510+00:00",
+  "generated_at_utc": "2026-06-13T05:10:15.193453+00:00",
   "lane_availability_reasons": {
     "dask": "available, version 2026.6.0",
     "datafusion": "available, version 53.0.0",
@@ -120,10 +120,10 @@
     "pandas": "available, version 3.0.3",
     "polars-eager": "available, version 1.41.2",
     "polars-lazy": "available, version 1.41.2 (lazy scan API)",
-    "shardloom": "available, version workspace-local-release-97fe8ec6",
-    "shardloom-prepare-batch": "available, version workspace-local-release-97fe8ec6",
-    "shardloom-prepared-vortex": "available, version workspace-local-release-97fe8ec6",
-    "shardloom-vortex": "available, version workspace-local-release-97fe8ec6"
+    "shardloom": "available, version workspace-local-release-b4c430aa",
+    "shardloom-prepare-batch": "available, version workspace-local-release-b4c430aa",
+    "shardloom-prepared-vortex": "available, version workspace-local-release-b4c430aa",
+    "shardloom-vortex": "available, version workspace-local-release-b4c430aa"
   },
   "lane_versions": {
     "dask": "2026.6.0",
@@ -132,10 +132,10 @@
     "pandas": "3.0.3",
     "polars-eager": "1.41.2",
     "polars-lazy": "1.41.2 (lazy scan API)",
-    "shardloom": "workspace-local-release-97fe8ec6",
-    "shardloom-prepare-batch": "workspace-local-release-97fe8ec6",
-    "shardloom-prepared-vortex": "workspace-local-release-97fe8ec6",
-    "shardloom-vortex": "workspace-local-release-97fe8ec6"
+    "shardloom": "workspace-local-release-b4c430aa",
+    "shardloom-prepare-batch": "workspace-local-release-b4c430aa",
+    "shardloom-prepared-vortex": "workspace-local-release-b4c430aa",
+    "shardloom-vortex": "workspace-local-release-b4c430aa"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
@@ -797,5 +797,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "97fe8ec6890f5dc2992083647b252cbb0710237a"
+  "shardloom_git_sha": "b4c430aacbf8988e5bc16786d1b273a51c8d7345"
 }

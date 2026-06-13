@@ -149,7 +149,7 @@ editing behavior.
 
 | Status | Work | Next decision |
 | --- | --- | --- |
-| Closed | `RELEASE-PACKAGE-15` | Completed in the ledger with clean-source benchmark publication evidence for source revision `97fe8ec6890f5dc2992083647b252cbb0710237a`; no autonomous implementation item remains. |
+| Closed | `RELEASE-PACKAGE-15` | Completed in the ledger with clean-source benchmark publication evidence for source revision `b4c430aacbf8988e5bc16786d1b273a51c8d7345`; no autonomous implementation item remains. |
 | Historical | PR #1174 benchmark row/readiness context, repo-wide audit closeout, release-sequence closeout, and completed benchmark/profile, sub-evidence, user-surface proof | Preserved in `docs/architecture/phased-execution-completed-ledger.md`; do not treat as active work. |
 | Mapped, not autonomous queue | Unchecked global architecture review rows | Governed by `docs/architecture/global-architecture-review.md` and `docs/architecture/runtime-gap-family-burn-down.md`; promote concrete implementation items here before work begins. |
 | Deferred approval/artifact gate | Public release/package approval | Clean local Conda proof, dependency/security/package local-gate evidence, and current benchmark-publication evidence now pass locally; remaining blockers are package-channel approval/proof, publication/API/schema stability approval, and per-claim evidence promotion before any public claim. |
