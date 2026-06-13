@@ -6865,6 +6865,16 @@ class ReleaseScriptTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
+            commands["pre_5j_dependency_freshness_gate"],
+            [
+                "/tool/python3.12",
+                "scripts/check_pre_5j_dependency_freshness.py",
+                "--require-live-github",
+                "--output",
+                "target/pre-5j-dependency-freshness-gate.json",
+            ],
+        )
+        self.assertEqual(
             commands["release_dry_run_proof"],
             [
                 "/tool/python3.12",
