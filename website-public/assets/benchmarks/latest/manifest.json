@@ -5,42 +5,57 @@
     "markdown": null,
     "prepare_batch_role_repair_evidence": "website/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json",
     "publication_proof_sidecar": "website/assets/benchmarks/latest/publication-proof-sidecar.json",
-    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/benchmark-row-admission-manifest.json",
+    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/benchmark-row-admission-manifest.json",
     "row_chunks": [
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-000.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-000.json",
         "row_count": 200,
-        "sha256": "36ae50fdce1c0e9445b9bc0bb43c5eb7876095c12300da715e9ef9f460d91ddd"
+        "sha256": "cb9761ee46aba52d9c525248d2cd4a241331dfc1572192e5b64749fe6ccac4bf"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-001.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-001.json",
         "row_count": 200,
-        "sha256": "a8d68c7e73fd67130985fc03dbc9e3f02515a8a2bbc2f2aacd67bfcfb8d41ff3"
+        "sha256": "e96050b079b2124d6b76dc39437076568e9b671d602b934d9f97fdca5d92fd2a"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-002.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-002.json",
         "row_count": 200,
-        "sha256": "8034baec71a6574bf1fc809ec501b12492b6ad7ecbebdbb51837132f52616d53"
+        "sha256": "faa9a809021b7e80e91746327bf4b91132ba6e526f2e193be9ee7044f9f892bf"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-003.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-003.json",
         "row_count": 200,
         "sha256": "11ed1cf1a9914b4a7492b9ff6241ed0dc2eef1fd97a728b7cedd9e2c15d86b8c"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-004.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-004.json",
         "row_count": 200,
         "sha256": "be46d8bd010bd86d3c152742b9444cb8794d101de446b83fb014bacc0a723980"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-005.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-005.json",
         "row_count": 200,
         "sha256": "adebc12fd93be5466bc1b138bb5eede5a5e5792fa165a5fac36865c3c5b548e4"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-006.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-006.json",
+        "row_count": 200,
+        "sha256": "af68defed2d60258127477cdd1f7d4092040c5123566b97f359c7fbb35f4aded"
+      },
+      {
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-007.json",
+        "row_count": 200,
+        "sha256": "7976d91b23c9607d5081c286006c6a656edf993f63c6a60ceb7c6100878afdbb"
+      },
+      {
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-008.json",
+        "row_count": 200,
+        "sha256": "63da221701c413d1714d1854edd4f90fc4d5e22b88925c951768284801439589"
+      },
+      {
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-009.json",
         "row_count": 120,
-        "sha256": "7e572e58eebe52b5f438829e3e28f6ec2cca27e7e31289b610ce8b2c11cea9fb"
+        "sha256": "e87b3e6c2e7231250b2347be5f7b34a7d7b39edff00046a81833f299546b0ad4"
       }
     ]
   },
@@ -83,7 +98,7 @@
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
   "benchmark_git_sha": "74a2e7d4f77eed0686971518e010463da26f2cdf",
   "benchmark_profile": "full_local",
-  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/benchmark-row-admission-manifest.json",
+  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/benchmark-row-admission-manifest.json",
   "benchmark_row_admission_schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -97,7 +112,7 @@
     },
     "cpu_count": 10,
     "platform": "macOS-26.5.1-arm64-arm-64bit",
-    "python": "3.12.13",
+    "python": "3.9.6",
     "website_promoter": "scripts/promote_benchmark_artifact.py"
   },
   "expected_lanes": [
@@ -156,12 +171,12 @@
   "publication_proof_sidecar_external_engine_invoked": false,
   "publication_proof_sidecar_fallback_attempted": false,
   "publication_proof_sidecar_record_count": 600,
-  "publication_proof_sidecar_reused_record_count": 0,
+  "publication_proof_sidecar_reused_record_count": 600,
   "publication_proof_sidecar_schema_version": "shardloom.traditional_analytics.publication_proof_sidecar.v1",
   "publication_proof_sidecar_stale_record_count": 0,
-  "publication_proof_sidecar_status": "admitted_incremental_publication_proof_sidecar",
-  "publication_proof_sidecar_written_record_count": 600,
-  "published_benchmark_row_count": 1320,
+  "publication_proof_sidecar_status": "reused_existing_publication_proof_sidecar",
+  "publication_proof_sidecar_written_record_count": 0,
+  "published_benchmark_row_count": 1920,
   "route_runtime_status_schema_version": "shardloom.website.route_runtime_status.v1",
   "route_runtime_status_vocabulary": [
     "external_baseline_only",
@@ -173,8 +188,8 @@
   "route_timing_instrument_schema_version": "shardloom.route_timing_instrument.v1",
   "route_timing_instrument_status": "not_optimization_ready",
   "route_timing_instrument_status_counts": {
-    "not_optimization_ready": 20,
-    "optimization_ready": 580
+    "not_optimization_ready": 40,
+    "optimization_ready": 1160
   },
   "route_timing_instrument_threshold_ms": 10.0,
   "runtime_envelope_validation": {

@@ -2022,6 +2022,79 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(by_surface["hot_runtime"][5], "0.34 ms")
         self.assertEqual(by_surface["publication_proof"][5], "13.82 ms")
 
+    def test_benchmark_promoter_projects_hot_runtime_rows_from_publication_rows(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_hot_runtime_projection_for_test",
+        )
+
+        publication_row = {
+            "engine": "shardloom-prepared-vortex",
+            "storage_format": "vortex",
+            "scenario_name": "warm prepared publication-only row",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "requested_execution_mode": "prepared_vortex",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "source_state_id": "source-state://projection",
+            "source_state_digest": "sha256:projection-source",
+            "prepared_state_id": "prepared-state://projection",
+            "prepared_state_digest": "sha256:projection-prepared",
+            "data_decoded": False,
+            "data_materialized": False,
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:projection",
+            "correctness_digest_stable": True,
+            "runtime_execution_certificate_id": "execution.projection",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "actual_evidence_tier": "publication_full",
+            "computed_result_sink_replay_verified": True,
+            "result_sink_replay_micros": 1200,
+            "metrics": {
+                "query_runtime_millis": 0.34,
+                "vortex_scan_millis": 0.1,
+                "operator_compute_millis": 0.2,
+                "result_sink_write_millis": 5.33,
+                "evidence_render_millis": 8.15,
+                "total_runtime_millis": 13.82,
+                "cli_process_wall_millis": 14.0,
+            },
+        }
+
+        [publication] = module.published_rows([publication_row])
+        publication_claim_status = publication["claim_gate_status"]
+        projected = module.rows_with_hot_runtime_surface_projections([publication])
+
+        self.assertEqual(len(projected), 2)
+        by_surface = {row["timing_surface"]: row for row in projected}
+        hot = by_surface["hot_runtime"]
+        publication = by_surface["publication_proof"]
+
+        self.assertEqual(hot["actual_evidence_tier"], "metadata_sink")
+        self.assertEqual(hot["selected_evidence_tier"], "metadata_sink")
+        self.assertEqual(hot["sink_tier"], "metadata_sink")
+        self.assertEqual(hot["claim_gate_status"], "not_claim_grade")
+        self.assertEqual(hot["total_route_ms"], 0.34)
+        self.assertEqual(hot["hot_route_total_ms"], 0.34)
+        self.assertFalse(hot["output_timing_included_in_total"])
+        self.assertFalse(hot["evidence_timing_included_in_total"])
+        self.assertIn("timing_surface=hot_runtime", hot["route_total_formula"])
+        self.assertEqual(publication["claim_gate_status"], publication_claim_status)
+        self.assertEqual(publication["actual_evidence_tier"], "publication_full")
+        self.assertEqual(publication["total_route_ms"], 13.82)
+        self.assertEqual(
+            len(module.rows_with_hot_runtime_surface_projections(projected)),
+            2,
+        )
+
     def test_route_share_fails_closed_on_excluded_hot_stage(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",
@@ -2241,6 +2314,29 @@ class ReleaseScriptTests(unittest.TestCase):
         by_surface = {row["timing_surface"]: row for row in merged}
         self.assertEqual(by_surface["publication_proof"]["total_route_ms"], 13.82)
         self.assertEqual(by_surface["hot_runtime"]["total_route_ms"], 0.31)
+
+    def test_benchmark_promoter_uses_measured_lane_sha_for_manifest_identity(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_measured_lane_sha_for_test",
+        )
+        expected = "0123456789abcdef0123456789abcdef01234567"
+
+        self.assertEqual(
+            module.benchmark_git_sha_for_artifact(
+                {
+                    "engine_versions": {
+                        "shardloom-vortex": {
+                            "available": True,
+                            "version": f"workspace-local-release-{expected}",
+                        }
+                    }
+                }
+            ),
+            expected,
+        )
 
     def test_benchmark_promoter_keeps_source_state_prepare_out_of_source_admission(
         self,
