@@ -16,6 +16,111 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-1B scoped v1 Vortex runtime closure
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-1B` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/v1-vortex-runtime-scope.md`.
+    - `docs/architecture/vortex-adapter-integration-plan.md`.
+    - `docs/architecture/vortex-public-api-inventory.md`.
+    - `ShardLoomContext.local_vortex_primitive_route_report()`.
+    - `ShardLoomContext.user_route_capability_report()`.
+    - `ShardLoomContext.local_file_benchmark_route_report()`.
+  - Branch/PR: `codex/v1-vortex-runtime-scope`; publication pending for this session.
+  - Scope:
+    - Added `docs/architecture/v1-vortex-runtime-scope.md` as the canonical v1 Vortex runtime
+      boundary.
+    - Added `scripts/check_v1_vortex_runtime_scope.py` and wired it into public-status docs,
+      release validation evidence, hard release readiness, GitHub Actions, and the CI gate matrix.
+    - Added v1 Vortex scope constants and report properties to the Python context surface so
+      route reports expose supported starting states, primitive route ids, benchmark scenario ids,
+      unsupported boundaries, feature profile decision, and scope readiness.
+    - Updated README, Python README, public status docs, v1 inclusion matrix, benchmark page source,
+      and generated static website pages to link the v1 Vortex runtime boundary.
+    - Added focused unit coverage for the Vortex scope validator, context report fields, public
+      status fixture integration, and native/Native I/O evidence blockers.
+  - Supported v1 starting states:
+    - `native_local_vortex_file`.
+    - `prepared_local_vortex_state`.
+    - `prepared_compatibility_artifact`.
+    - `generated_local_vortex_artifact`.
+  - Supported v1 local Vortex primitive route ids:
+    - `vortex_count_all`.
+    - `vortex_count_where`.
+    - `vortex_filter_collect`.
+    - `vortex_filter_limit_collect`.
+    - `vortex_project_collect`.
+    - `vortex_project_limit_collect`.
+    - `vortex_select_star_limit_collect`.
+    - `vortex_filter_project_collect`.
+    - `vortex_filter_project_limit_collect`.
+  - Supported prepared/native benchmark-family scenario ids:
+    - `selective_filter`.
+    - `filter_projection_limit`.
+    - `group_by_aggregation`.
+    - `multi_key_group_by`.
+    - `join_aggregate`.
+    - `sort_top_k`.
+    - `row_number_window`.
+    - `top_n_per_group`.
+    - `clean_cast_filter_write`.
+    - `partition_pruning`.
+    - `many_small_files_scan`.
+    - `null_heavy_aggregate`.
+    - `high_cardinality_string_group_distinct`.
+    - `nested_json_field_scan`.
+    - `small_change_over_large_base`.
+  - Feature profile decision:
+    - `feature_gated_local_vortex_runtime`: upstream Vortex remains outside the default
+      lightweight build; v1 admits feature-gated local primitive, prepared-state,
+      compatibility-import, and generated-artifact Vortex routes with CI feature checks and
+      explicit docs.
+  - Vortex-first provider decision:
+    - `use_vortex_native_provider` for approved feature-gated local `.vortex` primitive routes and
+      prepared/native benchmark rows that already carry execution and Native I/O evidence.
+    - `wrap_vortex_concept` for scope, capability, provider, route-normalization, and claim-boundary
+      reports.
+    - `blocked_until_vortex_or_shardloom_evidence` for broad or unproved Vortex shapes.
+  - Residual unsupported Vortex boundaries:
+    - `object_store_vortex_io`.
+    - `table_catalog_vortex_io`.
+    - `generalized_source_sink_api`.
+    - `broad_vortex_sql_dataframe_parity`.
+    - `nested_complex_dtype_general_vortex`.
+    - `vector_device_gpu_vortex_runtime`.
+  - Evidence artifacts:
+    - `target/v1-vortex-runtime-scope-report.json`.
+    - `target/user-route-capability-report.json`.
+    - `target/public-status-docs-report.json`.
+    - `target/ci-gate-matrix-report.json`.
+    - `target/hard-release-readiness-gate.json`.
+    - `target/website-readiness-report.json`.
+  - Evidence commands:
+    - `python3 scripts/check_v1_vortex_runtime_scope.py`.
+    - `python3 -m unittest python.tests.test_v1_vortex_runtime_scope`.
+    - `python3 scripts/check_public_status_docs.py`.
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `python3 scripts/check_v1_inclusion_scope.py`.
+    - `python3 scripts/check_user_route_capability_report.py`.
+    - `python3 -m unittest python.tests.test_v1_vortex_runtime_scope python.tests.test_v1_front_door_runtime_scope python.tests.test_user_route_capability_report`.
+    - `python3 -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+    - `python3 scripts/run_python_test_shard.py --shard core`.
+    - `python3 scripts/run_python_test_shard.py --shard release_scripts`.
+    - `website-src`: `node scripts/sync-content.mjs`, `node_modules/.bin/astro build`,
+      `node scripts/postbuild-static.mjs`, and `node_modules/.bin/astro check`.
+    - `python3 scripts/check_website_readiness.py`.
+    - `node website/validate_static_assets.js`.
+    - `cargo fmt --all -- --check`.
+  - Claim boundary:
+    - ShardLoom may claim only scoped v1 local/prepared Vortex route support for the starting states
+      and operations above. Universal Vortex input/output support, object-store/table/catalog
+      Vortex runtime, broad Vortex SQL/DataFrame parity, production readiness, package publication,
+      performance superiority, and engine-replacement claims remain false.
+  - Fallback boundary:
+    - Admitted rows preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+    - No DataFusion, DuckDB, Spark, Polars, Velox, or Vortex query-engine integration is admitted as
+      runtime fallback.
 - [x] Session label: PROD-V1-1A scoped local front-door runtime closure
   - Date: 2026-06-13
   - Source:

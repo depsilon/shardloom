@@ -27,6 +27,10 @@ from check_v1_front_door_runtime_scope import (
 from check_v1_front_door_runtime_scope import (
     build_report as build_v1_front_door_runtime_scope_report,
 )
+from check_v1_vortex_runtime_scope import (
+    SCHEMA_VERSION as V1_VORTEX_RUNTIME_SCOPE_SCHEMA_VERSION,
+)
+from check_v1_vortex_runtime_scope import build_report as build_v1_vortex_runtime_scope_report
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,6 +100,15 @@ PUBLIC_DOC_MARKERS = {
         "ShardLoomContext.front_door_parity_matrix()",
         "ShardLoomContext.user_route_capability_report()",
         "runtime_execution=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ),
+    "docs/architecture/v1-vortex-runtime-scope.md": (
+        "shardloom.v1_vortex_runtime_scope.v1",
+        "ShardLoomContext.local_vortex_primitive_route_report()",
+        "ShardLoomContext.user_route_capability_report()",
+        "feature_gated_local_vortex_runtime",
+        "object_store_vortex_io",
         "fallback_attempted=false",
         "external_engine_invoked=false",
     ),
@@ -183,6 +196,17 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             f"v1 front-door runtime scope: {blocker}"
             for blocker in v1_front_door_runtime_scope_report.get("blockers", [])
         )
+    v1_vortex_runtime_scope_report = build_v1_vortex_runtime_scope_report(repo_root)
+    if (
+        v1_vortex_runtime_scope_report.get("schema_version")
+        != V1_VORTEX_RUNTIME_SCOPE_SCHEMA_VERSION
+    ):
+        blockers.append("v1 Vortex runtime-scope report schema mismatch")
+    if v1_vortex_runtime_scope_report.get("status") != "passed":
+        blockers.extend(
+            f"v1 Vortex runtime scope: {blocker}"
+            for blocker in v1_vortex_runtime_scope_report.get("blockers", [])
+        )
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -196,6 +220,11 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "v1_inclusion_scope_status": v1_inclusion_scope_report.get("status", "missing"),
         "v1_front_door_runtime_scope_report": v1_front_door_runtime_scope_report,
         "v1_front_door_runtime_scope_status": v1_front_door_runtime_scope_report.get(
+            "status",
+            "missing",
+        ),
+        "v1_vortex_runtime_scope_report": v1_vortex_runtime_scope_report,
+        "v1_vortex_runtime_scope_status": v1_vortex_runtime_scope_report.get(
             "status",
             "missing",
         ),

@@ -119,6 +119,54 @@ V1_FRONT_DOOR_EXAMPLE_SCENARIO_IDS = (
     "nested_json_field_scan",
 )
 V1_FRONT_DOOR_EXPECTED_ERROR_SCENARIO_IDS = ("malformed_timestamp_cast",)
+V1_VORTEX_RUNTIME_SCOPE_DOCUMENT = "docs/architecture/v1-vortex-runtime-scope.md"
+V1_VORTEX_SUPPORTED_STARTING_STATES = (
+    "native_local_vortex_file",
+    "prepared_local_vortex_state",
+    "prepared_compatibility_artifact",
+    "generated_local_vortex_artifact",
+)
+V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS = (
+    "vortex_count_all",
+    "vortex_count_where",
+    "vortex_filter_collect",
+    "vortex_filter_limit_collect",
+    "vortex_project_collect",
+    "vortex_project_limit_collect",
+    "vortex_select_star_limit_collect",
+    "vortex_filter_project_collect",
+    "vortex_filter_project_limit_collect",
+)
+V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS = (
+    "selective_filter",
+    "filter_projection_limit",
+    "group_by_aggregation",
+    "multi_key_group_by",
+    "join_aggregate",
+    "sort_top_k",
+    "row_number_window",
+    "top_n_per_group",
+    "clean_cast_filter_write",
+    "partition_pruning",
+    "many_small_files_scan",
+    "null_heavy_aggregate",
+    "high_cardinality_string_group_distinct",
+    "nested_json_field_scan",
+    "small_change_over_large_base",
+)
+V1_VORTEX_UNSUPPORTED_BOUNDARY_IDS = (
+    "object_store_vortex_io",
+    "table_catalog_vortex_io",
+    "generalized_source_sink_api",
+    "broad_vortex_sql_dataframe_parity",
+    "nested_complex_dtype_general_vortex",
+    "vector_device_gpu_vortex_runtime",
+)
+V1_VORTEX_FEATURE_PROFILE_DECISION = (
+    "feature_gated_local_vortex_runtime: upstream Vortex remains outside the default lightweight "
+    "build, while v1 admits feature-gated local primitive, prepared-state, compatibility-import, "
+    "and generated-artifact Vortex routes with explicit package/install docs and CI feature checks."
+)
 _OBJECT_STORE_GENERATED_OUTPUT_DEFAULT_ROWS: tuple[Mapping[str, object], ...] = (
     {"value": 1},
 )
@@ -1357,6 +1405,64 @@ class UserRouteCapabilityReport:
         return tuple(row.front_door_id for row in self.public_front_door_route_rows)
 
     @property
+    def v1_vortex_scope_document(self) -> str:
+        """Return the canonical v1 Vortex runtime scope document path."""
+
+        return V1_VORTEX_RUNTIME_SCOPE_DOCUMENT
+
+    @property
+    def v1_vortex_supported_starting_states(self) -> tuple[str, ...]:
+        """Return v1-supported Vortex runtime starting states."""
+
+        return V1_VORTEX_SUPPORTED_STARTING_STATES
+
+    @property
+    def v1_vortex_supported_primitive_route_ids(self) -> tuple[str, ...]:
+        """Return scoped local Vortex primitive route ids admitted for v1."""
+
+        return V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS
+
+    @property
+    def v1_vortex_supported_benchmark_scenario_ids(self) -> tuple[str, ...]:
+        """Return prepared/native benchmark-family scenarios admitted for v1 Vortex scope."""
+
+        return V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS
+
+    @property
+    def v1_vortex_unsupported_boundary_ids(self) -> tuple[str, ...]:
+        """Return broad Vortex boundaries that remain outside v1 support."""
+
+        return V1_VORTEX_UNSUPPORTED_BOUNDARY_IDS
+
+    @property
+    def v1_vortex_feature_profile_decision(self) -> str:
+        """Return the package/build profile decision for v1 Vortex routes."""
+
+        return V1_VORTEX_FEATURE_PROFILE_DECISION
+
+    @property
+    def v1_vortex_scope_ready(self) -> bool:
+        """Whether user routes expose the v1 Vortex route families without fallback."""
+
+        route_ids = {row.route_id for row in self.rows}
+        local_benchmark_ids = {row.scenario_id for row in LOCAL_FILE_BENCHMARK_ROUTE_ROWS}
+        required_routes = {
+            "local_file_prepare_once_first_query",
+            "local_file_prepare_once_batch",
+            "prepared_vortex_warm_query",
+            "native_vortex_query",
+            "local_vortex_primitive_report",
+            "generated_rows_local_output",
+        }
+        return (
+            required_routes.issubset(route_ids)
+            and set(V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS).issubset(
+                local_benchmark_ids
+            )
+            and self.all_no_fallback_no_external_engine
+        )
+
+    @property
     def vortex_normalization_contract(self) -> str:
         """Return the route-normalization contract shared by report rows."""
 
@@ -1485,6 +1591,47 @@ class LocalVortexPrimitiveRouteReport:
 
         return tuple(
             row.route_id for row in self.rows if row.supports_source_order_limit
+        )
+
+    @property
+    def v1_scope_document(self) -> str:
+        """Return the canonical v1 Vortex runtime scope document path."""
+
+        return V1_VORTEX_RUNTIME_SCOPE_DOCUMENT
+
+    @property
+    def v1_supported_route_ids(self) -> tuple[str, ...]:
+        """Return v1-supported primitive route ids in stable order."""
+
+        return V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS
+
+    @property
+    def v1_supported_starting_states(self) -> tuple[str, ...]:
+        """Return v1-supported Vortex starting states."""
+
+        return V1_VORTEX_SUPPORTED_STARTING_STATES
+
+    @property
+    def v1_unsupported_boundary_ids(self) -> tuple[str, ...]:
+        """Return broad Vortex boundaries that remain unsupported for v1."""
+
+        return V1_VORTEX_UNSUPPORTED_BOUNDARY_IDS
+
+    @property
+    def v1_feature_profile_decision(self) -> str:
+        """Return the v1 Vortex package/build profile decision."""
+
+        return V1_VORTEX_FEATURE_PROFILE_DECISION
+
+    @property
+    def v1_scope_ready(self) -> bool:
+        """Whether primitive rows satisfy the v1 Vortex route scope."""
+
+        row_ids = {row.route_id for row in self.rows}
+        return (
+            set(V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS).issubset(row_ids)
+            and self.all_runtime_supported
+            and self.all_no_fallback_no_external_engine
         )
 
     def route(self, route_id: str) -> LocalVortexPrimitiveRouteRow:

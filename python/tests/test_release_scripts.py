@@ -6087,7 +6087,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-1B` Native and prepared Vortex runtime closure for v1.",
+            "`PROD-V1-1C` Source normalization and prepared-state reuse closure.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -7616,6 +7616,11 @@ jobs:
             v1_front_door_module,
             repo_root,
         )
+        v1_vortex_module = self._load_script_module(
+            "check_v1_vortex_runtime_scope.py",
+            "check_v1_vortex_runtime_scope_public_status_fixture",
+        )
+        self._write_v1_vortex_runtime_scope_fixture(v1_vortex_module, repo_root)
 
     def _write_public_claim_language_fixture(
         self,
@@ -7854,6 +7859,212 @@ jobs:
             encoding="utf-8",
         )
 
+    def _write_v1_vortex_runtime_scope_fixture(
+        self,
+        module: object,
+        repo_root: Path,
+    ) -> None:
+        primitive_ids = [
+            "vortex_count_all",
+            "vortex_count_where",
+            "vortex_filter_collect",
+            "vortex_filter_limit_collect",
+            "vortex_project_collect",
+            "vortex_project_limit_collect",
+            "vortex_select_star_limit_collect",
+            "vortex_filter_project_collect",
+            "vortex_filter_project_limit_collect",
+        ]
+        scenario_ids = [
+            "selective_filter",
+            "filter_projection_limit",
+            "group_by_aggregation",
+            "multi_key_group_by",
+            "join_aggregate",
+            "sort_top_k",
+            "row_number_window",
+            "top_n_per_group",
+            "clean_cast_filter_write",
+            "partition_pruning",
+            "many_small_files_scan",
+            "null_heavy_aggregate",
+            "high_cardinality_string_group_distinct",
+            "nested_json_field_scan",
+            "small_change_over_large_base",
+        ]
+        starting_states = [
+            "native_local_vortex_file",
+            "prepared_local_vortex_state",
+            "prepared_compatibility_artifact",
+            "generated_local_vortex_artifact",
+        ]
+        unsupported_boundaries = [
+            "object_store_vortex_io",
+            "table_catalog_vortex_io",
+            "generalized_source_sink_api",
+            "broad_vortex_sql_dataframe_parity",
+            "nested_complex_dtype_general_vortex",
+            "vector_device_gpu_vortex_runtime",
+        ]
+
+        for rel_path, markers in {
+            module.DOC_PATH.as_posix(): module.DOC_MARKERS,
+            **module.PUBLIC_DOC_MARKERS,
+        }.items():
+            path = repo_root / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            existing = path.read_text(encoding="utf-8") if path.exists() else ""
+            path.write_text(existing + "\n".join(markers) + "\n", encoding="utf-8")
+
+        package_init = repo_root / "python" / "src" / "shardloom" / "__init__.py"
+        existing = package_init.read_text(encoding="utf-8")
+        package_init.write_text(
+            existing
+            + textwrap.dedent(
+                f'''
+
+                V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS = {tuple(primitive_ids)!r}
+                V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS = {tuple(scenario_ids)!r}
+                V1_VORTEX_SUPPORTED_STARTING_STATES = {tuple(starting_states)!r}
+                V1_VORTEX_UNSUPPORTED_BOUNDARY_IDS = {tuple(unsupported_boundaries)!r}
+
+
+                def _v1_vortex_primitive_rows():
+                    rows = []
+                    for route_id in V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS:
+                        rows.append(SimpleNamespace(
+                            route_id=route_id,
+                            primitive=route_id,
+                            sql_surface="ctx.sql",
+                            python_surface="ctx.read_vortex",
+                            dataframe_surface="read_vortex",
+                            context_surface="ctx.read_vortex",
+                            session_surface="session.read_vortex",
+                            cli_command="vortex-run",
+                            start_state="native_vortex_file",
+                            vortex_normalization_point="native_vortex_boundary",
+                            execution_mode="native_vortex",
+                            output_route="report",
+                            evidence_route="execution and Native I/O evidence",
+                            materialization_decode_boundary="bounded report",
+                            supports_source_order_limit=route_id.endswith("_limit_collect"),
+                            route_runtime_status="scoped_runtime_supported",
+                            fallback_attempted=False,
+                            external_engine_invoked=False,
+                            required_evidence=("execution_certificate", "native_io_certificate"),
+                            claim_gate_status="not_claim_grade",
+                            claim_boundary="scoped local Vortex primitive only",
+                        ))
+                    return tuple(rows)
+
+
+                class _V1VortexPrimitiveReport:
+                    rows = _v1_vortex_primitive_rows()
+                    schema_version = "shardloom.local_vortex_primitive_route_report.v1"
+                    route_order = tuple(row.route_id for row in rows)
+                    v1_scope_document = "docs/architecture/v1-vortex-runtime-scope.md"
+                    v1_supported_route_ids = V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS
+                    v1_supported_starting_states = V1_VORTEX_SUPPORTED_STARTING_STATES
+                    v1_unsupported_boundary_ids = V1_VORTEX_UNSUPPORTED_BOUNDARY_IDS
+                    v1_feature_profile_decision = "feature_gated_local_vortex_runtime"
+                    v1_scope_ready = True
+                    all_runtime_supported = True
+                    all_no_fallback_no_external_engine = True
+
+
+                def _v1_vortex_user_report(self):
+                    front_rows = (
+                        SimpleNamespace(
+                            front_door_id="python_prepare_vortex",
+                            route_runtime_status="scoped_runtime_supported",
+                            fallback_attempted=False,
+                            external_engine_invoked=False,
+                            public_user_surface="ctx.prepare_vortex / prepare_vortex",
+                            claim_boundary="scoped_v1_front_door_only",
+                        ),
+                        SimpleNamespace(
+                            front_door_id="sql_prepare_vortex",
+                            route_runtime_status="scoped_runtime_supported",
+                            fallback_attempted=False,
+                            external_engine_invoked=False,
+                            public_user_surface="sql prepare_vortex",
+                            claim_boundary="scoped_v1_front_door_only",
+                        ),
+                    )
+                    route_rows = {{}}
+                    for route_id in (
+                        "local_file_prepare_once_first_query",
+                        "local_file_prepare_once_batch",
+                        "prepared_vortex_warm_query",
+                        "native_vortex_query",
+                        "local_vortex_primitive_report",
+                        "generated_rows_local_output",
+                    ):
+                        route_rows[route_id] = SimpleNamespace(
+                            route_id=route_id,
+                            route_runtime_status="scoped_runtime_supported",
+                            fallback_attempted=False,
+                            external_engine_invoked=False,
+                            vortex_normalization_point="native_vortex_boundary",
+                            materialization_decode_boundary="bounded report",
+                        )
+
+                    def route(route_id):
+                        return route_rows[route_id]
+
+                    return SimpleNamespace(
+                        public_front_door_route_rows=front_rows,
+                        all_no_fallback_no_external_engine=True,
+                        unsupported_local_benchmark_route_ids=(),
+                        v1_vortex_scope_document="docs/architecture/v1-vortex-runtime-scope.md",
+                        v1_vortex_supported_starting_states=V1_VORTEX_SUPPORTED_STARTING_STATES,
+                        v1_vortex_supported_primitive_route_ids=V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS,
+                        v1_vortex_supported_benchmark_scenario_ids=V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS,
+                        v1_vortex_unsupported_boundary_ids=V1_VORTEX_UNSUPPORTED_BOUNDARY_IDS,
+                        v1_vortex_feature_profile_decision="feature_gated_local_vortex_runtime",
+                        v1_vortex_scope_ready=True,
+                        route=route,
+                    )
+
+
+                def _v1_vortex_local_file_report(self):
+                    rows = tuple(
+                        SimpleNamespace(
+                            scenario_id=scenario_id,
+                            route_id="local_file_prepare_once_first_query",
+                            start_state="raw_compat_source",
+                            vortex_normalization_point="SourceState -> vortex_ingest -> VortexPreparedState",
+                            preparation_route="vortex_ingest_prepare_once",
+                            selected_execution_mode="prepared_vortex",
+                            output_route="prepared result",
+                            evidence_route="execution certificate and Native I/O",
+                            materialization_decode_boundary="bounded result",
+                            route_runtime_status="prepared_route_supported",
+                            fallback_attempted=False,
+                            external_engine_invoked=False,
+                            required_evidence=("execution_certificate", "native_io_certificate"),
+                            claim_gate_status="not_claim_grade",
+                            claim_boundary="scoped prepared Vortex benchmark row",
+                        )
+                        for scenario_id in V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS
+                    )
+                    return SimpleNamespace(
+                        rows=rows,
+                        schema_version="shardloom.local_file_benchmark_route_report.v1",
+                        scenario_ids=V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS,
+                        unsupported_scenario_ids=(),
+                        all_no_fallback_no_external_engine=True,
+                    )
+
+
+                ShardLoomContext.local_vortex_primitive_route_report = lambda self: _V1VortexPrimitiveReport()
+                ShardLoomContext.user_route_capability_report = _v1_vortex_user_report
+                ShardLoomContext.local_file_benchmark_route_report = _v1_vortex_local_file_report
+                '''
+            ),
+            encoding="utf-8",
+        )
+
     def test_public_status_docs_validator_accepts_required_markers(self) -> None:
         module = self._load_script_module(
             "check_public_status_docs.py",
@@ -7878,6 +8089,7 @@ jobs:
         self.assertEqual(report["public_claim_language_status"], "passed")
         self.assertEqual(report["v1_inclusion_scope_status"], "passed")
         self.assertEqual(report["v1_front_door_runtime_scope_status"], "passed")
+        self.assertEqual(report["v1_vortex_runtime_scope_status"], "passed")
 
     def test_public_status_docs_validator_blocks_missing_marker(self) -> None:
         module = self._load_script_module(
