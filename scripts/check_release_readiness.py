@@ -1807,7 +1807,7 @@ def main() -> int:
                 )
             )
         for field, expected in [
-            ("input_report_count", 6),
+            ("input_report_count", 7),
             ("matrix_status", "passed"),
             ("v1_correctness_matrix_status", "passed"),
             ("scope_report_status", "passed"),
@@ -1855,10 +1855,10 @@ def main() -> int:
             expected_matrix_values = {
                 "schema_version": "shardloom.v1_correctness_conformance_matrix.v1",
                 "matrix_id": "prod-v1-2b.correctness_conformance",
-                "expected_count_field_count": 22,
+                "expected_count_field_count": 23,
                 "required_semantic_case_count": 33,
                 "required_unsupported_case_count": 10,
-                "report_input_count": 6,
+                "report_input_count": 7,
                 "residual_gap_count": 3,
             }
             for field, expected in expected_matrix_values.items():
@@ -1915,6 +1915,7 @@ def main() -> int:
                 ("front_door", "supported_parity_row_count"): 7,
                 ("front_door", "broad_pending_parity_row_count"): 4,
                 ("front_door", "example_scenario_count"): 9,
+                ("front_door", "expected_error_scenario_count"): 1,
                 ("golden_workflow", "workflow_count"): 3,
                 ("golden_workflow", "stage_count"): 9,
                 ("source_prepared_state", "supported_input_format_count"): 6,
@@ -1925,6 +1926,32 @@ def main() -> int:
                 ("local_output_sink", "supported_output_format_count"): 7,
                 ("local_output_sink", "write_method_count"): 9,
                 ("local_output_sink", "output_route_count"): 8,
+                ("python_user_surface", "method_matrix_row_count"): 113,
+                ("python_user_surface", "method_matrix_row_list_count"): 113,
+                ("python_user_surface", "required_operation_method_count"): 13,
+                (
+                    "python_user_surface",
+                    "required_operation_method_rows_present",
+                ): 13,
+                ("operation_coverage", "operation_coverage_status"): "passed",
+                ("operation_coverage", "operation_coverage_row_count"): 9,
+                ("operation_coverage", "operation_coverage_semantic_link_count"): 17,
+                ("operation_coverage", "operation_coverage_unsupported_link_count"): 2,
+                (
+                    "operation_coverage",
+                    "operation_coverage_python_method_link_count",
+                ): 45,
+                (
+                    "operation_coverage",
+                    "operation_coverage_unique_python_method_count",
+                ): 13,
+                ("operation_coverage", "operation_coverage_output_digest_row_count"): 9,
+                ("operation_coverage", "operation_coverage_diagnostic_row_count"): 1,
+                (
+                    "operation_coverage",
+                    "operation_coverage_python_method_rows_present",
+                ): 45,
+                ("operation_coverage", "operation_coverage_no_fallback_row_count"): 9,
             }
             for (section, field), expected in expected_summary_values.items():
                 section_value = summaries.get(section, {})

@@ -53,6 +53,12 @@
       "path": "target/v1-local-output-sink-scope-report.json",
       "schema_version": "shardloom.v1_local_output_sink_scope_report.v1",
       "required_status": "passed"
+    },
+    {
+      "report_id": "python_user_surface",
+      "path": "target/python-user-surface-completion-gate.json",
+      "schema_version": "shardloom.python_user_surface_completion_gate.v1",
+      "required_status": "passed"
     }
   ],
   "expected_counts": {
@@ -70,6 +76,7 @@
     "output_formats": 7,
     "output_write_methods": 9,
     "output_routes": 8,
+    "python_user_surface_method_rows": 113,
     "golden_workflows": 3,
     "golden_stage_count_min": 9,
     "executable_fixtures": 103,

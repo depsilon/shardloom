@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-2B public operation coverage crosswalk gate
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-2B` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/release/v1-correctness-conformance-matrix.json`.
+    - `scripts/check_v1_correctness_conformance.py`.
+    - `target/v1-front-door-runtime-scope-report.json`.
+    - `target/admitted-semantics-matrix-report.json`.
+    - `target/python-user-surface-completion-gate.json`.
+    - `target/v1-correctness-conformance-report.json`.
+  - Branch: `codex/v1-operation-coverage-crosswalk`.
+  - Scope:
+    - Added the Python user-surface completion report as a required seventh input to the v1
+      correctness/conformance matrix and aggregate gate.
+    - Added an operation coverage crosswalk for the nine public v1 benchmark/example scenarios:
+      selective filter, filter/projection/limit, group-by aggregate, hash join, global top-N,
+      clean/cast/filter/write, malformed timestamp cast, null-heavy aggregate, and nested JSON
+      field scan.
+    - Required each public operation row to link to front-door scenario presence, admitted
+      semantic cases with matching expected/observed output digests, unsupported diagnostic stage
+      evidence where applicable, Python accessor/method rows where exposed, and no-fallback/
+      no-external-engine evidence.
+    - Extended hard release readiness so stale six-input conformance reports, missing Python
+      method rows, missing operation cross-links, or weakened no-fallback evidence cannot satisfy
+      the v1 correctness/conformance gate.
+    - Added release-script fixture and negative tests for missing Python accessor coverage and
+      missing front-door scenario coverage.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/check_v1_correctness_conformance.py scripts/check_release_readiness.py python/tests/test_release_scripts.py`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_passes_complete_fixture python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_semantic_case python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_stage_digest python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_stage_artifact python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_output_digest_mismatch python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_diagnostic_field python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_stage_fallback_marker python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_python_accessor python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_front_door_scenario python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_closed_when_report_missing python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_matrix_drift`.
+    - `python3 scripts/check_v1_correctness_conformance.py`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+    - `PYTHONPATH=python/src python3 scripts/run_python_test_shard.py --shard release_scripts`.
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `git diff --check`.
+  - Generated report:
+    - `target/v1-correctness-conformance-report.json`.
+    - Local v1 correctness/conformance status: `passed`.
+    - Input report count: 7.
+    - Operation coverage rows: 9.
+    - Operation semantic links: 17.
+    - Operation unsupported/error diagnostic links: 2.
+    - Operation Python method links: 45.
+    - Unique required Python operation methods: 13.
+    - Operation rows with output digest evidence: 9.
+    - Operation rows with deterministic diagnostic evidence: 1.
+    - Operation rows with complete no-fallback evidence: 9.
+  - Release-readiness note:
+    - `python3 scripts/check_release_readiness.py --allow-blocked` still reports the known broader
+      package-channel, publication/API/schema stability, benchmark publication manifest, and
+      validation-evidence blockers. The updated `v1_correctness_conformance_gate` does not appear
+      in that blocker list.
+  - Claim boundary:
+    - May claim the declared nine public v1 example operations are now cross-gated to existing
+      semantic/output digest evidence, unsupported diagnostic evidence where applicable, Python
+      accessor coverage where exposed, and no-fallback markers.
+    - Does not close new property/fuzz breadth, docs-example replay, broad Python/DataFrame parity,
+      production readiness, performance claims, package publication, or Spark-replacement claims.
+  - Fallback boundary:
+    - Validation is local and report-only. External engines remain allowed only as explicit test
+      oracles where separately approved and are never ShardLoom runtime fallback.
 - [x] Session label: PROD-V1-2B output digest and diagnostic-field evidence gate
   - Date: 2026-06-13
   - Source:
