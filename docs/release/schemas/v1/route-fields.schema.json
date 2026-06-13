@@ -1,0 +1,19 @@
+{
+  "schema_version": "shardloom.stable_schema_contract.v1",
+  "schema_id": "shardloom.route_fields.v1",
+  "surface_id": "route_fields",
+  "stability_tier": "stable_v1",
+  "compatibility_window": "v1_additive_compatibility",
+  "legacy_flat_field_policy": "stable_aliases_for_v1_with_documented_deprecation_window",
+  "required_fields": [
+    {"path": "route_id", "type": "string"},
+    {"path": "route_lane_id", "type": "string"},
+    {"path": "timing_surface", "type": "string"},
+    {"path": "actual_evidence_tier", "type": "string"},
+    {"path": "claim_gate_status", "type": "string"},
+    {"path": "fallback_attempted", "type": "boolean"},
+    {"path": "external_engine_invoked", "type": "boolean"}
+  ],
+  "no_fallback_fields": ["fallback_attempted", "external_engine_invoked"],
+  "claim_boundary": "Stable route metadata fields only; support claims require the owning route evidence and certificate rows."
+}

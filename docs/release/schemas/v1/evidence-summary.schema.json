@@ -1,0 +1,18 @@
+{
+  "schema_version": "shardloom.stable_schema_contract.v1",
+  "schema_id": "shardloom.evidence_summary.v1",
+  "surface_id": "evidence_summary",
+  "stability_tier": "stable_v1",
+  "compatibility_window": "v1_additive_compatibility",
+  "legacy_flat_field_policy": "stable_aliases_for_v1_with_documented_deprecation_window",
+  "required_fields": [
+    {"path": "evidence_tier", "type": "string"},
+    {"path": "execution_certificate_status", "type": "string"},
+    {"path": "native_io_certificate_status", "type": "string"},
+    {"path": "evidence_refs", "type": "array"},
+    {"path": "fallback_attempted", "type": "boolean"},
+    {"path": "external_engine_invoked", "type": "boolean"}
+  ],
+  "no_fallback_fields": ["fallback_attempted", "external_engine_invoked"],
+  "claim_boundary": "Stable evidence-summary shape only; claim-grade status requires the referenced evidence artifacts."
+}

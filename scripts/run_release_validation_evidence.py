@@ -263,6 +263,10 @@ def required_validation_commands(
             [python_executable, "scripts/check_v1_local_output_sink_scope.py"],
         ),
         (
+            "v1_api_schema_stability_gate",
+            [python_executable, "scripts/check_v1_api_schema_stability.py"],
+        ),
+        (
             "user_surface_runtime_gap_inventory",
             [python_executable, "scripts/check_user_surface_runtime_gap_inventory.py"],
         ),

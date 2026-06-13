@@ -487,6 +487,8 @@ jobs:
         run: python scripts/final_release_rehearsal.py --allow-blocked
       - name: Production usability gate
         run: python scripts/check_production_usability_gate.py
+      - name: V1 API/schema stability gate
+        run: python scripts/check_v1_api_schema_stability.py
       - name: Hard release readiness gate
         continue-on-error: true
         run: python scripts/check_release_readiness.py
@@ -511,6 +513,7 @@ jobs:
             target/public-status-docs-report.json
             target/website-readiness-report.json
             target/production-usability-gate.json
+            target/v1-api-schema-stability-report.json
             target/python-user-surface-completion-gate.json
             target/sql-python-dataframe-parity-gate.json
             target/v1-front-door-runtime-scope-report.json

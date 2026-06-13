@@ -1,0 +1,22 @@
+{
+  "schema_version": "shardloom.stable_schema_contract.v1",
+  "schema_id": "shardloom.package_release_report.v1",
+  "surface_id": "package_release_report",
+  "stability_tier": "stable_v1",
+  "compatibility_window": "v1_additive_compatibility",
+  "legacy_flat_field_policy": "stable_aliases_for_v1_with_documented_deprecation_window",
+  "required_fields": [
+    {"path": "schema_version", "type": "string"},
+    {"path": "package_publication_performed", "type": "boolean"},
+    {"path": "public_release_claim_allowed", "type": "boolean"},
+    {"path": "public_package_claim_allowed", "type": "boolean"},
+    {"path": "tag_created", "type": "boolean"},
+    {"path": "signing_key_used", "type": "boolean"},
+    {"path": "checksum_manifest_publication_grade", "type": "boolean"},
+    {"path": "sbom_publication_grade", "type": "boolean"},
+    {"path": "fallback_attempted", "type": "boolean"},
+    {"path": "external_engine_invoked", "type": "boolean"}
+  ],
+  "no_fallback_fields": ["package_publication_performed", "public_release_claim_allowed", "public_package_claim_allowed", "tag_created", "signing_key_used", "fallback_attempted", "external_engine_invoked"],
+  "claim_boundary": "Stable package/release report field contract only; public package and release claims remain blocked until maintainer approval and channel evidence exist."
+}
