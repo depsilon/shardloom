@@ -61,6 +61,24 @@ PUBLIC_BENCHMARK_MANIFEST_REFS = (
     "website-public/assets/benchmarks/latest/manifest.json",
     "website-src/src/data/benchmark-manifest.json",
 )
+STATIC_PUBLICATION_BUNDLE_PREFIXES = (
+    # Checked-in generated site output is publication output, not benchmark source.
+    "website/",
+    "website-public/",
+    "website/assets/benchmarks/latest/",
+    "website-public/assets/benchmarks/latest/",
+)
+STATIC_PUBLICATION_BUNDLE_REFS = {
+    "docs/architecture/phased-execution-completed-ledger.md",
+    "docs/architecture/phased-execution-plan.md",
+    "docs/release/maintainer-publication-handoff.md",
+    "website/assets/data/benchmark-evidence.json",
+    "website-public/assets/data/benchmark-evidence.json",
+    "website-src/src/data/benchmark-evidence.json",
+    "website-src/src/data/benchmark-manifest.json",
+    "website/benchmarks.html",
+    "website-public/benchmarks.html",
+}
 DEFAULT_MAX_AGE_DAYS = 14
 FUTURE_CLOCK_SKEW = timedelta(minutes=5)
 REQUIRED_PUBLICATION_FORMATS = ("csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc")
@@ -194,6 +212,37 @@ def git_text(repo_root: Path, args: list[str]) -> str:
         stderr = completed.stderr.strip() or completed.stdout.strip()
         raise RuntimeError(stderr or f"git {' '.join(args)} failed")
     return completed.stdout.strip()
+
+
+def git_is_ancestor(repo_root: Path, ancestor: str, descendant: str) -> bool:
+    completed = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
+def git_changed_paths(repo_root: Path, start: str, end: str) -> list[str] | None:
+    completed = subprocess.run(
+        ["git", "diff", "--name-only", f"{start}..{end}"],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return None
+    return [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+
+
+def static_publication_bundle_path(path: str) -> bool:
+    normalized = path.replace("\\", "/")
+    return normalized in STATIC_PUBLICATION_BUNDLE_REFS or any(
+        normalized.startswith(prefix) for prefix in STATIC_PUBLICATION_BUNDLE_PREFIXES
+    )
 
 
 def worktree_currentness_status(status: str | None) -> dict[str, Any]:
@@ -845,14 +894,73 @@ def validate_freshness(
         except RuntimeError as exc:
             blockers.append(f"git worktree status unavailable: {exc}")
 
+    git_currentness_status = "not_checked"
+    static_publication_delta_paths: list[str] = []
+    static_publication_nonpublic_delta_paths: list[str] = []
+    emitted_source_revision_blockers: set[tuple[str, str, tuple[str, ...]]] = set()
     if require_current_git and resolved_git_sha:
+        git_currentness_status = "current_head"
         for key in ("benchmark_git_sha", "shardloom_git_sha"):
             recorded = manifest.get(key)
-            if recorded != resolved_git_sha:
-                blockers.append(
-                    f"benchmark manifest {key}={recorded!r} does not match current HEAD "
-                    f"{resolved_git_sha}"
+            if recorded == resolved_git_sha:
+                continue
+            recorded_text = str(recorded or "")
+            source_is_publication_ancestor = bool(recorded_text) and git_is_ancestor(
+                repo_root,
+                recorded_text,
+                resolved_git_sha,
+            )
+            changed_paths = (
+                git_changed_paths(repo_root, recorded_text, resolved_git_sha)
+                if source_is_publication_ancestor
+                else None
+            )
+            non_public_paths = (
+                [
+                    path
+                    for path in (changed_paths or [])
+                    if not static_publication_bundle_path(path)
+                ]
+                if changed_paths is not None
+                else []
+            )
+            if changed_paths is not None:
+                static_publication_delta_paths = sorted(
+                    set(static_publication_delta_paths).union(
+                        path
+                        for path in changed_paths
+                        if static_publication_bundle_path(path)
+                    )
                 )
+            if source_is_publication_ancestor and changed_paths is not None and not non_public_paths:
+                if git_currentness_status != "blocked_mismatched_source_revision":
+                    git_currentness_status = "static_publication_descendant"
+                continue
+            git_currentness_status = "blocked_mismatched_source_revision"
+            static_publication_nonpublic_delta_paths = sorted(
+                set(static_publication_nonpublic_delta_paths).union(non_public_paths)
+            )
+            if non_public_paths:
+                blocker_signature = (
+                    "non_publication_source_delta",
+                    recorded_text,
+                    tuple(non_public_paths),
+                )
+                if blocker_signature not in emitted_source_revision_blockers:
+                    emitted_source_revision_blockers.add(blocker_signature)
+                    blockers.append(
+                        f"benchmark manifest {key}={recorded!r} is an ancestor of current HEAD "
+                        f"{resolved_git_sha}, but non-publication files changed after benchmark "
+                        f"source revision: {', '.join(non_public_paths[:12])}"
+                    )
+            else:
+                blocker_signature = ("mismatched_source_revision", recorded_text, ())
+                if blocker_signature not in emitted_source_revision_blockers:
+                    emitted_source_revision_blockers.add(blocker_signature)
+                    blockers.append(
+                        f"benchmark manifest {key}={recorded!r} does not match current HEAD "
+                        f"{resolved_git_sha}"
+                    )
 
     worktree_status_report = worktree_currentness_status(resolved_status)
     worktree_dirty = bool(worktree_status_report["tracked_dirty"])
@@ -866,6 +974,11 @@ def validate_freshness(
         "current_git_sha": resolved_git_sha,
         "benchmark_git_sha": manifest.get("benchmark_git_sha"),
         "shardloom_git_sha": manifest.get("shardloom_git_sha"),
+        "git_currentness_status": git_currentness_status,
+        "static_publication_delta_paths": static_publication_delta_paths,
+        "static_publication_nonpublic_delta_paths": (
+            static_publication_nonpublic_delta_paths
+        ),
         "worktree_dirty": worktree_dirty,
         **worktree_status_report,
     }

@@ -367,6 +367,9 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"operator_execution_class\""));
     assert!(script.contains("\"operator_blocker_id\""));
     assert!(script.contains("\"operator_encoded_native_claim_allowed\""));
+    assert!(script.contains("\"residual_operator_dimension_membership_status\""));
+    assert!(script.contains("\"residual_operator_dimension_membership_key_count\""));
+    assert!(script.contains("\"residual_operator_dimension_membership_max_key\""));
     assert!(script.contains("CORRECTNESS_FLOAT_DIGITS = 4"));
     assert!(script.contains("\"status\", \"--short\", \"--untracked-files=no\""));
     assert!(script.contains("traditional-analytics-run"));

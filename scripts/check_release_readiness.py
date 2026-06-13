@@ -214,7 +214,11 @@ def check(name: str, ref: str, blockers: list[str]) -> dict[str, Any]:
 def validation_command_passed(command_status: dict[Any, Any], expected: str) -> bool:
     if command_status.get(expected) == "passed":
         return True
-    if expected == "python scripts/release_dry_run_proof.py --rows 64 --iterations 1":
+    prefix_allowed = {
+        "python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
+        "python scripts/check_pre_5j_dependency_freshness.py",
+    }
+    if expected in prefix_allowed:
         return any(
             isinstance(command, str)
             and (command == expected or command.startswith(expected + " "))

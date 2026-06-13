@@ -141,259 +141,18 @@ Current autonomous execution order:
 
 ### Open Work Checklist
 
-- [ ] `PERF-DESIGN-2` - Encoded-native operator promotion and stage-timing attribution cleanup.
-  - Source: PR #1174 route rows, current published row chunks, operator mode inventory,
-    `operator_hot_path_candidate`, and route timing exclusive/residual fields.
-  - Current state: hot/native rows remain fast but still carry residual/materialized operator
-    posture. Multi-key group by, nested JSON field scan, high-cardinality string group/distinct,
-    join+aggregate, and group-by aggregation remain the highest-value operator families.
-  - Next outcome: promote the highest-value residual family toward encoded-native or
-    certificate-backed native execution while making exclusive stage timing additive and
-    surface-aware.
-  - Acceptance: admitted rows stop overstating residual/materialized work for the selected family;
-    unsupported families keep deterministic blockers; timing attribution cannot contradict
-    authoritative route totals.
-  - Progress: benchmark promotion now emits `operator_compute_route_relation_*` fields so
-    diagnostic-only operator timings cannot be mistaken for additive hot-route totals; remaining
-    work is runtime/operator-family promotion.
-  - Progress: prepared/native group-category state now preassembles the exact
-    `group_by_aggregation` and `multi_key_group_by` result payloads once per shared source-state
-    family, reports result-cache/preassembly timing fields, and keeps hot scenario execution from
-    rebuilding aggregate maps into JSON on each consumer.
-  - Progress: nested JSON field scan parser now keeps marker detection and boolean/numeric field
-    extraction on byte-level hot paths while preserving deterministic malformed-payload diagnostics.
-  - Progress: prepared/native category-metric state now preassembles
-    `high_cardinality_string_group_distinct` and `distinct_count` result payloads once per shared
-    source-state family and reports category result-cache/preassembly fields.
-  - Progress: hash join and join aggregate now attach operator-family-specific dense accumulator
-    evidence; join aggregate uses the dense packed accumulator instead of a generic packed-key hash
-    map where the key domain is safely admitted.
-  - Progress: prepared/native scalar fact-metric state now prewarms the shared metric-sum scan for
-    `csv/file ingest` and `many-small-files scan`, reports `source_state_fact_metric_*` coverage,
-    and keeps the first scalar hot scenario from paying a duplicate metric-column scan when both
-    consumers are admitted in one batch.
-  - Verification: focused Rust operator/correctness tests, Python row-contract tests, targeted
-    benchmark rerun for the selected family, `cargo fmt --all -- --check`,
-    `cargo clippy --workspace --all-targets -- -D warnings`, and
-    `cargo test --workspace --all-targets` when runtime behavior changes.
-  - Claim/fallback boundary: claims stay family/scenario-scoped; no external engine residual
-    evaluation is allowed.
-
-- [ ] `PERF-DESIGN-2-A` - Prepared/native scan, operator, and result-path tightening.
-  - Source: `PERF-DESIGN-2`, `PERF-DESIGN-4R`, and prepared/native lanes where scan-open, result
-    assembly, residual hot-loop materialization, and optional result-sink work remain visible.
-  - Next outcome: reduce repeated scan/open, operator dispatch, allocation, result-envelope, and
-    compact result-sink overhead without changing result digests or publication-proof semantics.
-  - Acceptance: prepared/native hot-runtime geomeans improve or remain stable with clearer
-    attribution; result digests remain unchanged; any encoded/native promotion is scoped and
-    certificate-backed.
-  - Progress: nested JSON field scan now parses generated `metrics.score` and `event.flag` directly
-    from Vortex-provided payload bytes in the hot loop, preserving deterministic score/flag
-    diagnostics while avoiding per-row full-payload UTF-8 validation.
-  - Progress: cold compatibility-import rows now reuse the already-imported dimension row count for
-    fact-only query dispatch through the existing cached-dim-row file route, report
-    `source_state_query_dim_row_count_reuse_status`, and keep hash join / join aggregate blocked to
-    the dimension Vortex scan because those operators still require dimension labels.
-  - Verification: focused Rust tests for selected operator families and result envelope stability,
-    repeated-session tests, targeted warm prepared/native rerun, and broad Rust validation when
-    shared runtime behavior changes.
-  - Claim/fallback boundary: no broad encoded-native claim; blocked promotion continues only through
-    admitted ShardLoom-native residual execution.
-
-- [ ] `PERF-DESIGN-4R` - PulseWeave session/runtime coalescing optimization pass.
-  - Source: completed `PERF-DESIGN-4`, `docs/architecture/pulseweave-runtime-control.md`, and rows
-    showing repeated native/prepared route-open, scan-open, and result-assembly pressure.
-  - Current state: split-inventory reuse evidence exists for compatible prepared/native batch runs;
-    result assembly remains per-scenario with an explicit blocked status.
-  - Next outcome: extend run-local PulseWeave coalescing to remaining safe repeated
-    prepared/native pressure points using FlowInventory, ScarcityLedger, EndoPulse, and ProofBound.
-  - Acceptance: compatible local scenario groups report coalesced route use with reduced repeated
-    overhead or deterministic `blocked_*` reasons; no hot-runtime/publication-proof timing mix.
-  - Progress: prepared/native child routes now reuse the run-local
-    `TraditionalVortexSourceSnapshot` keyed with the PulseWeave split-inventory key, so
-    `session_source_metadata_cache_*` evidence corresponds to a real metadata/digest snapshot cache
-    rather than repeated per-child snapshot reconstruction.
-  - Progress: the child-route source snapshot cache is now seeded from the session-open
-    `TraditionalVortexSourceSnapshot`, reports `session_source_metadata_cache_seed_*` evidence, and
-    only rebuilds metadata snapshots for child source-role keys that genuinely differ, such as
-    CDC-only children.
-  - Progress: prepared/native batch runs now prewarm every reused source-state family before child
-    route execution, not just fact-metric state, and report
-    `source_state_family_prewarm_*` evidence so dimension-label, category, group-category, ranked,
-    selective-filter, dirty-input, and date/null metric reuse does not silently tax the first child
-    route.
-  - Verification: focused Rust session/PulseWeave tests, targeted repeated warm/native/prepared
-    benchmark, optimization-target validator, claim gate, and broad Rust validation when behavior
-    changes.
-  - Claim/fallback boundary: run-local scoped coalescing only; no daemon, global cache, cross-run
-    learning, distributed runtime, or external engine.
-
-- [ ] `PERF-DESIGN-1R` - Dynamic prepared-state reuse and role-repair optimization pass.
-  - Source: completed `PERF-DESIGN-1`, `docs/architecture/io-reuse-and-fanout-architecture.md`, and
-    rows where prepared-state lookup/metadata verification remains visible despite reuse.
-  - Next outcome: add a run-local dynamic prepared-state reuse controller that batches dependency
-    checks, records capillary proof refs, and skips redundant lookup/create work when the digest
-    tuple is unchanged.
-  - Progress: prepared-batch reuse evaluation now carries the run-local dependency/request packet
-    into manifest hit/miss, delta-overlay, role-repair, and full-registration paths. The route avoids
-    rebuilding the same fingerprint/admission packet on miss handling and reports
-    `prepare_batch_prepared_state_dependency_packet_*` evidence for published rows.
-  - Acceptance: repeated same-run prepared lookups report dynamic reuse with no rewritten artifacts,
-    no full reopen verify, no duplicate writer context, stable certificate refs, and deterministic
-    repair/reprepare when source roles drift.
-  - Verification: focused Rust prepared-state reuse/repair tests, targeted prepare-batch benchmark,
-    Python promotion-field tests, optimization-target validator, and broad Rust validation when
-    behavior changes.
-  - Claim/fallback boundary: scoped local prepared-state reuse only; no process-global cache, hidden
-    stale reuse, object-store cache, or external engine.
-
-- [ ] `PERF-DESIGN-5R` - Capillary preparation spine write/reopen/copy optimization pass.
-  - Source: completed `PERF-DESIGN-5`, cold-ingestion carryforward docs, and rows where
-    `vortex_write_ms`, reopen/verify, and copy-budget cost remain material.
-  - Next outcome: coalesce compatible source split discovery, columnarize/encode, Vortex segment
-    write, metadata-first verification, and sink evidence tasks under capillary
-    PulseWeave/ProofBound admission.
-  - Acceptance: admitted local preparation rows show fewer duplicate writer/reopen/copy operations
-    or deterministic capillary block reasons; hot-runtime totals remain separate from
-    publication-proof totals.
-  - Verification: focused Rust preparation-spine tests, targeted preparation benchmark,
-    artifact-completeness/claim gates, optimization-target validator, and broad Rust validation when
-    runtime behavior changes.
-  - Claim/fallback boundary: scoped local capillary preparation only; no object-store writes, table
-    commits, real query-data spill, hidden buffer pool, or external engine.
-
-- [ ] `PERF-DESIGN-5R-A` - Vortex write coalescing and reusable writer context.
-  - Source: `PERF-DESIGN-5R`, cold routes where local Vortex write remains material, and existing
-    capillary preparation-spine/copy-budget fields.
-  - Next outcome: introduce a reusable writer/runtime context for compatible preparation groups,
-    coalesce small artifact writes, separate digest/verification accounting, and expose fail-closed
-    coalescing blockers.
-  - Acceptance: cold/prepared rows show admitted writer-context reuse where safe; Vortex output
-    digests remain stable; unsupported artifact role, schema, workspace, or proof shapes block
-    coalescing.
-  - Verification: focused Rust writer-context, role isolation, digest stability, cleanup, and
-    workspace-safe staging tests plus targeted cold-certified/prepare-batch reruns.
-  - Claim/fallback boundary: no weakening of Vortex-native persistence, no object-store write
-    semantics, no Vortex query-engine integration, and no external engine.
-
-- [ ] `PERF-DESIGN-6R` - Dynamic source-adapter parse/decode and scout-ingress optimization pass.
-  - Source: completed `PERF-DESIGN-6`, `docs/architecture/dynamic-work-shaping.md`,
-    `docs/architecture/universal-input-contract.md`, and rows where
-    `source_parse_or_columnar_decode_ms` remains a cold-lane bottleneck.
-  - Next outcome: choose lightweight metadata, projected typed decode, or capillary chunked decode
-    based on observed bytes/rows/columns and scenario-required fields, with explicit block reasons.
-  - Acceptance: source-heavy lanes show reduced parse/decode or handoff timing for admitted
-    projected workloads or deterministic `blocked_*` source-scout reasons; required columns and null
-    semantics remain intact.
-  - Verification: focused Rust/Python source adapter tests, targeted source-heavy benchmark,
-    optimization-target validator, website readiness/static validation, and broad validation when
-    shared adapters move.
-  - Claim/fallback boundary: scoped dynamic source-adapter optimization only; no external parser
-    engine, object-store runtime, lossy decode, or broad source-format claim.
-
-- [ ] `PERF-DESIGN-6R-A` - Direct typed column builders for CSV/JSONL cold ingest.
-  - Source: `PERF-DESIGN-6R`, the universal input contract, and route attribution where text-source
-    parse/decode dominates source-heavy cold rows.
-  - Current state: local runtime/reporting emits `source_typed_column_builder_*` and
-    `source_typed_builder_*` evidence for admitted CSV/JSONL rows; focused Rust coverage proves full
-    CSV decode, projection-aware JSONL nested-payload decode, and direct-transient non-admission.
-  - Next outcome: regenerate targeted source-heavy artifacts, confirm typed-builder fields reach
-    promotion/website data, and decide whether more decode runtime work is needed from current
-    timing rather than stale artifacts.
-  - Acceptance: admitted CSV/JSONL rows report direct typed builder execution, correct projected or
-    full column counts, zero row assembly where supported, stable correctness digests, and
-    deterministic blockers for malformed/coercion/nested unsupported shapes.
-  - Verification: focused source-adapter tests for nulls, malformed values, timestamps, dirty CSV,
-    nested JSON, projection masks, type coercions, benchmark harness smoke, and targeted source-heavy
-    reruns.
-  - Claim/fallback boundary: scoped CSV/JSONL typed-builder evidence only after clean artifacts; no
-    external parser engine or hidden row-object fallback.
-
-- [ ] `PERF-DESIGN-6R-B` - Projection-aware and source-aware decode admission.
-  - Source: `PERF-DESIGN-6R`, source-read scout attribution, and projection-sensitive gaps where
-    lazy baselines avoid unnecessary column work. Those engines remain baselines only.
-  - Current state: local runtime/reporting promotes `source_projection_*` admission evidence with
-    required, predicate, output, certificate, diagnostic, field-mask, decoded/skipped-count,
-    blocker, correctness, and no-fallback fields.
-  - Next outcome: refresh projection-sensitive artifacts and use the field-mask evidence to reduce
-    parse/decode or handoff work where the current data proves an opportunity.
-  - Acceptance: projection-sensitive workloads show reduced timing without digest changes;
-    full-width workloads report no projection opportunity; unsupported nested/malformed cases block
-    deterministically.
-  - Verification: required-field derivation tests, CSV/JSONL projection tests, Parquet/Arrow field
-    mask tests where supported, and targeted reruns for wide projection, filter/projection/limit,
-    selective filter, distinct count, group-by, and nested JSON scan.
-  - Claim/fallback boundary: projection-aware decode claims require admitted row field-mask evidence;
-    no predicate-pushdown claim unless predicate-pushdown evidence exists.
-
-- [ ] `PERF-DESIGN-6R-C` - Already-columnar source fast paths for Parquet and Arrow IPC.
-  - Source: `PERF-DESIGN-6R`, current already-columnar source gaps, Vortex-first provider check, and
-    Parquet/Arrow IPC cold rows. Polars, DuckDB, PyArrow, and similar tools remain baselines only.
-  - Current state: this working tree emits stable `source_columnar_*` provider evidence for
-    direct-provider Parquet/Arrow IPC rows, including projection, preserved/skipped columns, record
-    batch count, zero materialized rows, handoff timing, correctness posture, and no-fallback fields.
-    Direct-transient row-boundary adapters remain non-admitted; Avro/ORC are visible but out of the
-    6R-C claim scope.
-  - Progress: Parquet fact-source reads now translate scenario field masks into reader-level
-    `ProjectionMask::roots` before batch iteration; Arrow IPC fact-source reads now translate the
-    same field masks into `FileReader` projection vectors before record-batch collection. Avro/ORC
-    remain explicit post-read projection paths outside the 6R-C claim scope.
-  - Progress: promoted benchmark rows now carry
-    `source_columnar_projection_pushdown_status` and
-    `source_columnar_projection_pushdown_provider` so reader pushdown cannot be confused with
-    post-read projection normalization.
-  - Next outcome: merge the runtime/reporting evidence, then intentionally refresh targeted
-    Parquet/Arrow IPC artifacts before making any timing claim.
-  - Acceptance: admitted Parquet/Arrow IPC rows report direct columnar handoff, no row
-    materialization, reader-projection provider status for projected scenarios, stable correctness
-    digests, reduced parse/decode timing where current artifacts prove it, and explicit blockers for
-    unsupported dtypes, encodings, nested fields, or compression.
-  - Verification: focused tests for primitive types, null-heavy columns, dictionary-like values where
-    supported, timestamps, projection masks, empty inputs, unsupported nested fields, promoter
-    passthrough tests, and targeted Parquet/Arrow IPC reruns.
-  - Claim/fallback boundary: scoped direct-columnar fast-path evidence only after a clean benchmark
-    refresh; no fallback to Polars/PyArrow execution or lossy conversion.
-
-- [ ] `PERF-DESIGN-3` - Publication-proof sink/evidence pipeline optimization.
-  - Source: `publication_proof` rows, `PERF-SPLIT-FIX-1`, and the user request to reduce benchmark
-    errors and write values incrementally.
-  - Current state: publication-proof rows intentionally include result-sink and evidence-render
-    work. The page labels this correctly, but proof artifacts can still be written/replayed/rendered
-    more incrementally.
-  - Next outcome: implement incremental proof sidecar records for result-sink writes, replay proofs,
-    certificate links, and human evidence render metadata that can be reused when row inputs and
-    route evidence digests have not changed.
-  - Acceptance: publication proof remains visible and slower when doing real proof work; unchanged
-    proof records are reused; digest drift blocks promotion; route formulas state timing surface and
-    inclusion flags.
-  - Verification: focused proof-cache tests, targeted publication benchmark, publication claim gate,
-    website readiness, and static asset validation.
-  - Claim/fallback boundary: this may improve publication-proof overhead only; it does not change
-    hot-runtime timing claims or allow external proof engines.
-
-- [ ] `PERF-DESIGN-3-A` - Certified route tiering for hot-runtime versus publication-proof work.
-  - Source: `PERF-DESIGN-3`, the route timing surface split, and claim-grade proof requirements.
-  - Next outcome: define a tier admission ledger where hot runtime uses compact machine evidence,
-    full replay proof requests machine replay/sink proof, and publication proof requests full
-    digest/result-sink replay/human evidence render.
-  - Acceptance: hot-runtime totals exclude human/publication work by contract; publication-proof
-    rows remain claim-grade; no row silently upgrades or downgrades timing surface; website tables
-    show tier semantics clearly.
-  - Verification: validator tests for stage inclusion, route formulas, proof linkage, stale-proof
-    detection, publication artifact regeneration, targeted benchmark promotion checks, and website
-    static validation.
-  - Claim/fallback boundary: hot-runtime rows are optimization timing context; publication-proof
-    rows remain the claim-grade evidence surface. Proof deferral affects claim status only, never
-    execution semantics.
+No autonomous implementation items are open in this file. New audit, optimization, runtime, docs,
+website, release, or packaging work must be promoted here as a concrete unchecked item before
+editing behavior.
 
 ### Remaining work snapshot
 
 | Status | Work | Next decision |
 | --- | --- | --- |
-| Open | `PERF-DESIGN-2`, `PERF-DESIGN-2-A`, `PERF-DESIGN-4R`, `PERF-DESIGN-1R`, `PERF-DESIGN-5R`, `PERF-DESIGN-5R-A`, `PERF-DESIGN-6R`, `PERF-DESIGN-6R-A`, `PERF-DESIGN-6R-B`, `PERF-DESIGN-6R-C`, `PERF-DESIGN-3`, `PERF-DESIGN-3-A` | Execute in cohesive runtime/performance batches, not slivers. |
+| Closed | `RELEASE-PACKAGE-15` | Completed in the ledger with clean-source benchmark publication evidence for source revision `74a2e7d4f77eed0686971518e010463da26f2cdf`; no autonomous implementation item remains. |
 | Historical | PR #1174 benchmark row/readiness context, repo-wide audit closeout, release-sequence closeout, and completed benchmark/profile, sub-evidence, user-surface proof | Preserved in `docs/architecture/phased-execution-completed-ledger.md`; do not treat as active work. |
 | Mapped, not autonomous queue | Unchecked global architecture review rows | Governed by `docs/architecture/global-architecture-review.md` and `docs/architecture/runtime-gap-family-burn-down.md`; promote concrete implementation items here before work begins. |
-| Deferred approval/artifact gate | Public release/package and current benchmark publication | Requires maintainer approval, channel-specific proof, clean-source benchmark refresh, and passing hard gates before any public claim. |
+| Deferred approval/artifact gate | Public release/package approval | Clean local Conda proof, dependency/security/package local-gate evidence, and current benchmark-publication evidence now pass locally; remaining blockers are package-channel approval/proof, publication/API/schema stability approval, and per-claim evidence promotion before any public claim. |
 
 Deferred Non-Runtime Closeout Queue: closed for the current cleanup batch. Completed non-runtime history
 lives in `docs/architecture/phased-execution-completed-ledger.md`; any future work from manual
@@ -422,8 +181,9 @@ review must be promoted here as a concrete unchecked item before editing behavio
 - Use dynamic admission for repeated dependency/source decisions, PulseWeave for run-local
   coalescing and bounded work-in-progress, and capillary windows for small typed
   source/preparation/sink work units only where the bottleneck shape justifies those controls.
-- `PERF-DESIGN-1R`, `PERF-DESIGN-4R`, `PERF-DESIGN-5R`, and `PERF-DESIGN-6R` are the only current
-  reopen passes. `PERF-DESIGN-2` and `PERF-DESIGN-3` are direct open implementation items.
+- There are no current direct open implementation items. Reopen completed `PERF-DESIGN-*` or
+  `PERF-DESIGN-*R` passes only with new current artifact, validator, CI, UAT simulation, or
+  maintainer-review evidence.
 
 ### Global Architecture Review Carry-Forward
 

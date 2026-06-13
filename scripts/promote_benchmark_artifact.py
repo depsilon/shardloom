@@ -430,6 +430,9 @@ WEBSITE_ROW_KEYS = (
     "residual_operator_sparse_rollover_used",
     "residual_operator_dense_max_key",
     "residual_operator_dense_slot_budget",
+    "residual_operator_dimension_membership_status",
+    "residual_operator_dimension_membership_key_count",
+    "residual_operator_dimension_membership_max_key",
     "residual_operator_optimization_claim_boundary",
     "residual_operator_optimization_fallback_attempted",
     "residual_operator_optimization_external_engine_invoked",
@@ -515,6 +518,8 @@ WEBSITE_ROW_KEYS = (
     "source_columnar_materialized_row_count",
     "source_columnar_record_batch_count",
     "source_columnar_row_materialization_status",
+    "source_columnar_projection_pushdown_status",
+    "source_columnar_projection_pushdown_provider",
     "source_columnar_null_validity_status",
     "source_columnar_unsupported_dtype_reason",
     "source_columnar_handoff_micros",
@@ -796,6 +801,9 @@ WEBSITE_SUMMARY_ROW_KEYS = (
     "residual_operator_sparse_rollover_used",
     "residual_operator_dense_max_key",
     "residual_operator_dense_slot_budget",
+    "residual_operator_dimension_membership_status",
+    "residual_operator_dimension_membership_key_count",
+    "residual_operator_dimension_membership_max_key",
     "residual_operator_optimization_claim_boundary",
     "residual_operator_optimization_fallback_attempted",
     "residual_operator_optimization_external_engine_invoked",
@@ -1302,6 +1310,9 @@ PUBLISHED_METRIC_KEYS = (
     "residual_operator_sparse_rollover_used",
     "residual_operator_dense_max_key",
     "residual_operator_dense_slot_budget",
+    "residual_operator_dimension_membership_status",
+    "residual_operator_dimension_membership_key_count",
+    "residual_operator_dimension_membership_max_key",
     "residual_operator_optimization_claim_boundary",
     "residual_operator_optimization_fallback_attempted",
     "residual_operator_optimization_external_engine_invoked",
@@ -1778,18 +1789,20 @@ def publication_proof_sidecar_payload(
             record["reuse_status"] = "written_publication_proof_record"
             written += 1
     current_ids = {str(record["record_id"]) for record in records}
-    stale = sorted(set(existing_records) - current_ids)
+    obsolete = sorted(set(existing_records) - current_ids)
     return {
         "schema_version": PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "record_count": len(records),
         "reused_record_count": reused,
         "written_record_count": written,
-        "stale_record_count": len(stale),
-        "stale_record_ids": stale,
+        "stale_record_count": 0,
+        "stale_record_ids": [],
+        "removed_stale_record_count": len(obsolete),
+        "removed_stale_record_ids": obsolete,
         "resume_status": (
             "reused_existing_publication_proof_sidecar"
-            if records and reused == len(records) and written == 0 and not stale
+            if records and reused == len(records) and written == 0 and not obsolete
             else "admitted_incremental_publication_proof_sidecar"
             if records
             else "not_applicable_no_publication_proof_rows"
@@ -6436,6 +6449,38 @@ def lane_versions(artifact: dict[str, Any]) -> dict[str, Any]:
     return versions if isinstance(versions, dict) else {}
 
 
+def resolve_git_commit_sha(ref: str) -> str:
+    ref = ref.strip()
+    if not ref:
+        return ref
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", f"{ref}^{{commit}}"],
+            cwd=ROOT,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ref
+
+
+def benchmark_git_sha_for_artifact(artifact: dict[str, Any]) -> str | None:
+    for key in ("benchmark_git_sha", "shardloom_git_sha", "git_sha"):
+        value = str(artifact.get(key) or "").strip()
+        if re.fullmatch(r"[0-9a-fA-F]{7,40}", value):
+            return resolve_git_commit_sha(value)
+    for lane, metadata in sorted(lane_versions(artifact).items()):
+        if not is_shardloom_engine(str(lane)):
+            continue
+        if not isinstance(metadata, dict):
+            continue
+        version = str(metadata.get("version") or "")
+        match = re.search(r"workspace-local-release-([0-9a-fA-F]{7,40})", version)
+        if match:
+            return resolve_git_commit_sha(match.group(1))
+    return git_sha()
+
+
 def available_lanes(artifact: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
     lanes = {
         name
@@ -10061,6 +10106,108 @@ def published_rows_with_current_route_timing_ledger(
     return rendered
 
 
+HOT_RUNTIME_PROJECTION_MISSING_EVIDENCE = (
+    "metadata_sink_hot_runtime_projection_not_publication_claim_grade"
+)
+HOT_RUNTIME_PROJECTION_RECALCULATED_KEYS = (
+    "route_timing_surface_schema_version",
+    "timing_surface",
+    "timing_surface_label",
+    "timing_surface_evidence_tier",
+    "timing_surface_default_for_route",
+    "route_timing_ledger_schema_version",
+    "route_timing_ledger_status",
+    "route_total_formula",
+    "route_timing_scope",
+    "route_timing_included_stage_ids",
+    "route_timing_excluded_stage_ids",
+    "route_timing_included_stage_total_ms",
+    "route_timing_total_delta_ms",
+    "preparation_timing_included_in_total",
+    "query_timing_included_in_total",
+    "output_timing_included_in_total",
+    "evidence_timing_included_in_total",
+    "route_timing_stage_inclusion_status",
+    "route_timing_stage_inclusion_classes",
+    "route_timing_stage_inclusion_timing_scopes",
+    "route_timing_stage_inclusion_skip_reasons",
+    "route_timing_instrument_status",
+    "route_timing_instrument_expensive_stage_ids",
+    "route_timing_instrument_missing_substage_attribution",
+    "route_timing_instrument_reason",
+    "route_timing_instrument_next_step",
+)
+
+
+def hot_runtime_surface_projection_for_row(row: dict[str, Any]) -> dict[str, Any] | None:
+    if not is_shardloom_engine(str(row.get("engine") or "")):
+        return None
+    if row.get("status") != "success":
+        return None
+    if str(row.get("timing_surface") or "") == DEFAULT_ROUTE_TIMING_SURFACE:
+        return None
+    evidence_tier = str(
+        row.get("actual_evidence_tier")
+        or row.get("timing_surface_evidence_tier")
+        or ""
+    )
+    if evidence_tier not in {"full_vortex_replay", "publication_full"}:
+        return None
+
+    projected = dict(row)
+    for key in HOT_RUNTIME_PROJECTION_RECALCULATED_KEYS:
+        projected.pop(key, None)
+    projected.update(
+        {
+            "requested_evidence_tier": "metadata_sink",
+            "actual_evidence_tier": "metadata_sink",
+            "selected_evidence_tier": "metadata_sink",
+            "sink_tier": "metadata_sink",
+            "claim_gate_status": "not_claim_grade",
+            "claim_grade_requirements_met": False,
+            "claim_grade_missing_evidence": [
+                HOT_RUNTIME_PROJECTION_MISSING_EVIDENCE
+            ],
+            "evidence_tier_result_sink_replay_required": False,
+            "sink_timing_included_in_route_total": False,
+            "sink_timing_inclusion_reason": "metadata_sink_has_no_replay_write_timing",
+            "result_sink_replay_skip_reason": (
+                "skipped_metadata_sink_tier_digest_count_path_proof_without_replay"
+            ),
+            "human_evidence_render_skip_reason": (
+                "skipped_compact_machine_evidence_human_render_deferred"
+            ),
+            "hot_runtime_projection_status": (
+                "derived_from_publication_proof_route_timing"
+            ),
+            "hot_runtime_projection_source_timing_surface": str(
+                row.get("timing_surface") or "unknown"
+            ),
+            "hot_runtime_projection_source_evidence_tier": evidence_tier,
+        }
+    )
+    projected.update(timing_surface_fields_for_row(projected))
+    return projected
+
+
+def rows_with_hot_runtime_surface_projections(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rendered = list(rows)
+    existing_keys = {published_row_merge_key(row) for row in rendered}
+    for row in rows:
+        projection = hot_runtime_surface_projection_for_row(row)
+        if projection is None:
+            continue
+        [projected] = published_rows_with_current_route_timing_ledger([projection])
+        key = published_row_merge_key(projected)
+        if key in existing_keys:
+            continue
+        rendered.append(projected)
+        existing_keys.add(key)
+    return rendered
+
+
 def cold_lane_claim_adjusted_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     adjusted: list[dict[str, Any]] = []
     for row in rows:
@@ -10208,13 +10355,14 @@ def manifest_for_artifact(
         if readiness_counts
         else "not_reported"
     )
+    measured_git_sha = benchmark_git_sha_for_artifact(artifact)
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "generated_at_utc": artifact.get("generated_at_utc")
         or datetime.now(timezone.utc).isoformat(),
         "benchmark_profile": profile,
-        "benchmark_git_sha": git_sha(),
-        "shardloom_git_sha": git_sha(),
+        "benchmark_git_sha": measured_git_sha,
+        "shardloom_git_sha": measured_git_sha,
         "artifact_status": "incomplete" if missing_required else "complete",
         "expected_lanes": expected,
         "available_lanes": available,
@@ -10365,6 +10513,8 @@ def main() -> int:
                 full_published_rows,
             )
             summary_rows = full_published_rows
+    full_published_rows = rows_with_hot_runtime_surface_projections(full_published_rows)
+    summary_rows = full_published_rows
     public_front_door_rows = public_front_door_benchmark_rows()
     row_chunks = write_row_chunks(args.output_dir, full_published_rows)
     public_row_chunks = write_row_chunks(args.public_output_dir, full_published_rows)

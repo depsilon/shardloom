@@ -35388,7 +35388,13 @@ fn parse_logical_binary_predicate(
 }
 
 fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
-    let trimmed = raw.trim();
+    let normalized;
+    let trimmed = if let Some(value) = unwrap_leading_parenthesized_expression(raw)? {
+        normalized = value;
+        normalized.as_str()
+    } else {
+        raw.trim()
+    };
     let Some((mode, open_index)) = parse_cast_function_prefix(trimmed) else {
         return Ok(None);
     };
@@ -35434,6 +35440,29 @@ fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomE
         op,
         value,
     }))
+}
+
+fn unwrap_leading_parenthesized_expression(raw: &str) -> Result<Option<String>, ShardLoomError> {
+    let mut current = raw.trim();
+    let mut normalized: Option<String> = None;
+    while current.starts_with('(') {
+        let Some(close_index) = matching_closing_parenthesis(current, 0)? else {
+            return Err(unsupported_sql_error(
+                "CAST/TRY_CAST predicate expression parentheses must be balanced",
+            ));
+        };
+        if close_index == current.len() - 1 {
+            return Ok(normalized);
+        }
+        let inner = current[1..close_index].trim();
+        let tail = current[close_index + 1..].trim();
+        if inner.is_empty() || tail.is_empty() {
+            return Ok(normalized);
+        }
+        normalized = Some(format!("{inner} {tail}"));
+        current = normalized.as_deref().expect("normalized expression set");
+    }
+    Ok(normalized)
 }
 
 fn parse_cast_predicate_literal(
@@ -44701,6 +44730,30 @@ mod tests {
         assert_eq!(parsed.predicate.family(), "cast");
         assert_eq!(parsed.predicate.cast_source_columns(), "amount");
         assert_eq!(parsed.predicate.cast_target_dtypes(), "int64");
+        assert_eq!(parsed.predicate.cast_modes(), "strict");
+    }
+
+    #[test]
+    fn parses_parenthesized_cast_predicate_expression_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,CAST(raw_amount AS float64) AS amount_float FROM 'target/input.csv' WHERE (CAST(raw_amount AS float64)) >= 0 LIMIT 5",
+        )
+        .expect("parenthesized cast predicate expression statement parses");
+
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::CastCompare {
+                ref column,
+                target_dtype: LogicalDType::Float64,
+                mode: CastMode::Strict,
+                op: ComparisonOp::GtEq,
+                value: ScalarValue::Int64(0),
+                ..
+            } if column == "raw_amount"
+        ));
+        assert_eq!(parsed.predicate.family(), "cast");
+        assert_eq!(parsed.predicate.cast_source_columns(), "raw_amount");
+        assert_eq!(parsed.predicate.cast_target_dtypes(), "float64");
         assert_eq!(parsed.predicate.cast_modes(), "strict");
     }
 

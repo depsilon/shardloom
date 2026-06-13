@@ -208,14 +208,33 @@ class ComputeEngineCompletionGateTests(unittest.TestCase):
                                 "operator_hot_path_candidate_status": (
                                     "blocked_selection_vector_metric_aggregation_not_admitted"
                                 ),
+                                "pulseweave_result_assembly_coalescing_status": (
+                                    "blocked_per_scenario_result_semantics"
+                                ),
+                                "source_columnar_provider_status": (
+                                    "blocked_columnar_provider_not_admitted"
+                                ),
                                 "source_read_scout_reuse_status": (
                                     "blocked_until_scout_timing_split"
                                 ),
                                 "source_read_scout_timing_split_status": (
                                     "blocked_missing_source_read_scout_split"
                                 ),
+                                "source_state_query_dim_row_count_reuse_status": (
+                                    "blocked_query_requires_dim_vortex_scan"
+                                ),
                                 "vortex_reopen_verify_split_status": (
                                     "blocked_missing_reopen_verify_split"
+                                ),
+                                "compressed_kernel_registry_claim_gate_status": (
+                                    "not_claim_grade"
+                                ),
+                                "fused_pipeline_claim_gate_status": "not_claim_grade",
+                                "fused_pipeline_correctness_digest_status": (
+                                    "blocked_reference_only_digest"
+                                ),
+                                "fused_pipeline_selection_vector_status": (
+                                    "blocked_fusion_not_executed"
                                 ),
                             }
                         ]
@@ -235,13 +254,20 @@ class ComputeEngineCompletionGateTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         benchmark_report = report["benchmark_gap_report"]
         self.assertEqual(benchmark_report["residual_blocker_count"], 0)
-        self.assertEqual(benchmark_report["optimization_claim_blocker_count"], 4)
+        self.assertEqual(benchmark_report["optimization_claim_blocker_count"], 11)
         self.assertEqual(
             benchmark_report["optimization_claim_blocker_field_counts"],
             {
+                "compressed_kernel_registry_claim_gate_status": 1,
+                "fused_pipeline_claim_gate_status": 1,
+                "fused_pipeline_correctness_digest_status": 1,
+                "fused_pipeline_selection_vector_status": 1,
                 "operator_hot_path_candidate_status": 1,
+                "pulseweave_result_assembly_coalescing_status": 1,
+                "source_columnar_provider_status": 1,
                 "source_read_scout_reuse_status": 1,
                 "source_read_scout_timing_split_status": 1,
+                "source_state_query_dim_row_count_reuse_status": 1,
                 "vortex_reopen_verify_split_status": 1,
             },
         )

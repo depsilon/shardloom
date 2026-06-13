@@ -207,7 +207,13 @@ def required_validation_commands(
         ),
         (
             "pre_5j_dependency_freshness_gate",
-            [python_executable, "scripts/check_pre_5j_dependency_freshness.py"],
+            [
+                python_executable,
+                "scripts/check_pre_5j_dependency_freshness.py",
+                "--require-live-github",
+                "--output",
+                "target/pre-5j-dependency-freshness-gate.json",
+            ],
         ),
         (
             "benchmark_publication_claim_gate",

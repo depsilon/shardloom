@@ -2022,6 +2022,79 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(by_surface["hot_runtime"][5], "0.34 ms")
         self.assertEqual(by_surface["publication_proof"][5], "13.82 ms")
 
+    def test_benchmark_promoter_projects_hot_runtime_rows_from_publication_rows(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_hot_runtime_projection_for_test",
+        )
+
+        publication_row = {
+            "engine": "shardloom-prepared-vortex",
+            "storage_format": "vortex",
+            "scenario_name": "warm prepared publication-only row",
+            "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "requested_execution_mode": "prepared_vortex",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "source_state_id": "source-state://projection",
+            "source_state_digest": "sha256:projection-source",
+            "prepared_state_id": "prepared-state://projection",
+            "prepared_state_digest": "sha256:projection-prepared",
+            "data_decoded": False,
+            "data_materialized": False,
+            "iterations": 3,
+            "reproducibility_min_iterations": 3,
+            "reproducibility_iterations_met": True,
+            "correctness_digest": "sha256:projection",
+            "correctness_digest_stable": True,
+            "runtime_execution_certificate_id": "execution.projection",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "actual_evidence_tier": "publication_full",
+            "computed_result_sink_replay_verified": True,
+            "result_sink_replay_micros": 1200,
+            "metrics": {
+                "query_runtime_millis": 0.34,
+                "vortex_scan_millis": 0.1,
+                "operator_compute_millis": 0.2,
+                "result_sink_write_millis": 5.33,
+                "evidence_render_millis": 8.15,
+                "total_runtime_millis": 13.82,
+                "cli_process_wall_millis": 14.0,
+            },
+        }
+
+        [publication] = module.published_rows([publication_row])
+        publication_claim_status = publication["claim_gate_status"]
+        projected = module.rows_with_hot_runtime_surface_projections([publication])
+
+        self.assertEqual(len(projected), 2)
+        by_surface = {row["timing_surface"]: row for row in projected}
+        hot = by_surface["hot_runtime"]
+        publication = by_surface["publication_proof"]
+
+        self.assertEqual(hot["actual_evidence_tier"], "metadata_sink")
+        self.assertEqual(hot["selected_evidence_tier"], "metadata_sink")
+        self.assertEqual(hot["sink_tier"], "metadata_sink")
+        self.assertEqual(hot["claim_gate_status"], "not_claim_grade")
+        self.assertEqual(hot["total_route_ms"], 0.34)
+        self.assertEqual(hot["hot_route_total_ms"], 0.34)
+        self.assertFalse(hot["output_timing_included_in_total"])
+        self.assertFalse(hot["evidence_timing_included_in_total"])
+        self.assertIn("timing_surface=hot_runtime", hot["route_total_formula"])
+        self.assertEqual(publication["claim_gate_status"], publication_claim_status)
+        self.assertEqual(publication["actual_evidence_tier"], "publication_full")
+        self.assertEqual(publication["total_route_ms"], 13.82)
+        self.assertEqual(
+            len(module.rows_with_hot_runtime_surface_projections(projected)),
+            2,
+        )
+
     def test_route_share_fails_closed_on_excluded_hot_stage(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",
@@ -2241,6 +2314,29 @@ class ReleaseScriptTests(unittest.TestCase):
         by_surface = {row["timing_surface"]: row for row in merged}
         self.assertEqual(by_surface["publication_proof"]["total_route_ms"], 13.82)
         self.assertEqual(by_surface["hot_runtime"]["total_route_ms"], 0.31)
+
+    def test_benchmark_promoter_uses_measured_lane_sha_for_manifest_identity(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py",
+            "promote_benchmark_measured_lane_sha_for_test",
+        )
+        expected = "0123456789abcdef0123456789abcdef01234567"
+
+        self.assertEqual(
+            module.benchmark_git_sha_for_artifact(
+                {
+                    "engine_versions": {
+                        "shardloom-vortex": {
+                            "available": True,
+                            "version": f"workspace-local-release-{expected}",
+                        }
+                    }
+                }
+            ),
+            expected,
+        )
 
     def test_benchmark_promoter_keeps_source_state_prepare_out_of_source_admission(
         self,
@@ -3647,7 +3743,14 @@ class ReleaseScriptTests(unittest.TestCase):
                 "admitted_incremental_publication_proof_sidecar",
             )
             self.assertEqual(third["publication_proof_sidecar_written_record_count"], 1)
-            self.assertEqual(third["publication_proof_sidecar_stale_record_count"], 1)
+            self.assertEqual(third["publication_proof_sidecar_stale_record_count"], 0)
+            changed_sidecar = json.loads(
+                (output_dir / module.PUBLICATION_PROOF_SIDECAR_NAME).read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(changed_sidecar["stale_record_count"], 0)
+            self.assertEqual(changed_sidecar["removed_stale_record_count"], 1)
 
     def test_benchmark_promoter_demotes_claim_grade_without_cold_lane_split(self) -> None:
         module = self._load_script_module(
@@ -5113,6 +5216,194 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(freshness["tracked_dirty_status_count"], 0)
         self.assertEqual(freshness["untracked_status_count"], 2)
 
+    def test_benchmark_publication_claim_gate_accepts_static_publication_descendant(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_publication_descendant_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo = Path(tempdir)
+            subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=repo,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "ShardLoom Test"],
+                cwd=repo,
+                check=True,
+            )
+            (repo / "shardloom-vortex" / "src").mkdir(parents=True)
+            (repo / "shardloom-vortex" / "src" / "lib.rs").write_text(
+                "pub fn source() {}\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "source revision"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+            source_sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                text=True,
+            ).strip()
+
+            (repo / "website" / "assets" / "benchmarks" / "latest").mkdir(
+                parents=True
+            )
+            (repo / "website" / "assets" / "benchmarks" / "latest" / "manifest.json").write_text(
+                "{}\n",
+                encoding="utf-8",
+            )
+            (repo / "website" / "benchmarks").mkdir(parents=True)
+            (repo / "website" / "benchmarks" / "index.html").write_text(
+                "<html><body>benchmark publication</body></html>\n",
+                encoding="utf-8",
+            )
+            (repo / "website" / "index.html").write_text(
+                "<html><body>home page generated with current benchmark data</body></html>\n",
+                encoding="utf-8",
+            )
+            (repo / "docs" / "architecture").mkdir(parents=True)
+            (repo / "docs" / "architecture" / "phased-execution-plan.md").write_text(
+                "# Phase plan\n\n- [x] release bookkeeping closed after publication evidence.\n",
+                encoding="utf-8",
+            )
+            (repo / "docs" / "release").mkdir(parents=True)
+            (repo / "docs" / "release" / "maintainer-publication-handoff.md").write_text(
+                "# Handoff\n\nStrict benchmark publication evidence passed.\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "publish static benchmark bundle"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+            publication_sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                text=True,
+            ).strip()
+
+            blockers: list[str] = []
+            freshness = module.validate_freshness(
+                {
+                    "generated_at_utc": "2026-05-31T00:00:00+00:00",
+                    "benchmark_git_sha": source_sha,
+                    "shardloom_git_sha": source_sha,
+                },
+                repo,
+                blockers,
+                now=datetime(2026, 5, 31, tzinfo=timezone.utc),
+                max_age_days=14,
+                require_current_git=True,
+                allow_dirty_worktree=False,
+                current_git_sha=publication_sha,
+                worktree_status="",
+            )
+
+        self.assertEqual(blockers, [])
+        self.assertEqual(
+            freshness["git_currentness_status"],
+            "static_publication_descendant",
+        )
+        self.assertEqual(
+            freshness["static_publication_delta_paths"],
+            [
+                "docs/architecture/phased-execution-plan.md",
+                "docs/release/maintainer-publication-handoff.md",
+                "website/assets/benchmarks/latest/manifest.json",
+                "website/benchmarks/index.html",
+                "website/index.html",
+            ],
+        )
+
+    def test_benchmark_publication_claim_gate_blocks_source_changes_after_artifact_source(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_source_drift_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo = Path(tempdir)
+            subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=repo,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "ShardLoom Test"],
+                cwd=repo,
+                check=True,
+            )
+            (repo / "shardloom-vortex" / "src").mkdir(parents=True)
+            source_file = repo / "shardloom-vortex" / "src" / "lib.rs"
+            source_file.write_text("pub fn source() {}\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "source revision"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+            source_sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                text=True,
+            ).strip()
+
+            source_file.write_text("pub fn changed_after_benchmark() {}\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "source changed after benchmark"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+            current_sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                text=True,
+            ).strip()
+
+            blockers: list[str] = []
+            freshness = module.validate_freshness(
+                {
+                    "generated_at_utc": "2026-05-31T00:00:00+00:00",
+                    "benchmark_git_sha": source_sha,
+                    "shardloom_git_sha": source_sha,
+                },
+                repo,
+                blockers,
+                now=datetime(2026, 5, 31, tzinfo=timezone.utc),
+                max_age_days=14,
+                require_current_git=True,
+                allow_dirty_worktree=False,
+                current_git_sha=current_sha,
+                worktree_status="",
+            )
+
+        self.assertEqual(
+            freshness["git_currentness_status"],
+            "blocked_mismatched_source_revision",
+        )
+        self.assertTrue(
+            any("non-publication files changed after benchmark source revision" in blocker for blocker in blockers),
+            blockers,
+        )
+        self.assertEqual(
+            freshness["static_publication_nonpublic_delta_paths"],
+            ["shardloom-vortex/src/lib.rs"],
+        )
+
     def test_benchmark_publication_claim_gate_blocks_dirty_lane_versions(self) -> None:
         module = self._load_script_module(
             "check_benchmark_publication_claim_gate.py",
@@ -5634,10 +5925,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertTrue(
-            str(packet["next_implementation_slice"]).startswith("`PERF-DESIGN-2`"),
-            packet["next_implementation_slice"],
-        )
+        self.assertEqual(packet["next_implementation_slice"], "none")
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def _optimization_target_rows(self) -> list[dict[str, object]]:
@@ -6673,6 +6961,16 @@ class ReleaseScriptTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
+            commands["pre_5j_dependency_freshness_gate"],
+            [
+                "/tool/python3.12",
+                "scripts/check_pre_5j_dependency_freshness.py",
+                "--require-live-github",
+                "--output",
+                "target/pre-5j-dependency-freshness-gate.json",
+            ],
+        )
+        self.assertEqual(
             commands["release_dry_run_proof"],
             [
                 "/tool/python3.12",
@@ -6802,6 +7100,22 @@ class ReleaseScriptTests(unittest.TestCase):
             module.validation_command_passed(
                 {expected + "0": "passed"},
                 expected,
+            )
+        )
+        pre_5j_expected = "python scripts/check_pre_5j_dependency_freshness.py"
+        self.assertTrue(
+            module.validation_command_passed(
+                {
+                    pre_5j_expected
+                    + " --require-live-github --output target/pre-5j-dependency-freshness-gate.json": "passed"
+                },
+                pre_5j_expected,
+            )
+        )
+        self.assertFalse(
+            module.validation_command_passed(
+                {pre_5j_expected + " --require-live-github": "failed"},
+                pre_5j_expected,
             )
         )
 

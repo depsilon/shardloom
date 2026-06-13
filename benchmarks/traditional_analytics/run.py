@@ -377,6 +377,8 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "source_columnar_materialized_row_count",
     "source_columnar_record_batch_count",
     "source_columnar_row_materialization_status",
+    "source_columnar_projection_pushdown_status",
+    "source_columnar_projection_pushdown_provider",
     "source_columnar_null_validity_status",
     "source_columnar_unsupported_dtype_reason",
     "source_columnar_handoff_micros",
@@ -716,6 +718,9 @@ RESIDUAL_OPERATOR_OPTIMIZATION_FIELDS = (
     "residual_operator_sparse_rollover_used",
     "residual_operator_dense_max_key",
     "residual_operator_dense_slot_budget",
+    "residual_operator_dimension_membership_status",
+    "residual_operator_dimension_membership_key_count",
+    "residual_operator_dimension_membership_max_key",
     "residual_operator_optimization_claim_boundary",
     "residual_operator_optimization_fallback_attempted",
     "residual_operator_optimization_external_engine_invoked",
@@ -732,6 +737,8 @@ RESIDUAL_OPERATOR_OPTIMIZATION_INTEGER_FIELDS = frozenset(
     {
         "residual_operator_dense_max_key",
         "residual_operator_dense_slot_budget",
+        "residual_operator_dimension_membership_key_count",
+        "residual_operator_dimension_membership_max_key",
     }
 )
 FUSED_PIPELINE_FIELDS = (
@@ -20321,6 +20328,12 @@ def source_read_scout_stage_metrics(
         or 0,
         "source_columnar_row_materialization_status": evidence.get(
             "source_columnar_row_materialization_status", default_status
+        ),
+        "source_columnar_projection_pushdown_status": evidence.get(
+            "source_columnar_projection_pushdown_status", default_status
+        ),
+        "source_columnar_projection_pushdown_provider": evidence.get(
+            "source_columnar_projection_pushdown_provider", default_status
         ),
         "source_columnar_null_validity_status": evidence.get(
             "source_columnar_null_validity_status", default_status
