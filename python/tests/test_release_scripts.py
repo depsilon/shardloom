@@ -7244,6 +7244,14 @@ class ReleaseScriptTests(unittest.TestCase):
                         ),
                         "required_status": "passed",
                     },
+                    {
+                        "report_id": "python_user_surface",
+                        "path": "target/python-user-surface-completion-gate.json",
+                        "schema_version": (
+                            "shardloom.python_user_surface_completion_gate.v1"
+                        ),
+                        "required_status": "passed",
+                    },
                 ],
                 "expected_counts": {
                     "front_door_supported_rows": (
@@ -7268,6 +7276,9 @@ class ReleaseScriptTests(unittest.TestCase):
                     "output_formats": module.EXPECTED_OUTPUT_FORMATS,
                     "output_write_methods": module.EXPECTED_OUTPUT_WRITE_METHODS,
                     "output_routes": module.EXPECTED_OUTPUT_ROUTE_IDS,
+                    "python_user_surface_method_rows": (
+                        module.EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS
+                    ),
                     "golden_workflows": len(module.EXPECTED_GOLDEN_WORKFLOWS),
                     "golden_stage_count_min": module.EXPECTED_GOLDEN_STAGE_COUNT_MIN,
                     "executable_fixtures": module.EXPECTED_EXECUTABLE_FIXTURES,
@@ -7377,6 +7388,35 @@ class ReleaseScriptTests(unittest.TestCase):
             }
             for case_id in sorted(module.REQUIRED_UNSUPPORTED_CASE_IDS)
         ]
+        required_operation_methods = sorted(
+            {
+                method
+                for row in module.REQUIRED_OPERATION_COVERAGE_ROWS.values()
+                for method in row["python_methods"]
+            }
+        )
+        method_rows = [
+            {
+                "method": method,
+                "support_status": "fixture_smoke_supported",
+                "claim_gate_status": "not_claim_grade",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+            }
+            for method in required_operation_methods
+        ]
+        method_rows.extend(
+            {
+                "method": f"fixture_extra_{index}",
+                "support_status": "fixture_auxiliary_supported",
+                "claim_gate_status": "not_claim_grade",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+            }
+            for index in range(
+                module.EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS - len(method_rows)
+            )
+        )
         write(
             paths.golden_workflow,
             {
@@ -7437,6 +7477,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 ],
                 "example_scenario_ids": sorted(module.EXPECTED_EXAMPLE_SCENARIOS),
                 "expected_error_scenario_ids": sorted(module.EXPECTED_ERROR_SCENARIOS),
+                "all_no_fallback_no_external_engine": True,
                 "performance_equivalence_claim_allowed": False,
                 **false_fields,
             },
@@ -7455,6 +7496,21 @@ class ReleaseScriptTests(unittest.TestCase):
                 ),
                 "local_vortex_primitive_v1_scope_ready": True,
                 "user_route_v1_vortex_scope_ready": True,
+                **false_fields,
+            },
+        )
+        write(
+            paths.python_user_surface,
+            {
+                "schema_version": "shardloom.python_user_surface_completion_gate.v1",
+                "status": "passed",
+                "blockers": [],
+                "scoped_python_front_door_claim_allowed": True,
+                "method_matrix_row_count": (
+                    module.EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS
+                ),
+                "method_matrix_rows": method_rows,
+                "claim_gate_status": "not_claim_grade",
                 **false_fields,
             },
         )
@@ -7524,6 +7580,7 @@ class ReleaseScriptTests(unittest.TestCase):
             report = module.build_report(repo_root, module.ReportPaths())
 
         self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["input_report_count"], 7)
         self.assertTrue(report["correctness_claim_allowed"])
         self.assertTrue(report["decoded_reference_differential_execution_performed"])
         self.assertTrue(report["property_execution_performed"])
@@ -7577,6 +7634,33 @@ class ReleaseScriptTests(unittest.TestCase):
                 "required_unsupported_stage_diagnostic_field_count"
             ],
             len(module.REQUIRED_UNSUPPORTED_CASE_IDS),
+        )
+        self.assertEqual(
+            report["summaries"]["python_user_surface"][
+                "method_matrix_row_list_count"
+            ],
+            module.EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,
+        )
+        self.assertEqual(
+            report["summaries"]["python_user_surface"][
+                "required_operation_method_count"
+            ],
+            module.REQUIRED_OPERATION_UNIQUE_PYTHON_METHOD_COUNT,
+        )
+        self.assertEqual(
+            report["summaries"]["operation_coverage"][
+                "operation_coverage_row_count"
+            ],
+            module.REQUIRED_OPERATION_COVERAGE_ROW_COUNT,
+        )
+        self.assertEqual(
+            report["summaries"]["operation_coverage"][
+                "operation_coverage_python_method_link_count"
+            ],
+            module.REQUIRED_OPERATION_PYTHON_METHOD_LINK_COUNT,
+        )
+        self.assertTrue(
+            all(row["status"] == "passed" for row in report["operation_coverage_rows"])
         )
 
     def test_v1_correctness_conformance_gate_fails_missing_semantic_case(self) -> None:
@@ -7750,6 +7834,81 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "runtime_error_numeric_division_by_zero fallback_attempted must be false"
+                in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_missing_python_accessor(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_missing_python_method_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            python_path = repo_root / module.ReportPaths().python_user_surface
+            python_surface = json.loads(python_path.read_text(encoding="utf-8"))
+            python_surface["method_matrix_rows"] = [
+                row
+                for row in python_surface["method_matrix_rows"]
+                if row["method"] != "nlargest"
+            ]
+            python_surface["method_matrix_rows"].append(
+                {
+                    "method": "fixture_replacement_for_nlargest",
+                    "support_status": "fixture_auxiliary_supported",
+                    "claim_gate_status": "not_claim_grade",
+                    "fallback_attempted": False,
+                    "external_engine_invoked": False,
+                }
+            )
+            python_path.write_text(json.dumps(python_surface), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "python_user_surface: missing required operation methods nlargest"
+                in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+        self.assertTrue(
+            any(
+                "operation_coverage: global_top_n: missing Python methods nlargest"
+                in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_missing_front_door_scenario(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_missing_front_door_scenario_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            front_door_path = repo_root / module.ReportPaths().front_door
+            front_door = json.loads(front_door_path.read_text(encoding="utf-8"))
+            front_door["example_scenario_ids"].remove("hash_join")
+            front_door_path.write_text(json.dumps(front_door), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "operation_coverage: hash_join: missing front-door example scenario"
                 in blocker
                 for blocker in report["blockers"]
             ),

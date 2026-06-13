@@ -49,6 +49,7 @@ EXPECTED_SOURCE_INVALIDATION_CASES = 9
 EXPECTED_OUTPUT_FORMATS = 7
 EXPECTED_OUTPUT_WRITE_METHODS = 9
 EXPECTED_OUTPUT_ROUTE_IDS = 8
+EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS = 113
 
 EXPECTED_GOLDEN_WORKFLOWS = {
     "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
@@ -125,6 +126,97 @@ REQUIRED_UNSUPPORTED_CASE_IDS = {
     "runtime_error_numeric_division_by_zero",
 }
 
+REQUIRED_OPERATION_COVERAGE_ROWS = {
+    "selective_filter": {
+        "semantic_case_ids": (
+            "predicate_projection_three_valued",
+            "null_safe_comparison_predicate_semantics",
+        ),
+        "unsupported_case_ids": (),
+        "python_methods": ("read_csv", "filter", "select", "limit", "collect"),
+    },
+    "filter_projection_limit": {
+        "semantic_case_ids": (
+            "predicate_projection_three_valued",
+            "order_by_explicit_null_ordering",
+        ),
+        "unsupported_case_ids": (),
+        "python_methods": ("read_csv", "filter", "select", "limit", "collect"),
+    },
+    "group_by_aggregation": {
+        "semantic_case_ids": (
+            "aggregate_having_output_rows",
+            "distinct_count_grouped",
+        ),
+        "unsupported_case_ids": (),
+        "python_methods": ("read_csv", "filter", "group_by", "agg", "limit", "collect"),
+    },
+    "hash_join": {
+        "semantic_case_ids": (
+            "join_scalar_expression_condition",
+            "join_multi_key_expression_condition",
+        ),
+        "unsupported_case_ids": (),
+        "python_methods": ("read_csv", "join", "select", "limit", "collect"),
+    },
+    "global_top_n": {
+        "semantic_case_ids": ("order_by_explicit_null_ordering",),
+        "unsupported_case_ids": (),
+        "python_methods": ("read_csv", "select", "nlargest", "collect"),
+    },
+    "clean_cast_filter_write": {
+        "semantic_case_ids": (
+            "try_cast_projection_null_on_invalid",
+            "decimal_cast_projection_predicate",
+        ),
+        "unsupported_case_ids": (),
+        "python_methods": ("read_csv", "with_column", "filter", "limit", "write_vortex"),
+    },
+    "malformed_timestamp_cast": {
+        "semantic_case_ids": ("try_cast_projection_null_on_invalid",),
+        "unsupported_case_ids": (
+            "unsupported_timezone_database_policy",
+            "unsupported_timestamptz_policy",
+        ),
+        "python_methods": ("read_csv", "with_column", "limit", "collect"),
+    },
+    "null_heavy_aggregate": {
+        "semantic_case_ids": (
+            "null_coalesce_nullif",
+            "distinct_count_grouped",
+            "aggregate_having_output_rows",
+        ),
+        "unsupported_case_ids": (),
+        "python_methods": ("read_csv", "dropna", "group_by", "agg", "limit", "collect"),
+    },
+    "nested_json_field_scan": {
+        "semantic_case_ids": (
+            "string_transform_length_utf8",
+            "like_predicate_utf8",
+        ),
+        "unsupported_case_ids": (),
+        "python_methods": ("read_json", "filter", "select", "limit", "collect"),
+    },
+}
+
+REQUIRED_OPERATION_COVERAGE_ROW_COUNT = len(REQUIRED_OPERATION_COVERAGE_ROWS)
+REQUIRED_OPERATION_SEMANTIC_LINK_COUNT = sum(
+    len(row["semantic_case_ids"]) for row in REQUIRED_OPERATION_COVERAGE_ROWS.values()
+)
+REQUIRED_OPERATION_UNSUPPORTED_LINK_COUNT = sum(
+    len(row["unsupported_case_ids"]) for row in REQUIRED_OPERATION_COVERAGE_ROWS.values()
+)
+REQUIRED_OPERATION_PYTHON_METHOD_LINK_COUNT = sum(
+    len(row["python_methods"]) for row in REQUIRED_OPERATION_COVERAGE_ROWS.values()
+)
+REQUIRED_OPERATION_UNIQUE_PYTHON_METHOD_COUNT = len(
+    {
+        method
+        for row in REQUIRED_OPERATION_COVERAGE_ROWS.values()
+        for method in row["python_methods"]
+    }
+)
+
 FALSE_REPORT_FIELDS = (
     "public_release_claim_allowed",
     "public_package_claim_allowed",
@@ -147,6 +239,7 @@ class ReportPaths:
     vortex_runtime: Path = Path("target/v1-vortex-runtime-scope-report.json")
     source_prepared_state: Path = Path("target/v1-source-prepared-state-scope-report.json")
     local_output_sink: Path = Path("target/v1-local-output-sink-scope-report.json")
+    python_user_surface: Path = Path("target/python-user-surface-completion-gate.json")
 
 
 def parse_args() -> argparse.Namespace:
@@ -170,6 +263,11 @@ def parse_args() -> argparse.Namespace:
         "--local-output-sink-report",
         type=Path,
         default=ReportPaths.local_output_sink,
+    )
+    parser.add_argument(
+        "--python-user-surface-report",
+        type=Path,
+        default=ReportPaths.python_user_surface,
     )
     parser.add_argument(
         "--output",
@@ -256,6 +354,7 @@ def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         "output_formats": EXPECTED_OUTPUT_FORMATS,
         "output_write_methods": EXPECTED_OUTPUT_WRITE_METHODS,
         "output_routes": EXPECTED_OUTPUT_ROUTE_IDS,
+        "python_user_surface_method_rows": EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,
         "golden_workflows": len(EXPECTED_GOLDEN_WORKFLOWS),
         "golden_stage_count_min": EXPECTED_GOLDEN_STAGE_COUNT_MIN,
         "executable_fixtures": EXPECTED_EXECUTABLE_FIXTURES,
@@ -311,6 +410,11 @@ def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         "local_output_sink": {
             "path": "target/v1-local-output-sink-scope-report.json",
             "schema_version": "shardloom.v1_local_output_sink_scope_report.v1",
+            "required_status": "passed",
+        },
+        "python_user_surface": {
+            "path": "target/python-user-surface-completion-gate.json",
+            "schema_version": "shardloom.python_user_surface_completion_gate.v1",
             "required_status": "passed",
         },
     }
@@ -682,6 +786,8 @@ def _validate_front_door(payload: dict[str, Any]) -> tuple[dict[str, Any], list[
     missing_errors = _missing(payload.get("expected_error_scenario_ids"), EXPECTED_ERROR_SCENARIOS)
     if missing_errors:
         blockers.append("front_door: missing expected error scenarios " + ",".join(missing_errors))
+    if payload.get("all_no_fallback_no_external_engine") is not True:
+        blockers.append("front_door: all_no_fallback_no_external_engine must be true")
     if payload.get("performance_equivalence_claim_allowed") is not False:
         blockers.append("front_door: performance_equivalence_claim_allowed must be false")
     return {
@@ -767,6 +873,67 @@ def _validate_output(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]
         "benchmark_rows_with_required_fields": payload.get(
             "local_output_sink_benchmark_rows_with_required_fields"
         ),
+    }, blockers
+
+
+def _validate_python_user_surface(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    blockers = _expect_status(
+        payload,
+        "python_user_surface",
+        "shardloom.python_user_surface_completion_gate.v1",
+    )
+    if payload.get("scoped_python_front_door_claim_allowed") is not True:
+        blockers.append("python_user_surface: scoped_python_front_door_claim_allowed must be true")
+    if payload.get("method_matrix_row_count") != EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS:
+        blockers.append(
+            "python_user_surface: method_matrix_row_count="
+            + str(payload.get("method_matrix_row_count", "missing"))
+        )
+    rows = payload.get("method_matrix_rows", [])
+    if not isinstance(rows, list):
+        blockers.append("python_user_surface: method_matrix_rows must be a list")
+        rows = []
+    if len(rows) != EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS:
+        blockers.append(
+            "python_user_surface: method_matrix_rows count="
+            + str(len(rows))
+        )
+    method_rows = {
+        str(row.get("method")): row
+        for row in rows
+        if isinstance(row, dict) and row.get("method")
+    }
+    required_methods = {
+        method
+        for row in REQUIRED_OPERATION_COVERAGE_ROWS.values()
+        for method in row["python_methods"]
+    }
+    missing_methods = sorted(required_methods - method_rows.keys())
+    if missing_methods:
+        blockers.append(
+            "python_user_surface: missing required operation methods "
+            + ",".join(missing_methods)
+        )
+    for method in sorted(required_methods & method_rows.keys()):
+        row = method_rows[method]
+        if row.get("fallback_attempted") is not False:
+            blockers.append(f"python_user_surface: {method} fallback_attempted must be false")
+        if row.get("external_engine_invoked") is not False:
+            blockers.append(
+                f"python_user_surface: {method} external_engine_invoked must be false"
+            )
+        if row.get("claim_gate_status") != "not_claim_grade":
+            blockers.append(
+                f"python_user_surface: {method} claim_gate_status="
+                + str(row.get("claim_gate_status", "missing"))
+            )
+        if not str(row.get("support_status", "")).strip():
+            blockers.append(f"python_user_surface: {method} support_status is required")
+    return {
+        "method_matrix_row_count": payload.get("method_matrix_row_count"),
+        "method_matrix_row_list_count": len(rows),
+        "required_operation_method_count": len(required_methods),
+        "required_operation_method_rows_present": len(required_methods & method_rows.keys()),
     }, blockers
 
 
@@ -856,6 +1023,206 @@ def _validate_admitted(payload: dict[str, Any]) -> tuple[dict[str, Any], list[st
     }, blockers
 
 
+def _stage_by_case_id(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    stages = payload.get("stages", [])
+    return {
+        str(stage.get("case_id")): stage
+        for stage in stages
+        if isinstance(stage, dict) and stage.get("case_id")
+    }
+
+
+def _python_method_rows(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    rows = payload.get("method_matrix_rows", [])
+    if not isinstance(rows, list):
+        return {}
+    return {
+        str(row.get("method")): row
+        for row in rows
+        if isinstance(row, dict) and row.get("method")
+    }
+
+
+def _semantic_stage_has_output_digest(stage: dict[str, Any]) -> bool:
+    return (
+        _is_hex_digest(stage.get("expected_output_digest"), "sha256:", 64)
+        and _is_hex_digest(stage.get("observed_output_digest"), "sha256:", 64)
+        and stage.get("expected_output_digest") == stage.get("observed_output_digest")
+        and stage.get("expected_output_digest_source")
+        in SEMANTIC_EXPECTED_OUTPUT_DIGEST_SOURCES
+        and stage.get("observed_output_digest_source")
+        in SEMANTIC_OBSERVED_OUTPUT_DIGEST_SOURCES
+    )
+
+
+def _unsupported_stage_has_diagnostic(stage: dict[str, Any]) -> bool:
+    return (
+        stage.get("kind") in UNSUPPORTED_STAGE_KINDS
+        and isinstance(stage.get("diagnostic_code"), str)
+        and bool(stage.get("diagnostic_code"))
+        and isinstance(stage.get("diagnostic_fragment"), str)
+        and bool(stage.get("diagnostic_fragment"))
+    )
+
+
+def _validate_operation_coverage(
+    *,
+    admitted_semantics: dict[str, Any] | None,
+    front_door: dict[str, Any] | None,
+    python_user_surface: dict[str, Any] | None,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[str]]:
+    blockers: list[str] = []
+    rows: list[dict[str, Any]] = []
+    front_door_scenarios = set(
+        str(value)
+        for value in (front_door or {}).get("example_scenario_ids", [])
+    )
+    expected_error_scenarios = set(
+        str(value)
+        for value in (front_door or {}).get("expected_error_scenario_ids", [])
+    )
+    stage_by_id = _stage_by_case_id(admitted_semantics or {})
+    method_rows = _python_method_rows(python_user_surface or {})
+
+    semantic_link_count = 0
+    unsupported_link_count = 0
+    python_method_link_count = 0
+    output_digest_row_count = 0
+    diagnostic_row_count = 0
+    no_fallback_row_count = 0
+    python_method_rows_present = 0
+
+    for operation_id, spec in sorted(REQUIRED_OPERATION_COVERAGE_ROWS.items()):
+        semantic_case_ids = tuple(spec["semantic_case_ids"])
+        unsupported_case_ids = tuple(spec["unsupported_case_ids"])
+        python_methods = tuple(spec["python_methods"])
+        semantic_link_count += len(semantic_case_ids)
+        unsupported_link_count += len(unsupported_case_ids)
+        python_method_link_count += len(python_methods)
+
+        row_blockers: list[str] = []
+        if operation_id not in front_door_scenarios:
+            row_blockers.append("missing front-door example scenario")
+        if operation_id in EXPECTED_ERROR_SCENARIOS and operation_id not in expected_error_scenarios:
+            row_blockers.append("missing expected-error scenario marker")
+        if operation_id not in EXPECTED_ERROR_SCENARIOS and operation_id in expected_error_scenarios:
+            row_blockers.append("unexpected expected-error scenario marker")
+
+        semantic_stages = [stage_by_id.get(case_id) for case_id in semantic_case_ids]
+        missing_semantics = [
+            case_id
+            for case_id, stage in zip(semantic_case_ids, semantic_stages)
+            if stage is None
+        ]
+        if missing_semantics:
+            row_blockers.append("missing semantic cases " + ",".join(missing_semantics))
+        semantic_output_ok = bool(semantic_stages) and all(
+            isinstance(stage, dict)
+            and stage.get("fallback_attempted") is False
+            and stage.get("external_engine_invoked") is False
+            and _semantic_stage_has_output_digest(stage)
+            for stage in semantic_stages
+        )
+        if not semantic_output_ok:
+            row_blockers.append("semantic output digest evidence incomplete")
+
+        unsupported_stages = [stage_by_id.get(case_id) for case_id in unsupported_case_ids]
+        missing_unsupported = [
+            case_id
+            for case_id, stage in zip(unsupported_case_ids, unsupported_stages)
+            if stage is None
+        ]
+        if missing_unsupported:
+            row_blockers.append(
+                "missing unsupported/error cases " + ",".join(missing_unsupported)
+            )
+        unsupported_ok = all(
+            isinstance(stage, dict)
+            and stage.get("fallback_attempted") is False
+            and stage.get("external_engine_invoked") is False
+            and _unsupported_stage_has_diagnostic(stage)
+            for stage in unsupported_stages
+        )
+        if unsupported_case_ids and unsupported_ok:
+            diagnostic_row_count += 1
+        if unsupported_case_ids and not unsupported_ok:
+            row_blockers.append("unsupported/error diagnostic evidence incomplete")
+
+        missing_methods = [method for method in python_methods if method not in method_rows]
+        if missing_methods:
+            row_blockers.append("missing Python methods " + ",".join(missing_methods))
+        method_ok_count = 0
+        for method in python_methods:
+            method_row = method_rows.get(method)
+            if not isinstance(method_row, dict):
+                continue
+            if (
+                method_row.get("fallback_attempted") is False
+                and method_row.get("external_engine_invoked") is False
+                and method_row.get("claim_gate_status") == "not_claim_grade"
+                and str(method_row.get("support_status", "")).strip()
+            ):
+                method_ok_count += 1
+        python_method_rows_present += method_ok_count
+        if method_ok_count != len(python_methods):
+            row_blockers.append("Python accessor evidence incomplete")
+
+        no_fallback_ok = (
+            (front_door or {}).get("all_no_fallback_no_external_engine") is True
+            and (python_user_surface or {}).get("fallback_attempted") is False
+            and (python_user_surface or {}).get("external_engine_invoked") is False
+            and all(
+                isinstance(stage, dict)
+                and stage.get("fallback_attempted") is False
+                and stage.get("external_engine_invoked") is False
+                for stage in [*semantic_stages, *unsupported_stages]
+                if stage is not None
+            )
+        )
+        if no_fallback_ok:
+            no_fallback_row_count += 1
+        else:
+            row_blockers.append("no-fallback evidence incomplete")
+        if semantic_output_ok:
+            output_digest_row_count += 1
+
+        rows.append(
+            {
+                "operation_id": operation_id,
+                "front_door_scenario_id": operation_id,
+                "expected_error": operation_id in EXPECTED_ERROR_SCENARIOS,
+                "semantic_case_ids": list(semantic_case_ids),
+                "unsupported_case_ids": list(unsupported_case_ids),
+                "python_methods": list(python_methods),
+                "semantic_output_digest_evidence_complete": semantic_output_ok,
+                "unsupported_diagnostic_evidence_complete": (
+                    unsupported_ok if unsupported_case_ids else None
+                ),
+                "python_accessor_evidence_complete": method_ok_count == len(python_methods),
+                "no_fallback_evidence_complete": no_fallback_ok,
+                "status": "passed" if not row_blockers else "failed",
+                "blockers": row_blockers,
+            }
+        )
+        blockers.extend(
+            f"operation_coverage: {operation_id}: {blocker}" for blocker in row_blockers
+        )
+
+    summary = {
+        "operation_coverage_status": "passed" if not blockers else "failed",
+        "operation_coverage_row_count": len(rows),
+        "operation_coverage_semantic_link_count": semantic_link_count,
+        "operation_coverage_unsupported_link_count": unsupported_link_count,
+        "operation_coverage_python_method_link_count": python_method_link_count,
+        "operation_coverage_unique_python_method_count": REQUIRED_OPERATION_UNIQUE_PYTHON_METHOD_COUNT,
+        "operation_coverage_output_digest_row_count": output_digest_row_count,
+        "operation_coverage_diagnostic_row_count": diagnostic_row_count,
+        "operation_coverage_python_method_rows_present": python_method_rows_present,
+        "operation_coverage_no_fallback_row_count": no_fallback_row_count,
+    }
+    return summary, rows, blockers
+
+
 def build_report(
     repo_root: Path,
     paths: ReportPaths,
@@ -878,6 +1245,7 @@ def build_report(
         ("vortex_runtime", paths.vortex_runtime),
         ("source_prepared_state", paths.source_prepared_state),
         ("local_output_sink", paths.local_output_sink),
+        ("python_user_surface", paths.python_user_surface),
     ]:
         payload, report_blockers, ref = _load_report(repo_root, path)
         inputs[key] = payload
@@ -892,6 +1260,7 @@ def build_report(
         "local_output_sink": _validate_output,
         "golden_workflow": _validate_golden,
         "admitted_semantics": _validate_admitted,
+        "python_user_surface": _validate_python_user_surface,
     }
     for key, validator in validators.items():
         payload = inputs[key]
@@ -900,6 +1269,16 @@ def build_report(
         summary, report_blockers = validator(payload)
         summaries[key] = summary
         blockers.extend(report_blockers)
+
+    operation_coverage_summary, operation_coverage_rows, operation_coverage_blockers = (
+        _validate_operation_coverage(
+            admitted_semantics=inputs.get("admitted_semantics"),
+            front_door=inputs.get("front_door"),
+            python_user_surface=inputs.get("python_user_surface"),
+        )
+    )
+    summaries["operation_coverage"] = operation_coverage_summary
+    blockers.extend(operation_coverage_blockers)
 
     matrix_passed = matrix is not None and not matrix_blockers and not matrix_validation_blockers
     passed = not blockers
@@ -941,6 +1320,7 @@ def build_report(
             "property_execution_performed",
         ),
         "summaries": summaries,
+        "operation_coverage_rows": operation_coverage_rows,
         "residual_unsupported_rows": {
             "front_door": _report_list(inputs, "front_door", "broad_pending_parity_row_ids"),
             "vortex_runtime": _report_list(inputs, "vortex_runtime", "unsupported_boundary_ids"),
@@ -984,6 +1364,7 @@ def main() -> int:
         vortex_runtime=args.vortex_runtime_report,
         source_prepared_state=args.source_prepared_state_report,
         local_output_sink=args.local_output_sink_report,
+        python_user_surface=args.python_user_surface_report,
     )
     report = build_report(repo_root, paths, args.matrix)
     output = resolve_path(repo_root, args.output)
