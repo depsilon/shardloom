@@ -213,6 +213,15 @@ Current autonomous execution order:
     `TraditionalVortexSourceSnapshot` keyed with the PulseWeave split-inventory key, so
     `session_source_metadata_cache_*` evidence corresponds to a real metadata/digest snapshot cache
     rather than repeated per-child snapshot reconstruction.
+  - Progress: the child-route source snapshot cache is now seeded from the session-open
+    `TraditionalVortexSourceSnapshot`, reports `session_source_metadata_cache_seed_*` evidence, and
+    only rebuilds metadata snapshots for child source-role keys that genuinely differ, such as
+    CDC-only children.
+  - Progress: prepared/native batch runs now prewarm every reused source-state family before child
+    route execution, not just fact-metric state, and report
+    `source_state_family_prewarm_*` evidence so dimension-label, category, group-category, ranked,
+    selective-filter, dirty-input, and date/null metric reuse does not silently tax the first child
+    route.
   - Verification: focused Rust session/PulseWeave tests, targeted repeated warm/native/prepared
     benchmark, optimization-target validator, claim gate, and broad Rust validation when behavior
     changes.

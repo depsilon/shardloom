@@ -468,6 +468,13 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "source_state_lazy_family_construction",
     "source_state_family_build_timing_scope",
     "source_state_family_build_count",
+    "source_state_family_prewarm_status",
+    "source_state_family_prewarm_eligible_count",
+    "source_state_family_prewarm_count",
+    "source_state_family_prewarm_already_prepared_count",
+    "source_state_family_prewarm_prepared_before_child_route_count",
+    "source_state_family_prewarm_micros",
+    "source_state_family_prewarm_scope",
     "source_state_family_reuse_hit_count",
     "source_state_family_reuse_hit",
     "source_state_family_recompute_avoided",
@@ -1036,6 +1043,13 @@ BATCH_RUNNER_ADMISSION_FIELDS = (
     "source_state_lazy_family_construction",
     "source_state_family_build_timing_scope",
     "source_state_family_build_count",
+    "source_state_family_prewarm_status",
+    "source_state_family_prewarm_eligible_count",
+    "source_state_family_prewarm_count",
+    "source_state_family_prewarm_already_prepared_count",
+    "source_state_family_prewarm_prepared_before_child_route_count",
+    "source_state_family_prewarm_micros",
+    "source_state_family_prewarm_scope",
     "source_state_family_reuse_hit_count",
     "source_state_family_reuse_hit",
     "source_state_family_recompute_avoided",
@@ -1819,6 +1833,9 @@ SESSION_RUNTIME_FIELDS = (
     "session_prepared_artifact_cache_hit_count",
     "session_prepared_artifact_cache_miss_count",
     "session_prepared_artifact_reuse_count",
+    "session_source_metadata_cache_seed_status",
+    "session_source_metadata_cache_seed_count",
+    "session_source_metadata_cache_seed_scope",
     "session_source_metadata_cache_hit_count",
     "session_source_metadata_cache_miss_count",
     "session_source_state_cache_hit_count",
@@ -6983,6 +7000,10 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         return None
     if field == "source_state_family_build_timing_scope":
         return "not_reported_by_engine"
+    if field == "source_state_family_prewarm_status":
+        return "not_reported_by_engine"
+    if field == "source_state_family_prewarm_scope":
+        return "not_reported_by_engine"
     if field in {
         "source_admission_policy_micros",
         "source_admission_full_content_digest_micros",
@@ -6992,6 +7013,11 @@ def stage_timing_contract_default(field: str, row_status: str) -> Any:
         "source_state_manifest_validation_micros",
         "source_state_row_count_metadata_micros",
         "source_state_family_build_micros",
+        "source_state_family_prewarm_eligible_count",
+        "source_state_family_prewarm_count",
+        "source_state_family_prewarm_already_prepared_count",
+        "source_state_family_prewarm_prepared_before_child_route_count",
+        "source_state_family_prewarm_micros",
         "source_state_family_build_count",
         "source_state_family_reuse_hit_count",
         "source_state_digest_micros",
