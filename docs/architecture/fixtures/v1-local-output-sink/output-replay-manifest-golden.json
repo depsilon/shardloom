@@ -1,0 +1,23 @@
+{
+  "claim_gate_status": "not_claim_grade",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "manifest_fields": [
+    "output_route",
+    "output_native_io_certificate_status",
+    "computed_result_sink_native_io_certificate_status",
+    "computed_result_sink_replay_verified",
+    "output_materialization_required",
+    "output_plan_digest",
+    "result_sink_write_millis",
+    "sink_timing_included_in_route_total",
+    "timing_surface",
+    "fallback_attempted",
+    "external_engine_invoked"
+  ],
+  "metadata_loss_reporting": "required_for_compatibility_exports",
+  "native_output_priority": "vortex_highest_fidelity",
+  "replay_requirement": "required_for_result_sink_rows",
+  "schema_version": "shardloom.v1_local_output_sink_replay_manifest.v1",
+  "scope_document": "docs/architecture/v1-local-output-sink-scope.md"
+}

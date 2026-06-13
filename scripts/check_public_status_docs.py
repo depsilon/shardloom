@@ -37,6 +37,12 @@ from check_v1_source_prepared_state_scope import (
 from check_v1_source_prepared_state_scope import (
     build_report as build_v1_source_prepared_state_scope_report,
 )
+from check_v1_local_output_sink_scope import (
+    SCHEMA_VERSION as V1_LOCAL_OUTPUT_SINK_SCOPE_SCHEMA_VERSION,
+)
+from check_v1_local_output_sink_scope import (
+    build_report as build_v1_local_output_sink_scope_report,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -124,6 +130,14 @@ PUBLIC_DOC_MARKERS = {
         "UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
         "workspace_manifest_local_vortex_artifacts",
         "global_hidden_cache",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ),
+    "docs/architecture/v1-local-output-sink-scope.md": (
+        "shardloom.v1_local_output_sink_scope.v1",
+        "ShardLoomContext.local_output_sink_scope_report()",
+        "write_vortex",
+        "append_mode_unsupported",
         "fallback_attempted=false",
         "external_engine_invoked=false",
     ),
@@ -233,6 +247,17 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             f"v1 SourceState/prepared-state scope: {blocker}"
             for blocker in v1_source_prepared_state_scope_report.get("blockers", [])
         )
+    v1_local_output_sink_scope_report = build_v1_local_output_sink_scope_report(repo_root)
+    if (
+        v1_local_output_sink_scope_report.get("schema_version")
+        != V1_LOCAL_OUTPUT_SINK_SCOPE_SCHEMA_VERSION
+    ):
+        blockers.append("v1 local output/sink scope report schema mismatch")
+    if v1_local_output_sink_scope_report.get("status") != "passed":
+        blockers.extend(
+            f"v1 local output/sink scope: {blocker}"
+            for blocker in v1_local_output_sink_scope_report.get("blockers", [])
+        )
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -257,6 +282,11 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "v1_source_prepared_state_scope_report": v1_source_prepared_state_scope_report,
         "v1_source_prepared_state_scope_status": (
             v1_source_prepared_state_scope_report.get("status", "missing")
+        ),
+        "v1_local_output_sink_scope_report": v1_local_output_sink_scope_report,
+        "v1_local_output_sink_scope_status": v1_local_output_sink_scope_report.get(
+            "status",
+            "missing",
         ),
         "claim_gate_status": "not_claim_grade",
         "blockers": blockers,

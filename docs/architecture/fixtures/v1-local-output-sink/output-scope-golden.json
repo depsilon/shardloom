@@ -1,0 +1,38 @@
+{
+  "claim_gate_status": "not_claim_grade",
+  "default_output_formats": [
+    "jsonl",
+    "csv"
+  ],
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "feature_gated_output_formats": [
+    "parquet",
+    "arrow-ipc",
+    "avro",
+    "orc",
+    "vortex"
+  ],
+  "schema_version": "shardloom.v1_local_output_sink_scope_golden.v1",
+  "scope_document": "docs/architecture/v1-local-output-sink-scope.md",
+  "supported_output_formats": [
+    "jsonl",
+    "csv",
+    "parquet",
+    "arrow-ipc",
+    "avro",
+    "orc",
+    "vortex"
+  ],
+  "user_write_methods": [
+    "write",
+    "write_jsonl",
+    "write_csv",
+    "write_parquet",
+    "write_arrow_ipc",
+    "write_avro",
+    "write_orc",
+    "write_vortex",
+    "fanout"
+  ]
+}
