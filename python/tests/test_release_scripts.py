@@ -3647,7 +3647,14 @@ class ReleaseScriptTests(unittest.TestCase):
                 "admitted_incremental_publication_proof_sidecar",
             )
             self.assertEqual(third["publication_proof_sidecar_written_record_count"], 1)
-            self.assertEqual(third["publication_proof_sidecar_stale_record_count"], 1)
+            self.assertEqual(third["publication_proof_sidecar_stale_record_count"], 0)
+            changed_sidecar = json.loads(
+                (output_dir / module.PUBLICATION_PROOF_SIDECAR_NAME).read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(changed_sidecar["stale_record_count"], 0)
+            self.assertEqual(changed_sidecar["removed_stale_record_count"], 1)
 
     def test_benchmark_promoter_demotes_claim_grade_without_cold_lane_split(self) -> None:
         module = self._load_script_module(

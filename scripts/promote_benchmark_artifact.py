@@ -1789,18 +1789,20 @@ def publication_proof_sidecar_payload(
             record["reuse_status"] = "written_publication_proof_record"
             written += 1
     current_ids = {str(record["record_id"]) for record in records}
-    stale = sorted(set(existing_records) - current_ids)
+    obsolete = sorted(set(existing_records) - current_ids)
     return {
         "schema_version": PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "record_count": len(records),
         "reused_record_count": reused,
         "written_record_count": written,
-        "stale_record_count": len(stale),
-        "stale_record_ids": stale,
+        "stale_record_count": 0,
+        "stale_record_ids": [],
+        "removed_stale_record_count": len(obsolete),
+        "removed_stale_record_ids": obsolete,
         "resume_status": (
             "reused_existing_publication_proof_sidecar"
-            if records and reused == len(records) and written == 0 and not stale
+            if records and reused == len(records) and written == 0 and not obsolete
             else "admitted_incremental_publication_proof_sidecar"
             if records
             else "not_applicable_no_publication_proof_rows"
