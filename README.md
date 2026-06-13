@@ -9,9 +9,9 @@ around explicit routes and evidence fields that show what ran: source admission,
 preparation, execution mode, output planning, certificates, fallback status, and claim-gate status.
 
 ShardLoom is not an official Vortex project and is not Vortex-endorsed. It does not claim production
-readiness, public performance superiority, Apache Spark displacement, broad SQL/DataFrame support,
-production object-store or lakehouse support, production Foundry support, package publication
-readiness, or hidden external fallback.
+readiness, public performance superiority, broad engine replacement or Apache Spark displacement,
+broad SQL/DataFrame support, production object-store or lakehouse support, production Foundry
+support, package publication readiness, or hidden external fallback.
 
 ## First Read
 
@@ -23,6 +23,7 @@ Use this README as the entry point, then follow the source that matches your que
 | How to install and run a local smoke | [Install](docs/getting-started/install.md), [first 10 minutes](docs/getting-started/first-10-minutes.md), [examples](docs/getting-started/examples.md) |
 | How routes, evidence, and claims fit together | [Compute flow](https://shardloom.io/compute-engine-flow), [canonical compute-flow reference](docs/architecture/compute-engine-flow-reference.md) |
 | What public support claims are currently allowed | [Public status matrix](docs/release/public-status-matrix.md) |
+| What finished-product v1 currently means | [Finished product scope](docs/release/finished-product-scope.md) |
 | What the benchmark page is actually showing | [Benchmarks](https://shardloom.io/benchmarks), [local benchmark taxonomy](docs/benchmarks/local-taxonomy-benchmark.md) |
 | What is planned or incomplete | [Phased execution plan](docs/architecture/phased-execution-plan.md) |
 | What has already landed | [Completed ledger](docs/architecture/phased-execution-completed-ledger.md) |

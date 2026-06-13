@@ -16,6 +16,87 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-0A finished-product v1 public claim boundary
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-0A` in `docs/architecture/phased-execution-plan.md`.
+    - `README.md`.
+    - `docs/release/public-status-matrix.md`.
+    - `docs/release/known-unsupported-paths.md`.
+    - `docs/release/per-claim-evidence-attachment-matrix.md`.
+  - Branch/PR: `codex/v1-product-claim-boundaries` / #1209.
+  - Scope:
+    - Added `docs/release/finished-product-scope.md` as the v1 public claim-boundary source,
+      defining ShardLoom v1 as Vortex-first, no-fallback, and evidence-certified only for
+      explicitly supported local/runtime surfaces and broader families that close with evidence.
+    - Reframed the per-claim evidence matrix around scoped ShardLoom v1 rows:
+      `local_runtime_product_claim`, `api_schema_stability_claim`,
+      `supported_front_door_scope_claim`, `supported_vortex_route_claim`,
+      `supported_output_sink_claim`, `security_supply_chain_claim`, and
+      `external_baseline_comparison_claim`.
+    - Current matrix markers:
+      - `per_claim_evidence_attachment_matrix_row_count=15`
+      - `per_claim_evidence_attachment_matrix_blocking_row_count=15`
+      - `per_claim_evidence_attachment_matrix_missing_attachment_count=135`
+      - `per_claim_evidence_attachment_matrix_required_v1_row_count=7`
+      - `per_claim_evidence_attachment_matrix_out_of_v1_row_count=6`
+      - `per_claim_evidence_attachment_matrix_all_claims_blocked=true`
+      - `per_claim_evidence_attachment_matrix_public_release_claim_allowed=false`
+      - `per_claim_evidence_attachment_matrix_public_package_claim_allowed=false`
+      - `per_claim_evidence_attachment_matrix_performance_claim_allowed=false`
+      - `per_claim_evidence_attachment_matrix_performance_superiority_claim_allowed=false`
+      - `per_claim_evidence_attachment_matrix_spark_displacement_claim_allowed=false`
+      - `per_claim_evidence_attachment_matrix_engine_replacement_claim_allowed=false`
+      - `per_claim_evidence_attachment_matrix_external_baseline_context_allowed=true`
+      - `per_claim_evidence_attachment_matrix_fallback_attempted=false`
+      - `per_claim_evidence_attachment_matrix_external_engine_invoked=false`
+    - Kept `performance_superiority_claim`, `spark_displacement_claim`,
+      `engine_replacement_claim`, `production_sql_dataframe_claim`,
+      `object_store_lakehouse_claim`, and `foundry_platform_claim` as explicitly blocked
+      out-of-v1 or historical rows.
+    - Added `scripts/check_public_claim_language.py` and wired it into
+      `scripts/check_public_status_docs.py` so public wording rejects positive replacement,
+      drop-in parity, performance superiority, production platform, or broad SQL/DataFrame parity
+      language unless framed as blocked/unsupported/baseline/history/no-fallback policy.
+    - Updated README, public status, known unsupported paths, website source, and generated static
+      pages so unsupported surfaces read as honest v1 boundaries rather than accidental blockers.
+    - Preserved allowed external-engine contexts for no-fallback policy, unsupported diagnostics,
+      benchmark baselines, migration/oracle references, and historical RFC/ledger content.
+  - ShardLoom technique review:
+    - The scope doc requires future support rows to record PulseWeave, capillary work-unit,
+      dynamic admission/work-shaping, metadata-first execution, encoded/late-materialization,
+      Vortex-native, timing-surface, and evidence-tier decisions before support claims are
+      accepted.
+  - Accepted intake rows:
+    - Finished-product v1 scope definition.
+    - Scoped public claim row split.
+    - External-engine term allowlist by context.
+    - Public-language drift validator.
+  - Already-addressed rows reused rather than duplicated:
+    - No-fallback policy evidence.
+    - Known unsupported paths.
+    - Package-channel readiness gating.
+    - Benchmark publication and claim-gate surfaces.
+  - Deferred rows:
+    - Public package/release claims remain blocked until release-channel evidence closes.
+    - Superiority, Spark displacement, broad engine replacement, production SQL/DataFrame,
+      object-store/lakehouse, and Foundry/platform claims remain out-of-v1 unless a future
+      implementation row promotes them with evidence.
+  - Evidence:
+    - `python3 scripts/check_public_claim_language.py` passed.
+    - `python3 scripts/check_public_status_docs.py` passed.
+    - `python3 scripts/check_website_readiness.py` passed.
+    - `python3 scripts/check_release_readiness.py --allow-blocked` passed; the per-claim matrix
+      checker was blocked only by the intentional `not_claim_grade` release state.
+    - `python3 scripts/check_ci_gate_matrix.py` passed.
+    - `python3 -m py_compile scripts/check_public_claim_language.py scripts/check_public_status_docs.py scripts/check_release_readiness.py python/tests/test_release_scripts.py` passed.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_public_claim_language_accepts_allowed_external_engine_contexts python.tests.test_release_scripts.ReleaseScriptTests.test_public_claim_language_blocks_positive_replacement_wording python.tests.test_release_scripts.ReleaseScriptTests.test_public_claim_language_requires_v1_claim_rows python.tests.test_release_scripts.ReleaseScriptTests.test_public_status_docs_validator_accepts_required_markers python.tests.test_release_scripts.ReleaseScriptTests.test_public_status_docs_validator_blocks_missing_marker` passed.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This session authorizes only the claim that v1 public scope and public wording are
+      fail-closed, validator-backed, and ShardLoom-scoped.
+  - Fallback boundary:
+    - No external engine was introduced or described as ShardLoom fallback.
 - [x] Session label: RELEASE-PACKAGE-15 clean-source benchmark publication refresh
   - Date: 2026-06-13
   - Source:

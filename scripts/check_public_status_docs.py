@@ -15,6 +15,10 @@ from release_report_utils import (
     resolve_path,
     write_json,
 )
+from check_public_claim_language import (
+    SCHEMA_VERSION as PUBLIC_CLAIM_LANGUAGE_SCHEMA_VERSION,
+)
+from check_public_claim_language import build_report as build_public_claim_language_report
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,11 +28,16 @@ PUBLIC_STATUS_REF = Path("docs/release/public-status-matrix.md")
 CANONICAL_PUBLIC_STATUS_MARKERS = (
     "shardloom.public_status_matrix.v1",
     "canonical public status and claim-boundary owner",
+    "docs/release/finished-product-scope.md",
     "public_release_claim_allowed=false",
     "public_package_claim_allowed=false",
     "performance_claim_allowed=false",
+    "performance_superiority_claim_allowed=false",
     "production_claim_allowed=false",
     "spark_replacement_claim_allowed=false",
+    "broad_engine_replacement_claim_allowed=false",
+    "drop_in_replacement_claim_allowed=false",
+    "production_platform_claim_allowed=false",
     "publication_attempted=false",
     "tag_created=false",
     "package_upload_attempted=false",
@@ -39,6 +48,7 @@ CANONICAL_PUBLIC_STATUS_MARKERS = (
 PUBLIC_DOC_MARKERS = {
     "README.md": (
         PUBLIC_STATUS_REF.as_posix(),
+        "docs/release/finished-product-scope.md",
         "Current Support Posture",
         "package-channel evidence is still gated",
     ),
@@ -124,12 +134,23 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         )
         checked_docs.append(rel_path)
 
+    claim_language_report = build_public_claim_language_report(repo_root)
+    if claim_language_report.get("schema_version") != PUBLIC_CLAIM_LANGUAGE_SCHEMA_VERSION:
+        blockers.append("public claim-language report schema mismatch")
+    if claim_language_report.get("status") != "passed":
+        blockers.extend(
+            f"public claim language: {blocker}"
+            for blocker in claim_language_report.get("blockers", [])
+        )
+
     return {
         "schema_version": SCHEMA_VERSION,
         "status": "passed" if not blockers else "failed",
         "canonical_public_status_matrix": PUBLIC_STATUS_REF.as_posix(),
         "checked_docs": checked_docs,
         "checked_doc_count": len(checked_docs),
+        "public_claim_language_report": claim_language_report,
+        "public_claim_language_status": claim_language_report.get("status", "missing"),
         "claim_gate_status": "not_claim_grade",
         "blockers": blockers,
         **fail_closed_fields(),

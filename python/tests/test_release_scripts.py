@@ -6087,7 +6087,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-0A` Finished v1 product scope and public claim-boundary cleanup.",
+            "`PROD-V1-0B` V1 inclusion-first queue classification and unsupported-surface firewall.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -7594,6 +7594,68 @@ jobs:
             path = repo_root / rel_path
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("\n".join(markers) + "\n", encoding="utf-8")
+        claim_module = self._load_script_module(
+            "check_public_claim_language.py",
+            "check_public_claim_language_public_status_fixture",
+        )
+        self._write_public_claim_language_fixture(claim_module, repo_root)
+
+    def _write_public_claim_language_fixture(
+        self,
+        module: object,
+        repo_root: Path,
+        *,
+        omit_v1_row: str | None = None,
+    ) -> None:
+        v1_rows = [
+            row for row in module.REQUIRED_V1_CLAIM_ROWS if row != omit_v1_row
+        ]
+        release_rows = list(module.REQUIRED_RELEASE_CLAIM_ROWS)
+        out_of_v1_rows = list(module.OUT_OF_V1_CLAIM_ROWS)
+        finished_scope = "\n".join(
+            [
+                "shardloom.finished_product_scope.v1",
+                "Vortex-first",
+                "no-fallback",
+                "Required V1 Claim Rows",
+                *v1_rows,
+                *release_rows,
+                "Out-of-V1 Claim Rows",
+                *out_of_v1_rows,
+                "Allowed External Engine Contexts",
+                "PulseWeave",
+                "capillary",
+                "dynamic admission",
+                "timing-surface",
+                "evidence-tier",
+            ]
+        )
+        per_claim = "\n".join(
+            [
+                "shardloom.per_claim_evidence_attachment_matrix.v1",
+                "per_claim_evidence_attachment_matrix_required_v1_row_count=7",
+                "per_claim_evidence_attachment_matrix_out_of_v1_row_count=6",
+                "per_claim_evidence_attachment_matrix_external_baseline_context_allowed=true",
+                "per_claim_evidence_attachment_matrix_performance_superiority_claim_allowed=false",
+                "per_claim_evidence_attachment_matrix_spark_displacement_claim_allowed=false",
+                "per_claim_evidence_attachment_matrix_engine_replacement_claim_allowed=false",
+                *v1_rows,
+                *release_rows,
+                *out_of_v1_rows,
+            ]
+        )
+        public_status = "\n".join(module.PUBLIC_STATUS_MARKERS)
+        unsupported = "\n".join(module.KNOWN_UNSUPPORTED_MARKERS)
+        for rel_path, text in {
+            module.FINISHED_PRODUCT_SCOPE.as_posix(): finished_scope,
+            module.PER_CLAIM_MATRIX.as_posix(): per_claim,
+            module.PUBLIC_STATUS_MATRIX.as_posix(): public_status,
+            module.KNOWN_UNSUPPORTED_PATHS.as_posix(): unsupported,
+        }.items():
+            path = repo_root / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            existing = path.read_text(encoding="utf-8") if path.exists() else ""
+            path.write_text(existing + text + "\n", encoding="utf-8")
 
     def test_public_status_docs_validator_accepts_required_markers(self) -> None:
         module = self._load_script_module(
@@ -7616,6 +7678,7 @@ jobs:
         self.assertFalse(report["performance_claim_allowed"])
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
+        self.assertEqual(report["public_claim_language_status"], "passed")
 
     def test_public_status_docs_validator_blocks_missing_marker(self) -> None:
         module = self._load_script_module(
@@ -7638,6 +7701,84 @@ jobs:
                 "README.md: missing marker" in blocker
                 for blocker in report["blockers"]
             )
+        )
+
+    def test_public_claim_language_accepts_allowed_external_engine_contexts(self) -> None:
+        module = self._load_script_module(
+            "check_public_claim_language.py",
+            "check_public_claim_language_allowed_contexts_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_public_claim_language_fixture(module, repo_root)
+            fixtures = {
+                "README.md": (
+                    "ShardLoom does not claim Spark displacement. External engines are "
+                    "baseline labels only.\n"
+                ),
+                "docs/getting-started/no-fallback.md": (
+                    "Spark and DuckDB names appear in no-fallback policy and unsupported "
+                    "diagnostics only.\n"
+                ),
+                "docs/use-cases/oracle.md": (
+                    "Polars may be a test oracle; no fallback execution is allowed.\n"
+                ),
+                "docs/rfcs/0001-historical.md": (
+                    "Historical RFC text says ShardLoom is a Spark replacement target.\n"
+                ),
+            }
+            for rel_path, text in fixtures.items():
+                path = repo_root / rel_path
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text, encoding="utf-8")
+            report = module.build_report(
+                repo_root,
+                scan_paths=tuple(fixtures.keys()),
+            )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+
+    def test_public_claim_language_blocks_positive_replacement_wording(self) -> None:
+        module = self._load_script_module(
+            "check_public_claim_language.py",
+            "check_public_claim_language_replacement_blocker_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_public_claim_language_fixture(module, repo_root)
+            (repo_root / "README.md").write_text(
+                "ShardLoom is a Spark replacement for local analytics.\n",
+                encoding="utf-8",
+            )
+            report = module.build_report(repo_root, scan_paths=("README.md",))
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any("external_engine_replacement" in blocker for blocker in report["blockers"])
+        )
+
+    def test_public_claim_language_requires_v1_claim_rows(self) -> None:
+        module = self._load_script_module(
+            "check_public_claim_language.py",
+            "check_public_claim_language_missing_row_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_public_claim_language_fixture(
+                module,
+                repo_root,
+                omit_v1_row="supported_output_sink_claim",
+            )
+            report = module.build_report(repo_root, scan_paths=())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any("supported_output_sink_claim" in blocker for blocker in report["blockers"])
         )
 
     def test_release_evidence_artifact_merge_restores_repo_relative_refs(self) -> None:

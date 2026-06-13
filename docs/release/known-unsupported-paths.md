@@ -6,8 +6,13 @@ Status: release-gate input. This document scopes public claims and does not auth
 behavior.
 
 ShardLoom currently exposes a certified local Vortex analytics slice and evidence-first planning
-surfaces. It must not be described as a broad replacement for every SQL, DataFrame, streaming,
-object-store, platform, or Foundry workload until those paths have claim-grade evidence.
+surfaces. These unsupported surfaces are explicit boundaries, not accidental blockers to the
+finished-product v1 support rows. A surface is outside the current finished-product v1 support boundary
+until a matching phase-plan item closes with implementation, correctness, benchmark, security,
+documentation, and no-fallback evidence.
+
+ShardLoom must not be described as a broad replacement for every SQL, DataFrame, streaming,
+object-store, platform, or Foundry workload until those exact paths have claim-grade evidence.
 
 ## Unsupported Or Future Before Public Claims
 
