@@ -7290,6 +7290,10 @@ class ReleaseScriptTests(unittest.TestCase):
                     "invalid_shape_diagnostics": (
                         module.EXPECTED_INVALID_SHAPE_DIAGNOSTICS
                     ),
+                    "property_lanes": module.EXPECTED_PROPERTY_LANE_COUNT,
+                    "deterministic_fuzz_cases": (
+                        module.EXPECTED_DETERMINISTIC_FUZZ_CASES
+                    ),
                     "admitted_stage_count_min": module.EXPECTED_ADMITTED_STAGE_COUNT_MIN,
                     "admitted_validator_cases": module.EXPECTED_ADMITTED_VALIDATOR_CASES,
                     "admitted_required_runtime_rows": (
@@ -7327,7 +7331,9 @@ class ReleaseScriptTests(unittest.TestCase):
                         "reason": "fixture",
                     },
                     {
-                        "gap_id": "general_fuzz_beyond_seeded_property_lane",
+                        "gap_id": (
+                            "general_fuzz_beyond_deterministic_v1_property_fuzz_lanes"
+                        ),
                         "v1_closeout_status": (
                             "not_required_for_current_v1_correctness_claim"
                         ),
@@ -7477,6 +7483,12 @@ class ReleaseScriptTests(unittest.TestCase):
                     module.EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS
                 ),
                 "property_execution_performed": True,
+                "property_lane_count": module.EXPECTED_PROPERTY_LANE_COUNT,
+                "deterministic_fuzz_execution_performed": True,
+                "deterministic_fuzz_case_count": (
+                    module.EXPECTED_DETERMINISTIC_FUZZ_CASES
+                ),
+                "fuzz_case_ids": sorted(module.REQUIRED_FUZZ_CASE_IDS),
                 "decoded_reference_differential_execution_performed": True,
                 "semantic_conformance_suite_status": "passed",
                 "correctness_harness_boundary_status": "passed",
@@ -7484,7 +7496,6 @@ class ReleaseScriptTests(unittest.TestCase):
                 "unsupported_case_ids": unsupported_cases,
                 "runtime_error_case_ids": runtime_error_cases,
                 "invalid_shape_case_ids": invalid_shape_cases,
-                "property_lane_count": 1,
                 "remaining_matrix_gaps": [],
                 "stages": semantic_stage_rows + unsupported_stage_rows,
                 **false_fields,
@@ -7566,10 +7577,9 @@ class ReleaseScriptTests(unittest.TestCase):
                     f"generated-{index}"
                     for index in range(module.EXPECTED_SOURCE_GENERATED_ROUTE_IDS)
                 ],
-                "invalidation_case_ids": [
-                    f"invalidation-{index}"
-                    for index in range(module.EXPECTED_SOURCE_INVALIDATION_CASES)
-                ],
+                "invalidation_case_ids": sorted(
+                    module.REQUIRED_SOURCE_INVALIDATION_CASE_IDS
+                ),
                 "source_prepared_benchmark_required_fields_ready": True,
                 "source_prepared_benchmark_rows_with_required_fields": 1080,
                 **false_fields,
@@ -7614,6 +7624,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertTrue(report["correctness_claim_allowed"])
         self.assertTrue(report["decoded_reference_differential_execution_performed"])
         self.assertTrue(report["property_execution_performed"])
+        self.assertTrue(report["deterministic_fuzz_execution_performed"])
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
         self.assertEqual(
@@ -7680,6 +7691,16 @@ class ReleaseScriptTests(unittest.TestCase):
                 "deterministic_unsupported_oracle_row_count"
             ],
             module.EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS,
+        )
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"][
+                "deterministic_fuzz_case_count"
+            ],
+            module.EXPECTED_DETERMINISTIC_FUZZ_CASES,
+        )
+        self.assertEqual(
+            set(report["summaries"]["source_prepared_state"]["invalidation_case_ids"]),
+            module.REQUIRED_SOURCE_INVALIDATION_CASE_IDS,
         )
         self.assertEqual(
             report["summaries"]["python_user_surface"][
@@ -7762,6 +7783,31 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "decimal_arithmetic_projection decoded_reference_digest must be sha256-prefixed"
+                in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_missing_fuzz_case(self) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_missing_fuzz_case_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            admitted_path = repo_root / module.ReportPaths().admitted_semantics
+            admitted = json.loads(admitted_path.read_text(encoding="utf-8"))
+            admitted["fuzz_case_ids"].remove("route_selection_join_fuzz_seed_20260615")
+            admitted_path.write_text(json.dumps(admitted), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "missing deterministic fuzz cases route_selection_join_fuzz_seed_20260615"
                 in blocker
                 for blocker in report["blockers"]
             ),
@@ -7956,6 +8002,33 @@ class ReleaseScriptTests(unittest.TestCase):
             any(
                 "operation_coverage: hash_join: missing front-door example scenario"
                 in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_invalidation_case_drift(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_invalidation_drift_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            source_path = repo_root / module.ReportPaths().source_prepared_state
+            source = json.loads(source_path.read_text(encoding="utf-8"))
+            source["invalidation_case_ids"].remove("corrupted_manifest")
+            source["invalidation_case_ids"].append("fixture_replacement_case")
+            source_path.write_text(json.dumps(source), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "source_prepared_state: invalidation_case_ids mismatch" in blocker
                 for blocker in report["blockers"]
             ),
             report["blockers"],

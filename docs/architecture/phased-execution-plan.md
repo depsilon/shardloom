@@ -197,7 +197,7 @@ with a recorded infeasibility reason, not merely because they are broad.
     diagnostic stage evidence, public-operation scenario/accessor cross-links, and no fallback/
     external-engine execution markers, but the admitted semantics report still records residual
     broader ANSI subquery parity, external-oracle artifact population, and general fuzz execution
-    beyond the deterministic seeded property lane.
+    beyond the deterministic v1 property/fuzz lanes.
   - Intake review: accepted the expanded correctness/conformance matrix; use external engines only
     as explicit test oracles where already allowed, never runtime fallback.
   - V1 scope classification: `required_for_v1`.
@@ -226,11 +226,11 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [ ] Add property tests for filters, projections, limits, supported joins, supported
       aggregates, supported sort/top-N, supported subqueries, supported string/temporal/decimal/
       binary functions, and supported output formats.
-    - [ ] Add fuzz tests for SQL parsing subset, expression parsing, route selection, output
+    - [x] Add fuzz tests for SQL parsing subset, expression parsing, route selection, output
       writer policy, and manifest/reuse invalidation.
     - [ ] Add replay verification for all golden workflows, docs-example execution tests, Python
       README example tests, website example tests, and failure fixtures for unsupported operations.
-    - [ ] Add tests proving unsupported operations never call fallback engines.
+    - [x] Add tests proving unsupported operations never call fallback engines.
     - [ ] Move correctness matrix closeout and command evidence to the completed ledger.
   - Next outcome: v1 support is defined by executable correctness evidence, not doc claims.
   - User-visible surface: docs examples, README examples, Python API, CLI, golden workflows,
