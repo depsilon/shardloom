@@ -190,11 +190,11 @@ with a recorded infeasibility reason, not merely because they are broad.
   - Source: attached production-shift review section 8; RFC 0015; admitted semantics matrix;
     golden workflows; docs/example execution tests; current production usability gate.
   - Current state: golden workflows, admitted semantics evidence, scoped front-door/Vortex/source
-    state/output-sink reports, and the v1 correctness/conformance aggregate gate exist. The
-    aggregate gate passes for the current declared v1 scope and proves no fallback/external-engine
-    execution markers, but the admitted semantics report still records residual broader ANSI
-    subquery parity, external-oracle artifact population, and general fuzz execution beyond the
-    deterministic seeded property lane.
+    state/output-sink reports, the checked-in v1 correctness/conformance matrix, and the v1
+    correctness/conformance aggregate gate exist. The aggregate gate passes for the current
+    declared v1 scope and proves no fallback/external-engine execution markers, but the admitted
+    semantics report still records residual broader ANSI subquery parity, external-oracle artifact
+    population, and general fuzz execution beyond the deterministic seeded property lane.
   - Intake review: accepted the expanded correctness/conformance matrix; use external engines only
     as explicit test oracles where already allowed, never runtime fallback.
   - V1 scope classification: `required_for_v1`.
@@ -208,7 +208,7 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [x] Wire the aggregate gate into release-readiness, release validation evidence command
       inventory, CI matrix drift validation, GitHub Actions release-readiness artifacts, and hard
       release gate documentation.
-    - [ ] Define the v1 correctness matrix from the scoped front-door, Vortex, source-state, and
+    - [x] Define the v1 correctness matrix from the scoped front-door, Vortex, source-state, and
       output-sink scope docs.
     - [ ] Ensure every v1-supported operation has fixture tests, semantic conformance rows,
       expected output digests, no-fallback proof, and Python accessor coverage where exposed.

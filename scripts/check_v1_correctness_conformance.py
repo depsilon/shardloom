@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Validate the v1 correctness and conformance closeout evidence.
 
-This is an aggregate gate over existing reports. It does not execute runtime
-work, invoke external engines, publish packages, create tags, or make release
-claims. Producer jobs must generate the input reports first.
+This is an aggregate gate over the checked-in v1 correctness matrix and existing
+reports. It does not execute runtime work, invoke external engines, publish
+packages, create tags, or make release claims. Producer jobs must generate the
+input reports first.
 """
 
 from __future__ import annotations
@@ -19,7 +20,9 @@ from release_report_utils import fail_closed_fields, load_json, resolve_path, wr
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.v1_correctness_conformance_report.v1"
+MATRIX_SCHEMA_VERSION = "shardloom.v1_correctness_conformance_matrix.v1"
 GATE_ID = "prod-v1-2b.correctness_conformance"
+DEFAULT_MATRIX = Path("docs/release/v1-correctness-conformance-matrix.json")
 
 EXPECTED_FRONT_DOOR_SUPPORTED_ROWS = 7
 EXPECTED_FRONT_DOOR_PENDING_ROWS = 4
@@ -135,6 +138,7 @@ class ReportPaths:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, default=ROOT)
+    parser.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
     parser.add_argument("--golden-workflow-report", type=Path, default=ReportPaths.golden_workflow)
     parser.add_argument(
         "--admitted-semantics-report",
@@ -169,6 +173,202 @@ def _load_report(repo_root: Path, path: Path) -> tuple[dict[str, Any] | None, li
     if not isinstance(payload, dict):
         return None, [f"{path.as_posix()}: report is not an object"], path.as_posix()
     return payload, [], path.as_posix()
+
+
+def _load_matrix(repo_root: Path, path: Path) -> tuple[dict[str, Any] | None, list[str], str]:
+    resolved = resolve_path(repo_root, path)
+    if not resolved.exists():
+        return None, [f"missing matrix: {path.as_posix()}"], path.as_posix()
+    payload = load_json(resolved)
+    if not isinstance(payload, dict):
+        return None, [f"{path.as_posix()}: matrix is not an object"], path.as_posix()
+    return payload, [], path.as_posix()
+
+
+def _matrix_set(payload: dict[str, Any], field: str) -> set[str]:
+    value = payload.get(field, [])
+    return {str(item) for item in value} if isinstance(value, list) else set()
+
+
+def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    blockers: list[str] = []
+    if matrix.get("schema_version") != MATRIX_SCHEMA_VERSION:
+        blockers.append(
+            "matrix schema_version="
+            + str(matrix.get("schema_version", "missing"))
+        )
+    if matrix.get("matrix_id") != GATE_ID:
+        blockers.append("matrix matrix_id=" + str(matrix.get("matrix_id", "missing")))
+    if matrix.get("status") != "v1_correctness_scope_declared":
+        blockers.append("matrix status=" + str(matrix.get("status", "missing")))
+    for field in [
+        "public_release_claim_allowed",
+        "public_package_claim_allowed",
+        "performance_claim_allowed",
+        "production_claim_allowed",
+        "spark_replacement_claim_allowed",
+        "runtime_execution",
+        "publication_attempted",
+        "tag_created",
+        "package_upload_attempted",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ]:
+        if matrix.get(field) is not False:
+            blockers.append(f"matrix {field} must be false")
+    if matrix.get("correctness_claim_requires_report") is not True:
+        blockers.append("matrix correctness_claim_requires_report must be true")
+    if matrix.get("external_engines_allowed_as_oracles_only") is not True:
+        blockers.append("matrix external_engines_allowed_as_oracles_only must be true")
+    if matrix.get("external_oracle_required_for_v1") is not False:
+        blockers.append("matrix external_oracle_required_for_v1 must be false")
+
+    expected_counts = matrix.get("expected_counts")
+    if not isinstance(expected_counts, dict):
+        blockers.append("matrix expected_counts must be an object")
+        expected_counts = {}
+    for field, expected in {
+        "front_door_supported_rows": EXPECTED_FRONT_DOOR_SUPPORTED_ROWS,
+        "front_door_pending_rows": EXPECTED_FRONT_DOOR_PENDING_ROWS,
+        "front_door_example_scenarios": len(EXPECTED_EXAMPLE_SCENARIOS),
+        "front_door_expected_error_scenarios": len(EXPECTED_ERROR_SCENARIOS),
+        "vortex_primitive_routes": EXPECTED_VORTEX_PRIMITIVE_ROUTES,
+        "vortex_local_file_routes": EXPECTED_VORTEX_LOCAL_FILE_ROUTES,
+        "source_input_formats": EXPECTED_SOURCE_INPUT_FORMATS,
+        "source_prepared_routes": EXPECTED_SOURCE_PREPARED_ROUTE_IDS,
+        "source_direct_routes": EXPECTED_SOURCE_DIRECT_ROUTE_IDS,
+        "source_generated_routes": EXPECTED_SOURCE_GENERATED_ROUTE_IDS,
+        "source_invalidation_cases": EXPECTED_SOURCE_INVALIDATION_CASES,
+        "output_formats": EXPECTED_OUTPUT_FORMATS,
+        "output_write_methods": EXPECTED_OUTPUT_WRITE_METHODS,
+        "output_routes": EXPECTED_OUTPUT_ROUTE_IDS,
+        "golden_workflows": len(EXPECTED_GOLDEN_WORKFLOWS),
+        "golden_stage_count_min": EXPECTED_GOLDEN_STAGE_COUNT_MIN,
+        "executable_fixtures": EXPECTED_EXECUTABLE_FIXTURES,
+        "diagnostic_cases": EXPECTED_DIAGNOSTIC_CASES,
+        "unsupported_diagnostics": EXPECTED_UNSUPPORTED_DIAGNOSTICS,
+        "runtime_error_diagnostics": EXPECTED_RUNTIME_ERROR_DIAGNOSTICS,
+        "invalid_shape_diagnostics": EXPECTED_INVALID_SHAPE_DIAGNOSTICS,
+        "admitted_stage_count_min": EXPECTED_ADMITTED_STAGE_COUNT_MIN,
+    }.items():
+        if expected_counts.get(field) != expected:
+            blockers.append(f"matrix expected_counts.{field}={expected_counts.get(field)}")
+
+    for field, expected in [
+        ("front_door_example_scenario_ids", EXPECTED_EXAMPLE_SCENARIOS),
+        ("front_door_expected_error_scenario_ids", EXPECTED_ERROR_SCENARIOS),
+        ("golden_workflow_ids", EXPECTED_GOLDEN_WORKFLOWS),
+        ("required_semantic_case_ids", REQUIRED_SEMANTIC_CASE_IDS),
+        ("required_unsupported_case_ids", REQUIRED_UNSUPPORTED_CASE_IDS),
+    ]:
+        observed = _matrix_set(matrix, field)
+        if observed != expected:
+            blockers.append(
+                f"matrix {field} mismatch: missing={sorted(expected - observed)} "
+                + f"extra={sorted(observed - expected)}"
+            )
+
+    expected_inputs = {
+        "golden_workflow": {
+            "path": "target/golden-workflow-report.json",
+            "schema_version": "shardloom.golden_workflow_validation_report.v1",
+            "required_status": "passed",
+        },
+        "admitted_semantics": {
+            "path": "target/admitted-semantics-matrix-report.json",
+            "schema_version": "shardloom.admitted_semantics_matrix_report.v1",
+            "required_status": "passed",
+        },
+        "front_door": {
+            "path": "target/v1-front-door-runtime-scope-report.json",
+            "schema_version": "shardloom.v1_front_door_runtime_scope_report.v1",
+            "required_status": "passed",
+        },
+        "vortex_runtime": {
+            "path": "target/v1-vortex-runtime-scope-report.json",
+            "schema_version": "shardloom.v1_vortex_runtime_scope_report.v1",
+            "required_status": "passed",
+        },
+        "source_prepared_state": {
+            "path": "target/v1-source-prepared-state-scope-report.json",
+            "schema_version": "shardloom.v1_source_prepared_state_scope_report.v1",
+            "required_status": "passed",
+        },
+        "local_output_sink": {
+            "path": "target/v1-local-output-sink-scope-report.json",
+            "schema_version": "shardloom.v1_local_output_sink_scope_report.v1",
+            "required_status": "passed",
+        },
+    }
+    report_inputs = matrix.get("report_inputs")
+    if not isinstance(report_inputs, list):
+        blockers.append("matrix report_inputs must be a list")
+        report_inputs = []
+    observed_inputs = {
+        str(row.get("report_id")): {
+            "path": str(row.get("path")),
+            "schema_version": str(row.get("schema_version")),
+            "required_status": str(row.get("required_status")),
+        }
+        for row in report_inputs
+        if isinstance(row, dict)
+    }
+    if observed_inputs != expected_inputs:
+        blockers.append(
+            "matrix report_inputs mismatch: "
+            + f"observed={observed_inputs}"
+        )
+
+    residual_gaps = matrix.get("residual_gap_dispositions")
+    if not isinstance(residual_gaps, list):
+        blockers.append("matrix residual_gap_dispositions must be a list")
+        residual_gaps = []
+    expected_gap_ids = {
+        "broad_ansi_subquery_parity_beyond_admitted_v1_scope",
+        "external_oracle_result_artifact_population",
+        "general_fuzz_beyond_seeded_property_lane",
+    }
+    observed_gap_ids = {
+        str(row.get("gap_id"))
+        for row in residual_gaps
+        if isinstance(row, dict)
+    }
+    if observed_gap_ids != expected_gap_ids:
+        blockers.append(
+            "matrix residual_gap_dispositions mismatch: "
+            + f"missing={sorted(expected_gap_ids - observed_gap_ids)} "
+            + f"extra={sorted(observed_gap_ids - expected_gap_ids)}"
+        )
+    for row in residual_gaps:
+        if not isinstance(row, dict):
+            continue
+        if row.get("v1_closeout_status") not in {
+            "outside_declared_v1_scope",
+            "not_required_for_current_v1_correctness_claim",
+        }:
+            blockers.append(
+                "matrix residual gap "
+                + str(row.get("gap_id", "missing"))
+                + " has invalid v1_closeout_status"
+            )
+        if not row.get("reason"):
+            blockers.append(
+                "matrix residual gap "
+                + str(row.get("gap_id", "missing"))
+                + " missing reason"
+            )
+
+    return {
+        "schema_version": matrix.get("schema_version"),
+        "matrix_id": matrix.get("matrix_id"),
+        "expected_count_field_count": len(expected_counts),
+        "required_semantic_case_count": len(_matrix_set(matrix, "required_semantic_case_ids")),
+        "required_unsupported_case_count": len(
+            _matrix_set(matrix, "required_unsupported_case_ids")
+        ),
+        "report_input_count": len(observed_inputs),
+        "residual_gap_count": len(observed_gap_ids),
+    }, blockers
 
 
 def _expect_false(
@@ -404,10 +604,21 @@ def _validate_admitted(payload: dict[str, Any]) -> tuple[dict[str, Any], list[st
     }, blockers
 
 
-def build_report(repo_root: Path, paths: ReportPaths) -> dict[str, Any]:
+def build_report(
+    repo_root: Path,
+    paths: ReportPaths,
+    matrix_path: Path = DEFAULT_MATRIX,
+) -> dict[str, Any]:
     inputs: dict[str, dict[str, Any] | None] = {}
     refs: dict[str, str] = {}
     blockers: list[str] = []
+    matrix, matrix_blockers, matrix_ref = _load_matrix(repo_root, matrix_path)
+    blockers.extend(f"matrix: {blocker}" for blocker in matrix_blockers)
+    matrix_summary: dict[str, Any] = {}
+    matrix_validation_blockers: list[str] = []
+    if matrix is not None:
+        matrix_summary, matrix_validation_blockers = _validate_matrix(matrix)
+        blockers.extend(matrix_validation_blockers)
     for key, path in [
         ("golden_workflow", paths.golden_workflow),
         ("admitted_semantics", paths.admitted_semantics),
@@ -438,12 +649,16 @@ def build_report(repo_root: Path, paths: ReportPaths) -> dict[str, Any]:
         summaries[key] = summary
         blockers.extend(report_blockers)
 
+    matrix_passed = matrix is not None and not matrix_blockers and not matrix_validation_blockers
     passed = not blockers
     report = {
         "schema_version": SCHEMA_VERSION,
         "gate_id": GATE_ID,
         "status": "passed" if passed else "failed",
         "blockers": blockers,
+        "matrix_ref": matrix_ref,
+        "matrix_status": "passed" if matrix_passed else "failed",
+        "matrix_summary": matrix_summary,
         "input_report_refs": refs,
         "input_report_count": len(refs),
         "v1_correctness_matrix_status": "passed" if passed else "failed",
@@ -518,7 +733,7 @@ def main() -> int:
         source_prepared_state=args.source_prepared_state_report,
         local_output_sink=args.local_output_sink_report,
     )
-    report = build_report(repo_root, paths)
+    report = build_report(repo_root, paths, args.matrix)
     output = resolve_path(repo_root, args.output)
     write_json(output, report)
     print(output)

@@ -587,9 +587,12 @@ grade, or public API/schema claims without the remaining publication rows.
 
 ```text
 python scripts\check_v1_correctness_conformance.py
+docs/release/v1-correctness-conformance-matrix.json
 target/v1-correctness-conformance-report.json
+shardloom.v1_correctness_conformance_matrix.v1
 shardloom.v1_correctness_conformance_report.v1
 input_report_count=6
+matrix_status=passed
 v1_correctness_matrix_status=passed
 scope_report_status=passed
 golden_workflow_validator_status=passed

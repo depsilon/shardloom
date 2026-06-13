@@ -1,0 +1,165 @@
+{
+  "schema_version": "shardloom.v1_correctness_conformance_matrix.v1",
+  "matrix_id": "prod-v1-2b.correctness_conformance",
+  "status": "v1_correctness_scope_declared",
+  "claim_boundary": "Local v1 correctness/conformance evidence only. This matrix does not approve package publication, release tags, production readiness, performance claims, broad SQL/DataFrame parity, or fallback execution.",
+  "correctness_claim_requires_report": true,
+  "external_engines_allowed_as_oracles_only": true,
+  "external_oracle_required_for_v1": false,
+  "public_release_claim_allowed": false,
+  "public_package_claim_allowed": false,
+  "performance_claim_allowed": false,
+  "production_claim_allowed": false,
+  "spark_replacement_claim_allowed": false,
+  "runtime_execution": false,
+  "publication_attempted": false,
+  "tag_created": false,
+  "package_upload_attempted": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "report_inputs": [
+    {
+      "report_id": "golden_workflow",
+      "path": "target/golden-workflow-report.json",
+      "schema_version": "shardloom.golden_workflow_validation_report.v1",
+      "required_status": "passed"
+    },
+    {
+      "report_id": "admitted_semantics",
+      "path": "target/admitted-semantics-matrix-report.json",
+      "schema_version": "shardloom.admitted_semantics_matrix_report.v1",
+      "required_status": "passed"
+    },
+    {
+      "report_id": "front_door",
+      "path": "target/v1-front-door-runtime-scope-report.json",
+      "schema_version": "shardloom.v1_front_door_runtime_scope_report.v1",
+      "required_status": "passed"
+    },
+    {
+      "report_id": "vortex_runtime",
+      "path": "target/v1-vortex-runtime-scope-report.json",
+      "schema_version": "shardloom.v1_vortex_runtime_scope_report.v1",
+      "required_status": "passed"
+    },
+    {
+      "report_id": "source_prepared_state",
+      "path": "target/v1-source-prepared-state-scope-report.json",
+      "schema_version": "shardloom.v1_source_prepared_state_scope_report.v1",
+      "required_status": "passed"
+    },
+    {
+      "report_id": "local_output_sink",
+      "path": "target/v1-local-output-sink-scope-report.json",
+      "schema_version": "shardloom.v1_local_output_sink_scope_report.v1",
+      "required_status": "passed"
+    }
+  ],
+  "expected_counts": {
+    "front_door_supported_rows": 7,
+    "front_door_pending_rows": 4,
+    "front_door_example_scenarios": 9,
+    "front_door_expected_error_scenarios": 1,
+    "vortex_primitive_routes": 9,
+    "vortex_local_file_routes": 15,
+    "source_input_formats": 6,
+    "source_prepared_routes": 4,
+    "source_direct_routes": 1,
+    "source_generated_routes": 1,
+    "source_invalidation_cases": 9,
+    "output_formats": 7,
+    "output_write_methods": 9,
+    "output_routes": 8,
+    "golden_workflows": 3,
+    "golden_stage_count_min": 9,
+    "executable_fixtures": 103,
+    "diagnostic_cases": 24,
+    "unsupported_diagnostics": 22,
+    "runtime_error_diagnostics": 1,
+    "invalid_shape_diagnostics": 1,
+    "admitted_stage_count_min": 129
+  },
+  "front_door_example_scenario_ids": [
+    "clean_cast_filter_write",
+    "filter_projection_limit",
+    "global_top_n",
+    "group_by_aggregation",
+    "hash_join",
+    "malformed_timestamp_cast",
+    "nested_json_field_scan",
+    "null_heavy_aggregate",
+    "selective_filter"
+  ],
+  "front_door_expected_error_scenario_ids": [
+    "malformed_timestamp_cast"
+  ],
+  "golden_workflow_ids": [
+    "generated_source_to_local_vortex_output_replay_fidelity",
+    "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
+    "prepared_native_vortex_count_filter_project_execution_certificates"
+  ],
+  "required_semantic_case_ids": [
+    "aggregate_having_output_rows",
+    "binary_cast_ordering_predicate",
+    "binary_cast_projection_predicate",
+    "binary_hex_literal_projection",
+    "binary_text_literal_projection",
+    "conditional_projection_case_when",
+    "decimal_arithmetic_projection",
+    "decimal_cast_projection_predicate",
+    "distinct_count_grouped",
+    "exists_subquery_semantics",
+    "in_subquery_scalar_semantics",
+    "interval_literal_temporal_arithmetic",
+    "join_logical_or_condition",
+    "join_multi_key_expression_condition",
+    "join_scalar_expression_condition",
+    "like_escape_predicate_utf8",
+    "like_predicate_utf8",
+    "null_coalesce_nullif",
+    "null_safe_comparison_predicate_semantics",
+    "numeric_generic_property_seed_20260521",
+    "order_by_explicit_null_ordering",
+    "predicate_projection_three_valued",
+    "quantified_subquery_semantics",
+    "regex_predicate_utf8",
+    "row_value_in_subquery_semantics",
+    "select_distinct_projection",
+    "string_function_composition_utf8",
+    "string_transform_length_utf8",
+    "subquery_predicate_projection_semantics",
+    "temporal_arithmetic_difference_utc",
+    "temporal_extract_utc_date32_timestamp",
+    "try_cast_projection_null_on_invalid",
+    "window_rank_offset_distribution"
+  ],
+  "required_unsupported_case_ids": [
+    "invalid_shape_scalar_multi_column_in_subquery",
+    "runtime_error_numeric_division_by_zero",
+    "unsupported_complex_join_key",
+    "unsupported_list_array_access_cast",
+    "unsupported_locale_collation",
+    "unsupported_struct_access_cast",
+    "unsupported_timestamptz_policy",
+    "unsupported_timezone_database_policy",
+    "unsupported_union_dtype_cast",
+    "unsupported_variant_access"
+  ],
+  "residual_gap_dispositions": [
+    {
+      "gap_id": "broad_ansi_subquery_parity_beyond_admitted_v1_scope",
+      "v1_closeout_status": "outside_declared_v1_scope",
+      "reason": "The v1 correctness claim is bounded to the admitted local scalar, row-value, EXISTS, quantified, projected, source-qualified, correlated, and HAVING subquery cases listed in required_semantic_case_ids; broader ANSI parity remains outside the declared v1 scope."
+    },
+    {
+      "gap_id": "external_oracle_result_artifact_population",
+      "v1_closeout_status": "not_required_for_current_v1_correctness_claim",
+      "reason": "Current v1 correctness evidence uses decoded-reference and deterministic fixture validation. External engines may be explicit test oracles, but no external oracle artifact is required for the current local v1 claim."
+    },
+    {
+      "gap_id": "general_fuzz_beyond_seeded_property_lane",
+      "v1_closeout_status": "not_required_for_current_v1_correctness_claim",
+      "reason": "The current v1 gate requires the deterministic seeded property lane and fixture matrix. Broader randomized fuzzing remains valuable hardening work but is not required for the declared local v1 correctness claim."
+    }
+  ]
+}

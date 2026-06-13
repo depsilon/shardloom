@@ -1808,6 +1808,7 @@ def main() -> int:
             )
         for field, expected in [
             ("input_report_count", 6),
+            ("matrix_status", "passed"),
             ("v1_correctness_matrix_status", "passed"),
             ("scope_report_status", "passed"),
             ("golden_workflow_validator_status", "passed"),
@@ -1845,6 +1846,27 @@ def main() -> int:
                 "v1 correctness/conformance claim_gate_status="
                 + str(v1_correctness_conformance.get("claim_gate_status", "missing"))
             )
+        matrix_summary = v1_correctness_conformance.get("matrix_summary", {})
+        if not isinstance(matrix_summary, dict):
+            v1_correctness_conformance_blockers.append(
+                "v1 correctness/conformance matrix_summary must be an object"
+            )
+        else:
+            expected_matrix_values = {
+                "schema_version": "shardloom.v1_correctness_conformance_matrix.v1",
+                "matrix_id": "prod-v1-2b.correctness_conformance",
+                "expected_count_field_count": 22,
+                "required_semantic_case_count": 33,
+                "required_unsupported_case_count": 10,
+                "report_input_count": 6,
+                "residual_gap_count": 3,
+            }
+            for field, expected in expected_matrix_values.items():
+                if matrix_summary.get(field) != expected:
+                    v1_correctness_conformance_blockers.append(
+                        f"v1 correctness/conformance matrix_summary.{field}="
+                        + str(matrix_summary.get(field, "missing"))
+                    )
         summaries = v1_correctness_conformance.get("summaries", {})
         if not isinstance(summaries, dict):
             v1_correctness_conformance_blockers.append(
