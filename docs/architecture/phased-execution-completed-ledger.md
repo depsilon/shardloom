@@ -16,6 +16,143 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-1D local output and sink runtime closure
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-1D` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/skills/translation-layer.md`.
+    - `docs/skills/streaming-zero-copy.md`.
+    - `docs/skills/vortex-internals.md`.
+    - `docs/skills/vortex/vortex-native-output.md`.
+    - `docs/architecture/v1-local-output-sink-scope.md`.
+    - `ShardLoomContext.local_output_sink_scope_report()`.
+    - `ShardLoomContext.user_route_capability_report()`.
+  - Branch/PR: `codex/v1-local-output-sink-scope`; publication pending for this session.
+  - Scope:
+    - Added `docs/architecture/v1-local-output-sink-scope.md` as the canonical v1 local
+      output/sink boundary.
+    - Added `LocalOutputSinkScopeReport` and exported v1 local output/sink constants from the
+      Python context/package surface.
+    - Added `scripts/check_v1_local_output_sink_scope.py` and wired it into public-status docs,
+      release validation evidence, hard release readiness, GitHub Actions, and the CI gate matrix.
+    - Added golden fixtures for output scope, write policy, and replay manifest evidence.
+    - Updated README, Python README, public status docs, v1 inclusion matrix, and benchmark page
+      source to link the v1 local output/sink boundary.
+    - Added focused unit coverage for the scope validator, context report, benchmark sink fields,
+      public-status fixture integration, and release-validation command registration.
+  - Scoped v1 local output formats:
+    - `jsonl`.
+    - `csv`.
+    - `parquet`.
+    - `arrow-ipc`.
+    - `avro`.
+    - `orc`.
+    - `vortex`.
+  - Default and feature-gated format posture:
+    - Default compatibility sinks: `jsonl`, `csv`.
+    - Feature-gated compatibility sinks: `parquet`, `arrow-ipc`, `avro`, `orc`.
+    - Feature-gated native sink: `vortex`, which remains the highest-fidelity persistence target.
+  - User-facing write helpers in scope:
+    - `write`.
+    - `write_jsonl`.
+    - `write_csv`.
+    - `write_parquet`.
+    - `write_arrow_ipc`.
+    - `write_avro`.
+    - `write_orc`.
+    - `write_vortex`.
+    - `fanout`.
+  - Route ids covered:
+    - `local_file_direct_transient_route`.
+    - `local_file_cold_certified_route`.
+    - `local_file_prepare_once_first_query`.
+    - `local_file_prepare_once_batch`.
+    - `prepared_vortex_warm_query`.
+    - `native_vortex_query`.
+    - `generated_rows_local_output`.
+    - `quarantine_output_route`.
+  - Write-policy ids:
+    - `error_if_exists_by_default`.
+    - `explicit_allow_overwrite`.
+    - `append_mode_unsupported`.
+    - `atomic_rename_same_directory`.
+    - `partial_write_cleanup_reported`.
+  - Golden fixture refs:
+    - `docs/architecture/fixtures/v1-local-output-sink/output-scope-golden.json`.
+    - `docs/architecture/fixtures/v1-local-output-sink/output-policy-matrix.json`.
+    - `docs/architecture/fixtures/v1-local-output-sink/output-replay-manifest-golden.json`.
+  - Required sink runtime fields:
+    - `output_route`.
+    - `output_native_io_certificate_status`.
+    - `computed_result_sink_native_io_certificate_status`.
+    - `computed_result_sink_replay_verified`.
+    - `output_materialization_required`.
+    - `output_plan_digest`.
+    - `result_sink_write_millis`.
+    - `sink_timing_included_in_route_total`.
+    - `timing_surface`.
+    - `fallback_attempted`.
+    - `external_engine_invoked`.
+  - Current benchmark artifact evidence:
+    - `website/assets/benchmarks/latest/benchmark-results.json` loads as chunked rows.
+    - 960 certified ShardLoom result-sink rows expose all required local output/sink fields.
+    - All checked result-sink rows preserve `computed_result_sink_replay_verified=true`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Existing runtime/test evidence covered by the scope:
+    - SQL local-source smoke tests cover JSONL/CSV local output, fanout, atomic rename posture,
+      metadata-preservation/loss reports, binary structured sinks, all-null binary sinks, typed
+      nested outputs, Vortex output/reopen verification, and feature-gated Parquet/Arrow
+      IPC/Avro/ORC/Vortex sink paths.
+    - Public workflow and Python capability rows expose write helpers with `write_io=true`,
+      no-fallback evidence, and `claim_gate_status=not_claim_grade`.
+  - Vortex-first provider decision:
+    - `use_vortex_native_provider` for admitted feature-gated local Vortex sinks that call upstream
+      Vortex writer/reopen provider surfaces and report Native I/O evidence.
+    - `wrap_vortex_concept` for OutputPlan, SinkArtifact, output Native I/O certificate,
+      metadata-preservation/loss report, digest, replay, fanout, and local write-policy evidence.
+    - `blocked_until_vortex_or_shardloom_evidence` for append mode, object-store output paths,
+      table/catalog writes, Iceberg/Delta transactions, remote URI sinks, and broad nested/complex
+      sink shapes.
+  - Residual unsupported output boundaries:
+    - `append_mode`.
+    - `object_store_output_paths`.
+    - `table_catalog_writes`.
+    - `iceberg_delta_transactions`.
+    - `remote_uri_sinks`.
+    - `broad_nested_complex_sink_shapes`.
+  - Verification evidence:
+    - `python3 -m py_compile scripts/check_v1_local_output_sink_scope.py scripts/check_public_status_docs.py scripts/check_release_readiness.py scripts/check_ci_gate_matrix.py scripts/run_release_validation_evidence.py python/src/shardloom/context.py python/src/shardloom/__init__.py`
+    - `python3 scripts/check_v1_local_output_sink_scope.py`
+    - `python3 scripts/check_public_status_docs.py`
+    - `python3 scripts/check_ci_gate_matrix.py`
+    - `python3 -m unittest python.tests.test_v1_local_output_sink_scope python.tests.test_user_surface_graduation_matrix`
+    - `python3 -m unittest python.tests.test_release_scripts`
+    - `python3 -m compileall -q python/src python/tests scripts benchmarks/traditional_analytics examples`
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json`
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --allow-stale-git --allow-dirty-worktree`
+    - `python3 scripts/check_front_door_benchmark_publication.py`
+    - `python3 scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `node scripts/sync-content.mjs` from `website-src`
+    - `astro build` from `website-src`
+    - `node scripts/postbuild-static.mjs` from `website-src`
+    - `astro check` from `website-src`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+  - Claim boundary:
+    - This closes scoped local output/write helper support for the listed formats, methods, route
+      ids, write policies, and shape subsets already covered by runtime evidence. It does not claim
+      append mode, object-store output, remote URI sinks, table/catalog writes, Iceberg/Delta
+      transactions, broad nested/complex sink support, production adapter certification, package
+      publication, production readiness, performance superiority, Spark displacement, or external
+      engine replacement.
+  - Fallback boundary:
+    - Local compatibility writers are translation/export surfaces and local Vortex output remains
+      the highest-fidelity native sink. No external query engine executes, validates, repairs, or
+      writes local output work; admitted rows require `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: PROD-V1-1C Source normalization and prepared-state reuse closure
   - Date: 2026-06-13
   - Source:

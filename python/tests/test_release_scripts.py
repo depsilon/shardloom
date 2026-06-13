@@ -6087,7 +6087,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-1D` Local output and sink runtime closure.",
+            "`PROD-V1-2A` Result envelope, diagnostics, doctor, and API/schema stability gate.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -7117,6 +7117,10 @@ class ReleaseScriptTests(unittest.TestCase):
             ["/tool/python3.12", "scripts/check_v1_source_prepared_state_scope.py"],
         )
         self.assertEqual(
+            commands["v1_local_output_sink_scope_gate"],
+            ["/tool/python3.12", "scripts/check_v1_local_output_sink_scope.py"],
+        )
+        self.assertEqual(
             commands["benchmark_artifact_completeness"],
             [
                 "/tool/python3.12",
@@ -7631,6 +7635,14 @@ jobs:
         )
         self._write_v1_source_prepared_state_scope_fixture(
             v1_source_prepared_module,
+            repo_root,
+        )
+        v1_local_output_sink_module = self._load_script_module(
+            "check_v1_local_output_sink_scope.py",
+            "check_v1_local_output_sink_scope_public_status_fixture",
+        )
+        self._write_v1_local_output_sink_scope_fixture(
+            v1_local_output_sink_module,
             repo_root,
         )
 
@@ -8374,6 +8386,276 @@ jobs:
 
                 ShardLoomContext.source_prepared_state_scope_report = (
                     _v1_source_prepared_scope_report
+                )
+                '''
+            ),
+            encoding="utf-8",
+        )
+
+    def _write_v1_local_output_sink_scope_fixture(
+        self,
+        module: object,
+        repo_root: Path,
+    ) -> None:
+        supported_formats = ("jsonl", "csv", "parquet", "arrow-ipc", "avro", "orc", "vortex")
+        default_formats = ("jsonl", "csv")
+        feature_gated_formats = ("parquet", "arrow-ipc", "avro", "orc", "vortex")
+        write_methods = (
+            "write",
+            "write_jsonl",
+            "write_csv",
+            "write_parquet",
+            "write_arrow_ipc",
+            "write_avro",
+            "write_orc",
+            "write_vortex",
+            "fanout",
+        )
+        route_ids = (
+            "local_file_direct_transient_route",
+            "local_file_cold_certified_route",
+            "local_file_prepare_once_first_query",
+            "local_file_prepare_once_batch",
+            "prepared_vortex_warm_query",
+            "native_vortex_query",
+            "generated_rows_local_output",
+            "quarantine_output_route",
+        )
+        policy_ids = (
+            "error_if_exists_by_default",
+            "explicit_allow_overwrite",
+            "append_mode_unsupported",
+            "atomic_rename_same_directory",
+            "partial_write_cleanup_reported",
+        )
+        required_fields = (
+            "output_route",
+            "output_native_io_certificate_status",
+            "computed_result_sink_native_io_certificate_status",
+            "computed_result_sink_replay_verified",
+            "output_materialization_required",
+            "output_plan_digest",
+            "result_sink_write_millis",
+            "sink_timing_included_in_route_total",
+            "timing_surface",
+            "fallback_attempted",
+            "external_engine_invoked",
+        )
+        fixture_paths = (
+            "docs/architecture/fixtures/v1-local-output-sink/output-scope-golden.json",
+            "docs/architecture/fixtures/v1-local-output-sink/output-policy-matrix.json",
+            "docs/architecture/fixtures/v1-local-output-sink/output-replay-manifest-golden.json",
+        )
+
+        for rel_path, markers in {
+            module.DOC_PATH.as_posix(): module.DOC_MARKERS,
+            **module.PUBLIC_DOC_MARKERS,
+        }.items():
+            path = repo_root / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            existing = path.read_text(encoding="utf-8") if path.exists() else ""
+            path.write_text(existing + "\n".join(markers) + "\n", encoding="utf-8")
+
+        scope_path = repo_root / fixture_paths[0]
+        scope_path.parent.mkdir(parents=True, exist_ok=True)
+        scope_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "shardloom.v1_local_output_sink_scope_golden.v1",
+                    "scope_document": module.DOC_PATH.as_posix(),
+                    "supported_output_formats": list(supported_formats),
+                    "default_output_formats": list(default_formats),
+                    "feature_gated_output_formats": list(feature_gated_formats),
+                    "user_write_methods": list(write_methods),
+                    "claim_gate_status": "not_claim_grade",
+                    "fallback_attempted": False,
+                    "external_engine_invoked": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        policy_path = repo_root / fixture_paths[1]
+        policy_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "shardloom.v1_local_output_sink_policy_matrix.v1",
+                    "scope_document": module.DOC_PATH.as_posix(),
+                    "policies": [
+                        {
+                            "policy_id": policy_id,
+                            "runtime_posture": "fixture",
+                            "write_io_allowed": policy_id != "append_mode_unsupported",
+                            "deterministic_diagnostic_required": policy_id == "append_mode_unsupported",
+                        }
+                        for policy_id in policy_ids
+                    ],
+                    "claim_gate_status": "not_claim_grade",
+                    "fallback_attempted": False,
+                    "external_engine_invoked": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        replay_path = repo_root / fixture_paths[2]
+        replay_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "shardloom.v1_local_output_sink_replay_manifest.v1",
+                    "scope_document": module.DOC_PATH.as_posix(),
+                    "manifest_fields": list(required_fields),
+                    "claim_gate_status": "not_claim_grade",
+                    "fallback_attempted": False,
+                    "external_engine_invoked": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        benchmark_path = repo_root / module.LATEST_BENCHMARK_ARTIFACT
+        benchmark_path.parent.mkdir(parents=True, exist_ok=True)
+        if benchmark_path.exists():
+            benchmark_payload = json.loads(benchmark_path.read_text(encoding="utf-8"))
+        else:
+            benchmark_payload = {"published_benchmark_rows": []}
+        rows = benchmark_payload.setdefault("published_benchmark_rows", [])
+        source_prepared_fields = (
+            "source_state_id",
+            "source_state_digest",
+            "source_state_fingerprint",
+            "source_schema_fingerprint",
+            "source_parse_plan_id",
+            "source_split_manifest_id",
+            "prepared_state_id",
+            "prepared_state_digest",
+            "prepared_state_reuse_hit",
+            "prepared_state_reuse_reason",
+            "prepared_state_reuse_manifest_digest",
+            "prepared_state_invalidation_reason",
+        )
+        sink_row = {
+            "engine": "shardloom-prepared-vortex",
+            "scenario_id": "clean_cast_filter_write",
+            "route_lane_id": "warm_prepared_query",
+            "output_route": "local_result_sink_or_report",
+            "output_native_io_certificate_status": "certified",
+            "computed_result_sink_native_io_certificate_status": "certified",
+            "computed_result_sink_replay_verified": True,
+            "output_materialization_required": "result_sink_materializes_computed_result",
+            "output_plan_digest": "sha256:output-plan",
+            "result_sink_write_millis": 1.0,
+            "sink_timing_included_in_route_total": False,
+            "timing_surface": "hot_runtime",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            **{
+                field: f"{field}:clean_cast_filter_write"
+                for field in source_prepared_fields
+            },
+        }
+        for row in rows:
+            if (
+                isinstance(row, dict)
+                and row.get("engine") == sink_row["engine"]
+                and row.get("scenario_id") == sink_row["scenario_id"]
+                and row.get("route_lane_id") == sink_row["route_lane_id"]
+            ):
+                row.update(sink_row)
+                break
+        else:
+            rows.append(sink_row)
+        benchmark_path.write_text(json.dumps(benchmark_payload), encoding="utf-8")
+
+        package_init = repo_root / "python" / "src" / "shardloom" / "__init__.py"
+        existing = package_init.read_text(encoding="utf-8")
+        package_init.write_text(
+            existing
+            + textwrap.dedent(
+                f'''
+
+                _V1_LOCAL_OUTPUT_FORMATS = {supported_formats!r}
+                _V1_LOCAL_OUTPUT_DEFAULT_FORMATS = {default_formats!r}
+                _V1_LOCAL_OUTPUT_FEATURE_GATED_FORMATS = {feature_gated_formats!r}
+                _V1_LOCAL_OUTPUT_METHODS = {write_methods!r}
+                _V1_LOCAL_OUTPUT_ROUTES = {route_ids!r}
+                _V1_LOCAL_OUTPUT_POLICIES = {policy_ids!r}
+                _V1_LOCAL_OUTPUT_FIXTURES = {fixture_paths!r}
+                _V1_LOCAL_OUTPUT_REQUIRED_FIELDS = {required_fields!r}
+
+
+                def _local_output_method(method):
+                    return SimpleNamespace(
+                        method=method,
+                        family="write",
+                        support_status="fixture_smoke_supported",
+                        required_evidence=("output_native_io_certificate", "result_replay_verified"),
+                        runtime_execution=True,
+                        data_read=True,
+                        write_io=True,
+                        materialization_required=True,
+                        fallback_attempted=False,
+                        external_engine_invoked=False,
+                        claim_gate_status="not_claim_grade",
+                        claim_boundary="feature-gated flat scalar local output fixture for jsonl csv parquet arrow-ipc avro orc vortex",
+                    )
+
+
+                def _local_output_route(route_id):
+                    return SimpleNamespace(
+                        route_id=route_id,
+                        route_display_name=route_id,
+                        desired_outputs=("local_jsonl", "local_csv", "feature_gated_local_vortex_output"),
+                        output_route="local output/result sink route",
+                        evidence_route="OutputPlan, output Native I/O certificate, replay evidence",
+                        materialization_decode_boundary="explicit local sink boundary",
+                        route_runtime_status="scoped_runtime_supported",
+                        required_evidence=("output_native_io_certificate", "result_replay_verified"),
+                        fallback_attempted=False,
+                        external_engine_invoked=False,
+                        claim_gate_status="not_claim_grade",
+                        claim_boundary="scoped local output/sink fixture for feature-gated flat scalar parquet arrow-ipc avro orc vortex",
+                        no_fallback_no_external_engine=True,
+                    )
+
+
+                def _v1_local_output_sink_scope_report(self):
+                    return SimpleNamespace(
+                        schema_version="shardloom.v1_local_output_sink_scope.v1",
+                        report_id="prod-v1-1d.local_output_sink_scope",
+                        scope_document="docs/architecture/v1-local-output-sink-scope.md",
+                        supported_output_formats=_V1_LOCAL_OUTPUT_FORMATS,
+                        default_output_formats=_V1_LOCAL_OUTPUT_DEFAULT_FORMATS,
+                        feature_gated_output_formats=_V1_LOCAL_OUTPUT_FEATURE_GATED_FORMATS,
+                        user_write_methods=_V1_LOCAL_OUTPUT_METHODS,
+                        output_route_ids=_V1_LOCAL_OUTPUT_ROUTES,
+                        write_policy_ids=_V1_LOCAL_OUTPUT_POLICIES,
+                        golden_fixture_paths=_V1_LOCAL_OUTPUT_FIXTURES,
+                        required_runtime_fields=_V1_LOCAL_OUTPUT_REQUIRED_FIELDS,
+                        unsupported_boundary_ids=(
+                            "append_mode",
+                            "object_store_output_paths",
+                            "table_catalog_writes",
+                            "iceberg_delta_transactions",
+                            "remote_uri_sinks",
+                            "broad_nested_complex_sink_shapes",
+                        ),
+                        write_method_rows=tuple(_local_output_method(method) for method in _V1_LOCAL_OUTPUT_METHODS),
+                        output_user_route_rows=tuple(_local_output_route(route_id) for route_id in _V1_LOCAL_OUTPUT_ROUTES),
+                        all_write_methods_registered=True,
+                        all_write_methods_no_fallback_no_external_engine=True,
+                        all_output_routes_no_fallback_no_external_engine=True,
+                        all_output_routes_emit_sink_evidence=True,
+                        all_feature_gated_formats_labeled=True,
+                        write_policy_contract_ready=True,
+                        v1_scope_ready=True,
+                        claim_gate_status="not_claim_grade",
+                        performance_claim_allowed=False,
+                        production_claim_allowed=False,
+                        spark_replacement_claim_allowed=False,
+                    )
+
+
+                ShardLoomContext.local_output_sink_scope_report = (
+                    _v1_local_output_sink_scope_report
                 )
                 '''
             ),

@@ -232,6 +232,80 @@ V1_SOURCE_PREPARED_UNSUPPORTED_BOUNDARY_IDS = (
     "table_catalog_prepared_state_reuse",
     "broad_non_local_preparation",
 )
+V1_LOCAL_OUTPUT_SINK_SCOPE_DOCUMENT = (
+    "docs/architecture/v1-local-output-sink-scope.md"
+)
+V1_LOCAL_OUTPUT_SINK_SUPPORTED_OUTPUT_FORMATS = (
+    "jsonl",
+    "csv",
+    "parquet",
+    "arrow-ipc",
+    "avro",
+    "orc",
+    "vortex",
+)
+V1_LOCAL_OUTPUT_SINK_DEFAULT_OUTPUT_FORMATS = ("jsonl", "csv")
+V1_LOCAL_OUTPUT_SINK_FEATURE_GATED_OUTPUT_FORMATS = (
+    "parquet",
+    "arrow-ipc",
+    "avro",
+    "orc",
+    "vortex",
+)
+V1_LOCAL_OUTPUT_SINK_USER_WRITE_METHODS = (
+    "write",
+    "write_jsonl",
+    "write_csv",
+    "write_parquet",
+    "write_arrow_ipc",
+    "write_avro",
+    "write_orc",
+    "write_vortex",
+    "fanout",
+)
+V1_LOCAL_OUTPUT_SINK_ROUTE_IDS = (
+    "local_file_direct_transient_route",
+    "local_file_cold_certified_route",
+    "local_file_prepare_once_first_query",
+    "local_file_prepare_once_batch",
+    "prepared_vortex_warm_query",
+    "native_vortex_query",
+    "generated_rows_local_output",
+    "quarantine_output_route",
+)
+V1_LOCAL_OUTPUT_SINK_WRITE_POLICY_IDS = (
+    "error_if_exists_by_default",
+    "explicit_allow_overwrite",
+    "append_mode_unsupported",
+    "atomic_rename_same_directory",
+    "partial_write_cleanup_reported",
+)
+V1_LOCAL_OUTPUT_SINK_GOLDEN_FIXTURE_PATHS = (
+    "docs/architecture/fixtures/v1-local-output-sink/output-scope-golden.json",
+    "docs/architecture/fixtures/v1-local-output-sink/output-policy-matrix.json",
+    "docs/architecture/fixtures/v1-local-output-sink/output-replay-manifest-golden.json",
+)
+V1_LOCAL_OUTPUT_SINK_REQUIRED_RUNTIME_FIELDS = (
+    "output_route",
+    "output_native_io_certificate_status",
+    "computed_result_sink_native_io_certificate_status",
+    "computed_result_sink_replay_verified",
+    "output_materialization_required",
+    "output_plan_digest",
+    "result_sink_write_millis",
+    "sink_timing_included_in_route_total",
+    "timing_surface",
+    "fallback_attempted",
+    "external_engine_invoked",
+)
+V1_LOCAL_OUTPUT_SINK_UNSUPPORTED_BOUNDARY_IDS = (
+    "append_mode",
+    "object_store_output_paths",
+    "table_catalog_writes",
+    "iceberg_delta_transactions",
+    "remote_uri_sinks",
+    "broad_nested_complex_sink_shapes",
+)
 _OBJECT_STORE_GENERATED_OUTPUT_DEFAULT_ROWS: tuple[Mapping[str, object], ...] = (
     {"value": 1},
 )
@@ -2068,6 +2142,214 @@ class SourcePreparedStateScopeReport:
             and self.all_generated_routes_expose_artifact_adjacent_reuse
             and self.all_direct_transient_routes_are_labeled_non_persistent
             and self.all_local_file_prepared_rows_expose_source_and_reuse_evidence
+        )
+
+    @property
+    def claim_gate_status(self) -> str:
+        """Return the claim gate status for this scope."""
+
+        return "not_claim_grade"
+
+    @property
+    def performance_claim_allowed(self) -> bool:
+        """Whether this scope report authorizes a performance claim."""
+
+        return False
+
+    @property
+    def production_claim_allowed(self) -> bool:
+        """Whether this scope report authorizes production readiness."""
+
+        return False
+
+    @property
+    def spark_replacement_claim_allowed(self) -> bool:
+        """Whether this scope report authorizes Spark replacement claims."""
+
+        return False
+
+
+@dataclass(frozen=True, slots=True)
+class LocalOutputSinkScopeReport:
+    """V1 local output and sink scope report."""
+
+    dataframe_methods: tuple[DataFrameMethodCapability, ...]
+    user_routes: UserRouteCapabilityReport
+
+    @property
+    def schema_version(self) -> str:
+        """Return the report schema version."""
+
+        return "shardloom.v1_local_output_sink_scope.v1"
+
+    @property
+    def report_id(self) -> str:
+        """Return the stable report id."""
+
+        return "prod-v1-1d.local_output_sink_scope"
+
+    @property
+    def scope_document(self) -> str:
+        """Return the canonical v1 local output/sink scope document path."""
+
+        return V1_LOCAL_OUTPUT_SINK_SCOPE_DOCUMENT
+
+    @property
+    def supported_output_formats(self) -> tuple[str, ...]:
+        """Return all v1 local sink formats with scoped evidence."""
+
+        return V1_LOCAL_OUTPUT_SINK_SUPPORTED_OUTPUT_FORMATS
+
+    @property
+    def default_output_formats(self) -> tuple[str, ...]:
+        """Return local output formats available without structured-output feature gates."""
+
+        return V1_LOCAL_OUTPUT_SINK_DEFAULT_OUTPUT_FORMATS
+
+    @property
+    def feature_gated_output_formats(self) -> tuple[str, ...]:
+        """Return output formats admitted only behind feature gates."""
+
+        return V1_LOCAL_OUTPUT_SINK_FEATURE_GATED_OUTPUT_FORMATS
+
+    @property
+    def user_write_methods(self) -> tuple[str, ...]:
+        """Return user-facing write helpers included in this scope."""
+
+        return V1_LOCAL_OUTPUT_SINK_USER_WRITE_METHODS
+
+    @property
+    def output_route_ids(self) -> tuple[str, ...]:
+        """Return route ids with local output or sink evidence in scope."""
+
+        return V1_LOCAL_OUTPUT_SINK_ROUTE_IDS
+
+    @property
+    def write_policy_ids(self) -> tuple[str, ...]:
+        """Return local write policies made explicit by this v1 scope."""
+
+        return V1_LOCAL_OUTPUT_SINK_WRITE_POLICY_IDS
+
+    @property
+    def golden_fixture_paths(self) -> tuple[str, ...]:
+        """Return machine-readable fixture paths owned by this scope."""
+
+        return V1_LOCAL_OUTPUT_SINK_GOLDEN_FIXTURE_PATHS
+
+    @property
+    def required_runtime_fields(self) -> tuple[str, ...]:
+        """Return benchmark/runtime fields required on result-sink rows."""
+
+        return V1_LOCAL_OUTPUT_SINK_REQUIRED_RUNTIME_FIELDS
+
+    @property
+    def unsupported_boundary_ids(self) -> tuple[str, ...]:
+        """Return local output boundaries outside v1 support."""
+
+        return V1_LOCAL_OUTPUT_SINK_UNSUPPORTED_BOUNDARY_IDS
+
+    @property
+    def write_method_rows(self) -> tuple[DataFrameMethodCapability, ...]:
+        """Return DataFrame/query-builder method rows for admitted local writes."""
+
+        methods = set(self.user_write_methods)
+        return tuple(row for row in self.dataframe_methods if row.method in methods)
+
+    @property
+    def output_user_route_rows(self) -> tuple[UserRouteCapabilityRow, ...]:
+        """Return route rows covered by the local output/sink scope."""
+
+        return tuple(self.user_routes.route(route_id) for route_id in self.output_route_ids)
+
+    @property
+    def all_write_methods_registered(self) -> bool:
+        """Whether every scoped write helper has a method capability row."""
+
+        return {row.method for row in self.write_method_rows} == set(self.user_write_methods)
+
+    @property
+    def all_write_methods_no_fallback_no_external_engine(self) -> bool:
+        """Whether every scoped write method preserves the no-fallback boundary."""
+
+        return all(
+            row.write_io
+            and row.runtime_execution
+            and row.fallback_attempted is False
+            and row.external_engine_invoked is False
+            and row.claim_gate_status == "not_claim_grade"
+            for row in self.write_method_rows
+        )
+
+    @property
+    def all_output_routes_no_fallback_no_external_engine(self) -> bool:
+        """Whether every covered route preserves no fallback and no external execution."""
+
+        return all(row.no_fallback_no_external_engine for row in self.output_user_route_rows)
+
+    @property
+    def all_output_routes_emit_sink_evidence(self) -> bool:
+        """Whether covered routes mention local output/sink evidence."""
+
+        tokens = ("output", "sink", "result", "quarantine")
+        evidence_tokens = (
+            "output",
+            "sink",
+            "certificate",
+            "native i/o",
+            "route fields",
+            "stage timing",
+            "route-runtime",
+            "replay",
+        )
+        return all(
+            any(token in row.output_route.lower() for token in tokens)
+            and any(token in row.evidence_route.lower() for token in evidence_tokens)
+            for row in self.output_user_route_rows
+        )
+
+    @property
+    def all_feature_gated_formats_labeled(self) -> bool:
+        """Whether feature-gated formats are labeled in method or route claim text."""
+
+        required = set(self.feature_gated_output_formats)
+        text = " ".join(
+            [
+                *(row.claim_boundary.lower() for row in self.write_method_rows),
+                *(row.output_route.lower() for row in self.output_user_route_rows),
+                *(row.claim_boundary.lower() for row in self.output_user_route_rows),
+            ]
+        )
+        aliases = {
+            "arrow-ipc": ("arrow-ipc", "arrow ipc"),
+        }
+        return all(
+            any(alias in text for alias in aliases.get(format_id, (format_id,)))
+            for format_id in required
+        )
+
+    @property
+    def write_policy_contract_ready(self) -> bool:
+        """Whether v1 write-policy posture is explicit and complete."""
+
+        return set(self.write_policy_ids) == {
+            "error_if_exists_by_default",
+            "explicit_allow_overwrite",
+            "append_mode_unsupported",
+            "atomic_rename_same_directory",
+            "partial_write_cleanup_reported",
+        }
+
+    @property
+    def v1_scope_ready(self) -> bool:
+        """Whether current rows satisfy the v1 local output/sink scope."""
+
+        return (
+            self.all_write_methods_registered
+            and self.all_write_methods_no_fallback_no_external_engine
+            and self.all_output_routes_no_fallback_no_external_engine
+            and self.all_output_routes_emit_sink_evidence
+            and self.all_feature_gated_formats_labeled
+            and self.write_policy_contract_ready
         )
 
     @property
@@ -4727,6 +5009,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "local_vortex_primitive_route_report",
             "local_file_benchmark_route_report",
             "source_prepared_state_scope_report",
+            "local_output_sink_scope_report",
             "dataframe_notebook_package_readiness",
             "etl_workflow_matrix",
             "compatibility_scoreboard",
@@ -4781,6 +5064,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "front_door_parity_matrix",
             "user_route_capability_report",
             "source_prepared_state_scope_report",
+            "local_output_sink_scope_report",
         ),
         claim_boundary="Discovery and route reports classify support; they do not authorize execution or claims.",
     ),
@@ -10243,6 +10527,15 @@ class ContextCapabilities:
         )
 
     @property
+    def local_output_sink_scope_report(self) -> LocalOutputSinkScopeReport:
+        """Return v1 local output and sink scope posture."""
+
+        return LocalOutputSinkScopeReport(
+            dataframe_methods=DATAFRAME_METHOD_CAPABILITY_ROWS,
+            user_routes=self.user_route_capability_report,
+        )
+
+    @property
     def dataframe_notebook_package_readiness(
         self,
     ) -> DataFrameNotebookPackageReadinessReport:
@@ -10623,6 +10916,19 @@ class ShardLoomContext:
         return SourcePreparedStateScopeReport(
             user_routes=self.user_route_capability_report(),
             local_file_routes=self.local_file_benchmark_route_report(),
+        )
+
+    def local_output_sink_scope_report(
+        self,
+        *,
+        check: bool | None = None,
+    ) -> LocalOutputSinkScopeReport:
+        """Return v1 local output and sink scope posture."""
+
+        _ = check
+        return LocalOutputSinkScopeReport(
+            dataframe_methods=DATAFRAME_METHOD_CAPABILITY_ROWS,
+            user_routes=self.user_route_capability_report(),
         )
 
     def dataframe_notebook_package_readiness(

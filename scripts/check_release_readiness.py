@@ -137,6 +137,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/v1-source-prepared-state-scope-report.json"),
     )
     parser.add_argument(
+        "--v1-local-output-sink-scope-report",
+        type=Path,
+        default=Path("target/v1-local-output-sink-scope-report.json"),
+    )
+    parser.add_argument(
         "--user-surface-runtime-gap-inventory-report",
         type=Path,
         default=Path("target/user-surface-runtime-gap-inventory.json"),
@@ -436,6 +441,10 @@ def main() -> int:
     v1_source_prepared_state_scope_report_path = resolve(
         repo_root,
         args.v1_source_prepared_state_scope_report,
+    )
+    v1_local_output_sink_scope_report_path = resolve(
+        repo_root,
+        args.v1_local_output_sink_scope_report,
     )
     user_surface_runtime_gap_inventory_path = resolve(
         repo_root,
@@ -1608,6 +1617,103 @@ def main() -> int:
         )
     )
 
+    v1_local_output_sink_scope = load_json(v1_local_output_sink_scope_report_path)
+    v1_local_output_sink_blockers: list[str] = []
+    if v1_local_output_sink_scope is None:
+        v1_local_output_sink_blockers.append("missing v1 local output/sink scope report")
+    else:
+        if (
+            v1_local_output_sink_scope.get("schema_version")
+            != "shardloom.v1_local_output_sink_scope_report.v1"
+        ):
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink scope schema_version="
+                + str(v1_local_output_sink_scope.get("schema_version", "missing"))
+            )
+        if v1_local_output_sink_scope.get("status") != "passed":
+            v1_local_output_sink_blockers.extend(
+                v1_local_output_sink_scope.get(
+                    "blockers",
+                    ["v1 local output/sink scope gate blocked"],
+                )
+            )
+        if v1_local_output_sink_scope.get("v1_scope_ready") is not True:
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink v1_scope_ready must be true"
+            )
+        if (
+            v1_local_output_sink_scope.get("all_no_fallback_no_external_engine")
+            is not True
+        ):
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink all_no_fallback_no_external_engine must be true"
+            )
+        if v1_local_output_sink_scope.get("all_write_methods_registered") is not True:
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink write methods must be registered"
+            )
+        if v1_local_output_sink_scope.get("write_policy_contract_ready") is not True:
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink write policy contract must be ready"
+            )
+        if len(v1_local_output_sink_scope.get("supported_output_formats", [])) != 7:
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink format coverage must contain 7 formats"
+            )
+        if len(v1_local_output_sink_scope.get("user_write_methods", [])) != 9:
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink method coverage must contain 9 methods"
+            )
+        if len(v1_local_output_sink_scope.get("golden_fixture_paths", [])) != 3:
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink fixture coverage must contain 3 fixtures"
+            )
+        if (
+            v1_local_output_sink_scope.get(
+                "local_output_sink_benchmark_required_fields_ready"
+            )
+            is not True
+        ):
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink benchmark rows must expose required fields"
+            )
+        if (
+            v1_local_output_sink_scope.get(
+                "local_output_sink_benchmark_replay_ready"
+            )
+            is not True
+        ):
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink benchmark rows must expose replay verification"
+            )
+        if "append_mode" not in set(
+            v1_local_output_sink_scope.get("unsupported_boundary_ids", [])
+        ):
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink unsupported boundaries must include append_mode"
+            )
+        for field in [
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+        ]:
+            if v1_local_output_sink_scope.get(field) is not False:
+                v1_local_output_sink_blockers.append(
+                    f"v1 local output/sink {field} must be false"
+                )
+        if v1_local_output_sink_scope.get("claim_gate_status") != "not_claim_grade":
+            v1_local_output_sink_blockers.append(
+                "v1 local output/sink claim_gate_status="
+                + str(v1_local_output_sink_scope.get("claim_gate_status", "missing"))
+            )
+    checks.append(
+        check(
+            "v1_local_output_sink_scope_gate",
+            str(args.v1_local_output_sink_scope_report).replace("\\", "/"),
+            v1_local_output_sink_blockers,
+        )
+    )
+
     user_surface_runtime_gap_inventory = load_json(user_surface_runtime_gap_inventory_path)
     user_surface_runtime_gap_blockers: list[str] = []
     if user_surface_runtime_gap_inventory is None:
@@ -1983,6 +2089,7 @@ def main() -> int:
         "python scripts/check_v1_front_door_runtime_scope.py",
         "python scripts/check_v1_vortex_runtime_scope.py",
         "python scripts/check_v1_source_prepared_state_scope.py",
+        "python scripts/check_v1_local_output_sink_scope.py",
         "python scripts/check_user_surface_runtime_gap_inventory.py",
         "python scripts/check_user_surface_graduation_matrix.py",
         "python scripts/check_runtime_gap_family_burn_down.py",
@@ -2046,6 +2153,9 @@ def main() -> int:
         ).replace("\\", "/"),
         "v1_source_prepared_state_scope_report_ref": str(
             args.v1_source_prepared_state_scope_report
+        ).replace("\\", "/"),
+        "v1_local_output_sink_scope_report_ref": str(
+            args.v1_local_output_sink_scope_report
         ).replace("\\", "/"),
         "user_surface_runtime_gap_inventory_ref": str(
             args.user_surface_runtime_gap_inventory_report

@@ -257,6 +257,11 @@ fact.dropna(subset=["nullable_metric_00"]).group_by("group_key").agg(
 events.filter(sl.col("nested_payload").contains("target")).select(
     "id", "nested_payload"
 ).limit(100).collect()`;
+const localOutputSinkScopeRef = {
+  source: "docs/architecture/v1-local-output-sink-scope.md",
+  label: "v1 local output/sink scope",
+  contextMethod: "local_output_sink_scope_report",
+};
 ---
 
 <section class="page-hero">
@@ -546,8 +551,10 @@ events.filter(sl.col("nested_payload").contains("target")).select(
       <div class="code-evidence">
         <span><strong>route</strong>primary ShardLoom front door</span>
         <span><strong>timing</strong>promoted artifact only</span>
+        <span><strong>output</strong>{localOutputSinkScopeRef.label}: {localOutputSinkScopeRef.contextMethod}</span>
         <span><strong>fallback_attempted</strong>false for ShardLoom rows</span>
       </div>
+      <p class="table-note">Local output support is scoped by {localOutputSinkScopeRef.source}; feature-gated sinks remain local artifact evidence.</p>
     </div>
     <p class="table-note">Schema: {publicFrontDoorTable.schema_version ?? "not reported"}. Boundary: {publicFrontDoorTable.claim_boundary ?? "not reported"}.</p>
   </div>

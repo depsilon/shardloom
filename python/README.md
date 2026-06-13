@@ -170,6 +170,9 @@ The same query shape can read other admitted local formats through `read_json(..
 `write(...)`, `write_jsonl(...)`, `write_csv(...)`, or feature-gated structured sinks. Format-specific
 behavior belongs at read/ingest and write/sink boundaries only; compute semantics should lower
 through the shared ShardLoom SQL/Python runtime or return a deterministic unsupported report.
+The canonical local output/sink scope is `docs/architecture/v1-local-output-sink-scope.md`; inspect
+it with `ctx.local_output_sink_scope_report()` before treating a write helper as broader than its
+scoped local evidence.
 
 Bounded materialization is explicit. Local-source workflows can carry a `limit(...)` or pass
 `collect(limit=...)`; SQL workflows can also pass `collect(limit=...)` or chain
