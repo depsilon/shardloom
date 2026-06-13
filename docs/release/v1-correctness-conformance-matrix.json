@@ -84,7 +84,11 @@
     "unsupported_diagnostics": 22,
     "runtime_error_diagnostics": 1,
     "invalid_shape_diagnostics": 1,
-    "admitted_stage_count_min": 129
+    "admitted_stage_count_min": 129,
+    "admitted_validator_cases": 127,
+    "admitted_required_runtime_rows": 127,
+    "admitted_support_report_rows": 2,
+    "admitted_deterministic_unsupported_rows": 24
   },
   "front_door_example_scenario_ids": [
     "clean_cast_filter_write",

@@ -7291,6 +7291,16 @@ class ReleaseScriptTests(unittest.TestCase):
                         module.EXPECTED_INVALID_SHAPE_DIAGNOSTICS
                     ),
                     "admitted_stage_count_min": module.EXPECTED_ADMITTED_STAGE_COUNT_MIN,
+                    "admitted_validator_cases": module.EXPECTED_ADMITTED_VALIDATOR_CASES,
+                    "admitted_required_runtime_rows": (
+                        module.EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS
+                    ),
+                    "admitted_support_report_rows": (
+                        module.EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS
+                    ),
+                    "admitted_deterministic_unsupported_rows": (
+                        module.EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS
+                    ),
                 },
                 "front_door_example_scenario_ids": sorted(
                     module.EXPECTED_EXAMPLE_SCENARIOS
@@ -7446,6 +7456,26 @@ class ReleaseScriptTests(unittest.TestCase):
                     module.EXPECTED_INVALID_SHAPE_DIAGNOSTICS
                 ),
                 "stage_count": module.EXPECTED_ADMITTED_STAGE_COUNT_MIN,
+                "remaining_matrix_gap_status": "passed",
+                "v1_runtime_scope_status": "passed",
+                "v1_expected_validator_case_count": (
+                    module.EXPECTED_ADMITTED_VALIDATOR_CASES
+                ),
+                "v1_required_runtime_row_count": (
+                    module.EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS
+                ),
+                "v1_missing_validator_case_count": 0,
+                "v1_unexpected_required_runtime_row_count": 0,
+                "v1_support_report_row_count": (
+                    module.EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS
+                ),
+                "deterministic_unsupported_scope_status": "passed",
+                "deterministic_unsupported_row_count": (
+                    module.EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS
+                ),
+                "deterministic_unsupported_oracle_row_count": (
+                    module.EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS
+                ),
                 "property_execution_performed": True,
                 "decoded_reference_differential_execution_performed": True,
                 "semantic_conformance_suite_status": "passed",
@@ -7634,6 +7664,22 @@ class ReleaseScriptTests(unittest.TestCase):
                 "required_unsupported_stage_diagnostic_field_count"
             ],
             len(module.REQUIRED_UNSUPPORTED_CASE_IDS),
+        )
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"]["v1_runtime_scope_status"],
+            "passed",
+        )
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"][
+                "v1_unexpected_required_runtime_row_count"
+            ],
+            0,
+        )
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"][
+                "deterministic_unsupported_oracle_row_count"
+            ],
+            module.EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS,
         )
         self.assertEqual(
             report["summaries"]["python_user_surface"][
@@ -10725,6 +10771,100 @@ jobs:
 
         self.assertEqual(summary["status"], "failed")
         self.assertEqual(summary["remaining_matrix_gaps"], ["case_a", "case_b"])
+        self.assertEqual(summary["v1_runtime_scope_status"], "failed")
+
+    def test_admitted_semantics_matrix_blocks_extra_required_runtime_row(self) -> None:
+        module = self._load_script_module(
+            "check_admitted_semantics_matrix.py",
+            "check_admitted_semantics_matrix_extra_required_for_test",
+        )
+
+        def row(row_id: str) -> dict[str, object]:
+            return {
+                "id": row_id,
+                "operator_family": "fixture",
+                "support_state": "executable",
+                "runtime_validation": "required",
+                "source_format": "csv",
+                "input_dtype": "int64",
+                "output_dtype": "int64",
+                "null_policy": "fixture",
+                "coercion_policy": "fixture",
+                "invalid_input_behavior": "fixture",
+                "unsupported_diagnostic_code": "not_applicable_executable",
+                "unsupported_diagnostic_message": "not_applicable_executable",
+                "decoded_reference_kind": "jsonl_inline_reference",
+                "oracle_boundary": "decoded_reference_only",
+                "property_seed": "not_applicable_fixed_fixture",
+                "claim_boundary": "fixture",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+            }
+
+        payload = {
+            "schema_version": module.MATRIX_SCHEMA_VERSION,
+            "row_order": ["case_a", "case_extra"],
+            "remaining_matrix_gaps": list(module.EXPECTED_REMAINING_MATRIX_GAPS),
+            "rows": [row("case_a"), row("case_extra")],
+        }
+
+        _rows, summary = module.validate_matrix_manifest(payload, {"case_a"})
+
+        self.assertEqual(summary["status"], "failed")
+        self.assertEqual(summary["v1_runtime_scope_status"], "failed")
+        self.assertEqual(summary["v1_unexpected_required_runtime_row_count"], 1)
+        self.assertTrue(
+            any(
+                "matrix required runtime rows without validator cases: case_extra"
+                in blocker
+                for blocker in summary["blockers"]
+            ),
+            summary["blockers"],
+        )
+
+    def test_admitted_semantics_matrix_blocks_changed_remaining_gap_list(self) -> None:
+        module = self._load_script_module(
+            "check_admitted_semantics_matrix.py",
+            "check_admitted_semantics_matrix_gap_drift_for_test",
+        )
+        row = {
+            "id": "case_a",
+            "operator_family": "fixture",
+            "support_state": "executable",
+            "runtime_validation": "required",
+            "source_format": "csv",
+            "input_dtype": "int64",
+            "output_dtype": "int64",
+            "null_policy": "fixture",
+            "coercion_policy": "fixture",
+            "invalid_input_behavior": "fixture",
+            "unsupported_diagnostic_code": "not_applicable_executable",
+            "unsupported_diagnostic_message": "not_applicable_executable",
+            "decoded_reference_kind": "jsonl_inline_reference",
+            "oracle_boundary": "decoded_reference_only",
+            "property_seed": "not_applicable_fixed_fixture",
+            "claim_boundary": "fixture",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+        }
+        payload = {
+            "schema_version": module.MATRIX_SCHEMA_VERSION,
+            "row_order": ["case_a"],
+            "remaining_matrix_gaps": ["new silent v1 gap"],
+            "rows": [row],
+        }
+
+        _rows, summary = module.validate_matrix_manifest(payload, {"case_a"})
+
+        self.assertEqual(summary["status"], "failed")
+        self.assertEqual(summary["remaining_matrix_gap_status"], "failed")
+        self.assertTrue(
+            any(
+                "matrix remaining_matrix_gaps changed" in blocker
+                for blocker in summary["blockers"]
+            ),
+            summary["blockers"],
+        )
 
     def test_website_readiness_mirror_diagnostics_use_repo_root(self) -> None:
         module = self._load_script_module(

@@ -64,6 +64,10 @@ EXPECTED_UNSUPPORTED_DIAGNOSTICS = 22
 EXPECTED_RUNTIME_ERROR_DIAGNOSTICS = 1
 EXPECTED_INVALID_SHAPE_DIAGNOSTICS = 1
 EXPECTED_ADMITTED_STAGE_COUNT_MIN = 129
+EXPECTED_ADMITTED_VALIDATOR_CASES = EXPECTED_EXECUTABLE_FIXTURES + EXPECTED_DIAGNOSTIC_CASES
+EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS = EXPECTED_ADMITTED_VALIDATOR_CASES
+EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS = 2
+EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS = EXPECTED_DIAGNOSTIC_CASES
 ADMITTED_ARTIFACT_REF_PREFIX = "target/admitted-semantics-matrix/artifacts/"
 SEMANTIC_EXPECTED_OUTPUT_DIGEST_SOURCES = {
     "decoded_reference_result_jsonl",
@@ -363,6 +367,10 @@ def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         "runtime_error_diagnostics": EXPECTED_RUNTIME_ERROR_DIAGNOSTICS,
         "invalid_shape_diagnostics": EXPECTED_INVALID_SHAPE_DIAGNOSTICS,
         "admitted_stage_count_min": EXPECTED_ADMITTED_STAGE_COUNT_MIN,
+        "admitted_validator_cases": EXPECTED_ADMITTED_VALIDATOR_CASES,
+        "admitted_required_runtime_rows": EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,
+        "admitted_support_report_rows": EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS,
+        "admitted_deterministic_unsupported_rows": EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS,
     }.items():
         if expected_counts.get(field) != expected:
             blockers.append(f"matrix expected_counts.{field}={expected_counts.get(field)}")
@@ -978,6 +986,21 @@ def _validate_admitted(payload: dict[str, Any]) -> tuple[dict[str, Any], list[st
     for field, expected in expected_values.items():
         if payload.get(field) != expected:
             blockers.append(f"admitted_semantics: {field}={payload.get(field, 'missing')}")
+    scope_expected_values = {
+        "remaining_matrix_gap_status": "passed",
+        "v1_runtime_scope_status": "passed",
+        "v1_expected_validator_case_count": EXPECTED_ADMITTED_VALIDATOR_CASES,
+        "v1_required_runtime_row_count": EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,
+        "v1_missing_validator_case_count": 0,
+        "v1_unexpected_required_runtime_row_count": 0,
+        "v1_support_report_row_count": EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS,
+        "deterministic_unsupported_scope_status": "passed",
+        "deterministic_unsupported_row_count": EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS,
+        "deterministic_unsupported_oracle_row_count": EXPECTED_DETERMINISTIC_UNSUPPORTED_ROWS,
+    }
+    for field, expected in scope_expected_values.items():
+        if payload.get(field) != expected:
+            blockers.append(f"admitted_semantics: {field}={payload.get(field, 'missing')}")
     if (
         not isinstance(payload.get("stage_count"), int)
         or payload["stage_count"] < EXPECTED_ADMITTED_STAGE_COUNT_MIN
@@ -1016,6 +1039,24 @@ def _validate_admitted(payload: dict[str, Any]) -> tuple[dict[str, Any], list[st
         "unsupported_diagnostic_count": payload.get("unsupported_diagnostic_count"),
         "property_lane_count": payload.get("property_lane_count"),
         "stage_count": payload.get("stage_count"),
+        "remaining_matrix_gap_status": payload.get("remaining_matrix_gap_status"),
+        "v1_runtime_scope_status": payload.get("v1_runtime_scope_status"),
+        "v1_expected_validator_case_count": payload.get("v1_expected_validator_case_count"),
+        "v1_required_runtime_row_count": payload.get("v1_required_runtime_row_count"),
+        "v1_missing_validator_case_count": payload.get("v1_missing_validator_case_count"),
+        "v1_unexpected_required_runtime_row_count": payload.get(
+            "v1_unexpected_required_runtime_row_count"
+        ),
+        "v1_support_report_row_count": payload.get("v1_support_report_row_count"),
+        "deterministic_unsupported_scope_status": payload.get(
+            "deterministic_unsupported_scope_status"
+        ),
+        "deterministic_unsupported_row_count": payload.get(
+            "deterministic_unsupported_row_count"
+        ),
+        "deterministic_unsupported_oracle_row_count": payload.get(
+            "deterministic_unsupported_oracle_row_count"
+        ),
         "required_semantic_case_count": len(REQUIRED_SEMANTIC_CASE_IDS),
         "required_unsupported_case_count": len(REQUIRED_UNSUPPORTED_CASE_IDS),
         "remaining_matrix_gaps": payload.get("remaining_matrix_gaps", []),

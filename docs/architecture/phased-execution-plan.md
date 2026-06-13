@@ -221,7 +221,7 @@ with a recorded infeasibility reason, not merely because they are broad.
       fields.
     - [x] Ensure every current public v1 example operation has fixture tests, semantic conformance
       rows, expected output digests, no-fallback proof, and Python accessor coverage where exposed.
-    - [ ] Expand admitted semantics only for v1-supported behavior and keep unsupported rows
+    - [x] Expand admitted semantics only for v1-supported behavior and keep unsupported rows
       explicit with deterministic blockers.
     - [ ] Add property tests for filters, projections, limits, supported joins, supported
       aggregates, supported sort/top-N, supported subqueries, supported string/temporal/decimal/

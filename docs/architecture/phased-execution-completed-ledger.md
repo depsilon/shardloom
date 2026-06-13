@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-2B admitted semantics v1 scope guard
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-2B` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/release/v1-correctness-conformance-matrix.json`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_v1_correctness_conformance.py`.
+    - `target/admitted-semantics-matrix-report.json`.
+    - `target/v1-correctness-conformance-report.json`.
+  - Branch: `codex/v1-admitted-semantics-scope`.
+  - Scope:
+    - Added admitted-semantics producer fields that make v1 runtime scope discipline explicit:
+      required validator case count, required runtime row count, missing validator count,
+      unexpected required runtime row count, support-report row count, residual-gap status, and
+      deterministic unsupported/error diagnostic coverage.
+    - Locked residual admitted-semantics gaps to the known non-v1/public-claim gaps instead of
+      allowing silent new v1 gaps to pass.
+    - Extended the v1 correctness/conformance matrix, aggregate gate, and hard release-readiness
+      gate to require 127 expected validator cases, 127 required runtime rows, zero missing or
+      unexpected required runtime rows, two support-report rows, and 24 deterministic diagnostic
+      rows.
+    - Added release-script regression tests for missing matrix fail-closed behavior, extra
+      required runtime rows without validator cases, and changed residual-gap lists.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_v1_correctness_conformance.py scripts/check_release_readiness.py python/tests/test_release_scripts.py`.
+    - `python3 scripts/check_admitted_semantics_matrix.py`.
+    - `python3 scripts/check_v1_correctness_conformance.py`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_admitted_semantics_missing_matrix_reports_remaining_gaps python.tests.test_release_scripts.ReleaseScriptTests.test_admitted_semantics_matrix_blocks_extra_required_runtime_row python.tests.test_release_scripts.ReleaseScriptTests.test_admitted_semantics_matrix_blocks_changed_remaining_gap_list python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_passes_complete_fixture`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+  - Generated report:
+    - `target/admitted-semantics-matrix-report.json`.
+    - `target/v1-correctness-conformance-report.json`.
+    - Admitted semantics status: `passed`.
+    - V1 runtime scope status: `passed`.
+    - Expected validator case count: 127.
+    - Required runtime row count: 127.
+    - Missing validator case count: 0.
+    - Unexpected required runtime row count: 0.
+    - Support-report row count: 2.
+    - Deterministic unsupported/error diagnostic rows: 24/24.
+  - Release-readiness note:
+    - `python3 scripts/check_release_readiness.py --allow-blocked` still reports the known broader
+      package-channel, publication/API/schema stability, benchmark publication manifest, and
+      validation-evidence blockers. The updated `v1_correctness_conformance_gate` does not appear
+      in that blocker list.
+  - Claim boundary:
+    - May claim admitted-semantics v1 scope now fails closed if a producer introduces required
+      runtime rows without validator cases, changes the residual non-v1 gap list, or weakens
+      deterministic unsupported/error diagnostic coverage.
+    - Does not close property/fuzz breadth, docs-example replay, broad ANSI parity, production
+      readiness, performance claims, package publication, or Spark-replacement claims.
+  - Fallback boundary:
+    - Validation is local and report-only. External engines remain allowed only as explicit test
+      oracles where separately approved and are never ShardLoom runtime fallback.
 - [x] Session label: PROD-V1-2B public operation coverage crosswalk gate
   - Date: 2026-06-13
   - Source:
