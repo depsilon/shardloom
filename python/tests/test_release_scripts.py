@@ -1593,6 +1593,12 @@ class ReleaseScriptTests(unittest.TestCase):
                 "prepare_batch_prepared_state_dependency_artifact_manifest_hash": (
                     "sha256:artifact-manifest"
                 ),
+                "prepare_batch_prepared_state_dependency_packet_reuse_status": (
+                    "single_evaluation_packet_reused_for_role_repair"
+                ),
+                "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count": (
+                    1
+                ),
                 "prepare_batch_prepared_state_dependency_fallback_attempted": False,
                 "prepare_batch_prepared_state_dependency_external_engine_invoked": False,
                 "prepare_batch_prepared_state_partial_repair_status": (
@@ -1666,6 +1672,16 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             published["prepare_batch_prepared_state_optimization_repair_ms"],
             8.765,
+        )
+        self.assertEqual(
+            published["prepare_batch_prepared_state_dependency_packet_reuse_status"],
+            "single_evaluation_packet_reused_for_role_repair",
+        )
+        self.assertEqual(
+            published[
+                "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count"
+            ],
+            1,
         )
         self.assertEqual(
             published[
@@ -2832,6 +2848,16 @@ class ReleaseScriptTests(unittest.TestCase):
                 "prepare_batch_external_engine_invoked": False,
                 "prepare_batch_prepared_state_dependency_fallback_attempted": False,
                 "prepare_batch_prepared_state_dependency_external_engine_invoked": False,
+                "prepare_batch_prepared_state_dependency_packet_reuse_status": (
+                    "single_evaluation_packet_manifest_hit"
+                    if strategy == "manifest_reuse"
+                    else "single_evaluation_packet_reused_for_role_repair"
+                    if strategy == "role_scoped_repair"
+                    else "single_evaluation_packet_reused_for_full_register"
+                ),
+                "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count": (
+                    0 if strategy == "manifest_reuse" else 1
+                ),
                 "prepare_batch_prepared_state_optimization_strategy": strategy,
                 "prepare_batch_prepared_state_optimization_status": (
                     "prepared_state_role_repair_admitted"

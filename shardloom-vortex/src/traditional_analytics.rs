@@ -9184,6 +9184,36 @@ impl TraditionalAnalyticsPreparedBatchReport {
         } else {
             prepared_batch_dependency_status(workspace_reuse_hit, &self.prepared_state_reuse.reason)
         };
+        let prepared_state_dependency_packet_single_rebuild_avoided =
+            workspace_delta_overlay_performed
+                || workspace_partial_repair_performed
+                || self.prepared_state_reuse.reason == "no_reuse_manifest"
+                || self
+                    .prepared_state_reuse
+                    .reason
+                    .starts_with("reuse_manifest_unreadable:")
+                || self
+                    .prepared_state_reuse
+                    .reason
+                    .starts_with("reuse_manifest_unparseable:");
+        let prepared_state_dependency_packet_rebuild_avoided_count = if workspace_reuse_hit {
+            0
+        } else if prepared_state_dependency_packet_single_rebuild_avoided {
+            1
+        } else {
+            2
+        };
+        let prepared_state_dependency_packet_reuse_status = if workspace_reuse_hit {
+            "single_evaluation_packet_manifest_hit"
+        } else if workspace_delta_overlay_performed {
+            "single_evaluation_packet_reused_for_delta_overlay"
+        } else if workspace_partial_repair_performed {
+            "single_evaluation_packet_reused_for_role_repair"
+        } else if prepared_state_dependency_packet_rebuild_avoided_count > 1 {
+            "single_evaluation_packet_reused_for_manifest_miss_and_full_register"
+        } else {
+            "single_evaluation_packet_reused_for_full_register"
+        };
         let prepared_state_dependency_changed_roles =
             prepared_batch_dependency_changed_roles(&self.prepared_state_reuse.reason);
         let prepared_state_partial_repair_status = if workspace_delta_overlay_performed {
@@ -10255,6 +10285,14 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 self.prepared_state_reuse
                     .source_admission_packet_artifact_manifest_hash
                     .clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_packet_reuse_status".to_string(),
+                prepared_state_dependency_packet_reuse_status.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count".to_string(),
+                prepared_state_dependency_packet_rebuild_avoided_count.to_string(),
             ),
             (
                 "prepare_batch_prepared_state_dependency_recheck_policy".to_string(),
@@ -16523,11 +16561,16 @@ struct TraditionalPreparedBatchWorkspaceReuseDecision {
     manifest_digest: String,
     manifest_path: PathBuf,
     manifest_payload: Option<serde_json::Value>,
+    request_payload: serde_json::Value,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalPreparedBatchWorkspaceReuseDecision {
-    fn miss(manifest_path: PathBuf, reason: impl Into<String>) -> Self {
+    fn miss(
+        manifest_path: PathBuf,
+        reason: impl Into<String>,
+        request_payload: serde_json::Value,
+    ) -> Self {
         let reason = reason.into();
         Self {
             hit: false,
@@ -16535,6 +16578,7 @@ impl TraditionalPreparedBatchWorkspaceReuseDecision {
             manifest_digest: "none".to_string(),
             manifest_path,
             manifest_payload: None,
+            request_payload,
         }
     }
 
@@ -16543,6 +16587,7 @@ impl TraditionalPreparedBatchWorkspaceReuseDecision {
         reason: impl Into<String>,
         manifest_digest: String,
         manifest_payload: serde_json::Value,
+        request_payload: serde_json::Value,
     ) -> Self {
         let reason = reason.into();
         Self {
@@ -16551,6 +16596,7 @@ impl TraditionalPreparedBatchWorkspaceReuseDecision {
             manifest_digest,
             manifest_path,
             manifest_payload: Some(manifest_payload),
+            request_payload,
         }
     }
 
@@ -16558,6 +16604,7 @@ impl TraditionalPreparedBatchWorkspaceReuseDecision {
         manifest_path: PathBuf,
         manifest_digest: String,
         manifest_payload: serde_json::Value,
+        request_payload: serde_json::Value,
     ) -> Self {
         Self {
             hit: true,
@@ -16565,6 +16612,7 @@ impl TraditionalPreparedBatchWorkspaceReuseDecision {
             manifest_digest,
             manifest_path,
             manifest_payload: Some(manifest_payload),
+            request_payload,
         }
     }
 }
@@ -16707,6 +16755,7 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
         return Ok(TraditionalPreparedBatchWorkspaceReuseDecision::miss(
             manifest_path,
             "no_reuse_manifest",
+            request_payload,
         ));
     }
     let manifest_text = match std::fs::read_to_string(&manifest_path) {
@@ -16715,6 +16764,7 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
             return Ok(TraditionalPreparedBatchWorkspaceReuseDecision::miss(
                 manifest_path,
                 format!("reuse_manifest_unreadable:{error}"),
+                request_payload,
             ));
         }
     };
@@ -16724,6 +16774,7 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
             return Ok(TraditionalPreparedBatchWorkspaceReuseDecision::miss(
                 manifest_path,
                 format!("reuse_manifest_unparseable:{error}"),
+                request_payload,
             ));
         }
     };
@@ -16738,6 +16789,7 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
                 "reuse_manifest_schema_mismatch",
                 manifest_digest,
                 manifest_payload,
+                request_payload,
             ),
         );
     }
@@ -16748,6 +16800,7 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
                 "reuse_manifest_digest_mismatch",
                 manifest_digest,
                 manifest_payload,
+                request_payload,
             ),
         );
     }
@@ -16762,6 +16815,7 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
                 reason,
                 manifest_digest,
                 manifest_payload,
+                request_payload,
             ),
         );
     }
@@ -16773,6 +16827,7 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
                 artifact_reason,
                 manifest_digest,
                 manifest_payload,
+                request_payload,
             ),
         );
     }
@@ -16783,6 +16838,7 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
                 "reuse_manifest_fallback_attempted",
                 manifest_digest,
                 manifest_payload,
+                request_payload,
             ),
         );
     }
@@ -16793,6 +16849,7 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
                 "reuse_manifest_external_engine_invoked",
                 manifest_digest,
                 manifest_payload,
+                request_payload,
             ),
         );
     }
@@ -16800,6 +16857,7 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
         manifest_path,
         manifest_digest,
         manifest_payload,
+        request_payload,
     ))
 }
 
@@ -16982,11 +17040,9 @@ fn traditional_prepared_delta_overlay_base_payload(
 fn write_traditional_prepared_batch_workspace_reuse_manifest(
     prepare_report: &TraditionalAnalyticsReport,
     fact_input: &std::path::Path,
-    dim_input: &std::path::Path,
-    cdc_delta_input: Option<&std::path::Path>,
     workspace_dir: &std::path::Path,
-    resource_policy: TraditionalAnalyticsResourcePolicy,
     prior_reuse_reason: &str,
+    request_payload: &serde_json::Value,
 ) -> Result<TraditionalPreparedBatchReuseReport> {
     let manifest_path = traditional_prepared_batch_reuse_manifest_path(workspace_dir);
     let prepare_fields = prepare_report.fields();
@@ -16998,16 +17054,8 @@ fn write_traditional_prepared_batch_workspace_reuse_manifest(
             "prepare_report_not_reuse_eligible".to_string(),
         ));
     }
-    let request_payload = traditional_prepared_batch_reuse_request_payload(
-        fact_input,
-        dim_input,
-        cdc_delta_input,
-        workspace_dir,
-        prepare_report.input_format,
-        resource_policy,
-    )?;
     let source_admission_packet_digest =
-        json_string_field(&request_payload, "source_admission_packet_digest")
+        json_string_field(request_payload, "source_admission_packet_digest")
             .unwrap_or_else(|| "missing_source_admission_packet_digest".to_string());
     let fact_artifact = prepared_batch_artifact_manifest(
         &prepare_report.fact_vortex_path,
@@ -17035,7 +17083,7 @@ fn write_traditional_prepared_batch_workspace_reuse_manifest(
     let prepared_artifacts = serde_json::Value::Object(prepared_artifacts);
     let source_admission_packet_artifact_manifest_hash =
         stable_json_value_digest(&prepared_artifacts);
-    let mut manifest_payload = request_payload;
+    let mut manifest_payload = request_payload.clone();
     json_object_insert(
         &mut manifest_payload,
         "created_unix_seconds",
@@ -19149,18 +19197,34 @@ fn collect_manifest_files(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn normalize_manifest_path(path: &std::path::Path) -> String {
-    std::fs::canonicalize(path)
-        .unwrap_or_else(|_| {
-            if path.is_absolute() {
-                path.to_path_buf()
-            } else {
-                std::env::current_dir()
-                    .unwrap_or_else(|_| PathBuf::from("."))
-                    .join(path)
-            }
-        })
-        .display()
-        .to_string()
+    if let Ok(canonical) = std::fs::canonicalize(path) {
+        return canonical.display().to_string();
+    }
+
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join(path)
+    };
+    let mut cursor = absolute.as_path();
+    let mut missing_components = Vec::new();
+    while !cursor.exists() {
+        let Some(file_name) = cursor.file_name() else {
+            break;
+        };
+        missing_components.push(file_name.to_os_string());
+        let Some(parent) = cursor.parent() else {
+            break;
+        };
+        cursor = parent;
+    }
+    let mut normalized = std::fs::canonicalize(cursor).unwrap_or_else(|_| cursor.to_path_buf());
+    for component in missing_components.iter().rev() {
+        normalized.push(component);
+    }
+    normalized.display().to_string()
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -24593,17 +24657,10 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
     }
 
     if let Some(manifest_payload) = reuse_decision.manifest_payload.as_ref() {
-        let request_payload = traditional_prepared_batch_reuse_request_payload(
-            &fact_input,
-            &dim_input,
-            cdc_delta_input.as_deref(),
-            &workspace_dir,
-            input_format,
-            resource_policy,
-        )?;
+        let request_payload = &reuse_decision.request_payload;
         let delta_overlay_report = evaluate_and_materialize_traditional_fact_delta_overlay(
             manifest_payload,
-            &request_payload,
+            request_payload,
             &fact_input,
             &dim_input,
             &workspace_dir,
@@ -24619,7 +24676,7 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
             let overlay_start = std::time::Instant::now();
             let mut prepared_state_reuse = write_traditional_prepared_batch_delta_overlay_manifest(
                 manifest_payload,
-                &request_payload,
+                request_payload,
                 &workspace_dir,
                 &reuse_decision.reason,
                 delta_overlay_report.expect("checked admitted delta overlay report"),
@@ -24690,7 +24747,7 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
             });
         }
         if let Some(repair_role) =
-            prepared_batch_single_role_repair_admission(manifest_payload, &request_payload)?
+            prepared_batch_single_role_repair_admission(manifest_payload, request_payload)?
         {
             let repair_start = std::time::Instant::now();
             let role_repair = repair_traditional_prepared_role(
@@ -24707,7 +24764,7 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
             let mut prepared_state_reuse =
                 write_traditional_prepared_batch_partial_repair_manifest(
                     manifest_payload,
-                    &request_payload,
+                    request_payload,
                     &role_repair,
                     &fact_input,
                     &dim_input,
@@ -24793,11 +24850,9 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
     let mut prepared_state_reuse = write_traditional_prepared_batch_workspace_reuse_manifest(
         &prepare_report,
         &fact_input,
-        &dim_input,
-        cdc_delta_input.as_deref(),
         &workspace_dir,
-        resource_policy,
         &reuse_decision.reason,
+        &reuse_decision.request_payload,
     )?;
     let artifact_register_micros = duration_to_micros(artifact_register_start.elapsed());
     prepared_state_reuse =
@@ -41749,6 +41804,16 @@ mod tests {
         );
         assert_field_eq(
             &first_fields,
+            "prepare_batch_prepared_state_dependency_packet_reuse_status",
+            "single_evaluation_packet_reused_for_full_register",
+        );
+        assert_field_eq(
+            &first_fields,
+            "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count",
+            "1",
+        );
+        assert_field_eq(
+            &first_fields,
             "prepare_batch_prepared_state_dependency_fallback_attempted",
             "false",
         );
@@ -42056,6 +42121,16 @@ mod tests {
         );
         assert_field_eq(
             &second_fields,
+            "prepare_batch_prepared_state_dependency_packet_reuse_status",
+            "single_evaluation_packet_manifest_hit",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count",
+            "0",
+        );
+        assert_field_eq(
+            &second_fields,
             "prepare_batch_prepared_state_partial_repair_status",
             "not_needed_manifest_hit",
         );
@@ -42203,6 +42278,16 @@ mod tests {
             &third_fields,
             "prepare_batch_prepared_state_dependency_changed_roles",
             "fact_input",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_dependency_packet_reuse_status",
+            "single_evaluation_packet_reused_for_role_repair",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count",
+            "1",
         );
         assert_field_eq(
             &third_fields,
@@ -42413,6 +42498,16 @@ mod tests {
             &overlay_fields,
             "prepare_batch_prepared_state_delta_overlay_admitted",
             "true",
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "prepare_batch_prepared_state_dependency_packet_reuse_status",
+            "single_evaluation_packet_reused_for_delta_overlay",
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count",
+            "1",
         );
         assert_field_eq(&overlay_fields, "delta_overlay_admitted", "true");
         assert_field_eq(&overlay_fields, "base_artifact_reused", "true");

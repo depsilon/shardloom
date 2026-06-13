@@ -1231,6 +1231,8 @@ PREPARED_STATE_REPAIR_CONTRACT_FIELDS = (
     "prepare_batch_prepared_state_dependency_manifest_digest",
     "prepare_batch_prepared_state_dependency_source_packet_digest",
     "prepare_batch_prepared_state_dependency_artifact_manifest_hash",
+    "prepare_batch_prepared_state_dependency_packet_reuse_status",
+    "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count",
     "prepare_batch_prepared_state_dependency_recheck_policy",
     "prepare_batch_prepared_state_dependency_fallback_attempted",
     "prepare_batch_prepared_state_dependency_external_engine_invoked",
@@ -7510,6 +7512,18 @@ def prepare_batch_dependency_repair_fields(
         "prepare_batch_prepared_state_dependency_artifact_manifest_hash": first_meaningful_field(
             evidence.get("prepare_batch_prepared_state_dependency_artifact_manifest_hash"),
             "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_dependency_packet_reuse_status": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_dependency_packet_reuse_status"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count": (
+            parse_optional_int(
+                evidence.get(
+                    "prepare_batch_prepared_state_dependency_packet_rebuild_avoided_count"
+                )
+            )
+            or 0
         ),
         "prepare_batch_prepared_state_dependency_recheck_policy": first_meaningful_field(
             evidence.get("prepare_batch_prepared_state_dependency_recheck_policy"),
