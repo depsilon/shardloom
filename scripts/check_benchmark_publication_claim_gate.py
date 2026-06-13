@@ -79,6 +79,11 @@ STATIC_PUBLICATION_BUNDLE_REFS = {
     "website/benchmarks.html",
     "website-public/benchmarks.html",
 }
+BENCHMARK_PUBLICATION_CONTROL_PLANE_REFS = {
+    "python/tests/test_release_scripts.py",
+    "scripts/check_benchmark_publication_claim_gate.py",
+    "scripts/promote_benchmark_artifact.py",
+}
 DEFAULT_MAX_AGE_DAYS = 14
 FUTURE_CLOCK_SKEW = timedelta(minutes=5)
 REQUIRED_PUBLICATION_FORMATS = ("csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc")
@@ -243,6 +248,11 @@ def static_publication_bundle_path(path: str) -> bool:
     return normalized in STATIC_PUBLICATION_BUNDLE_REFS or any(
         normalized.startswith(prefix) for prefix in STATIC_PUBLICATION_BUNDLE_PREFIXES
     )
+
+
+def benchmark_publication_control_plane_path(path: str) -> bool:
+    normalized = path.replace("\\", "/")
+    return normalized in BENCHMARK_PUBLICATION_CONTROL_PLANE_REFS
 
 
 def worktree_currentness_status(status: str | None) -> dict[str, Any]:
@@ -896,6 +906,7 @@ def validate_freshness(
 
     git_currentness_status = "not_checked"
     static_publication_delta_paths: list[str] = []
+    benchmark_publication_control_plane_delta_paths: list[str] = []
     static_publication_nonpublic_delta_paths: list[str] = []
     emitted_source_revision_blockers: set[tuple[str, str, tuple[str, ...]]] = set()
     if require_current_git and resolved_git_sha:
@@ -920,6 +931,7 @@ def validate_freshness(
                     path
                     for path in (changed_paths or [])
                     if not static_publication_bundle_path(path)
+                    and not benchmark_publication_control_plane_path(path)
                 ]
                 if changed_paths is not None
                 else []
@@ -930,6 +942,13 @@ def validate_freshness(
                         path
                         for path in changed_paths
                         if static_publication_bundle_path(path)
+                    )
+                )
+                benchmark_publication_control_plane_delta_paths = sorted(
+                    set(benchmark_publication_control_plane_delta_paths).union(
+                        path
+                        for path in changed_paths
+                        if benchmark_publication_control_plane_path(path)
                     )
                 )
             if source_is_publication_ancestor and changed_paths is not None and not non_public_paths:
@@ -950,7 +969,7 @@ def validate_freshness(
                     emitted_source_revision_blockers.add(blocker_signature)
                     blockers.append(
                         f"benchmark manifest {key}={recorded!r} is an ancestor of current HEAD "
-                        f"{resolved_git_sha}, but non-publication files changed after benchmark "
+                        f"{resolved_git_sha}, but non-publication source files changed after benchmark "
                         f"source revision: {', '.join(non_public_paths[:12])}"
                     )
             else:
@@ -976,6 +995,9 @@ def validate_freshness(
         "shardloom_git_sha": manifest.get("shardloom_git_sha"),
         "git_currentness_status": git_currentness_status,
         "static_publication_delta_paths": static_publication_delta_paths,
+        "benchmark_publication_control_plane_delta_paths": (
+            benchmark_publication_control_plane_delta_paths
+        ),
         "static_publication_nonpublic_delta_paths": (
             static_publication_nonpublic_delta_paths
         ),
