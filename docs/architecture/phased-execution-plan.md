@@ -8,10 +8,26 @@
 - Keep Planned ordered by current dependency and user value, not numeric CG order.
 - Do not keep a separate Active section. The next autonomous work is the first unchecked Planned
   checkbox after this file has been reordered.
-- Use one unchecked checkbox per active item or child slice. Put acceptance detail in nested plain
-  bullets, not additional unchecked boxes, so release/completion gates report the real open-item
-  count.
-- Move a completed item summary to the completed ledger after merge or session completion.
+- Use one top-level unchecked checkbox per active item or promoted child slice. Every top-level
+  item must include an `Execution checklist:` with nested checkboxes for the concrete substeps that
+  make progress visible. Keep acceptance, evidence, boundaries, and verification as plain bullets.
+- Use nested checklist boxes only for verifiable work: implementation, tests, generated evidence,
+  docs/site updates, CI/benchmark refreshes, and ledger movement. Do not use vague checklist rows
+  such as "continue work" or "investigate more" without a named evidence output.
+- Every new ShardLoom runtime, support, release, benchmark, or user-surface item must include a
+  `ShardLoom technique review:` bullet. That review must explicitly consider whether PulseWeave,
+  capillary work units, dynamic admission/work shaping, metadata-first execution, route timing
+  surface separation, or evidence-tier controls apply. If none apply, say why. This prevents net
+  new features from being designed in a generic way that later needs avoidable refactoring to use
+  ShardLoom's own performance and evidence techniques.
+- Leave the top-level item unchecked until every required nested checkbox is checked, validation is
+  recorded, unsupported paths remain explicit, and the completed summary has been moved to the
+  completed ledger after merge or session completion.
+- When a nested checkbox becomes too large for one coherent PR/session, promote it to its own
+  top-level Planned item and replace the nested row with a link to that promoted item.
+- Move a completed item summary to the completed ledger after merge or session completion. The
+  ledger entry must name the closed checklist, evidence commands/artifacts, PR or commit, claim
+  boundary, and any residual work that was promoted to a new Planned item.
 - Do not duplicate "current" status in multiple places.
 - Do not use stale percentage estimates.
 - CG-1 through CG-23 remain competitive gates, not replacement phase IDs.
@@ -26,6 +42,11 @@ Each item should name:
 
 - Source: governing RFC, architecture doc, benchmark report, issue, PR, or review finding.
 - Current state: what exists today and what is still unsupported, diagnostic-only, or report-only.
+- ShardLoom technique review: whether PulseWeave, capillary work units, dynamic admission/work
+  shaping, metadata-first execution, timing-surface separation, or evidence-tier controls apply; if
+  not applicable, the item must explain why.
+- Execution checklist: nested checkbox rows for the concrete implementation, test, evidence,
+  benchmark, docs/site, and ledger steps needed to close the item.
 - Next outcome: the concrete result expected from the next cohesive PR/session.
 - User-visible surface: CLI, Python, benchmark, docs, API, capability view, evidence artifact, or
   release gate.
@@ -143,14 +164,22 @@ Current autonomous execution order:
 
 - [ ] `PERF-RUNTIME-7A` Cold compatibility-to-certified route hot-runtime burn-down.
   - Source: current promoted `full_local` benchmark artifact generated
-    `2026-06-13T09:18:58Z` from source revision
-    `2e8518f0660c99336f39d7df385ba54193e292ac`; route-share Amdahl table and row-level
+    `2026-06-13T11:15:09Z` from source revision
+    `29e1e52dbae922cef0d3c9fffdbbad77ec414650`; route-share Amdahl table and row-level
     inspection of `website/assets/benchmarks/latest/benchmark-results.json`.
   - Current state: `cold_certified_route` is the only broad multi-ms ShardLoom hot runtime lane:
-    hot-route geomean `6.08 ms`, p95 `17.55 ms`, max `25.11 ms`. Included hot stages are
+    hot-route geomean `39.98 ms`, p95 `92.25 ms`, max `239.61 ms`. Included hot stages are
     source admission, source read, parse/decode, Vortex write, and reopen/verify. Current
-    stage geomeans are roughly Vortex write `2.35 ms`, parse/decode `1.94 ms`, source read
-    `0.82 ms`, reopen/verify `0.46 ms`; JSONL is the slowest format at `11.60 ms`.
+    stage geomeans are roughly parse/decode `17.06 ms`, Vortex write `14.06 ms`, source read
+    `8.23 ms` on rows with source-read timing, and reopen/verify `1.47 ms`; JSONL remains the
+    slowest format, but the artifact also reports common-run slowdown across all external control
+    lanes, so treat this as current evidence and optimization direction, not a standalone
+    ShardLoom regression claim.
+  - ShardLoom technique review: applicable. Cold-route work should consider dynamic admission for
+    source-shape-specific typed builders, capillary windows for bounded source/read/write units,
+    PulseWeave-style run-local coalescing for writer/open/reopen work, metadata-first source
+    admission, and strict timing-surface separation so publication proof never redefines hot
+    runtime.
   - Execution checklist:
     - [x] Add direct selected-tail parsing for canonical benchmark JSONL optional fields so
       nested/dirty/timestamp scenarios avoid scanning and splitting every unselected tail field.
@@ -163,10 +192,10 @@ Current autonomous execution order:
       paths (`target/perf-runtime-7-smoke.json`,
       `target/perf-runtime-7-nested-json-smoke.json`); treat as validation only, not a published
       benchmark claim.
-    - [ ] Run a targeted cold-route benchmark refresh after source validation to measure JSONL
-      parse/write movement.
-    - [ ] Confirm promoted rows expose non-zero writer context/write-plan counters from current
-      source, replacing stale `not_reported_by_engine` artifact rows.
+    - [x] Refresh the full-local benchmark artifact after source validation to measure current
+      parse/write movement in the promoted website bundle.
+    - [ ] Promote real writer context/write-plan counters from current source; the refreshed rows
+      still report `not_reported_by_engine` for writer context attribution.
   - Next outcome: reduce real cold-route work without changing timing-surface semantics by
     batching/coalescing Vortex writes, tightening schema-driven typed source builders for text
     formats, and preserving reader-boundary projection for columnar formats. Apply dynamic
@@ -202,16 +231,22 @@ Current autonomous execution order:
     `docs/architecture/phased-execution-completed-ledger.md`.
 - [ ] `PERF-RUNTIME-7B` Heavy residual operator tail promotion for multi-key group-by and
   join-aggregate.
-  - Source: current promoted `full_local` benchmark artifact row-level timing. Heavy hot tails:
-    cold `multi_key_group_by` geomean `18.28 ms` with diagnostic operator compute around
-    `7.22 ms` and reopen/verify around `6.40 ms`; cold `join_aggregate` geomean `10.57 ms`;
-    prepared/native `join_aggregate` rows still spike near `5 ms` despite low warm/native
-    geomeans.
+  - Source: current promoted `full_local` benchmark artifact row-level timing generated
+    `2026-06-13T11:15:09Z`. Heavy hot tails now show cold `multi_key_group_by` geomean
+    `54.94 ms` with diagnostic operator compute around `10.66 ms`, cold `join_aggregate`
+    geomean `50.77 ms`, and prepared/native `join_aggregate` route geomeans around
+    `4.73-6.45 ms` with operator compute around `3.22-3.65 ms`. Other prepared/native heavy
+    grouping rows are near zero and look marginal unless future artifacts disagree.
   - Current state: operator mode inventory still reports residual-native operator promotion
     blockers: `residual_native_operator_encoding_promotion`,
     `selective_filter_selection_vector_metric_aggregation`, and
     `compatibility_import_materialization_elimination`. Diagnostic operator fields are visible but
     many operator timings are not additive to selected route totals.
+  - ShardLoom technique review: applicable, but operator semantics come first. Dynamic kernel
+    admission should select by cardinality/domain/null shape; encoded/partially encoded kernels
+    should be preferred where decoded-reference parity exists. Capillary or PulseWeave controls
+    apply around source/preparation/result work, not as a substitute for native operator
+    correctness.
   - Execution checklist:
     - [x] Reuse the packed dense group accumulator for `join_aggregate`, replacing the older
       dense-left/per-dimension `HashMap` category accumulator in the hot loop.
@@ -223,9 +258,8 @@ Current autonomous execution order:
     - [x] Run a targeted one-iteration local smoke for `join + aggregate` across CSV/JSONL cold and
       prepare-batch lanes; treat the result as route validation only until refreshed benchmark rows
       are promoted.
-    - [ ] Refresh targeted prepared/native `join_aggregate`, `multi_key_group_by`, and
-      high-cardinality rows to determine whether remaining opportunities are significant or
-      marginal.
+    - [x] Refresh full-local `join_aggregate`, `multi_key_group_by`, and high-cardinality rows to
+      classify remaining opportunities as significant or marginal.
     - [ ] If refreshed rows still show multi-ms prepared/native operator spikes, add the next
       native kernel family with decoded-reference parity tests before claiming promotion.
   - Next outcome: promote a cohesive heavy-operator family rather than isolated scenario slivers:
@@ -258,12 +292,16 @@ Current autonomous execution order:
     the completed ledger.
 - [ ] `PERF-RUNTIME-7C` Prepared lookup/create and route-total attribution cleanup.
   - Source: current route-share Amdahl and stage-inclusion tables. `prepare_once_first_query`
-    hot-route geomean is `0.67 ms`, dominated by `prepared_state_lookup_or_create` around
-    `0.56 ms` (`84%` route share). `prepare_once_batch`, warm, and native lanes have very low
+    hot-route geomean is `1.25 ms`, dominated by `prepared_state_lookup_or_create` around
+    `0.87 ms` (`69.5%` route share). `prepare_once_batch`, warm, and native lanes have very low
     geomeans but still carry diagnostic stage fields larger than selected route totals.
   - Current state: prepared lookup/create is a moderate absolute cost and a large relative cost for
     first-query prepared routes. Route-share rows are optimization-ready, but some diagnostic
     fields are intentionally non-additive and can distract optimization targeting.
+  - ShardLoom technique review: applicable. Use dynamic admission for cache-hit/miss policy,
+    metadata-first manifest verification, and PulseWeave-style run-local coalescing for repeated
+    dependency-packet checks. Capillary work units apply only if manifest/artifact verification is
+    split into bounded source/prepared-state units.
   - Execution checklist:
     - [x] Confirm `preparation_engine_millis` prefers narrow prepared-state/import fields and does
       not use `total_runtime_micros` as the narrow prepare timing source.
@@ -272,7 +310,7 @@ Current autonomous execution order:
       index digests to avoid an intermediate UTF-8 string allocation.
     - [x] Run a targeted one-iteration local prepare-batch smoke showing
       `prepared_state_lookup_or_create` remains separate from `prepare_route_total`.
-    - [ ] Refresh prepared-route benchmark rows to measure whether manifest lookup/create moved.
+    - [x] Refresh prepared-route benchmark rows to measure whether manifest lookup/create moved.
     - [ ] If lookup remains material, evaluate a manifest/index read-through cache that still
       verifies manifest digest, source fingerprints, artifact fingerprints, native I/O
       certificates, and no-fallback fields before reuse.
@@ -304,19 +342,26 @@ Current autonomous execution order:
     the completed ledger.
 - [ ] `PERF-RUNTIME-7D` Publication-proof sink/evidence overhead burn-down without redefining hot
   runtime.
-  - Source: current promoted `full_local` artifact. Publication-proof routes add roughly
-    `2.7-3.1 ms` evidence render and about `0.35 ms` result-sink work to warm/native/prepared
-    lanes; this is significant for proof/publication throughput but not a core hot-runtime
-    regression.
+  - Source: current promoted `full_local` artifact generated `2026-06-13T11:15:09Z`.
+    Publication-proof routes add roughly `3.35-4.14 ms` evidence render and about
+    `0.44-0.54 ms` result-sink work to warm/native/prepared lanes; this is significant for
+    proof/publication throughput but not a core hot-runtime regression.
   - Current state: `publication_proof` rows are correctly separated from `hot_runtime`, but the
     proof path still spends more time rendering human evidence than executing warm/native queries.
+  - ShardLoom technique review: applicable for proof publication, not hot runtime. Use
+    evidence-tier controls and timing-surface separation first, then PulseWeave-style coalescing or
+    digest-keyed sidecar reuse for repeated publication records. Capillary units apply only to
+    bounded proof-record writes, not to hiding sink/evidence work from publication totals.
   - Execution checklist:
     - [x] Confirm Rust runtime rows emit compact machine evidence and mark human evidence render as
       outside the Rust timed route.
     - [x] Confirm benchmark promotion already writes an incremental publication-proof sidecar with
       reused/written/removed record counts and no-fallback fields.
-    - [ ] After benchmark promotion, confirm the sidecar reports reuse for unchanged publication
-      records and that website labels keep proof overhead out of hot runtime.
+    - [x] After benchmark promotion, confirm sidecar admission counts and website labels keep
+      proof overhead out of hot runtime; the refreshed run wrote `600` proof records, reused `0`,
+      and removed `120` stale records because the row digest changed.
+    - [ ] Repeat promotion over an unchanged machine-evidence artifact and confirm sidecar reuse
+      before claiming publication-proof reuse improvements.
     - [ ] If publication-proof rows still spend multi-ms in repeated human formatting after sidecar
       reuse, optimize the Python/website render surface rather than the ShardLoom hot runtime.
   - Next outcome: coalesce and cache publication-proof render work, reuse machine evidence digests,
@@ -342,12 +387,439 @@ Current autonomous execution order:
   - Ledger rule: after merge/session completion, move measured closeout and command evidence to
     the completed ledger.
 
+#### Production Readiness / Release Track
+
+- [ ] `RELEASE-READY-16A` Technical-preview release boundary and unsupported-surface firewall.
+  - Source: attached production-readiness review, `README.md`, `docs/release/*`,
+    `docs/architecture/runtime-gap-family-burn-down.md`,
+    `docs/architecture/scale-readiness-contract.md`, and package/release readiness gates.
+  - Current state: ShardLoom is pre-release. Local technical-preview/package readiness can move
+    forward only if object-store, lakehouse/table, Foundry, distributed, live/hybrid, arbitrary
+    extension/effect, and production-platform support remain explicitly unsupported or blocked.
+  - ShardLoom technique review: mostly control-plane applicable. The release envelope should not
+    invent runtime optimizations, but validators must require each newly supported runtime family to
+    document PulseWeave/capillary/dynamic fit before a support claim is accepted.
+  - Execution checklist:
+    - [ ] Define the technical-preview support envelope: local file workflows, current Python/CLI
+      surfaces, supported local formats, supported output targets, and known unsupported families.
+    - [ ] Normalize README, docs, website, package metadata, release reports, and capability
+      outputs so every unsupported production family uses one canonical claim boundary.
+    - [ ] Add release validators that fail if production, platform, distributed, Foundry,
+      live/hybrid, object-store, lakehouse, or arbitrary extension support is implied without a
+      matching production-ready item closed in this plan and ledger.
+    - [ ] Add package dry-run evidence showing the technical-preview package installs, imports,
+      runs local examples, emits no fallback evidence, and does not publish to package channels.
+    - [ ] Add user-facing unsupported diagnostics for production-family entrypoints that exist as
+      stubs, preview routes, or report-only commands.
+    - [ ] Move the closed release-boundary checklist, exact command evidence, and residual
+      unsupported production families to the completed ledger after merge.
+  - Next outcome: a release candidate can be described as a local technical preview without
+    accidentally making production-runtime claims.
+  - User-visible surface: README, package metadata, website, docs, Python/CLI help, capability
+    reports, release readiness reports, and benchmark website disclaimers.
+  - Implementation scope: release/docs validators, README/site copy, package dry-run scripts,
+    Python/CLI capability outputs, and tests in `python/tests` and `shardloom-contract-tests`.
+  - Evidence required: package dry-run, local example execution, release readiness validators,
+    no-fallback fields, unsupported-surface diagnostics, and claim-boundary snapshots.
+  - Acceptance: release reports can pass for a technical preview while production families remain
+    blocked; any unsupported production claim fails CI; package/install examples run locally; public
+    docs do not imply support outside the declared envelope.
+  - Verification: release-script shard, website/docs validation, package smoke, release readiness
+    reports, `cargo test --workspace --all-targets`, and targeted Python package import/use tests.
+  - Non-goals: no package publication, no production support claim, no object-store/cloud/lakehouse
+    runtime, no Foundry production integration, no distributed or streaming runtime.
+  - Claim boundary: may claim only technical-preview local support for explicitly listed
+    workloads; all production-family claims remain `not_claim_grade` or `unsupported|blocked`.
+  - Fallback boundary: no Spark/DataFusion/DuckDB/Polars/Velox or external platform fallback may be
+    introduced to make preview examples pass.
+  - Ledger rule: close only after merge; ledger entry must list release envelope, validators,
+    package dry-run artifacts, and unsupported families left open.
+- [ ] `PROD-READY-0A` Common production certification gate.
+  - Source: attached Common Production Gate, `docs/architecture/runtime-gap-family-burn-down.md`,
+    `docs/architecture/capability-certification-sequencing.md`, RFC 0012, RFC 0014, RFC 0015,
+    RFC 0017, RFC 0024, and release evidence gates.
+  - Current state: production readiness is mapped but not centrally executable. Many surfaces have
+    report-only schemas, planned capability rows, or local smoke evidence, but no shared gate that
+    certifies a declared workload/environment as production-ready.
+  - ShardLoom technique review: applicable as a gate contract. Workload declarations must record
+    whether dynamic admission/work shaping, capillary work units, PulseWeave runtime control,
+    metadata-first execution, and timing/evidence-tier separation were applied, rejected, or not
+    applicable, with evidence for the decision.
+  - Execution checklist:
+    - [ ] Define the production-ready workload declaration schema: workload name, environment,
+      data scale, input/output formats, statefulness, effect permissions, security posture, and
+      unsupported edge boundary.
+    - [ ] Add a shared production gate that requires real runtime execution, correctness evidence,
+      Native I/O certificates, execution certificates, fault tolerance, memory/backpressure,
+      benchmark evidence, security/governance policy, and release/API stability evidence.
+    - [ ] Require deterministic unsupported diagnostics for every out-of-scope path in the same
+      workload family.
+    - [ ] Add fail-closed validators for production labels in docs, website, package metadata,
+      CLI/Python capability reports, and benchmark artifacts.
+    - [ ] Add fixture workload declarations for at least one local production-candidate profile and
+      prove the gate blocks until all required evidence exists.
+    - [ ] Move completed gate contract and command evidence to the ledger after merge.
+  - Next outcome: every later production-family item can close against one shared gate instead of
+    inventing readiness criteria per PR.
+  - User-visible surface: release readiness reports, capability/certification commands, website
+    support tables, README status language, benchmark claim gates, and package metadata.
+  - Implementation scope: certification structs, release validators, Python/CLI capability
+    snapshots, docs/site labels, and contract tests.
+  - Evidence required: gate schema snapshots, negative tests for missing evidence, positive fixture
+    rows only when all required artifacts exist, and no-fallback proof.
+  - Acceptance: production labels cannot pass from report-only artifacts; a declared workload can
+    be evaluated deterministically; missing correctness, Native I/O, fault-tolerance, memory,
+    benchmark, security, or release evidence blocks production status.
+  - Verification: release-script shard, contract tests, CLI snapshot tests, website/docs
+    validation, release readiness reports, and full workspace tests if shared certification code
+    moves.
+  - Non-goals: no runtime family implementation inside this gate; no production claim by defining
+    the schema; no package publication.
+  - Claim boundary: may claim only that the production gate exists and fails closed until evidence
+    is present.
+  - Fallback boundary: gate logic must reject external fallback execution and external query-engine
+    providers as production evidence.
+  - Ledger rule: close only after the gate and validator evidence are merged and documented in the
+    completed ledger.
+- [ ] `PROD-READY-1A` Production format and local I/O adapter certification.
+  - Source: attached Formats/I/O review, `docs/architecture/universal-input-contract.md`,
+    `docs/skills/translation-layer.md`, `docs/architecture/vortex-adapter-integration-plan.md`,
+    and current traditional benchmark rows.
+  - Current state: scoped local evidence exists for CSV, JSONL/NDJSON, Parquet, Arrow IPC, Avro,
+    ORC, Vortex, and compatibility outputs, but production-certified adapters require full
+    capability, pushdown, fidelity, error-policy, and certificate evidence per declared format
+    family.
+  - ShardLoom technique review: applicable. Format work should consider dynamic parser/reader
+    admission by shape, capillary source/preparation/write windows, PulseWeave coalescing for
+    repeated local preparation, metadata-first pruning/fingerprint reuse, and evidence-tier
+    separation for hot read/write versus proof/publication paths.
+  - Execution checklist:
+    - [ ] Declare per-format production profiles: Vortex native input/output, CSV/JSONL text,
+      Parquet/Arrow IPC columnar, Avro/ORC compatibility, and compatibility output/export targets.
+    - [ ] Add parser/reader contracts for malformed rows, encoding/null/coercion rules,
+      projection-aware typed builders, nested/complex dtype support, and deterministic blockers.
+    - [ ] Add pushdown and fidelity reports for columnar formats: projection/filter/statistics
+      support, metadata preservation, layout/statistics loss, and materialization cost.
+    - [ ] Add Vortex-native broad read/write certification with metadata/statistics preservation,
+      no-fallback Native I/O certificates, and local replay evidence.
+    - [ ] Add compatibility output `TranslationReport` coverage for preserved/lost metadata,
+      materialization cost, unsupported schema diagnostics, and explicit non-execution-fallback
+      boundaries.
+    - [ ] Add representative correctness and fuzz/property fixtures for local format edge cases.
+    - [ ] Move completed format-family evidence and any unclosed format profiles to the ledger
+      after merge.
+  - Next outcome: local format support can be promoted from scoped benchmark evidence to declared
+    production-candidate adapter profiles without implying object-store/table runtime.
+  - User-visible surface: Python/CLI reads/writes, diagnostics, capability reports, benchmark
+    format rows, docs, and website support tables.
+  - Implementation scope: local input/output adapters, Vortex I/O layer, translation reports,
+    benchmark fixtures, Python/CLI examples, and validators.
+  - Evidence required: per-format correctness, Native I/O certificates, TranslationReports,
+    pushdown/fidelity reports, no-fallback certificates, and benchmark evidence where performance
+    or route claims are made.
+  - Acceptance: every production-candidate local format has explicit supported shapes, blocked
+    shapes, correctness fixtures, certificate evidence, and release-visible support status.
+  - Verification: adapter tests, fuzz/property tests where applicable, release-script validators,
+    benchmark readiness, website/docs validation, and full workspace tests.
+  - Non-goals: no table semantics, no object-store networking, no external execution fallback, no
+    broad arbitrary schema support without evidence.
+  - Claim boundary: may claim only the declared local format profiles; Iceberg/Delta/Hudi remain
+    table runtimes, not file-format support, until their own item closes.
+  - Fallback boundary: compatibility readers/writers are translation/export surfaces, never
+    fallback execution engines.
+  - Ledger rule: ledger entry must list closed format profiles, unsupported shapes, evidence
+    artifacts, and benchmark/validator commands.
+- [ ] `PROD-READY-1B` Object-store runtime production path.
+  - Source: attached Object-Store Runtime review, `docs/architecture/scale-readiness-contract.md`,
+    RFC 0017, RFC 0014, `docs/skills/object-store-runtime.md`, and object-store readiness gates.
+  - Current state: object-store/table rows are report-only or blocked for listing, byte-range
+    reads, streaming reads, writes, staging, commit, credentials, network effects, and production
+    certificates.
+  - ShardLoom technique review: strongly applicable. Object-store work should use capillary split
+    windows, dynamic request coalescing/prefetch/backpressure admission, PulseWeave task-graph
+    control for bounded in-flight work, metadata-first listing/statistics decisions, and explicit
+    hot-runtime versus proof/commit timing surfaces.
+  - Execution checklist:
+    - [ ] Define the first supported object-store workload/environment and explicitly defer all
+      other schemes/backends.
+    - [ ] Implement provider abstraction for selected schemes with credential policy, redaction,
+      request signing boundary, and no-probe defaults for explain/estimate/doctor/capabilities.
+    - [ ] Add listing, object version/ETag capture, checksum validation, byte-range read, request
+      coalescing, prefetch, retry/backoff, rate-limit handling, and bounded streaming reads.
+    - [ ] Add staged/multipart writes, commit protocol, rollback/cleanup, idempotency keys, and
+      ambiguous commit diagnostics.
+    - [ ] Emit object-store Native I/O certificates with request counts, bytes requested/read,
+      retries, cache hits, credential posture, and no-fallback fields.
+    - [ ] Test against a local emulator and one approved real backend profile before any
+      production claim.
+    - [ ] Move closed object-store workload evidence and deferred backend scope to the ledger after
+      merge.
+  - Next outcome: object-store support advances from report-only ladder to a declared,
+    certificate-backed runtime path for one scoped environment.
+  - User-visible surface: CLI/Python object-store reads/writes, diagnostics, capability reports,
+    release readiness, docs, and benchmark scale profiles.
+  - Implementation scope: object-store runtime, credential/redaction policy, retry/backoff,
+    streaming read/write paths, commit/rollback evidence, tests, and release validators.
+  - Evidence required: local emulator tests, approved backend proof, Native I/O certificates,
+    request/byte/retry counters, fault-injection tests, cleanup evidence, and no-fallback proof.
+  - Acceptance: selected object-store workload can read/write with bounded memory and deterministic
+    failure/cleanup behavior; unsupported backends/effects remain blocked before credential or
+    network access.
+  - Verification: object-store smoke/integration tests, credential redaction tests, fault-injection
+    tests, release validators, and benchmark profile evidence before claims.
+  - Non-goals: no table semantics, no distributed runtime, no hidden local-file mirroring claim,
+    no broad multi-cloud production claim from one backend.
+  - Claim boundary: may claim only the declared backend/workload profile with evidence.
+  - Fallback boundary: object-store runtime must not use external query engines or platform compute
+    as execution fallback.
+  - Ledger rule: ledger entry must capture backend profile, credential policy, fault cases,
+    certificate artifacts, and unsupported backends.
+- [ ] `PROD-READY-1C` Lakehouse/table runtime production path.
+  - Source: attached Lakehouse/Table Runtime review, `docs/architecture/scale-readiness-contract.md`,
+    `docs/skills/translation-layer.md`, universal input/output contracts, and primary table
+    protocol specs to be source-checked before implementation.
+  - Current state: table metadata/reporting is separate from table runtime. Metadata reads,
+    snapshot listings, or compatibility output rows do not imply scan, append, overwrite,
+    merge/update/delete, commit, rollback, schema evolution, or catalog support.
+  - ShardLoom technique review: applicable after source-spec review. Table work should consider
+    metadata-first snapshot/manifest pruning, capillary split/manifests for bounded scans and
+    commits, dynamic admission for delete/schema/evolution features, and PulseWeave-style
+    coordination only where it improves ShardLoom-native task/retry/commit evidence.
+  - Execution checklist:
+    - [ ] Select the first table protocol/workload profile and document why other protocols remain
+      blocked.
+    - [ ] Source-check current primary protocol specs before implementation: Iceberg, Delta, Hudi,
+      and any chosen catalog such as Iceberg REST, Glue-like, Hive-like, Nessie, Polaris, or
+      Gravitino-style APIs.
+    - [ ] Implement metadata readers, snapshot/time-travel selection, manifest/log/timeline
+      parsing, schema evolution, partition evolution, and delete/tombstone/deletion-vector
+      semantics for the selected profile.
+    - [ ] Lower table scans into ShardLoom-native splits with Native I/O certificates and
+      deterministic unsupported diagnostics for unadmitted table features.
+    - [ ] Implement writes only for proven semantics: append/overwrite first; merge/update/delete
+      only after correctness, conflict, rollback, and recovery evidence exists.
+    - [ ] Add optimistic concurrency/conflict handling, commit/rollback/recovery evidence, and
+      TranslationReport coverage for metadata/statistics/layout loss.
+    - [ ] Move closed table protocol/workload evidence and deferred protocols to the ledger after
+      merge.
+  - Next outcome: table support becomes a scoped runtime path instead of metadata/report-only
+    posture.
+  - User-visible surface: table reads/writes, catalog diagnostics, capability reports, release
+    readiness, docs, and benchmark table profiles.
+  - Implementation scope: table metadata/runtime modules, catalog adapters, scan planning, commit
+    protocol, translation reports, correctness fixtures, and release validators.
+  - Evidence required: protocol conformance tests, scan correctness, write/commit/rollback tests,
+    conflict handling, Native I/O certificates, TranslationReports, and no-fallback proof.
+  - Acceptance: selected table workload can scan and, if in scope, write/commit with explicit
+    semantics; unsupported operations fail before hidden materialization or external execution.
+  - Verification: protocol fixture tests, local table integration tests, object-store tests if
+    remote tables are admitted, release validators, and benchmark evidence for table claims.
+  - Non-goals: no blanket Iceberg/Delta/Hudi support, no Foundry virtual-table claim, no external
+    warehouse/lakehouse engine fallback.
+  - Claim boundary: table claims are protocol/workload-specific and require source-checked specs
+    and runtime evidence.
+  - Fallback boundary: Spark, DataFusion, DuckDB, Polars, Velox, Trino, warehouse engines, and
+    platform compute remain external baselines or handles, never ShardLoom execution.
+  - Ledger rule: ledger entry must include selected protocol, supported operations, deferred
+    semantics, command evidence, and source/spec review refs.
+- [ ] `PROD-READY-1D` Distributed runtime production path.
+  - Source: attached Distributed Runtime review, `docs/architecture/scale-readiness-contract.md`,
+    RFC 0016, RFC 0017, `docs/skills/object-store-runtime.md`, and split/shuffle readiness docs.
+  - Current state: distributed runtime is report-only. No real coordinator/worker service,
+    leases, heartbeats, task attempts, remote result fragments, deterministic merge, or
+    multi-worker benchmark proof exists.
+  - ShardLoom technique review: strongly applicable. Distributed runtime should be designed around
+    capillary task units, PulseWeave runtime control, dynamic work shaping, metadata-first split
+    pruning, and explicit execution certificates so later optimization does not require reworking
+    the scheduler contract.
+  - Execution checklist:
+    - [ ] Define the first distributed workload/environment and minimum scale where single-node is
+      insufficient.
+    - [ ] Implement a local coordinator process/service with worker lifecycle, leases, heartbeats,
+      task attempts, cancellation, cleanup, and deterministic diagnostics.
+    - [ ] Execute real `SplitManifest` units across workers with bounded memory, result fragments,
+      idempotency keys, retries, duplicate-attempt protection, and deterministic merge.
+    - [ ] Add shuffle/repartition strategy, skew detection/handling, local combine/global merge,
+      and spill/backpressure integration for stateful operators in scope.
+    - [ ] Emit distributed execution certificates linking input splits, worker attempts,
+      retries/cancellations, fragments, merge output, and no-fallback evidence.
+    - [ ] Add fault-injection tests for worker crash, retry, duplicate attempt, partial result,
+      cancelled query, stale lease, and cleanup failure.
+    - [ ] Add benchmark profile proving correctness and multi-worker benefit for the declared
+      workload before any distributed performance claim.
+    - [ ] Move completed distributed workload evidence and deferred scale/runtime gaps to the
+      ledger after merge.
+  - Next outcome: distributed support moves from protocol vocabulary to one certified
+    multi-worker runtime path.
+  - User-visible surface: CLI/API distributed execution, diagnostics, capability reports,
+    benchmark scale profiles, release readiness, and docs.
+  - Implementation scope: coordinator/worker runtime, split scheduler, fragment writer/merger,
+    retry/cancellation/cleanup, shuffle/backpressure, tests, and benchmark harness.
+  - Evidence required: execution certificates, fault-injection results, benchmark evidence,
+    correctness parity, cleanup evidence, and no-fallback proof.
+  - Acceptance: declared distributed workload completes with deterministic fragments/merge and
+    survives fault cases; unsupported distributed shapes fail explicitly.
+  - Verification: unit/integration/fault-injection tests, scale benchmark profile, release
+    validators, and workspace gates.
+  - Non-goals: no distributed claim for every operator, no managed-platform claim, no
+    object-store/table support unless those items are separately closed.
+  - Claim boundary: may claim only declared multi-worker workload/environment with benchmark and
+    fault-tolerance evidence.
+  - Fallback boundary: no Ray/Dask/Spark/Flink/Trino or external distributed engine execution.
+  - Ledger rule: ledger entry must name workload, worker topology, fault cases, benchmark artifacts,
+    and unsupported distributed families.
+- [ ] `PROD-READY-1E` Streaming/live/hybrid runtime production path.
+  - Source: attached Streaming / Live / Hybrid review, RFC 0034, RFC 0017, RFC 0014,
+    optimizer/adaptive execution docs, and live/hybrid capability gates.
+  - Current state: CG-22 is a design target with fixture evidence, but there is no production
+    streaming runtime, state store, changelog, checkpoint/restore, watermarking, or continuous
+    materialized-view semantics.
+  - ShardLoom technique review: applicable. Live/hybrid work should use capillary micro-segments,
+    dynamic mode/update admission, PulseWeave-style bounded work-in-progress where it preserves
+    recovery semantics, metadata-first state/freshness checks, and separate timing/evidence
+    surfaces for hot update paths versus checkpoint/proof work.
+  - Execution checklist:
+    - [ ] Define `EngineMode` production semantics for batch/live/hybrid/auto and source
+      boundedness/update-mode classification.
+    - [ ] Implement change record model: insert/update/delete/retract, event time, processing
+      time, watermarks, late data policy, and deterministic unsupported diagnostics.
+    - [ ] Implement state store, changelog, checkpoint, restore, hot/warm/cold storage model,
+      Vortex micro-segments, cold Vortex segments, and delta overlay with tombstones/deletion
+      vectors where admitted.
+    - [ ] Define sink output modes: snapshot, append, changelog, materialized view, and freshness
+      guarantees.
+    - [ ] Emit freshness, state, checkpoint, delta-overlay, and execution certificates with
+      no-fallback evidence.
+    - [ ] Add recovery/fault tests for restart, late data, duplicate records, partial checkpoint,
+      cancellation, and cleanup.
+    - [ ] Add benchmark/profile evidence for declared live/hybrid workload before claims.
+    - [ ] Move closed live/hybrid workload evidence and unsupported modes to the ledger after
+      merge.
+  - Next outcome: a scoped live/hybrid runtime can be certified without implying exactly-once or
+    arbitrary streaming support.
+  - User-visible surface: Python/CLI/API engine-mode selection, diagnostics, capability reports,
+    benchmarks, docs, and release readiness.
+  - Implementation scope: engine-mode runtime, state/checkpoint store, delta overlay, sink output
+    modes, certificates, tests, and benchmark harness.
+  - Evidence required: state/checkpoint/freshness certificates, recovery tests, correctness
+    fixtures, benchmark evidence, and no-fallback proof.
+  - Acceptance: selected live/hybrid workload has deterministic state and recovery behavior;
+    unsupported modes fail explicitly; exactly-once is not claimed unless source/state/sink
+    idempotency evidence exists.
+  - Verification: state/recovery tests, live/hybrid smoke tests, release validators, benchmark
+    profile, and workspace gates.
+  - Non-goals: no arbitrary streaming connectors, no exactly-once claim by default, no external
+    streaming engine fallback.
+  - Claim boundary: may claim only the declared live/hybrid workload and delivery semantics proven
+    by certificates.
+  - Fallback boundary: no Flink/Spark Streaming/Kafka Streams/Ray/Dask or external engine fallback.
+  - Ledger rule: ledger entry must list delivery semantics, state model, recovery cases, benchmark
+    artifacts, and unsupported modes.
+- [ ] `PROD-READY-1F` UDF, plugin, and explicit-effect execution production gate.
+  - Source: attached UDF / Plugin / Effect Execution review, RFC 0011, RFC 0023,
+    `docs/skills/modular-extensibility.md`, `docs/skills/extension-plugin-sandboxing.md`, and
+    security/governance gates.
+  - Current state: extension/UDF/effect surfaces are architectural or report-only. Manifest
+    inspection, UDF/API/LLM/model/vector execution, network/filesystem/secret effects, and plugin
+    runtime are not production-supported.
+  - ShardLoom technique review: selectively applicable. Dynamic admission and fail-closed
+    capability checks are central; capillary isolation can bound effectful batches; PulseWeave
+    applies only to explicit, policy-admitted batching/coalescing and must not hide effects or
+    materialization boundaries.
+  - Execution checklist:
+    - [ ] Define manifest-first extension model with capability, permission, license, provenance,
+      effect, determinism, materialization, null behavior, dtype, timeout, memory, CPU, retry,
+      idempotency, and audit metadata.
+    - [ ] Implement non-executing manifest inspection and capability discovery that cannot run
+      extension code.
+    - [ ] Implement typed UDF registry for scoped scalar/aggregate/table functions with encoded
+      capability vs materialization-required classification.
+    - [ ] Add sandboxing policy: Rust-native first where possible, WASM later only after ABI
+      review, Python only as an explicit materialization/effect boundary.
+    - [ ] Disable network, filesystem, and secret access by default; require explicit policy and
+      audit evidence for any effectful operation.
+    - [ ] Ensure explain/estimate/doctor/capabilities never execute external effects.
+    - [ ] Add security tests for permission denial, timeout, memory/CPU limits, deterministic
+      diagnostics, audit output, and no-fallback proof.
+    - [ ] Move closed extension/UDF/effect gate evidence and deferred effect classes to the ledger
+      after merge.
+  - Next outcome: extension/effect execution has a production gate and scoped runtime path rather
+    than report-only architecture.
+  - User-visible surface: plugin manifests, UDF registration, capability discovery, diagnostics,
+    Python/CLI/API execution, docs, and security/release gates.
+  - Implementation scope: manifest parser, registry, sandbox policy, execution bridge, diagnostics,
+    audit/certificate output, tests, and release validators.
+  - Evidence required: manifest inspection tests, security denial tests, typed UDF correctness,
+    effect audit certificates, no-fallback proof, and release validators.
+  - Acceptance: scoped UDF execution can run only under explicit policy and deterministic contracts;
+    external effects are denied by default and never run during discovery/explain/estimate/doctor.
+  - Verification: security tests, UDF correctness tests, release-script shard, security governance
+    gates, and workspace gates.
+  - Non-goals: no arbitrary Python plugin execution, no network/API/LLM/model/vector execution
+    without explicit future production item, no hidden materialization fallback.
+  - Claim boundary: may claim only the scoped UDF/plugin/effect classes proven by tests and
+    certificates.
+  - Fallback boundary: plugin/UDF execution must not delegate unsupported plans to external query
+    engines or hidden runtimes.
+  - Ledger rule: ledger entry must include admitted capability classes, denied effects, sandbox
+    policy, security evidence, and unsupported extensions.
+- [ ] `PROD-READY-1G` Foundry integration production pack.
+  - Source: attached Foundry Integration review, RFC 0036,
+    `docs/architecture/scale-readiness-contract.md`, Foundry proof docs, and release/package
+    readiness gates.
+  - Current state: Foundry support is local/dev-stack proof and optional integration posture only.
+    There is no real Foundry Code Repository package/import proof, transform wrapper, dataset
+    source/sink certificate, Artifact Repository publication proof, Compute Module runtime, or
+    production Foundry evidence dataset output.
+  - ShardLoom technique review: applicable at the integration boundary. Foundry work should
+    consider capillary dataset chunks, dynamic platform-handle admission, PulseWeave-style
+    transform/task coalescing only with real platform evidence, metadata-first lineage/governance
+    checks, and strict separation of Foundry platform handles from ShardLoom execution.
+  - Execution checklist:
+    - [ ] Define `shardloom-foundry` package boundary, install/import/CLI resolution, and version
+      compatibility inside real Foundry Code Repositories.
+    - [ ] Implement transform wrapper that records Foundry execution context, build mode,
+      transaction/build refs, dataset RIDs, branches, and no-fallback evidence.
+    - [ ] Emit dataset source/sink reports, certificate datasets, metrics datasets, Data Health /
+      Expectations bridge evidence, lineage facets, and governance/marking/redaction policy.
+    - [ ] Classify virtual tables and external systems explicitly as platform handles or
+      external-compute boundaries unless staged/native ShardLoom execution evidence exists.
+    - [ ] Add Artifact Repository publication proof before package availability claims.
+    - [ ] Add Compute Module support only after REST/control-plane runtime item is real and
+      certificate-backed.
+    - [ ] Test in real Foundry environment with evidence datasets and deterministic blocked
+      diagnostics for unsupported transforms/connectors.
+    - [ ] Move closed Foundry workload evidence and deferred platform claims to the ledger after
+      merge.
+  - Next outcome: Foundry integration moves from local proof posture to a scoped platform
+    integration pack with real package/runtime evidence.
+  - User-visible surface: Foundry package, transform wrapper, datasets, metrics/certificates,
+    lineage/governance output, docs, and release readiness.
+  - Implementation scope: optional Foundry package, transform helper, evidence dataset writers,
+    governance/lineage reports, release/package validators, docs, and platform tests.
+  - Evidence required: real Foundry package/import proof, transform run evidence, dataset
+    source/sink reports, governance/redaction evidence, publication proof, and no-fallback proof.
+  - Acceptance: selected Foundry workflow runs inside Foundry with ShardLoom-native execution
+    evidence; unsupported platform handles remain explicit and non-claim-grade.
+  - Verification: Foundry integration tests/proof artifacts, package validators, release readiness
+    gates, docs/site validation, and no-fallback checks.
+  - Non-goals: no Foundry Spark/Snowflake/Databricks/BigQuery execution as ShardLoom runtime; no
+    production Foundry claim from local dev-stack proof; no Compute Module until REST/control plane
+    exists.
+  - Claim boundary: may claim only the specific Foundry workflow/package path proven in a real
+    Foundry environment.
+  - Fallback boundary: Foundry virtual tables and external systems are governed handles or
+    external-compute boundaries, never fallback execution.
+  - Ledger rule: ledger entry must include package/version proof, Foundry environment evidence,
+    dataset refs, governance artifacts, and deferred platform claims.
+
 ### Remaining work snapshot
 
 | Status | Work | Next decision |
 | --- | --- | --- |
 | Closed | `RELEASE-PACKAGE-15` | Completed in the ledger with clean-source benchmark publication evidence for source revision `74a2e7d4f77eed0686971518e010463da26f2cdf`; no autonomous implementation item remains. |
 | Historical | PR #1174 benchmark row/readiness context, repo-wide audit closeout, release-sequence closeout, and completed benchmark/profile, sub-evidence, user-surface proof | Preserved in `docs/architecture/phased-execution-completed-ledger.md`; do not treat as active work. |
+| Current evidence | `full_local` benchmark refresh | Promoted website benchmark bundle generated `2026-06-13T11:15:09Z` from source revision `29e1e52dbae922cef0d3c9fffdbbad77ec414650`; `performance_claim_allowed=false`; use for freshness and optimization direction only. |
 | Mapped, not autonomous queue | Unchecked global architecture review rows | Governed by `docs/architecture/global-architecture-review.md` and `docs/architecture/runtime-gap-family-burn-down.md`; promote concrete implementation items here before work begins. |
 | Deferred approval/artifact gate | Public release/package approval | Clean local Conda proof, dependency/security/package local-gate evidence, and current benchmark-publication evidence now pass locally; remaining blockers are package-channel approval/proof, publication/API/schema stability approval, and per-claim evidence promotion before any public claim. |
 
@@ -364,8 +836,8 @@ review must be promoted here as a concrete unchecked item before editing behavio
 - Current source/input evidence contracts live in `docs/architecture/universal-input-contract.md`.
 - Benchmark artifacts are evidence and optimization direction only:
   `performance_claim_allowed=false`, no Spark-displacement/superiority claim, no package-release
-  claim, and no public freshness claim until a clean-source artifact is regenerated from the source
-  revision being claimed.
+  claim, and no public freshness claim outside the promoted manifest source revision and validation
+  evidence being cited.
 
 ### Reopen Policy
 

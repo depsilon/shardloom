@@ -275,6 +275,17 @@ Use:
 - [benchmarks/traditional_analytics/README.md](benchmarks/traditional_analytics/README.md)
 - [shardloom.io/benchmarks](https://shardloom.io/benchmarks)
 
+Current promoted local snapshot:
+
+- Profile: `full_local`.
+- Generated UTC: `2026-06-13T11:15:09.884260+00:00`.
+- Source revision: `29e1e52dbae922cef0d3c9fffdbbad77ec414650`.
+- Published rows: `1920` normalized rows, including `600` ShardLoom `hot_runtime` rows, `600`
+  ShardLoom `publication_proof` rows, and `720` external-baseline rows.
+- Claim boundary: `performance_claim_allowed=false`; the run reports common-run slowdown across
+  external control lanes, so it is current evidence and optimization direction, not a public
+  performance-improvement claim.
+
 Every performance claim must be backed by a reproducible benchmark artifact with workload,
 hardware/runtime context, correctness evidence, timing-surface semantics, no-fallback evidence, and
 claim-gate status.

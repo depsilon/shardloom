@@ -5,57 +5,57 @@
     "markdown": null,
     "prepare_batch_role_repair_evidence": "website/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json",
     "publication_proof_sidecar": "website/assets/benchmarks/latest/publication-proof-sidecar.json",
-    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/benchmark-row-admission-manifest.json",
+    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/benchmark-row-admission-manifest.json",
     "row_chunks": [
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-000.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/published-benchmark-rows-000.json",
         "row_count": 200,
-        "sha256": "7b2f3fcd43d212b9fadbb019bdbe68b11c97ecd9e3b940cfff4e3168ab0c0af0"
+        "sha256": "60de69fcedcca5737d2010268c079e7743ae452693edfb2ec4885122a9410a16"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-001.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/published-benchmark-rows-001.json",
         "row_count": 200,
-        "sha256": "b778a3ad8b01ddb30f716910ac0cceb5bf7e50ec77033fc3f56f364aa709580a"
+        "sha256": "d985ad6ead715ae335cd3b371cad0c7072cc6821d69f353570e6683258732490"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-002.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/published-benchmark-rows-002.json",
         "row_count": 200,
-        "sha256": "4038431906da0dfd2d212a63b1857e547ec5d3ac1fe1c6cb598721f183f9d6aa"
+        "sha256": "c45e902a2c4e0d98ae38fd9b486244042fff83dbd803b9904a09f7c3e9775a7c"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-003.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/published-benchmark-rows-003.json",
         "row_count": 200,
-        "sha256": "d2c435b37c294d243472b4988fca240a8a5f36a5aed86d7e1183ec631c9d30c0"
+        "sha256": "303da99644cf6339899409d75e53028012021e31084a1e98d91ddbb4d45c4cb5"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-004.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/published-benchmark-rows-004.json",
         "row_count": 200,
-        "sha256": "504a4bd56492849817185df03798cecd2e18dd73d8f75f3b3cba0344f25dd27e"
+        "sha256": "0a16c5cbc0430ebc28dd9ee044fef09e0c3fa58ef4eeceb6ea65df12e2e12b7e"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-005.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/published-benchmark-rows-005.json",
         "row_count": 200,
-        "sha256": "61ec7623fe94d199ab953f2e2d0d7a0f908606238837943a1c5917cb268962ee"
+        "sha256": "98736f3a9ad0c2c3924dc793be982c4bfa85b34996076d692898c700a69f5b50"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-006.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/published-benchmark-rows-006.json",
         "row_count": 200,
-        "sha256": "913ae166fc57abf519359c9b969ab7a9b8327caf0176bd96bfab62473d8dc8b1"
+        "sha256": "da678900967ffcfd4e84020310aa59b9cdd500ecef202b648fd9aa94955d316e"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-007.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/published-benchmark-rows-007.json",
         "row_count": 200,
-        "sha256": "b3f34ea9d111b829e1c4b7a65e79fcf2bb0addf3de03f7dc63d6056df8d35272"
+        "sha256": "003d362da526a0d49b8f71b754bd8e9197c3f05d57ef85fda1454bb864f5e88b"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-008.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/published-benchmark-rows-008.json",
         "row_count": 200,
-        "sha256": "60052145faa753f278741fefaccb9c11dd25b51f50f3fa1e8d296a154a988a5a"
+        "sha256": "c60459176addaf414c49ac7d345d43a0da64f4083566d3c0cb08a694e54d0b1e"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-009.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/published-benchmark-rows-009.json",
         "row_count": 120,
-        "sha256": "e2f1ca1a5d0dcf0f055f6f7abca7299ddbde68614eb23a2fdc88d1bcb210f881"
+        "sha256": "24b1b27553cc1ef437ff66e43f9558f5d5c2918c5ba5a2df9226c88f75df5e84"
       }
     ]
   },
@@ -96,9 +96,9 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "2e8518f0660c99336f39d7df385ba54193e292ac",
+  "benchmark_git_sha": "29e1e52dbae922cef0d3c9fffdbbad77ec414650",
   "benchmark_profile": "full_local",
-  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/benchmark-row-admission-manifest.json",
+  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-55b54f59777dbf53/benchmark-row-admission-manifest.json",
   "benchmark_row_admission_schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -107,12 +107,12 @@
       "machine": "arm64",
       "platform": "macOS-26.5.1-arm64-arm-64bit",
       "processor": "arm",
-      "python_version": "3.12.13",
+      "python_version": "3.9.6",
       "total_memory_bytes": 17179869184
     },
     "cpu_count": 10,
     "platform": "macOS-26.5.1-arm64-arm-64bit",
-    "python": "3.12.13",
+    "python": "3.9.6",
     "website_promoter": "scripts/promote_benchmark_artifact.py"
   },
   "expected_lanes": [
@@ -127,30 +127,30 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-13T09:18:58.383574+00:00",
+  "generated_at_utc": "2026-06-13T11:15:09.884260+00:00",
   "lane_availability_reasons": {
-    "dask": "available, version 2026.6.0",
-    "datafusion": "available, version 53.0.0",
-    "duckdb": "available, version 1.5.3",
-    "pandas": "available, version 3.0.3",
-    "polars-eager": "available, version 1.41.2",
-    "polars-lazy": "available, version 1.41.2 (lazy scan API)",
-    "shardloom": "available, version workspace-local-release-2e8518f0",
-    "shardloom-prepare-batch": "available, version workspace-local-release-2e8518f0",
-    "shardloom-prepared-vortex": "available, version workspace-local-release-2e8518f0",
-    "shardloom-vortex": "available, version workspace-local-release-2e8518f0"
+    "dask": "available, version 2024.8.0",
+    "datafusion": "available, version 50.1.0",
+    "duckdb": "available, version 1.4.4",
+    "pandas": "available, version 2.3.3",
+    "polars-eager": "available, version 1.36.1",
+    "polars-lazy": "available, version 1.36.1 (lazy scan API)",
+    "shardloom": "available, version workspace-local-release-29e1e52d-dirty",
+    "shardloom-prepare-batch": "available, version workspace-local-release-29e1e52d-dirty",
+    "shardloom-prepared-vortex": "available, version workspace-local-release-29e1e52d-dirty",
+    "shardloom-vortex": "available, version workspace-local-release-29e1e52d-dirty"
   },
   "lane_versions": {
-    "dask": "2026.6.0",
-    "datafusion": "53.0.0",
-    "duckdb": "1.5.3",
-    "pandas": "3.0.3",
-    "polars-eager": "1.41.2",
-    "polars-lazy": "1.41.2 (lazy scan API)",
-    "shardloom": "workspace-local-release-2e8518f0",
-    "shardloom-prepare-batch": "workspace-local-release-2e8518f0",
-    "shardloom-prepared-vortex": "workspace-local-release-2e8518f0",
-    "shardloom-vortex": "workspace-local-release-2e8518f0"
+    "dask": "2024.8.0",
+    "datafusion": "50.1.0",
+    "duckdb": "1.4.4",
+    "pandas": "2.3.3",
+    "polars-eager": "1.36.1",
+    "polars-lazy": "1.36.1 (lazy scan API)",
+    "shardloom": "workspace-local-release-29e1e52d-dirty",
+    "shardloom-prepare-batch": "workspace-local-release-29e1e52d-dirty",
+    "shardloom-prepared-vortex": "workspace-local-release-29e1e52d-dirty",
+    "shardloom-vortex": "workspace-local-release-29e1e52d-dirty"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
@@ -188,8 +188,8 @@
   "route_timing_instrument_schema_version": "shardloom.route_timing_instrument.v1",
   "route_timing_instrument_status": "not_optimization_ready",
   "route_timing_instrument_status_counts": {
-    "not_optimization_ready": 40,
-    "optimization_ready": 1160
+    "not_optimization_ready": 240,
+    "optimization_ready": 960
   },
   "route_timing_instrument_threshold_ms": 10.0,
   "runtime_envelope_validation": {
@@ -812,5 +812,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "2e8518f0660c99336f39d7df385ba54193e292ac"
+  "shardloom_git_sha": "29e1e52dbae922cef0d3c9fffdbbad77ec414650"
 }
