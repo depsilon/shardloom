@@ -8,11 +8,24 @@ manifests, add secrets, or authorize fallback execution.
 
 Date: 2026-06-13
 
-Current branch evidence was prepared from local branch
-`codex/release-package-15-runtime-evidence`. The refreshed benchmark publication bundle records
-clean benchmark source revision `74a2e7d4f77eed0686971518e010463da26f2cdf`.
+Benchmark freshness addendum, 2026-06-13:
 
-Current local audit addendum, 2026-06-13:
+- The current website benchmark bundle was refreshed after PR #1206 from source revision
+  `5743638a9225f479a0096f1c6db51a0068cac68f`, generated at
+  `2026-06-13T11:33:10.063090+00:00`, and contains `1920` promoted normalized rows.
+- The `RELEASE-PACKAGE-15` audit artifact paths and source revision below remain historical
+  release-handoff evidence until the release gates are rerun for the selected release revision. Do
+  not treat their `74a2e7d4f77eed0686971518e010463da26f2cdf` source revision or `1320` row count
+  as the current public website benchmark freshness.
+- The refreshed benchmark keeps `performance_claim_allowed=false`; it is evidence freshness and
+  optimization direction, not a release, package, production, or performance claim.
+
+`RELEASE-PACKAGE-15` branch evidence was prepared from local branch
+`codex/release-package-15-runtime-evidence`. The refreshed benchmark publication bundle records
+clean benchmark source revision `74a2e7d4f77eed0686971518e010463da26f2cdf` for that historical
+handoff packet.
+
+`RELEASE-PACKAGE-15` local audit addendum, 2026-06-13:
 
 - Required clean Conda local dry-run proof passed in
   `target/release-readiness-audit/release-dry-run-proof-conda/transcript.json` with
