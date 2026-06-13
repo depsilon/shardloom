@@ -6955,6 +6955,14 @@ def parse_optional_float(value: Any) -> float | None:
         return None
 
 
+def first_present_float(*values: Any, default: float = 0.0) -> float:
+    for value in values:
+        parsed = parse_optional_float(value)
+        if parsed is not None:
+            return parsed
+    return default
+
+
 def parse_optional_bool(value: Any) -> bool | None:
     if value is None or value == "none" or value == "":
         return None
@@ -7581,54 +7589,45 @@ def prepare_batch_dependency_repair_fields(
             "not_reported" if status == "success" else "not_executed",
         ),
         "prepare_batch_prepared_state_partial_repair_micros": (
-            parse_optional_float(
+            first_present_float(
                 evidence.get("prepare_batch_prepared_state_partial_repair_micros")
             )
-            or 0.0
         ),
         "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros": (
-            parse_optional_float(
+            first_present_float(
                 evidence.get(
                     "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros"
-                )
+                ),
+                evidence.get("prepare_batch_source_to_columnar_micros"),
+                evidence.get("source_to_columnar_micros"),
             )
-            or parse_optional_float(evidence.get("prepare_batch_source_to_columnar_micros"))
-            or parse_optional_float(evidence.get("source_to_columnar_micros"))
-            or 0.0
         ),
         "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros": (
-            parse_optional_float(
+            first_present_float(
                 evidence.get(
                     "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros"
-                )
+                ),
+                evidence.get("prepare_batch_vortex_array_build_micros"),
+                evidence.get("vortex_array_build_micros"),
             )
-            or parse_optional_float(
-                evidence.get("prepare_batch_vortex_array_build_micros")
-            )
-            or parse_optional_float(evidence.get("vortex_array_build_micros"))
-            or 0.0
         ),
         "prepare_batch_prepared_state_partial_repair_vortex_write_micros": (
-            parse_optional_float(
+            first_present_float(
                 evidence.get(
                     "prepare_batch_prepared_state_partial_repair_vortex_write_micros"
-                )
+                ),
+                evidence.get("prepare_batch_vortex_write_micros"),
+                evidence.get("vortex_write_micros"),
             )
-            or parse_optional_float(evidence.get("prepare_batch_vortex_write_micros"))
-            or parse_optional_float(evidence.get("vortex_write_micros"))
-            or 0.0
         ),
         "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros": (
-            parse_optional_float(
+            first_present_float(
                 evidence.get(
                     "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros"
-                )
+                ),
+                evidence.get("prepare_batch_vortex_reopen_verify_micros"),
+                evidence.get("vortex_reopen_verify_micros"),
             )
-            or parse_optional_float(
-                evidence.get("prepare_batch_vortex_reopen_verify_micros")
-            )
-            or parse_optional_float(evidence.get("vortex_reopen_verify_micros"))
-            or 0.0
         ),
         "prepare_batch_prepared_state_partial_repair_replay_proof": first_meaningful_field(
             evidence.get("prepare_batch_prepared_state_partial_repair_replay_proof"),

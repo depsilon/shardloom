@@ -2338,10 +2338,14 @@ impl TraditionalVortexBatchSourceState {
         let row_count_metadata_start = std::time::Instant::now();
         let dim_rows = vortex_file_row_count(dim_vortex)?;
         let row_count_metadata_micros = duration_to_micros(row_count_metadata_start.elapsed());
-        let fact_metric_state_consumer_count = scenarios
-            .iter()
-            .filter(|scenario| fact_metric_state_reuse_candidate(**scenario))
-            .count();
+        let fact_metric_state_consumer_count = if fact_delta_overlay_vortex.is_some() {
+            0
+        } else {
+            scenarios
+                .iter()
+                .filter(|scenario| fact_metric_state_reuse_candidate(**scenario))
+                .count()
+        };
         let category_metric_state_consumer_count = scenarios
             .iter()
             .filter(|scenario| category_metric_state_reuse_candidate(**scenario))
@@ -18908,6 +18912,29 @@ fn prepared_batch_request_invalidation_reason(
     "route_request_digest_mismatch".to_string()
 }
 
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn ensure_prepared_batch_request_payload_unchanged_after_prepare(
+    pre_prepare_request_payload: &serde_json::Value,
+    post_prepare_request_payload: &serde_json::Value,
+) -> Result<()> {
+    if pre_prepare_request_payload.get("route_request_digest")
+        == post_prepare_request_payload.get("route_request_digest")
+    {
+        return Ok(());
+    }
+    let reason = prepared_batch_request_invalidation_reason(
+        pre_prepare_request_payload,
+        post_prepare_request_payload,
+    );
+    let pre_digest =
+        json_string_field(pre_prepare_request_payload, "route_request_digest").unwrap_or_default();
+    let post_digest =
+        json_string_field(post_prepare_request_payload, "route_request_digest").unwrap_or_default();
+    Err(ShardLoomError::InvalidOperation(format!(
+        "prepared-state full-register source admission packet changed during preparation ({reason}: {pre_digest} -> {post_digest}); reuse manifest was not published and fallback execution was not attempted"
+    )))
+}
+
 fn prepared_batch_dependency_status(workspace_reuse_hit: bool, reason: &str) -> &'static str {
     if workspace_reuse_hit {
         return "manifest_dependencies_matched";
@@ -25191,12 +25218,24 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
         .saturating_sub(prepare_report.vortex_write_micros)
         .saturating_sub(replay_verification_micros);
     let artifact_register_start = std::time::Instant::now();
+    let post_prepare_request_payload = traditional_prepared_batch_reuse_request_payload(
+        &fact_input,
+        &dim_input,
+        cdc_delta_input.as_deref(),
+        &workspace_dir,
+        input_format,
+        resource_policy,
+    )?;
+    ensure_prepared_batch_request_payload_unchanged_after_prepare(
+        &reuse_decision.request_payload,
+        &post_prepare_request_payload,
+    )?;
     let mut prepared_state_reuse = write_traditional_prepared_batch_workspace_reuse_manifest(
         &prepare_report,
         &fact_input,
         &workspace_dir,
         &reuse_decision.reason,
-        &reuse_decision.request_payload,
+        &post_prepare_request_payload,
     )?;
     let artifact_register_micros = duration_to_micros(artifact_register_start.elapsed());
     prepared_state_reuse =
@@ -31083,15 +31122,11 @@ fn read_traditional_arrow_batches_projected_by_field_names(
         TraditionalAnalyticsInputFormat::ArrowIpc => {
             read_arrow_ipc_record_batches_by_field_names(path, label, projection_fields)
         }
-        TraditionalAnalyticsInputFormat::Avro | TraditionalAnalyticsInputFormat::Orc => {
-            let batches = read_traditional_arrow_batches_with_projection(
-                path,
-                input_format,
-                label,
-                resource_policy,
-                None,
-            )?;
-            project_record_batches_by_field_names(batches, path, label, projection_fields)
+        TraditionalAnalyticsInputFormat::Avro => {
+            read_avro_record_batches_by_field_names(path, label, resource_policy, projection_fields)
+        }
+        TraditionalAnalyticsInputFormat::Orc => {
+            read_orc_record_batches_by_field_names(path, label, resource_policy, projection_fields)
         }
         TraditionalAnalyticsInputFormat::Csv | TraditionalAnalyticsInputFormat::JsonLines => {
             Err(ShardLoomError::InvalidOperation(format!(
@@ -31100,31 +31135,6 @@ fn read_traditional_arrow_batches_projected_by_field_names(
             )))
         }
     }
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn project_record_batches_by_field_names(
-    batches: Vec<arrow_array::RecordBatch>,
-    path: &std::path::Path,
-    label: &str,
-    projection_fields: &[&str],
-) -> Result<Vec<arrow_array::RecordBatch>> {
-    batches
-        .into_iter()
-        .map(|batch| {
-            let schema = batch.schema();
-            let projection = projection_fields
-                .iter()
-                .filter_map(|field| schema.index_of(field).ok())
-                .collect::<Vec<_>>();
-            batch.project(&projection).map_err(|error| {
-                ShardLoomError::InvalidOperation(format!(
-                    "failed to project {label} '{}' by schema field names: {error}; no fallback execution was attempted",
-                    path.display()
-                ))
-            })
-        })
-        .collect()
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -31295,6 +31305,34 @@ fn read_arrow_ipc_record_batches(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn read_avro_record_batches_by_field_names(
+    path: &std::path::Path,
+    label: &str,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+    projection_fields: &[&str],
+) -> Result<Vec<arrow_array::RecordBatch>> {
+    let file = std::fs::File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open Avro {label} '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let reader = arrow_avro::reader::ReaderBuilder::new()
+        .with_batch_size(resource_policy.target_batch_rows)
+        .build(std::io::BufReader::new(file))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create Avro reader for {label} '{}': {error}",
+                path.display()
+            ))
+        })?;
+    let projection =
+        projection_indices_for_arrow_schema(reader.schema().as_ref(), projection_fields);
+    drop(reader);
+    read_avro_record_batches(path, label, resource_policy, Some(&projection))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn read_avro_record_batches(
     path: &std::path::Path,
     label: &str,
@@ -31321,6 +31359,36 @@ fn read_avro_record_batches(
             ))
         })?;
     collect_record_batches(reader, path, label, "Avro")
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn read_orc_record_batches_by_field_names(
+    path: &std::path::Path,
+    label: &str,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+    projection_fields: &[&str],
+) -> Result<Vec<arrow_array::RecordBatch>> {
+    let file = std::fs::File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open ORC {label} '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let builder = orc_rust::ArrowReaderBuilder::try_new(file).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create ORC reader for {label} '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let mask = orc_rust::projection::ProjectionMask::named_roots(
+        builder.file_metadata().root_data_type(),
+        projection_fields,
+    );
+    let reader = builder
+        .with_projection(mask)
+        .with_batch_size(resource_policy.target_batch_rows)
+        .build();
+    collect_record_batches(reader, path, label, "ORC")
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -38196,17 +38264,22 @@ mod tests {
 
     #[test]
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-    fn parquet_and_arrow_ipc_push_fact_projection_to_reader() {
+    fn columnar_providers_push_fact_projection_to_reader() {
         for (input_format, extension) in [
             (TraditionalAnalyticsInputFormat::Parquet, "parquet"),
             (TraditionalAnalyticsInputFormat::ArrowIpc, "arrow"),
+            (TraditionalAnalyticsInputFormat::Avro, "avro"),
+            (TraditionalAnalyticsInputFormat::Orc, "orc"),
         ] {
             let root = traditional_analytics_test_root(&format!(
                 "{}-projected-provider",
                 input_format.as_str()
             ));
-            let fact_path =
-                write_projected_traditional_columnar_fact(&root, input_format, extension);
+            let fact_path = if input_format == TraditionalAnalyticsInputFormat::Orc {
+                write_tiny_traditional_columnar_inputs(&root, input_format).0
+            } else {
+                write_projected_traditional_columnar_fact(&root, input_format, extension)
+            };
             let projection = fact_columnar_projection_fields_for_selection(
                 TraditionalFactTextColumnSelection::for_scenario(
                     TraditionalAnalyticsScenario::NestedJsonFieldScan,
@@ -38238,7 +38311,7 @@ mod tests {
                     TraditionalAnalyticsScenario::NestedJsonFieldScan,
                 ),
             )
-            .expect("projection-aware Parquet/Arrow IPC provider batch");
+            .expect("projection-aware columnar provider batch");
 
             assert_eq!(
                 source.evidence.decode_status(),
@@ -38253,7 +38326,7 @@ mod tests {
             assert_eq!(
                 arrow_string_column(&source.batch, &fact_path, "dirty_numeric")
                     .expect("dirty_numeric default"),
-                vec![String::new(), String::new()]
+                vec![String::new(); source.batch.num_rows()]
             );
             assert!(!source.evidence.scalar_rows_materialized);
 
@@ -40659,6 +40732,56 @@ mod tests {
         assert_eq!(selective_child.cdc_delta_rows, 0);
         assert!(selective_child.cdc_delta_vortex_path.is_none());
         assert_eq!(selective_child.cdc_delta_vortex_bytes, 0);
+        let fields = field_map(report.batch_report.fields());
+        assert_field_eq(&fields, "session_source_metadata_cache_seed_count", "1");
+        assert_field_eq(&fields, "session_source_metadata_cache_hit_count", "1");
+        assert_field_eq(&fields, "session_source_metadata_cache_miss_count", "1");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn prepared_batch_manifest_register_rejects_stale_source_packet() {
+        use std::io::Write as _;
+
+        let root = traditional_analytics_test_root("prepared-register-stale-packet");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let workspace = root.join("prepare-workspace");
+        let resource_policy = TraditionalAnalyticsResourcePolicy::default();
+        let pre_prepare_packet = traditional_prepared_batch_reuse_request_payload(
+            &fact_csv,
+            &dim_csv,
+            None,
+            &workspace,
+            TraditionalAnalyticsInputFormat::Csv,
+            resource_policy,
+        )
+        .expect("pre-prepare packet");
+
+        std::fs::OpenOptions::new()
+            .append(true)
+            .open(&fact_csv)
+            .unwrap()
+            .write_all(b"999,1,10,7,1.0,1,alpha,2024-01-01,,2024-01-01T00:00:00Z,7,true\n")
+            .unwrap();
+        let post_prepare_packet = traditional_prepared_batch_reuse_request_payload(
+            &fact_csv,
+            &dim_csv,
+            None,
+            &workspace,
+            TraditionalAnalyticsInputFormat::Csv,
+            resource_policy,
+        )
+        .expect("post-prepare packet");
+
+        let err = ensure_prepared_batch_request_payload_unchanged_after_prepare(
+            &pre_prepare_packet,
+            &post_prepare_packet,
+        )
+        .expect_err("stale source packet should block manifest publication");
+        assert!(err.to_string().contains("fact_input_fingerprint_changed"));
+        assert!(err.to_string().contains("reuse manifest was not published"));
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -42941,7 +43064,10 @@ mod tests {
         let root = traditional_analytics_test_root("prepared-delta-overlay-admit");
         let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
         let workspace = root.join("prepare-workspace");
-        let scenarios = vec![TraditionalAnalyticsScenario::CsvFileIngest];
+        let scenarios = vec![
+            TraditionalAnalyticsScenario::CsvFileIngest,
+            TraditionalAnalyticsScenario::ManySmallFilesScan,
+        ];
 
         let first = run_traditional_analytics_prepared_batch_benchmark(
             TraditionalAnalyticsPreparedBatchRequest::new(
@@ -42958,6 +43084,10 @@ mod tests {
         assert!(first.prepare_report.is_some());
         assert_eq!(
             first.batch_report.reports[0].result_json,
+            "{\"row_count\":3,\"metric_sum\":10.0}"
+        );
+        assert_eq!(
+            first.batch_report.reports[1].result_json,
             "{\"row_count\":3,\"metric_sum\":10.0}"
         );
         let base_fact_digest = first_fields
@@ -43015,6 +43145,50 @@ mod tests {
         assert_eq!(
             overlay.batch_report.reports[0].result_json,
             "{\"row_count\":4,\"metric_sum\":11.0}"
+        );
+        assert_eq!(
+            overlay.batch_report.reports[1].result_json,
+            "{\"row_count\":4,\"metric_sum\":11.0}"
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "source_state_reuse_status",
+            "not_applicable_no_source_state_consumers",
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "source_state_reuse_scope",
+            "not_applicable_no_source_state_consumers",
+        );
+        assert_field_eq(&overlay_fields, "source_state_reuse_consumer_count", "0");
+        assert_field_eq(&overlay_fields, "source_state_recompute_avoided_count", "0");
+        assert_field_eq(&overlay_fields, "source_state_family_count", "0");
+        assert_field_eq(
+            &overlay_fields,
+            "source_state_family_prewarm_status",
+            "not_applicable_no_reused_source_state_families",
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "source_state_family_prewarm_eligible_count",
+            "0",
+        );
+        assert_field_eq(&overlay_fields, "source_state_family_prewarm_count", "0");
+        assert_field_eq(
+            &overlay_fields,
+            "source_state_fact_metric_reuse_status",
+            "not_applicable_no_fact_metric_state_consumers",
+        );
+        assert_field_eq(&overlay_fields, "source_state_fact_metric_reused", "false");
+        assert_field_eq(
+            &overlay_fields,
+            "source_state_fact_metric_reuse_consumer_count",
+            "0",
+        );
+        assert_field_eq(
+            &overlay_fields,
+            "source_state_fact_metric_recompute_avoided_count",
+            "0",
         );
         assert_field_eq(
             &overlay_fields,

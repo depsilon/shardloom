@@ -1720,6 +1720,57 @@ class ReleaseScriptTests(unittest.TestCase):
             ]
         )
 
+    def test_benchmark_runner_preserves_explicit_zero_partial_repair_timings(
+        self,
+    ) -> None:
+        module = self._load_module_from_path(
+            REPO_ROOT / "benchmarks" / "traditional_analytics" / "run.py",
+            "traditional_analytics_run_partial_repair_zero_for_test",
+        )
+
+        fields = module.prepare_batch_dependency_repair_fields(
+            "shardloom-prepare-batch",
+            status="success",
+            evidence={
+                "prepare_batch_prepared_state_partial_repair_micros": 0,
+                "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros": 0,
+                "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros": 0,
+                "prepare_batch_prepared_state_partial_repair_vortex_write_micros": 0,
+                "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros": 0,
+                "prepare_batch_source_to_columnar_micros": 2000,
+                "prepare_batch_vortex_array_build_micros": 3000,
+                "prepare_batch_vortex_write_micros": 4000,
+                "prepare_batch_vortex_reopen_verify_micros": 5000,
+            },
+        )
+
+        self.assertEqual(
+            fields["prepare_batch_prepared_state_partial_repair_micros"],
+            0.0,
+        )
+        self.assertEqual(
+            fields[
+                "prepare_batch_prepared_state_partial_repair_source_to_columnar_micros"
+            ],
+            0.0,
+        )
+        self.assertEqual(
+            fields[
+                "prepare_batch_prepared_state_partial_repair_vortex_array_build_micros"
+            ],
+            0.0,
+        )
+        self.assertEqual(
+            fields["prepare_batch_prepared_state_partial_repair_vortex_write_micros"],
+            0.0,
+        )
+        self.assertEqual(
+            fields[
+                "prepare_batch_prepared_state_partial_repair_vortex_reopen_verify_micros"
+            ],
+            0.0,
+        )
+
     def test_benchmark_promoter_emits_cold_bottleneck_fields(self) -> None:
         module = self._load_script_module(
             "promote_benchmark_artifact.py",
@@ -5325,6 +5376,100 @@ class ReleaseScriptTests(unittest.TestCase):
             ],
         )
 
+    def test_benchmark_publication_claim_gate_accepts_control_plane_descendant(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_publication_claim_gate.py",
+            "benchmark_publication_claim_gate_control_plane_descendant_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo = Path(tempdir)
+            subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=repo,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "ShardLoom Test"],
+                cwd=repo,
+                check=True,
+            )
+            (repo / "README.md").write_text("# Source revision\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "source revision"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+            source_sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                text=True,
+            ).strip()
+
+            (repo / "scripts").mkdir(parents=True)
+            (repo / "scripts" / "promote_benchmark_artifact.py").write_text(
+                "# promoter-only publication control-plane update\n",
+                encoding="utf-8",
+            )
+            (
+                repo / "scripts" / "check_benchmark_publication_claim_gate.py"
+            ).write_text(
+                "# freshness validator publication control-plane update\n",
+                encoding="utf-8",
+            )
+            (repo / "python" / "tests").mkdir(parents=True)
+            (repo / "python" / "tests" / "test_release_scripts.py").write_text(
+                "# release-script control-plane test update\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "publication control-plane update"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+            )
+            current_sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                text=True,
+            ).strip()
+
+            blockers: list[str] = []
+            freshness = module.validate_freshness(
+                {
+                    "generated_at_utc": "2026-05-31T00:00:00+00:00",
+                    "benchmark_git_sha": source_sha,
+                    "shardloom_git_sha": source_sha,
+                },
+                repo,
+                blockers,
+                now=datetime(2026, 5, 31, tzinfo=timezone.utc),
+                max_age_days=14,
+                require_current_git=True,
+                allow_dirty_worktree=False,
+                current_git_sha=current_sha,
+                worktree_status="",
+            )
+
+        self.assertEqual(blockers, [])
+        self.assertEqual(
+            freshness["git_currentness_status"],
+            "static_publication_descendant",
+        )
+        self.assertEqual(freshness["static_publication_delta_paths"], [])
+        self.assertEqual(
+            freshness["benchmark_publication_control_plane_delta_paths"],
+            [
+                "python/tests/test_release_scripts.py",
+                "scripts/check_benchmark_publication_claim_gate.py",
+                "scripts/promote_benchmark_artifact.py",
+            ],
+        )
+
     def test_benchmark_publication_claim_gate_blocks_source_changes_after_artifact_source(self) -> None:
         module = self._load_script_module(
             "check_benchmark_publication_claim_gate.py",
@@ -5396,7 +5541,7 @@ class ReleaseScriptTests(unittest.TestCase):
             "blocked_mismatched_source_revision",
         )
         self.assertTrue(
-            any("non-publication files changed after benchmark source revision" in blocker for blocker in blockers),
+            any("non-publication source files changed after benchmark source revision" in blocker for blocker in blockers),
             blockers,
         )
         self.assertEqual(

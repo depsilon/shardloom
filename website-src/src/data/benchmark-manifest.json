@@ -5,57 +5,57 @@
     "markdown": null,
     "prepare_batch_role_repair_evidence": "website/assets/benchmarks/latest/prepare-batch-role-repair-evidence.json",
     "publication_proof_sidecar": "website/assets/benchmarks/latest/publication-proof-sidecar.json",
-    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/benchmark-row-admission-manifest.json",
+    "row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/benchmark-row-admission-manifest.json",
     "row_chunks": [
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-000.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-000.json",
         "row_count": 200,
-        "sha256": "cb9761ee46aba52d9c525248d2cd4a241331dfc1572192e5b64749fe6ccac4bf"
+        "sha256": "7b2f3fcd43d212b9fadbb019bdbe68b11c97ecd9e3b940cfff4e3168ab0c0af0"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-001.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-001.json",
         "row_count": 200,
-        "sha256": "e96050b079b2124d6b76dc39437076568e9b671d602b934d9f97fdca5d92fd2a"
+        "sha256": "b778a3ad8b01ddb30f716910ac0cceb5bf7e50ec77033fc3f56f364aa709580a"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-002.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-002.json",
         "row_count": 200,
-        "sha256": "faa9a809021b7e80e91746327bf4b91132ba6e526f2e193be9ee7044f9f892bf"
+        "sha256": "4038431906da0dfd2d212a63b1857e547ec5d3ac1fe1c6cb598721f183f9d6aa"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-003.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-003.json",
         "row_count": 200,
-        "sha256": "11ed1cf1a9914b4a7492b9ff6241ed0dc2eef1fd97a728b7cedd9e2c15d86b8c"
+        "sha256": "d2c435b37c294d243472b4988fca240a8a5f36a5aed86d7e1183ec631c9d30c0"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-004.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-004.json",
         "row_count": 200,
-        "sha256": "be46d8bd010bd86d3c152742b9444cb8794d101de446b83fb014bacc0a723980"
+        "sha256": "504a4bd56492849817185df03798cecd2e18dd73d8f75f3b3cba0344f25dd27e"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-005.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-005.json",
         "row_count": 200,
-        "sha256": "adebc12fd93be5466bc1b138bb5eede5a5e5792fa165a5fac36865c3c5b548e4"
+        "sha256": "61ec7623fe94d199ab953f2e2d0d7a0f908606238837943a1c5917cb268962ee"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-006.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-006.json",
         "row_count": 200,
-        "sha256": "af68defed2d60258127477cdd1f7d4092040c5123566b97f359c7fbb35f4aded"
+        "sha256": "913ae166fc57abf519359c9b969ab7a9b8327caf0176bd96bfab62473d8dc8b1"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-007.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-007.json",
         "row_count": 200,
-        "sha256": "7976d91b23c9607d5081c286006c6a656edf993f63c6a60ceb7c6100878afdbb"
+        "sha256": "b3f34ea9d111b829e1c4b7a65e79fcf2bb0addf3de03f7dc63d6056df8d35272"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-008.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-008.json",
         "row_count": 200,
-        "sha256": "63da221701c413d1714d1854edd4f90fc4d5e22b88925c951768284801439589"
+        "sha256": "60052145faa753f278741fefaccb9c11dd25b51f50f3fa1e8d296a154a988a5a"
       },
       {
-        "path": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/published-benchmark-rows-009.json",
+        "path": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/published-benchmark-rows-009.json",
         "row_count": 120,
-        "sha256": "e87b3e6c2e7231250b2347be5f7b34a7d7b39edff00046a81833f299546b0ad4"
+        "sha256": "e2f1ca1a5d0dcf0f055f6f7abca7299ddbde68614eb23a2fdc88d1bcb210f881"
       }
     ]
   },
@@ -96,9 +96,9 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "74a2e7d4f77eed0686971518e010463da26f2cdf",
+  "benchmark_git_sha": "2e8518f0660c99336f39d7df385ba54193e292ac",
   "benchmark_profile": "full_local",
-  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-415e3493081f2b52/benchmark-row-admission-manifest.json",
+  "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-34ef315c7df7659d/benchmark-row-admission-manifest.json",
   "benchmark_row_admission_schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
   "environment": {
@@ -112,7 +112,7 @@
     },
     "cpu_count": 10,
     "platform": "macOS-26.5.1-arm64-arm-64bit",
-    "python": "3.9.6",
+    "python": "3.12.13",
     "website_promoter": "scripts/promote_benchmark_artifact.py"
   },
   "expected_lanes": [
@@ -127,7 +127,7 @@
     "datafusion",
     "dask"
   ],
-  "generated_at_utc": "2026-06-13T05:20:56.036412+00:00",
+  "generated_at_utc": "2026-06-13T09:18:58.383574+00:00",
   "lane_availability_reasons": {
     "dask": "available, version 2026.6.0",
     "datafusion": "available, version 53.0.0",
@@ -135,10 +135,10 @@
     "pandas": "available, version 3.0.3",
     "polars-eager": "available, version 1.41.2",
     "polars-lazy": "available, version 1.41.2 (lazy scan API)",
-    "shardloom": "available, version workspace-local-release-74a2e7d4",
-    "shardloom-prepare-batch": "available, version workspace-local-release-74a2e7d4",
-    "shardloom-prepared-vortex": "available, version workspace-local-release-74a2e7d4",
-    "shardloom-vortex": "available, version workspace-local-release-74a2e7d4"
+    "shardloom": "available, version workspace-local-release-2e8518f0",
+    "shardloom-prepare-batch": "available, version workspace-local-release-2e8518f0",
+    "shardloom-prepared-vortex": "available, version workspace-local-release-2e8518f0",
+    "shardloom-vortex": "available, version workspace-local-release-2e8518f0"
   },
   "lane_versions": {
     "dask": "2026.6.0",
@@ -147,10 +147,10 @@
     "pandas": "3.0.3",
     "polars-eager": "1.41.2",
     "polars-lazy": "1.41.2 (lazy scan API)",
-    "shardloom": "workspace-local-release-74a2e7d4",
-    "shardloom-prepare-batch": "workspace-local-release-74a2e7d4",
-    "shardloom-prepared-vortex": "workspace-local-release-74a2e7d4",
-    "shardloom-vortex": "workspace-local-release-74a2e7d4"
+    "shardloom": "workspace-local-release-2e8518f0",
+    "shardloom-prepare-batch": "workspace-local-release-2e8518f0",
+    "shardloom-prepared-vortex": "workspace-local-release-2e8518f0",
+    "shardloom-vortex": "workspace-local-release-2e8518f0"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
@@ -171,11 +171,11 @@
   "publication_proof_sidecar_external_engine_invoked": false,
   "publication_proof_sidecar_fallback_attempted": false,
   "publication_proof_sidecar_record_count": 600,
-  "publication_proof_sidecar_reused_record_count": 600,
+  "publication_proof_sidecar_reused_record_count": 0,
   "publication_proof_sidecar_schema_version": "shardloom.traditional_analytics.publication_proof_sidecar.v1",
   "publication_proof_sidecar_stale_record_count": 0,
-  "publication_proof_sidecar_status": "reused_existing_publication_proof_sidecar",
-  "publication_proof_sidecar_written_record_count": 0,
+  "publication_proof_sidecar_status": "admitted_incremental_publication_proof_sidecar",
+  "publication_proof_sidecar_written_record_count": 600,
   "published_benchmark_row_count": 1920,
   "route_runtime_status_schema_version": "shardloom.website.route_runtime_status.v1",
   "route_runtime_status_vocabulary": [
@@ -812,5 +812,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "74a2e7d4f77eed0686971518e010463da26f2cdf"
+  "shardloom_git_sha": "2e8518f0660c99336f39d7df385ba54193e292ac"
 }
