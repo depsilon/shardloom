@@ -583,6 +583,35 @@ This local schema evidence makes the source-built v1 machine-readable fields tes
 approve package identity, signing, channel publication, tag creation, checksum/SBOM publication
 grade, or public API/schema claims without the remaining publication rows.
 
+`PROD-V1-2B` adds local v1 correctness/conformance aggregation under the same release boundary:
+
+```text
+python scripts\check_v1_correctness_conformance.py
+target/v1-correctness-conformance-report.json
+shardloom.v1_correctness_conformance_report.v1
+input_report_count=6
+v1_correctness_matrix_status=passed
+scope_report_status=passed
+golden_workflow_validator_status=passed
+admitted_semantics_validator_status=passed
+docs_example_execution_status=covered_by_front_door_scenarios_and_golden_workflows
+unsupported_path_test_status=covered_by_admitted_semantics_diagnostics
+decoded_reference_differential_execution_performed=true
+property_execution_performed=true
+correctness_claim_allowed=true
+runtime_support_claim_allowed=false
+public_release_claim_allowed=false
+public_package_claim_allowed=false
+performance_claim_allowed=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+This aggregate report proves that the current v1 correctness evidence is present and coherent
+across golden workflows, admitted semantics, front-door scope, Vortex scope, source/prepared-state
+scope, and local output/sink scope. It does not approve broad SQL/DataFrame parity, production
+readiness, package publication, performance claims, or external-runtime fallback.
+
 `GAR-0041-A` adds the per-claim evidence attachment matrix with schema
 `shardloom.per_claim_evidence_attachment_matrix.v1`. The release gate consumes
 `docs/release/per-claim-evidence-attachment-matrix.md` and keeps public claims blocked while that

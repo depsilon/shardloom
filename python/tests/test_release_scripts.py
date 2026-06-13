@@ -7125,6 +7125,10 @@ class ReleaseScriptTests(unittest.TestCase):
             ["/tool/python3.12", "scripts/check_v1_api_schema_stability.py"],
         )
         self.assertEqual(
+            commands["v1_correctness_conformance_gate"],
+            ["/tool/python3.12", "scripts/check_v1_correctness_conformance.py"],
+        )
+        self.assertEqual(
             commands["benchmark_artifact_completeness"],
             [
                 "/tool/python3.12",
@@ -7162,6 +7166,238 @@ class ReleaseScriptTests(unittest.TestCase):
                 "--conda-executable",
                 "/opt/homebrew/bin/micromamba",
             ],
+        )
+
+    def _write_v1_correctness_conformance_fixture_reports(
+        self,
+        module: object,
+        repo_root: Path,
+    ) -> None:
+        paths = module.ReportPaths()
+        false_fields = {field: False for field in module.FALSE_REPORT_FIELDS}
+
+        def write(path: Path, payload: dict[str, object]) -> None:
+            resolved = repo_root / path
+            resolved.parent.mkdir(parents=True, exist_ok=True)
+            resolved.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+        unsupported_cases = sorted(
+            case
+            for case in module.REQUIRED_UNSUPPORTED_CASE_IDS
+            if case.startswith("unsupported_")
+        )
+        runtime_error_cases = sorted(
+            case
+            for case in module.REQUIRED_UNSUPPORTED_CASE_IDS
+            if case.startswith("runtime_error_")
+        )
+        invalid_shape_cases = sorted(
+            case
+            for case in module.REQUIRED_UNSUPPORTED_CASE_IDS
+            if case.startswith("invalid_shape_")
+        )
+        write(
+            paths.golden_workflow,
+            {
+                "schema_version": "shardloom.golden_workflow_validation_report.v1",
+                "status": "passed",
+                "blockers": [],
+                "workflow_count": len(module.EXPECTED_GOLDEN_WORKFLOWS),
+                "stage_count": module.EXPECTED_GOLDEN_STAGE_COUNT_MIN,
+                "workflow_ids": sorted(module.EXPECTED_GOLDEN_WORKFLOWS),
+                "support_matrix_status": "passed",
+                **false_fields,
+            },
+        )
+        write(
+            paths.admitted_semantics,
+            {
+                "schema_version": "shardloom.admitted_semantics_matrix_report.v1",
+                "status": "passed",
+                "blockers": [],
+                "executable_fixture_count": module.EXPECTED_EXECUTABLE_FIXTURES,
+                "diagnostic_case_count": module.EXPECTED_DIAGNOSTIC_CASES,
+                "unsupported_diagnostic_count": module.EXPECTED_UNSUPPORTED_DIAGNOSTICS,
+                "runtime_error_diagnostic_count": (
+                    module.EXPECTED_RUNTIME_ERROR_DIAGNOSTICS
+                ),
+                "invalid_shape_diagnostic_count": (
+                    module.EXPECTED_INVALID_SHAPE_DIAGNOSTICS
+                ),
+                "stage_count": module.EXPECTED_ADMITTED_STAGE_COUNT_MIN,
+                "property_execution_performed": True,
+                "decoded_reference_differential_execution_performed": True,
+                "semantic_conformance_suite_status": "passed",
+                "correctness_harness_boundary_status": "passed",
+                "executable_case_ids": sorted(module.REQUIRED_SEMANTIC_CASE_IDS),
+                "unsupported_case_ids": unsupported_cases,
+                "runtime_error_case_ids": runtime_error_cases,
+                "invalid_shape_case_ids": invalid_shape_cases,
+                "property_lane_count": 1,
+                "remaining_matrix_gaps": [],
+                **false_fields,
+            },
+        )
+        write(
+            paths.front_door,
+            {
+                "schema_version": "shardloom.v1_front_door_runtime_scope_report.v1",
+                "status": "passed",
+                "blockers": [],
+                "scoped_local_front_door_parity_supported": True,
+                "supported_parity_row_ids": [
+                    f"supported-{index}"
+                    for index in range(module.EXPECTED_FRONT_DOOR_SUPPORTED_ROWS)
+                ],
+                "broad_pending_parity_row_ids": [
+                    f"pending-{index}"
+                    for index in range(module.EXPECTED_FRONT_DOOR_PENDING_ROWS)
+                ],
+                "example_scenario_ids": sorted(module.EXPECTED_EXAMPLE_SCENARIOS),
+                "expected_error_scenario_ids": sorted(module.EXPECTED_ERROR_SCENARIOS),
+                "performance_equivalence_claim_allowed": False,
+                **false_fields,
+            },
+        )
+        write(
+            paths.vortex_runtime,
+            {
+                "schema_version": "shardloom.v1_vortex_runtime_scope_report.v1",
+                "status": "passed",
+                "blockers": [],
+                "local_vortex_primitive_route_count": (
+                    module.EXPECTED_VORTEX_PRIMITIVE_ROUTES
+                ),
+                "local_file_benchmark_route_count": (
+                    module.EXPECTED_VORTEX_LOCAL_FILE_ROUTES
+                ),
+                "local_vortex_primitive_v1_scope_ready": True,
+                "user_route_v1_vortex_scope_ready": True,
+                **false_fields,
+            },
+        )
+        write(
+            paths.source_prepared_state,
+            {
+                "schema_version": "shardloom.v1_source_prepared_state_scope_report.v1",
+                "status": "passed",
+                "blockers": [],
+                "supported_input_formats": [
+                    f"format-{index}"
+                    for index in range(module.EXPECTED_SOURCE_INPUT_FORMATS)
+                ],
+                "prepared_route_ids": [
+                    f"prepared-{index}"
+                    for index in range(module.EXPECTED_SOURCE_PREPARED_ROUTE_IDS)
+                ],
+                "direct_transient_route_ids": [
+                    f"direct-{index}"
+                    for index in range(module.EXPECTED_SOURCE_DIRECT_ROUTE_IDS)
+                ],
+                "generated_route_ids": [
+                    f"generated-{index}"
+                    for index in range(module.EXPECTED_SOURCE_GENERATED_ROUTE_IDS)
+                ],
+                "invalidation_case_ids": [
+                    f"invalidation-{index}"
+                    for index in range(module.EXPECTED_SOURCE_INVALIDATION_CASES)
+                ],
+                "source_prepared_benchmark_required_fields_ready": True,
+                "source_prepared_benchmark_rows_with_required_fields": 1080,
+                **false_fields,
+            },
+        )
+        write(
+            paths.local_output_sink,
+            {
+                "schema_version": "shardloom.v1_local_output_sink_scope_report.v1",
+                "status": "passed",
+                "blockers": [],
+                "supported_output_formats": [
+                    f"format-{index}" for index in range(module.EXPECTED_OUTPUT_FORMATS)
+                ],
+                "user_write_methods": [
+                    f"method-{index}" for index in range(module.EXPECTED_OUTPUT_WRITE_METHODS)
+                ],
+                "output_route_ids": [
+                    f"route-{index}" for index in range(module.EXPECTED_OUTPUT_ROUTE_IDS)
+                ],
+                "local_output_sink_benchmark_required_fields_ready": True,
+                "local_output_sink_benchmark_replay_ready": True,
+                "local_output_sink_benchmark_rows_with_required_fields": 960,
+                **false_fields,
+            },
+        )
+
+    def test_v1_correctness_conformance_gate_passes_complete_fixture(self) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertTrue(report["correctness_claim_allowed"])
+        self.assertTrue(report["decoded_reference_differential_execution_performed"])
+        self.assertTrue(report["property_execution_performed"])
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"]["required_semantic_case_count"],
+            len(module.REQUIRED_SEMANTIC_CASE_IDS),
+        )
+
+    def test_v1_correctness_conformance_gate_fails_missing_semantic_case(self) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_missing_case_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            admitted_path = repo_root / module.ReportPaths().admitted_semantics
+            admitted = json.loads(admitted_path.read_text(encoding="utf-8"))
+            admitted["executable_case_ids"].remove("decimal_arithmetic_projection")
+            admitted_path.write_text(json.dumps(admitted), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertFalse(report["correctness_claim_allowed"])
+        self.assertTrue(
+            any(
+                "missing required executable cases decimal_arithmetic_projection" in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_closed_when_report_missing(self) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_missing_report_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            (repo_root / module.ReportPaths().admitted_semantics).unlink()
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertFalse(report["correctness_claim_allowed"])
+        self.assertFalse(report["decoded_reference_differential_execution_performed"])
+        self.assertFalse(report["property_execution_performed"])
+        self.assertTrue(
+            any(
+                "admitted_semantics: missing report" in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
         )
 
     def test_v1_api_schema_stability_validator_passes_current_contracts(self) -> None:

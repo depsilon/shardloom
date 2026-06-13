@@ -189,9 +189,12 @@ with a recorded infeasibility reason, not merely because they are broad.
 - [ ] `PROD-V1-2B` Correctness, conformance, and golden workflow closure for v1.
   - Source: attached production-shift review section 8; RFC 0015; admitted semantics matrix;
     golden workflows; docs/example execution tests; current production usability gate.
-  - Current state: golden workflows and admitted semantics evidence exist, but v1 requires every
-    supported operation/example to have fixture, digest, no-fallback, replay, and accessor coverage,
-    while unsupported rows remain explicit.
+  - Current state: golden workflows, admitted semantics evidence, scoped front-door/Vortex/source
+    state/output-sink reports, and the v1 correctness/conformance aggregate gate exist. The
+    aggregate gate passes for the current declared v1 scope and proves no fallback/external-engine
+    execution markers, but the admitted semantics report still records residual broader ANSI
+    subquery parity, external-oracle artifact population, and general fuzz execution beyond the
+    deterministic seeded property lane.
   - Intake review: accepted the expanded correctness/conformance matrix; use external engines only
     as explicit test oracles where already allowed, never runtime fallback.
   - V1 scope classification: `required_for_v1`.
@@ -199,6 +202,12 @@ with a recorded infeasibility reason, not merely because they are broad.
     boundaries, metadata-first answers/pruning, capillary split behavior where exposed, and
     timing/evidence separation without relying on performance claims.
   - Execution checklist:
+    - [x] Add `scripts/check_v1_correctness_conformance.py` as the aggregate closeout report over
+      golden workflow, admitted semantics, front-door, Vortex, source/prepared-state, and local
+      output/sink scope reports.
+    - [x] Wire the aggregate gate into release-readiness, release validation evidence command
+      inventory, CI matrix drift validation, GitHub Actions release-readiness artifacts, and hard
+      release gate documentation.
     - [ ] Define the v1 correctness matrix from the scoped front-door, Vortex, source-state, and
       output-sink scope docs.
     - [ ] Ensure every v1-supported operation has fixture tests, semantic conformance rows,
