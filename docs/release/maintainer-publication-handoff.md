@@ -10,7 +10,7 @@ Date: 2026-06-13
 
 Current branch evidence was prepared from local branch
 `codex/release-package-15-runtime-evidence`. The refreshed benchmark publication bundle records
-clean benchmark source revision `b4c430aacbf8988e5bc16786d1b273a51c8d7345`.
+clean benchmark source revision `74a2e7d4f77eed0686971518e010463da26f2cdf`.
 
 Current local audit addendum, 2026-06-13:
 
@@ -23,13 +23,13 @@ Current local audit addendum, 2026-06-13:
   `target/release-readiness-audit/hard-release-readiness-gate-current-final.json` remains blocked
   for public release/package claims by package-channel proof/approval, publication/API/schema
   stability approval, and per-claim evidence promotion. Benchmark-publication currentness is now
-  refreshed locally for source revision `b4c430aacbf8988e5bc16786d1b273a51c8d7345`.
+  refreshed locally for source revision `74a2e7d4f77eed0686971518e010463da26f2cdf`.
 - Target-local dependency audit evidence now passes with `pip-audit` in
   `target/release-readiness-audit/pip-audit-venv/`; this is release/security tooling only and not a
   runtime dependency.
 - Live pre-5J dependency freshness passes in `target/pre-5j-dependency-freshness-gate.json`.
   `RELEASE-PACKAGE-15` regenerated and promoted the full local benchmark artifact from clean
-  source revision `b4c430aacbf8988e5bc16786d1b273a51c8d7345`.
+  source revision `74a2e7d4f77eed0686971518e010463da26f2cdf`.
 - The strict benchmark-publication validator now permits a clean static-publication descendant of
   the benchmarked source revision when the only post-source changes are checked-in generated
   website/public static publication artifacts, benchmark data mirrors, or phase-plan
@@ -125,7 +125,7 @@ The hard release gate remains blocked by:
 - Architecture tracker: release tracking is expected to pass locally after the
   `RELEASE-PACKAGE-15` phase-plan closeout commit.
 - Benchmark freshness: refreshed locally for clean source revision
-  `b4c430aacbf8988e5bc16786d1b273a51c8d7345`. The benchmark publication bundle remains local
+  `74a2e7d4f77eed0686971518e010463da26f2cdf`. The benchmark publication bundle remains local
   evidence until the final static-publication commit is checked and reviewed.
 - Clean Conda proof: current local audit evidence now passes, but it is still local dry-run proof,
   not a conda-forge feedstock/channel proof.
@@ -133,7 +133,7 @@ The hard release gate remains blocked by:
   static-publication commit so the aggregate no longer carries the older benchmark-currentness
   blocker.
 - Benchmark publication currentness: the manifest now records source revision
-  `b4c430aacbf8988e5bc16786d1b273a51c8d7345`; a separate static-publication commit is acceptable
+  `74a2e7d4f77eed0686971518e010463da26f2cdf`; a separate static-publication commit is acceptable
   only if the strict report records `git_currentness_status=static_publication_descendant` and no
   non-publication delta paths.
 - Human approval: no maintainer has approved publication, signing, tagging, package-channel upload,

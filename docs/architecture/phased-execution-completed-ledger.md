@@ -21,7 +21,7 @@ phase plan first.
   - Source:
     - `RELEASE-PACKAGE-15` in `docs/architecture/phased-execution-plan.md`.
     - `target/pre-5j-dependency-freshness-gate.json`.
-    - `target/release-package-15/benchmark-results-b4c430aa.json`.
+    - `target/release-package-15/benchmark-results-74a2e7d4.json`.
     - `website/assets/benchmarks/latest/manifest.json`.
   - Scope:
     - Created a target-local benchmark virtual environment at
@@ -36,7 +36,7 @@ phase plan first.
       `source_state_query_dim_row_count_reuse_status` as optimization-claim blockers rather than
       residual route-support blockers.
     - Regenerated the full local benchmark publication artifact from clean source revision
-      `b4c430aacbf8988e5bc16786d1b273a51c8d7345` in a clean linked worktree, then promoted the
+      `74a2e7d4f77eed0686971518e010463da26f2cdf` in a clean linked worktree, then promoted the
       artifact to the checked-in website/public benchmark mirrors.
     - Refreshed the benchmark manifest, benchmark-result mirrors, publication-proof sidecar, and
       published row chunks under `website/assets/benchmarks/latest/`,
@@ -58,9 +58,9 @@ phase plan first.
       passed after the optimization-status classification fix.
     - `PYTHONPATH=python/src python3 -m unittest python.tests.test_compute_engine_completion_gate python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publish_doctor_accepts_current_static_artifact python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_publication_proof_sidecar_reuses_and_invalidates`
       passed with 8 tests.
-    - `CARGO_TARGET_DIR=/Users/dylan/Documents/shardloom-local-repo/target /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/benchmark-venv/bin/python benchmarks/traditional_analytics/run.py --claim-readiness-rerun --rows 10000 --iterations 3 --shardloom-build-profile release --regenerate --data-dir /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/generated-data-b4c430aa --output /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/benchmark-results-b4c430aa.json --markdown-output /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/benchmark-results-b4c430aa.md --require-all-engines`
-      passed from a clean linked worktree at `b4c430aacbf8988e5bc16786d1b273a51c8d7345`.
-    - `target/release-package-15/benchmark-venv/bin/python scripts/promote_benchmark_artifact.py --input target/release-package-15/benchmark-results-b4c430aa.json --profile full_local`
+    - `CARGO_TARGET_DIR=/Users/dylan/Documents/shardloom-local-repo/target /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/benchmark-venv/bin/python benchmarks/traditional_analytics/run.py --claim-readiness-rerun --rows 10000 --iterations 3 --shardloom-build-profile release --regenerate --data-dir /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/generated-data-74a2e7d4 --output /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/benchmark-results-74a2e7d4.json --markdown-output /Users/dylan/Documents/shardloom-local-repo/target/release-package-15/benchmark-results-74a2e7d4.md --require-all-engines`
+      passed from a clean linked worktree at `74a2e7d4f77eed0686971518e010463da26f2cdf`.
+    - `target/release-package-15/benchmark-venv/bin/python scripts/promote_benchmark_artifact.py --input target/release-package-15/benchmark-results-74a2e7d4.json --profile full_local`
       promoted the current artifact and wrote
       `website/assets/benchmarks/latest/manifest.json`.
     - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/release-readiness-audit/benchmark-completeness-release-package-15.json`
@@ -70,8 +70,8 @@ phase plan first.
       digest-identical mirrors, `fallback_attempted=false`, and `external_engine_invoked=false`.
     - Dirty-worktree strict publication validation before the final static-publication commit was
       blocked only by `benchmark artifact cannot be current while the worktree is dirty`, while the
-      manifest already recorded `benchmark_git_sha=b4c430aacbf8988e5bc16786d1b273a51c8d7345`,
-      `shardloom_git_sha=b4c430aacbf8988e5bc16786d1b273a51c8d7345`, 600 ShardLoom claim-grade
+      manifest already recorded `benchmark_git_sha=74a2e7d4f77eed0686971518e010463da26f2cdf`,
+      `shardloom_git_sha=74a2e7d4f77eed0686971518e010463da26f2cdf`, 600 ShardLoom claim-grade
       rows, no ShardLoom runtime validation failures, and no fallback/external invocation.
   - Claim boundary:
     - This completes the local clean-source benchmark-publication evidence refresh for the scoped

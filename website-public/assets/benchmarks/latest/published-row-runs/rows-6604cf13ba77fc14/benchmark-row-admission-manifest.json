@@ -1,0 +1,54 @@
+{
+  "chunk_count": 7,
+  "chunk_size": 200,
+  "chunks": [
+    {
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-000.json",
+      "row_count": 200,
+      "sha256": "36ae50fdce1c0e9445b9bc0bb43c5eb7876095c12300da715e9ef9f460d91ddd"
+    },
+    {
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-001.json",
+      "row_count": 200,
+      "sha256": "a8d68c7e73fd67130985fc03dbc9e3f02515a8a2bbc2f2aacd67bfcfb8d41ff3"
+    },
+    {
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-002.json",
+      "row_count": 200,
+      "sha256": "8034baec71a6574bf1fc809ec501b12492b6ad7ecbebdbb51837132f52616d53"
+    },
+    {
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-003.json",
+      "row_count": 200,
+      "sha256": "11ed1cf1a9914b4a7492b9ff6241ed0dc2eef1fd97a728b7cedd9e2c15d86b8c"
+    },
+    {
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-004.json",
+      "row_count": 200,
+      "sha256": "be46d8bd010bd86d3c152742b9444cb8794d101de446b83fb014bacc0a723980"
+    },
+    {
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-005.json",
+      "row_count": 200,
+      "sha256": "adebc12fd93be5466bc1b138bb5eede5a5e5792fa165a5fac36865c3c5b548e4"
+    },
+    {
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-6604cf13ba77fc14/published-benchmark-rows-006.json",
+      "row_count": 120,
+      "sha256": "7e572e58eebe52b5f438829e3e28f6ec2cca27e7e31289b610ce8b2c11cea9fb"
+    }
+  ],
+  "claim_boundary": "benchmark row admission manifest only; not performance, production, or replacement evidence",
+  "duplicate_suffixed_artifacts_removed": [],
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "generated_at_utc": "2026-06-13T05:21:09.366769+00:00",
+  "legacy_top_level_chunk_files_removed": [],
+  "resume_status": "admitted_incremental_chunks",
+  "reused_chunk_count": 0,
+  "row_count": 1320,
+  "run_id": "rows-6604cf13ba77fc14",
+  "schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
+  "stale_chunk_files_removed": [],
+  "written_chunk_count": 7
+}
