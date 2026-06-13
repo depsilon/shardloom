@@ -263,6 +263,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "python scripts/final_release_rehearsal.py --allow-blocked",
             "python scripts/check_production_usability_gate.py",
             "python scripts/check_v1_api_schema_stability.py",
+            "python scripts/check_v1_correctness_conformance.py",
             "python scripts/check_release_readiness.py",
         ),
         artifact_refs=(
@@ -286,6 +287,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/website-readiness-report.json",
             "target/production-usability-gate.json",
             "target/v1-api-schema-stability-report.json",
+            "target/v1-correctness-conformance-report.json",
             "target/python-user-surface-completion-gate.json",
             "target/sql-python-dataframe-parity-gate.json",
             "target/v1-front-door-runtime-scope-report.json",
@@ -308,6 +310,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "final rehearsal",
             "production usability gate",
             "v1 API/schema stability gate",
+            "v1 correctness/conformance gate",
             "hard release readiness gate",
             "release readiness artifact aggregation",
         ),

@@ -147,6 +147,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/v1-api-schema-stability-report.json"),
     )
     parser.add_argument(
+        "--v1-correctness-conformance-report",
+        type=Path,
+        default=Path("target/v1-correctness-conformance-report.json"),
+    )
+    parser.add_argument(
         "--user-surface-runtime-gap-inventory-report",
         type=Path,
         default=Path("target/user-surface-runtime-gap-inventory.json"),
@@ -454,6 +459,10 @@ def main() -> int:
     v1_api_schema_stability_report_path = resolve(
         repo_root,
         args.v1_api_schema_stability_report,
+    )
+    v1_correctness_conformance_report_path = resolve(
+        repo_root,
+        args.v1_correctness_conformance_report,
     )
     user_surface_runtime_gap_inventory_path = resolve(
         repo_root,
@@ -1775,6 +1784,125 @@ def main() -> int:
         )
     )
 
+    v1_correctness_conformance = load_json(v1_correctness_conformance_report_path)
+    v1_correctness_conformance_blockers: list[str] = []
+    if v1_correctness_conformance is None:
+        v1_correctness_conformance_blockers.append(
+            "missing v1 correctness/conformance report"
+        )
+    else:
+        if (
+            v1_correctness_conformance.get("schema_version")
+            != "shardloom.v1_correctness_conformance_report.v1"
+        ):
+            v1_correctness_conformance_blockers.append(
+                "v1 correctness/conformance schema_version="
+                + str(v1_correctness_conformance.get("schema_version", "missing"))
+            )
+        if v1_correctness_conformance.get("status") != "passed":
+            v1_correctness_conformance_blockers.extend(
+                v1_correctness_conformance.get(
+                    "blockers",
+                    ["v1 correctness/conformance report blocked"],
+                )
+            )
+        for field, expected in [
+            ("input_report_count", 6),
+            ("v1_correctness_matrix_status", "passed"),
+            ("scope_report_status", "passed"),
+            ("golden_workflow_validator_status", "passed"),
+            ("admitted_semantics_validator_status", "passed"),
+            (
+                "docs_example_execution_status",
+                "covered_by_front_door_scenarios_and_golden_workflows",
+            ),
+            (
+                "unsupported_path_test_status",
+                "covered_by_admitted_semantics_diagnostics",
+            ),
+        ]:
+            if v1_correctness_conformance.get(field) != expected:
+                v1_correctness_conformance_blockers.append(
+                    f"v1 correctness/conformance {field}="
+                    + str(v1_correctness_conformance.get(field, "missing"))
+                )
+        for field in [
+            "decoded_reference_differential_execution_performed",
+            "property_execution_performed",
+            "correctness_claim_allowed",
+            "external_engines_allowed_as_oracles_only",
+        ]:
+            if v1_correctness_conformance.get(field) is not True:
+                v1_correctness_conformance_blockers.append(
+                    f"v1 correctness/conformance {field} must be true"
+                )
+        if v1_correctness_conformance.get("external_oracle_used") is not False:
+            v1_correctness_conformance_blockers.append(
+                "v1 correctness/conformance external_oracle_used must be false"
+            )
+        if v1_correctness_conformance.get("claim_gate_status") != "not_claim_grade":
+            v1_correctness_conformance_blockers.append(
+                "v1 correctness/conformance claim_gate_status="
+                + str(v1_correctness_conformance.get("claim_gate_status", "missing"))
+            )
+        summaries = v1_correctness_conformance.get("summaries", {})
+        if not isinstance(summaries, dict):
+            v1_correctness_conformance_blockers.append(
+                "v1 correctness/conformance summaries must be an object"
+            )
+        else:
+            expected_summary_values = {
+                ("admitted_semantics", "executable_fixture_count"): 103,
+                ("admitted_semantics", "diagnostic_case_count"): 24,
+                ("admitted_semantics", "unsupported_diagnostic_count"): 22,
+                ("admitted_semantics", "required_semantic_case_count"): 33,
+                ("admitted_semantics", "required_unsupported_case_count"): 10,
+                ("front_door", "supported_parity_row_count"): 7,
+                ("front_door", "broad_pending_parity_row_count"): 4,
+                ("front_door", "example_scenario_count"): 9,
+                ("golden_workflow", "workflow_count"): 3,
+                ("golden_workflow", "stage_count"): 9,
+                ("source_prepared_state", "supported_input_format_count"): 6,
+                ("source_prepared_state", "prepared_route_count"): 4,
+                ("source_prepared_state", "invalidation_case_count"): 9,
+                ("vortex_runtime", "primitive_route_count"): 9,
+                ("vortex_runtime", "local_file_benchmark_route_count"): 15,
+                ("local_output_sink", "supported_output_format_count"): 7,
+                ("local_output_sink", "write_method_count"): 9,
+                ("local_output_sink", "output_route_count"): 8,
+            }
+            for (section, field), expected in expected_summary_values.items():
+                section_value = summaries.get(section, {})
+                value = section_value.get(field) if isinstance(section_value, dict) else None
+                if value != expected:
+                    v1_correctness_conformance_blockers.append(
+                        f"v1 correctness/conformance {section}.{field}={value}"
+                    )
+        for field in [
+            "runtime_support_claim_allowed",
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+            "publication_attempted",
+            "tag_created",
+            "package_upload_attempted",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if v1_correctness_conformance.get(field) is not False:
+                v1_correctness_conformance_blockers.append(
+                    f"v1 correctness/conformance {field} must be false"
+                )
+    checks.append(
+        check(
+            "v1_correctness_conformance_gate",
+            str(args.v1_correctness_conformance_report).replace("\\", "/"),
+            v1_correctness_conformance_blockers,
+        )
+    )
+
     user_surface_runtime_gap_inventory = load_json(user_surface_runtime_gap_inventory_path)
     user_surface_runtime_gap_blockers: list[str] = []
     if user_surface_runtime_gap_inventory is None:
@@ -2152,6 +2280,7 @@ def main() -> int:
         "python scripts/check_v1_source_prepared_state_scope.py",
         "python scripts/check_v1_local_output_sink_scope.py",
         "python scripts/check_v1_api_schema_stability.py",
+        "python scripts/check_v1_correctness_conformance.py",
         "python scripts/check_user_surface_runtime_gap_inventory.py",
         "python scripts/check_user_surface_graduation_matrix.py",
         "python scripts/check_runtime_gap_family_burn_down.py",
@@ -2221,6 +2350,9 @@ def main() -> int:
         ).replace("\\", "/"),
         "v1_api_schema_stability_report_ref": str(
             args.v1_api_schema_stability_report
+        ).replace("\\", "/"),
+        "v1_correctness_conformance_report_ref": str(
+            args.v1_correctness_conformance_report
         ).replace("\\", "/"),
         "user_surface_runtime_gap_inventory_ref": str(
             args.user_surface_runtime_gap_inventory_report

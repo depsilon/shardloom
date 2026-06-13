@@ -267,6 +267,10 @@ def required_validation_commands(
             [python_executable, "scripts/check_v1_api_schema_stability.py"],
         ),
         (
+            "v1_correctness_conformance_gate",
+            [python_executable, "scripts/check_v1_correctness_conformance.py"],
+        ),
+        (
             "user_surface_runtime_gap_inventory",
             [python_executable, "scripts/check_user_surface_runtime_gap_inventory.py"],
         ),

@@ -489,6 +489,8 @@ jobs:
         run: python scripts/check_production_usability_gate.py
       - name: V1 API/schema stability gate
         run: python scripts/check_v1_api_schema_stability.py
+      - name: V1 correctness/conformance gate
+        run: python scripts/check_v1_correctness_conformance.py
       - name: Hard release readiness gate
         continue-on-error: true
         run: python scripts/check_release_readiness.py
@@ -514,6 +516,7 @@ jobs:
             target/website-readiness-report.json
             target/production-usability-gate.json
             target/v1-api-schema-stability-report.json
+            target/v1-correctness-conformance-report.json
             target/python-user-surface-completion-gate.json
             target/sql-python-dataframe-parity-gate.json
             target/v1-front-door-runtime-scope-report.json
