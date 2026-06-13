@@ -39,7 +39,7 @@ vortex-traditional-analytics-benchmark = [
 [dev-dependencies]
 arrow-array = "58.3.0"
 arrow-avro = { version = "58.3.0", default-features = false, features = ["deflate", "snappy"] }
-arrow-ipc = "58.3.0"
+arrow-ipc = "59.0.0"
 orc-rust = { version = "0.8.0", default-features = false }
 parquet = "58.3.0"
 
