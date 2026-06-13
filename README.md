@@ -133,6 +133,10 @@ The benchmark-page ETL scenarios use the same primary ShardLoom front door from 
 snippets show the user-facing shape for the scoped v1 front door defined in
 [`docs/architecture/v1-front-door-runtime-scope.md`](docs/architecture/v1-front-door-runtime-scope.md);
 measured route timing comes from the promoted benchmark artifact and remains claim-gated.
+The v1 Vortex runtime scope is separately defined in
+[`docs/architecture/v1-vortex-runtime-scope.md`](docs/architecture/v1-vortex-runtime-scope.md):
+it admits feature-gated local Vortex primitives, prepared Vortex state, prepared compatibility
+artifacts, and generated local Vortex artifacts without claiming broad Vortex support.
 
 To run these local scenario snippets from a source checkout and inspect timing components:
 

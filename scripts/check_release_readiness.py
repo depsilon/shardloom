@@ -127,6 +127,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/v1-front-door-runtime-scope-report.json"),
     )
     parser.add_argument(
+        "--v1-vortex-runtime-scope-report",
+        type=Path,
+        default=Path("target/v1-vortex-runtime-scope-report.json"),
+    )
+    parser.add_argument(
         "--user-surface-runtime-gap-inventory-report",
         type=Path,
         default=Path("target/user-surface-runtime-gap-inventory.json"),
@@ -418,6 +423,10 @@ def main() -> int:
     v1_front_door_runtime_scope_report_path = resolve(
         repo_root,
         args.v1_front_door_runtime_scope_report,
+    )
+    v1_vortex_runtime_scope_report_path = resolve(
+        repo_root,
+        args.v1_vortex_runtime_scope_report,
     )
     user_surface_runtime_gap_inventory_path = resolve(
         repo_root,
@@ -1419,6 +1428,69 @@ def main() -> int:
         )
     )
 
+    v1_vortex_runtime_scope = load_json(v1_vortex_runtime_scope_report_path)
+    v1_vortex_blockers: list[str] = []
+    if v1_vortex_runtime_scope is None:
+        v1_vortex_blockers.append("missing v1 Vortex runtime scope report")
+    else:
+        if (
+            v1_vortex_runtime_scope.get("schema_version")
+            != "shardloom.v1_vortex_runtime_scope_report.v1"
+        ):
+            v1_vortex_blockers.append(
+                "v1 Vortex runtime scope schema_version="
+                + str(v1_vortex_runtime_scope.get("schema_version", "missing"))
+            )
+        if v1_vortex_runtime_scope.get("status") != "passed":
+            v1_vortex_blockers.extend(
+                v1_vortex_runtime_scope.get(
+                    "blockers", ["v1 Vortex runtime scope gate blocked"]
+                )
+            )
+        if v1_vortex_runtime_scope.get("local_vortex_primitive_v1_scope_ready") is not True:
+            v1_vortex_blockers.append(
+                "v1 Vortex local_vortex_primitive_v1_scope_ready must be true"
+            )
+        if v1_vortex_runtime_scope.get("user_route_v1_vortex_scope_ready") is not True:
+            v1_vortex_blockers.append(
+                "v1 Vortex user_route_v1_vortex_scope_ready must be true"
+            )
+        if v1_vortex_runtime_scope.get("all_no_fallback_no_external_engine") is not True:
+            v1_vortex_blockers.append(
+                "v1 Vortex all_no_fallback_no_external_engine must be true"
+            )
+        if len(v1_vortex_runtime_scope.get("supported_primitive_route_ids", [])) != 9:
+            v1_vortex_blockers.append("v1 Vortex primitive route coverage must contain 9 rows")
+        if len(v1_vortex_runtime_scope.get("supported_benchmark_scenario_ids", [])) != 15:
+            v1_vortex_blockers.append(
+                "v1 Vortex benchmark scenario coverage must contain 15 rows"
+            )
+        if "object_store_vortex_io" not in set(
+            v1_vortex_runtime_scope.get("unsupported_boundary_ids", [])
+        ):
+            v1_vortex_blockers.append(
+                "v1 Vortex unsupported boundaries must include object_store_vortex_io"
+            )
+        for field in [
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+        ]:
+            if v1_vortex_runtime_scope.get(field) is not False:
+                v1_vortex_blockers.append(f"v1 Vortex {field} must be false")
+        if v1_vortex_runtime_scope.get("claim_gate_status") != "not_claim_grade":
+            v1_vortex_blockers.append(
+                "v1 Vortex claim_gate_status="
+                + str(v1_vortex_runtime_scope.get("claim_gate_status", "missing"))
+            )
+    checks.append(
+        check(
+            "v1_vortex_runtime_scope_gate",
+            str(args.v1_vortex_runtime_scope_report).replace("\\", "/"),
+            v1_vortex_blockers,
+        )
+    )
+
     user_surface_runtime_gap_inventory = load_json(user_surface_runtime_gap_inventory_path)
     user_surface_runtime_gap_blockers: list[str] = []
     if user_surface_runtime_gap_inventory is None:
@@ -1792,6 +1864,7 @@ def main() -> int:
         "python scripts/check_python_user_surface_completion.py",
         "python scripts/check_sql_python_dataframe_parity.py",
         "python scripts/check_v1_front_door_runtime_scope.py",
+        "python scripts/check_v1_vortex_runtime_scope.py",
         "python scripts/check_user_surface_runtime_gap_inventory.py",
         "python scripts/check_user_surface_graduation_matrix.py",
         "python scripts/check_runtime_gap_family_burn_down.py",
@@ -1849,6 +1922,9 @@ def main() -> int:
         ).replace("\\", "/"),
         "v1_front_door_runtime_scope_report_ref": str(
             args.v1_front_door_runtime_scope_report
+        ).replace("\\", "/"),
+        "v1_vortex_runtime_scope_report_ref": str(
+            args.v1_vortex_runtime_scope_report
         ).replace("\\", "/"),
         "user_surface_runtime_gap_inventory_ref": str(
             args.user_surface_runtime_gap_inventory_report

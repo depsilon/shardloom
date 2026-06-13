@@ -19,6 +19,8 @@ The active v1 queue and feasibility firewall is tracked in
 [`docs/release/v1-inclusion-scope-matrix.md`](v1-inclusion-scope-matrix.md).
 The scoped local SQL/Python/DataFrame front-door runtime boundary is defined in
 [`docs/architecture/v1-front-door-runtime-scope.md`](../architecture/v1-front-door-runtime-scope.md).
+The scoped local/prepared v1 Vortex runtime boundary is defined in
+[`docs/architecture/v1-vortex-runtime-scope.md`](../architecture/v1-vortex-runtime-scope.md).
 
 ## Claim Boundary
 
@@ -49,7 +51,7 @@ external_engine_invoked=false
 | Local first-10-minutes path | Supported through `scripts/release_dry_run_proof.py`, getting-started examples, and local smoke reports. | Local technical-preview proof over source-built artifacts. | Package publication, tags, signing, secrets, production or performance claims. |
 | CLI and Python front doors | Scoped local CSV, JSONL/NDJSON, flat JSON, generated rows, local Vortex, and selected feature-gated paths. | Evidence-backed local route use with no-fallback fields visible. | Broad SQL/DataFrame parity, server/API production support, hidden external execution. |
 | SQL/DataFrame-style surface | Selected local-source projections, filters, joins, aggregates, bounded collects, and local writes are admitted through ShardLoom routes. | Scoped local workflow evidence and deterministic unsupported blockers. | PySpark/pandas/Polars parity, arbitrary SQL/DataFrame runtime, performance equivalence. |
-| Vortex preparation | Feature-gated local `vortex_ingest` creates `VortexPreparedState` evidence for scoped flat local inputs. | Explicit preparation and prepared/native route inspection. | Broad writer support, object-store/table/catalog preparation, production staging. |
+| Vortex preparation and local primitives | Feature-gated local `vortex_ingest` creates `VortexPreparedState` evidence for scoped flat local inputs. Scoped local Vortex primitives are covered by the feature-gated local Vortex runtime scope. | Explicit preparation, prepared/native route inspection, and local primitive count/filter/project route reports. | Broad writer support, object-store/table/catalog preparation, generalized Vortex Source/Sink runtime, production staging. |
 | Benchmarks | Promoted artifacts separate route lanes, timing surfaces, evidence tiers, and claim gates. | Evidence interpretation for hot runtime, replay proof, publication proof, and external baselines. | Public performance superiority, Spark displacement, stale-artifact claims, timing-surface substitution. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked for broader platform routes. | Capability posture, local fixture proof where explicitly named, blocked diagnostics. | Production platform/runtime claims and managed-service integrations. |
 | Website | Static public interpretation layer over checked-in source/evidence. | Claim-safe docs, use-case, benchmark, status, and architecture views. | Runtime expansion, package publication, public benchmark freshness beyond promoted artifacts. |
@@ -63,6 +65,7 @@ external_engine_invoked=false
 | `docs/release/finished-product-scope.md` | Canonical v1 support boundary and allowed public claim language. | Phase plan plus per-claim evidence matrix. |
 | `docs/release/v1-inclusion-scope-matrix.md` | V1 required/candidate/deferred row classification and unsupported-surface firewall. | Phase plan plus known unsupported paths. |
 | `docs/architecture/v1-front-door-runtime-scope.md` | Scoped local v1 SQL/Python/DataFrame front-door boundary. | Python parity matrix, user route capability report, and local scenario runner. |
+| `docs/architecture/v1-vortex-runtime-scope.md` | Scoped feature-gated local/prepared v1 Vortex runtime boundary. | Local Vortex primitive route report, user route capability report, and local benchmark route report. |
 | `docs/getting-started/install.md` | Source checkout and local install path. | This matrix plus package-channel readiness docs. |
 | `docs/getting-started/first-10-minutes.md` | Local proof walkthrough. | This matrix plus release dry-run proof docs. |
 | `docs/getting-started/examples.md` | Copyable scoped examples and blockers. | This matrix plus relevant capability docs. |

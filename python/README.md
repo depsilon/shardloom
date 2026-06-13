@@ -1684,6 +1684,12 @@ SQL/Python/DataFrame breadth, and cross-front-door performance equivalence remai
 until correctness, Native I/O, execution-certificate, no-fallback, and benchmark evidence closes
 them.
 
+The v1 Vortex runtime scope is owned by `docs/architecture/v1-vortex-runtime-scope.md`. Use
+`ctx.local_vortex_primitive_route_report()` for the feature-gated local Vortex primitive route
+ids, CLI commands, materialization boundaries, and no-fallback evidence posture; broad object-store
+Vortex, table/catalog Vortex, generalized Source/Sink, and broad Vortex SQL/DataFrame support remain
+outside that scope.
+
 Package, DataFrame, and notebook readiness are also exposed as a separate typed
 matrix so local install smoke is not confused with public package publication or
 broad runtime support:
