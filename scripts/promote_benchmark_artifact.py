@@ -171,6 +171,11 @@ WEBSITE_ROW_KEYS = (
     "route_comparable_to_external_end_to_end",
     "session_route_used",
     "process_spawn_count",
+    "session_source_metadata_cache_seed_status",
+    "session_source_metadata_cache_seed_count",
+    "session_source_metadata_cache_seed_scope",
+    "session_source_metadata_cache_hit_count",
+    "session_source_metadata_cache_miss_count",
     "preparation_included",
     "preparation_included_scope",
     "query_timing_starts_after_preparation",
@@ -283,6 +288,13 @@ WEBSITE_ROW_KEYS = (
     "source_state_lazy_family_construction",
     "source_state_family_build_timing_scope",
     "source_state_family_build_count",
+    "source_state_family_prewarm_status",
+    "source_state_family_prewarm_eligible_count",
+    "source_state_family_prewarm_count",
+    "source_state_family_prewarm_already_prepared_count",
+    "source_state_family_prewarm_prepared_before_child_route_count",
+    "source_state_family_prewarm_micros",
+    "source_state_family_prewarm_scope",
     "source_state_family_reuse_hit_count",
     "source_state_family_reuse_hit",
     "source_state_family_recompute_avoided",
@@ -2329,6 +2341,11 @@ def timing_normalization_fields_for_row(
             micros_keys=("source_state_family_build_micros",),
             millis_keys=("source_state_family_build_millis",),
         ),
+        "source_state_family_prewarm_micros": first_numeric_micros(
+            fields,
+            micros_keys=("source_state_family_prewarm_micros",),
+            millis_keys=("source_state_family_prewarm_millis",),
+        ),
         "source_state_lazy_family_construction": first_bool_field(
             fields,
             ("source_state_lazy_family_construction",),
@@ -2339,6 +2356,28 @@ def timing_normalization_fields_for_row(
         "source_state_family_build_count": first_numeric_field(
             fields,
             ("source_state_family_build_count",),
+        ),
+        "source_state_family_prewarm_status": fields.get(
+            "source_state_family_prewarm_status"
+        ),
+        "source_state_family_prewarm_eligible_count": first_numeric_field(
+            fields,
+            ("source_state_family_prewarm_eligible_count",),
+        ),
+        "source_state_family_prewarm_count": first_numeric_field(
+            fields,
+            ("source_state_family_prewarm_count",),
+        ),
+        "source_state_family_prewarm_already_prepared_count": first_numeric_field(
+            fields,
+            ("source_state_family_prewarm_already_prepared_count",),
+        ),
+        "source_state_family_prewarm_prepared_before_child_route_count": first_numeric_field(
+            fields,
+            ("source_state_family_prewarm_prepared_before_child_route_count",),
+        ),
+        "source_state_family_prewarm_scope": fields.get(
+            "source_state_family_prewarm_scope"
         ),
         "source_state_family_reuse_hit_count": first_numeric_field(
             fields,

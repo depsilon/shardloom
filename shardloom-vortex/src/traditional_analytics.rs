@@ -2114,6 +2114,33 @@ impl TraditionalSourceStateFamilyRuntimeEvidence {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct TraditionalSourceStateFamilyPrewarmEvidence {
+    eligible_family_count: usize,
+    already_prepared_family_count: usize,
+    prewarmed_family_count: usize,
+    prepared_before_child_route_family_count: usize,
+    prewarm_micros: u64,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalSourceStateFamilyPrewarmEvidence {
+    fn status(self) -> &'static str {
+        if self.eligible_family_count == 0 {
+            "not_applicable_no_reused_source_state_families"
+        } else if self.prepared_before_child_route_family_count == self.eligible_family_count
+            && self.prewarmed_family_count == 0
+        {
+            "reused_source_state_families_already_prepared_before_prewarm"
+        } else if self.prepared_before_child_route_family_count == self.eligible_family_count {
+            "prewarmed_reused_source_state_families_before_child_routes"
+        } else {
+            "partially_prewarmed_reused_source_state_families_before_child_routes"
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TraditionalSourceStateFamilyDigestRow {
     family: &'static str,
@@ -2328,11 +2355,103 @@ impl TraditionalVortexBatchSourceState {
             .map(Some)
     }
 
-    fn prewarm_reused_fact_metric_state(&self) -> Result<()> {
-        if self.fact_metric_state_consumer_count > 1 && !self.fact_metric_state.is_built() {
-            let _ = self.fact_metric_state()?;
+    fn prewarm_reused_source_state_families(
+        &self,
+    ) -> Result<TraditionalSourceStateFamilyPrewarmEvidence> {
+        let start = std::time::Instant::now();
+        let mut eligible_family_count = 0_usize;
+        let mut already_prepared_family_count = 0_usize;
+        let mut prewarmed_family_count = 0_usize;
+        let mut prepared_before_child_route_family_count = 0_usize;
+
+        if self.dimension_label_state_consumer_count > 1 {
+            eligible_family_count += 1;
+            if self.dimension_label_state.is_built() {
+                already_prepared_family_count += 1;
+            } else {
+                let _ = self.dimension_label_state()?;
+                prewarmed_family_count += 1;
+            }
+            prepared_before_child_route_family_count += 1;
         }
-        Ok(())
+        if self.fact_metric_state_consumer_count > 1 {
+            eligible_family_count += 1;
+            if self.fact_metric_state.is_built() {
+                already_prepared_family_count += 1;
+            } else {
+                let _ = self.fact_metric_state()?;
+                prewarmed_family_count += 1;
+            }
+            prepared_before_child_route_family_count += 1;
+        }
+        if self.category_metric_state_consumer_count > 1 {
+            eligible_family_count += 1;
+            if self.category_metric_state.is_built() {
+                already_prepared_family_count += 1;
+            } else {
+                let _ = self.category_metric_state()?;
+                prewarmed_family_count += 1;
+            }
+            prepared_before_child_route_family_count += 1;
+        }
+        if self.group_category_metric_state_consumer_count > 1 {
+            eligible_family_count += 1;
+            if self.group_category_metric_state.is_built() {
+                already_prepared_family_count += 1;
+            } else {
+                let _ = self.group_category_metric_state()?;
+                prewarmed_family_count += 1;
+            }
+            prepared_before_child_route_family_count += 1;
+        }
+        if self.ranked_metric_state_consumer_count > 1 {
+            eligible_family_count += 1;
+            if self.ranked_metric_state.is_built() {
+                already_prepared_family_count += 1;
+            } else {
+                let _ = self.ranked_metric_state()?;
+                prewarmed_family_count += 1;
+            }
+            prepared_before_child_route_family_count += 1;
+        }
+        if self.selective_filter_state_consumer_count > 1 {
+            eligible_family_count += 1;
+            if self.selective_filter_state.is_built() {
+                already_prepared_family_count += 1;
+            } else {
+                let _ = self.selective_filter_state()?;
+                prewarmed_family_count += 1;
+            }
+            prepared_before_child_route_family_count += 1;
+        }
+        if self.dirty_input_state_consumer_count > 1 {
+            eligible_family_count += 1;
+            if self.dirty_input_state.is_built() {
+                already_prepared_family_count += 1;
+            } else {
+                let _ = self.dirty_input_state()?;
+                prewarmed_family_count += 1;
+            }
+            prepared_before_child_route_family_count += 1;
+        }
+        if self.date_null_metric_state_consumer_count > 1 {
+            eligible_family_count += 1;
+            if self.date_null_metric_state.is_built() {
+                already_prepared_family_count += 1;
+            } else {
+                let _ = self.date_null_metric_state()?;
+                prewarmed_family_count += 1;
+            }
+            prepared_before_child_route_family_count += 1;
+        }
+
+        Ok(TraditionalSourceStateFamilyPrewarmEvidence {
+            eligible_family_count,
+            already_prepared_family_count,
+            prewarmed_family_count,
+            prepared_before_child_route_family_count,
+            prewarm_micros: duration_to_micros(start.elapsed()),
+        })
     }
 
     fn category_metric_state(
@@ -2736,6 +2855,7 @@ pub struct TraditionalPreparedNativeSessionEvidence {
     pub prepared_artifact_cache_hit_count: usize,
     pub prepared_artifact_cache_miss_count: usize,
     pub prepared_artifact_reuse_count: usize,
+    pub source_metadata_cache_seed_count: usize,
     pub source_metadata_cache_hit_count: usize,
     pub source_metadata_cache_miss_count: usize,
     pub source_state_cache_hit_count: usize,
@@ -2799,6 +2919,22 @@ impl TraditionalPreparedNativeSessionEvidence {
             (
                 "session_prepared_artifact_reuse_count".to_string(),
                 self.prepared_artifact_reuse_count.to_string(),
+            ),
+            (
+                "session_source_metadata_cache_seed_status".to_string(),
+                if self.source_metadata_cache_seed_count == 0 {
+                    "not_seeded_from_session_open_source_snapshot".to_string()
+                } else {
+                    "seeded_from_session_open_source_snapshot".to_string()
+                },
+            ),
+            (
+                "session_source_metadata_cache_seed_count".to_string(),
+                self.source_metadata_cache_seed_count.to_string(),
+            ),
+            (
+                "session_source_metadata_cache_seed_scope".to_string(),
+                "session_open_split_inventory_key_matching_child_source_role".to_string(),
             ),
             (
                 "session_source_metadata_cache_hit_count".to_string(),
@@ -3023,7 +3159,12 @@ impl TraditionalPreparedNativeSession {
         )
     }
 
-    fn close(self) -> TraditionalPreparedNativeSessionEvidence {
+    fn close(
+        self,
+        source_metadata_cache_seed_count: usize,
+        source_metadata_cache_hit_count: usize,
+        source_metadata_cache_miss_count: usize,
+    ) -> TraditionalPreparedNativeSessionEvidence {
         let reusable_scenario_count = self.scenario_count.saturating_sub(1);
         let source_state_digest = self
             .source_state
@@ -3041,8 +3182,9 @@ impl TraditionalPreparedNativeSession {
             prepared_artifact_cache_hit_count: reusable_scenario_count,
             prepared_artifact_cache_miss_count: 1,
             prepared_artifact_reuse_count: reusable_scenario_count,
-            source_metadata_cache_hit_count: reusable_scenario_count,
-            source_metadata_cache_miss_count: 1,
+            source_metadata_cache_seed_count,
+            source_metadata_cache_hit_count,
+            source_metadata_cache_miss_count,
             source_state_cache_hit_count: self.source_state.source_state_recompute_avoided_count(),
             source_state_cache_miss_count: self.source_state.source_state_family_count(),
             source_state_reuse_count: self.source_state.source_state_recompute_avoided_count(),
@@ -8196,6 +8338,12 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub source_state_row_count_metadata_micros: u64,
     pub source_state_family_build_micros: u64,
     pub source_state_family_build_count: usize,
+    pub source_state_family_prewarm_status: String,
+    pub source_state_family_prewarm_eligible_count: usize,
+    pub source_state_family_prewarm_count: usize,
+    pub source_state_family_prewarm_already_prepared_count: usize,
+    pub source_state_family_prewarm_prepared_before_child_route_count: usize,
+    pub source_state_family_prewarm_micros: u64,
     pub source_state_family_runtime_evidence: TraditionalSourceStateFamilyRuntimeEvidence,
     pub source_state_digest_micros: u64,
     pub source_state_digest: String,
@@ -11493,6 +11641,37 @@ impl TraditionalAnalyticsVortexBatchReport {
             (
                 "source_state_family_build_count".to_string(),
                 self.source_state_family_build_count.to_string(),
+            ),
+            (
+                "source_state_family_prewarm_status".to_string(),
+                self.source_state_family_prewarm_status.clone(),
+            ),
+            (
+                "source_state_family_prewarm_eligible_count".to_string(),
+                self.source_state_family_prewarm_eligible_count.to_string(),
+            ),
+            (
+                "source_state_family_prewarm_count".to_string(),
+                self.source_state_family_prewarm_count.to_string(),
+            ),
+            (
+                "source_state_family_prewarm_already_prepared_count".to_string(),
+                self.source_state_family_prewarm_already_prepared_count
+                    .to_string(),
+            ),
+            (
+                "source_state_family_prewarm_prepared_before_child_route_count".to_string(),
+                self.source_state_family_prewarm_prepared_before_child_route_count
+                    .to_string(),
+            ),
+            (
+                "source_state_family_prewarm_micros".to_string(),
+                self.source_state_family_prewarm_micros.to_string(),
+            ),
+            (
+                "source_state_family_prewarm_scope".to_string(),
+                "batch_reused_source_state_families_before_child_routes_excluded_from_session_open"
+                    .to_string(),
             ),
             (
                 "source_state_family_reuse_hit_count".to_string(),
@@ -24743,7 +24922,9 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
     let source_state_dim_rows = session.source_state.dim_rows;
     let source_state_dim_row_count_cache_hit_count =
         TraditionalVortexBatchSourceState::dim_row_count_cache_consumer_count(&scenarios);
-    session.source_state.prewarm_reused_fact_metric_state()?;
+    let source_state_family_prewarm = session
+        .source_state
+        .prewarm_reused_source_state_families()?;
 
     let mut reports = Vec::with_capacity(scenarios.len());
     let mut split_inventory_cache = std::collections::BTreeMap::<
@@ -24754,6 +24935,19 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         TraditionalPreparedVortexSplitInventoryKey,
         TraditionalVortexSourceSnapshot,
     >::new();
+    let session_split_inventory_key = TraditionalPreparedVortexSplitInventoryKey::from_paths(
+        &fact_vortex,
+        &dim_vortex,
+        cdc_delta_vortex.as_deref(),
+        fact_delta_overlay_vortex.as_deref(),
+    );
+    source_snapshot_cache.insert(
+        session_split_inventory_key,
+        session.source_state.source_snapshot.clone(),
+    );
+    let source_metadata_cache_seed_count = 1_usize;
+    let mut source_metadata_cache_hit_count = 0_usize;
+    let mut source_metadata_cache_miss_count = 0_usize;
     for (index, scenario) in scenarios.into_iter().enumerate() {
         let scenario_workspace = result_workspace_dir.as_ref().map(|workspace| {
             workspace.join(format!(
@@ -24774,7 +24968,10 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
             child_cdc_delta_vortex.as_deref(),
             fact_delta_overlay_vortex.as_deref(),
         );
-        if !source_snapshot_cache.contains_key(&split_inventory_key) {
+        if source_snapshot_cache.contains_key(&split_inventory_key) {
+            source_metadata_cache_hit_count += 1;
+        } else {
+            source_metadata_cache_miss_count += 1;
             let source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
                 &fact_vortex,
                 &dim_vortex,
@@ -24849,7 +25046,11 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         .source_state_digest(requested_execution_mode);
     let source_state_family_digests = session.source_state.source_state_family_digests();
     let source_state_digest_micros = duration_to_micros(source_state_digest_start.elapsed());
-    let session_evidence = session.close();
+    let session_evidence = session.close(
+        source_metadata_cache_seed_count,
+        source_metadata_cache_hit_count,
+        source_metadata_cache_miss_count,
+    );
 
     let total_scenario_compute_micros = checked_u64_values_sum(
         reports.iter().map(|report| report.scenario_compute_micros),
@@ -24923,6 +25124,15 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         source_state_row_count_metadata_micros,
         source_state_family_build_micros,
         source_state_family_build_count,
+        source_state_family_prewarm_status: source_state_family_prewarm.status().to_string(),
+        source_state_family_prewarm_eligible_count: source_state_family_prewarm
+            .eligible_family_count,
+        source_state_family_prewarm_count: source_state_family_prewarm.prewarmed_family_count,
+        source_state_family_prewarm_already_prepared_count: source_state_family_prewarm
+            .already_prepared_family_count,
+        source_state_family_prewarm_prepared_before_child_route_count: source_state_family_prewarm
+            .prepared_before_child_route_family_count,
+        source_state_family_prewarm_micros: source_state_family_prewarm.prewarm_micros,
         source_state_family_runtime_evidence,
         source_state_digest_micros,
         source_state_digest,
@@ -39988,6 +40198,36 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn assert_source_state_family_prewarmed(
+        fields: &std::collections::HashMap<String, String>,
+        count: &str,
+    ) {
+        assert_field_eq(
+            fields,
+            "source_state_family_prewarm_status",
+            "prewarmed_reused_source_state_families_before_child_routes",
+        );
+        assert_field_eq(fields, "source_state_family_prewarm_eligible_count", count);
+        assert_field_eq(fields, "source_state_family_prewarm_count", count);
+        assert_field_eq(
+            fields,
+            "source_state_family_prewarm_already_prepared_count",
+            "0",
+        );
+        assert_field_eq(
+            fields,
+            "source_state_family_prewarm_prepared_before_child_route_count",
+            count,
+        );
+        let _prewarm_micros = field_u64(fields, "source_state_family_prewarm_micros");
+        assert_field_eq(
+            fields,
+            "source_state_family_prewarm_scope",
+            "batch_reused_source_state_families_before_child_routes_excluded_from_session_open",
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn assert_scan_pushdown_no_fallback(fields: &std::collections::HashMap<String, String>) {
         assert_field_eq(
             fields,
@@ -40586,8 +40826,19 @@ mod tests {
         assert_field_eq(&fields, "session_prepared_artifact_cache_hit_count", "3");
         assert_field_eq(&fields, "session_prepared_artifact_cache_miss_count", "1");
         assert_field_eq(&fields, "session_prepared_artifact_reuse_count", "3");
-        assert_field_eq(&fields, "session_source_metadata_cache_hit_count", "3");
-        assert_field_eq(&fields, "session_source_metadata_cache_miss_count", "1");
+        assert_field_eq(
+            &fields,
+            "session_source_metadata_cache_seed_status",
+            "seeded_from_session_open_source_snapshot",
+        );
+        assert_field_eq(&fields, "session_source_metadata_cache_seed_count", "1");
+        assert_field_eq(
+            &fields,
+            "session_source_metadata_cache_seed_scope",
+            "session_open_split_inventory_key_matching_child_source_role",
+        );
+        assert_field_eq(&fields, "session_source_metadata_cache_hit_count", "4");
+        assert_field_eq(&fields, "session_source_metadata_cache_miss_count", "0");
         assert_field_eq(&fields, "session_source_state_cache_hit_count", "1");
         assert_field_eq(&fields, "session_source_state_cache_miss_count", "3");
         assert_field_eq(&fields, "session_source_state_reuse_count", "1");
@@ -40689,6 +40940,7 @@ mod tests {
         assert_field_eq(&fields, "source_state_reuse_consumer_count", "4");
         assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
         assert_field_eq(&fields, "source_state_family_count", "3");
+        assert_source_state_family_prewarmed(&fields, "1");
         assert_field_eq(
             &fields,
             "source_state_dimension_label_reuse_status",
@@ -43737,6 +43989,7 @@ mod tests {
         assert_field_eq(&fields, "source_state_reuse_consumer_count", "2");
         assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
         assert_field_eq(&fields, "source_state_family_count", "1");
+        assert_source_state_family_prewarmed(&fields, "1");
         assert_field_eq(
             &fields,
             "source_state_fact_metric_reuse_status",
@@ -43860,7 +44113,14 @@ mod tests {
         assert_field_eq(&fields, "session_requested_scenario_count", "2");
         assert_field_eq(&fields, "session_prepared_artifact_cache_hit_count", "1");
         assert_field_eq(&fields, "session_prepared_artifact_reuse_count", "1");
-        assert_field_eq(&fields, "session_source_metadata_cache_hit_count", "1");
+        assert_field_eq(
+            &fields,
+            "session_source_metadata_cache_seed_status",
+            "seeded_from_session_open_source_snapshot",
+        );
+        assert_field_eq(&fields, "session_source_metadata_cache_seed_count", "1");
+        assert_field_eq(&fields, "session_source_metadata_cache_hit_count", "2");
+        assert_field_eq(&fields, "session_source_metadata_cache_miss_count", "0");
         assert_field_eq(&fields, "session_source_state_cache_hit_count", "1");
         assert_field_eq(&fields, "session_source_state_cache_miss_count", "1");
         assert_field_eq(&fields, "session_source_state_reuse_count", "1");
@@ -43875,6 +44135,7 @@ mod tests {
         assert_field_eq(&fields, "source_state_reuse_consumer_count", "2");
         assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
         assert_field_eq(&fields, "source_state_family_count", "1");
+        assert_source_state_family_prewarmed(&fields, "1");
         assert_field_eq(&fields, "source_state_lazy_family_construction", "true");
         assert_field_eq(
             &fields,
@@ -43882,7 +44143,7 @@ mod tests {
             "deferred_first_consumer_excluded_from_session_open",
         );
         assert_field_eq(&fields, "source_state_family_build_count", "1");
-        assert_field_eq(&fields, "source_state_family_reuse_hit_count", "1");
+        assert_field_eq(&fields, "source_state_family_reuse_hit_count", "2");
         assert_field_eq(&fields, "source_state_family_reuse_hit", "true");
         assert_field_eq(&fields, "source_state_family_recompute_avoided", "true");
         assert_field_eq(
@@ -44408,6 +44669,7 @@ mod tests {
         assert_field_eq(&fields, "source_state_reuse_consumer_count", "2");
         assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
         assert_field_eq(&fields, "source_state_family_count", "1");
+        assert_source_state_family_prewarmed(&fields, "1");
         assert_field_eq(
             &fields,
             "source_state_dimension_label_reuse_status",
@@ -44582,6 +44844,7 @@ mod tests {
         assert_field_eq(&fields, "source_state_reuse_consumer_count", "2");
         assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
         assert_field_eq(&fields, "source_state_family_count", "1");
+        assert_source_state_family_prewarmed(&fields, "1");
         assert_field_eq(
             &fields,
             "source_state_group_category_metric_reuse_status",
@@ -44780,6 +45043,7 @@ mod tests {
         assert_field_eq(&fields, "source_state_reuse_consumer_count", "3");
         assert_field_eq(&fields, "source_state_recompute_avoided_count", "2");
         assert_field_eq(&fields, "source_state_family_count", "1");
+        assert_source_state_family_prewarmed(&fields, "1");
         assert_field_eq(
             &fields,
             "source_state_group_category_metric_reuse_status",
@@ -44987,6 +45251,7 @@ mod tests {
         assert_field_eq(&fields, "source_state_reuse_consumer_count", "2");
         assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
         assert_field_eq(&fields, "source_state_family_count", "1");
+        assert_source_state_family_prewarmed(&fields, "1");
         assert_field_eq(
             &fields,
             "source_state_dirty_input_reuse_status",
@@ -45162,6 +45427,7 @@ mod tests {
         assert_field_eq(&fields, "source_state_reuse_consumer_count", "2");
         assert_field_eq(&fields, "source_state_recompute_avoided_count", "1");
         assert_field_eq(&fields, "source_state_family_count", "1");
+        assert_source_state_family_prewarmed(&fields, "1");
         assert_field_eq(
             &fields,
             "source_state_date_null_metric_reuse_status",
