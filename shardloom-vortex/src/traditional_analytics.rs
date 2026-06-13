@@ -1420,6 +1420,7 @@ impl TraditionalVortexSourceSnapshot {
 #[derive(Debug, Clone, PartialEq)]
 struct TraditionalDimensionKeyLookup {
     dense_membership: Option<Vec<bool>>,
+    dense_contiguous_max_key: Option<u32>,
     key_count: usize,
     max_key: Option<u32>,
 }
@@ -1440,14 +1441,23 @@ impl TraditionalDimensionKeyLookup {
                 }
                 Some(membership)
             });
+        let dense_contiguous_max_key = max_key.filter(|_| {
+            dense_membership.as_ref().is_some_and(|membership| {
+                membership.len() == keys.len() && membership.iter().all(|present| *present)
+            })
+        });
         Self {
             dense_membership,
+            dense_contiguous_max_key,
             key_count: keys.len(),
             max_key,
         }
     }
 
     fn contains(&self, key: u32) -> Option<bool> {
+        if let Some(max_key) = self.dense_contiguous_max_key {
+            return Some(key <= max_key);
+        }
         self.dense_membership.as_ref().map(|membership| {
             usize::try_from(key)
                 .ok()
@@ -1457,9 +1467,15 @@ impl TraditionalDimensionKeyLookup {
         })
     }
 
+    const fn dense_contiguous_max_key(&self) -> Option<u32> {
+        self.dense_contiguous_max_key
+    }
+
     fn status(&self) -> &'static str {
         if self.key_count == 0 {
             "empty_dimension_key_membership"
+        } else if self.dense_contiguous_max_key.is_some() {
+            "dense_contiguous_dimension_key_range"
         } else if self.dense_membership.is_some() {
             "dense_dimension_key_membership"
         } else {
@@ -19043,8 +19059,8 @@ fn prepared_batch_manifest_digest(manifest_payload: &serde_json::Value) -> Strin
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn stable_json_value_digest(value: &serde_json::Value) -> String {
-    let encoded = serde_json::to_string(value).unwrap_or_else(|_| "invalid-json".to_string());
-    sha256_digest(encoded.as_bytes())
+    let encoded = serde_json::to_vec(value).unwrap_or_else(|_| b"invalid-json".to_vec());
+    sha256_digest(&encoded)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -19510,24 +19526,6 @@ impl TraditionalResidualOperatorOptimizationEvidence {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-    fn dense_left_sparse_category_accumulator_for(
-        family: &'static str,
-        status: &'static str,
-    ) -> Self {
-        Self {
-            family,
-            status,
-            dense_accumulator_used: true,
-            sparse_rollover_used: false,
-            dense_max_key: Some(TRADITIONAL_DENSE_GROUP_MAX_KEY),
-            dense_slot_budget: Some(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1),
-            dimension_membership_status: "not_applicable",
-            dimension_membership_key_count: None,
-            dimension_membership_max_key: None,
-        }
-    }
-
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn nested_generated_payload_fast_parser() -> Self {
         Self {
             family: "nested_json_field_scan",
@@ -19967,134 +19965,6 @@ impl TraditionalPackedGroupAccumulator {
         match self {
             Self::Dense(dense) => dense.into_hash_map(),
             Self::Sparse(groups) => groups,
-        }
-    }
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-#[derive(Debug, Default, Clone, PartialEq)]
-struct TraditionalDenseDimCategoryAccum {
-    groups: Vec<Option<std::collections::HashMap<u32, TraditionalGroupAccum>>>,
-    populated_dim_keys: Vec<u32>,
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-impl TraditionalDenseDimCategoryAccum {
-    fn can_admit(dim_key: u32) -> bool {
-        TraditionalDenseU32GroupAccum::can_admit(dim_key)
-    }
-
-    fn add(&mut self, dim_key: u32, category_id: u32, metric: f64) -> Result<bool> {
-        if !Self::can_admit(dim_key) {
-            return Ok(false);
-        }
-        let index = usize::try_from(dim_key).map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "traditional analytics dense join dimension key {dim_key} exceeded usize: {error}; fallback execution was not attempted"
-            ))
-        })?;
-        if index >= self.groups.len() {
-            self.groups.resize_with(index + 1, || None);
-        }
-        let category_groups = self.groups[index].get_or_insert_with(|| {
-            self.populated_dim_keys.push(dim_key);
-            std::collections::HashMap::new()
-        });
-        category_groups.entry(category_id).or_default().add(metric);
-        Ok(true)
-    }
-
-    fn into_btree_map(self) -> std::collections::BTreeMap<(u32, u32), TraditionalGroupAccum> {
-        let Self {
-            mut groups,
-            mut populated_dim_keys,
-        } = self;
-        let mut out = std::collections::BTreeMap::new();
-        populated_dim_keys.sort_unstable();
-        for dim_key in populated_dim_keys {
-            let Some(index) = usize::try_from(dim_key).ok() else {
-                continue;
-            };
-            let Some(category_groups) = groups.get_mut(index).and_then(Option::take) else {
-                continue;
-            };
-            for (category_id, accum) in category_groups {
-                out.insert((dim_key, category_id), accum);
-            }
-        }
-        out
-    }
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-#[derive(Debug, Clone, PartialEq)]
-enum TraditionalDimCategoryAccumulator {
-    Dense(TraditionalDenseDimCategoryAccum),
-    Sparse(std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum>),
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-impl Default for TraditionalDimCategoryAccumulator {
-    fn default() -> Self {
-        Self::Dense(TraditionalDenseDimCategoryAccum::default())
-    }
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-impl TraditionalDimCategoryAccumulator {
-    fn add(&mut self, dim_key: u32, category_id: u32, metric: f64) -> Result<()> {
-        match self {
-            Self::Dense(dense) => {
-                if dense.add(dim_key, category_id, metric)? {
-                    Ok(())
-                } else {
-                    let mut sparse = std::mem::take(dense)
-                        .into_btree_map()
-                        .into_iter()
-                        .map(|((dim_key, category_id), accum)| {
-                            (pack_traditional_u32_pair(dim_key, category_id), accum)
-                        })
-                        .collect::<std::collections::HashMap<_, _>>();
-                    add_packed_group_accum(&mut sparse, dim_key, category_id, metric);
-                    *self = Self::Sparse(sparse);
-                    Ok(())
-                }
-            }
-            Self::Sparse(groups) => {
-                add_packed_group_accum(groups, dim_key, category_id, metric);
-                Ok(())
-            }
-        }
-    }
-
-    fn optimization_evidence_for_family(
-        &self,
-        family: &'static str,
-        dense_status: &'static str,
-    ) -> TraditionalResidualOperatorOptimizationEvidence {
-        match self {
-            Self::Dense(_) => {
-                TraditionalResidualOperatorOptimizationEvidence::dense_left_sparse_category_accumulator_for(
-                    family,
-                    dense_status,
-                )
-            }
-            Self::Sparse(_) => {
-                TraditionalResidualOperatorOptimizationEvidence::sparse_rollover(family)
-            }
-        }
-    }
-
-    fn into_btree_map(self) -> std::collections::BTreeMap<(u32, u32), TraditionalGroupAccum> {
-        match self {
-            Self::Dense(dense) => dense.into_btree_map(),
-            Self::Sparse(groups) => groups
-                .into_iter()
-                .map(|(packed, accum)| {
-                    let (dim_key, category_id) = unpack_traditional_u32_pair(packed);
-                    ((dim_key, category_id), accum)
-                })
-                .collect(),
         }
     }
 }
@@ -26899,6 +26769,7 @@ impl VortexCdcDeltaTable {
 struct TraditionalVortexIoContext {
     runtime: vortex::io::runtime::single::SingleThreadRuntime,
     session: vortex::session::VortexSession,
+    write_strategy: std::cell::OnceCell<std::sync::Arc<dyn vortex::layout::LayoutStrategy>>,
     open_micros: u64,
     write_count: std::cell::Cell<usize>,
 }
@@ -26940,6 +26811,7 @@ impl TraditionalVortexIoContext {
         Self {
             runtime,
             session,
+            write_strategy: std::cell::OnceCell::new(),
             open_micros: duration_to_micros(open_start.elapsed()),
             write_count: std::cell::Cell::new(0),
         }
@@ -26970,10 +26842,14 @@ impl TraditionalVortexIoContext {
                 "traditional analytics Vortex artifact",
                 |writer| {
                     let segment_write_start = std::time::Instant::now();
+                    let write_strategy = std::sync::Arc::clone(
+                        self.write_strategy
+                            .get_or_init(traditional_vortex_write_strategy),
+                    );
                     let result = self
                         .session
                         .write_options()
-                        .with_strategy(traditional_vortex_write_strategy())
+                        .with_strategy(write_strategy)
                         .blocking(&self.runtime)
                         .write(writer, array.to_array_iterator())
                         .map_err(vortex_error);
@@ -29900,6 +29776,15 @@ fn parse_benchmark_fact_jsonl_tail<'a>(
     if !column_selection.needs_after_category() {
         return Ok(Some(tail));
     }
+    if let Some(direct_tail) = parse_benchmark_fact_jsonl_tail_direct(
+        category_token,
+        cursor_after_category,
+        path,
+        line_number,
+        column_selection,
+    )? {
+        return Ok(Some(direct_tail));
+    }
     let selected_mask = column_selection.selected_optional_mask();
     let mut seen_selected_mask = 0_u32;
     let Some(mut remaining) = cursor_after_category else {
@@ -30005,6 +29890,152 @@ fn parse_benchmark_fact_jsonl_tail<'a>(
         };
         remaining = next;
     }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_benchmark_fact_jsonl_tail_direct<'a>(
+    category_token: &'a str,
+    cursor_after_category: Option<&'a str>,
+    path: &std::path::Path,
+    line_number: usize,
+    column_selection: TraditionalFactTextColumnSelection,
+) -> Result<Option<FastFactJsonlTail<'a>>> {
+    let Some(remaining) = cursor_after_category else {
+        return Ok(Some(fast_fact_jsonl_tail(
+            category_token,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )));
+    };
+    if remaining
+        .as_bytes()
+        .iter()
+        .any(|byte| matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
+    {
+        return Ok(None);
+    }
+    let mut tail = fast_fact_jsonl_tail(category_token, None, None, None, None, None, None);
+    if column_selection.event_date {
+        tail.event_date = parse_fast_json_selected_optional_string_field(
+            remaining,
+            "\"event_date\":",
+            ",\"event_date\":",
+            path,
+            line_number,
+            "event_date",
+        )?;
+    }
+    if column_selection.nullable_metric_00 {
+        tail.nullable_metric_00 = parse_fast_json_selected_optional_string_field(
+            remaining,
+            "\"nullable_metric_00\":",
+            ",\"nullable_metric_00\":",
+            path,
+            line_number,
+            "nullable_metric_00",
+        )?;
+    }
+    if column_selection.nested_payload {
+        tail.nested_payload = parse_fast_json_selected_optional_string_field(
+            remaining,
+            "\"nested_payload\":",
+            ",\"nested_payload\":",
+            path,
+            line_number,
+            "nested_payload",
+        )?;
+    }
+    if column_selection.raw_event_time {
+        tail.raw_event_time = parse_fast_json_selected_optional_string_field(
+            remaining,
+            "\"raw_event_time\":",
+            ",\"raw_event_time\":",
+            path,
+            line_number,
+            "raw_event_time",
+        )?;
+    }
+    if column_selection.dirty_numeric {
+        tail.dirty_numeric = parse_fast_json_selected_optional_string_field(
+            remaining,
+            "\"dirty_numeric\":",
+            ",\"dirty_numeric\":",
+            path,
+            line_number,
+            "dirty_numeric",
+        )?;
+    }
+    if column_selection.dirty_flag {
+        tail.dirty_flag = parse_fast_json_selected_optional_string_field(
+            remaining,
+            "\"dirty_flag\":",
+            ",\"dirty_flag\":",
+            path,
+            line_number,
+            "dirty_flag",
+        )?;
+    }
+    Ok(Some(tail))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn parse_fast_json_selected_optional_string_field(
+    remaining: &str,
+    start_prefix: &str,
+    comma_prefix: &str,
+    path: &std::path::Path,
+    line_number: usize,
+    field: &str,
+) -> Result<Option<String>> {
+    let Some(value_cursor) = find_fast_json_selected_field_value_cursor(
+        remaining,
+        start_prefix,
+        comma_prefix,
+        path,
+        line_number,
+        field,
+    )?
+    else {
+        return Ok(None);
+    };
+    let Some((value, _rest)) = split_fast_json_first_value_then_tail(value_cursor) else {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "fact JSONL '{}' line {line_number} contains an invalid selected field '{field}'",
+            path.display()
+        )));
+    };
+    parse_fast_json_optional_string_token(value, path, line_number, field)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn find_fast_json_selected_field_value_cursor<'a>(
+    remaining: &'a str,
+    start_prefix: &str,
+    comma_prefix: &str,
+    path: &std::path::Path,
+    line_number: usize,
+    field: &str,
+) -> Result<Option<&'a str>> {
+    let (value_cursor, duplicate_scan) =
+        if let Some(value_cursor) = remaining.strip_prefix(start_prefix) {
+            (value_cursor, value_cursor)
+        } else if let Some(prefix_index) = remaining.find(comma_prefix) {
+            let value_cursor = &remaining[prefix_index + comma_prefix.len()..];
+            (value_cursor, value_cursor)
+        } else {
+            return Ok(None);
+        };
+    if duplicate_scan.find(comma_prefix).is_some() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "fact JSONL '{}' line {line_number} contains duplicate selected field '{field}'",
+            path.display()
+        )));
+    }
+    Ok(Some(value_cursor))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -32891,7 +32922,8 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
     let dim_stats = &dim_state.stats;
     let mut category_interner =
         TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
-    let mut groups = TraditionalDimCategoryAccumulator::default();
+    let dense_contiguous_dim_max_key = dim_state.key_lookup.dense_contiguous_max_key();
+    let mut groups = TraditionalPackedGroupAccumulator::default();
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
         &["dim_key", "category", "metric"],
@@ -32914,7 +32946,12 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
                 )));
             }
             for (index, (&dim_key, &metric)) in dim_keys.iter().zip(metrics).enumerate() {
-                if dim_state.contains_dim_key(dim_key) {
+                let dim_key_present = if let Some(max_key) = dense_contiguous_dim_max_key {
+                    dim_key <= max_key
+                } else {
+                    dim_state.contains_dim_key(dim_key)
+                };
+                if dim_key_present {
                     let category_id = intern_utf8_value_at(
                         &mut category_interner,
                         &categories,
@@ -32931,11 +32968,14 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
     let residual_operator_optimization = groups
         .optimization_evidence_for_family(
             "join_aggregate",
-            "applied_residual_dense_left_sparse_category_join_aggregate_accumulator",
+            "applied_residual_dense_packed_join_aggregate_accumulator",
         )
         .with_dimension_membership(&dim_state.key_lookup);
-    let result_json =
-        dim_key_category_id_rows_json(groups.into_btree_map(), dim_by_key, &category_interner)?;
+    let result_json = dim_key_category_packed_id_rows_json(
+        groups.into_hash_map(),
+        dim_by_key,
+        &category_interner,
+    )?;
     let rows_materialized = result_rows_materialized(&result_json)?;
     let rows_scanned = checked_u64_sum(fact_stats.source_row_count, dim_stats.source_row_count)?;
     let stats = TraditionalStreamingScanStats {
@@ -37110,7 +37150,7 @@ fn dim_key_category_rows_json(
     Ok(dim_category_rows_json(label_groups))
 }
 
-#[cfg(all(feature = "vortex-traditional-analytics-benchmark", test))]
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn dim_key_category_packed_id_rows_json(
     groups: impl IntoIterator<Item = (TraditionalPackedU32Pair, TraditionalGroupAccum)>,
     dim_by_key: &std::collections::HashMap<u32, String>,
@@ -37120,32 +37160,6 @@ fn dim_key_category_packed_id_rows_json(
         std::collections::BTreeMap::<(u32, String), TraditionalGroupAccum>::new();
     for (packed, accum) in groups {
         let (dim_key, category_id) = unpack_traditional_u32_pair(packed);
-        let category = category_interner.value(category_id).ok_or_else(|| {
-            ShardLoomError::InvalidOperation(format!(
-                "category label missing for joined category id {category_id}; fallback execution was not attempted"
-            ))
-        })?;
-        let category_accum = category_groups
-            .entry((dim_key, category.to_string()))
-            .or_default();
-        merge_traditional_group_accum(
-            category_accum,
-            &accum,
-            "join aggregate category group row count overflow",
-        )?;
-    }
-    dim_key_category_rows_json(category_groups, dim_by_key)
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn dim_key_category_id_rows_json(
-    groups: std::collections::BTreeMap<(u32, u32), TraditionalGroupAccum>,
-    dim_by_key: &std::collections::HashMap<u32, String>,
-    category_interner: &TraditionalStringInterner,
-) -> Result<String> {
-    let mut category_groups =
-        std::collections::BTreeMap::<(u32, String), TraditionalGroupAccum>::new();
-    for ((dim_key, category_id), accum) in groups {
         let category = category_interner.value(category_id).ok_or_else(|| {
             ShardLoomError::InvalidOperation(format!(
                 "category label missing for joined category id {category_id}; fallback execution was not attempted"
@@ -48328,50 +48342,6 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
-    fn dim_key_category_id_rows_json_coalesces_labels_and_preserves_order() {
-        let dim_by_key = std::collections::HashMap::from([
-            (1, "same".to_string()),
-            (2, "same".to_string()),
-            (3, "zzz".to_string()),
-        ]);
-        let mut category_interner = TraditionalStringInterner::default();
-        let b_id = category_interner.intern("b").unwrap();
-        let a_id = category_interner.intern("a").unwrap();
-        let groups = std::collections::BTreeMap::from([
-            (
-                (1, b_id),
-                TraditionalGroupAccum {
-                    row_count: 2,
-                    metric_sum: 2.5,
-                },
-            ),
-            (
-                (2, b_id),
-                TraditionalGroupAccum {
-                    row_count: 3,
-                    metric_sum: 3.5,
-                },
-            ),
-            (
-                (3, a_id),
-                TraditionalGroupAccum {
-                    row_count: 1,
-                    metric_sum: 10.0,
-                },
-            ),
-        ]);
-
-        let result_json =
-            dim_key_category_id_rows_json(groups, &dim_by_key, &category_interner).unwrap();
-
-        assert_eq!(
-            result_json,
-            "[{\"dim_label\":\"same\",\"category\":\"b\",\"row_count\":5,\"metric_sum\":6.0},{\"dim_label\":\"zzz\",\"category\":\"a\",\"row_count\":1,\"metric_sum\":10.0}]"
-        );
-    }
-
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-    #[test]
     fn dense_u32_group_accumulator_preserves_sorted_group_results() {
         let mut groups = TraditionalU32GroupAccumulator::default();
         groups.add(3, 1.5).unwrap();
@@ -48521,6 +48491,17 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
+    fn dense_dimension_key_lookup_uses_contiguous_range_fast_path() {
+        let lookup = TraditionalDimensionKeyLookup::from_dim_keys([0_u32, 1, 2, 3].into_iter());
+
+        assert_eq!(lookup.status(), "dense_contiguous_dimension_key_range");
+        assert_eq!(lookup.dense_contiguous_max_key(), Some(3));
+        assert_eq!(lookup.contains(2), Some(true));
+        assert_eq!(lookup.contains(4), Some(false));
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
     fn dense_dimension_key_lookup_blocks_sparse_wide_domains() {
         let lookup = TraditionalDimensionKeyLookup::from_dim_keys(
             [u32::try_from(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1).unwrap()].into_iter(),
@@ -48528,71 +48509,6 @@ mod tests {
 
         assert_eq!(lookup.status(), "sparse_hash_dimension_key_membership");
         assert_eq!(lookup.contains(2), None);
-    }
-
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-    #[test]
-    fn dense_dim_category_accumulator_handles_high_category_cardinality_per_dim() {
-        let mut groups = TraditionalDimCategoryAccumulator::default();
-        for category_id in 0..=u32::try_from(TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY + 10).unwrap() {
-            groups.add(7, category_id, 1.0).unwrap();
-        }
-
-        let evidence = groups.optimization_evidence_for_family(
-            "join_aggregate",
-            "applied_residual_dense_left_sparse_category_join_aggregate_accumulator",
-        );
-        assert_eq!(
-            evidence.status,
-            "applied_residual_dense_left_sparse_category_join_aggregate_accumulator"
-        );
-        assert!(evidence.dense_accumulator_used);
-        assert!(!evidence.sparse_rollover_used);
-
-        let rows = groups.into_btree_map();
-        assert_eq!(rows.len(), TRADITIONAL_DENSE_PACKED_GROUP_MAX_KEY + 11);
-        assert_eq!(
-            rows.get(&(7, 0)).unwrap(),
-            &TraditionalGroupAccum {
-                row_count: 1,
-                metric_sum: 1.0
-            }
-        );
-    }
-
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-    #[test]
-    fn dense_dim_category_accumulator_rolls_to_sparse_for_wide_dim_keys() {
-        let mut groups = TraditionalDimCategoryAccumulator::default();
-        groups.add(2, 1, 1.0).unwrap();
-        groups
-            .add(
-                u32::try_from(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1).unwrap(),
-                1,
-                5.0,
-            )
-            .unwrap();
-        groups.add(2, 1, 3.0).unwrap();
-
-        let evidence = groups.optimization_evidence_for_family(
-            "join_aggregate",
-            "applied_residual_dense_left_sparse_category_join_aggregate_accumulator",
-        );
-        assert!(evidence.sparse_rollover_used);
-        let rows = groups.into_btree_map();
-        assert_eq!(rows.get(&(2, 1)).unwrap().row_count, 2);
-        assert!(
-            (rows
-                .get(&(
-                    u32::try_from(TRADITIONAL_DENSE_GROUP_MAX_KEY + 1).unwrap(),
-                    1
-                ))
-                .unwrap()
-                .metric_sum
-                - 5.0)
-                .abs()
-                < f64::EPSILON
-        );
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -48662,18 +48578,18 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
-    fn dim_key_category_id_rows_json_fails_closed_for_missing_categories() {
+    fn packed_dim_key_category_rows_json_fails_closed_for_missing_categories() {
         let dim_by_key = std::collections::HashMap::from([(1, "one".to_string())]);
         let category_interner = TraditionalStringInterner::default();
-        let groups = std::collections::BTreeMap::from([(
-            (1, 4),
+        let groups = std::collections::HashMap::from([(
+            pack_traditional_u32_pair(1, 4),
             TraditionalGroupAccum {
                 row_count: 1,
                 metric_sum: 1.0,
             },
         )]);
 
-        let error = dim_key_category_id_rows_json(groups, &dim_by_key, &category_interner)
+        let error = dim_key_category_packed_id_rows_json(groups, &dim_by_key, &category_interner)
             .unwrap_err()
             .to_string();
 
@@ -48990,7 +48906,7 @@ mod tests {
         assert_field_eq(
             &native_fields,
             "residual_operator_optimization_status",
-            "applied_residual_dense_left_sparse_category_join_aggregate_accumulator",
+            "applied_residual_dense_packed_join_aggregate_accumulator",
         );
         assert_field_eq(
             &native_fields,

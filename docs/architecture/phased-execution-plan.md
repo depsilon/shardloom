@@ -141,9 +141,206 @@ Current autonomous execution order:
 
 ### Open Work Checklist
 
-No autonomous implementation items are open in this file. New audit, optimization, runtime, docs,
-website, release, or packaging work must be promoted here as a concrete unchecked item before
-editing behavior.
+- [ ] `PERF-RUNTIME-7A` Cold compatibility-to-certified route hot-runtime burn-down.
+  - Source: current promoted `full_local` benchmark artifact generated
+    `2026-06-13T09:18:58Z` from source revision
+    `2e8518f0660c99336f39d7df385ba54193e292ac`; route-share Amdahl table and row-level
+    inspection of `website/assets/benchmarks/latest/benchmark-results.json`.
+  - Current state: `cold_certified_route` is the only broad multi-ms ShardLoom hot runtime lane:
+    hot-route geomean `6.08 ms`, p95 `17.55 ms`, max `25.11 ms`. Included hot stages are
+    source admission, source read, parse/decode, Vortex write, and reopen/verify. Current
+    stage geomeans are roughly Vortex write `2.35 ms`, parse/decode `1.94 ms`, source read
+    `0.82 ms`, reopen/verify `0.46 ms`; JSONL is the slowest format at `11.60 ms`.
+  - Execution checklist:
+    - [x] Add direct selected-tail parsing for canonical benchmark JSONL optional fields so
+      nested/dirty/timestamp scenarios avoid scanning and splitting every unselected tail field.
+    - [x] Keep non-canonical/whitespace JSONL tails on the existing general scanner to preserve
+      fail-closed correctness for irregular JSONL.
+    - [x] Cache the Vortex table/flat layout strategy lazily inside the shared writer context so
+      multi-artifact cold writes reuse the same strategy object after the first artifact.
+    - [x] Remove no-op/stale cold-route source clutter uncovered by clippy after runtime changes.
+    - [x] Run a targeted one-iteration local smoke artifact for changed cold-route JSONL/join
+      paths (`target/perf-runtime-7-smoke.json`,
+      `target/perf-runtime-7-nested-json-smoke.json`); treat as validation only, not a published
+      benchmark claim.
+    - [ ] Run a targeted cold-route benchmark refresh after source validation to measure JSONL
+      parse/write movement.
+    - [ ] Confirm promoted rows expose non-zero writer context/write-plan counters from current
+      source, replacing stale `not_reported_by_engine` artifact rows.
+  - Next outcome: reduce real cold-route work without changing timing-surface semantics by
+    batching/coalescing Vortex writes, tightening schema-driven typed source builders for text
+    formats, and preserving reader-boundary projection for columnar formats. Apply dynamic
+    admission only when source shape justifies the optimization, capillary windows for bounded
+    ingest/write units, and PulseWeave-style coalescing for run-local writer/reopen work.
+  - User-visible surface: benchmark route rows, benchmark stage attribution, route-share Amdahl
+    table, website benchmark page, Python/CLI cold ingest path, and release readiness gates.
+  - Implementation scope: `shardloom-vortex/src/traditional_analytics.rs`,
+    `benchmarks/traditional_analytics/run.py`, benchmark promotion/readiness scripts if fields
+    require schema additions, and focused Rust/Python regression tests. Generated benchmark
+    artifacts are refreshed only after source behavior and validators pass.
+  - Evidence required: correctness parity for compatibility inputs, no-fallback execution
+    certificate fields, route timing stage-inclusion evidence, source-read/decode/write/reopen
+    split evidence, and benchmark rows grouped by `(route_lane_id, timing_surface)`.
+  - Acceptance: cold route still reports `fallback_attempted=false` and
+    `external_engine_invoked=false`; hot-runtime total excludes result-sink/evidence render;
+    JSONL/text and columnar paths keep projection/typed-builder evidence; Vortex writer context
+    rows report useful non-zero writer/open/stage counters where applicable; route-share table no
+    longer identifies broad missing attribution before optimization claims.
+  - Verification: focused Rust tests for cold compatibility ingest, columnar projection, text
+    typed builders, writer/reopen evidence; `cargo fmt --all -- --check`; targeted
+    `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib ...`;
+    release-script tests covering timing fields; benchmark publication/readiness validators; full
+    benchmark refresh only at the end of the cohesive runtime chunk.
+  - Non-goals: no Spark/DataFusion/DuckDB/Polars/Velox fallback; no object-store/distributed
+    runtime expansion; no public superiority or Spark-displacement claim; no synthetic shortcut
+    rows.
+  - Claim boundary: may claim only workload-scoped cold-route implementation and evidence
+    improvements after benchmark refresh; no performance claim without current artifact evidence.
+  - Fallback boundary: all ShardLoom rows must remain native, policy-admitted, and explicit with
+    `fallback_attempted=false` and `external_engine_invoked=false`.
+  - Ledger rule: after merge/session completion, move measured closeout and command evidence to
+    `docs/architecture/phased-execution-completed-ledger.md`.
+- [ ] `PERF-RUNTIME-7B` Heavy residual operator tail promotion for multi-key group-by and
+  join-aggregate.
+  - Source: current promoted `full_local` benchmark artifact row-level timing. Heavy hot tails:
+    cold `multi_key_group_by` geomean `18.28 ms` with diagnostic operator compute around
+    `7.22 ms` and reopen/verify around `6.40 ms`; cold `join_aggregate` geomean `10.57 ms`;
+    prepared/native `join_aggregate` rows still spike near `5 ms` despite low warm/native
+    geomeans.
+  - Current state: operator mode inventory still reports residual-native operator promotion
+    blockers: `residual_native_operator_encoding_promotion`,
+    `selective_filter_selection_vector_metric_aggregation`, and
+    `compatibility_import_materialization_elimination`. Diagnostic operator fields are visible but
+    many operator timings are not additive to selected route totals.
+  - Execution checklist:
+    - [x] Reuse the packed dense group accumulator for `join_aggregate`, replacing the older
+      dense-left/per-dimension `HashMap` category accumulator in the hot loop.
+    - [x] Add a dense-contiguous dimension-key membership fast path for compact dimension domains.
+    - [x] Promote packed join result rendering to runtime code and preserve deterministic label
+      coalescing/fail-closed category checks.
+    - [x] Remove the obsolete dense-left category accumulator and old BTreeMap renderer instead
+      of keeping unused legacy code.
+    - [x] Run a targeted one-iteration local smoke for `join + aggregate` across CSV/JSONL cold and
+      prepare-batch lanes; treat the result as route validation only until refreshed benchmark rows
+      are promoted.
+    - [ ] Refresh targeted prepared/native `join_aggregate`, `multi_key_group_by`, and
+      high-cardinality rows to determine whether remaining opportunities are significant or
+      marginal.
+    - [ ] If refreshed rows still show multi-ms prepared/native operator spikes, add the next
+      native kernel family with decoded-reference parity tests before claiming promotion.
+  - Next outcome: promote a cohesive heavy-operator family rather than isolated scenario slivers:
+    multi-key grouping, join+aggregate, high-cardinality distinct/group, and their prepared/native
+    residual tails. Add encoded or partially encoded kernels where correctness evidence supports
+    them; otherwise emit deterministic blocked diagnostics with precise next-step fields.
+  - User-visible surface: benchmark operator hot-path candidates, runtime certificates, Python/SQL
+    scenario behavior, benchmark route rows, and capability/diagnostic fields.
+  - Implementation scope: operator/kernel code in `shardloom-vortex/src/traditional_analytics.rs`
+    or extracted local helpers if needed, encoded-kernel evidence fields, route/operator
+    diagnostics, and regression tests for nulls, high cardinality, ordering-sensitive top/join
+    outputs, and decoded-reference parity.
+  - Evidence required: decoded-reference correctness, null/missing-key semantics, no-fallback
+    certificates, operator execution mode transition evidence, timing-surface-safe route fields,
+    and benchmark rows proving whether the tail changed.
+  - Acceptance: supported heavy operator rows no longer remain generic
+    `residual_native_operator_not_encoded_native` when a native kernel exists; unsupported shapes
+    fail or remain blocked with deterministic blocker codes; prepared/native `join_aggregate`
+    spikes are explained by additive timing fields or reduced by native execution; route totals
+    remain authoritative.
+  - Verification: focused Rust unit/integration tests for heavy operators, decoded-reference
+    parity tests, benchmark publication claim gate, route timing instrument readiness, and full
+    workspace gates when shared operator contracts move.
+  - Non-goals: no broad SQL planner rewrite, no distributed shuffle, no external engine execution,
+    no hidden decode-to-Arrow fallback.
+  - Claim boundary: encoded/operator improvements may be claimed only per supported operator family
+    with correctness and benchmark evidence.
+  - Fallback boundary: external engines remain baselines only and never execute ShardLoom work.
+  - Ledger rule: after merge/session completion, move measured closeout and command evidence to
+    the completed ledger.
+- [ ] `PERF-RUNTIME-7C` Prepared lookup/create and route-total attribution cleanup.
+  - Source: current route-share Amdahl and stage-inclusion tables. `prepare_once_first_query`
+    hot-route geomean is `0.67 ms`, dominated by `prepared_state_lookup_or_create` around
+    `0.56 ms` (`84%` route share). `prepare_once_batch`, warm, and native lanes have very low
+    geomeans but still carry diagnostic stage fields larger than selected route totals.
+  - Current state: prepared lookup/create is a moderate absolute cost and a large relative cost for
+    first-query prepared routes. Route-share rows are optimization-ready, but some diagnostic
+    fields are intentionally non-additive and can distract optimization targeting.
+  - Execution checklist:
+    - [x] Confirm `preparation_engine_millis` prefers narrow prepared-state/import fields and does
+      not use `total_runtime_micros` as the narrow prepare timing source.
+    - [x] Keep `prepare_route_total_ms` separate for full route totals.
+    - [x] Hash serialized JSON bytes directly for source-admission, prepared-state manifest, and
+      index digests to avoid an intermediate UTF-8 string allocation.
+    - [x] Run a targeted one-iteration local prepare-batch smoke showing
+      `prepared_state_lookup_or_create` remains separate from `prepare_route_total`.
+    - [ ] Refresh prepared-route benchmark rows to measure whether manifest lookup/create moved.
+    - [ ] If lookup remains material, evaluate a manifest/index read-through cache that still
+      verifies manifest digest, source fingerprints, artifact fingerprints, native I/O
+      certificates, and no-fallback fields before reuse.
+  - Next outcome: split manifest lookup, cache-hit, cache-miss create, dependency-packet
+    verification, artifact write, and register-update timings into additive and diagnostic fields;
+    remove avoidable lookup/create work on cache hits; keep first-query and amortized formulas
+    explicit.
+  - User-visible surface: prepared-state reuse evidence, benchmark route formulas, Python
+    front-door prepared-route examples, and release evidence reports.
+  - Implementation scope: prepared-state manifest/register helpers, session cache counters,
+    timing field promotion in `benchmarks/traditional_analytics/run.py`, Rust tests for
+    cache-hit/miss/stale-packet behavior, and website data fields if schema-safe.
+  - Evidence required: cache hit/miss counters, stale-packet rejection evidence, additive timing
+    formulas, no result-sink/evidence render in hot-runtime totals, and benchmark rows showing
+    lookup/create attribution.
+  - Acceptance: first-query prepared route reports precise lookup/create subcomponents; cache-hit
+    path avoids unnecessary register/write work; prepared batch amortized route remains formula
+    backed; no `total_runtime_micros` fallback is used as a narrow prepare timing source.
+  - Verification: focused prepared-state Rust tests, release-script tests for timing promotion,
+    publication claim gate, route timing instrument readiness, and targeted benchmark refresh when
+    source behavior changes.
+  - Non-goals: no package/public release claim, no external cache service, no distributed session
+    runtime.
+  - Claim boundary: may claim attribution and scoped first-query prepared-route improvements only
+    with benchmark evidence.
+  - Fallback boundary: prepared-state reuse must remain ShardLoom-native and fail closed on stale
+    dependency packets.
+  - Ledger rule: after merge/session completion, move measured closeout and command evidence to
+    the completed ledger.
+- [ ] `PERF-RUNTIME-7D` Publication-proof sink/evidence overhead burn-down without redefining hot
+  runtime.
+  - Source: current promoted `full_local` artifact. Publication-proof routes add roughly
+    `2.7-3.1 ms` evidence render and about `0.35 ms` result-sink work to warm/native/prepared
+    lanes; this is significant for proof/publication throughput but not a core hot-runtime
+    regression.
+  - Current state: `publication_proof` rows are correctly separated from `hot_runtime`, but the
+    proof path still spends more time rendering human evidence than executing warm/native queries.
+  - Execution checklist:
+    - [x] Confirm Rust runtime rows emit compact machine evidence and mark human evidence render as
+      outside the Rust timed route.
+    - [x] Confirm benchmark promotion already writes an incremental publication-proof sidecar with
+      reused/written/removed record counts and no-fallback fields.
+    - [ ] After benchmark promotion, confirm the sidecar reports reuse for unchanged publication
+      records and that website labels keep proof overhead out of hot runtime.
+    - [ ] If publication-proof rows still spend multi-ms in repeated human formatting after sidecar
+      reuse, optimize the Python/website render surface rather than the ShardLoom hot runtime.
+  - Next outcome: coalesce and cache publication-proof render work, reuse machine evidence digests,
+    keep full Vortex replay/result-sink timing explicit, and avoid repeating human formatting when
+    the compact machine evidence is unchanged.
+  - User-visible surface: benchmark website, publication-proof sidecar, release readiness reports,
+    and result-sink/evidence-render timing fields.
+  - Implementation scope: publication-proof sidecar writer/reuser, benchmark promotion scripts,
+    website data ingestion, readiness validators, and Python tests for stale/reused proof records.
+  - Evidence required: sidecar reused/written/stale counts, no-fallback proof fields, explicit
+    `sink_timing_included_in_route_total=true` for proof surfaces, and unchanged hot-runtime totals.
+  - Acceptance: publication-proof rows remain visible and slower for stated reasons; repeated
+    publication over unchanged machine evidence reuses proof records; website labels continue to
+    distinguish hot route geomean from publication-proof route geomean.
+  - Verification: release-script tests, benchmark publication/front-door/readiness validators,
+    website readiness, and targeted artifact promotion after source changes.
+  - Non-goals: no hiding proof cost in hot runtime, no removal of publication-proof rows, no public
+    performance claim from proof-path-only improvements.
+  - Claim boundary: may claim only proof-publication overhead reduction or attribution quality,
+    not core runtime speed, unless a refreshed artifact proves core runtime changed.
+  - Fallback boundary: proof generation must not call external compute engines or use external
+    fallback execution.
+  - Ledger rule: after merge/session completion, move measured closeout and command evidence to
+    the completed ledger.
 
 ### Remaining work snapshot
 
