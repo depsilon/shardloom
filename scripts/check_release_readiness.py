@@ -1887,8 +1887,29 @@ def main() -> int:
                     "admitted_semantics",
                     "required_stage_decoded_reference_digest_count",
                 ): 33,
+                (
+                    "admitted_semantics",
+                    "required_stage_expected_output_digest_count",
+                ): 33,
+                (
+                    "admitted_semantics",
+                    "required_stage_observed_output_digest_count",
+                ): 33,
+                ("admitted_semantics", "required_stage_output_digest_match_count"): 33,
+                (
+                    "admitted_semantics",
+                    "required_stage_expected_output_digest_source_count",
+                ): 33,
+                (
+                    "admitted_semantics",
+                    "required_stage_observed_output_digest_source_count",
+                ): 33,
                 ("admitted_semantics", "required_stage_correctness_digest_count"): 33,
                 ("admitted_semantics", "required_stage_result_digest_count"): 33,
+                (
+                    "admitted_semantics",
+                    "required_unsupported_stage_diagnostic_field_count",
+                ): 10,
                 ("admitted_semantics", "required_stage_no_fallback_count"): 43,
                 ("admitted_semantics", "required_stage_no_external_engine_count"): 43,
                 ("front_door", "supported_parity_row_count"): 7,

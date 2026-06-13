@@ -193,10 +193,10 @@ with a recorded infeasibility reason, not merely because they are broad.
     state/output-sink reports, the checked-in v1 correctness/conformance matrix, and the v1
     correctness/conformance aggregate gate exist. The aggregate gate passes for the current
     declared v1 scope, validates required admitted-semantics stage artifact refs, semantic digests,
-    deterministic diagnostic stage evidence, and no fallback/external-engine execution markers, but
-    the admitted semantics report still records residual broader ANSI subquery parity,
-    external-oracle artifact population, and general fuzz execution beyond the deterministic seeded
-    property lane.
+    expected/observed output digest matches, deterministic diagnostic stage evidence, and no
+    fallback/external-engine execution markers, but the admitted semantics report still records
+    residual broader ANSI subquery parity, external-oracle artifact population, and general fuzz
+    execution beyond the deterministic seeded property lane.
   - Intake review: accepted the expanded correctness/conformance matrix; use external engines only
     as explicit test oracles where already allowed, never runtime fallback.
   - V1 scope classification: `required_for_v1`.
@@ -215,6 +215,9 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [x] Enforce required admitted semantic/error stage artifact refs, semantic digests,
       deterministic diagnostic stage evidence, and per-stage no-fallback/external-engine markers in
       the v1 correctness/conformance gate and hard release-readiness gate.
+    - [x] Populate and gate required admitted semantic expected/observed output digests, output
+      digest source labels, and deterministic unsupported/error diagnostic kind/code/fragment
+      fields.
     - [ ] Ensure every v1-supported operation has fixture tests, semantic conformance rows,
       expected output digests, no-fallback proof, and Python accessor coverage where exposed.
     - [ ] Expand admitted semantics only for v1-supported behavior and keep unsupported rows

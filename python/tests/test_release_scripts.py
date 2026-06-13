@@ -7340,8 +7340,10 @@ class ReleaseScriptTests(unittest.TestCase):
                     + f"{case_id}.json"
                 ),
                 "decoded_reference_digest": f"sha256:{index + 1:064x}",
-                "expected_output_digest": "",
-                "observed_output_digest": "",
+                "expected_output_digest": f"sha256:{index + 1:064x}",
+                "expected_output_digest_source": "decoded_reference_result_jsonl",
+                "observed_output_digest": f"sha256:{index + 1:064x}",
+                "observed_output_digest_source": "envelope_result_jsonl",
                 "correctness_digest": f"fnv64:{index + 1:016x}",
                 "result_digest": f"fnv64:{index + 1:016x}",
                 "fallback_attempted": False,
@@ -7350,6 +7352,14 @@ class ReleaseScriptTests(unittest.TestCase):
             }
             for index, case_id in enumerate(sorted(module.REQUIRED_SEMANTIC_CASE_IDS))
         ]
+
+        def diagnostic_kind(case_id: str) -> str:
+            if case_id.startswith("runtime_error_"):
+                return "runtime_error_diagnostic"
+            if case_id.startswith("invalid_shape_"):
+                return "invalid_shape_diagnostic"
+            return "unsupported_diagnostic"
+
         unsupported_stage_rows = [
             {
                 "case_id": case_id,
@@ -7358,6 +7368,9 @@ class ReleaseScriptTests(unittest.TestCase):
                     "target/admitted-semantics-matrix/artifacts/"
                     + f"{case_id}.json"
                 ),
+                "kind": diagnostic_kind(case_id),
+                "diagnostic_code": "SL_INVALID_INPUT",
+                "diagnostic_fragment": f"fixture diagnostic fragment for {case_id}",
                 "fallback_attempted": False,
                 "external_engine_invoked": False,
                 "blockers": [],
@@ -7541,6 +7554,30 @@ class ReleaseScriptTests(unittest.TestCase):
             ],
             len(module.REQUIRED_SEMANTIC_CASE_IDS),
         )
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"][
+                "required_stage_expected_output_digest_count"
+            ],
+            len(module.REQUIRED_SEMANTIC_CASE_IDS),
+        )
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"][
+                "required_stage_observed_output_digest_count"
+            ],
+            len(module.REQUIRED_SEMANTIC_CASE_IDS),
+        )
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"][
+                "required_stage_output_digest_match_count"
+            ],
+            len(module.REQUIRED_SEMANTIC_CASE_IDS),
+        )
+        self.assertEqual(
+            report["summaries"]["admitted_semantics"][
+                "required_unsupported_stage_diagnostic_field_count"
+            ],
+            len(module.REQUIRED_UNSUPPORTED_CASE_IDS),
+        )
 
     def test_v1_correctness_conformance_gate_fails_missing_semantic_case(self) -> None:
         module = self._load_script_module(
@@ -7625,6 +7662,65 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "exists_subquery_semantics missing artifact_ref" in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_output_digest_mismatch(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_output_digest_mismatch_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            admitted_path = repo_root / module.ReportPaths().admitted_semantics
+            admitted = json.loads(admitted_path.read_text(encoding="utf-8"))
+            for stage in admitted["stages"]:
+                if stage["case_id"] == "select_distinct_projection":
+                    stage["observed_output_digest"] = "sha256:" + ("f" * 64)
+                    break
+            admitted_path.write_text(json.dumps(admitted), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "select_distinct_projection expected/observed output digests must match"
+                in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_missing_diagnostic_field(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_missing_diagnostic_field_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            admitted_path = repo_root / module.ReportPaths().admitted_semantics
+            admitted = json.loads(admitted_path.read_text(encoding="utf-8"))
+            for stage in admitted["stages"]:
+                if stage["case_id"] == "unsupported_variant_access":
+                    stage["diagnostic_code"] = ""
+                    break
+            admitted_path.write_text(json.dumps(admitted), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "unsupported_variant_access diagnostic_code is required" in blocker
                 for blocker in report["blockers"]
             ),
             report["blockers"],
