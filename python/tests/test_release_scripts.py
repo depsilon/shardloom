@@ -1846,17 +1846,17 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(published["vortex_scan_ms"], 1.0)
         self.assertEqual(published["operator_compute_ms"], 2.0)
         self.assertIn(
-            "vortex_scan_ms", published["route_timing_excluded_stage_ids"]
+            "vortex_scan_ms", published["route_timing_included_stage_ids"]
         )
         self.assertIn(
-            "operator_compute_ms", published["route_timing_excluded_stage_ids"]
+            "operator_compute_ms", published["route_timing_included_stage_ids"]
         )
         self.assertIn(
-            "vortex_scan:diagnostic_only",
+            "vortex_scan:included_hot_runtime",
             published["route_timing_stage_inclusion_classes"],
         )
         self.assertIn(
-            "operator_compute:diagnostic_only",
+            "operator_compute:included_hot_runtime",
             published["route_timing_stage_inclusion_classes"],
         )
         self.assertEqual(published["route_timing_exclusive_stage_sum_ms"], 118.0)
@@ -2070,8 +2070,8 @@ class ReleaseScriptTests(unittest.TestCase):
             by_surface["publication_proof"][2],
             "Publication-proof route geomean",
         )
-        self.assertEqual(by_surface["hot_runtime"][5], "0.34 ms")
-        self.assertEqual(by_surface["publication_proof"][5], "13.82 ms")
+        self.assertEqual(by_surface["hot_runtime"][6], "0.34 ms")
+        self.assertEqual(by_surface["publication_proof"][6], "13.82 ms")
 
     def test_benchmark_promoter_projects_hot_runtime_rows_from_publication_rows(
         self,
@@ -2217,14 +2217,14 @@ class ReleaseScriptTests(unittest.TestCase):
             published["operator_compute_route_relation_claim_boundary"],
         )
         self.assertEqual(route_row[1], "hot_runtime")
-        self.assertEqual(route_row[4], "Operator compute (excluded diagnostic)")
-        self.assertEqual(route_row[6], "n/a")
+        self.assertEqual(route_row[5], "Operator compute (excluded diagnostic)")
+        self.assertEqual(route_row[7], "n/a")
         self.assertEqual(
-            route_row[7],
+            route_row[8],
             "fix_timing_surface_stage_inclusion_before_optimization",
         )
-        self.assertEqual(route_row[8], "not_optimization_ready")
-        self.assertEqual(route_row[9], "operator_compute")
+        self.assertEqual(route_row[9], "not_optimization_ready")
+        self.assertEqual(route_row[10], "operator_compute")
 
     def test_benchmark_promoter_marks_expensive_stage_without_substages_not_ready(
         self,
@@ -2682,9 +2682,9 @@ class ReleaseScriptTests(unittest.TestCase):
             route_share["schema_version"],
             "shardloom.traditional_analytics.route_share_amdahl.v1",
         )
-        self.assertEqual(route_share["rows"][0][4], "Vortex write")
+        self.assertEqual(route_share["rows"][0][5], "Vortex write")
         self.assertEqual(
-            route_share["rows"][0][7],
+            route_share["rows"][0][8],
             "continue_workspace_safe_writer_metadata_coalescing",
         )
 
@@ -2887,6 +2887,13 @@ class ReleaseScriptTests(unittest.TestCase):
             )
             self.assertTrue(str(chunks[0]["path"]).startswith("target/"))
             self.assertIn("/published-row-runs/rows-", str(chunks[0]["path"]))
+            self.assertTrue(str(chunks[0]["path"]).endswith(".json.gz"))
+            self.assertEqual(chunks[0]["content_encoding"], "gzip")
+            self.assertIn("uncompressed_sha256", chunks[0])
+            self.assertEqual(
+                module.load_json(REPO_ROOT / chunks[0]["path"])["row_count"],
+                2,
+            )
             self.assertEqual(admission["row_count"], 5)
             self.assertEqual(admission["chunk_count"], 3)
             self.assertEqual(admission["written_chunk_count"], 3)
@@ -2900,6 +2907,12 @@ class ReleaseScriptTests(unittest.TestCase):
             legacy.write_text("legacy", encoding="utf-8")
             stale = chunk_dir / "published-benchmark-rows-099.json"
             stale.write_text("stale", encoding="utf-8")
+            stale_run = output_dir / module.PUBLISHED_ROW_RUN_DIR / "rows-stale"
+            stale_run.mkdir(parents=True)
+            (stale_run / "published-benchmark-rows-000.json").write_text(
+                "stale run",
+                encoding="utf-8",
+            )
 
             chunks = module.write_row_chunks(output_dir, rows, chunk_size=2)
             admission_path = module.row_admission_manifest_path_for_chunks(
@@ -2915,9 +2928,11 @@ class ReleaseScriptTests(unittest.TestCase):
             self.assertFalse(duplicate.exists())
             self.assertFalse(legacy.exists())
             self.assertFalse(stale.exists())
+            self.assertFalse(stale_run.exists())
             self.assertTrue(admission["duplicate_suffixed_artifacts_removed"])
             self.assertTrue(admission["legacy_top_level_chunk_files_removed"])
             self.assertTrue(admission["stale_chunk_files_removed"])
+            self.assertTrue(admission["stale_row_run_dirs_removed"])
 
     def test_benchmark_completeness_validates_row_admission_manifest(self) -> None:
         module = self._load_script_module(
@@ -6072,7 +6087,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PERF-RUNTIME-7A` Cold compatibility-to-certified route hot-runtime burn-down.",
+            "`PROD-V1-0A` Finished v1 product scope and public claim-boundary cleanup.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 

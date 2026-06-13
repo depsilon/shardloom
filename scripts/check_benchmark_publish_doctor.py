@@ -249,7 +249,7 @@ def route_packet(
         "relevant_files": [
             "website/assets/benchmarks/latest/manifest.json",
             "website/assets/benchmarks/latest/benchmark-results.json",
-            "website/assets/benchmarks/latest/published-benchmark-rows-*.json",
+            "website/assets/benchmarks/latest/published-benchmark-rows-*.json.gz",
             "scripts/check_benchmark_artifact_completeness.py",
             "scripts/check_benchmark_publication_claim_gate.py",
             "scripts/check_benchmark_publish_doctor.py",

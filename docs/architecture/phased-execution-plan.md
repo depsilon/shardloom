@@ -20,6 +20,18 @@
   surface separation, or evidence-tier controls apply. If none apply, say why. This prevents net
   new features from being designed in a generic way that later needs avoidable refactoring to use
   ShardLoom's own performance and evidence techniques.
+- When a maintainer-provided list, audit, attachment, benchmark finding, or review packet proposes
+  new work, review each candidate before adding it here. Classify it as already addressed,
+  accepted into a new checklist, merged into an existing checklist, v1 candidate pending
+  feasibility, deferred beyond the current product scope, or rejected with a reason. Do not paste
+  broad lists verbatim into Planned.
+- Production-shift items must state whether they are `required_for_v1`,
+  `v1_candidate_pending_feasibility`, `deferred_after_v1`, `documentation_only_for_v1`, or
+  `unsupported_boundary_for_v1`. The v1 default is inclusion for anything feasible to complete with
+  real runtime behavior, deterministic unsupported diagnostics, safety evidence, and release proof.
+  Defer beyond v1 only when the item records a concrete reason such as unavailable external
+  platform proof, unresolved safety/security design, missing protocol approval, or scope that would
+  make v1 unverifiable.
 - Leave the top-level item unchecked until every required nested checkbox is checked, validation is
   recorded, unsupported paths remain explicit, and the completed summary has been moved to the
   completed ledger after merge or session completion.
@@ -42,6 +54,11 @@ Each item should name:
 
 - Source: governing RFC, architecture doc, benchmark report, issue, PR, or review finding.
 - Current state: what exists today and what is still unsupported, diagnostic-only, or report-only.
+- Intake review: for externally supplied lists or audits, which candidate rows were accepted,
+  merged with existing work, already addressed, or deferred, and why.
+- V1 scope classification: `required_for_v1`, `v1_candidate_pending_feasibility`,
+  `deferred_after_v1`, `documentation_only_for_v1`, or `unsupported_boundary_for_v1` for
+  production-shift items.
 - ShardLoom technique review: whether PulseWeave, capillary work units, dynamic admission/work
   shaping, metadata-first execution, timing-surface separation, or evidence-tier controls apply; if
   not applicable, the item must explain why.
@@ -160,6 +177,682 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
+### Finished Product v1 Required Work
+
+These items are the reviewed intake from the attached production-shift list dated June 13, 2026.
+They are ordered as runtime/product closure first, API/schema stability second, release/package
+channels near the end, and public-language cleanup throughout. Already-addressed rows remain
+referenced in the completed ledger or existing release gates. Broad platform/runtime ambitions
+should be included in v1 when they can be made real, safe, and evidence-backed; defer them only
+with a recorded infeasibility reason, not merely because they are broad.
+
+- [ ] `PROD-V1-0A` Finished v1 product scope and public claim-boundary cleanup.
+  - Source: attached production-shift review sections 0, 1, and 18; `README.md`;
+    `docs/release/public-status-matrix.md`; `docs/release/known-unsupported-paths.md`;
+    `docs/release/per-claim-evidence-attachment-matrix.md`; public website copy.
+  - Current state: public language is mostly claim-safe, but historical competitive vocabulary such
+    as Spark displacement, engine replacement, and superiority still appears in docs, generated
+    fields, and evidence matrices. That vocabulary is useful for no-fallback policy, benchmark
+    baselines, and historical design targets, but it is not the right finished-product v1 boundary.
+    V1 should describe ShardLoom support directly, including feasible platform/runtime families
+    once they close with evidence.
+  - Intake review: accepted the framing and claim-row rename recommendations; merge existing
+    no-fallback, unsupported-path, package-channel, and benchmark-gate evidence instead of creating
+    duplicate gates; retain external-engine names only in no-fallback policy, unsupported
+    diagnostics, benchmark baseline labels, migration/oracle references, and historical RFC/ledger
+    context.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: mostly control-plane applicable. Scope docs and validators must
+    require future supported runtime items to record PulseWeave, capillary work unit, dynamic
+    admission/work shaping, metadata-first execution, timing-surface, and evidence-tier decisions
+    before support claims are accepted.
+  - Execution checklist:
+    - [ ] Add `docs/release/finished-product-scope.md` defining v1 as a Vortex-first,
+      no-fallback, evidence-certified compute engine for explicitly supported local/runtime
+      surfaces and any broader platform/runtime families that pass feasibility and evidence gates.
+    - [ ] Split public claim rows into required v1 rows, optional later rows, and explicitly
+      out-of-v1 rows; introduce rows such as `local_runtime_product_claim`,
+      `api_schema_stability_claim`, `supported_front_door_scope_claim`,
+      `supported_vortex_route_claim`, `supported_output_sink_claim`,
+      `security_supply_chain_claim`, and `external_baseline_comparison_claim`.
+    - [ ] Replace finished-product use of `spark_displacement_claim`,
+      `engine_replacement_claim`, and `performance_superiority_claim` with scoped ShardLoom
+      support and benchmark-interpretation rows while keeping historical rows blocked or
+      non-v1-scoped.
+    - [ ] Update README, website, public status matrix, known unsupported paths, and per-claim
+      evidence matrix so unsupported surfaces are honest boundaries, not accidental blockers to
+      the finished v1 product.
+    - [ ] Add a public-language validator that fails README, website, and docs wording that implies
+      Spark/DuckDB/Polars replacement, performance superiority, drop-in replacement, production
+      object-store/lakehouse/Foundry/live/hybrid support, or broad SQL/DataFrame parity without a
+      closed claim row.
+    - [ ] Add tests/fixtures for allowed external-engine contexts: no-fallback policy,
+      unsupported diagnostics, benchmark baselines, historical RFC/ledger content, and
+      migration/oracle references.
+    - [ ] Move the completed claim-boundary mapping, validator command evidence, and residual
+      out-of-v1 rows to the completed ledger after merge.
+  - Next outcome: v1 product language says what ShardLoom supports instead of what it replaces.
+  - User-visible surface: README, website, release docs, benchmark page labels, package metadata,
+    public status matrix, and claim-gate reports.
+  - Implementation scope: release docs, public-status/per-claim matrices, wording validators,
+    README/site source, generated website data if schema-safe, and Python/release-script tests.
+  - Evidence required: validator reports, docs/site snapshots, claim-row matrix diffs, and
+    no-fallback policy preservation.
+  - Acceptance: v1 claims are scoped to supported ShardLoom workflows and feasible platform/runtime
+    families that close with evidence; external engines are allowed only as
+    policy/baseline/oracle/history terms; public surfaces no longer imply broad replacement,
+    superiority, production platform, or broad SQL/DataFrame claims without closed support rows.
+  - Verification: release-script shard, public-status docs validator, wording validator,
+    website/docs validation, `git diff --check`, and targeted unit tests for the new claim rows.
+  - Non-goals: no package publication, no performance claim, no production object-store/lakehouse,
+    Foundry, distributed, live/hybrid, or effect claim without closed runtime, safety, package, and
+    release evidence; no removal of no-fallback policy language.
+  - Claim boundary: may claim only that v1 scope and public language are fail-closed and
+    validator-backed.
+  - Fallback boundary: no external engine may be introduced or described as ShardLoom fallback.
+  - Ledger rule: ledger entry must list accepted, merged, already-addressed, and deferred intake
+    rows from the attachment.
+- [ ] `PROD-V1-0B` V1 inclusion-first queue classification and unsupported-surface firewall.
+  - Source: attached production-shift review sections 2 and 11;
+    `docs/architecture/runtime-gap-family-burn-down.md`;
+    `docs/architecture/global-architecture-review.md`;
+    `docs/release/known-unsupported-paths.md`; current Planned production rows.
+  - Current state: this file has production readiness rows for local formats and broad platform
+    families, but it does not yet present a clean v1 inclusion/feasibility queue. Broad
+    object-store, lakehouse/table, distributed, Foundry, live/hybrid, and extension/effect rows
+    should be treated as v1 candidates until a concrete feasibility review proves they must be
+    deferred or narrowed.
+  - Intake review: accepted the queue split but revised the attached deferral guidance for the
+    maintainer's v1 goal: merge broad production-family rows into existing `PROD-READY-*` items as
+    v1 candidates first; defer only with explicit infeasibility evidence. Keep local/emulated
+    fixture smokes as evidence only, not production claims.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: applicable as planning contract. Each promoted runtime family must
+    record whether dynamic admission/work shaping, capillary work units, PulseWeave runtime
+    control, metadata-first execution, timing-surface separation, and evidence-tier controls were
+    applied, rejected, or not applicable before support status can change.
+  - Execution checklist:
+    - [ ] Add explicit `v1_scope_classification` fields to active release/runtime status data or
+      validator fixtures where those fields are machine-read.
+    - [ ] Classify all current Planned rows as required, v1 candidate pending feasibility,
+      deferred, documentation-only, or unsupported-boundary for v1 and ensure this file and
+      generated status surfaces agree.
+    - [ ] Review object-store, lakehouse/table, Foundry, live/hybrid, distributed,
+      UDF/plugin/effect, and broad SQL/DataFrame rows for v1 feasibility; promote feasible
+      subsets into v1-required implementation checklists and record concrete deferral reasons for
+      anything left out.
+    - [ ] Update known unsupported paths so broad families are not called outside v1 until the
+      feasibility review either narrows them to deterministic unsupported boundaries or promotes
+      them to v1-required scope.
+    - [ ] Add a validator that fails if a v1-required item remains `report_only`, `blocked`,
+      `unsupported`, or `not_claim_grade`.
+    - [ ] Add a validator that passes deferred rows only when deterministic unsupported
+      diagnostics and out-of-v1 scope labels exist.
+    - [ ] Move the closed classification matrix and command evidence to the completed ledger.
+  - Next outcome: maintainers can see exactly what must close before v1, which broad families are
+    still v1 candidates, and which rows have a defensible beyond-v1 reason.
+  - User-visible surface: phase plan, public status matrix, known unsupported paths, website
+    support matrix, capability reports, and release readiness output.
+  - Implementation scope: phase plan, status/capability data, release validators, docs/site
+    support tables, and tests.
+  - Evidence required: classification matrix, validator negative fixtures, docs/site generated
+    rows, and deterministic unsupported diagnostics.
+  - Acceptance: v1-required rows cannot pass with report-only evidence; v1-candidate rows are
+    either promoted to implementation, narrowed to a supported subset, or deferred with a concrete
+    infeasibility reason; deferred rows do not block v1 when unsupported diagnostics and public
+    scope boundaries are explicit.
+  - Verification: release-script tests, public-status docs validator, website readiness, release
+    readiness with expected blockers, and `git diff --check`.
+  - Non-goals: no runtime implementation by classification alone; no deletion of future platform
+    roadmap rows; no production claim.
+  - Claim boundary: may claim only that v1 scope classification exists and fails closed.
+  - Fallback boundary: deferred surfaces must not use external engines to become claim-grade.
+  - Ledger rule: ledger entry must include the v1 classification table, feasibility decisions,
+    promoted subsets, unsupported boundaries, and any deferred family reasons.
+- [ ] `PROD-V1-1A` Scoped local front-door runtime closure.
+  - Source: attached production-shift review section 3; RFC 0010, RFC 0011, RFC 0012, RFC 0033;
+    `ShardLoomContext.front_door_parity_matrix()`;
+    `ShardLoomContext.user_route_capability_report()`; README and Python examples.
+  - Current state: scoped local SQL/Python/DataFrame-style routes exist and validators report
+    scoped local front-door support, but broad SQL/DataFrame parity and performance equivalence
+    remain unclaimed. v1 needs an exact supported subset, deterministic unsupported diagnostics,
+    and copy-paste examples that all execute through ShardLoom-native routes.
+  - Intake review: accepted the exact-subset and example-test recommendations; existing parity and
+    user-route capability reports should become source evidence, not broad parity claims.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: applicable. Front-door route selection should use dynamic
+    admission against capability matrices, metadata-first explain/capability checks, timing-surface
+    separation in route results, and capillary/PulseWeave controls only when the lowered runtime
+    route benefits from bounded local work units.
+  - Execution checklist:
+    - [ ] Add `docs/architecture/v1-front-door-runtime-scope.md` defining supported SQL,
+      Python query-builder, and DataFrame-style forms for v1.
+    - [ ] Document unsupported forms: arbitrary ANSI SQL, unsupported joins/subqueries/UDFs,
+      unbounded materialization, unsupported nested/complex shapes, and unsupported write/effect
+      paths.
+    - [ ] Update `front_door_parity_matrix()` and `user_route_capability_report()` to describe v1
+      supported scope, broad pending scope, and deterministic blocker codes.
+    - [ ] Ensure unsupported SQL/Python/DataFrame methods fail before pandas, Polars, DuckDB,
+      Spark, DataFusion, or another engine can execute work.
+    - [ ] Update README, Python README, website snippets, and docs examples so normal examples are
+      v1-supported routes; move non-v1 examples into advanced/diagnostic/future sections.
+    - [ ] Add execution tests for every v1 README/Python/website example and negative tests for
+      unsupported examples with `fallback_attempted=false` and `external_engine_invoked=false`.
+    - [ ] Add CLI snapshots and Python accessor tests for stable route/capability fields.
+    - [ ] Move front-door scope closeout and command evidence to the completed ledger after merge.
+  - Next outcome: users can run every advertised v1 front-door example and inspect deterministic
+    route evidence or blocker evidence.
+  - User-visible surface: Python API, CLI, SQL entrypoints, README, docs, website, capability
+    reports, and benchmark/publication rows.
+  - Implementation scope: Python context/client, CLI route commands, front-door validators,
+    examples, docs/site source, and tests.
+  - Evidence required: example execution, unsupported-path negative tests, capability report
+    snapshots, no-fallback proof, and route certificate fields.
+  - Acceptance: all v1 examples execute; unsupported front-door shapes return stable diagnostic
+    codes without fallback; broad parity and performance equivalence remain false unless proven.
+  - Verification: Python unit tests, release-script shard, front-door benchmark publication gate,
+    user-route capability report, docs-example tests, website/docs validation, and workspace gates
+    if shared runtime code moves.
+  - Non-goals: no arbitrary SQL/DataFrame parity, no UDF/plugin/effect execution, no external
+    engine fallback.
+  - Claim boundary: may claim only scoped local front-door support for the documented subset.
+  - Fallback boundary: all unsupported front-door routes must preserve
+    `fallback_attempted=false` and `external_engine_invoked=false`.
+  - Ledger rule: ledger entry must include supported subset, unsupported subset, example command
+    evidence, and residual parity blockers.
+- [ ] `PROD-V1-1B` Native and prepared Vortex runtime closure for v1.
+  - Source: attached production-shift review section 4; Vortex adapter integration plan;
+    universal input contract; current benchmark route rows; local Vortex primitive capability
+    reports.
+  - Current state: local Vortex and prepared routes exist with scoped evidence, but broad native
+    Vortex support is not universal across every source, sink, operator, encoding, layout, dtype,
+    and workload. v1 needs the exact supported starting states and operations certified.
+  - Intake review: accepted the v1 Vortex scope document and evidence-completeness requirements;
+    merge existing local Vortex primitive validators and benchmark route evidence rather than
+    creating a separate broad native Vortex claim.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: strongly applicable. Vortex routes should prefer metadata-first
+    pruning, encoded execution, dynamic admission by dtype/layout/encoding/operator, capillary
+    split/source units, PulseWeave-style local preparation reuse where measured, and strict
+    hot-runtime/publication-proof timing-surface separation.
+  - Execution checklist:
+    - [ ] Add `docs/architecture/v1-vortex-runtime-scope.md` defining supported native local
+      `.vortex`, prepared local `.vortex`, prepared compatibility artifact, and generated Vortex
+      artifact starting states.
+    - [ ] List supported v1 operations: count, count-where, filter, project, filter-project,
+      source-order limit, supported benchmark-family scenarios, supported write/replay paths, and
+      any stable top-N/join/aggregate families.
+    - [ ] List unsupported Vortex operations, encodings/layouts, object-store Vortex I/O,
+      table/catalog Vortex I/O, and nested/complex dtype behavior outside the selected v1 Vortex
+      route unless the matching object-store/table candidate item closes with evidence.
+    - [ ] Decide whether required Vortex features are promoted into the v1 default/package build
+      profile or remain feature-gated with clear package/install docs.
+    - [ ] Emit or validate runtime evidence for every v1 Vortex operation: source refs, split
+      refs, execution route, output route, execution certificate, Native I/O certificate,
+      materialization/decode boundary, fallback status, and claim gate.
+    - [ ] Add correctness and replay tests for every v1 Vortex operation and deterministic
+      blockers for operations outside the selected v1 Vortex route.
+    - [ ] Update capability matrices so v1-supported rows are not still `report_only`.
+    - [ ] Move Vortex v1 runtime scope evidence and residual unsupported rows to the completed
+      ledger.
+  - Next outcome: v1 Vortex support becomes workload/operation-scoped and certificate-backed.
+  - User-visible surface: Python/CLI native/prepared Vortex routes, capability reports, benchmark
+    routes, docs, and website support tables.
+  - Implementation scope: Vortex runtime modules, capability reports, route/evidence fields,
+    docs/site, and Rust/Python tests.
+  - Evidence required: correctness, replay, Native I/O certificates, decode/materialization
+    boundaries, no-fallback proof, and benchmark route rows where timing claims are referenced.
+  - Acceptance: every v1 Vortex row has real runtime evidence; unsupported shapes fail
+    deterministically; broad universal Vortex support remains unclaimed.
+  - Verification: Vortex-focused Rust tests, Python route tests, user-route capability report,
+    release-script validators, benchmark publication claim gate, and workspace gates for shared
+    runtime changes.
+  - Non-goals: no universal Vortex coverage, no object-store/table Vortex I/O, no query-engine
+    integration fallback.
+  - Claim boundary: may claim only declared v1 Vortex starting states and operations.
+  - Fallback boundary: no DataFusion/DuckDB/Spark/Polars/Vortex query-engine integration may
+    execute unsupported Vortex work.
+  - Ledger rule: ledger entry must name supported Vortex states/operations, evidence artifacts,
+    feature profile decision, and residual blockers.
+- [ ] `PROD-V1-1C` Source normalization and prepared-state reuse closure.
+  - Source: attached production-shift review section 5; universal input contract; prepared-state
+    reuse reports; README prepared-route explanation; current benchmark prepared-route rows.
+  - Current state: prepared Vortex reuse and SourceState/VortexPreparedState evidence exist in
+    scoped routes, but v1 needs a canonical non-Vortex path and complete invalidation/reuse
+    fixtures across CLI and Python.
+  - Intake review: accepted the canonical
+    `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex`
+    path; direct transient compatibility routes remain supported only if evidence proves their
+    boundary and they are not described as Vortex-native.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: applicable. Prepared-state reuse should use metadata-first
+    fingerprint/digest checks, dynamic reuse admission, capillary source/preparation units, and
+    PulseWeave-style run-local coalescing only where it preserves fail-closed invalidation and
+    certificate evidence.
+  - Execution checklist:
+    - [ ] Document the v1 canonical non-Vortex route and direct transient route boundary.
+    - [ ] Ensure every v1 non-Vortex route emits source fingerprint, schema evidence,
+      parse/normalization evidence, SourceState id/digest, preparation route,
+      VortexPreparedState id/digest, reuse status, invalidation reason, and no-fallback evidence.
+    - [ ] Add golden SourceState and VortexPreparedState fixtures.
+    - [ ] Add reuse-manifest tests for cold prepare, warm reuse, source changed, artifact changed,
+      schema changed, policy changed, version changed, missing artifact, and corrupted manifest.
+    - [ ] Add CLI/Python parity tests, session-bound reuse tests, and tests proving no hidden
+      global cache exists.
+    - [ ] Update docs explaining cold certified, prepare-once first query, prepare-once batch,
+      warm prepared query, native Vortex query, and direct transient route.
+    - [ ] Move prepared-state closeout, fixtures, and command evidence to the completed ledger.
+  - Next outcome: non-Vortex local input is normalized into Vortex-prepared state with stable
+    reuse/invalidation behavior.
+  - User-visible surface: Python/CLI reads, prepared-route examples, capability reports, benchmark
+    route rows, README/docs/site.
+  - Implementation scope: SourceState/prepared-state helpers, manifest/register code, Python/CLI
+    accessors, docs/site, tests, and benchmark timing fields where affected.
+  - Evidence required: golden fixtures, invalidation tests, no-fallback certificates, reuse
+    counters, and route timing fields.
+  - Acceptance: v1 compatibility inputs either prepare/reuse with complete evidence or fail with
+    deterministic blockers; direct transient routes are clearly labeled and evidence-safe.
+  - Verification: prepared-state Rust/Python tests, release-script shard, user-route capability
+    report, benchmark validators, docs/site validation, and workspace gates if shared state code
+    moves.
+  - Non-goals: no external cache service, no global hidden cache, no broad object-store/table
+    preparation claim.
+  - Claim boundary: may claim only scoped local prepared-state reuse and invalidation behavior.
+  - Fallback boundary: compatibility preparation must not invoke external query engines.
+  - Ledger rule: ledger entry must include fixture refs, invalidation matrix, and residual
+    unsupported input shapes.
+- [ ] `PROD-V1-1D` Local output and sink runtime closure.
+  - Source: attached production-shift review section 6; translation-layer skill; output/fanout
+    docs; current local output examples and benchmark sink evidence.
+  - Current state: scoped local output evidence exists, but v1 needs declared output format scope,
+    user-facing write methods, write policy, local atomicity/cleanup behavior, output manifests,
+    replay verification, and unsupported-shape blockers.
+  - Intake review: accepted local output closure as required for v1; keep object-store output,
+    table commits, Iceberg/Delta transactions, and lakehouse semantics deferred unless separate
+    production items close.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: applicable. Output work should use dynamic writer admission by
+    format/schema/shape, capillary write batches for bounded local outputs, PulseWeave-style
+    run-local fanout coalescing only when measured, metadata-first manifest/digest verification,
+    and evidence-tier separation between hot write paths and publication/replay proof.
+  - Execution checklist:
+    - [ ] Declare v1 output scope for Vortex, JSONL, CSV, Parquet, Arrow IPC, Avro, and ORC only
+      where current support is stable enough.
+    - [ ] Finalize user-facing `.write(...)`, `.write_vortex(...)`, `.write_jsonl(...)`,
+      `.write_csv(...)`, `.write_parquet(...)`, `.write_arrow_ipc(...)`, `.write_avro(...)`, and
+      `.write_orc(...)` methods for admitted formats.
+    - [ ] Add overwrite, append, error-if-exists, atomic local write, and partial-write cleanup
+      policies.
+    - [ ] Emit output artifact manifests, output digests, replay verification, and
+      metadata-preservation/loss evidence.
+    - [ ] Add typed decimal, binary, date/timestamp, nullable/all-null, and nested/complex output
+      tests where v1 supports those shapes.
+    - [ ] Add deterministic blockers for unsupported sink formats, schema shapes, append modes,
+      object-store paths, and table/catalog writes.
+    - [ ] Move local output scope, method, manifest, and replay evidence to the completed ledger.
+  - Next outcome: supported local writes are stable user APIs with explicit failure behavior.
+  - User-visible surface: Python write methods, CLI output commands, TranslationReports,
+    capability reports, README/docs/site examples, benchmark sink/replay rows.
+  - Implementation scope: Python API, CLI, translation/output modules, local writer policies,
+    output manifests/replay verification, tests, docs/site.
+  - Evidence required: writer correctness, manifest/digest/replay evidence, metadata-loss reports,
+    no-fallback proof, and failure cleanup evidence.
+  - Acceptance: every v1 write method either writes/replays with evidence or fails with a stable
+    blocker; partial outputs are cleaned up or reported deterministically.
+  - Verification: output adapter tests, Python API tests, CLI snapshots, release-script validators,
+    website/docs validation, and workspace gates if writer code moves.
+  - Non-goals: no object-store output, no table/lakehouse commits, no broad nested/complex output
+    claim unless tests prove it.
+  - Claim boundary: may claim only declared local output formats and shape subsets.
+  - Fallback boundary: compatibility writers are translation/export surfaces, never execution
+    fallback.
+  - Ledger rule: ledger entry must list supported output formats/methods, policies, evidence
+    artifacts, and blocked shapes.
+- [ ] `PROD-V1-2A` Result envelope, diagnostics, doctor, and API/schema stability gate.
+  - Source: attached production-shift review sections 7 and 12; RFC 0012; RFC 0024;
+    `docs/release/publication-api-schema-stability-gate.md`; current release-readiness blockers.
+  - Current state: `shardloom.output.v2`, diagnostics, capability reports, and release schemas
+    exist in scoped forms, while public API/schema compatibility windows, stable schema fixtures,
+    signing/package identity decisions, and publication approval remain blocked.
+  - Intake review: accepted schema/freezing work as second-order after v1 runtime scope; merge
+    existing publication/API/schema stability gate rather than replacing it.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: control-plane applicable. Stable schemas must expose timing
+    surfaces, evidence tiers, capillary/PulseWeave/dynamic decisions where they affect runtime
+    evidence, and deterministic unsupported diagnostics without requiring effectful probes.
+  - Execution checklist:
+    - [ ] Decide whether legacy flat fields remain stable or enter a documented deprecation window.
+    - [ ] Add stable schema files for output envelope, diagnostics, fallback status, route fields,
+      evidence summary, claim summary, execution certificate, Native I/O certificate, capability
+      report, package/release reports, and support bundles.
+    - [ ] Add golden JSON fixtures and compatibility tests that fail when stable fields disappear
+      or change semantics without migration policy.
+    - [ ] Add Python accessor tests for every stable field and CLI text/JSON stability tests for
+      user-facing and machine/agent commands.
+    - [ ] Add diagnostic-code stability docs, diagnostic-code migration policy, compatibility
+      windows, breaking-change approval policy, and migration-notes policy.
+    - [ ] Add `shardloom doctor` v1 checks for CLI version, Python package version, package
+      channel, feature support, Vortex support, local write support, no-fallback invariant, and
+      environment details without effectful probes.
+    - [ ] Add support bundle generation and redaction tests.
+    - [ ] Unblock publication/API/schema gate rows only after real evidence exists; keep package
+      identity, signing, checksums, SBOM, and publication approval blocked until release items
+      close.
+    - [ ] Move schema/API/doctor closeout and command evidence to the completed ledger.
+  - Next outcome: stable v1 fields and diagnostics can be depended on by users and agents.
+  - User-visible surface: Python objects, CLI JSON/text output, doctor command, support bundle,
+    diagnostics docs, release reports, and API/schema gate.
+  - Implementation scope: schema files, Python dataclasses/accessors, CLI output, doctor/support
+    bundle scripts, release validators, docs, and tests.
+  - Evidence required: golden fixtures, schema diff report, API compatibility report, diagnostic
+    snapshots, redaction proof, and no-fallback/effect-free discovery proof.
+  - Acceptance: stable v1 schemas have fixtures and compatibility tests; doctor/support bundle are
+    safe by default; blocked publication rows remain blocked until explicitly approved.
+  - Verification: Python tests, release-script shard, API/schema gate, doctor/support-bundle tests,
+    docs validation, and workspace gates for shared output code.
+  - Non-goals: no package publication, no stable promise for experimental/internal schemas, no
+    network/filesystem probing during doctor/capabilities beyond explicitly admitted local checks.
+  - Claim boundary: may claim only v1 API/schema stability for declared stable surfaces.
+  - Fallback boundary: diagnostics and doctor must report fallback status without invoking fallback
+    engines.
+  - Ledger rule: ledger entry must include stable schema list, compatibility windows, fixture refs,
+    and blocked publication rows.
+- [ ] `PROD-V1-2B` Correctness, conformance, and golden workflow closure for v1.
+  - Source: attached production-shift review section 8; RFC 0015; admitted semantics matrix;
+    golden workflows; docs/example execution tests; current production usability gate.
+  - Current state: golden workflows and admitted semantics evidence exist, but v1 requires every
+    supported operation/example to have fixture, digest, no-fallback, replay, and accessor coverage,
+    while unsupported rows remain explicit.
+  - Intake review: accepted the expanded correctness/conformance matrix; use external engines only
+    as explicit test oracles where already allowed, never runtime fallback.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: applicable. Correctness fixtures must cover dynamic admission
+    boundaries, metadata-first answers/pruning, capillary split behavior where exposed, and
+    timing/evidence separation without relying on performance claims.
+  - Execution checklist:
+    - [ ] Define the v1 correctness matrix from the scoped front-door, Vortex, source-state, and
+      output-sink scope docs.
+    - [ ] Ensure every v1-supported operation has fixture tests, semantic conformance rows,
+      expected output digests, no-fallback proof, and Python accessor coverage where exposed.
+    - [ ] Expand admitted semantics only for v1-supported behavior and keep unsupported rows
+      explicit with deterministic blockers.
+    - [ ] Add property tests for filters, projections, limits, supported joins, supported
+      aggregates, supported sort/top-N, supported subqueries, supported string/temporal/decimal/
+      binary functions, and supported output formats.
+    - [ ] Add fuzz tests for SQL parsing subset, expression parsing, route selection, output
+      writer policy, and manifest/reuse invalidation.
+    - [ ] Add replay verification for all golden workflows, docs-example execution tests, Python
+      README example tests, website example tests, and failure fixtures for unsupported operations.
+    - [ ] Add tests proving unsupported operations never call fallback engines.
+    - [ ] Move correctness matrix closeout and command evidence to the completed ledger.
+  - Next outcome: v1 support is defined by executable correctness evidence, not doc claims.
+  - User-visible surface: docs examples, README examples, Python API, CLI, golden workflows,
+    admitted semantics matrix, release readiness.
+  - Implementation scope: tests/fixtures, golden workflow definitions, admitted semantics matrix,
+    docs-example runner, Python/CLI test coverage, validators.
+  - Evidence required: fixture outputs, digests, replay reports, no-fallback proof, negative
+    fallback tests, and conformance report.
+  - Acceptance: all v1-supported behavior has deterministic correctness evidence; unsupported
+    behavior is tested as unsupported; docs examples cannot drift.
+  - Verification: Python/Rust tests, golden workflow validator, admitted semantics matrix,
+    docs-example proof, release-script shard, and workspace gates.
+  - Non-goals: no broad SQL/DataFrame parity, no unsupported operator promotion without decoded
+    reference parity, no external runtime fallback.
+  - Claim boundary: may claim correctness coverage only for declared v1 operations.
+  - Fallback boundary: external engines, if used, are test oracles only and never execute
+    ShardLoom runtime work.
+  - Ledger rule: ledger entry must include matrix rows, fixture refs, docs-example proof, and
+    residual unsupported rows.
+- [ ] `PROD-V1-2C` Local memory, resource safety, cancellation, and cleanup closure.
+  - Source: attached production-shift review section 9; RFC 0014; RFC 0017; memory/spill/OOM docs;
+    output cleanup and prepared-state reuse contracts.
+  - Current state: local/synthetic resource constraints and cleanup evidence exist, but broad
+    production spill/OOM enforcement remains limited. v1 needs deterministic local resource budgets
+    and cleanup for supported routes without claiming distributed spill production support.
+  - Intake review: accepted local v1 resource safety as required; defer broad spill/distributed OOM
+    production enforcement to future production/runtime items.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: strongly applicable. Resource safety should use dynamic admission
+    by data size/shape, capillary bounded work units, PulseWeave bounded in-flight control where
+    runtime work is coalesced, metadata-first preflight estimates, and separate hot route versus
+    cleanup/proof evidence fields.
+  - Execution checklist:
+    - [ ] Define v1 memory/resource scope, resource budget config, max input guidance, max output
+      or materialization guidance, and deterministic budget-exceeded diagnostics.
+    - [ ] Implement or certify runtime memory reservation for v1 operators and release on success,
+      error, cancellation, and cleanup paths.
+    - [ ] Implement cancellation cleanup and partial-output cleanup for v1 routes and local writes.
+    - [ ] Add bounded materialization policy tests, large local input smoke tests within v1 scope,
+      and failure-injection tests.
+    - [ ] Emit cleanup evidence and resource fields into route/certificate/support reports.
+    - [ ] Move resource-safety closeout and residual spill/distributed blockers to the ledger.
+  - Next outcome: local v1 routes fail before unsafe materialization/OOM where practical and clean
+    up after errors.
+  - User-visible surface: CLI/Python errors, diagnostics, doctor/support bundles, output manifests,
+    release readiness, docs.
+  - Implementation scope: memory/resource policy, route execution, output/prepared cleanup,
+    diagnostics, tests, docs.
+  - Evidence required: budget tests, cleanup tests, failure-injection reports, no-fallback proof,
+    and resource/certificate fields.
+  - Acceptance: v1 routes have deterministic budget/cancellation/cleanup behavior; broad spill and
+    distributed OOM remain deferred unless separately implemented.
+  - Verification: focused Rust/Python tests, failure-injection tests, release-script shard,
+    support bundle tests, and workspace gates for runtime changes.
+  - Non-goals: no full distributed spill runtime, no platform-level autoscaling/resource claim, no
+    hidden external spill engine.
+  - Claim boundary: may claim only local v1 resource safety and cleanup behavior.
+  - Fallback boundary: resource pressure must fail explicitly, not delegate to external engines.
+  - Ledger rule: ledger entry must list budget defaults, tested failures, cleanup evidence, and
+    deferred spill/OOM scope.
+- [ ] `PROD-V1-2D` Observability, supportability, and troubleshooting closure.
+  - Source: attached production-shift review section 10; RFC 0012; release readiness reports;
+    benchmark timing-surface contracts; diagnostic docs.
+  - Current state: route timing, evidence, and claim fields exist across runtime/benchmark
+    surfaces, but v1 supportability needs stable per-route/per-stage fields, resource/output/replay
+    fields, route/capability/unsupported explanations, diagnostic-code troubleshooting docs, issue
+    templates, and local support bundles.
+  - Intake review: accepted local observability/supportability as required; defer OpenTelemetry,
+    OpenLineage, network exporters, and remote support uploaders unless v1 explicitly supports
+    them.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: applicable. Observability must expose PulseWeave/capillary/dynamic
+    decisions when they affect execution, preserve timing-surface/evidence-tier separation, and use
+    metadata-first explanation paths that do not execute effectful operations.
+  - Execution checklist:
+    - [ ] Add stable per-route, per-stage, memory/resource, output/replay, certificate-ref, and
+      timing-surface fields for v1-supported routes.
+    - [ ] Add route explanation, capability explanation, and unsupported-path explanation output.
+    - [ ] Add troubleshooting docs keyed by diagnostic code.
+    - [ ] Add local support bundle and local debug bundle commands with redaction tests.
+    - [ ] Add issue templates requesting command, JSON envelope, diagnostic code, route id,
+      package/CLI version, OS/Python/Rust version, and fallback status.
+    - [ ] Preserve local/no-network default behavior and explicitly defer telemetry/exporters.
+    - [ ] Move observability/support closeout and command evidence to the completed ledger.
+  - Next outcome: users and agents can diagnose v1 route behavior without hidden probes or
+    external services.
+  - User-visible surface: CLI/Python explain/capability/diagnostic output, docs, issue templates,
+    support bundles, website support pages.
+  - Implementation scope: diagnostics/explain/capability code, support-bundle scripts, docs/site,
+    issue templates, tests.
+  - Evidence required: golden output snapshots, redaction tests, issue-template validation,
+    no-network/effect-free proof, and route field stability fixtures.
+  - Acceptance: v1 diagnostics are stable and actionable; support bundles are local/redacted;
+    unsupported paths explain blockers without running effects.
+  - Verification: Python/CLI snapshot tests, release-script shard, support bundle redaction tests,
+    docs/site validation, and workspace gates for shared diagnostics code.
+  - Non-goals: no OpenTelemetry/OpenLineage/network exporter, no remote support upload, no
+    effectful doctor probes.
+  - Claim boundary: may claim only local supportability for declared v1 surfaces.
+  - Fallback boundary: support tooling must not execute fallback engines or unsupported work.
+  - Ledger rule: ledger entry must include stable field list, diagnostic docs, bundle command
+    evidence, and deferred observability integrations.
+- [ ] `PROD-V1-3A` Security, supply-chain, and CI/release-validation hardening for v1.
+  - Source: attached production-shift review sections 13 and 14; RFC 0024; dependency/security
+    gates; package-channel readiness matrix; CI workflow.
+  - Current state: dependency/security, package-channel, release-readiness, and CI matrix gates
+    exist, but v1 needs them aligned to the finished-product scope, OS/Python/Rust/feature matrix
+    expectations, clean environment proof, artifact retention, and release evidence bundle
+    upload. Package publication remains blocked until approval.
+  - Intake review: accepted security/supply-chain and CI hardening; many base validators already
+    exist and should be extended rather than rebuilt.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: mostly control-plane. CI/release gates must preserve evidence-tier
+    separation and require runtime items to report dynamic/capillary/PulseWeave decisions before
+    a support or production label can pass.
+  - Execution checklist:
+    - [ ] Make dependency audit, license classification, forbidden-fallback dependency absence,
+      SBOM generation, checksum manifest, provenance, vulnerability scan, and package artifact
+      scan required for v1 release readiness.
+    - [ ] Decide signing policy and add signing workflow or explicit no-signing rationale.
+    - [ ] Add or update release branch/tag protection docs, maintainer approval docs, security
+      advisory process, supply-chain incident response, dependency update policy, rollback policy,
+      and package yank/delete/deprecate policy.
+    - [ ] Ensure no committed long-lived package upload tokens and prefer Trusted Publisher/OIDC
+      for PyPI/TestPyPI package channels.
+    - [ ] Harden CI matrix: full workspace validation, Python validation/build/package smoke,
+      release scripts, OS matrix, Python 3.10-3.13 matrix, Rust MSRV validation, feature matrix,
+      clean venv proof, clean Conda proof if in scope, docs-example proof, website-build proof,
+      generated artifact sync proof, no-dirty-worktree proof, artifact retention, and release
+      evidence bundle upload.
+    - [ ] Move security/CI closeout and remaining blocked publication approvals to the completed
+      ledger.
+  - Next outcome: v1 release readiness depends on repeatable CI and supply-chain evidence, not
+    local-only confidence.
+  - User-visible surface: CI checks, release readiness reports, package-channel reports, security
+    docs, release docs, repository governance.
+  - Implementation scope: scripts, CI workflows, release/security docs, package-channel matrix,
+    tests, and generated reports.
+  - Evidence required: CI reports, security/audit reports, SBOM/checksum/provenance artifacts,
+    package scan evidence, approval docs, and no-token proof.
+  - Acceptance: v1 release gates fail without required security/supply-chain/CI evidence; package
+    publication remains blocked until approvals and channel proof exist.
+  - Verification: CI matrix contract, dependency/security gates, release validation evidence,
+    package-channel readiness, release readiness, and relevant Python/Rust tests.
+  - Non-goals: no package publication, no signing secret creation in repo, no container scanning
+    unless containers are v1 scope.
+  - Claim boundary: may claim only release-gate hardening until a public release is approved.
+  - Fallback boundary: dependency gates must continue rejecting forbidden fallback dependencies.
+  - Ledger rule: ledger entry must list hardened gates, required matrices, evidence artifacts, and
+    unresolved approval/channel blockers.
+- [ ] `PROD-V1-4A` Docs, website, install, and example productization after v1 scope stabilizes.
+  - Source: attached production-shift review section 15; README; website Starlight/Astro sources;
+    docs/getting-started; public status matrix; benchmark website.
+  - Current state: README and website are refreshed around current evidence, but final v1 docs
+    should be rebuilt around the stable product scope, install path, first workflow, evidence
+    inspection, support matrix, examples, unsupported examples, and troubleshooting.
+  - Intake review: accepted docs/website productization but sequence it after runtime/product scope
+    items close enough to avoid another stale overhaul. Keep fresh timings, example Python uses,
+    and logos; remove stale legacy/conflicting content rather than preserving it.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: mostly presentation/control-plane. Docs must explain
+    metadata-first execution, timing-surface separation, evidence tiers, dynamic/capillary/
+    PulseWeave choices where user-visible, and avoid implying performance claims without benchmark
+    evidence.
+  - Execution checklist:
+    - [ ] Rewrite README around what ShardLoom does, v1 support, install, first workflow, evidence
+      inspection, and unsupported scope.
+    - [ ] Separate package-user install docs from source-checkout install docs; add uninstall,
+      upgrade, troubleshooting, and support-bundle docs.
+    - [ ] Add stable v1 examples: local CSV, local JSONL, local Parquet, local Vortex, prepare
+      Vortex, warm prepared query, bounded collect, local output write, evidence inspection, and
+      blocker inspection.
+    - [ ] Add unsupported examples for broad SQL, unbounded collect, object-store if deferred,
+      Foundry if deferred, and UDF/effect if deferred.
+    - [ ] Generate supported/unsupported docs from machine-readable matrices.
+    - [ ] Update website start page, support matrix, benchmark page, about page, field guide, and
+      compute-flow pages to match v1 support and avoid comparative claims unless claim-grade.
+    - [ ] Show package install commands only after package channels are live; otherwise keep
+      source/local proof commands clearly labeled.
+    - [ ] Add docs tests for every copy-paste command and wording validators for external-engine
+      claim language.
+    - [ ] Move docs/website productization closeout and command evidence to the completed ledger.
+  - Next outcome: public docs become a coherent product guide for the scoped v1, not a mixture of
+    historical architecture and current evidence.
+  - User-visible surface: README, Python README, Starlight docs, Astro pages, benchmark website,
+    install/getting-started docs, examples.
+  - Implementation scope: docs, website-src, generated website output, examples, docs tests,
+    validators, and release docs.
+  - Evidence required: docs example execution, website build/readiness, static asset validation,
+    wording validator, source/generated sync proof.
+  - Acceptance: users can follow v1 docs end to end; unsupported surfaces are explicit; stale or
+    conflicting legacy language is removed; benchmark page remains claim-safe.
+  - Verification: docs-example tests, website sync/check/build/postbuild/readiness/static assets,
+    release-script shard, public-language validator, and `git diff --check`.
+  - Non-goals: no package install commands before channels are live; no unsupported platform docs
+    marketed as v1 support; no performance superiority language.
+  - Claim boundary: docs may claim only v1-supported workflows backed by validators and examples.
+  - Fallback boundary: docs must state unsupported work fails explicitly and never fallback
+    executes.
+  - Ledger rule: ledger entry must list updated public surfaces, tested commands, generated
+    artifacts, and any intentionally deferred docs.
+- [ ] `PROD-V1-5A` Package-channel readiness and finished-product hard gate.
+  - Source: attached production-shift review sections 16 and 17; RFC 0024;
+    `docs/release/package-channel-readiness-matrix.json`;
+    `scripts/check_release_readiness.py`; final release rehearsal and hard release gates.
+  - Current state: package-channel matrices and hard release readiness exist, but public
+    publication is blocked. v1 needs a final finished-product readiness aggregator that consumes
+    runtime, schema, security, package, docs, benchmark, and approval evidence and fails closed
+    without `--allow-blocked` for public release tags.
+  - Intake review: accepted package/release channel order and finished-product gate; retain current
+    package-channel evidence requirements and mark channels not included in v1 as
+    `not_in_v1_scope` only after feasibility review records why they cannot be included.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: control-plane applicable. The finished-product gate must consume
+    timing/evidence surface fields and require runtime support rows to have documented
+    dynamic/capillary/PulseWeave decisions where applicable; package publication itself should not
+    introduce runtime shortcuts.
+  - Execution checklist:
+    - [ ] Ensure public package publication is blocked until v1 runtime scope, API/schema gate,
+      security/provenance, docs, and release validation are ready.
+    - [ ] Approve package identities and keep internal Rust crates unpublished unless extracted
+      into stable public protocol/client crates.
+    - [ ] Implement GitHub pre-release artifacts: source archive, CLI binaries, wheel, sdist,
+      checksums, SBOM, provenance, and release notes.
+    - [ ] Add TestPyPI upload, clean install, uninstall, and smoke proof before PyPI proof.
+    - [ ] Add PyPI clean install, uninstall, and smoke proof only after TestPyPI passes and
+      approval exists.
+    - [ ] Review Homebrew, Scoop, winget, conda-forge, and GHCR for v1 feasibility; include any
+      feasible channel with real artifacts/proof and mark `not_in_v1_scope` only with a recorded
+      reason.
+    - [ ] Update package-channel matrix row by row with install/uninstall transcript, clean
+      environment proof, smoke proof, SBOM, checksum, provenance, rollback/yank/delete/deprecate
+      policy, authorization proof, and maintainer approval for every ready channel.
+    - [ ] Change `python/pyproject.toml` development classifier only after public package
+      readiness is real.
+    - [ ] Add `scripts/check_finished_product_readiness.py` consuming production usability, hard
+      release readiness, package-channel readiness, API/schema stability, per-claim evidence,
+      security, dependency audit, SBOM/checksum/provenance, golden workflows, admitted semantics,
+      website readiness, docs-example proof, and CI matrix reports.
+    - [ ] Integrate the finished-product gate into public release/tag commands and reserve
+      `--allow-blocked` for local dry-run diagnostics.
+    - [ ] Add final release approval artifact and post-release verification for package install,
+      first-10-minutes, golden workflow, no-fallback smoke, docs links, and website support matrix.
+    - [ ] Move finished-product gate and package-channel closeout to the completed ledger.
+  - Next outcome: release/package publication has one final fail-closed gate and channel-specific
+    proof requirements.
+  - User-visible surface: release commands, package channels, package metadata, release notes,
+    release readiness reports, website publication, docs.
+  - Implementation scope: release scripts, package-channel matrices, CI/release workflows,
+    package artifacts, docs, tests, and post-release verification scripts.
+  - Evidence required: finished-product readiness report, package-channel reports,
+    SBOM/checksum/provenance, TestPyPI/PyPI transcripts, install/uninstall/smoke proofs,
+    approval artifact, and post-release verification.
+  - Acceptance: public release cannot proceed with blocked v1 runtime rows, failing docs examples,
+    missing schema fixtures, missing package proof, unsupported public claims, fallback execution,
+    or missing approval; deferred rows pass only with explicit out-of-v1 scope and deterministic
+    blockers.
+  - Verification: finished-product readiness gate, hard release readiness without `--allow-blocked`
+    for release tags, package-channel readiness, release validation evidence, docs/site validation,
+    CI required checks, and post-release verification after publication approval.
+  - Non-goals: no publication without human approval, no release tag creation during planning, no
+    package-channel claim from local dry-run evidence only.
+  - Claim boundary: may claim only that the final gate exists until all package/release evidence
+    and approval pass.
+  - Fallback boundary: package smoke and release verification must assert
+    `fallback_attempted=false` and `external_engine_invoked=false` for ShardLoom runtime paths.
+  - Ledger rule: ledger entry must include gate inputs, channel rows, approval refs, package
+    evidence artifacts, and post-release verification outcomes.
+
 ### Open Work Checklist
 
 - [ ] `PERF-RUNTIME-7A` Cold compatibility-to-certified route hot-runtime burn-down.
@@ -185,6 +878,12 @@ Current autonomous execution order:
       nested/dirty/timestamp scenarios avoid scanning and splitting every unselected tail field.
     - [x] Keep non-canonical/whitespace JSONL tails on the existing general scanner to preserve
       fail-closed correctness for irregular JSONL.
+    - [x] Add source-role pruning so fact-only cold routes do not read or write dimension source
+      artifacts while join routes still require dim evidence explicitly.
+    - [x] Add a fixed-schema CSV capillary typed-builder path for canonical unquoted benchmark
+      rows, with the existing selected CSV parser retained for quoted/non-canonical rows.
+    - [x] Add shared unsigned numeric parsing for canonical CSV/JSONL typed builders, with
+      fail-closed range and token validation.
     - [x] Cache the Vortex table/flat layout strategy lazily inside the shared writer context so
       multi-artifact cold writes reuse the same strategy object after the first artifact.
     - [x] Remove no-op/stale cold-route source clutter uncovered by clippy after runtime changes.
@@ -194,8 +893,12 @@ Current autonomous execution order:
       benchmark claim.
     - [x] Refresh the full-local benchmark artifact after source validation to measure current
       parse/write movement in the promoted website bundle.
-    - [ ] Promote real writer context/write-plan counters from current source; the refreshed rows
-      still report `not_reported_by_engine` for writer context attribution.
+    - [x] Promote real writer context/write-plan counters from current source; the refreshed rows
+      no longer report default `not_reported_by_engine`/zero writer context attribution when the
+      CLI emitted segment/workspace timing.
+    - [ ] Assess scenario-specific prepared artifact schema/id-column elision as a follow-up
+      design change if final refreshed cold rows remain materially writer-bound; this must include
+      native/replay/schema compatibility tests before implementation.
   - Next outcome: reduce real cold-route work without changing timing-surface semantics by
     batching/coalescing Vortex writes, tightening schema-driven typed source builders for text
     formats, and preserving reader-boundary projection for columnar formats. Apply dynamic
@@ -260,6 +963,9 @@ Current autonomous execution order:
       are promoted.
     - [x] Refresh full-local `join_aggregate`, `multi_key_group_by`, and high-cardinality rows to
       classify remaining opportunities as significant or marginal.
+    - [x] Add generated dense-category interner admission for canonical `c0..cN` benchmark
+      categories so distinct/multi-key/join residual operators avoid repeated string hashing when
+      source shape proves dense ordered labels.
     - [ ] If refreshed rows still show multi-ms prepared/native operator spikes, add the next
       native kernel family with decoded-reference parity tests before claiming promotion.
   - Next outcome: promote a cohesive heavy-operator family rather than isolated scenario slivers:
@@ -389,47 +1095,59 @@ Current autonomous execution order:
 
 #### Production Readiness / Release Track
 
-- [ ] `RELEASE-READY-16A` Technical-preview release boundary and unsupported-surface firewall.
+- [ ] `RELEASE-READY-16A` V1 release boundary and unsupported-surface firewall.
   - Source: attached production-readiness review, `README.md`, `docs/release/*`,
     `docs/architecture/runtime-gap-family-burn-down.md`,
     `docs/architecture/scale-readiness-contract.md`, and package/release readiness gates.
-  - Current state: ShardLoom is pre-release. Local technical-preview/package readiness can move
-    forward only if object-store, lakehouse/table, Foundry, distributed, live/hybrid, arbitrary
-    extension/effect, and production-platform support remain explicitly unsupported or blocked.
+  - Current state: ShardLoom is pre-release. V1 should include every feasible runtime/product
+    family that can be made real, safe, evidence-backed, and package/release-ready. Any
+    object-store, lakehouse/table, Foundry, distributed, live/hybrid, arbitrary extension/effect,
+    or platform support that cannot be completed for v1 must remain explicitly unsupported,
+    blocked, narrowed, or deferred with a concrete reason.
+  - Intake review: revised from the earlier technical-preview framing to an inclusion-first v1
+    boundary. Existing unsupported-surface guardrails stay, but they become a fail-closed firewall
+    for unfinished or infeasible families, not a default exclusion of broad functionality.
+  - V1 scope classification: `required_for_v1`.
   - ShardLoom technique review: mostly control-plane applicable. The release envelope should not
     invent runtime optimizations, but validators must require each newly supported runtime family to
     document PulseWeave/capillary/dynamic fit before a support claim is accepted.
   - Execution checklist:
-    - [ ] Define the technical-preview support envelope: local file workflows, current Python/CLI
-      surfaces, supported local formats, supported output targets, and known unsupported families.
+    - [ ] Define the v1 support envelope: local file workflows, current Python/CLI surfaces,
+      supported local formats, supported output targets, and every broad runtime/product family
+      that is feasible to close with evidence.
+    - [ ] Record infeasibility reasons for any broad family narrowed or left outside v1, including
+      missing external platform proof, unresolved safety/security design, protocol scope, package
+      channel availability, or lack of deterministic fault/recovery evidence.
     - [ ] Normalize README, docs, website, package metadata, release reports, and capability
       outputs so every unsupported production family uses one canonical claim boundary.
     - [ ] Add release validators that fail if production, platform, distributed, Foundry,
       live/hybrid, object-store, lakehouse, or arbitrary extension support is implied without a
       matching production-ready item closed in this plan and ledger.
-    - [ ] Add package dry-run evidence showing the technical-preview package installs, imports,
-      runs local examples, emits no fallback evidence, and does not publish to package channels.
+    - [ ] Add package dry-run evidence showing the v1 package candidate installs, imports, runs
+      supported examples, emits no fallback evidence, and does not publish to package channels.
     - [ ] Add user-facing unsupported diagnostics for production-family entrypoints that exist as
       stubs, preview routes, or report-only commands.
     - [ ] Move the closed release-boundary checklist, exact command evidence, and residual
       unsupported production families to the completed ledger after merge.
-  - Next outcome: a release candidate can be described as a local technical preview without
-    accidentally making production-runtime claims.
+  - Next outcome: a v1 release candidate can be described by its real supported runtime/product
+    families, with any unfinished family explicitly blocked, narrowed, or deferred.
   - User-visible surface: README, package metadata, website, docs, Python/CLI help, capability
     reports, release readiness reports, and benchmark website disclaimers.
   - Implementation scope: release/docs validators, README/site copy, package dry-run scripts,
     Python/CLI capability outputs, and tests in `python/tests` and `shardloom-contract-tests`.
   - Evidence required: package dry-run, local example execution, release readiness validators,
     no-fallback fields, unsupported-surface diagnostics, and claim-boundary snapshots.
-  - Acceptance: release reports can pass for a technical preview while production families remain
-    blocked; any unsupported production claim fails CI; package/install examples run locally; public
-    docs do not imply support outside the declared envelope.
+  - Acceptance: release reports can pass only for the declared v1 support envelope; feasible broad
+    families are promoted into v1-required work, infeasible families carry recorded blockers or
+    deferral reasons, any unsupported production claim fails CI, package/install examples run
+    locally, and public docs do not imply support outside the declared envelope.
   - Verification: release-script shard, website/docs validation, package smoke, release readiness
     reports, `cargo test --workspace --all-targets`, and targeted Python package import/use tests.
-  - Non-goals: no package publication, no production support claim, no object-store/cloud/lakehouse
-    runtime, no Foundry production integration, no distributed or streaming runtime.
-  - Claim boundary: may claim only technical-preview local support for explicitly listed
-    workloads; all production-family claims remain `not_claim_grade` or `unsupported|blocked`.
+  - Non-goals: no package publication, no unsupported production claim, no broad family support
+    without real runtime, safety, package, and release evidence.
+  - Claim boundary: may claim only v1 support for explicitly listed workloads/families with
+    evidence; unfinished production-family claims remain `not_claim_grade`,
+    `unsupported|blocked`, `v1_candidate_pending_feasibility`, or `deferred_after_v1` with reason.
   - Fallback boundary: no Spark/DataFusion/DuckDB/Polars/Velox or external platform fallback may be
     introduced to make preview examples pass.
   - Ledger rule: close only after merge; ledger entry must list release envelope, validators,
@@ -441,6 +1159,10 @@ Current autonomous execution order:
   - Current state: production readiness is mapped but not centrally executable. Many surfaces have
     report-only schemas, planned capability rows, or local smoke evidence, but no shared gate that
     certifies a declared workload/environment as production-ready.
+  - Intake review: accepted as required before any broad v1 production/support label can pass.
+    This gate is not a substitute for runtime implementation; it is the shared evidence contract
+    that broad families must satisfy when promoted into v1.
+  - V1 scope classification: `required_for_v1`.
   - ShardLoom technique review: applicable as a gate contract. Workload declarations must record
     whether dynamic admission/work shaping, capillary work units, PulseWeave runtime control,
     metadata-first execution, and timing/evidence-tier separation were applied, rejected, or not
@@ -489,6 +1211,9 @@ Current autonomous execution order:
     ORC, Vortex, and compatibility outputs, but production-certified adapters require full
     capability, pushdown, fidelity, error-policy, and certificate evidence per declared format
     family.
+  - Intake review: accepted as required for v1 because local input/output breadth is central to a
+    comprehensive first release.
+  - V1 scope classification: `required_for_v1`.
   - ShardLoom technique review: applicable. Format work should consider dynamic parser/reader
     admission by shape, capillary source/preparation/write windows, PulseWeave coalescing for
     repeated local preparation, metadata-first pruning/fingerprint reuse, and evidence-tier
@@ -535,13 +1260,18 @@ Current autonomous execution order:
   - Current state: object-store/table rows are report-only or blocked for listing, byte-range
     reads, streaming reads, writes, staging, commit, credentials, network effects, and production
     certificates.
+  - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
+    object-store workload/backend in v1 if emulator plus approved real-backend proof, credential
+    safety, bounded streaming, commit/cleanup, and certificate evidence can close; otherwise
+    narrow or defer only with a concrete feasibility reason.
+  - V1 scope classification: `v1_candidate_pending_feasibility`.
   - ShardLoom technique review: strongly applicable. Object-store work should use capillary split
     windows, dynamic request coalescing/prefetch/backpressure admission, PulseWeave task-graph
     control for bounded in-flight work, metadata-first listing/statistics decisions, and explicit
     hot-runtime versus proof/commit timing surfaces.
   - Execution checklist:
-    - [ ] Define the first supported object-store workload/environment and explicitly defer all
-      other schemes/backends.
+    - [ ] Define the first supported object-store workload/environment and review each other
+      scheme/backend for v1 feasibility before deferring it.
     - [ ] Implement provider abstraction for selected schemes with credential policy, redaction,
       request signing boundary, and no-probe defaults for explain/estimate/doctor/capabilities.
     - [ ] Add listing, object version/ETag capture, checksum validation, byte-range read, request
@@ -581,6 +1311,11 @@ Current autonomous execution order:
   - Current state: table metadata/reporting is separate from table runtime. Metadata reads,
     snapshot listings, or compatibility output rows do not imply scan, append, overwrite,
     merge/update/delete, commit, rollback, schema evolution, or catalog support.
+  - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
+    table protocol/workload in v1 if source-checked specs, scan semantics, write/commit scope,
+    rollback/recovery, conflict handling, and no-fallback evidence can close; otherwise narrow or
+    defer with a concrete feasibility reason.
+  - V1 scope classification: `v1_candidate_pending_feasibility`.
   - ShardLoom technique review: applicable after source-spec review. Table work should consider
     metadata-first snapshot/manifest pruning, capillary split/manifests for bounded scans and
     commits, dynamic admission for delete/schema/evolution features, and PulseWeave-style
@@ -628,6 +1363,11 @@ Current autonomous execution order:
   - Current state: distributed runtime is report-only. No real coordinator/worker service,
     leases, heartbeats, task attempts, remote result fragments, deterministic merge, or
     multi-worker benchmark proof exists.
+  - Intake review: accepted as a v1 candidate, not default-deferred. Include a local or scoped
+    multi-worker runtime in v1 if coordinator/worker lifecycle, fault cases, deterministic merge,
+    cleanup, and benchmark evidence can close; otherwise narrow to deterministic unsupported
+    diagnostics with a concrete feasibility reason.
+  - V1 scope classification: `v1_candidate_pending_feasibility`.
   - ShardLoom technique review: strongly applicable. Distributed runtime should be designed around
     capillary task units, PulseWeave runtime control, dynamic work shaping, metadata-first split
     pruning, and explicit execution certificates so later optimization does not require reworking
@@ -674,6 +1414,10 @@ Current autonomous execution order:
   - Current state: CG-22 is a design target with fixture evidence, but there is no production
     streaming runtime, state store, changelog, checkpoint/restore, watermarking, or continuous
     materialized-view semantics.
+  - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
+    live/hybrid workload in v1 if state, checkpoint, recovery, freshness, output mode, and
+    certificate evidence can close; otherwise narrow or defer with a concrete feasibility reason.
+  - V1 scope classification: `v1_candidate_pending_feasibility`.
   - ShardLoom technique review: applicable. Live/hybrid work should use capillary micro-segments,
     dynamic mode/update admission, PulseWeave-style bounded work-in-progress where it preserves
     recovery semantics, metadata-first state/freshness checks, and separate timing/evidence
@@ -722,6 +1466,11 @@ Current autonomous execution order:
   - Current state: extension/UDF/effect surfaces are architectural or report-only. Manifest
     inspection, UDF/API/LLM/model/vector execution, network/filesystem/secret effects, and plugin
     runtime are not production-supported.
+  - Intake review: accepted as a v1 candidate for safe scoped subsets. Include manifest
+    inspection and typed deterministic UDF/plugin/effect classes in v1 where sandboxing, denial,
+    audit, timeout/resource, and no-fallback evidence can close; defer dangerous effect classes
+    only with explicit safety reasons.
+  - V1 scope classification: `v1_candidate_pending_feasibility`.
   - ShardLoom technique review: selectively applicable. Dynamic admission and fail-closed
     capability checks are central; capillary isolation can bound effectful batches; PulseWeave
     applies only to explicit, policy-admitted batching/coalescing and must not hide effects or
@@ -771,6 +1520,11 @@ Current autonomous execution order:
     There is no real Foundry Code Repository package/import proof, transform wrapper, dataset
     source/sink certificate, Artifact Repository publication proof, Compute Module runtime, or
     production Foundry evidence dataset output.
+  - Intake review: accepted as a v1 candidate if real Foundry environment proof is available.
+    Include a scoped Foundry integration pack in v1 if package/import, transform, dataset
+    source/sink, governance, and no-fallback evidence can close; otherwise defer only because the
+    real platform proof is unavailable or incomplete.
+  - V1 scope classification: `v1_candidate_pending_feasibility`.
   - ShardLoom technique review: applicable at the integration boundary. Foundry work should
     consider capillary dataset chunks, dynamic platform-handle admission, PulseWeave-style
     transform/task coalescing only with real platform evidence, metadata-first lineage/governance
@@ -823,9 +1577,9 @@ Current autonomous execution order:
 | Mapped, not autonomous queue | Unchecked global architecture review rows | Governed by `docs/architecture/global-architecture-review.md` and `docs/architecture/runtime-gap-family-burn-down.md`; promote concrete implementation items here before work begins. |
 | Deferred approval/artifact gate | Public release/package approval | Clean local Conda proof, dependency/security/package local-gate evidence, and current benchmark-publication evidence now pass locally; remaining blockers are package-channel approval/proof, publication/API/schema stability approval, and per-claim evidence promotion before any public claim. |
 
-Deferred Non-Runtime Closeout Queue: closed for the current cleanup batch. Completed non-runtime history
-lives in `docs/architecture/phased-execution-completed-ledger.md`; any future work from manual
-review must be promoted here as a concrete unchecked item before editing behavior.
+Deferred Non-Runtime Closeout Queue: closed for the prior cleanup batch. Completed non-runtime history
+lives in `docs/architecture/phased-execution-completed-ledger.md`; newly reviewed v1
+product/release work is now represented by concrete unchecked items above.
 
 ### Evidence Pointers
 
@@ -850,9 +1604,10 @@ review must be promoted here as a concrete unchecked item before editing behavio
 - Use dynamic admission for repeated dependency/source decisions, PulseWeave for run-local
   coalescing and bounded work-in-progress, and capillary windows for small typed
   source/preparation/sink work units only where the bottleneck shape justifies those controls.
-- There are no current direct open implementation items. Reopen completed `PERF-DESIGN-*` or
-  `PERF-DESIGN-*R` passes only with new current artifact, validator, CI, UAT simulation, or
-  maintainer-review evidence.
+- Current direct open implementation items are the v1 product/release queue, remaining
+  `PERF-RUNTIME-*` optimization items, and v1-candidate production-family rows above. Reopen
+  completed `PERF-DESIGN-*` or `PERF-DESIGN-*R` passes only with new current artifact, validator,
+  CI, UAT simulation, or maintainer-review evidence.
 
 ### Global Architecture Review Carry-Forward
 

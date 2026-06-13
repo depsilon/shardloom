@@ -6833,6 +6833,16 @@ PREPARATION_STAGE_TIMING_FIELDS = (
     "vortex_write_strategy_fallback_attempted",
     "vortex_write_strategy_external_engine_invoked",
     "vortex_write_strategy_claim_boundary",
+    "vortex_writer_context_schema_version",
+    "vortex_writer_context_status",
+    "vortex_writer_context_open_micros",
+    "vortex_writer_context_write_count",
+    "vortex_writer_context_reuse_hit_count",
+    "vortex_writer_context_reuse_status",
+    "vortex_segment_write_micros",
+    "vortex_workspace_stage_micros",
+    "vortex_write_coalescing_status",
+    "vortex_write_coalescing_reason",
     "vortex_digest_micros",
     "vortex_reopen_verify_micros",
     "exclusive_stage_timing_schema_version",
@@ -6850,6 +6860,25 @@ PREPARATION_STAGE_TIMING_FIELDS = (
     "exclusive_stage_residual_micros",
     "exclusive_stage_total_delta_micros",
     "exclusive_stage_timing_claim_boundary",
+)
+
+PRESERVED_SHARDLOOM_WRITE_EVIDENCE_MICROS_FIELDS = (
+    "vortex_writer_context_open_micros",
+    "vortex_segment_write_micros",
+    "vortex_workspace_stage_micros",
+)
+
+PRESERVED_SHARDLOOM_WRITE_EVIDENCE_INT_FIELDS = (
+    "vortex_writer_context_write_count",
+    "vortex_writer_context_reuse_hit_count",
+)
+
+PRESERVED_SHARDLOOM_WRITE_EVIDENCE_TEXT_FIELDS = (
+    "vortex_writer_context_schema_version",
+    "vortex_writer_context_status",
+    "vortex_writer_context_reuse_status",
+    "vortex_write_coalescing_status",
+    "vortex_write_coalescing_reason",
 )
 
 
@@ -21647,6 +21676,16 @@ def successful_result_from_iterations(
             micros_to_int=mean_evidence_micros_int,
         )
     )
+    for field in PRESERVED_SHARDLOOM_WRITE_EVIDENCE_MICROS_FIELDS:
+        value = mean_evidence_micros_int(field)
+        if value is not None:
+            metrics[field] = value
+    for field in PRESERVED_SHARDLOOM_WRITE_EVIDENCE_INT_FIELDS:
+        if field in evidence:
+            metrics[field] = parse_optional_int(evidence.get(field))
+    for field in PRESERVED_SHARDLOOM_WRITE_EVIDENCE_TEXT_FIELDS:
+        if field in evidence:
+            metrics[field] = evidence.get(field)
     metrics.update(prepared_native_vortex_lifecycle_metrics(evidence))
     metrics.update(shared_prepared_artifact_workspace_manifest_metrics(evidence))
     metrics.update(

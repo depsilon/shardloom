@@ -112,6 +112,8 @@ REQUIRED_BENCHMARK_TIMING_SURFACE_STRINGS = {
     "timing_surface=publication_proof",
     "result-sink and evidence-render work",
     "Hot runtime rows drive the primary ShardLoom route grid.",
+    "Cold-certified route totals include raw-source ingest",
+    "Scale",
 }
 REQUIRED_BENCHMARK_STAGE_STRINGS = {
     "Stage attribution",

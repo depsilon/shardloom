@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import sys
@@ -500,6 +501,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_json(path: Path) -> Any:
+    if path.name.endswith(".gz"):
+        with gzip.open(path, "rt", encoding="utf-8") as handle:
+            return json.load(handle)
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
@@ -991,6 +995,14 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
         engine = str(row.get("engine", ""))
         route_lane_id = str(row.get("route_lane_id") or "")
         route_lane_counts[route_lane_id] += 1
+        row_status = str(row.get("status") or "")
+        shardloom_row = engine.startswith("shardloom")
+        executed_successfully = row_status == "success"
+        shardloom_not_executed = shardloom_row and not executed_successfully
+        if shardloom_not_executed:
+            blockers.append(
+                f"published ShardLoom row {index} must be successful, got status={row_status!r}"
+            )
         missing_route_fields = sorted(REQUIRED_ROUTE_FIELDS - set(row))
         if missing_route_fields:
             blockers.append(
@@ -1022,7 +1034,13 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             blockers.append(
                 f"benchmark row {index} has invalid operator_execution_mode={operator_mode!r}"
             )
-        if row.get("route_timing_ledger_status") != "valid":
+        ledger_status = row.get("route_timing_ledger_status")
+        if shardloom_not_executed:
+            if ledger_status not in {"not_numeric", "not_executed"}:
+                blockers.append(
+                    f"benchmark row {index} has invalid not-executed route timing ledger status"
+                )
+        elif ledger_status != "valid":
             blockers.append(f"benchmark row {index} route timing ledger is not valid")
         if row.get("timing_normalization_schema_version") != TIMING_NORMALIZATION_SCHEMA_VERSION:
             blockers.append(f"benchmark row {index} has invalid timing normalization schema")
@@ -1059,12 +1077,39 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             )
         if not str(row.get("route_total_formula") or "").strip():
             blockers.append(f"benchmark row {index} is missing route_total_formula")
+        elif route_lane_id == "cold_certified_route" and timing_surface in {
+            "hot_runtime",
+            "publication_proof",
+            "full_replay_proof",
+        }:
+            formula = str(row.get("route_total_formula") or "")
+            included_stage_ids = _stage_list(row.get("route_timing_included_stage_ids"))
+            if "query_runtime_millis" in formula or "query_runtime_millis" in included_stage_ids:
+                blockers.append(
+                    f"benchmark row {index} cold route formula uses query_runtime_millis "
+                    "instead of de-overlapped scan/operator stages"
+                )
+            if (
+                "vortex_scan_ms" not in formula
+                or "operator_compute_ms" not in formula
+                or "vortex_scan_ms" not in included_stage_ids
+                or "operator_compute_ms" not in included_stage_ids
+            ):
+                blockers.append(
+                    f"benchmark row {index} cold route formula is missing de-overlapped "
+                    "scan/operator stage attribution"
+                )
         if not str(row.get("route_timing_scope") or "").strip():
             blockers.append(f"benchmark row {index} is missing route_timing_scope")
         included_total = _numeric_value(row.get("route_timing_included_stage_total_ms"))
         total_route = _numeric_value(row.get("total_route_ms"))
         delta = _numeric_value(row.get("route_timing_total_delta_ms"))
-        if included_total is None or total_route is None or delta is None:
+        if shardloom_not_executed:
+            if total_route is not None:
+                blockers.append(
+                    f"benchmark row {index} not-executed route must not report total_route_ms"
+                )
+        elif included_total is None or total_route is None or delta is None:
             blockers.append(f"benchmark row {index} route timing ledger has non-numeric totals")
         elif abs(included_total - total_route) > 0.001 or delta > 0.001:
             blockers.append(
@@ -1091,12 +1136,27 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             exclusive_residual = _numeric_value(
                 row.get("route_timing_exclusive_residual_ms")
             )
-            if engine.startswith("shardloom"):
-                if row.get("exclusive_stage_timing_status") != "complete":
+            if shardloom_row:
+                if shardloom_not_executed:
+                    if row.get("exclusive_stage_timing_status") not in {
+                        "blocked_missing_stage_timing",
+                        "not_executed",
+                    }:
+                        blockers.append(
+                            f"ShardLoom row {index} has invalid not-executed exclusive timing status"
+                        )
+                    if row.get("route_timing_exclusive_residual_status") not in {
+                        "not_numeric",
+                        "not_executed",
+                    }:
+                        blockers.append(
+                            f"ShardLoom row {index} has invalid not-executed exclusive residual status"
+                        )
+                elif row.get("exclusive_stage_timing_status") != "complete":
                     blockers.append(
                         f"ShardLoom row {index} exclusive stage timing is not complete"
                     )
-                if (
+                elif (
                     exclusive_sum is None
                     or exclusive_delta is None
                     or exclusive_residual is None
@@ -1104,7 +1164,7 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                     blockers.append(
                         f"ShardLoom row {index} exclusive stage timing has non-numeric totals"
                     )
-                if row.get("route_timing_exclusive_residual_status") not in {
+                elif row.get("route_timing_exclusive_residual_status") not in {
                     "auditable_residual",
                     "zero_residual",
                 }:
@@ -1123,6 +1183,8 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             "certificate_link_ms",
         ):
             value = _numeric_value(row.get(timing_field))
+            if shardloom_not_executed and timing_field == "runtime_execution_ms" and value is None:
+                continue
             if value is None or value < 0:
                 blockers.append(
                     f"benchmark row {index} has invalid fast-path timing field {timing_field}"
@@ -1133,7 +1195,7 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             blockers.append(
                 f"benchmark row {index} evidence render inclusion disagrees with route ledger"
             )
-        if engine.startswith("shardloom"):
+        if shardloom_row:
             if row.get("timing_normalization_status") not in {
                 "complete_with_unmeasured_optional_fields",
                 "not_executed",
@@ -1402,52 +1464,53 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                     f"benchmark row {index} evidence timing inclusion does not match "
                     f"timing_surface={timing_surface!r}"
                 )
-            for field in (
-                "evidence_sink_tier_schema_version",
-                "requested_evidence_tier",
-                "actual_evidence_tier",
-                "selected_evidence_tier",
-                "sink_tier",
-                "evidence_tier_supported_tiers",
-                "sink_timing_inclusion_reason",
-                "result_sink_replay_skip_reason",
-                "human_evidence_render_skip_reason",
-            ):
-                if not str(row.get(field) or "").strip():
+            if not shardloom_not_executed:
+                for field in (
+                    "evidence_sink_tier_schema_version",
+                    "requested_evidence_tier",
+                    "actual_evidence_tier",
+                    "selected_evidence_tier",
+                    "sink_tier",
+                    "evidence_tier_supported_tiers",
+                    "sink_timing_inclusion_reason",
+                    "result_sink_replay_skip_reason",
+                    "human_evidence_render_skip_reason",
+                ):
+                    if not str(row.get(field) or "").strip():
+                        blockers.append(
+                            f"ShardLoom row {index} is missing evidence/sink tier field {field}"
+                        )
+                if row.get("actual_evidence_tier") not in {
+                    "runtime_minimal",
+                    "metadata_sink",
+                    "full_vortex_replay",
+                    "publication_full",
+                }:
+                    blockers.append(f"ShardLoom row {index} has invalid actual evidence tier")
+                elif (
+                    timing_surface
+                    != TIMING_SURFACE_BY_EVIDENCE_TIER[row["actual_evidence_tier"]]
+                ):
                     blockers.append(
-                        f"ShardLoom row {index} is missing evidence/sink tier field {field}"
+                        f"ShardLoom row {index} timing surface does not match actual evidence tier"
                     )
-            if row.get("actual_evidence_tier") not in {
-                "runtime_minimal",
-                "metadata_sink",
-                "full_vortex_replay",
-                "publication_full",
-            }:
-                blockers.append(f"ShardLoom row {index} has invalid actual evidence tier")
-            elif (
-                timing_surface
-                != TIMING_SURFACE_BY_EVIDENCE_TIER[row["actual_evidence_tier"]]
-            ):
-                blockers.append(
-                    f"ShardLoom row {index} timing surface does not match actual evidence tier"
-                )
-            if row.get("selected_evidence_tier") != row.get("actual_evidence_tier"):
-                blockers.append(
-                    f"ShardLoom row {index} selected evidence tier does not match actual tier"
-                )
-            if row.get("sink_tier") != row.get("actual_evidence_tier"):
-                blockers.append(f"ShardLoom row {index} sink tier does not match actual tier")
-            if row.get("evidence_tier_result_sink_replay_required") not in {
-                True,
-                False,
-            }:
-                blockers.append(
-                    f"ShardLoom row {index} has invalid evidence tier replay-required flag"
-                )
-            if row.get("sink_timing_included_in_route_total") not in {True, False}:
-                blockers.append(
-                    f"ShardLoom row {index} has invalid sink timing route inclusion flag"
-                )
+                if row.get("selected_evidence_tier") != row.get("actual_evidence_tier"):
+                    blockers.append(
+                        f"ShardLoom row {index} selected evidence tier does not match actual tier"
+                    )
+                if row.get("sink_tier") != row.get("actual_evidence_tier"):
+                    blockers.append(f"ShardLoom row {index} sink tier does not match actual tier")
+                if row.get("evidence_tier_result_sink_replay_required") not in {
+                    True,
+                    False,
+                }:
+                    blockers.append(
+                        f"ShardLoom row {index} has invalid evidence tier replay-required flag"
+                    )
+                if row.get("sink_timing_included_in_route_total") not in {True, False}:
+                    blockers.append(
+                        f"ShardLoom row {index} has invalid sink timing route inclusion flag"
+                    )
         elif (
             row.get("route_timing_stage_inclusion_status") != "external_baseline_only"
             or row.get("route_timing_instrument_status") != "external_baseline_only"
@@ -1635,17 +1698,29 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
                     blockers.append(
                         f"ShardLoom cold row {index} has invalid cold bottleneck schema"
                     )
-                if row.get("cold_bottleneck_status") != "complete":
-                    blockers.append(
-                        f"ShardLoom cold row {index} has incomplete cold bottleneck status: "
-                        f"{row.get('cold_bottleneck_status')}"
-                    )
                 primary_stage = str(row.get("cold_bottleneck_primary_stage") or "")
-                if primary_stage not in COLD_BOTTLENECK_STAGES:
-                    blockers.append(
-                        f"ShardLoom cold row {index} has invalid primary bottleneck stage: "
-                        f"{primary_stage!r}"
-                    )
+                if shardloom_not_executed:
+                    if row.get("cold_bottleneck_status") != "blocked_row_not_executed":
+                        blockers.append(
+                            f"ShardLoom cold row {index} has invalid not-executed "
+                            f"cold bottleneck status: {row.get('cold_bottleneck_status')}"
+                        )
+                    if primary_stage != "blocked":
+                        blockers.append(
+                            f"ShardLoom cold row {index} has invalid not-executed "
+                            f"primary bottleneck stage: {primary_stage!r}"
+                        )
+                else:
+                    if row.get("cold_bottleneck_status") != "complete":
+                        blockers.append(
+                            f"ShardLoom cold row {index} has incomplete cold bottleneck status: "
+                            f"{row.get('cold_bottleneck_status')}"
+                        )
+                    if primary_stage not in COLD_BOTTLENECK_STAGES:
+                        blockers.append(
+                            f"ShardLoom cold row {index} has invalid primary bottleneck stage: "
+                            f"{primary_stage!r}"
+                        )
                 if not str(row.get("cold_route_optimization_hint") or "").strip():
                     blockers.append(
                         f"ShardLoom cold row {index} is missing cold_route_optimization_hint"
