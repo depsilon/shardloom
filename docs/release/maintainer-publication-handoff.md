@@ -20,10 +20,11 @@ Current local audit addendum, 2026-06-13:
   `proof_status=passed`, `publication_attempted=false`, `tag_created=false`,
   `secrets_required=false`, `fallback_attempted=false`, and `external_engine_invoked=false`.
 - The refreshed local hard release aggregate
-  `target/release-readiness-audit/hard-release-readiness-gate-current-final.json` remains blocked
-  for public release/package claims by package-channel proof/approval, publication/API/schema
-  stability approval, and per-claim evidence promotion. Benchmark-publication currentness is now
-  refreshed locally for source revision `74a2e7d4f77eed0686971518e010463da26f2cdf`.
+  `target/release-readiness-audit/hard-release-readiness-gate-release-package-15-final.json`
+  remains blocked only for public release/package claims by package-channel proof/approval,
+  publication/API/schema stability approval, and per-claim evidence promotion.
+  Benchmark-publication currentness is refreshed locally for source revision
+  `74a2e7d4f77eed0686971518e010463da26f2cdf`.
 - Target-local dependency audit evidence now passes with `pip-audit` in
   `target/release-readiness-audit/pip-audit-venv/`; this is release/security tooling only and not a
   runtime dependency.
@@ -37,11 +38,15 @@ Current local audit addendum, 2026-06-13:
   README/public docs, and website source changes after the manifest source SHA remain currentness
   blockers.
 - The current artifact completeness report
-  `target/release-readiness-audit/benchmark-completeness-release-package-15.json` passes. The
-  dirty-static publish doctor report
-  `target/release-readiness-audit/benchmark-publish-doctor-release-package-15-dirty-static.json`
-  passes with 1320 published rows, 600 ShardLoom claim-grade rows, no mirror drift, and
+  `target/release-readiness-audit/benchmark-completeness-release-package-15-final.json` passes.
+  The final publish doctor report
+  `target/release-readiness-audit/benchmark-publish-doctor-release-package-15-final.json` passes
+  with 1320 published rows, 600 ShardLoom claim-grade rows, no mirror drift, and
   `fallback_attempted=false` / `external_engine_invoked=false`.
+- Final local release validation evidence
+  `target/release-readiness-audit/release-validation-evidence-release-package-15-final.json`
+  passes with required validation, feature-build matrix, and supporting security/dependency
+  evidence all passed.
 
 ## Decision Summary
 
@@ -75,14 +80,17 @@ Not allowed now:
 
 Primary release evidence:
 
-- `target/release-validation-evidence-rs13-configured.json`
-- `target/hard-release-readiness-gate-rs13-configured.json`
-- `target/final-release-rehearsal/final-release-rehearsal-report.json`
-- `target/final-release-rehearsal/local-publication-attestation-plan.json`
-- `target/release-dry-run-proof/transcript.json`
+- `target/release-readiness-audit/release-validation-evidence-release-package-15-final.json`
+- `target/release-readiness-audit/hard-release-readiness-gate-release-package-15-final.json`
+- `target/release-readiness-audit/benchmark-publication-claim-gate-release-package-15-final.json`
+- `target/release-readiness-audit/benchmark-completeness-release-package-15-final.json`
+- `target/release-readiness-audit/benchmark-publish-doctor-release-package-15-final.json`
+- `target/release-readiness-audit/compute-engine-completion-gate-release-package-15-final.json`
+- `target/release-readiness-audit/release-architecture-tracker-release-package-15-final.json`
+- `target/release-readiness-audit/website-readiness-release-package-15-final.json`
+- `target/release-readiness-audit/release-dry-run-proof-conda/transcript.json`
 - `target/release-provenance-dry-run/supply-chain-release-evidence.json`
 - `target/release-provenance-dry-run/checksums.sha256`
-- `target/compute-engine-completion-gate-rs13.json`
 
 Source release references:
 
@@ -95,13 +103,13 @@ Source release references:
 - `docs/release/release-provenance-dry-run.md`
 - `docs/security/supply-chain-response.md`
 
-Prepared local artifacts from the provenance dry run:
+Prepared local artifact checksums recorded by the provenance dry run:
 
 | Artifact | Local path | SHA-256 |
 | --- | --- | --- |
-| CLI binary | `target/debug/shardloom` | `b8e5df1ac6e3070dcc49cde2b66adb4fb40f4b7274125ef14badc039f2ce2269` |
-| Python wheel | `python/dist/shardloom-0.1.0.dev0-py3-none-any.whl` | `e853340dfcb5801ccb83931cf7e70e8b05189f8f9bbdc20f91801c2b55bc2d2e` |
-| Python sdist | `python/dist/shardloom-0.1.0.dev0.tar.gz` | `72b08b41a5ab750c5261a49b4e7774db6414ba81ea5e4a4bdff7cc2390b5cb85` |
+| CLI binary | `target/debug/shardloom` | `7dcc0f001335ba8bf65c982522c09915f060c17a563025c69bbfbc0c4b57c2eb` |
+| Python wheel | `python/dist/shardloom-0.1.0.dev0-py3-none-any.whl` | `cf90ac71ae9fbb47559cabe0c64713a52e56b3172ae071fbdd35b57c38b2fad1` |
+| Python sdist | `python/dist/shardloom-0.1.0.dev0.tar.gz` | `a65dba4f7bc879d76bdc5f76ce261f981d6860a9f45c7c9f4639cee3d1cc566c` |
 
 Prepared local SBOM/checksum refs:
 
@@ -110,9 +118,11 @@ Prepared local SBOM/checksum refs:
 - `target/release-provenance-dry-run/shardloom-cli-binary.cdx.json`
 - `target/release-provenance-dry-run/checksums.sha256`
 
-These are local dry-run refs only. They are not publication-grade attachments until maintainers
-approve the release source revision, artifact set, signing/attestation policy, and destination
-channels.
+These are local dry-run refs only. Build outputs under `target/` and `python/dist/` may be
+overwritten by later local builds; rerun the provenance dry run at the approved release source
+revision before attaching checksums to a public release. They are not publication-grade
+attachments until maintainers approve the release source revision, artifact set,
+signing/attestation policy, and destination channels.
 
 ## Current Blockers
 
@@ -122,28 +132,29 @@ The hard release gate remains blocked by:
 - Publication/API/schema stability: no public API/schema compatibility window is approved.
 - Per-claim evidence: release, package, performance, Spark-displacement, production, platform, and
   broad runtime claims remain not claim-grade.
-- Architecture tracker: release tracking is expected to pass locally after the
-  `RELEASE-PACKAGE-15` phase-plan closeout commit.
-- Benchmark freshness: refreshed locally for clean source revision
-  `74a2e7d4f77eed0686971518e010463da26f2cdf`. The benchmark publication bundle remains local
-  evidence until the final static-publication commit is checked and reviewed.
-- Clean Conda proof: current local audit evidence now passes, but it is still local dry-run proof,
-  not a conda-forge feedstock/channel proof.
-- Required validation evidence: strict release validation should be rerun after the final
-  static-publication commit so the aggregate no longer carries the older benchmark-currentness
-  blocker.
-- Benchmark publication currentness: the manifest now records source revision
-  `74a2e7d4f77eed0686971518e010463da26f2cdf`; a separate static-publication commit is acceptable
-  only if the strict report records `git_currentness_status=static_publication_descendant` and no
-  non-publication delta paths.
 - Human approval: no maintainer has approved publication, signing, tagging, package-channel upload,
   feedstock submission, release-asset upload, or public attestation.
 
-The current compute-engine completion gate passes with no top-level benchmark blockers and no
-residual runtime-status blockers after timing-surface and optimization-only status classification.
-It still reports optimization-only rows for encoded-native promotion, source-read scout split/reuse,
-and Vortex reopen/verify split attribution. Those rows are optimization claim blockers, not route
-support or fallback blockers.
+Current local release evidence that is no longer a hard-gate blocker:
+
+- Architecture tracker:
+  `target/release-readiness-audit/release-architecture-tracker-release-package-15-final.json`
+  passes.
+- Benchmark publication currentness:
+  `target/release-readiness-audit/benchmark-publication-claim-gate-release-package-15-final.json`
+  passes for the static-publication descendant of source revision
+  `74a2e7d4f77eed0686971518e010463da26f2cdf`.
+- Required validation evidence:
+  `target/release-readiness-audit/release-validation-evidence-release-package-15-final.json`
+  passes.
+- Clean Conda proof passes as local dry-run evidence. It is not a conda-forge
+  feedstock/channel proof.
+- Compute-engine completion:
+  `target/release-readiness-audit/compute-engine-completion-gate-release-package-15-final.json`
+  passes with no top-level benchmark blockers and no residual runtime-status blockers after
+  timing-surface and optimization-only status classification. Optimization-only rows for
+  encoded-native promotion, source-read scout split/reuse, and Vortex reopen/verify split
+  attribution remain optimization-claim blockers, not route-support or fallback blockers.
 
 ## Channel Handoff
 

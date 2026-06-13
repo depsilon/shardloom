@@ -73,6 +73,30 @@ phase plan first.
       manifest already recorded `benchmark_git_sha=74a2e7d4f77eed0686971518e010463da26f2cdf`,
       `shardloom_git_sha=74a2e7d4f77eed0686971518e010463da26f2cdf`, 600 ShardLoom claim-grade
       rows, no ShardLoom runtime validation failures, and no fallback/external invocation.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --output target/release-readiness-audit/benchmark-publication-claim-gate-release-package-15-final.json`
+      passed after the static-publication commit with `artifact_status=complete`, no blockers,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/release-readiness-audit/benchmark-completeness-release-package-15-final.json`
+      passed with `artifact_status=complete`, no missing lanes, and no blockers.
+    - `python3 scripts/check_benchmark_publish_doctor.py --output target/release-readiness-audit/benchmark-publish-doctor-release-package-15-final.json --packet-json target/release-readiness-audit/benchmark-route-packet-release-package-15-final.json --packet-md target/release-readiness-audit/benchmark-route-packet-release-package-15-final.md`
+      passed with 1320 published rows, 600 ShardLoom claim-grade rows,
+      digest-identical mirrors, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `python3 scripts/check_compute_engine_completion_gate.py --output target/release-readiness-audit/compute-engine-completion-gate-release-package-15-final.json`
+      passed with no blockers.
+    - `python3 scripts/check_release_architecture_tracker.py --allow-blocked --output target/release-readiness-audit/release-architecture-tracker-release-package-15-final.json`
+      passed with no blockers.
+    - `python3 scripts/check_website_readiness.py --output target/release-readiness-audit/website-readiness-release-package-15-final.json`
+      passed with no blockers.
+    - `python3 scripts/run_release_validation_evidence.py --continue-on-failure --require-clean-conda --conda-executable /opt/homebrew/bin/micromamba --pip-audit-python target/release-readiness-audit/pip-audit-venv/bin/python --output target/release-readiness-audit/release-validation-evidence-release-package-15-final.json`
+      passed with `required_validation_status=passed`, `feature_build_matrix_status=passed`,
+      `supporting_security_dependency_status=passed`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked --output target/release-readiness-audit/hard-release-readiness-gate-release-package-15-final.json ...`
+      remained correctly blocked only for package-channel publication readiness,
+      publication/API/schema stability, and per-claim evidence promotion. It no longer carried
+      benchmark-currentness, architecture-tracker, website, compute-engine, or required-validation
+      blockers.
   - Claim boundary:
     - This completes the local clean-source benchmark-publication evidence refresh for the scoped
       full-local benchmark artifact. It does not publish packages, create tags, approve API/schema
