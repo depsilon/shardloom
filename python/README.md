@@ -1690,6 +1690,15 @@ ids, CLI commands, materialization boundaries, and no-fallback evidence posture;
 Vortex, table/catalog Vortex, generalized Source/Sink, and broad Vortex SQL/DataFrame support remain
 outside that scope.
 
+The v1 SourceState/prepared-state scope is owned by
+`docs/architecture/v1-source-prepared-state-scope.md`. Use
+`ctx.source_prepared_state_scope_report()` to inspect the
+`UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState` route, the direct
+transient boundary, reuse/invalidation case ids, golden fixture refs, and required benchmark
+evidence fields. This report is local and claim-gated; it is not a global hidden cache, external
+cache service, object-store/table prepared-state reuse, broad non-local preparation, or performance
+claim.
+
 Package, DataFrame, and notebook readiness are also exposed as a separate typed
 matrix so local install smoke is not confused with public package publication or
 broad runtime support:

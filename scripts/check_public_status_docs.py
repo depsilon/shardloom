@@ -31,6 +31,12 @@ from check_v1_vortex_runtime_scope import (
     SCHEMA_VERSION as V1_VORTEX_RUNTIME_SCOPE_SCHEMA_VERSION,
 )
 from check_v1_vortex_runtime_scope import build_report as build_v1_vortex_runtime_scope_report
+from check_v1_source_prepared_state_scope import (
+    SCHEMA_VERSION as V1_SOURCE_PREPARED_STATE_SCOPE_SCHEMA_VERSION,
+)
+from check_v1_source_prepared_state_scope import (
+    build_report as build_v1_source_prepared_state_scope_report,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -109,6 +115,15 @@ PUBLIC_DOC_MARKERS = {
         "ShardLoomContext.user_route_capability_report()",
         "feature_gated_local_vortex_runtime",
         "object_store_vortex_io",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ),
+    "docs/architecture/v1-source-prepared-state-scope.md": (
+        "shardloom.v1_source_prepared_state_scope.v1",
+        "ShardLoomContext.source_prepared_state_scope_report()",
+        "UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
+        "workspace_manifest_local_vortex_artifacts",
+        "global_hidden_cache",
         "fallback_attempted=false",
         "external_engine_invoked=false",
     ),
@@ -207,6 +222,17 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             f"v1 Vortex runtime scope: {blocker}"
             for blocker in v1_vortex_runtime_scope_report.get("blockers", [])
         )
+    v1_source_prepared_state_scope_report = build_v1_source_prepared_state_scope_report(repo_root)
+    if (
+        v1_source_prepared_state_scope_report.get("schema_version")
+        != V1_SOURCE_PREPARED_STATE_SCOPE_SCHEMA_VERSION
+    ):
+        blockers.append("v1 SourceState/prepared-state scope report schema mismatch")
+    if v1_source_prepared_state_scope_report.get("status") != "passed":
+        blockers.extend(
+            f"v1 SourceState/prepared-state scope: {blocker}"
+            for blocker in v1_source_prepared_state_scope_report.get("blockers", [])
+        )
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -227,6 +253,10 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "v1_vortex_runtime_scope_status": v1_vortex_runtime_scope_report.get(
             "status",
             "missing",
+        ),
+        "v1_source_prepared_state_scope_report": v1_source_prepared_state_scope_report,
+        "v1_source_prepared_state_scope_status": (
+            v1_source_prepared_state_scope_report.get("status", "missing")
         ),
         "claim_gate_status": "not_claim_grade",
         "blockers": blockers,

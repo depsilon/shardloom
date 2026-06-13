@@ -137,6 +137,10 @@ The v1 Vortex runtime scope is separately defined in
 [`docs/architecture/v1-vortex-runtime-scope.md`](docs/architecture/v1-vortex-runtime-scope.md):
 it admits feature-gated local Vortex primitives, prepared Vortex state, prepared compatibility
 artifacts, and generated local Vortex artifacts without claiming broad Vortex support.
+The v1 SourceState and prepared-state reuse boundary is defined in
+[`docs/architecture/v1-source-prepared-state-scope.md`](docs/architecture/v1-source-prepared-state-scope.md):
+it owns the scoped `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState`
+normalization path, direct transient boundary, reuse invalidation matrix, and no-fallback evidence.
 
 To run these local scenario snippets from a source checkout and inspect timing components:
 

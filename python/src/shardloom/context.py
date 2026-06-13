@@ -167,6 +167,71 @@ V1_VORTEX_FEATURE_PROFILE_DECISION = (
     "build, while v1 admits feature-gated local primitive, prepared-state, compatibility-import, "
     "and generated-artifact Vortex routes with explicit package/install docs and CI feature checks."
 )
+V1_SOURCE_PREPARED_STATE_SCOPE_DOCUMENT = (
+    "docs/architecture/v1-source-prepared-state-scope.md"
+)
+V1_SOURCE_PREPARED_CANONICAL_ROUTE = (
+    "UniversalIngress -> SourceState -> vortex_ingest -> "
+    "VortexPreparedState -> prepared_vortex"
+)
+V1_SOURCE_PREPARED_DIRECT_TRANSIENT_ROUTE = (
+    "UniversalIngress -> SourceState -> direct_compatibility_transient"
+)
+V1_SOURCE_PREPARED_SUPPORTED_INPUT_FORMATS = (
+    "csv",
+    "jsonl",
+    "parquet",
+    "arrow-ipc",
+    "avro",
+    "orc",
+)
+V1_SOURCE_PREPARED_ROUTE_IDS = (
+    "local_file_cold_certified_route",
+    "local_file_prepare_once_first_query",
+    "local_file_prepare_once_batch",
+    "prepared_vortex_warm_query",
+)
+V1_SOURCE_PREPARED_DIRECT_TRANSIENT_ROUTE_IDS = ("local_file_direct_transient_route",)
+V1_SOURCE_PREPARED_GENERATED_ROUTE_IDS = ("generated_rows_local_output",)
+V1_SOURCE_PREPARED_INVALIDATION_CASE_IDS = (
+    "cold_prepare_no_manifest",
+    "warm_reuse_manifest_match",
+    "source_changed",
+    "artifact_changed",
+    "schema_changed",
+    "policy_changed",
+    "version_changed",
+    "missing_artifact",
+    "corrupted_manifest",
+)
+V1_SOURCE_PREPARED_GOLDEN_FIXTURE_PATHS = (
+    "docs/architecture/fixtures/v1-source-prepared-state/source-state-golden.json",
+    "docs/architecture/fixtures/v1-source-prepared-state/vortex-prepared-state-golden.json",
+    "docs/architecture/fixtures/v1-source-prepared-state/reuse-invalidation-matrix.json",
+)
+V1_SOURCE_PREPARED_REQUIRED_RUNTIME_FIELDS = (
+    "source_state_id",
+    "source_state_digest",
+    "source_state_fingerprint",
+    "source_schema_fingerprint",
+    "source_parse_plan_id",
+    "source_split_manifest_id",
+    "prepared_state_id",
+    "prepared_state_digest",
+    "prepared_state_reuse_hit",
+    "prepared_state_reuse_reason",
+    "prepared_state_reuse_manifest_digest",
+    "prepared_state_invalidation_reason",
+    "fallback_attempted",
+    "external_engine_invoked",
+)
+V1_SOURCE_PREPARED_UNSUPPORTED_BOUNDARY_IDS = (
+    "global_hidden_cache",
+    "external_cache_service",
+    "object_store_prepared_state_reuse",
+    "table_catalog_prepared_state_reuse",
+    "broad_non_local_preparation",
+)
 _OBJECT_STORE_GENERATED_OUTPUT_DEFAULT_ROWS: tuple[Mapping[str, object], ...] = (
     {"value": 1},
 )
@@ -1803,6 +1868,231 @@ class LocalFileBenchmarkRouteReport:
         raise KeyError(
             f"local file benchmark scenario {scenario_id!r} is not in the route report"
         )
+
+
+@dataclass(frozen=True, slots=True)
+class SourcePreparedStateScopeReport:
+    """V1 source-normalization and prepared-state reuse scope report."""
+
+    user_routes: UserRouteCapabilityReport
+    local_file_routes: LocalFileBenchmarkRouteReport
+
+    @property
+    def schema_version(self) -> str:
+        """Return the report schema version."""
+
+        return "shardloom.v1_source_prepared_state_scope.v1"
+
+    @property
+    def report_id(self) -> str:
+        """Return the stable report id."""
+
+        return "prod-v1-1c.source_prepared_state_scope"
+
+    @property
+    def scope_document(self) -> str:
+        """Return the canonical v1 source/prepared-state scope document path."""
+
+        return V1_SOURCE_PREPARED_STATE_SCOPE_DOCUMENT
+
+    @property
+    def canonical_route(self) -> str:
+        """Return the canonical non-Vortex prepared route."""
+
+        return V1_SOURCE_PREPARED_CANONICAL_ROUTE
+
+    @property
+    def direct_transient_route(self) -> str:
+        """Return the direct transient compatibility route boundary."""
+
+        return V1_SOURCE_PREPARED_DIRECT_TRANSIENT_ROUTE
+
+    @property
+    def supported_input_formats(self) -> tuple[str, ...]:
+        """Return v1 local compatibility formats in the scoped prepared route."""
+
+        return V1_SOURCE_PREPARED_SUPPORTED_INPUT_FORMATS
+
+    @property
+    def prepared_route_ids(self) -> tuple[str, ...]:
+        """Return v1 route ids that require or consume VortexPreparedState."""
+
+        return V1_SOURCE_PREPARED_ROUTE_IDS
+
+    @property
+    def direct_transient_route_ids(self) -> tuple[str, ...]:
+        """Return route ids that remain direct transient and non-persistent."""
+
+        return V1_SOURCE_PREPARED_DIRECT_TRANSIENT_ROUTE_IDS
+
+    @property
+    def generated_route_ids(self) -> tuple[str, ...]:
+        """Return generated/source-free routes with artifact-adjacent reuse."""
+
+        return V1_SOURCE_PREPARED_GENERATED_ROUTE_IDS
+
+    @property
+    def invalidation_case_ids(self) -> tuple[str, ...]:
+        """Return invalidation cases required by the v1 reuse contract."""
+
+        return V1_SOURCE_PREPARED_INVALIDATION_CASE_IDS
+
+    @property
+    def golden_fixture_paths(self) -> tuple[str, ...]:
+        """Return machine-readable fixture paths owned by this scope."""
+
+        return V1_SOURCE_PREPARED_GOLDEN_FIXTURE_PATHS
+
+    @property
+    def required_runtime_fields(self) -> tuple[str, ...]:
+        """Return runtime evidence fields required on prepared benchmark rows."""
+
+        return V1_SOURCE_PREPARED_REQUIRED_RUNTIME_FIELDS
+
+    @property
+    def unsupported_boundary_ids(self) -> tuple[str, ...]:
+        """Return prepared-state reuse boundaries outside the v1 scope."""
+
+        return V1_SOURCE_PREPARED_UNSUPPORTED_BOUNDARY_IDS
+
+    @property
+    def prepared_user_route_rows(self) -> tuple[UserRouteCapabilityRow, ...]:
+        """Return user route rows that require or consume prepared state."""
+
+        return tuple(self.user_routes.route(route_id) for route_id in self.prepared_route_ids)
+
+    @property
+    def direct_transient_user_route_rows(self) -> tuple[UserRouteCapabilityRow, ...]:
+        """Return user route rows that stay direct transient."""
+
+        return tuple(
+            self.user_routes.route(route_id) for route_id in self.direct_transient_route_ids
+        )
+
+    @property
+    def generated_user_route_rows(self) -> tuple[UserRouteCapabilityRow, ...]:
+        """Return generated route rows that can emit artifact-adjacent reuse."""
+
+        return tuple(self.user_routes.route(route_id) for route_id in self.generated_route_ids)
+
+    @property
+    def prepared_local_file_rows(self) -> tuple[LocalFileBenchmarkRouteRow, ...]:
+        """Return local benchmark rows that route through prepared state."""
+
+        prepared = set(self.prepared_route_ids)
+        return tuple(row for row in self.local_file_routes.rows if row.route_id in prepared)
+
+    @property
+    def direct_transient_local_file_rows(self) -> tuple[LocalFileBenchmarkRouteRow, ...]:
+        """Return local benchmark rows that stay direct transient."""
+
+        direct = set(self.direct_transient_route_ids)
+        return tuple(row for row in self.local_file_routes.rows if row.route_id in direct)
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every covered route preserves no fallback and no external engine use."""
+
+        rows: tuple[UserRouteCapabilityRow | LocalFileBenchmarkRouteRow, ...] = (
+            *self.prepared_user_route_rows,
+            *self.direct_transient_user_route_rows,
+            *self.generated_user_route_rows,
+            *self.prepared_local_file_rows,
+            *self.direct_transient_local_file_rows,
+        )
+        return all(row.no_fallback_no_external_engine for row in rows)
+
+    @property
+    def all_prepared_routes_expose_reuse_contract(self) -> bool:
+        """Whether prepared routes expose workspace or explicit prepared-state reuse."""
+
+        allowed_scopes = {
+            "workspace_manifest_local_vortex_artifacts",
+            "explicit_prepared_state_input",
+        }
+        return all(
+            row.prepared_state_reuse_scope in allowed_scopes
+            and str(row.prepared_state_reuse_manifest_path).strip()
+            and str(row.prepared_state_reuse_policy).strip()
+            and str(row.prepared_state_invalidation_reason).strip()
+            for row in self.prepared_user_route_rows
+        )
+
+    @property
+    def all_generated_routes_expose_artifact_adjacent_reuse(self) -> bool:
+        """Whether generated routes expose artifact-adjacent prepared-state reuse."""
+
+        return all(
+            row.prepared_state_reuse_scope
+            == "artifact_adjacent_manifest_local_vortex_artifacts"
+            and "prepared-state-reuse" in row.prepared_state_reuse_manifest_path
+            and "artifact_adjacent_local_prepared_state_reuse.v1"
+            == row.prepared_state_reuse_policy
+            for row in self.generated_user_route_rows
+        )
+
+    @property
+    def all_direct_transient_routes_are_labeled_non_persistent(self) -> bool:
+        """Whether direct transient routes avoid implying prepared-state reuse."""
+
+        return all(
+            row.prepared_state_reuse_scope == "not_applicable_no_prepared_state"
+            and "direct_compatibility_transient" in row.preparation_route
+            and "no persistent VortexPreparedState" in row.vortex_normalization_point
+            for row in self.direct_transient_user_route_rows
+        )
+
+    @property
+    def all_local_file_prepared_rows_expose_source_and_reuse_evidence(self) -> bool:
+        """Whether prepared benchmark rows expose source, parse, split, and reuse fields."""
+
+        return all(
+            row.source_state_fingerprint
+            and row.source_schema_fingerprint
+            and row.source_parse_plan_id
+            and row.source_split_manifest_id
+            and row.prepared_state_fingerprint
+            and row.prepared_state_reuse_scope
+            and row.prepared_state_reuse_policy
+            and row.prepared_state_invalidation_reason
+            for row in self.prepared_local_file_rows
+        )
+
+    @property
+    def v1_scope_ready(self) -> bool:
+        """Whether current rows satisfy the v1 SourceState/prepared-state scope."""
+
+        return (
+            self.all_no_fallback_no_external_engine
+            and self.all_prepared_routes_expose_reuse_contract
+            and self.all_generated_routes_expose_artifact_adjacent_reuse
+            and self.all_direct_transient_routes_are_labeled_non_persistent
+            and self.all_local_file_prepared_rows_expose_source_and_reuse_evidence
+        )
+
+    @property
+    def claim_gate_status(self) -> str:
+        """Return the claim gate status for this scope."""
+
+        return "not_claim_grade"
+
+    @property
+    def performance_claim_allowed(self) -> bool:
+        """Whether this scope report authorizes a performance claim."""
+
+        return False
+
+    @property
+    def production_claim_allowed(self) -> bool:
+        """Whether this scope report authorizes production readiness."""
+
+        return False
+
+    @property
+    def spark_replacement_claim_allowed(self) -> bool:
+        """Whether this scope report authorizes Spark replacement claims."""
+
+        return False
 
 
 def _df_method(
@@ -4436,6 +4726,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "user_route_capability_report",
             "local_vortex_primitive_route_report",
             "local_file_benchmark_route_report",
+            "source_prepared_state_scope_report",
             "dataframe_notebook_package_readiness",
             "etl_workflow_matrix",
             "compatibility_scoreboard",
@@ -4489,6 +4780,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "runs_today_support_matrix",
             "front_door_parity_matrix",
             "user_route_capability_report",
+            "source_prepared_state_scope_report",
         ),
         claim_boundary="Discovery and route reports classify support; they do not authorize execution or claims.",
     ),
@@ -9942,6 +10234,15 @@ class ContextCapabilities:
         return LocalFileBenchmarkRouteReport(rows=LOCAL_FILE_BENCHMARK_ROUTE_ROWS)
 
     @property
+    def source_prepared_state_scope_report(self) -> SourcePreparedStateScopeReport:
+        """Return v1 SourceState and prepared-state reuse scope posture."""
+
+        return SourcePreparedStateScopeReport(
+            user_routes=self.user_route_capability_report,
+            local_file_routes=self.local_file_benchmark_route_report,
+        )
+
+    @property
     def dataframe_notebook_package_readiness(
         self,
     ) -> DataFrameNotebookPackageReadinessReport:
@@ -10310,6 +10611,19 @@ class ShardLoomContext:
 
         _ = check
         return LocalFileBenchmarkRouteReport(rows=LOCAL_FILE_BENCHMARK_ROUTE_ROWS)
+
+    def source_prepared_state_scope_report(
+        self,
+        *,
+        check: bool | None = None,
+    ) -> SourcePreparedStateScopeReport:
+        """Return v1 SourceState and prepared-state reuse scope posture."""
+
+        _ = check
+        return SourcePreparedStateScopeReport(
+            user_routes=self.user_route_capability_report(),
+            local_file_routes=self.local_file_benchmark_route_report(),
+        )
 
     def dataframe_notebook_package_readiness(
         self,

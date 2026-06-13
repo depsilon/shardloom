@@ -132,6 +132,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/v1-vortex-runtime-scope-report.json"),
     )
     parser.add_argument(
+        "--v1-source-prepared-state-scope-report",
+        type=Path,
+        default=Path("target/v1-source-prepared-state-scope-report.json"),
+    )
+    parser.add_argument(
         "--user-surface-runtime-gap-inventory-report",
         type=Path,
         default=Path("target/user-surface-runtime-gap-inventory.json"),
@@ -427,6 +432,10 @@ def main() -> int:
     v1_vortex_runtime_scope_report_path = resolve(
         repo_root,
         args.v1_vortex_runtime_scope_report,
+    )
+    v1_source_prepared_state_scope_report_path = resolve(
+        repo_root,
+        args.v1_source_prepared_state_scope_report,
     )
     user_surface_runtime_gap_inventory_path = resolve(
         repo_root,
@@ -1491,6 +1500,114 @@ def main() -> int:
         )
     )
 
+    v1_source_prepared_state_scope = load_json(v1_source_prepared_state_scope_report_path)
+    v1_source_prepared_blockers: list[str] = []
+    if v1_source_prepared_state_scope is None:
+        v1_source_prepared_blockers.append("missing v1 SourceState/prepared-state scope report")
+    else:
+        if (
+            v1_source_prepared_state_scope.get("schema_version")
+            != "shardloom.v1_source_prepared_state_scope_report.v1"
+        ):
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state scope schema_version="
+                + str(v1_source_prepared_state_scope.get("schema_version", "missing"))
+            )
+        if v1_source_prepared_state_scope.get("status") != "passed":
+            v1_source_prepared_blockers.extend(
+                v1_source_prepared_state_scope.get(
+                    "blockers",
+                    ["v1 SourceState/prepared-state scope gate blocked"],
+                )
+            )
+        if v1_source_prepared_state_scope.get("v1_scope_ready") is not True:
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state v1_scope_ready must be true"
+            )
+        if (
+            v1_source_prepared_state_scope.get("all_no_fallback_no_external_engine")
+            is not True
+        ):
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state all_no_fallback_no_external_engine must be true"
+            )
+        if (
+            v1_source_prepared_state_scope.get(
+                "all_prepared_routes_expose_reuse_contract"
+            )
+            is not True
+        ):
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state prepared routes must expose reuse contracts"
+            )
+        if (
+            v1_source_prepared_state_scope.get(
+                "all_direct_transient_routes_are_labeled_non_persistent"
+            )
+            is not True
+        ):
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state direct transient routes must be non-persistent"
+            )
+        if len(v1_source_prepared_state_scope.get("supported_input_formats", [])) != 6:
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state format coverage must contain 6 formats"
+            )
+        if len(v1_source_prepared_state_scope.get("invalidation_case_ids", [])) != 9:
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state invalidation coverage must contain 9 cases"
+            )
+        if len(v1_source_prepared_state_scope.get("golden_fixture_paths", [])) != 3:
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state fixture coverage must contain 3 fixtures"
+            )
+        if (
+            v1_source_prepared_state_scope.get(
+                "source_prepared_benchmark_required_fields_ready"
+            )
+            is not True
+        ):
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state benchmark rows must expose required fields"
+            )
+        if (
+            v1_source_prepared_state_scope.get(
+                "source_prepared_benchmark_rows_with_required_fields",
+                0,
+            )
+            <= 0
+        ):
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state benchmark row evidence must be non-empty"
+            )
+        if "global_hidden_cache" not in set(
+            v1_source_prepared_state_scope.get("unsupported_boundary_ids", [])
+        ):
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state unsupported boundaries must include global_hidden_cache"
+            )
+        for field in [
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+        ]:
+            if v1_source_prepared_state_scope.get(field) is not False:
+                v1_source_prepared_blockers.append(
+                    f"v1 SourceState/prepared-state {field} must be false"
+                )
+        if v1_source_prepared_state_scope.get("claim_gate_status") != "not_claim_grade":
+            v1_source_prepared_blockers.append(
+                "v1 SourceState/prepared-state claim_gate_status="
+                + str(v1_source_prepared_state_scope.get("claim_gate_status", "missing"))
+            )
+    checks.append(
+        check(
+            "v1_source_prepared_state_scope_gate",
+            str(args.v1_source_prepared_state_scope_report).replace("\\", "/"),
+            v1_source_prepared_blockers,
+        )
+    )
+
     user_surface_runtime_gap_inventory = load_json(user_surface_runtime_gap_inventory_path)
     user_surface_runtime_gap_blockers: list[str] = []
     if user_surface_runtime_gap_inventory is None:
@@ -1865,6 +1982,7 @@ def main() -> int:
         "python scripts/check_sql_python_dataframe_parity.py",
         "python scripts/check_v1_front_door_runtime_scope.py",
         "python scripts/check_v1_vortex_runtime_scope.py",
+        "python scripts/check_v1_source_prepared_state_scope.py",
         "python scripts/check_user_surface_runtime_gap_inventory.py",
         "python scripts/check_user_surface_graduation_matrix.py",
         "python scripts/check_runtime_gap_family_burn_down.py",
@@ -1925,6 +2043,9 @@ def main() -> int:
         ).replace("\\", "/"),
         "v1_vortex_runtime_scope_report_ref": str(
             args.v1_vortex_runtime_scope_report
+        ).replace("\\", "/"),
+        "v1_source_prepared_state_scope_report_ref": str(
+            args.v1_source_prepared_state_scope_report
         ).replace("\\", "/"),
         "user_surface_runtime_gap_inventory_ref": str(
             args.user_surface_runtime_gap_inventory_report
