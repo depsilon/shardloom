@@ -62,6 +62,28 @@ FALSE_REPORT_FIELDS = (
     "external_engine_invoked",
 )
 
+EXPECTED_REMAINING_MATRIX_GAPS = (
+    "broad ANSI subquery parity beyond the admitted bounded local scalar/row-value IN/NOT IN, "
+    "EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN, projected joined/grouped "
+    "scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified, source-qualified "
+    "scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references, "
+    "correlated outer.<column> subquery filter, subquery-backed predicate/CASE projection, "
+    "HAVING-level scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and correlated quantified "
+    "variants, and deterministic outer-reference diagnostics",
+    "external-oracle result artifact population",
+    "general fuzz execution beyond the deterministic seeded property lane",
+)
+DIAGNOSTIC_SUPPORT_STATES = {
+    "unsupported_diagnostic",
+    "runtime_error_diagnostic",
+    "invalid_shape_diagnostic",
+}
+DIAGNOSTIC_ORACLE_BY_SUPPORT_STATE = {
+    "unsupported_diagnostic": "deterministic_unsupported_diagnostic",
+    "runtime_error_diagnostic": "deterministic_runtime_error_diagnostic",
+    "invalid_shape_diagnostic": "deterministic_invalid_shape_diagnostic",
+}
+
 
 @dataclass(frozen=True)
 class SqlFixtureCase:
@@ -4976,6 +4998,16 @@ def validate_matrix_manifest(
             "row_count": 0,
             "row_ids": [],
             "remaining_matrix_gaps": sorted(expected_case_ids),
+            "remaining_matrix_gap_status": "failed",
+            "v1_runtime_scope_status": "failed",
+            "v1_expected_validator_case_count": len(expected_case_ids),
+            "v1_required_runtime_row_count": 0,
+            "v1_missing_validator_case_count": len(expected_case_ids),
+            "v1_unexpected_required_runtime_row_count": 0,
+            "v1_support_report_row_count": 0,
+            "deterministic_unsupported_scope_status": "failed",
+            "deterministic_unsupported_row_count": 0,
+            "deterministic_unsupported_oracle_row_count": 0,
         }
     if payload.get("schema_version") != MATRIX_SCHEMA_VERSION:
         blockers.append(
@@ -5027,19 +5059,78 @@ def validate_matrix_manifest(
     missing = sorted(expected_case_ids - set(by_id))
     if missing:
         blockers.append("matrix missing executable validator rows: " + ",".join(missing))
-    stale = sorted(
+    required_runtime_row_ids = {
         row_id
         for row_id, row in by_id.items()
-        if row.get("runtime_validation") == "required" and row_id not in expected_case_ids
-    )
+        if row.get("runtime_validation") == "required"
+    }
+    stale = sorted(required_runtime_row_ids - expected_case_ids)
     if stale:
         blockers.append("matrix required runtime rows without validator cases: " + ",".join(stale))
+    support_report_row_ids = sorted(
+        row_id
+        for row_id, row in by_id.items()
+        if row.get("runtime_validation") != "required"
+    )
+    diagnostic_row_ids = sorted(
+        row_id
+        for row_id, row in by_id.items()
+        if row.get("support_state") in DIAGNOSTIC_SUPPORT_STATES
+    )
+    deterministic_diagnostic_row_ids: list[str] = []
+    for row_id in diagnostic_row_ids:
+        row = by_id[row_id]
+        support_state = str(row.get("support_state"))
+        expected_oracle = DIAGNOSTIC_ORACLE_BY_SUPPORT_STATE[support_state]
+        if row.get("oracle_boundary") != expected_oracle:
+            blockers.append(
+                f"{row_id}: diagnostic oracle_boundary={row.get('oracle_boundary')}, "
+                f"expected {expected_oracle}"
+            )
+            continue
+        if row.get("runtime_validation") != "required":
+            blockers.append(f"{row_id}: diagnostic runtime_validation must be required")
+            continue
+        if row.get("unsupported_diagnostic_code") == "not_applicable_executable":
+            blockers.append(f"{row_id}: deterministic diagnostic code is required")
+            continue
+        if not str(row.get("unsupported_diagnostic_message", "")).strip():
+            blockers.append(f"{row_id}: deterministic diagnostic message is required")
+            continue
+        deterministic_diagnostic_row_ids.append(row_id)
+    remaining_matrix_gaps = payload.get("remaining_matrix_gaps", [])
+    if not isinstance(remaining_matrix_gaps, list):
+        blockers.append("matrix remaining_matrix_gaps must be a list")
+        remaining_matrix_gaps = []
+    else:
+        remaining_matrix_gaps = [str(value) for value in remaining_matrix_gaps]
+    remaining_gap_status = "passed"
+    if tuple(remaining_matrix_gaps) != EXPECTED_REMAINING_MATRIX_GAPS:
+        remaining_gap_status = "failed"
+        blockers.append(
+            "matrix remaining_matrix_gaps changed: observed="
+            + repr(remaining_matrix_gaps)
+        )
     summary = {
         "status": "passed" if not blockers else "failed",
         "blockers": blockers,
         "row_count": len(by_id),
         "row_ids": sorted(by_id),
-        "remaining_matrix_gaps": payload.get("remaining_matrix_gaps", []),
+        "remaining_matrix_gaps": remaining_matrix_gaps,
+        "remaining_matrix_gap_status": remaining_gap_status,
+        "v1_runtime_scope_status": "passed" if not missing and not stale else "failed",
+        "v1_expected_validator_case_count": len(expected_case_ids),
+        "v1_required_runtime_row_count": len(required_runtime_row_ids),
+        "v1_missing_validator_case_count": len(missing),
+        "v1_unexpected_required_runtime_row_count": len(stale),
+        "v1_support_report_row_count": len(support_report_row_ids),
+        "deterministic_unsupported_scope_status": (
+            "passed"
+            if len(diagnostic_row_ids) == len(deterministic_diagnostic_row_ids)
+            else "failed"
+        ),
+        "deterministic_unsupported_row_count": len(diagnostic_row_ids),
+        "deterministic_unsupported_oracle_row_count": len(deterministic_diagnostic_row_ids),
         "fallback_attempted": False,
         "external_engine_invoked": False,
     }
@@ -5500,6 +5591,24 @@ def main() -> int:
         "matrix_status": matrix_summary["status"],
         "matrix_row_count": matrix_summary["row_count"],
         "matrix_row_ids": matrix_summary["row_ids"],
+        "remaining_matrix_gap_status": matrix_summary["remaining_matrix_gap_status"],
+        "v1_runtime_scope_status": matrix_summary["v1_runtime_scope_status"],
+        "v1_expected_validator_case_count": matrix_summary["v1_expected_validator_case_count"],
+        "v1_required_runtime_row_count": matrix_summary["v1_required_runtime_row_count"],
+        "v1_missing_validator_case_count": matrix_summary["v1_missing_validator_case_count"],
+        "v1_unexpected_required_runtime_row_count": matrix_summary[
+            "v1_unexpected_required_runtime_row_count"
+        ],
+        "v1_support_report_row_count": matrix_summary["v1_support_report_row_count"],
+        "deterministic_unsupported_scope_status": matrix_summary[
+            "deterministic_unsupported_scope_status"
+        ],
+        "deterministic_unsupported_row_count": matrix_summary[
+            "deterministic_unsupported_row_count"
+        ],
+        "deterministic_unsupported_oracle_row_count": matrix_summary[
+            "deterministic_unsupported_oracle_row_count"
+        ],
         "covered_operator_families": operator_families,
         "covered_operator_family_count": len(operator_families),
         "executable_fixture_count": len(cases),
