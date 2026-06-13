@@ -164,17 +164,17 @@ Current autonomous execution order:
 
 - [ ] `PERF-RUNTIME-7A` Cold compatibility-to-certified route hot-runtime burn-down.
   - Source: current promoted `full_local` benchmark artifact generated
-    `2026-06-13T11:15:09Z` from source revision
-    `29e1e52dbae922cef0d3c9fffdbbad77ec414650`; route-share Amdahl table and row-level
+    `2026-06-13T11:33:10Z` from source revision
+    `5743638a9225f479a0096f1c6db51a0068cac68f`; route-share Amdahl table and row-level
     inspection of `website/assets/benchmarks/latest/benchmark-results.json`.
   - Current state: `cold_certified_route` is the only broad multi-ms ShardLoom hot runtime lane:
-    hot-route geomean `39.98 ms`, p95 `92.25 ms`, max `239.61 ms`. Included hot stages are
+    hot-route geomean `47.29 ms`, p95 `111.73 ms`, max `250.36 ms`. Included hot stages are
     source admission, source read, parse/decode, Vortex write, and reopen/verify. Current
-    stage geomeans are roughly parse/decode `17.06 ms`, Vortex write `14.06 ms`, source read
-    `8.23 ms` on rows with source-read timing, and reopen/verify `1.47 ms`; JSONL remains the
-    slowest format, but the artifact also reports common-run slowdown across all external control
-    lanes, so treat this as current evidence and optimization direction, not a standalone
-    ShardLoom regression claim.
+    stage geomeans are roughly parse/decode `20.13 ms`, Vortex write `16.63 ms`, source read
+    `9.58 ms` on rows with source-read timing, and reopen/verify `1.73 ms`; JSONL remains the
+    slowest format. The artifact reports mixed external-control movement, so treat this as current
+    evidence and optimization direction, not a standalone ShardLoom regression or performance
+    improvement claim.
   - ShardLoom technique review: applicable. Cold-route work should consider dynamic admission for
     source-shape-specific typed builders, capillary windows for bounded source/read/write units,
     PulseWeave-style run-local coalescing for writer/open/reopen work, metadata-first source
@@ -232,10 +232,10 @@ Current autonomous execution order:
 - [ ] `PERF-RUNTIME-7B` Heavy residual operator tail promotion for multi-key group-by and
   join-aggregate.
   - Source: current promoted `full_local` benchmark artifact row-level timing generated
-    `2026-06-13T11:15:09Z`. Heavy hot tails now show cold `multi_key_group_by` geomean
-    `54.94 ms` with diagnostic operator compute around `10.66 ms`, cold `join_aggregate`
-    geomean `50.77 ms`, and prepared/native `join_aggregate` route geomeans around
-    `4.73-6.45 ms` with operator compute around `3.22-3.65 ms`. Other prepared/native heavy
+    `2026-06-13T11:33:10Z`. Heavy hot tails now show cold `multi_key_group_by` geomean
+    `66.76 ms` with diagnostic operator compute around `13.03 ms`, cold `join_aggregate`
+    geomean `61.34 ms`, and prepared/native `join_aggregate` route geomeans around
+    `4.93-7.68 ms` with operator compute around `3.34-4.43 ms`. Other prepared/native heavy
     grouping rows are near zero and look marginal unless future artifacts disagree.
   - Current state: operator mode inventory still reports residual-native operator promotion
     blockers: `residual_native_operator_encoding_promotion`,
@@ -292,8 +292,8 @@ Current autonomous execution order:
     the completed ledger.
 - [ ] `PERF-RUNTIME-7C` Prepared lookup/create and route-total attribution cleanup.
   - Source: current route-share Amdahl and stage-inclusion tables. `prepare_once_first_query`
-    hot-route geomean is `1.25 ms`, dominated by `prepared_state_lookup_or_create` around
-    `0.87 ms` (`69.5%` route share). `prepare_once_batch`, warm, and native lanes have very low
+    hot-route geomean is `1.45 ms`, dominated by `prepared_state_lookup_or_create` around
+    `1.00 ms` (`68.8%` route share). `prepare_once_batch`, warm, and native lanes have very low
     geomeans but still carry diagnostic stage fields larger than selected route totals.
   - Current state: prepared lookup/create is a moderate absolute cost and a large relative cost for
     first-query prepared routes. Route-share rows are optimization-ready, but some diagnostic
@@ -342,9 +342,9 @@ Current autonomous execution order:
     the completed ledger.
 - [ ] `PERF-RUNTIME-7D` Publication-proof sink/evidence overhead burn-down without redefining hot
   runtime.
-  - Source: current promoted `full_local` artifact generated `2026-06-13T11:15:09Z`.
-    Publication-proof routes add roughly `3.35-4.14 ms` evidence render and about
-    `0.44-0.54 ms` result-sink work to warm/native/prepared lanes; this is significant for
+  - Source: current promoted `full_local` artifact generated `2026-06-13T11:33:10Z`.
+    Publication-proof routes add roughly `3.50-5.13 ms` evidence render and about
+    `0.47-0.60 ms` result-sink work to warm/native/prepared lanes; this is significant for
     proof/publication throughput but not a core hot-runtime regression.
   - Current state: `publication_proof` rows are correctly separated from `hot_runtime`, but the
     proof path still spends more time rendering human evidence than executing warm/native queries.
@@ -819,7 +819,7 @@ Current autonomous execution order:
 | --- | --- | --- |
 | Closed | `RELEASE-PACKAGE-15` | Completed in the ledger with clean-source benchmark publication evidence for source revision `74a2e7d4f77eed0686971518e010463da26f2cdf`; no autonomous implementation item remains. |
 | Historical | PR #1174 benchmark row/readiness context, repo-wide audit closeout, release-sequence closeout, and completed benchmark/profile, sub-evidence, user-surface proof | Preserved in `docs/architecture/phased-execution-completed-ledger.md`; do not treat as active work. |
-| Current evidence | `full_local` benchmark refresh | Promoted website benchmark bundle generated `2026-06-13T11:15:09Z` from source revision `29e1e52dbae922cef0d3c9fffdbbad77ec414650`; `performance_claim_allowed=false`; use for freshness and optimization direction only. |
+| Current evidence | `full_local` benchmark refresh | Promoted website benchmark bundle generated `2026-06-13T11:33:10Z` from source revision `5743638a9225f479a0096f1c6db51a0068cac68f`; `performance_claim_allowed=false`; use for freshness and optimization direction only. |
 | Mapped, not autonomous queue | Unchecked global architecture review rows | Governed by `docs/architecture/global-architecture-review.md` and `docs/architecture/runtime-gap-family-burn-down.md`; promote concrete implementation items here before work begins. |
 | Deferred approval/artifact gate | Public release/package approval | Clean local Conda proof, dependency/security/package local-gate evidence, and current benchmark-publication evidence now pass locally; remaining blockers are package-channel approval/proof, publication/API/schema stability approval, and per-claim evidence promotion before any public claim. |
 

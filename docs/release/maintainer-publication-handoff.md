@@ -11,8 +11,8 @@ Date: 2026-06-13
 Benchmark freshness addendum, 2026-06-13:
 
 - The current website benchmark bundle was refreshed after PR #1206 from source revision
-  `29e1e52dbae922cef0d3c9fffdbbad77ec414650`, generated at
-  `2026-06-13T11:15:09.884260+00:00`, and contains `1920` promoted normalized rows.
+  `5743638a9225f479a0096f1c6db51a0068cac68f`, generated at
+  `2026-06-13T11:33:10.063090+00:00`, and contains `1920` promoted normalized rows.
 - The `RELEASE-PACKAGE-15` audit artifact paths and source revision below remain historical
   release-handoff evidence until the release gates are rerun for the selected release revision. Do
   not treat their `74a2e7d4f77eed0686971518e010463da26f2cdf` source revision or `1320` row count
