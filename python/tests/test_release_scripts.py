@@ -6087,7 +6087,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-0B` V1 inclusion-first queue classification and unsupported-surface firewall.",
+            "`PROD-V1-1A` Scoped local front-door runtime closure.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -7599,6 +7599,11 @@ jobs:
             "check_public_claim_language_public_status_fixture",
         )
         self._write_public_claim_language_fixture(claim_module, repo_root)
+        v1_module = self._load_script_module(
+            "check_v1_inclusion_scope.py",
+            "check_v1_inclusion_scope_public_status_fixture",
+        )
+        self._write_v1_inclusion_scope_fixture(v1_module, repo_root)
 
     def _write_public_claim_language_fixture(
         self,
@@ -7657,6 +7662,60 @@ jobs:
             existing = path.read_text(encoding="utf-8") if path.exists() else ""
             path.write_text(existing + text + "\n", encoding="utf-8")
 
+    def _write_v1_inclusion_scope_fixture(
+        self,
+        module: object,
+        repo_root: Path,
+        *,
+        item_id: str = "PROD-V1-1A",
+        classification: str = "required_for_v1",
+        support_gate_posture: str = "implementation_required",
+        feasibility_status: str = "required_fixture_scope",
+        unsupported_boundary: str = "not_deferred",
+        include_phase_classification: bool = True,
+        technique_review: str = (
+            "dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier"
+        ),
+    ) -> None:
+        classification_line = (
+            f"  - V1 scope classification: `{classification}`.\n"
+            if include_phase_classification
+            else ""
+        )
+        phase_plan = (
+            "## Planned\n"
+            f"- [ ] `{item_id}` Fixture row.\n"
+            f"{classification_line}"
+        )
+        matrix = (
+            "shardloom.v1_inclusion_scope_matrix.v1\n"
+            "v1_inclusion_scope_allowed_classifications=required_for_v1,"
+            "v1_candidate_pending_feasibility,deferred_out_of_v1,documentation_only,"
+            "unsupported_boundary\n"
+            "v1_inclusion_scope_required_rows_cannot_be_report_only=true\n"
+            "v1_inclusion_scope_deferred_rows_require_unsupported_diagnostics=true\n"
+            "v1_inclusion_scope_external_engine_fallback_allowed=false\n\n"
+            "| Phase item | Classification | Support gate posture | Feasibility status | "
+            "Unsupported boundary | Technique review |\n"
+            "| --- | --- | --- | --- | --- | --- |\n"
+            f"| `{item_id}` | `{classification}` | `{support_gate_posture}` | "
+            f"`{feasibility_status}` | {unsupported_boundary} | {technique_review} |\n"
+        )
+        unsupported = (
+            "docs/release/v1-inclusion-scope-matrix.md\n"
+            "v1 candidates pending feasibility are not outside v1 by default\n"
+            "deferred rows require deterministic unsupported diagnostics\n"
+        )
+        for rel_path, text in {
+            module.PHASE_PLAN.as_posix(): phase_plan,
+            module.MATRIX_DOC.as_posix(): matrix,
+            module.KNOWN_UNSUPPORTED_PATHS.as_posix(): unsupported,
+        }.items():
+            path = repo_root / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            existing = path.read_text(encoding="utf-8") if path.exists() else ""
+            path.write_text(existing + text + "\n", encoding="utf-8")
+
     def test_public_status_docs_validator_accepts_required_markers(self) -> None:
         module = self._load_script_module(
             "check_public_status_docs.py",
@@ -7679,6 +7738,7 @@ jobs:
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
         self.assertEqual(report["public_claim_language_status"], "passed")
+        self.assertEqual(report["v1_inclusion_scope_status"], "passed")
 
     def test_public_status_docs_validator_blocks_missing_marker(self) -> None:
         module = self._load_script_module(
@@ -7779,6 +7839,96 @@ jobs:
         self.assertEqual(report["status"], "failed")
         self.assertTrue(
             any("supported_output_sink_claim" in blocker for blocker in report["blockers"])
+        )
+
+    def test_v1_inclusion_scope_accepts_required_and_candidate_rows(self) -> None:
+        module = self._load_script_module(
+            "check_v1_inclusion_scope.py",
+            "check_v1_inclusion_scope_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_v1_inclusion_scope_fixture(module, repo_root)
+            self._write_v1_inclusion_scope_fixture(
+                module,
+                repo_root,
+                item_id="PROD-READY-1B",
+                classification="v1_candidate_pending_feasibility",
+                support_gate_posture="feasibility_required",
+                feasibility_status="pending_object_store_runtime_feasibility",
+                unsupported_boundary="candidate_not_deferred",
+            )
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["classification_counts"]["required_for_v1"], 1)
+        self.assertEqual(
+            report["classification_counts"]["v1_candidate_pending_feasibility"],
+            1,
+        )
+
+    def test_v1_inclusion_scope_blocks_missing_phase_classification(self) -> None:
+        module = self._load_script_module(
+            "check_v1_inclusion_scope.py",
+            "check_v1_inclusion_scope_missing_phase_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_v1_inclusion_scope_fixture(
+                module,
+                repo_root,
+                include_phase_classification=False,
+            )
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any("missing V1 scope classification" in blocker for blocker in report["blockers"])
+        )
+
+    def test_v1_inclusion_scope_blocks_required_report_only_posture(self) -> None:
+        module = self._load_script_module(
+            "check_v1_inclusion_scope.py",
+            "check_v1_inclusion_scope_required_posture_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_v1_inclusion_scope_fixture(
+                module,
+                repo_root,
+                support_gate_posture="report_only",
+            )
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any("forbidden support gate posture report_only" in blocker for blocker in report["blockers"])
+        )
+
+    def test_v1_inclusion_scope_blocks_deferred_without_diagnostics(self) -> None:
+        module = self._load_script_module(
+            "check_v1_inclusion_scope.py",
+            "check_v1_inclusion_scope_deferred_boundary_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_v1_inclusion_scope_fixture(
+                module,
+                repo_root,
+                classification="deferred_out_of_v1",
+                support_gate_posture="deferred_with_reason",
+                feasibility_status="deferred_infeasible_for_v1",
+                unsupported_boundary="deferred_without_required_markers",
+            )
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any("missing diagnostic boundary" in blocker for blocker in report["blockers"])
         )
 
     def test_release_evidence_artifact_merge_restores_repo_relative_refs(self) -> None:

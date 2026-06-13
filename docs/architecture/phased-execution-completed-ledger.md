@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-0B v1 inclusion scope and unsupported-surface firewall
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-0B` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/runtime-gap-family-burn-down.md`.
+    - `docs/architecture/global-architecture-review.md`.
+    - `docs/release/known-unsupported-paths.md`.
+    - `docs/release/v1-inclusion-scope-matrix.md`.
+  - Branch/PR: `codex/v1-inclusion-firewall` / #1210.
+  - Scope:
+    - Added `docs/release/v1-inclusion-scope-matrix.md` as the machine-readable v1
+      classification and unsupported-surface firewall.
+    - Added `scripts/check_v1_inclusion_scope.py` and wired it into
+      `scripts/check_public_status_docs.py`.
+    - Classified all active phase-plan rows with `V1 scope classification`, including the four
+      `PERF-RUNTIME-7*` rows that previously lacked explicit v1 classification.
+    - Updated `docs/release/known-unsupported-paths.md` so broad platform/runtime families are
+      v1 candidates pending feasibility, not outside v1 by default.
+    - Updated `docs/release/public-status-matrix.md` to link the inclusion matrix as the public
+      owner for v1 required/candidate/deferred semantics.
+  - V1 classification table:
+    - `required_for_v1`: 19 rows in the matrix before this item moved to the ledger.
+    - `v1_candidate_pending_feasibility`: 6 rows.
+    - `deferred_out_of_v1`: 0 rows.
+    - `documentation_only`: 0 rows.
+    - `unsupported_boundary`: 0 rows.
+    - After this move, open phase-plan rows are expected to be 24 while the matrix keeps the
+      closed `PROD-V1-0B` control row for provenance.
+  - Feasibility decisions:
+    - `PROD-READY-1B` object-store runtime remains a v1 candidate pending feasibility.
+    - `PROD-READY-1C` lakehouse/table runtime remains a v1 candidate pending feasibility.
+    - `PROD-READY-1D` distributed runtime remains a v1 candidate pending feasibility.
+    - `PROD-READY-1E` streaming/live/hybrid runtime remains a v1 candidate pending feasibility.
+    - `PROD-READY-1F` UDF/plugin/effect runtime remains a v1 candidate pending feasibility.
+    - `PROD-READY-1G` Foundry integration pack remains a v1 candidate pending feasibility.
+  - Promoted subsets:
+    - No runtime subset was promoted by classification alone. Promotion remains attached to the
+      owning `PROD-V1-*`, `PERF-RUNTIME-*`, and `PROD-READY-*` implementation rows.
+  - Unsupported boundaries:
+    - Deferred or unsupported-boundary rows are allowed only with deterministic unsupported
+      diagnostics, `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - The current matrix records no deferred rows; broad families remain candidates until the
+      owning feasibility review narrows or defers them.
+  - ShardLoom technique review:
+    - Required and candidate rows must carry the technique-review token set:
+      dynamic, capillary, PulseWeave, metadata-first, timing-surface, and evidence-tier.
+  - Evidence:
+    - `python3 scripts/check_v1_inclusion_scope.py` passed with 25 matrix rows, 25 open phase
+      items before ledger move, zero missing phase classifications, 19 `required_for_v1` rows, and
+      6 `v1_candidate_pending_feasibility` rows.
+    - `python3 scripts/check_public_claim_language.py` passed.
+    - `python3 scripts/check_public_status_docs.py` passed.
+    - `python3 scripts/check_release_readiness.py --allow-blocked` passed.
+    - `python3 scripts/check_website_readiness.py` passed.
+    - `python3 scripts/check_ci_gate_matrix.py` passed.
+    - `python3 -m py_compile scripts/check_v1_inclusion_scope.py scripts/check_public_status_docs.py python/tests/test_release_scripts.py` passed.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_v1_inclusion_scope_accepts_required_and_candidate_rows python.tests.test_release_scripts.ReleaseScriptTests.test_v1_inclusion_scope_blocks_missing_phase_classification python.tests.test_release_scripts.ReleaseScriptTests.test_v1_inclusion_scope_blocks_required_report_only_posture python.tests.test_release_scripts.ReleaseScriptTests.test_v1_inclusion_scope_blocks_deferred_without_diagnostics python.tests.test_release_scripts.ReleaseScriptTests.test_public_status_docs_validator_accepts_required_markers` passed.
+  - Claim boundary:
+    - This session authorizes only the claim that v1 scope classification exists, fails closed, and
+      keeps broad platform/runtime rows as candidates or explicit unsupported boundaries.
+  - Fallback boundary:
+    - No external engine was introduced or described as ShardLoom fallback.
 - [x] Session label: PROD-V1-0A finished-product v1 public claim boundary
   - Date: 2026-06-13
   - Source:

@@ -15,6 +15,8 @@ execution.
 Finished-product v1 scope is defined in
 [`docs/release/finished-product-scope.md`](finished-product-scope.md). Public wording should start
 from supported ShardLoom surfaces, not from broad external-engine replacement framing.
+The active v1 queue and feasibility firewall is tracked in
+[`docs/release/v1-inclusion-scope-matrix.md`](v1-inclusion-scope-matrix.md).
 
 ## Claim Boundary
 
@@ -57,6 +59,7 @@ external_engine_invoked=false
 | --- | --- | --- |
 | `README.md` | Compact public entry point and support-posture summary. | This matrix plus `docs/architecture/compute-engine-flow-reference.md`. |
 | `docs/release/finished-product-scope.md` | Canonical v1 support boundary and allowed public claim language. | Phase plan plus per-claim evidence matrix. |
+| `docs/release/v1-inclusion-scope-matrix.md` | V1 required/candidate/deferred row classification and unsupported-surface firewall. | Phase plan plus known unsupported paths. |
 | `docs/getting-started/install.md` | Source checkout and local install path. | This matrix plus package-channel readiness docs. |
 | `docs/getting-started/first-10-minutes.md` | Local proof walkthrough. | This matrix plus release dry-run proof docs. |
 | `docs/getting-started/examples.md` | Copyable scoped examples and blockers. | This matrix plus relevant capability docs. |
