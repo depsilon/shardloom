@@ -444,19 +444,23 @@ target/admitted-semantics-matrix
 
 The validator checks `docs/status/admitted-semantics-matrix.json`, executes scoped SQL
 local-source fixtures, compares ShardLoom output against decoded reference JSONL, runs the first
-deterministic seeded property lane, verifies unsupported diagnostics, checks semantic conformance
-and the non-executing correctness-harness boundary, and intentionally reports:
+deterministic seeded property lane plus deterministic v1 fuzz lanes, verifies unsupported
+diagnostics, checks semantic conformance and the non-executing correctness-harness boundary, and
+intentionally reports:
 
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=129
-executable_fixture_count=103
-diagnostic_case_count=24
-unsupported_diagnostic_count=22
+matrix_row_count=135
+executable_fixture_count=108
+diagnostic_case_count=25
+unsupported_diagnostic_count=23
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
+property_lane_count=1
 property_execution_performed=true
+deterministic_fuzz_execution_performed=true
+deterministic_fuzz_case_count=5
 decoded_reference_differential_execution_performed=true
 semantic_conformance_suite_status=passed
 correctness_harness_boundary_status=passed

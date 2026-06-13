@@ -685,17 +685,17 @@ def main() -> int:
             admitted_semantics_blockers.append(
                 "admitted semantics decoded_reference_differential_execution_performed missing"
             )
-        if admitted_semantics.get("executable_fixture_count") != 103:
+        if admitted_semantics.get("executable_fixture_count") != 108:
             admitted_semantics_blockers.append(
                 "admitted semantics executable_fixture_count="
                 + str(admitted_semantics.get("executable_fixture_count", "missing"))
             )
-        if admitted_semantics.get("diagnostic_case_count") != 24:
+        if admitted_semantics.get("diagnostic_case_count") != 25:
             admitted_semantics_blockers.append(
                 "admitted semantics diagnostic_case_count="
                 + str(admitted_semantics.get("diagnostic_case_count", "missing"))
             )
-        if admitted_semantics.get("unsupported_diagnostic_count") != 22:
+        if admitted_semantics.get("unsupported_diagnostic_count") != 23:
             admitted_semantics_blockers.append(
                 "admitted semantics unsupported_diagnostic_count="
                 + str(admitted_semantics.get("unsupported_diagnostic_count", "missing"))
@@ -709,6 +709,20 @@ def main() -> int:
             admitted_semantics_blockers.append(
                 "admitted semantics invalid_shape_diagnostic_count="
                 + str(admitted_semantics.get("invalid_shape_diagnostic_count", "missing"))
+            )
+        if admitted_semantics.get("property_lane_count") != 1:
+            admitted_semantics_blockers.append(
+                "admitted semantics property_lane_count="
+                + str(admitted_semantics.get("property_lane_count", "missing"))
+            )
+        if admitted_semantics.get("deterministic_fuzz_execution_performed") is not True:
+            admitted_semantics_blockers.append(
+                "admitted semantics deterministic_fuzz_execution_performed missing"
+            )
+        if admitted_semantics.get("deterministic_fuzz_case_count") != 5:
+            admitted_semantics_blockers.append(
+                "admitted semantics deterministic_fuzz_case_count="
+                + str(admitted_semantics.get("deterministic_fuzz_case_count", "missing"))
             )
         if admitted_semantics.get("semantic_conformance_suite_status") != "passed":
             admitted_semantics_blockers.append(
@@ -1830,6 +1844,7 @@ def main() -> int:
         for field in [
             "decoded_reference_differential_execution_performed",
             "property_execution_performed",
+            "deterministic_fuzz_execution_performed",
             "correctness_claim_allowed",
             "external_engines_allowed_as_oracles_only",
         ]:
@@ -1855,9 +1870,9 @@ def main() -> int:
             expected_matrix_values = {
                 "schema_version": "shardloom.v1_correctness_conformance_matrix.v1",
                 "matrix_id": "prod-v1-2b.correctness_conformance",
-                "expected_count_field_count": 27,
-                "required_semantic_case_count": 33,
-                "required_unsupported_case_count": 10,
+                "expected_count_field_count": 29,
+                "required_semantic_case_count": 38,
+                "required_unsupported_case_count": 11,
                 "report_input_count": 7,
                 "residual_gap_count": 3,
             }
@@ -1874,15 +1889,18 @@ def main() -> int:
             )
         else:
             expected_summary_values = {
-                ("admitted_semantics", "executable_fixture_count"): 103,
-                ("admitted_semantics", "diagnostic_case_count"): 24,
-                ("admitted_semantics", "unsupported_diagnostic_count"): 22,
-                ("admitted_semantics", "required_semantic_case_count"): 33,
-                ("admitted_semantics", "required_unsupported_case_count"): 10,
+                ("admitted_semantics", "executable_fixture_count"): 108,
+                ("admitted_semantics", "diagnostic_case_count"): 25,
+                ("admitted_semantics", "unsupported_diagnostic_count"): 23,
+                ("admitted_semantics", "property_lane_count"): 1,
+                ("admitted_semantics", "deterministic_fuzz_execution_performed"): True,
+                ("admitted_semantics", "deterministic_fuzz_case_count"): 5,
+                ("admitted_semantics", "required_semantic_case_count"): 38,
+                ("admitted_semantics", "required_unsupported_case_count"): 11,
                 ("admitted_semantics", "remaining_matrix_gap_status"): "passed",
                 ("admitted_semantics", "v1_runtime_scope_status"): "passed",
-                ("admitted_semantics", "v1_expected_validator_case_count"): 127,
-                ("admitted_semantics", "v1_required_runtime_row_count"): 127,
+                ("admitted_semantics", "v1_expected_validator_case_count"): 133,
+                ("admitted_semantics", "v1_required_runtime_row_count"): 133,
                 ("admitted_semantics", "v1_missing_validator_case_count"): 0,
                 (
                     "admitted_semantics",
@@ -1893,44 +1911,44 @@ def main() -> int:
                     "admitted_semantics",
                     "deterministic_unsupported_scope_status",
                 ): "passed",
-                ("admitted_semantics", "deterministic_unsupported_row_count"): 24,
+                ("admitted_semantics", "deterministic_unsupported_row_count"): 25,
                 (
                     "admitted_semantics",
                     "deterministic_unsupported_oracle_row_count",
-                ): 24,
+                ): 25,
                 ("admitted_semantics", "semantic_fixture_evidence_status"): "passed",
-                ("admitted_semantics", "required_executable_stage_evidence_count"): 33,
-                ("admitted_semantics", "required_unsupported_stage_evidence_count"): 10,
-                ("admitted_semantics", "required_stage_artifact_ref_count"): 43,
+                ("admitted_semantics", "required_executable_stage_evidence_count"): 38,
+                ("admitted_semantics", "required_unsupported_stage_evidence_count"): 11,
+                ("admitted_semantics", "required_stage_artifact_ref_count"): 49,
                 (
                     "admitted_semantics",
                     "required_stage_decoded_reference_digest_count",
-                ): 33,
+                ): 38,
                 (
                     "admitted_semantics",
                     "required_stage_expected_output_digest_count",
-                ): 33,
+                ): 38,
                 (
                     "admitted_semantics",
                     "required_stage_observed_output_digest_count",
-                ): 33,
-                ("admitted_semantics", "required_stage_output_digest_match_count"): 33,
+                ): 38,
+                ("admitted_semantics", "required_stage_output_digest_match_count"): 38,
                 (
                     "admitted_semantics",
                     "required_stage_expected_output_digest_source_count",
-                ): 33,
+                ): 38,
                 (
                     "admitted_semantics",
                     "required_stage_observed_output_digest_source_count",
-                ): 33,
-                ("admitted_semantics", "required_stage_correctness_digest_count"): 33,
-                ("admitted_semantics", "required_stage_result_digest_count"): 33,
+                ): 38,
+                ("admitted_semantics", "required_stage_correctness_digest_count"): 38,
+                ("admitted_semantics", "required_stage_result_digest_count"): 38,
                 (
                     "admitted_semantics",
                     "required_unsupported_stage_diagnostic_field_count",
-                ): 10,
-                ("admitted_semantics", "required_stage_no_fallback_count"): 43,
-                ("admitted_semantics", "required_stage_no_external_engine_count"): 43,
+                ): 11,
+                ("admitted_semantics", "required_stage_no_fallback_count"): 49,
+                ("admitted_semantics", "required_stage_no_external_engine_count"): 49,
                 ("front_door", "supported_parity_row_count"): 7,
                 ("front_door", "broad_pending_parity_row_count"): 4,
                 ("front_door", "example_scenario_count"): 9,
@@ -1954,7 +1972,7 @@ def main() -> int:
                 ): 13,
                 ("operation_coverage", "operation_coverage_status"): "passed",
                 ("operation_coverage", "operation_coverage_row_count"): 9,
-                ("operation_coverage", "operation_coverage_semantic_link_count"): 17,
+                ("operation_coverage", "operation_coverage_semantic_link_count"): 18,
                 ("operation_coverage", "operation_coverage_unsupported_link_count"): 2,
                 (
                     "operation_coverage",

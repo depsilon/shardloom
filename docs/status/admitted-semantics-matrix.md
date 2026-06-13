@@ -31,15 +31,17 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=129
-executable_fixture_count=103
-diagnostic_case_count=24
-unsupported_diagnostic_count=22
+matrix_row_count=135
+executable_fixture_count=108
+diagnostic_case_count=25
+unsupported_diagnostic_count=23
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
 property_lane_count=1
 property_seed_order=20260521
 property_execution_performed=true
+deterministic_fuzz_execution_performed=true
+deterministic_fuzz_case_count=5
 decoded_reference_differential_execution_performed=true
 semantic_conformance_suite_status=passed
 correctness_harness_boundary_status=passed
@@ -148,7 +150,13 @@ Covered fixture rows:
 - `join_scalar_expression_condition`
 - `join_logical_or_condition`
 - `select_distinct_join`
+- `sql_parser_surface_fuzz_seed_20260613`
+- `expression_parser_fuzz_seed_20260614`
+- `route_selection_join_fuzz_seed_20260615`
+- `route_selection_aggregate_topn_fuzz_seed_20260616`
+- `output_writer_policy_fuzz_seed_20260617`
 - `runtime_error_numeric_division_by_zero`
+- `unsupported_output_no_overwrite_policy`
 - `timestamp_offset_literal_normalization`
 - `unsupported_nonbinary_source_binary_literal_predicate`
 - `unsupported_nonbinary_source_binary_ordering_predicate`
@@ -188,7 +196,8 @@ source-qualified scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local s
 correlated `outer.<column>` subquery filter, subquery-backed predicate/CASE projection,
 HAVING-level scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and correlated quantified variants,
 and deterministic outer-reference diagnostics; external-oracle
-result artifact population; and fuzz execution beyond the deterministic seeded property lane. Numeric division by zero now has a deterministic runtime-error diagnostic rather
+result artifact population; and general fuzz execution beyond the deterministic v1 property/fuzz
+lanes. Numeric division by zero now has a deterministic runtime-error diagnostic rather
 than an unsupported feature label, and scalar-left multi-column IN-subqueries now have a
 deterministic invalid-shape diagnostic because row-value left operands are required. Fixed numeric
 timestamp offsets are now normalized into UTC timestamp_micros through the scoped local-source

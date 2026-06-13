@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-2B deterministic fuzz and no-fallback diagnostic coverage
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-2B` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/status/admitted-semantics-matrix.json`.
+    - `docs/release/v1-correctness-conformance-matrix.json`.
+    - `scripts/check_admitted_semantics_matrix.py`.
+    - `scripts/check_v1_correctness_conformance.py`.
+    - `scripts/check_release_readiness.py`.
+  - Branch: `codex/v1-correctness-fuzz-replay-coverage`.
+  - Scope:
+    - Added deterministic v1 fuzz rows for SQL parsing subset, expression parsing, route
+      selection for joins, route selection for grouped aggregate/top-N, and output writer policy.
+    - Added a deterministic unsupported no-overwrite output-policy fixture and gate evidence that
+      early output rejections preserve existing files and do not invoke fallback or external
+      engines.
+    - Tightened v1 correctness conformance so required source/prepared-state invalidation cases
+      are exact, deterministic fuzz case IDs are required, and public-operation coverage includes
+      the output writer policy path.
+    - Updated release-readiness expectations and current-facing admitted-semantics/release docs to
+      the 135-row / 108-executable / 25-diagnostic / 23-unsupported current matrix.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/check_admitted_semantics_matrix.py scripts/check_v1_correctness_conformance.py scripts/check_release_readiness.py python/tests/test_release_scripts.py`.
+    - `python3 scripts/check_admitted_semantics_matrix.py`.
+    - `python3 scripts/check_v1_correctness_conformance.py`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_passes_complete_fixture python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_fuzz_case python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_invalidation_case_drift`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+  - Generated report:
+    - `target/admitted-semantics-matrix-report.json`.
+    - `target/v1-correctness-conformance-report.json`.
+    - Admitted semantics status: `passed`.
+    - Matrix rows: `135`.
+    - Executable fixtures: `108`.
+    - Diagnostic cases: `25`.
+    - Unsupported diagnostics: `23`.
+    - Property lanes: `1`.
+    - Deterministic fuzz cases: `5`.
+    - V1 expected validator case count: `133`.
+    - V1 required runtime row count: `133`.
+  - Claim boundary:
+    - May claim the current declared v1 correctness gate includes deterministic fuzz coverage for
+      the listed parser/route/output surfaces and exact source/prepared-state invalidation IDs.
+    - Does not close broad randomized fuzzing, full property breadth for every supported operator,
+      docs-example replay, external-oracle result artifact population, broad ANSI parity,
+      production readiness, performance claims, package publication, or Spark-replacement claims.
+  - Fallback boundary:
+    - The validator executes local ShardLoom CLI fixtures only. External engines remain allowed
+      only as explicit test oracles where separately approved and are never ShardLoom runtime
+      fallback.
 - [x] Session label: PROD-V1-2B admitted semantics v1 scope guard
   - Date: 2026-06-13
   - Source:

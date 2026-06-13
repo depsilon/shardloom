@@ -58,12 +58,14 @@ EXPECTED_GOLDEN_WORKFLOWS = {
 }
 EXPECTED_GOLDEN_STAGE_COUNT_MIN = 9
 
-EXPECTED_EXECUTABLE_FIXTURES = 103
-EXPECTED_DIAGNOSTIC_CASES = 24
-EXPECTED_UNSUPPORTED_DIAGNOSTICS = 22
+EXPECTED_EXECUTABLE_FIXTURES = 108
+EXPECTED_DIAGNOSTIC_CASES = 25
+EXPECTED_UNSUPPORTED_DIAGNOSTICS = 23
 EXPECTED_RUNTIME_ERROR_DIAGNOSTICS = 1
 EXPECTED_INVALID_SHAPE_DIAGNOSTICS = 1
-EXPECTED_ADMITTED_STAGE_COUNT_MIN = 129
+EXPECTED_PROPERTY_LANE_COUNT = 1
+EXPECTED_DETERMINISTIC_FUZZ_CASES = 5
+EXPECTED_ADMITTED_STAGE_COUNT_MIN = 135
 EXPECTED_ADMITTED_VALIDATOR_CASES = EXPECTED_EXECUTABLE_FIXTURES + EXPECTED_DIAGNOSTIC_CASES
 EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS = EXPECTED_ADMITTED_VALIDATOR_CASES
 EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS = 2
@@ -116,6 +118,11 @@ REQUIRED_SEMANTIC_CASE_IDS = {
     "distinct_count_grouped",
     "select_distinct_projection",
     "window_rank_offset_distribution",
+    "sql_parser_surface_fuzz_seed_20260613",
+    "expression_parser_fuzz_seed_20260614",
+    "route_selection_join_fuzz_seed_20260615",
+    "route_selection_aggregate_topn_fuzz_seed_20260616",
+    "output_writer_policy_fuzz_seed_20260617",
 }
 REQUIRED_UNSUPPORTED_CASE_IDS = {
     "unsupported_timezone_database_policy",
@@ -128,6 +135,25 @@ REQUIRED_UNSUPPORTED_CASE_IDS = {
     "unsupported_union_dtype_cast",
     "invalid_shape_scalar_multi_column_in_subquery",
     "runtime_error_numeric_division_by_zero",
+    "unsupported_output_no_overwrite_policy",
+}
+REQUIRED_FUZZ_CASE_IDS = {
+    "sql_parser_surface_fuzz_seed_20260613",
+    "expression_parser_fuzz_seed_20260614",
+    "route_selection_join_fuzz_seed_20260615",
+    "route_selection_aggregate_topn_fuzz_seed_20260616",
+    "output_writer_policy_fuzz_seed_20260617",
+}
+REQUIRED_SOURCE_INVALIDATION_CASE_IDS = {
+    "cold_prepare_no_manifest",
+    "warm_reuse_manifest_match",
+    "source_changed",
+    "artifact_changed",
+    "schema_changed",
+    "policy_changed",
+    "version_changed",
+    "missing_artifact",
+    "corrupted_manifest",
 }
 
 REQUIRED_OPERATION_COVERAGE_ROWS = {
@@ -172,6 +198,7 @@ REQUIRED_OPERATION_COVERAGE_ROWS = {
         "semantic_case_ids": (
             "try_cast_projection_null_on_invalid",
             "decimal_cast_projection_predicate",
+            "output_writer_policy_fuzz_seed_20260617",
         ),
         "unsupported_case_ids": (),
         "python_methods": ("read_csv", "with_column", "filter", "limit", "write_vortex"),
@@ -366,6 +393,8 @@ def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         "unsupported_diagnostics": EXPECTED_UNSUPPORTED_DIAGNOSTICS,
         "runtime_error_diagnostics": EXPECTED_RUNTIME_ERROR_DIAGNOSTICS,
         "invalid_shape_diagnostics": EXPECTED_INVALID_SHAPE_DIAGNOSTICS,
+        "property_lanes": EXPECTED_PROPERTY_LANE_COUNT,
+        "deterministic_fuzz_cases": EXPECTED_DETERMINISTIC_FUZZ_CASES,
         "admitted_stage_count_min": EXPECTED_ADMITTED_STAGE_COUNT_MIN,
         "admitted_validator_cases": EXPECTED_ADMITTED_VALIDATOR_CASES,
         "admitted_required_runtime_rows": EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS,
@@ -452,7 +481,7 @@ def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
     expected_gap_ids = {
         "broad_ansi_subquery_parity_beyond_admitted_v1_scope",
         "external_oracle_result_artifact_population",
-        "general_fuzz_beyond_seeded_property_lane",
+        "general_fuzz_beyond_deterministic_v1_property_fuzz_lanes",
     }
     observed_gap_ids = {
         str(row.get("gap_id"))
@@ -844,12 +873,22 @@ def _validate_source(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]
     for field, expected in expected_counts.items():
         if len(payload.get(field, [])) != expected:
             blockers.append(f"source_prepared_state: {field} count mismatch")
+    observed_invalidation = {
+        str(value) for value in payload.get("invalidation_case_ids", [])
+    }
+    if observed_invalidation != REQUIRED_SOURCE_INVALIDATION_CASE_IDS:
+        blockers.append(
+            "source_prepared_state: invalidation_case_ids mismatch: "
+            + f"missing={sorted(REQUIRED_SOURCE_INVALIDATION_CASE_IDS - observed_invalidation)} "
+            + f"extra={sorted(observed_invalidation - REQUIRED_SOURCE_INVALIDATION_CASE_IDS)}"
+        )
     if payload.get("source_prepared_benchmark_required_fields_ready") is not True:
         blockers.append("source_prepared_state: benchmark required fields must be ready")
     return {
         "supported_input_format_count": len(payload.get("supported_input_formats", [])),
         "prepared_route_count": len(payload.get("prepared_route_ids", [])),
         "invalidation_case_count": len(payload.get("invalidation_case_ids", [])),
+        "invalidation_case_ids": sorted(observed_invalidation),
         "benchmark_rows_with_required_fields": payload.get(
             "source_prepared_benchmark_rows_with_required_fields"
         ),
@@ -1008,6 +1047,26 @@ def _validate_admitted(payload: dict[str, Any]) -> tuple[dict[str, Any], list[st
         blockers.append("admitted_semantics: stage_count below v1 minimum")
     if payload.get("property_execution_performed") is not True:
         blockers.append("admitted_semantics: property_execution_performed must be true")
+    if payload.get("property_lane_count") != EXPECTED_PROPERTY_LANE_COUNT:
+        blockers.append(
+            "admitted_semantics: property_lane_count="
+            + str(payload.get("property_lane_count", "missing"))
+        )
+    if payload.get("deterministic_fuzz_execution_performed") is not True:
+        blockers.append(
+            "admitted_semantics: deterministic_fuzz_execution_performed must be true"
+        )
+    if payload.get("deterministic_fuzz_case_count") != EXPECTED_DETERMINISTIC_FUZZ_CASES:
+        blockers.append(
+            "admitted_semantics: deterministic_fuzz_case_count="
+            + str(payload.get("deterministic_fuzz_case_count", "missing"))
+        )
+    missing_fuzz_cases = _missing(payload.get("fuzz_case_ids"), REQUIRED_FUZZ_CASE_IDS)
+    if missing_fuzz_cases:
+        blockers.append(
+            "admitted_semantics: missing deterministic fuzz cases "
+            + ",".join(missing_fuzz_cases)
+        )
     if payload.get("decoded_reference_differential_execution_performed") is not True:
         blockers.append(
             "admitted_semantics: decoded_reference_differential_execution_performed must be true"
@@ -1038,6 +1097,11 @@ def _validate_admitted(payload: dict[str, Any]) -> tuple[dict[str, Any], list[st
         "diagnostic_case_count": payload.get("diagnostic_case_count"),
         "unsupported_diagnostic_count": payload.get("unsupported_diagnostic_count"),
         "property_lane_count": payload.get("property_lane_count"),
+        "deterministic_fuzz_execution_performed": payload.get(
+            "deterministic_fuzz_execution_performed"
+        ),
+        "deterministic_fuzz_case_count": payload.get("deterministic_fuzz_case_count"),
+        "fuzz_case_ids": payload.get("fuzz_case_ids", []),
         "stage_count": payload.get("stage_count"),
         "remaining_matrix_gap_status": payload.get("remaining_matrix_gap_status"),
         "v1_runtime_scope_status": payload.get("v1_runtime_scope_status"),
@@ -1359,6 +1423,11 @@ def build_report(
             inputs,
             "admitted_semantics",
             "property_execution_performed",
+        ),
+        "deterministic_fuzz_execution_performed": _report_bool(
+            inputs,
+            "admitted_semantics",
+            "deterministic_fuzz_execution_performed",
         ),
         "summaries": summaries,
         "operation_coverage_rows": operation_coverage_rows,

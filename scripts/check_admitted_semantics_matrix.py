@@ -71,7 +71,7 @@ EXPECTED_REMAINING_MATRIX_GAPS = (
     "HAVING-level scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and correlated quantified "
     "variants, and deterministic outer-reference diagnostics",
     "external-oracle result artifact population",
-    "general fuzz execution beyond the deterministic seeded property lane",
+    "general fuzz execution beyond the deterministic v1 property/fuzz lanes",
 )
 DIAGNOSTIC_SUPPORT_STATES = {
     "unsupported_diagnostic",
@@ -94,6 +94,8 @@ class SqlFixtureCase:
     expected_jsonl: str
     expected_fields: dict[str, str]
     property_seed: int | None = None
+    fuzz_seed: int | None = None
+    fuzz_surface: str | None = None
     auxiliary_sources: tuple[tuple[str, str, str], ...] = ()
     output_format: str | None = None
     output_name: str | None = None
@@ -110,6 +112,8 @@ class UnsupportedCase:
     diagnostic_fragment: str
     output_format: str | None = None
     output_name: str | None = None
+    allow_overwrite: bool = True
+    preexisting_output_text: str | None = None
     support_state: str = "unsupported_diagnostic"
     oracle_boundary: str = "deterministic_unsupported_diagnostic"
     stage_kind: str = "unsupported_diagnostic"
@@ -4254,6 +4258,153 @@ def select_distinct_join_case() -> SqlFixtureCase:
     )
 
 
+def sql_parser_surface_fuzz_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="sql_parser_surface_fuzz_seed_20260613",
+        source_name="sql-parser-fuzz.csv",
+        source_text=(
+            "id,group_key,dim_key,value,amount,tax,label\n"
+            "1,10,100,8,5,2,alpha\n"
+            "2,10,200,12,7,3,beta\n"
+            "3,20,100,22,10,4,gamma\n"
+            "4,30,300,,6,5,delta\n"
+        ),
+        statement_template=(
+            " SeLeCt id,label FROM '{source}' WHERE value >= 10 ORDER BY id DESC LIMIT 2"
+        ),
+        expected_jsonl='{"id":3,"label":"gamma"}\n{"id":2,"label":"beta"}\n',
+        expected_fields={
+            "sql_statement_kind": "local_source_order_by_topn_filter_limit",
+            "projected_columns": "id,label",
+            "sort_keys": "id",
+            "sort_direction": "desc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        fuzz_seed=20260613,
+        fuzz_surface="sql_parsing_subset",
+    )
+
+
+def expression_parser_fuzz_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="expression_parser_fuzz_seed_20260614",
+        source_name="expression-parser-fuzz.csv",
+        source_text=(
+            "id,group_key,dim_key,value,amount,tax,label\n"
+            "1,10,100,8,5,2,alpha\n"
+            "2,10,200,12,7,3,beta\n"
+            "3,20,100,22,10,4,gamma\n"
+            "4,30,300,,6,5,delta\n"
+        ),
+        statement_template=(
+            "SELECT id,((amount + 2) * (tax - 1)) AS score "
+            "FROM '{source}' WHERE amount >= 5 ORDER BY id ASC LIMIT 3"
+        ),
+        expected_jsonl='{"id":1,"score":7}\n{"id":2,"score":18}\n{"id":3,"score":36}\n',
+        expected_fields={
+            "sql_statement_kind": "local_source_computed_projection_order_by_topn_filter_limit",
+            "generic_expression_projection_runtime_execution": "true",
+            "generic_expression_projection_output_column": "score",
+            "projected_columns": "id,score",
+            "sort_keys": "id",
+            "sort_direction": "asc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        fuzz_seed=20260614,
+        fuzz_surface="expression_parsing",
+    )
+
+
+def route_selection_join_fuzz_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="route_selection_join_fuzz_seed_20260615",
+        source_name="route-selection-join-fact.csv",
+        source_text=(
+            "id,group_key,dim_key,value,amount,tax,label\n"
+            "1,10,100,8,5,2,alpha\n"
+            "2,10,200,12,7,3,beta\n"
+            "3,20,100,22,10,4,gamma\n"
+            "4,30,300,,6,5,delta\n"
+        ),
+        statement_template=(
+            "SELECT f.id,d.segment FROM '{source}' AS f JOIN '{dim}' AS d "
+            "ON f.dim_key = d.dim_key WHERE f.value >= 10 ORDER BY f.id ASC LIMIT 10"
+        ),
+        expected_jsonl='{"f.id":2,"d.segment":"edge"}\n{"f.id":3,"d.segment":"core"}\n',
+        expected_fields={
+            "sql_statement_kind": "local_source_inner_equi_join_order_by_topn_filter_limit",
+            "join_runtime_execution": "true",
+            "join_on_predicate_operator_family": "equi_keys",
+            "projected_columns": "f.id,d.segment",
+            "sort_keys": "f.id",
+            "sort_direction": "asc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            ("dim", "route-selection-join-dim.csv", "dim_key,segment\n100,core\n200,edge\n"),
+        ),
+        fuzz_seed=20260615,
+        fuzz_surface="route_selection",
+    )
+
+
+def route_selection_aggregate_topn_fuzz_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="route_selection_aggregate_topn_fuzz_seed_20260616",
+        source_name="route-selection-aggregate-fuzz.csv",
+        source_text=(
+            "id,group_key,dim_key,value,amount,tax,label\n"
+            "1,10,100,8,5,2,alpha\n"
+            "2,10,200,12,7,3,beta\n"
+            "3,20,100,22,10,4,gamma\n"
+            "4,30,300,,6,5,delta\n"
+        ),
+        statement_template=(
+            "SELECT group_key,count(*) AS rows,sum(value) AS total "
+            "FROM '{source}' WHERE value >= 0 GROUP BY group_key "
+            "ORDER BY total DESC LIMIT 2"
+        ),
+        expected_jsonl='{"group_key":20,"rows":1,"total":22}\n{"group_key":10,"rows":2,"total":20}\n',
+        expected_fields={
+            "sql_statement_kind": "local_source_group_by_aggregate_order_by_topn_filter_limit",
+            "aggregate_runtime_execution": "true",
+            "aggregate_operator_family": "grouped_aggregate",
+            "group_by_runtime_execution": "true",
+            "projected_columns": "group_key,rows,total",
+            "sort_keys": "total",
+            "sort_direction": "desc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        fuzz_seed=20260616,
+        fuzz_surface="route_selection",
+    )
+
+
+def output_writer_policy_fuzz_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="output_writer_policy_fuzz_seed_20260617",
+        source_name="output-writer-policy-fuzz.csv",
+        source_text="id,label,value\n1,alpha,8\n2,beta,12\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE value >= 8 ORDER BY id ASC LIMIT 10"
+        ),
+        expected_jsonl='{"id":1,"label":"alpha"}\n{"id":2,"label":"beta"}\n',
+        expected_fields={
+            "sql_statement_kind": "local_source_order_by_topn_filter_limit",
+            "output_format": "csv",
+            "projected_columns": "id,label",
+            "sort_keys": "id",
+            "sort_direction": "asc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        output_format="csv",
+        output_name="output-writer-policy.csv",
+        expected_output_text="id,label\n1,alpha\n2,beta\n",
+        fuzz_seed=20260617,
+        fuzz_surface="output_writer_policy",
+    )
+
+
 def executable_cases() -> list[SqlFixtureCase]:
     return [
         property_numeric_case(),
@@ -4699,6 +4850,11 @@ def executable_cases() -> list[SqlFixtureCase]:
         join_scalar_expression_condition_case(),
         join_logical_or_condition_case(),
         select_distinct_join_case(),
+        sql_parser_surface_fuzz_case(),
+        expression_parser_fuzz_case(),
+        route_selection_join_fuzz_case(),
+        route_selection_aggregate_topn_fuzz_case(),
+        output_writer_policy_fuzz_case(),
     ]
 
 
@@ -4983,6 +5139,20 @@ def unsupported_cases() -> list[UnsupportedCase]:
                 "per column comparison"
             ),
         ),
+        UnsupportedCase(
+            case_id="unsupported_output_no_overwrite_policy",
+            source_name="output-no-overwrite-policy.csv",
+            source_text="id,label,value\n1,alpha,8\n2,beta,12\n",
+            statement_template=(
+                "SELECT id,label FROM '{source}' WHERE value >= 8 ORDER BY id ASC LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="output target already exists and overwrite is disabled",
+            output_format="csv",
+            output_name="existing-output.csv",
+            allow_overwrite=False,
+            preexisting_output_text="id,label\nexisting,row\n",
+        ),
     ]
 
 
@@ -5261,7 +5431,11 @@ def run_executable_case(
     if matrix_row is None:
         blockers.append(f"{case.case_id}: missing matrix row")
     else:
-        if matrix_row.get("support_state") not in {"executable", "property_executed"}:
+        if matrix_row.get("support_state") not in {
+            "executable",
+            "property_executed",
+            "fuzz_executed",
+        }:
             blockers.append(
                 f"{case.case_id}: support_state={matrix_row.get('support_state')} is not executable"
             )
@@ -5269,6 +5443,16 @@ def run_executable_case(
             blockers.append(
                 f"{case.case_id}: property_seed={matrix_row.get('property_seed')} "
                 f"expected {case.property_seed}"
+            )
+        if case.fuzz_seed is not None and matrix_row.get("fuzz_seed") != case.fuzz_seed:
+            blockers.append(
+                f"{case.case_id}: fuzz_seed={matrix_row.get('fuzz_seed')} "
+                f"expected {case.fuzz_seed}"
+            )
+        if case.fuzz_surface is not None and matrix_row.get("fuzz_surface") != case.fuzz_surface:
+            blockers.append(
+                f"{case.case_id}: fuzz_surface={matrix_row.get('fuzz_surface')} "
+                f"expected {case.fuzz_surface}"
             )
         if matrix_row.get("decoded_reference_kind") != "jsonl_inline_reference":
             blockers.append(
@@ -5293,6 +5477,8 @@ def run_executable_case(
         "correctness_digest": fields.get("correctness_digest", "") if payload else "",
         "result_digest": fields.get("result_digest", "") if payload else "",
         "property_seed": case.property_seed,
+        "fuzz_seed": case.fuzz_seed,
+        "fuzz_surface": case.fuzz_surface or "",
         "selected_fields": {
             key: fields[key]
             for key in sorted(
@@ -5330,15 +5516,18 @@ def run_unsupported_case(
         output_name = case.output_name or f"{case.case_id}.{case.output_format}"
         output_path = work_dir / case.case_id / output_name
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        if case.preexisting_output_text is not None:
+            output_path.write_text(case.preexisting_output_text, encoding="utf-8")
         cli_args.extend(
             [
                 "--output-format",
                 case.output_format,
                 "--output",
                 str(output_path),
-                "--allow-overwrite",
             ]
         )
+        if case.allow_overwrite:
+            cli_args.append("--allow-overwrite")
     completed = run_cli_json(
         repo_root=repo_root,
         binary=binary,
@@ -5358,8 +5547,18 @@ def run_unsupported_case(
     combined = completed.stdout + completed.stderr
     if completed.returncode == 0:
         blockers.append(f"{case.case_id}: unsupported case unexpectedly succeeded")
-    if output_path is not None and output_path.exists():
+    if (
+        output_path is not None
+        and case.preexisting_output_text is None
+        and output_path.exists()
+    ):
         blockers.append(f"{case.case_id}: unsupported sink wrote output artifact")
+    if (
+        output_path is not None
+        and case.preexisting_output_text is not None
+        and output_path.read_text(encoding="utf-8") != case.preexisting_output_text
+    ):
+        blockers.append(f"{case.case_id}: unsupported sink modified existing output artifact")
     if payload:
         if payload.get("status") != "error":
             blockers.append(f"{case.case_id}: status={payload.get('status')!r}, expected 'error'")
@@ -5373,8 +5572,26 @@ def run_unsupported_case(
         blockers.extend(no_fallback_blockers(payload, case.case_id))
     if case.diagnostic_fragment not in combined:
         blockers.append(f"{case.case_id}: missing diagnostic fragment {case.diagnostic_fragment!r}")
-    if "external_engine_invoked=false" not in combined:
-        blockers.append(f"{case.case_id}: missing external_engine_invoked=false diagnostic text")
+    if payload:
+        fields = field_map(payload)
+        has_no_external_engine_evidence = bool_field(fields.get("external_engine_invoked")) is False
+        fallback = payload.get("fallback")
+        if isinstance(fallback, dict):
+            has_no_external_engine_evidence = (
+                has_no_external_engine_evidence
+                or (
+                    fallback.get("attempted") is False
+                    and fallback.get("allowed") is False
+                    and fallback.get("engine") is None
+                )
+            )
+    else:
+        has_no_external_engine_evidence = False
+    if (
+        "external_engine_invoked=false" not in combined
+        and not has_no_external_engine_evidence
+    ):
+        blockers.append(f"{case.case_id}: missing no-external-engine diagnostic evidence")
     if matrix_row is None:
         blockers.append(f"{case.case_id}: missing matrix row")
     else:
@@ -5572,6 +5789,7 @@ def main() -> int:
     )
     passed = not blockers
     property_stages = [stage for stage in stages if stage.get("property_seed") is not None]
+    fuzz_stages = [stage for stage in stages if stage.get("fuzz_seed") is not None]
     executable_stage_ids = [case.case_id for case in cases]
     unsupported_stage_ids = [
         case.case_id for case in unsupported if case.support_state == "unsupported_diagnostic"
@@ -5620,6 +5838,15 @@ def main() -> int:
         "property_seed_order": [
             stage["property_seed"] for stage in property_stages if stage.get("property_seed") is not None
         ],
+        "deterministic_fuzz_execution_performed": bool(fuzz_stages),
+        "deterministic_fuzz_case_count": len(fuzz_stages),
+        "deterministic_fuzz_seed_order": [
+            stage["fuzz_seed"] for stage in fuzz_stages if stage.get("fuzz_seed") is not None
+        ],
+        "deterministic_fuzz_surface_order": [
+            stage["fuzz_surface"] for stage in fuzz_stages if stage.get("fuzz_surface")
+        ],
+        "fuzz_case_ids": [stage["case_id"] for stage in fuzz_stages],
         "decoded_reference_differential_execution_performed": bool(cases),
         "property_execution_performed": bool(property_stages),
         "semantic_conformance_suite_status": next(
