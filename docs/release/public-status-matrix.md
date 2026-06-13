@@ -12,6 +12,10 @@ infer from the current repository state. It does not authorize package publicati
 production support, benchmark superiority, Spark displacement, external execution, or fallback
 execution.
 
+Finished-product v1 scope is defined in
+[`docs/release/finished-product-scope.md`](finished-product-scope.md). Public wording should start
+from supported ShardLoom surfaces, not from broad external-engine replacement framing.
+
 ## Claim Boundary
 
 Public claim booleans remain fail-closed unless a later release-approved gate changes them:
@@ -20,8 +24,12 @@ Public claim booleans remain fail-closed unless a later release-approved gate ch
 public_release_claim_allowed=false
 public_package_claim_allowed=false
 performance_claim_allowed=false
+performance_superiority_claim_allowed=false
 production_claim_allowed=false
 spark_replacement_claim_allowed=false
+broad_engine_replacement_claim_allowed=false
+drop_in_replacement_claim_allowed=false
+production_platform_claim_allowed=false
 publication_attempted=false
 tag_created=false
 package_upload_attempted=false
@@ -48,6 +56,7 @@ external_engine_invoked=false
 | Public surface | Role | Required source |
 | --- | --- | --- |
 | `README.md` | Compact public entry point and support-posture summary. | This matrix plus `docs/architecture/compute-engine-flow-reference.md`. |
+| `docs/release/finished-product-scope.md` | Canonical v1 support boundary and allowed public claim language. | Phase plan plus per-claim evidence matrix. |
 | `docs/getting-started/install.md` | Source checkout and local install path. | This matrix plus package-channel readiness docs. |
 | `docs/getting-started/first-10-minutes.md` | Local proof walkthrough. | This matrix plus release dry-run proof docs. |
 | `docs/getting-started/examples.md` | Copyable scoped examples and blockers. | This matrix plus relevant capability docs. |
@@ -60,8 +69,12 @@ external_engine_invoked=false
 - Keep this file as the canonical public status matrix; do not create parallel README-only or
   website-only status tables with different claim boundaries.
 - Public docs may summarize the matrix, but they must link back here when they mention package,
-  production, performance, Spark-displacement, SQL/DataFrame, object-store/lakehouse, Foundry, or
-  release posture.
+  production, performance, broad engine replacement, Spark-displacement, SQL/DataFrame,
+  object-store/lakehouse, Foundry, or release posture.
+- Positive broad replacement, drop-in parity, production platform, performance superiority, or
+  broad SQL/DataFrame parity language is blocked unless a matching claim row is closed. Otherwise
+  the wording must be framed as blocked, unsupported, baseline-only, historical, or no-fallback
+  policy.
 - Benchmark wording must state `timing_surface` and `claim_gate_status` before comparing numbers.
 - Package wording must distinguish source checkout, local wheel dry run, package-channel posture,
   and actual publication.
