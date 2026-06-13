@@ -4405,6 +4405,339 @@ def output_writer_policy_fuzz_case() -> SqlFixtureCase:
     )
 
 
+def filter_project_limit_property_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="filter_project_limit_property_seed_20260618",
+        source_name="filter-project-limit-property.csv",
+        source_text=(
+            "id,group_key,dim_key,value,amount,rate,label,event_date,hex_payload\n"
+            "1,10,100,8,5,2,alpha,2024-01-01,616c706861\n"
+            "2,10,200,12,7,3,beta,2024-01-03,62657461\n"
+            "3,20,100,22,10,4,gamma,2024-01-02,67616d6d61\n"
+            "4,30,300,,6,5,delta,2024-01-05,64656c7461\n"
+            "5,20,200,18,9,1,omega,2024-01-04,6f6d656761\n"
+        ),
+        statement_template=(
+            "SELECT id,label,value FROM '{source}' "
+            "WHERE value >= 10 ORDER BY value DESC LIMIT 3"
+        ),
+        expected_jsonl=(
+            '{"id":3,"label":"gamma","value":22}\n'
+            '{"id":5,"label":"omega","value":18}\n'
+            '{"id":2,"label":"beta","value":12}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_order_by_topn_filter_limit",
+            "projected_columns": "id,label,value",
+            "sort_keys": "value",
+            "sort_direction": "desc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        property_seed=20260618,
+    )
+
+
+def join_property_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="join_property_seed_20260619",
+        source_name="join-property-fact.csv",
+        source_text=(
+            "id,group_key,dim_key,value,amount,rate,label,event_date,hex_payload\n"
+            "1,10,100,8,5,2,alpha,2024-01-01,616c706861\n"
+            "2,10,200,12,7,3,beta,2024-01-03,62657461\n"
+            "3,20,100,22,10,4,gamma,2024-01-02,67616d6d61\n"
+            "4,30,300,,6,5,delta,2024-01-05,64656c7461\n"
+            "5,20,200,18,9,1,omega,2024-01-04,6f6d656761\n"
+        ),
+        statement_template=(
+            "SELECT f.id,d.segment,f.value FROM '{source}' AS f JOIN '{dim}' AS d "
+            "ON f.dim_key = d.dim_key WHERE f.value >= 10 ORDER BY f.id ASC LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"f.id":2,"d.segment":"edge","f.value":12}\n'
+            '{"f.id":3,"d.segment":"core","f.value":22}\n'
+            '{"f.id":5,"d.segment":"edge","f.value":18}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_inner_equi_join_order_by_topn_filter_limit",
+            "join_runtime_execution": "true",
+            "join_on_predicate_operator_family": "equi_keys",
+            "projected_columns": "f.id,d.segment,f.value",
+            "sort_keys": "f.id",
+            "sort_direction": "asc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "dim",
+                "join-property-dim.csv",
+                "dim_key,segment\n100,core\n200,edge\n300,cold\n",
+            ),
+        ),
+        property_seed=20260619,
+    )
+
+
+def aggregate_topn_property_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="aggregate_topn_property_seed_20260620",
+        source_name="aggregate-topn-property.csv",
+        source_text=(
+            "id,group_key,dim_key,value,amount,rate,label,event_date,hex_payload\n"
+            "1,10,100,8,5,2,alpha,2024-01-01,616c706861\n"
+            "2,10,200,12,7,3,beta,2024-01-03,62657461\n"
+            "3,20,100,22,10,4,gamma,2024-01-02,67616d6d61\n"
+            "4,30,300,,6,5,delta,2024-01-05,64656c7461\n"
+            "5,20,200,18,9,1,omega,2024-01-04,6f6d656761\n"
+        ),
+        statement_template=(
+            "SELECT group_key,count(*) AS rows,sum(value) AS total "
+            "FROM '{source}' WHERE value >= 0 GROUP BY group_key "
+            "ORDER BY total DESC LIMIT 2"
+        ),
+        expected_jsonl=(
+            '{"group_key":20,"rows":2,"total":40}\n'
+            '{"group_key":10,"rows":2,"total":20}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_group_by_aggregate_order_by_topn_filter_limit",
+            "aggregate_runtime_execution": "true",
+            "aggregate_operator_family": "grouped_aggregate",
+            "group_by_runtime_execution": "true",
+            "projected_columns": "group_key,rows,total",
+            "sort_keys": "total",
+            "sort_direction": "desc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        property_seed=20260620,
+    )
+
+
+def subquery_property_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="in_subquery_property_seed_20260621",
+        source_name="in-subquery-property-source.csv",
+        source_text=(
+            "id,group_key,dim_key,value,amount,rate,label,event_date,hex_payload\n"
+            "1,10,100,8,5,2,alpha,2024-01-01,616c706861\n"
+            "2,10,200,12,7,3,beta,2024-01-03,62657461\n"
+            "3,20,100,22,10,4,gamma,2024-01-02,67616d6d61\n"
+            "4,30,300,,6,5,delta,2024-01-05,64656c7461\n"
+            "5,20,200,18,9,1,omega,2024-01-04,6f6d656761\n"
+        ),
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE id IN ("
+            "SELECT id FROM '{allowed}' WHERE active IS TRUE ORDER BY score DESC LIMIT 2"
+            ") ORDER BY id ASC LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "predicate_operator_family": "in_subquery",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "2",
+            "in_list_null_value_count": "0",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_order_by_runtime_execution": "true",
+            "in_subquery_limit_runtime_execution": "true",
+            "in_subquery_source_column": "id",
+            "in_subquery_source_format": "csv",
+            "in_subquery_input_row_count": "3",
+            "in_subquery_filtered_row_count": "2",
+            "in_subquery_materialization_bound": "32",
+            "in_subquery_materialized_value_count": "2",
+            "in_subquery_materialized_null_value_count": "0",
+            "in_predicate_null_semantics": "not_applicable",
+            "selected_row_count": "2",
+            "sort_keys": "id",
+            "sort_direction": "asc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "in-subquery-property-allowed.csv",
+                "id,active,score\n2,true,20\n3,true,10\n5,false,30\n",
+            ),
+        ),
+        property_seed=20260621,
+    )
+
+
+def string_function_property_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="string_function_property_seed_20260622",
+        source_name="string-function-property.csv",
+        source_text="id,label,segment\n1,alpha,north\n2,beta,east\n3,gamma,north\n4,omega,west\n",
+        statement_template=(
+            "SELECT id,CONCAT(label, '-', segment) AS label_key,SUBSTR(label, 2, 3) AS middle,"
+            "LEFT(label, 2) AS prefix,RIGHT(label, 2) AS suffix,REPLACE(label, 'a', '') AS scrubbed "
+            "FROM '{source}' WHERE CONCAT(label, '-', segment) = 'gamma-north' LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":3,"label_key":"gamma-north","middle":"amm","prefix":"ga",'
+            '"suffix":"ma","scrubbed":"gmm"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "string_function",
+            "string_function_runtime_execution": "true",
+            "string_function_operator": "concat",
+            "string_function_source_column": "label+segment",
+            "string_function_literal_count": "2",
+            "string_function_projection_runtime_execution": "true",
+            "string_function_projection_operator": "concat,substr,left,right,replace",
+            "string_function_projection_source_column": "label+segment,label,label,label,label",
+            "string_function_projection_output_column": "label_key,middle,prefix,suffix,scrubbed",
+            "string_function_projection_literal_count": "1,2,1,1,2",
+            "projected_columns": "id,label_key,middle,prefix,suffix,scrubbed",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        property_seed=20260622,
+    )
+
+
+def temporal_property_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="temporal_property_seed_20260623",
+        source_name="temporal-property.csv",
+        source_text=(
+            "id,start_date,end_date,start_ts,end_ts\n"
+            "1,2026-06-01,2026-06-04,2026-06-01T00:00:00Z,2026-06-01T00:02:00Z\n"
+            "2,2026-06-10,2026-06-16,2026-06-10T12:00:00Z,2026-06-10T12:04:30Z\n"
+        ),
+        statement_template=(
+            "SELECT id,DATE_ADD_DAYS(CAST(start_date AS date32), 3) AS plus_three,"
+            "DATE_SUB_DAYS(end_date, 2) AS end_minus_two,"
+            "DATE_DIFF_DAYS(CAST(end_date AS date32), start_date) AS span_days,"
+            "TIMESTAMP_ADD_SECONDS(CAST(start_ts AS timestamp_micros), 90) AS shifted_ts,"
+            "TIMESTAMP_DIFF_SECONDS(CAST(end_ts AS timestamp_micros), start_ts) AS elapsed_seconds "
+            "FROM '{source}' WHERE DATE_DIFF_DAYS(end_date, start_date) >= 3 LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"plus_three":"2026-06-04","end_minus_two":"2026-06-02",'
+            '"span_days":3,"shifted_ts":"2026-06-01T00:01:30Z","elapsed_seconds":120}\n'
+            '{"id":2,"plus_three":"2026-06-13","end_minus_two":"2026-06-14",'
+            '"span_days":6,"shifted_ts":"2026-06-10T12:01:30Z","elapsed_seconds":270}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "generic_expression",
+            "generic_expression_predicate_runtime_execution": "true",
+            "generic_expression_predicate_operator_family": "temporal_difference",
+            "date_arithmetic_projection_runtime_execution": "true",
+            "date_arithmetic_projection_operator": "date_add_days,date_sub_days",
+            "date_arithmetic_projection_output_column": "plus_three,end_minus_two",
+            "timestamp_arithmetic_projection_runtime_execution": "true",
+            "timestamp_arithmetic_projection_operator": "timestamp_add_seconds",
+            "timestamp_arithmetic_projection_output_column": "shifted_ts",
+            "generic_expression_projection_runtime_execution": "true",
+            "generic_expression_projection_output_column": "span_days,elapsed_seconds",
+            "projected_columns": "id,plus_three,end_minus_two,span_days,shifted_ts,elapsed_seconds",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        property_seed=20260623,
+    )
+
+
+def decimal_property_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="decimal_property_seed_20260624",
+        source_name="decimal-property.csv",
+        source_text="id,amount\n1,10.00\n2,12.50\n3,20.25\n",
+        statement_template=(
+            "SELECT id,CAST(amount AS decimal128(10,2)) + "
+            "CAST('0.75' AS decimal128(10,2)) AS adjusted,"
+            "CAST(amount AS decimal128(10,2)) / 2 AS half,"
+            "CAST(amount AS decimal128(10,2)) * CAST('1.25' AS decimal128(3,2)) AS scaled "
+            "FROM '{source}' "
+            "WHERE CAST(amount AS decimal128(10,2)) + 0 >= CAST('12.50' AS decimal128(10,2)) "
+            "LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":2,"adjusted":"13.25","half":"6.250000","scaled":"15.6250"}\n'
+            '{"id":3,"adjusted":"21.00","half":"10.125000","scaled":"25.3125"}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_computed_projection_filter_limit",
+            "generic_expression_predicate_runtime_execution": "true",
+            "generic_expression_projection_runtime_execution": "true",
+            "generic_expression_projection_source_column": "amount,amount,amount",
+            "generic_expression_projection_output_column": "adjusted,half,scaled",
+            "generic_expression_projection_operator_family": "cast+numeric_binary,cast+numeric_binary,cast+numeric_binary",
+            "generic_expression_projection_binary_operator_count": "3",
+            "projected_columns": "id,adjusted,half,scaled",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        property_seed=20260624,
+    )
+
+
+def binary_property_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="binary_property_seed_20260625",
+        source_name="binary-property.csv",
+        source_text=(
+            "id,hex_payload,b64_prefix,b64_suffix,label_prefix,label_suffix\n"
+            "1, 00FF10 ,AP,8Q,al,pha\n"
+            "2, 616C706861 ,YWxw,aGE=,be,ta\n"
+            "3,6f6d656761,b21l,Zw==,om,ega\n"
+        ),
+        statement_template=(
+            "SELECT id,BYTE_LENGTH(UNHEX(LOWER(TRIM(hex_payload)))) AS payload_len,"
+            "OCTET_LENGTH(CAST(CONCAT(label_prefix,label_suffix) AS binary)) AS label_len "
+            "FROM '{source}' "
+            "WHERE BYTE_LENGTH(FROM_BASE64(CONCAT(b64_prefix,b64_suffix))) >= 4 LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":2,"payload_len":5,"label_len":4}\n'
+            '{"id":3,"payload_len":5,"label_len":5}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "binary_byte_length",
+            "binary_byte_length_projection_runtime_execution": "true",
+            "binary_byte_length_projection_argument_family": "unhex,cast",
+            "binary_byte_length_projection_source_column": "hex_payload,label_prefix+label_suffix",
+            "binary_byte_length_projection_output_column": "payload_len,label_len",
+            "binary_byte_length_projection_output_dtype": "int64",
+            "binary_byte_length_projection_null_semantics": "null_propagating_binary_decode",
+            "binary_byte_length_predicate_runtime_execution": "true",
+            "binary_byte_length_predicate_argument_family": "from_base64",
+            "binary_byte_length_predicate_comparison_operator": "gte",
+            "binary_byte_length_predicate_source_column": "b64_prefix+b64_suffix",
+            "binary_byte_length_predicate_rhs_dtype": "int64",
+            "binary_byte_length_predicate_null_semantics": (
+                "null_propagating_binary_decode_then_sql_where_true_only"
+            ),
+            "projected_columns": "id,payload_len,label_len",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        property_seed=20260625,
+    )
+
+
+def output_jsonl_property_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="output_jsonl_property_seed_20260626",
+        source_name="output-jsonl-property.csv",
+        source_text="id,label,value\n1,alpha,8\n2,beta,12\n3,gamma,18\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE value >= 10 ORDER BY id ASC LIMIT 10"
+        ),
+        expected_jsonl='{"id":2,"label":"beta"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "sql_statement_kind": "local_source_order_by_topn_filter_limit",
+            "output_format": "jsonl",
+            "projected_columns": "id,label",
+            "sort_keys": "id",
+            "sort_direction": "asc",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        output_format="jsonl",
+        output_name="output-jsonl-property.jsonl",
+        expected_output_text='{"id":2,"label":"beta"}\n{"id":3,"label":"gamma"}\n',
+        property_seed=20260626,
+    )
+
+
 def executable_cases() -> list[SqlFixtureCase]:
     return [
         property_numeric_case(),
@@ -4855,6 +5188,15 @@ def executable_cases() -> list[SqlFixtureCase]:
         route_selection_join_fuzz_case(),
         route_selection_aggregate_topn_fuzz_case(),
         output_writer_policy_fuzz_case(),
+        filter_project_limit_property_case(),
+        join_property_case(),
+        aggregate_topn_property_case(),
+        subquery_property_case(),
+        string_function_property_case(),
+        temporal_property_case(),
+        decimal_property_case(),
+        binary_property_case(),
+        output_jsonl_property_case(),
     ]
 
 
@@ -5838,6 +6180,7 @@ def main() -> int:
         "property_seed_order": [
             stage["property_seed"] for stage in property_stages if stage.get("property_seed") is not None
         ],
+        "property_case_ids": [stage["case_id"] for stage in property_stages],
         "deterministic_fuzz_execution_performed": bool(fuzz_stages),
         "deterministic_fuzz_case_count": len(fuzz_stages),
         "deterministic_fuzz_seed_order": [

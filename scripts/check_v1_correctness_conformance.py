@@ -58,14 +58,14 @@ EXPECTED_GOLDEN_WORKFLOWS = {
 }
 EXPECTED_GOLDEN_STAGE_COUNT_MIN = 9
 
-EXPECTED_EXECUTABLE_FIXTURES = 108
+EXPECTED_EXECUTABLE_FIXTURES = 117
 EXPECTED_DIAGNOSTIC_CASES = 25
 EXPECTED_UNSUPPORTED_DIAGNOSTICS = 23
 EXPECTED_RUNTIME_ERROR_DIAGNOSTICS = 1
 EXPECTED_INVALID_SHAPE_DIAGNOSTICS = 1
-EXPECTED_PROPERTY_LANE_COUNT = 1
+EXPECTED_PROPERTY_LANE_COUNT = 10
 EXPECTED_DETERMINISTIC_FUZZ_CASES = 5
-EXPECTED_ADMITTED_STAGE_COUNT_MIN = 135
+EXPECTED_ADMITTED_STAGE_COUNT_MIN = 144
 EXPECTED_ADMITTED_VALIDATOR_CASES = EXPECTED_EXECUTABLE_FIXTURES + EXPECTED_DIAGNOSTIC_CASES
 EXPECTED_ADMITTED_REQUIRED_RUNTIME_ROWS = EXPECTED_ADMITTED_VALIDATOR_CASES
 EXPECTED_ADMITTED_SUPPORT_REPORT_ROWS = 2
@@ -86,6 +86,15 @@ UNSUPPORTED_STAGE_KINDS = {
 }
 REQUIRED_SEMANTIC_CASE_IDS = {
     "numeric_generic_property_seed_20260521",
+    "filter_project_limit_property_seed_20260618",
+    "join_property_seed_20260619",
+    "aggregate_topn_property_seed_20260620",
+    "in_subquery_property_seed_20260621",
+    "string_function_property_seed_20260622",
+    "temporal_property_seed_20260623",
+    "decimal_property_seed_20260624",
+    "binary_property_seed_20260625",
+    "output_jsonl_property_seed_20260626",
     "try_cast_projection_null_on_invalid",
     "string_transform_length_utf8",
     "regex_predicate_utf8",
@@ -144,6 +153,18 @@ REQUIRED_FUZZ_CASE_IDS = {
     "route_selection_aggregate_topn_fuzz_seed_20260616",
     "output_writer_policy_fuzz_seed_20260617",
 }
+REQUIRED_PROPERTY_CASE_IDS = {
+    "numeric_generic_property_seed_20260521",
+    "filter_project_limit_property_seed_20260618",
+    "join_property_seed_20260619",
+    "aggregate_topn_property_seed_20260620",
+    "in_subquery_property_seed_20260621",
+    "string_function_property_seed_20260622",
+    "temporal_property_seed_20260623",
+    "decimal_property_seed_20260624",
+    "binary_property_seed_20260625",
+    "output_jsonl_property_seed_20260626",
+}
 REQUIRED_SOURCE_INVALIDATION_CASE_IDS = {
     "cold_prepare_no_manifest",
     "warm_reuse_manifest_match",
@@ -161,6 +182,7 @@ REQUIRED_OPERATION_COVERAGE_ROWS = {
         "semantic_case_ids": (
             "predicate_projection_three_valued",
             "null_safe_comparison_predicate_semantics",
+            "filter_project_limit_property_seed_20260618",
         ),
         "unsupported_case_ids": (),
         "python_methods": ("read_csv", "filter", "select", "limit", "collect"),
@@ -169,6 +191,7 @@ REQUIRED_OPERATION_COVERAGE_ROWS = {
         "semantic_case_ids": (
             "predicate_projection_three_valued",
             "order_by_explicit_null_ordering",
+            "filter_project_limit_property_seed_20260618",
         ),
         "unsupported_case_ids": (),
         "python_methods": ("read_csv", "filter", "select", "limit", "collect"),
@@ -177,6 +200,7 @@ REQUIRED_OPERATION_COVERAGE_ROWS = {
         "semantic_case_ids": (
             "aggregate_having_output_rows",
             "distinct_count_grouped",
+            "aggregate_topn_property_seed_20260620",
         ),
         "unsupported_case_ids": (),
         "python_methods": ("read_csv", "filter", "group_by", "agg", "limit", "collect"),
@@ -185,12 +209,16 @@ REQUIRED_OPERATION_COVERAGE_ROWS = {
         "semantic_case_ids": (
             "join_scalar_expression_condition",
             "join_multi_key_expression_condition",
+            "join_property_seed_20260619",
         ),
         "unsupported_case_ids": (),
         "python_methods": ("read_csv", "join", "select", "limit", "collect"),
     },
     "global_top_n": {
-        "semantic_case_ids": ("order_by_explicit_null_ordering",),
+        "semantic_case_ids": (
+            "order_by_explicit_null_ordering",
+            "filter_project_limit_property_seed_20260618",
+        ),
         "unsupported_case_ids": (),
         "python_methods": ("read_csv", "select", "nlargest", "collect"),
     },
@@ -199,12 +227,17 @@ REQUIRED_OPERATION_COVERAGE_ROWS = {
             "try_cast_projection_null_on_invalid",
             "decimal_cast_projection_predicate",
             "output_writer_policy_fuzz_seed_20260617",
+            "decimal_property_seed_20260624",
+            "output_jsonl_property_seed_20260626",
         ),
         "unsupported_case_ids": (),
         "python_methods": ("read_csv", "with_column", "filter", "limit", "write_vortex"),
     },
     "malformed_timestamp_cast": {
-        "semantic_case_ids": ("try_cast_projection_null_on_invalid",),
+        "semantic_case_ids": (
+            "try_cast_projection_null_on_invalid",
+            "temporal_property_seed_20260623",
+        ),
         "unsupported_case_ids": (
             "unsupported_timezone_database_policy",
             "unsupported_timestamptz_policy",
@@ -216,6 +249,7 @@ REQUIRED_OPERATION_COVERAGE_ROWS = {
             "null_coalesce_nullif",
             "distinct_count_grouped",
             "aggregate_having_output_rows",
+            "aggregate_topn_property_seed_20260620",
         ),
         "unsupported_case_ids": (),
         "python_methods": ("read_csv", "dropna", "group_by", "agg", "limit", "collect"),
@@ -224,6 +258,7 @@ REQUIRED_OPERATION_COVERAGE_ROWS = {
         "semantic_case_ids": (
             "string_transform_length_utf8",
             "like_predicate_utf8",
+            "string_function_property_seed_20260622",
         ),
         "unsupported_case_ids": (),
         "python_methods": ("read_json", "filter", "select", "limit", "collect"),
@@ -1052,6 +1087,15 @@ def _validate_admitted(payload: dict[str, Any]) -> tuple[dict[str, Any], list[st
             "admitted_semantics: property_lane_count="
             + str(payload.get("property_lane_count", "missing"))
         )
+    missing_property_cases = _missing(
+        payload.get("property_case_ids"),
+        REQUIRED_PROPERTY_CASE_IDS,
+    )
+    if missing_property_cases:
+        blockers.append(
+            "admitted_semantics: missing deterministic property cases "
+            + ",".join(missing_property_cases)
+        )
     if payload.get("deterministic_fuzz_execution_performed") is not True:
         blockers.append(
             "admitted_semantics: deterministic_fuzz_execution_performed must be true"
@@ -1100,6 +1144,7 @@ def _validate_admitted(payload: dict[str, Any]) -> tuple[dict[str, Any], list[st
         "deterministic_fuzz_execution_performed": payload.get(
             "deterministic_fuzz_execution_performed"
         ),
+        "property_case_ids": payload.get("property_case_ids", []),
         "deterministic_fuzz_case_count": payload.get("deterministic_fuzz_case_count"),
         "fuzz_case_ids": payload.get("fuzz_case_ids", []),
         "stage_count": payload.get("stage_count"),

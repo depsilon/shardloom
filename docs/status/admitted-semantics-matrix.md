@@ -31,14 +31,14 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=135
-executable_fixture_count=108
+matrix_row_count=144
+executable_fixture_count=117
 diagnostic_case_count=25
 unsupported_diagnostic_count=23
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
-property_lane_count=1
-property_seed_order=20260521
+property_lane_count=10
+property_seed_order=20260521,20260618,20260619,20260620,20260621,20260622,20260623,20260624,20260625,20260626
 property_execution_performed=true
 deterministic_fuzz_execution_performed=true
 deterministic_fuzz_case_count=5
@@ -55,6 +55,15 @@ performance_claim_allowed=false
 Covered fixture rows:
 
 - `numeric_generic_property_seed_20260521`
+- `filter_project_limit_property_seed_20260618`
+- `join_property_seed_20260619`
+- `aggregate_topn_property_seed_20260620`
+- `in_subquery_property_seed_20260621`
+- `string_function_property_seed_20260622`
+- `temporal_property_seed_20260623`
+- `decimal_property_seed_20260624`
+- `binary_property_seed_20260625`
+- `output_jsonl_property_seed_20260626`
 - `try_cast_projection_null_on_invalid`
 - `string_transform_length_utf8`
 - `regex_predicate_utf8`

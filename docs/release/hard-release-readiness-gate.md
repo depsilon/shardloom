@@ -443,21 +443,21 @@ target/admitted-semantics-matrix
 ```
 
 The validator checks `docs/status/admitted-semantics-matrix.json`, executes scoped SQL
-local-source fixtures, compares ShardLoom output against decoded reference JSONL, runs the first
-deterministic seeded property lane plus deterministic v1 fuzz lanes, verifies unsupported
+local-source fixtures, compares ShardLoom output against decoded reference JSONL, runs the
+declared deterministic seeded property lane set plus deterministic v1 fuzz lanes, verifies unsupported
 diagnostics, checks semantic conformance and the non-executing correctness-harness boundary, and
 intentionally reports:
 
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=135
-executable_fixture_count=108
+matrix_row_count=144
+executable_fixture_count=117
 diagnostic_case_count=25
 unsupported_diagnostic_count=23
 runtime_error_diagnostic_count=1
 invalid_shape_diagnostic_count=1
-property_lane_count=1
+property_lane_count=10
 property_execution_performed=true
 deterministic_fuzz_execution_performed=true
 deterministic_fuzz_case_count=5
@@ -595,7 +595,7 @@ docs/release/v1-correctness-conformance-matrix.json
 target/v1-correctness-conformance-report.json
 shardloom.v1_correctness_conformance_matrix.v1
 shardloom.v1_correctness_conformance_report.v1
-input_report_count=6
+input_report_count=7
 matrix_status=passed
 v1_correctness_matrix_status=passed
 scope_report_status=passed
@@ -616,7 +616,8 @@ external_engine_invoked=false
 
 This aggregate report proves that the current v1 correctness evidence is present and coherent
 across golden workflows, admitted semantics, front-door scope, Vortex scope, source/prepared-state
-scope, and local output/sink scope. It does not approve broad SQL/DataFrame parity, production
+scope, local output/sink scope, and Python user-surface scope. It does not approve broad
+SQL/DataFrame parity, production
 readiness, package publication, performance claims, or external-runtime fallback.
 
 `GAR-0041-A` adds the per-claim evidence attachment matrix with schema
