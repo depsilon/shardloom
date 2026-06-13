@@ -87,12 +87,12 @@ function canonicalizeDeployableBenchmarkPaths(directory) {
 function syncBenchmarkRowChunks() {
   fs.mkdirSync(legacyWebsiteBenchmarkRoot, { recursive: true });
   for (const entry of fs.readdirSync(legacyWebsiteBenchmarkRoot, { withFileTypes: true })) {
-    if (entry.isFile() && /^published-benchmark-rows-\d+\.json$/.test(entry.name)) {
+    if (entry.isFile() && /^published-benchmark-rows-\d+\.json(?:\.gz)?$/.test(entry.name)) {
       fs.rmSync(path.join(legacyWebsiteBenchmarkRoot, entry.name), { force: true });
     }
   }
   for (const entry of fs.readdirSync(publicBenchmarkRoot, { withFileTypes: true })) {
-    if (entry.isFile() && /^published-benchmark-rows-\d+\.json$/.test(entry.name)) {
+    if (entry.isFile() && /^published-benchmark-rows-\d+\.json(?:\.gz)?$/.test(entry.name)) {
       fs.copyFileSync(
         path.join(publicBenchmarkRoot, entry.name),
         path.join(legacyWebsiteBenchmarkRoot, entry.name),

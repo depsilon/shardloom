@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import math
@@ -139,7 +140,9 @@ DEFAULT_WEBSITE_SRC_MANIFEST = ROOT / "website-src" / "src" / "data" / "benchmar
 DEFAULT_BASE_SUMMARY = DEFAULT_PUBLIC_WEBSITE_DATA
 BENCHMARK_PROFILE_ROSTER = ("full_local",)
 PUBLISHED_ROW_CHUNK_PREFIX = "published-benchmark-rows"
-PUBLISHED_ROW_CHUNK_SIZE = 200
+PUBLISHED_ROW_CHUNK_SUFFIX = ".json.gz"
+PUBLISHED_ROW_LEGACY_CHUNK_SUFFIX = ".json"
+PUBLISHED_ROW_CHUNK_SIZE = 100
 PUBLISHED_ROW_CHUNK_SCHEMA_VERSION = "shardloom.website.benchmark_row_chunk.v1"
 PUBLISHED_ROW_RUN_DIR = "published-row-runs"
 ROW_ADMISSION_MANIFEST_SCHEMA_VERSION = (
@@ -946,6 +949,7 @@ ROUTE_STAGE_FIELD_KEYS = (
     "source_parse_or_columnar_decode_ms",
     "source_to_vortex_array_ms",
     "vortex_write_ms",
+    "exclusive_vortex_digest_ms",
     "vortex_reopen_or_verify_ms",
     "prepared_state_lookup_or_create_ms",
     "vortex_scan_ms",
@@ -960,6 +964,7 @@ ROUTE_STAGE_DISPLAY_NAMES = {
     "source_parse_or_columnar_decode_ms": "Parse/decode",
     "source_to_vortex_array_ms": "Source -> Vortex array",
     "vortex_write_ms": "Vortex write",
+    "exclusive_vortex_digest_ms": "Vortex digest",
     "vortex_reopen_or_verify_ms": "Vortex reopen/verify",
     "prepared_state_lookup_or_create_ms": "Prepared lookup/create",
     "vortex_scan_ms": "Vortex scan",
@@ -1512,6 +1517,9 @@ def portable_public_value(value: Any) -> Any:
 
 
 def load_json(path: Path) -> Any:
+    if path.name.endswith(".gz"):
+        with gzip.open(path, "rt", encoding="utf-8") as handle:
+            return json.load(handle)
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
@@ -1524,6 +1532,13 @@ def write_text_atomic(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_name(f".{path.name}.tmp")
     temp_path.write_text(text, encoding="utf-8")
+    temp_path.replace(path)
+
+
+def write_bytes_atomic(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path.write_bytes(payload)
     temp_path.replace(path)
 
 
@@ -1548,8 +1563,9 @@ def write_json_once(paths: list[Path], payload: Any) -> None:
 def clear_row_chunks(directory: Path) -> None:
     if not directory.exists():
         return
-    for path in directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*.json"):
-        path.unlink()
+    for suffix in (PUBLISHED_ROW_LEGACY_CHUNK_SUFFIX, PUBLISHED_ROW_CHUNK_SUFFIX):
+        for path in directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*{suffix}"):
+            path.unlink()
 
 
 def remove_duplicate_suffixed_artifacts(directory: Path) -> list[str]:
@@ -1585,12 +1601,15 @@ def row_chunk_specs(
         chunk_index = index // chunk_size
         payload = row_chunk_payload(chunk_index, chunk_rows)
         text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+        encoded = gzip.compress(text.encode("utf-8"), compresslevel=9, mtime=0)
         specs.append(
             {
                 "chunk_index": chunk_index,
                 "row_count": len(chunk_rows),
                 "text": text,
-                "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                "bytes": encoded,
+                "sha256": hashlib.sha256(encoded).hexdigest(),
+                "uncompressed_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
             }
         )
     return specs
@@ -1628,7 +1647,8 @@ def write_row_chunks(
     duplicate_removed = remove_duplicate_suffixed_artifacts(directory)
     specs = row_chunk_specs(rows, chunk_size)
     run_id = row_admission_run_id(specs)
-    chunk_directory = directory / PUBLISHED_ROW_RUN_DIR / f"rows-{run_id}"
+    row_run_root = directory / PUBLISHED_ROW_RUN_DIR
+    chunk_directory = row_run_root / f"rows-{run_id}"
     chunk_directory.mkdir(parents=True, exist_ok=True)
     chunks: list[dict[str, Any]] = []
     expected_paths: set[Path] = set()
@@ -1636,31 +1656,46 @@ def write_row_chunks(
     written_chunk_count = 0
     for spec in specs:
         chunk_index = int(spec["chunk_index"])
-        path = chunk_directory / f"{PUBLISHED_ROW_CHUNK_PREFIX}-{chunk_index:03d}.json"
+        path = chunk_directory / (
+            f"{PUBLISHED_ROW_CHUNK_PREFIX}-{chunk_index:03d}"
+            f"{PUBLISHED_ROW_CHUNK_SUFFIX}"
+        )
         expected_paths.add(path)
-        text = str(spec["text"])
+        encoded = bytes(spec["bytes"])
         digest = str(spec["sha256"])
         if path.exists() and file_sha256(path) == digest:
             reused_chunk_count += 1
         else:
-            write_text_atomic(path, text)
+            write_bytes_atomic(path, encoded)
             written_chunk_count += 1
         chunks.append(
             {
                 "path": repo_relative(path),
                 "row_count": int(spec["row_count"]),
                 "sha256": digest,
+                "content_encoding": "gzip",
+                "uncompressed_sha256": str(spec["uncompressed_sha256"]),
             }
         )
     stale_removed: list[str] = []
-    for path in sorted(chunk_directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*.json")):
-        if path not in expected_paths:
-            stale_removed.append(str(path))
-            path.unlink()
+    for suffix in (PUBLISHED_ROW_LEGACY_CHUNK_SUFFIX, PUBLISHED_ROW_CHUNK_SUFFIX):
+        for path in sorted(chunk_directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*{suffix}")):
+            if path not in expected_paths:
+                stale_removed.append(str(path))
+                path.unlink()
     legacy_removed: list[str] = []
-    for path in sorted(directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*.json")):
-        legacy_removed.append(str(path))
-        path.unlink()
+    for suffix in (PUBLISHED_ROW_LEGACY_CHUNK_SUFFIX, PUBLISHED_ROW_CHUNK_SUFFIX):
+        for path in sorted(directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*{suffix}")):
+            legacy_removed.append(str(path))
+            path.unlink()
+    stale_run_dirs_removed: list[str] = []
+    if row_run_root.exists():
+        for path in sorted(row_run_root.iterdir()):
+            if path == chunk_directory:
+                continue
+            if path.is_dir() and path.name.startswith("rows-"):
+                stale_run_dirs_removed.append(str(path))
+                shutil.rmtree(path)
     admission_manifest = {
         "schema_version": ROW_ADMISSION_MANIFEST_SCHEMA_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -1679,6 +1714,9 @@ def write_row_chunks(
         "stale_chunk_files_removed": [repo_relative(Path(path)) for path in stale_removed],
         "legacy_top_level_chunk_files_removed": [
             repo_relative(Path(path)) for path in legacy_removed
+        ],
+        "stale_row_run_dirs_removed": [
+            repo_relative(Path(path)) for path in stale_run_dirs_removed
         ],
         "duplicate_suffixed_artifacts_removed": [
             repo_relative(Path(path)) for path in duplicate_removed
@@ -1842,6 +1880,8 @@ def write_publication_proof_sidecar(
         payload = {**existing_payload, **{k: payload[k] for k in payload if k != "records"}}
         payload["records"] = existing_records
         payload["resume_status"] = "reused_existing_publication_proof_sidecar"
+        if payload != existing_payload:
+            write_json(path, payload)
     return {
         "path": repo_relative(path),
         "publication_proof_sidecar_schema_version": PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION,
@@ -1861,12 +1901,13 @@ def load_row_chunks(directory: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     if not directory.exists():
         return rows
-    for path in sorted(directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*.json")):
-        payload = load_json(path)
-        chunk_rows = payload.get("rows") if isinstance(payload, dict) else payload
-        if not isinstance(chunk_rows, list):
-            continue
-        rows.extend(row for row in chunk_rows if isinstance(row, dict))
+    for suffix in (PUBLISHED_ROW_LEGACY_CHUNK_SUFFIX, PUBLISHED_ROW_CHUNK_SUFFIX):
+        for path in sorted(directory.glob(f"{PUBLISHED_ROW_CHUNK_PREFIX}-*{suffix}")):
+            payload = load_json(path)
+            chunk_rows = payload.get("rows") if isinstance(payload, dict) else payload
+            if not isinstance(chunk_rows, list):
+                continue
+            rows.extend(row for row in chunk_rows if isinstance(row, dict))
     return rows
 
 
@@ -1886,8 +1927,25 @@ PUBLISHED_ROW_MERGE_KEY_FIELDS = (
 )
 
 
+PUBLISHED_ROW_REFRESH_KEY_FIELDS = (
+    "engine",
+    "scenario_id",
+    "scenario_name",
+    "storage_format",
+    "selected_execution_mode",
+    "route_lane_id",
+    "route_row_derivation_status",
+    "route_row_source_engine",
+    "route_row_source_lane_id",
+)
+
+
 def published_row_merge_key(row: dict[str, Any]) -> tuple[str, ...]:
     return tuple(str(row.get(field) or "") for field in PUBLISHED_ROW_MERGE_KEY_FIELDS)
+
+
+def published_row_refresh_key(row: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(str(row.get(field) or "") for field in PUBLISHED_ROW_REFRESH_KEY_FIELDS)
 
 
 def merge_published_rows(
@@ -1896,7 +1954,17 @@ def merge_published_rows(
 ) -> list[dict[str, Any]]:
     merged: dict[tuple[str, ...], dict[str, Any]] = {}
     order: list[tuple[str, ...]] = []
-    for row in [*existing_rows, *new_rows]:
+    refreshed_keys = {published_row_refresh_key(row) for row in new_rows}
+    retained_existing_rows = [
+        row
+        for row in existing_rows
+        if not (
+            str(row.get("engine") or "").startswith("shardloom")
+            and str(row.get("status") or "") not in {"", "success"}
+            and published_row_refresh_key(row) in refreshed_keys
+        )
+    ]
+    for row in [*retained_existing_rows, *new_rows]:
         key = published_row_merge_key(row)
         if key not in merged:
             order.append(key)
@@ -1963,6 +2031,33 @@ def fmt_ms(value: float | None) -> str:
     return "n/a" if value is None else f"{value:.2f} ms"
 
 
+def fmt_count(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    if value >= 1_000_000_000:
+        return f"{value / 1_000_000_000:.2f}B"
+    if value >= 1_000_000:
+        return f"{value / 1_000_000:.2f}M"
+    if value >= 1_000:
+        return f"{value / 1_000:.1f}k"
+    return f"{value:.0f}"
+
+
+def fmt_bytes(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    units = ("B", "KiB", "MiB", "GiB", "TiB")
+    scaled = float(value)
+    unit = units[0]
+    for unit in units:
+        if scaled < 1024.0 or unit == units[-1]:
+            break
+        scaled /= 1024.0
+    if unit == "B":
+        return f"{scaled:.0f} {unit}"
+    return f"{scaled:.2f} {unit}"
+
+
 def geomean_non_negative(values: list[float]) -> float | None:
     if not values:
         return None
@@ -2024,6 +2119,59 @@ def first_numeric_field(fields: dict[str, Any], keys: tuple[str, ...]) -> float 
         if parsed is not None:
             return parsed
     return None
+
+
+ROUTE_SCALE_SOURCE_BYTE_FIELDS = (
+    "source_bytes_read",
+    "bytes_read",
+    "vortex_copy_budget_source_byte_count",
+    "vortex_scout_ingress_source_byte_count",
+)
+ROUTE_SCALE_ROW_COUNT_FIELDS = (
+    "vortex_write_plan_total_artifact_rows",
+    "vortex_copy_budget_row_count",
+    "vortex_scout_ingress_row_count",
+    "rows_scanned",
+    "rows_materialized",
+)
+
+
+def route_scale_numeric(row: dict[str, Any], keys: tuple[str, ...]) -> float | None:
+    fields = runtime_validation_field_map(row)
+    return first_numeric_field({**fields, **row}, keys)
+
+
+def route_scale_context(group_rows: list[dict[str, Any]]) -> str:
+    row_counts = [
+        value
+        for row in group_rows
+        for value in [route_scale_numeric(row, ROUTE_SCALE_ROW_COUNT_FIELDS)]
+        if value is not None and value > 0.0
+    ]
+    source_bytes = [
+        value
+        for row in group_rows
+        for value in [route_scale_numeric(row, ROUTE_SCALE_SOURCE_BYTE_FIELDS)]
+        if value is not None and value > 0.0
+    ]
+    row_classes = Counter(
+        str(row.get("route_shape_row_count_class") or "")
+        for row in group_rows
+        if str(row.get("route_shape_row_count_class") or "")
+    )
+    pieces: list[str] = []
+    row_geomean = geomean_non_negative(row_counts)
+    byte_geomean = geomean_non_negative(source_bytes)
+    if row_geomean is not None:
+        pieces.append(f"{fmt_count(row_geomean)} rows geomean")
+    if byte_geomean is not None:
+        pieces.append(f"{fmt_bytes(byte_geomean)} input geomean")
+    if row_classes:
+        pieces.append(
+            "row classes "
+            + ", ".join(f"{key}: {count}" for key, count in sorted(row_classes.items()))
+        )
+    return "; ".join(pieces) if pieces else "scale not reported"
 
 
 def micros_to_millis(value: Any) -> float | None:
@@ -3347,6 +3495,7 @@ def _stage_ids_with_values(stage_fields: dict[str, Any]) -> list[str]:
             "source_parse_or_columnar_decode_ms",
             "source_to_vortex_array_ms",
             "vortex_write_ms",
+            "exclusive_vortex_digest_ms",
             "vortex_reopen_or_verify_ms",
             "prepared_state_lookup_or_create_ms",
             "vortex_scan_ms",
@@ -4979,6 +5128,12 @@ def route_timing_ledger_fields_for_row(
     timing_surface = str(stage_fields.get("timing_surface") or surface_fields["timing_surface"])
     output_for_surface = timing_surface in PROOF_TIMING_SURFACES
     evidence_for_surface = timing_surface == "publication_proof"
+    scale_row = {**fields, **stage_fields, **row}
+    scale_data_volume_bytes = route_scale_numeric(
+        scale_row, ROUTE_SCALE_SOURCE_BYTE_FIELDS
+    )
+    scale_rows = route_scale_numeric(scale_row, ROUTE_SCALE_ROW_COUNT_FIELDS)
+    scale_context = route_scale_context([scale_row])
 
     included_stage_ids: tuple[str, ...]
     scope: str
@@ -5080,13 +5235,15 @@ def route_timing_ledger_fields_for_row(
             "source_parse_or_columnar_decode_ms",
             "source_to_vortex_array_ms",
             "vortex_write_ms",
+            "exclusive_vortex_digest_ms",
             "vortex_reopen_or_verify_ms",
-            "query_runtime_millis",
+            "vortex_scan_ms",
+            "operator_compute_ms",
         ))
         scope = f"{timing_surface}:cold_certified_route_total"
         formula = (
             f"timing_surface={timing_surface}; total_route_ms = source/import "
-            f"preparation stages + query_runtime_millis{formula_suffix()}"
+            f"preparation stages + vortex_scan_ms + operator_compute_ms{formula_suffix()}"
         )
         preparation_included = True
         query_included = True
@@ -5123,6 +5280,9 @@ def route_timing_ledger_fields_for_row(
             "timing_surface_claim_boundary"
         ),
         "route_total_formula": formula,
+        "route_scale_context": scale_context,
+        "route_scale_data_volume_bytes": scale_data_volume_bytes,
+        "route_scale_rows": scale_rows,
         "route_timing_scope": scope,
         "stage_parent_id": lane_id or "unknown",
         "route_timing_included_stage_ids": ",".join(included_stage_ids),
@@ -6966,6 +7126,7 @@ def route_timing_surface_comparison_table(rows: list[dict[str, Any]]) -> dict[st
                 route_total_label_by_surface.get(surface, "Surface route geomean"),
                 ", ".join(f"{key}: {count}" for key, count in sorted(evidence_tiers.items())),
                 f"{len(successes)}/{len(group_rows)}",
+                route_scale_context(successes or group_rows),
                 fmt_ms(geomean(values)),
                 str(first.get("output_timing_included_in_total")),
                 str(first.get("evidence_timing_included_in_total")),
@@ -6980,6 +7141,7 @@ def route_timing_surface_comparison_table(rows: list[dict[str, Any]]) -> dict[st
             "Route total label",
             "Evidence tiers",
             "Success / total",
+            "Scale context",
             "Surface route geomean",
             "Sink included",
             "Evidence render included",
@@ -7579,6 +7741,7 @@ def route_share_stage_fields_for_lane(
             "source_parse_or_columnar_decode_ms",
             "source_to_vortex_array_ms",
             "vortex_write_ms",
+            "exclusive_vortex_digest_ms",
             "vortex_reopen_or_verify_ms",
             "vortex_scan_ms",
             "operator_compute_ms",
@@ -7738,6 +7901,7 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 display_name,
                 DEFAULT_ROUTE_TIMING_SURFACE,
                 f"{len(surface_rows)}/{len(group_rows)}",
+                route_scale_context(surface_rows or group_rows),
                 fmt_ms(total_geomean) if total_geomean is not None else "hot runtime row missing",
                 dominant_label,
                 fmt_ms(dominant_ms),
@@ -7754,6 +7918,7 @@ def route_share_amdahl_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "Route",
             "Timing surface",
             "Rows",
+            "Scale context",
             "Hot route geomean",
             "Dominant stage",
             "Dominant stage geomean",
@@ -9806,6 +9971,7 @@ def runtime_validation_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
 def cold_lane_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     counts: Counter[tuple[str, str, str, str, str]] = Counter()
     blockers: Counter[str] = Counter()
+    non_executed_rows: Counter[str] = Counter()
     for row in rows:
         route_stage_fields = route_stage_fields_for_row(row)
         published = cold_lane_attribution_for_row({**row, **route_stage_fields})
@@ -9818,12 +9984,15 @@ def cold_lane_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         missing = str(published["cold_lane_missing_stage_fields"])
         if missing != "none":
             blockers[missing] += 1
-        if published.get("cold_bottleneck_status") not in {
+        bottleneck_status = str(published.get("cold_bottleneck_status") or "missing")
+        if bottleneck_status == "blocked_row_not_executed":
+            non_executed_rows[bottleneck_status] += 1
+        elif bottleneck_status not in {
             "complete",
             "not_applicable_non_cold_route",
             "external_baseline_only",
         }:
-            blockers[str(published.get("cold_bottleneck_status") or "missing")] += 1
+            blockers[bottleneck_status] += 1
     return {
         "heading": "Cold-Lane Attribution",
         "headers": [
@@ -9848,6 +10017,11 @@ def cold_lane_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
             {"blocker": fields, "row_count": count}
             for fields, count in sorted(blockers.items())
         ],
+        "non_executed_rows": [
+            {"status": status, "row_count": count}
+            for status, count in sorted(non_executed_rows.items())
+        ],
+        "non_executed_rows_release_blocking": False,
         "claim_boundary": (
             "cold-lane attribution explains timing composition; it does not authorize "
             "performance, superiority, Spark-displacement, package, or production claims"

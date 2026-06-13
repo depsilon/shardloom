@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,9 @@ def load_json(path: Path, *, missing_ok: bool = False) -> Any:
         if missing_ok:
             return None
         raise FileNotFoundError(path)
+    if path.name.endswith(".gz"):
+        with gzip.open(path, "rt", encoding="utf-8") as handle:
+            return json.load(handle)
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 

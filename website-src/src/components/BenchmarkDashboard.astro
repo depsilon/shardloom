@@ -142,6 +142,7 @@ const optimizationTargets = routeShareObjects
   .map((row) => ({
     route: rowValue(row, "Route"),
     rows: rowValue(row, "Rows"),
+    scale: rowValue(row, "Scale context"),
     routeGeomean: rowValue(row, "Hot route geomean"),
     stage: rowValue(row, "Dominant stage"),
     stageGeomean: rowValue(row, "Dominant stage geomean"),
@@ -325,6 +326,7 @@ events.filter(sl.col("nested_payload").contains("target")).select(
   <h2>Route lanes are the comparison surface.</h2>
   <p class="narrow">
     Hot runtime rows drive the primary ShardLoom route grid. Publication-proof rows remain visible below and are intentionally slower when they include result-sink and human evidence rendering.
+    Cold-certified route totals include raw-source ingest, Vortex write/reopen, and current input scale; warm prepared and native Vortex rows are the repeated-query timing lanes.
     External Baseline End-to-End rows are baseline context only and never ShardLoom fallback execution.
   </p>
   <div class="surface-grid">
@@ -347,6 +349,7 @@ events.filter(sl.col("nested_payload").contains("target")).select(
             <div><dt>Route total</dt><dd>{rowValue(row, "Route total label")}</dd></div>
             <div><dt>Sink included</dt><dd>{rowValue(row, "Sink included")}</dd></div>
             <div><dt>Evidence render included</dt><dd>{rowValue(row, "Evidence render included")}</dd></div>
+            <div><dt>Scale</dt><dd>{rowValue(row, "Scale context")}</dd></div>
             <div><dt>Runtime execution</dt><dd>{fastPath ? rowValue(fastPath, "Runtime execution") : "not reported"}</dd></div>
             <div><dt>Included hot runtime</dt><dd>{inclusion ? rowValue(inclusion, "Included hot runtime") : "not reported"}</dd></div>
           </dl>
@@ -416,6 +419,7 @@ events.filter(sl.col("nested_payload").contains("target")).select(
             <div><span>Rows</span><strong>{target.rows}</strong></div>
           </div>
           <dl class="route-card-facts">
+            <div><dt>Scale</dt><dd>{target.scale}</dd></div>
             <div><dt>Next target</dt><dd>{target.next}</dd></div>
             <div><dt>Not-ready stages</dt><dd>{target.notReady}</dd></div>
           </dl>

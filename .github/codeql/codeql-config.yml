@@ -1,0 +1,10 @@
+name: ShardLoom CodeQL
+
+paths-ignore:
+  - "website/assets/benchmarks/latest/published-row-runs/**"
+  - "website-public/assets/benchmarks/latest/published-row-runs/**"
+  - "website/assets/benchmarks/latest/benchmark-results.json"
+  - "website-public/assets/benchmarks/latest/benchmark-results.json"
+  - "website/assets/data/benchmark-evidence.json"
+  - "website-public/assets/data/benchmark-evidence.json"
+  - "website-src/src/data/benchmark-evidence.json"
