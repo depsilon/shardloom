@@ -140,9 +140,11 @@ ecosystem claims.
 Expected local checks:
 
 ```powershell
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core wrapper_architecture --lib
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test capability_discovery_snapshots
+python scripts\write_ci_version_env.py
+$env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
+cargo test -p shardloom-core wrapper_architecture --lib
+cargo test -p shardloom-cli --test capability_discovery_snapshots
 python -m unittest python.tests.test_cli_client
 python -m compileall -q python/src python/tests scripts
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata
+cargo test -p shardloom-contract-tests --test release_readiness_metadata
 ```

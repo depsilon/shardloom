@@ -18,6 +18,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.package_channel_readiness_matrix.v1"
 REPORT_SCHEMA_VERSION = "shardloom.package_channel_readiness_report.v1"
+PYTHON_REGISTRY_PROOF_SCHEMA_VERSION = "shardloom.python_registry_package_proof.v1"
 
 EXPECTED_CHANNEL_IDS = [
     "github_prerelease",
@@ -105,6 +106,7 @@ GATE_EVIDENCE_REF_FIELDS = [
     "release_dry_run_transcript",
     "release_provenance_script",
     "release_provenance_report",
+    "python_registry_package_proof_script",
     "sbom_generation_plan",
     "rollback_policy_ref",
     "package_channel_validator",
@@ -155,6 +157,16 @@ def parse_args() -> argparse.Namespace:
         "--provenance-report",
         type=Path,
         default=Path("target/release-provenance-dry-run/supply-chain-release-evidence.json"),
+    )
+    parser.add_argument(
+        "--testpypi-proof",
+        type=Path,
+        default=Path("target/python-registry-package-proof/testpypi-transcript.json"),
+    )
+    parser.add_argument(
+        "--pypi-proof",
+        type=Path,
+        default=Path("target/python-registry-package-proof/pypi-transcript.json"),
     )
     parser.add_argument(
         "--require-local-evidence",
@@ -572,12 +584,128 @@ def validate_github_prerelease_asset_bundle(
     return summary, blockers
 
 
+def python_registry_proof_blockers(
+    proof: dict[str, Any] | None,
+    *,
+    channel_id: str,
+    require_prior_testpypi_ref: bool = False,
+) -> list[str]:
+    if proof is None:
+        return [f"{channel_id}: missing Python registry package proof transcript"]
+    blockers: list[str] = []
+    if proof.get("schema_version") != PYTHON_REGISTRY_PROOF_SCHEMA_VERSION:
+        blockers.append(f"{channel_id}: registry proof schema_version mismatch")
+    if proof.get("channel_id") != channel_id:
+        blockers.append(
+            f"{channel_id}: registry proof channel_id={proof.get('channel_id')}"
+        )
+    if proof.get("package_name") != EXPECTED_PYTHON_PACKAGE_NAME:
+        blockers.append(f"{channel_id}: registry proof package_name must be shardloom")
+    for field in [
+        "proof_status",
+        "install_transcript_status",
+        "smoke_check_status",
+        "uninstall_transcript_status",
+    ]:
+        if proof.get(field) != "passed":
+            blockers.append(f"{channel_id}: registry proof {field}={proof.get(field)}")
+    for field in [
+        "fallback_attempted",
+        "external_engine_invoked",
+        "tag_created",
+        "secrets_required",
+    ]:
+        if proof.get(field) is not False:
+            blockers.append(f"{channel_id}: registry proof {field} must be false")
+    for field in [
+        "registry_upload_attempted_by_this_tool",
+        "publication_attempted_by_this_tool",
+        "package_channel_submission_attempted_by_this_tool",
+    ]:
+        if proof.get(field) is not False:
+            blockers.append(f"{channel_id}: registry proof {field} must be false")
+    if require_prior_testpypi_ref and not proof.get("testpypi_proof_ref"):
+        blockers.append(f"{channel_id}: registry proof requires testpypi_proof_ref")
+    return blockers
+
+
+def python_registry_proof_summary(proof: dict[str, Any] | None) -> dict[str, Any]:
+    if proof is None:
+        return {
+            "present": False,
+            "proof_status": "missing",
+            "channel_id": None,
+            "package_name": None,
+            "package_version": None,
+        }
+    return {
+        "present": True,
+        "proof_status": proof.get("proof_status"),
+        "channel_id": proof.get("channel_id"),
+        "package_name": proof.get("package_name"),
+        "package_version": proof.get("package_version"),
+        "install_transcript_status": proof.get("install_transcript_status"),
+        "smoke_check_status": proof.get("smoke_check_status"),
+        "uninstall_transcript_status": proof.get("uninstall_transcript_status"),
+        "testpypi_proof_ref": proof.get("testpypi_proof_ref"),
+    }
+
+
+def validate_python_registry_package_proofs(
+    matrix: dict[str, Any] | None,
+    *,
+    testpypi_proof: dict[str, Any] | None,
+    pypi_proof: dict[str, Any] | None,
+) -> dict[str, Any]:
+    blockers: list[str] = []
+    testpypi_row = find_channel(matrix, "testpypi")
+    pypi_row = find_channel(matrix, "pypi")
+    testpypi_ready = bool(testpypi_row and testpypi_row.get("ready") is True)
+    pypi_ready = bool(pypi_row and pypi_row.get("ready") is True)
+
+    if testpypi_proof is not None:
+        blockers.extend(
+            python_registry_proof_blockers(testpypi_proof, channel_id="testpypi")
+        )
+    if pypi_proof is not None:
+        blockers.extend(
+            python_registry_proof_blockers(
+                pypi_proof,
+                channel_id="pypi",
+                require_prior_testpypi_ref=True,
+            )
+        )
+    if testpypi_ready and testpypi_proof is None:
+        blockers.append("testpypi: ready channel requires Python registry package proof")
+    if pypi_ready:
+        if pypi_proof is None:
+            blockers.append("pypi: ready channel requires Python registry package proof")
+        if testpypi_proof is None:
+            blockers.append("pypi: ready channel requires prior TestPyPI proof")
+        if not testpypi_ready:
+            blockers.append("pypi: ready channel requires testpypi ready first")
+
+    return {
+        "status": "passed" if not blockers else "blocked",
+        "testpypi": python_registry_proof_summary(testpypi_proof),
+        "pypi": python_registry_proof_summary(pypi_proof),
+        "pypi_requires_prior_testpypi": True,
+        "blockers": blockers,
+        "publication_attempted": False,
+        "tag_created": False,
+        "secrets_required": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+    }
+
+
 def validate_local_gate_evidence(
     *,
     repo_root: Path,
     dependency_audit_report: dict[str, Any] | None,
     release_dry_run_transcript: dict[str, Any] | None,
     provenance_report: dict[str, Any] | None,
+    python_registry_package_proofs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     dependency_fields = {
@@ -747,6 +875,7 @@ def validate_local_gate_evidence(
         "package_smoke": smoke_fields,
         "provenance": provenance_fields,
         "github_prerelease_asset_bundle": github_prerelease_bundle,
+        "python_registry_package_proofs": python_registry_package_proofs,
         "blockers": blockers,
         "publication_attempted": False,
         "tag_created": False,
@@ -803,14 +932,23 @@ def main() -> int:
     dependency_audit = load_json(resolve(repo_root, args.dependency_audit_report))
     release_dry_run = load_json(resolve(repo_root, args.release_dry_run_transcript))
     provenance = load_json(resolve(repo_root, args.provenance_report))
+    testpypi_proof = load_json(resolve(repo_root, args.testpypi_proof))
+    pypi_proof = load_json(resolve(repo_root, args.pypi_proof))
+    python_registry_package_proofs = validate_python_registry_package_proofs(
+        matrix,
+        testpypi_proof=testpypi_proof,
+        pypi_proof=pypi_proof,
+    )
     local_gate_evidence = validate_local_gate_evidence(
         repo_root=repo_root,
         dependency_audit_report=dependency_audit,
         release_dry_run_transcript=release_dry_run,
         provenance_report=provenance,
+        python_registry_package_proofs=python_registry_package_proofs,
     )
     blockers = list(matrix_blockers)
     blockers.extend(package_identity_contract["blockers"])
+    blockers.extend(python_registry_package_proofs["blockers"])
     if args.require_local_evidence:
         blockers.extend(local_gate_evidence["blockers"])
     if args.self_test:
@@ -821,10 +959,14 @@ def main() -> int:
         "dependency_audit_report_ref": str(args.dependency_audit_report).replace("\\", "/"),
         "release_dry_run_transcript_ref": str(args.release_dry_run_transcript).replace("\\", "/"),
         "provenance_report_ref": str(args.provenance_report).replace("\\", "/"),
+        "testpypi_proof_ref": str(args.testpypi_proof).replace("\\", "/"),
+        "pypi_proof_ref": str(args.pypi_proof).replace("\\", "/"),
         "status": "passed" if not blockers else "failed",
         "matrix_validation_status": "passed" if not matrix_blockers else "failed",
         "package_identity_contract_status": package_identity_contract["status"],
         "package_identity_contract": package_identity_contract,
+        "python_registry_package_proof_status": python_registry_package_proofs["status"],
+        "python_registry_package_proofs": python_registry_package_proofs,
         "local_gate_evidence_required": args.require_local_evidence,
         "local_gate_evidence_status": local_gate_evidence["status"],
         "local_gate_evidence": local_gate_evidence,

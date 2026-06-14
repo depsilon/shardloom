@@ -38,6 +38,18 @@ INTERNAL_WORKSPACE_DEPENDENCIES = (
     "shardloom-plan",
     "shardloom-vortex",
 )
+ACTIVE_DOC_VERSION_CONSUMERS = (
+    "docs/architecture/effectful-operation-admission-matrix.md",
+    "docs/architecture/pulseweave-runtime-control.md",
+    "docs/architecture/wrapper-connector-implementation-registry.md",
+    "docs/dependencies/vortex-upstream-release-intake-runbook.md",
+    "docs/release/ci-gate-matrix.md",
+    "docs/release/hard-release-readiness-gate.md",
+)
+PINNED_RUST_TOOLCHAIN_PATTERNS = (
+    re.compile(r"\bcargo \+\d+\.\d+(?:\.\d+)?\b"),
+    re.compile(r"RUSTUP_TOOLCHAIN\s*=\s*['\"]\d+\.\d+(?:\.\d+)?['\"]"),
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -240,8 +252,11 @@ def build_report(repo_root: Path) -> dict[str, Any]:
 
     active_version_consumers = [
         ".github/workflows/ci.yml",
+        ".github/workflows/pypi-publish-draft.yml",
         "scripts/write_ci_version_env.py",
         "scripts/check_release_readiness.py",
+        "scripts/check_package_channel_readiness.py",
+        "scripts/python_registry_package_proof.py",
         "scripts/run_release_validation_evidence.py",
         "scripts/check_ci_gate_matrix.py",
         "scripts/check_v1_security_ci_hardening.py",
@@ -261,6 +276,14 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 blockers.append(
                     f"{relative_path}: duplicate active version literal {literal!r}; "
                     "derive it from scripts/release_report_utils.py"
+                )
+    for relative_path in ACTIVE_DOC_VERSION_CONSUMERS:
+        text = read_text(repo_root / relative_path, missing_ok=True)
+        for pattern in PINNED_RUST_TOOLCHAIN_PATTERNS:
+            for match in pattern.finditer(text):
+                blockers.append(
+                    f"{relative_path}: pinned Rust toolchain command {match.group(0)!r}; "
+                    "derive it with scripts/write_ci_version_env.py"
                 )
 
     benchmark_harness = read_text(
@@ -298,6 +321,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "cargo_member_count": len(member_rows),
         "cargo_member_inheritance": member_rows,
         "active_version_literal_audit_paths": active_version_consumers,
+        "active_doc_version_literal_audit_paths": list(ACTIVE_DOC_VERSION_CONSUMERS),
         "publication_attempted": False,
         "tag_created": False,
         "secrets_required": False,

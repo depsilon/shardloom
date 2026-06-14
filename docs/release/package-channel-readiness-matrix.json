@@ -51,6 +51,7 @@
     "release_dry_run_transcript": "target/release-dry-run-proof/transcript.json",
     "release_provenance_script": "scripts/release_provenance_dry_run.py",
     "release_provenance_report": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
+    "python_registry_package_proof_script": "scripts/python_registry_package_proof.py",
     "sbom_generation_plan": "docs/release/sbom-generation-plan.md",
     "rollback_policy_ref": "docs/security/supply-chain-response.md",
     "package_channel_validator": "scripts/check_package_channel_readiness.py"
@@ -138,6 +139,7 @@
         "target/release-provenance-dry-run/shardloom-python-artifacts.cdx.json"
       ],
       "prepared_workflow_policy_ref": "target/release-provenance-dry-run/workflow-policy-snapshot.json",
+      "prepared_registry_install_smoke_proof_ref": "target/python-registry-package-proof/testpypi-transcript.json",
       "current_blockers": [
         "no TestPyPI Trusted Publisher proof",
         "no TestPyPI upload proof",
@@ -181,8 +183,11 @@
         "target/release-provenance-dry-run/shardloom-python-artifacts.cdx.json"
       ],
       "prepared_workflow_policy_ref": "target/release-provenance-dry-run/workflow-policy-snapshot.json",
+      "prepared_registry_install_smoke_proof_ref": "target/python-registry-package-proof/pypi-transcript.json",
+      "requires_prior_testpypi_proof_ref": "target/python-registry-package-proof/testpypi-transcript.json",
       "current_blockers": [
         "Trusted Publisher/OIDC proof missing",
+        "prior TestPyPI install/uninstall/smoke proof missing",
         "maintainer approval missing",
         "clean public install/uninstall/smoke transcript missing",
         "channel-specific SBOM/checksum/provenance evidence missing"

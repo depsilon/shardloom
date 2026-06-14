@@ -3,10 +3,22 @@ name: PyPI Trusted Publisher Draft
 on:
   workflow_dispatch:
     inputs:
+      channel:
+        description: "Registry channel to publish to after approval."
+        required: true
+        default: "testpypi"
+        type: choice
+        options:
+          - testpypi
+          - pypi
       publish_approved:
-        description: "Type publish-approved to run the PyPI Trusted Publisher job."
+        description: "Type publish-approved to run the selected Trusted Publisher job."
         required: true
         default: "no"
+      testpypi_proof_ref:
+        description: "Required for channel=pypi; reference to the passed TestPyPI install/uninstall/smoke proof."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -33,9 +45,29 @@ jobs:
           path: python/dist/*
           if-no-files-found: error
 
+  publish-testpypi:
+    needs: build
+    if: ${{ inputs.publish_approved == 'publish-approved' && inputs.channel == 'testpypi' }}
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download Python dist artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
+        with:
+          name: python-dist
+          path: python/dist
+      - name: Publish to TestPyPI with Trusted Publisher
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist
+          repository-url: https://test.pypi.org/legacy/
+
   publish:
     needs: build
-    if: ${{ inputs.publish_approved == 'publish-approved' }}
+    if: ${{ inputs.publish_approved == 'publish-approved' && inputs.channel == 'pypi' && inputs.testpypi_proof_ref != '' }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

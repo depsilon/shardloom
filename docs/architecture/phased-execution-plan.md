@@ -216,6 +216,12 @@ with a recorded infeasibility reason, not merely because they are broad.
       sdist, checksums, SBOM, provenance, release notes, and an asset manifest are generated as
       no-publication dry-run evidence while approved tags/releases/uploads remain blocked.
     - [ ] Add TestPyPI upload, clean install, uninstall, and smoke proof before PyPI proof.
+      - [x] Prepare fail-closed TestPyPI/PyPI registry proof tooling and validators that can
+        verify a previously uploaded package through clean install, no-fallback client smoke, and
+        uninstall without performing publication.
+      - [x] Gate PyPI Trusted Publisher workflow dispatch on a prior TestPyPI proof reference.
+      - [ ] After explicit maintainer approval and TestPyPI Trusted Publisher setup, run the
+        TestPyPI upload and attach the registry install/uninstall/smoke transcript.
     - [ ] Add PyPI clean install, uninstall, and smoke proof only after TestPyPI passes and
       approval exists.
     - [ ] Review Homebrew, Scoop, winget, conda-forge, and GHCR for v1 feasibility; include any
