@@ -587,6 +587,771 @@ impl VortexLocalIoCoverageReport {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Vortex075HeavyOperatorSurface {
+    GroupedSumCountAggregate,
+    ValidityMaskNoNull,
+    BranchlessZip,
+    DictionaryFsstReuse,
+    LayoutChildCache,
+    ByteLengthExpression,
+    DataFusion54Integration,
+}
+
+impl Vortex075HeavyOperatorSurface {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::GroupedSumCountAggregate => "grouped_sum_count_aggregate",
+            Self::ValidityMaskNoNull => "validity_mask_no_null",
+            Self::BranchlessZip => "branchless_zip",
+            Self::DictionaryFsstReuse => "dictionary_fsst_reuse",
+            Self::LayoutChildCache => "layout_child_cache",
+            Self::ByteLengthExpression => "byte_length_expression",
+            Self::DataFusion54Integration => "datafusion_54_integration",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Vortex075HeavyOperatorDispositionStatus {
+    CandidatePendingProviderGate,
+    WrappedByExistingShardLoomKernel,
+    BlockedExternalIntegration,
+}
+
+impl Vortex075HeavyOperatorDispositionStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CandidatePendingProviderGate => "candidate_pending_provider_gate",
+            Self::WrappedByExistingShardLoomKernel => "wrapped_by_existing_shardloom_kernel",
+            Self::BlockedExternalIntegration => "blocked_external_integration",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_candidate(self) -> bool {
+        matches!(self, Self::CandidatePendingProviderGate)
+    }
+
+    #[must_use]
+    pub const fn is_wrapped(self) -> bool {
+        matches!(self, Self::WrappedByExistingShardLoomKernel)
+    }
+
+    #[must_use]
+    pub const fn is_blocked_external(self) -> bool {
+        matches!(self, Self::BlockedExternalIntegration)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct Vortex075HeavyOperatorDispositionRow {
+    pub surface: Vortex075HeavyOperatorSurface,
+    pub status: Vortex075HeavyOperatorDispositionStatus,
+    pub operator_family: &'static str,
+    pub upstream_api_surface: &'static str,
+    pub shardloom_disposition: &'static str,
+    pub required_evidence: &'static str,
+    pub provider_gate_required: bool,
+    pub decoded_reference_required: bool,
+    pub execution_certificate_required: bool,
+    pub native_io_certificate_required: bool,
+    pub benchmark_evidence_required: bool,
+    pub runtime_execution_allowed: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub claim_gate_status: &'static str,
+}
+
+impl Vortex075HeavyOperatorDispositionRow {
+    #[must_use]
+    pub const fn candidate(
+        surface: Vortex075HeavyOperatorSurface,
+        operator_family: &'static str,
+        upstream_api_surface: &'static str,
+        shardloom_disposition: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: Vortex075HeavyOperatorDispositionStatus::CandidatePendingProviderGate,
+            operator_family,
+            upstream_api_surface,
+            shardloom_disposition,
+            required_evidence,
+            provider_gate_required: true,
+            decoded_reference_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            benchmark_evidence_required: true,
+            runtime_execution_allowed: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn wrapped(
+        surface: Vortex075HeavyOperatorSurface,
+        operator_family: &'static str,
+        upstream_api_surface: &'static str,
+        shardloom_disposition: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: Vortex075HeavyOperatorDispositionStatus::WrappedByExistingShardLoomKernel,
+            operator_family,
+            upstream_api_surface,
+            shardloom_disposition,
+            required_evidence,
+            provider_gate_required: true,
+            decoded_reference_required: true,
+            execution_certificate_required: true,
+            native_io_certificate_required: true,
+            benchmark_evidence_required: true,
+            runtime_execution_allowed: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn blocked_external(
+        surface: Vortex075HeavyOperatorSurface,
+        operator_family: &'static str,
+        upstream_api_surface: &'static str,
+        shardloom_disposition: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: Vortex075HeavyOperatorDispositionStatus::BlockedExternalIntegration,
+            operator_family,
+            upstream_api_surface,
+            shardloom_disposition,
+            required_evidence,
+            provider_gate_required: false,
+            decoded_reference_required: false,
+            execution_certificate_required: false,
+            native_io_certificate_required: false,
+            benchmark_evidence_required: false,
+            runtime_execution_allowed: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(self) -> bool {
+        !self.runtime_execution_allowed
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_diagnostic(self) -> Option<Diagnostic> {
+        if !self.status.is_blocked_external() {
+            return None;
+        }
+        Some(Diagnostic::new(
+            DiagnosticCode::NoFallbackExecution,
+            DiagnosticSeverity::Info,
+            DiagnosticCategory::NoFallbackPolicy,
+            format!(
+                "{} is external-integration-only and cannot execute ShardLoom work",
+                self.surface.as_str()
+            ),
+            Some(self.surface.as_str().to_string()),
+            Some(format!(
+                "{} remains {}.",
+                self.upstream_api_surface, self.shardloom_disposition
+            )),
+            Some(
+                "Keep Vortex query-engine integrations as baselines or oracles only; use ShardLoom-native provider gates for runtime work."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct Vortex075HeavyOperatorProviderDispositionReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub phase_id: &'static str,
+    pub upstream_vortex_provider_version: &'static str,
+    pub gate_status: &'static str,
+    pub support_status: &'static str,
+    pub rows: Vec<Vortex075HeavyOperatorDispositionRow>,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub runtime_execution: bool,
+    pub data_read: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl Vortex075HeavyOperatorProviderDispositionReport {
+    #[must_use]
+    pub fn current() -> Self {
+        let rows = vortex075_heavy_operator_disposition_rows();
+        let diagnostics = rows
+            .iter()
+            .copied()
+            .filter_map(Vortex075HeavyOperatorDispositionRow::to_diagnostic)
+            .collect();
+        Self {
+            schema_version: "shardloom.vortex075_heavy_operator_provider_disposition.v1",
+            report_id: "perf-runtime-7b.vortex075.heavy_operator_provider_disposition",
+            phase_id: "PERF-RUNTIME-7B",
+            upstream_vortex_provider_version: crate::UPSTREAM_VORTEX_PROVIDER_VERSION,
+            gate_status: "report_only",
+            support_status: "provider_disposition_recorded",
+            rows,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Vortex 0.75 heavy-operator surfaces are mapped to provider candidates, existing ShardLoom kernels, or blocked external integrations; no new runtime admission or performance claim is made.",
+            runtime_execution: false,
+            data_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            object_store_io: false,
+            write_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.surface.as_str()).collect()
+    }
+
+    #[must_use]
+    pub fn provider_candidate_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_candidate())
+            .count()
+    }
+
+    #[must_use]
+    pub fn wrapped_shardloom_kernel_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_wrapped())
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocked_external_integration_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_blocked_external())
+            .count()
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.runtime_execution
+            && !self.data_read
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.object_store_io
+            && !self.write_io
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && self
+                .rows
+                .iter()
+                .copied()
+                .all(Vortex075HeavyOperatorDispositionRow::side_effect_free)
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free()
+            || self.claim_gate_status != "not_claim_grade"
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "Vortex 0.75 heavy-operator provider disposition\nschema_version: {}\nreport: {}\nprovider version: {}\nprovider candidates: {}\nwrapped ShardLoom kernels: {}\nblocked external integrations: {}\nclaim gate: {}\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.upstream_vortex_provider_version,
+            self.provider_candidate_count(),
+            self.wrapped_shardloom_kernel_count(),
+            self.blocked_external_integration_count(),
+            self.claim_gate_status,
+        )
+    }
+}
+
+fn vortex075_heavy_operator_disposition_rows() -> Vec<Vortex075HeavyOperatorDispositionRow> {
+    use Vortex075HeavyOperatorSurface as S;
+    vec![
+        Vortex075HeavyOperatorDispositionRow::candidate(
+            S::GroupedSumCountAggregate,
+            "grouped_aggregates",
+            "vortex_0_75_grouped_sum_count_kernels",
+            "evaluate_before_adding_another_shardloom_owned_group_state_kernel",
+            "provider_gate,decoded_reference_parity,null_key_semantics,execution_certificate,native_io_certificate,claim_grade_benchmark_row",
+        ),
+        Vortex075HeavyOperatorDispositionRow::candidate(
+            S::ValidityMaskNoNull,
+            "null_heavy_aggregate",
+            "vortex_0_75_validity_mask_execute_no_nulls",
+            "candidate_for_no_null_and_null_heavy_operator_admission",
+            "provider_gate,null_semantics_parity,mask_alltrue_allfalse_fixtures,execution_certificate,benchmark_row",
+        ),
+        Vortex075HeavyOperatorDispositionRow::candidate(
+            S::BranchlessZip,
+            "filter_project_fusion",
+            "vortex_0_75_branchless_primitive_boolean_zip",
+            "candidate_for_selection_vector_and_filter_project_hot_paths",
+            "provider_gate,selection_vector_parity,boolean_null_semantics,microbenchmark,route_benchmark_row",
+        ),
+        Vortex075HeavyOperatorDispositionRow::candidate(
+            S::DictionaryFsstReuse,
+            "dictionary_group_key",
+            "vortex_0_75_dictionary_slice_fsst_state_sharing",
+            "candidate_for_string_group_key_and_dictionary_reuse_before_broad_grouped_claim",
+            "provider_gate,dictionary_ordering_fixture,utf8_null_fixture,decoded_reference_parity,benchmark_row",
+        ),
+        Vortex075HeavyOperatorDispositionRow::candidate(
+            S::LayoutChildCache,
+            "reader_input_cache",
+            "vortex_0_75_layout_child_cache",
+            "candidate_input_cache_for_prepared_operator_chunks_before_local_cache_duplication",
+            "provider_gate,source_fingerprint_validation,cache_scope_evidence,no_decode_no_materialization_evidence,native_io_certificate",
+        ),
+        Vortex075HeavyOperatorDispositionRow::wrapped(
+            S::ByteLengthExpression,
+            "binary_string_expression",
+            "vortex_0_75_byte_length_expression",
+            "existing_shardloom_binary_byte_length_kernel_remains_selected_until_provider_parity_is_proven",
+            "provider_gate,string_binary_null_parity,decoded_reference_parity,execution_certificate,benchmark_row",
+        ),
+        Vortex075HeavyOperatorDispositionRow::blocked_external(
+            S::DataFusion54Integration,
+            "external_baseline_only",
+            "vortex_0_75_datafusion_54_integration",
+            "baseline_or_oracle_only_not_shardloom_runtime_provider",
+            "none_for_runtime_admission; external-baseline policy only",
+        ),
+    ]
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Vortex075LocalIoSurface {
+    LayoutReaderContextCache,
+    JsonExtensionArrowInterop,
+    WkbGeospatialExtension,
+    InterleaveEncoding,
+    BinaryZstdCompression,
+    RowByteEncoder,
+    ValidityMaskSemantics,
+    ArrowDeviceGpuPath,
+}
+
+impl Vortex075LocalIoSurface {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::LayoutReaderContextCache => "layout_reader_context_cache",
+            Self::JsonExtensionArrowInterop => "json_extension_arrow_interop",
+            Self::WkbGeospatialExtension => "wkb_geospatial_extension",
+            Self::InterleaveEncoding => "interleave_encoding",
+            Self::BinaryZstdCompression => "binary_zstd_compression",
+            Self::RowByteEncoder => "row_byte_encoder",
+            Self::ValidityMaskSemantics => "validity_mask_semantics",
+            Self::ArrowDeviceGpuPath => "arrow_device_gpu_path",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Vortex075LocalIoDispositionStatus {
+    CandidatePendingProviderGate,
+    BlockedFutureDeviceTrack,
+}
+
+impl Vortex075LocalIoDispositionStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::CandidatePendingProviderGate => "candidate_pending_provider_gate",
+            Self::BlockedFutureDeviceTrack => "blocked_future_device_track",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_candidate(self) -> bool {
+        matches!(self, Self::CandidatePendingProviderGate)
+    }
+
+    #[must_use]
+    pub const fn is_blocked_future_device(self) -> bool {
+        matches!(self, Self::BlockedFutureDeviceTrack)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct Vortex075LocalIoDispositionRow {
+    pub surface: Vortex075LocalIoSurface,
+    pub status: Vortex075LocalIoDispositionStatus,
+    pub format_family: &'static str,
+    pub upstream_api_surface: &'static str,
+    pub shardloom_disposition: &'static str,
+    pub required_evidence: &'static str,
+    pub provider_gate_required: bool,
+    pub fidelity_report_required: bool,
+    pub deterministic_blocker_required: bool,
+    pub native_io_certificate_required: bool,
+    pub benchmark_evidence_required: bool,
+    pub runtime_execution_allowed: bool,
+    pub data_read_allowed: bool,
+    pub data_written_allowed: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub claim_gate_status: &'static str,
+}
+
+impl Vortex075LocalIoDispositionRow {
+    #[must_use]
+    pub const fn candidate(
+        surface: Vortex075LocalIoSurface,
+        format_family: &'static str,
+        upstream_api_surface: &'static str,
+        shardloom_disposition: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: Vortex075LocalIoDispositionStatus::CandidatePendingProviderGate,
+            format_family,
+            upstream_api_surface,
+            shardloom_disposition,
+            required_evidence,
+            provider_gate_required: true,
+            fidelity_report_required: true,
+            deterministic_blocker_required: true,
+            native_io_certificate_required: true,
+            benchmark_evidence_required: true,
+            runtime_execution_allowed: false,
+            data_read_allowed: false,
+            data_written_allowed: false,
+            data_decoded: false,
+            data_materialized: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn blocked_future_device(
+        surface: Vortex075LocalIoSurface,
+        format_family: &'static str,
+        upstream_api_surface: &'static str,
+        shardloom_disposition: &'static str,
+        required_evidence: &'static str,
+    ) -> Self {
+        Self {
+            surface,
+            status: Vortex075LocalIoDispositionStatus::BlockedFutureDeviceTrack,
+            format_family,
+            upstream_api_surface,
+            shardloom_disposition,
+            required_evidence,
+            provider_gate_required: false,
+            fidelity_report_required: true,
+            deterministic_blocker_required: true,
+            native_io_certificate_required: true,
+            benchmark_evidence_required: true,
+            runtime_execution_allowed: false,
+            data_read_allowed: false,
+            data_written_allowed: false,
+            data_decoded: false,
+            data_materialized: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            claim_gate_status: "not_claim_grade",
+        }
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(self) -> bool {
+        !self.runtime_execution_allowed
+            && !self.data_read_allowed
+            && !self.data_written_allowed
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+    }
+
+    #[must_use]
+    pub fn to_diagnostic(self) -> Option<Diagnostic> {
+        if !self.status.is_blocked_future_device() {
+            return None;
+        }
+        Some(Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Info,
+            DiagnosticCategory::VortexIo,
+            format!(
+                "{} is blocked until the device-residency track is certified",
+                self.surface.as_str()
+            ),
+            Some(self.surface.as_str().to_string()),
+            Some(format!(
+                "{} remains {}.",
+                self.upstream_api_surface, self.shardloom_disposition
+            )),
+            Some(
+                "Keep Arrow device/GPU/JNI/cuDF paths out of local v1 runtime claims until device memory ownership, packaging, certificates, and no-fallback evidence are attached."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct Vortex075LocalIoProviderDispositionReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub phase_id: &'static str,
+    pub upstream_vortex_provider_version: &'static str,
+    pub gate_status: &'static str,
+    pub support_status: &'static str,
+    pub rows: Vec<Vortex075LocalIoDispositionRow>,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub runtime_execution: bool,
+    pub data_read: bool,
+    pub data_written: bool,
+    pub data_decoded: bool,
+    pub data_materialized: bool,
+    pub object_store_io: bool,
+    pub table_catalog_io: bool,
+    pub write_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+    pub fallback_execution_allowed: bool,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl Vortex075LocalIoProviderDispositionReport {
+    #[must_use]
+    pub fn current() -> Self {
+        let rows = vortex075_local_io_disposition_rows();
+        let diagnostics = rows
+            .iter()
+            .copied()
+            .filter_map(Vortex075LocalIoDispositionRow::to_diagnostic)
+            .collect();
+        Self {
+            schema_version: "shardloom.vortex075_local_io_provider_disposition.v1",
+            report_id: "prod-ready-1a.vortex075.local_io_provider_disposition",
+            phase_id: "PROD-READY-1A",
+            upstream_vortex_provider_version: crate::UPSTREAM_VORTEX_PROVIDER_VERSION,
+            gate_status: "report_only",
+            support_status: "provider_disposition_recorded",
+            rows,
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "Vortex 0.75 local-I/O surfaces are mapped to provider candidates or blocked future/device tracks; no local-format production claim, runtime admission, decode, read, write, or performance claim is made.",
+            runtime_execution: false,
+            data_read: false,
+            data_written: false,
+            data_decoded: false,
+            data_materialized: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            write_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.surface.as_str()).collect()
+    }
+
+    #[must_use]
+    pub fn provider_candidate_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_candidate())
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocked_future_device_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_blocked_future_device())
+            .count()
+    }
+
+    #[must_use]
+    pub fn deterministic_blocker_required_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.deterministic_blocker_required)
+            .count()
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.runtime_execution
+            && !self.data_read
+            && !self.data_written
+            && !self.data_decoded
+            && !self.data_materialized
+            && !self.object_store_io
+            && !self.table_catalog_io
+            && !self.write_io
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && self
+                .rows
+                .iter()
+                .copied()
+                .all(Vortex075LocalIoDispositionRow::side_effect_free)
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        !self.side_effect_free()
+            || self.claim_gate_status != "not_claim_grade"
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "Vortex 0.75 local-I/O provider disposition\nschema_version: {}\nreport: {}\nprovider version: {}\nprovider candidates: {}\nblocked future/device tracks: {}\nclaim gate: {}\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.upstream_vortex_provider_version,
+            self.provider_candidate_count(),
+            self.blocked_future_device_count(),
+            self.claim_gate_status,
+        )
+    }
+}
+
+fn vortex075_local_io_disposition_rows() -> Vec<Vortex075LocalIoDispositionRow> {
+    use Vortex075LocalIoSurface as S;
+    vec![
+        Vortex075LocalIoDispositionRow::candidate(
+            S::LayoutReaderContextCache,
+            "vortex_native_local_read",
+            "vortex_0_75_layout_reader_context_child_cache",
+            "candidate_for_prepared_read_through_cache_before_shardloom_local_cache_duplication",
+            "provider_gate,source_fingerprint_validation,cache_scope_evidence,no_decode_no_materialization_evidence,native_io_certificate",
+        ),
+        Vortex075LocalIoDispositionRow::candidate(
+            S::JsonExtensionArrowInterop,
+            "json_extension",
+            "vortex_0_75_json_extension_arrow_import_export",
+            "candidate_for_json_extension_preservation_and_deterministic_expression_blockers",
+            "provider_gate,json_extension_fidelity_report,arrow_boundary_report,unsupported_expression_diagnostic,native_io_certificate",
+        ),
+        Vortex075LocalIoDispositionRow::candidate(
+            S::WkbGeospatialExtension,
+            "geospatial_extension",
+            "vortex_0_75_wkb_geo_extension_arrow_interop",
+            "candidate_for_metadata_preservation_only_with_execution_blockers",
+            "provider_gate,wkb_extension_fidelity_report,geo_execution_blocker,translation_report,native_io_certificate",
+        ),
+        Vortex075LocalIoDispositionRow::candidate(
+            S::InterleaveEncoding,
+            "encoded_layout",
+            "vortex_0_75_interleave_encoding",
+            "candidate_for_encoding_preservation_and_layout_fidelity_report",
+            "provider_gate,encoding_preservation_fixture,layout_fidelity_report,statistics_preservation_report,native_io_certificate",
+        ),
+        Vortex075LocalIoDispositionRow::candidate(
+            S::BinaryZstdCompression,
+            "binary_compression",
+            "vortex_0_75_binary_zstd_compression",
+            "candidate_for_compression_metadata_and_write_fidelity_report",
+            "provider_gate,compression_metadata_fixture,write_fidelity_report,read_replay_certificate,native_io_certificate",
+        ),
+        Vortex075LocalIoDispositionRow::candidate(
+            S::RowByteEncoder,
+            "local_write_path",
+            "vortex_0_75_row_oriented_byte_encoder",
+            "candidate_for_write_path_evaluation_before_general_writer_claim",
+            "provider_gate,row_encoder_semantic_fixture,write_materialization_boundary,native_io_certificate,benchmark_row",
+        ),
+        Vortex075LocalIoDispositionRow::candidate(
+            S::ValidityMaskSemantics,
+            "null_validity",
+            "vortex_0_75_validity_mask_semantics",
+            "candidate_for_adapter_null_semantics_before_broad_format_claim",
+            "provider_gate,alltrue_allfalse_mask_fixture,null_roundtrip_fixture,decoded_reference_parity,native_io_certificate",
+        ),
+        Vortex075LocalIoDispositionRow::blocked_future_device(
+            S::ArrowDeviceGpuPath,
+            "device_acceleration",
+            "vortex_0_75_arrow_device_gpu_cudf_jni_paths",
+            "blocked_future_device_track_not_local_cpu_v1",
+            "device_residency_policy,package_build_policy,cpu_fallback_refusal,execution_certificate,native_io_certificate,benchmark_row",
+        ),
+    ]
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexObjectStoreIoGateSurface {
     ObjectStoreVortexReadProvider,
     ObjectStoreVortexWriteProvider,
@@ -1974,6 +2739,128 @@ mod tests {
                 .to_human_text()
                 .contains("fallback execution: disabled")
         );
+    }
+
+    #[test]
+    fn vortex075_heavy_operator_disposition_maps_provider_candidates() {
+        let report = Vortex075HeavyOperatorProviderDispositionReport::current();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.vortex075_heavy_operator_provider_disposition.v1"
+        );
+        assert_eq!(report.phase_id, "PERF-RUNTIME-7B");
+        assert_eq!(report.provider_candidate_count(), 5);
+        assert_eq!(report.wrapped_shardloom_kernel_count(), 1);
+        assert_eq!(report.blocked_external_integration_count(), 1);
+        assert_eq!(
+            report.row_order(),
+            vec![
+                "grouped_sum_count_aggregate",
+                "validity_mask_no_null",
+                "branchless_zip",
+                "dictionary_fsst_reuse",
+                "layout_child_cache",
+                "byte_length_expression",
+                "datafusion_54_integration",
+            ]
+        );
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert!(!report.runtime_execution);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.fallback_attempted);
+    }
+
+    #[test]
+    fn vortex075_heavy_operator_disposition_blocks_datafusion_runtime() {
+        let report = Vortex075HeavyOperatorProviderDispositionReport::current();
+        let datafusion = report
+            .rows
+            .iter()
+            .find(|row| row.surface == Vortex075HeavyOperatorSurface::DataFusion54Integration)
+            .expect("datafusion row");
+
+        assert_eq!(
+            datafusion.status,
+            Vortex075HeavyOperatorDispositionStatus::BlockedExternalIntegration
+        );
+        assert_eq!(
+            datafusion.shardloom_disposition,
+            "baseline_or_oracle_only_not_shardloom_runtime_provider"
+        );
+        assert_eq!(report.diagnostics.len(), 1);
+        assert_eq!(
+            report.diagnostics[0].code,
+            DiagnosticCode::NoFallbackExecution
+        );
+        assert!(!report.diagnostics[0].fallback.attempted);
+        assert!(!report.diagnostics[0].fallback.allowed);
+    }
+
+    #[test]
+    fn vortex075_local_io_disposition_maps_v1_provider_candidates() {
+        let report = Vortex075LocalIoProviderDispositionReport::current();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.vortex075_local_io_provider_disposition.v1"
+        );
+        assert_eq!(report.phase_id, "PROD-READY-1A");
+        assert_eq!(report.provider_candidate_count(), 7);
+        assert_eq!(report.blocked_future_device_count(), 1);
+        assert_eq!(report.deterministic_blocker_required_count(), 8);
+        assert_eq!(
+            report.row_order(),
+            vec![
+                "layout_reader_context_cache",
+                "json_extension_arrow_interop",
+                "wkb_geospatial_extension",
+                "interleave_encoding",
+                "binary_zstd_compression",
+                "row_byte_encoder",
+                "validity_mask_semantics",
+                "arrow_device_gpu_path",
+            ]
+        );
+        assert!(report.side_effect_free());
+        assert!(!report.has_errors());
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert!(!report.runtime_execution);
+        assert!(!report.data_read);
+        assert!(!report.data_written);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.external_engine_invoked);
+        assert!(!report.fallback_attempted);
+    }
+
+    #[test]
+    fn vortex075_local_io_disposition_blocks_device_paths_from_v1_runtime() {
+        let report = Vortex075LocalIoProviderDispositionReport::current();
+        let device = report
+            .rows
+            .iter()
+            .find(|row| row.surface == Vortex075LocalIoSurface::ArrowDeviceGpuPath)
+            .expect("device row");
+
+        assert_eq!(
+            device.status,
+            Vortex075LocalIoDispositionStatus::BlockedFutureDeviceTrack
+        );
+        assert_eq!(
+            device.shardloom_disposition,
+            "blocked_future_device_track_not_local_cpu_v1"
+        );
+        assert!(!device.runtime_execution_allowed);
+        assert!(!device.external_engine_invoked);
+        assert!(!device.fallback_attempted);
+        assert_eq!(report.diagnostics.len(), 1);
+        assert_eq!(report.diagnostics[0].code, DiagnosticCode::NotImplemented);
+        assert_eq!(report.diagnostics[0].category, DiagnosticCategory::VortexIo);
+        assert!(!report.diagnostics[0].fallback.attempted);
+        assert!(!report.diagnostics[0].fallback.allowed);
     }
 
     #[test]

@@ -15,6 +15,7 @@ use shardloom_core::{
 };
 use shardloom_exec::{AdaptiveSizingPolicy, ByteSize, MemoryBudget};
 use shardloom_vortex::{
+    Vortex075HeavyOperatorProviderDispositionReport, Vortex075LocalIoProviderDispositionReport,
     VortexAdapterCapabilityReport, VortexAdapterReadiness, VortexComputeProviderReport,
     VortexCountCandidateSource, VortexCountReadinessSignal, VortexDTypeMappingReport,
     VortexEncodedExecutionPathSelectionReport, VortexEncodingLayoutMappingReport,
@@ -962,6 +963,8 @@ fn vortex_api_inventory_fields(
     provider_report: &VortexComputeProviderReport,
     local_io_report: &VortexLocalIoCoverageReport,
     object_store_io_gate: &VortexObjectStoreIoGateReport,
+    heavy_operator_disposition: &Vortex075HeavyOperatorProviderDispositionReport,
+    local_io_provider_disposition: &Vortex075LocalIoProviderDispositionReport,
 ) -> Vec<(String, String)> {
     let mut fields = vortex_api_inventory_base_fields();
     fields.extend(vortex_api_inventory_report_fields(
@@ -978,6 +981,12 @@ fn vortex_api_inventory_fields(
     fields.extend(vortex_segment_extraction_admission_fields(scan_report));
     fields.extend(vortex_local_io_coverage_fields(local_io_report));
     fields.extend(vortex_object_store_io_gate_fields(object_store_io_gate));
+    fields.extend(vortex075_heavy_operator_disposition_fields(
+        heavy_operator_disposition,
+    ));
+    fields.extend(vortex075_local_io_provider_disposition_fields(
+        local_io_provider_disposition,
+    ));
     fields
 }
 
@@ -1755,21 +1764,333 @@ fn append_vortex_object_store_io_gate_diagnostic_fields(
     );
 }
 
+#[allow(clippy::too_many_lines)]
+fn vortex075_heavy_operator_disposition_fields(
+    report: &Vortex075HeavyOperatorProviderDispositionReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![
+        (
+            "vortex075_heavy_operator_schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_report_id".to_string(),
+            report.report_id.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_phase_id".to_string(),
+            report.phase_id.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_provider_version".to_string(),
+            report.upstream_vortex_provider_version.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_gate_status".to_string(),
+            report.gate_status.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_support_status".to_string(),
+            report.support_status.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_row_order".to_string(),
+            report.row_order().join(","),
+        ),
+        (
+            "vortex075_heavy_operator_provider_candidate_count".to_string(),
+            report.provider_candidate_count().to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_wrapped_shardloom_kernel_count".to_string(),
+            report.wrapped_shardloom_kernel_count().to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_blocked_external_integration_count".to_string(),
+            report.blocked_external_integration_count().to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_claim_gate_status".to_string(),
+            report.claim_gate_status.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_claim_boundary".to_string(),
+            report.claim_boundary.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_runtime_execution".to_string(),
+            report.runtime_execution.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_data_read".to_string(),
+            report.data_read.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_data_decoded".to_string(),
+            report.data_decoded.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_data_materialized".to_string(),
+            report.data_materialized.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_object_store_io".to_string(),
+            report.object_store_io.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_write_io".to_string(),
+            report.write_io.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_external_engine_invoked".to_string(),
+            report.external_engine_invoked.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_fallback_attempted".to_string(),
+            report.fallback_attempted.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_fallback_execution_allowed".to_string(),
+            report.fallback_execution_allowed.to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_side_effect_free".to_string(),
+            report.side_effect_free().to_string(),
+        ),
+        (
+            "vortex075_heavy_operator_diagnostic_count".to_string(),
+            report.diagnostics.len().to_string(),
+        ),
+    ];
+    for row in &report.rows {
+        let row_prefix = format!("vortex075_heavy_operator_row_{}", row.surface.as_str());
+        fields.extend([
+            (
+                format!("{row_prefix}_status"),
+                row.status.as_str().to_string(),
+            ),
+            (
+                format!("{row_prefix}_operator_family"),
+                row.operator_family.to_string(),
+            ),
+            (
+                format!("{row_prefix}_upstream_api_surface"),
+                row.upstream_api_surface.to_string(),
+            ),
+            (
+                format!("{row_prefix}_shardloom_disposition"),
+                row.shardloom_disposition.to_string(),
+            ),
+            (
+                format!("{row_prefix}_required_evidence"),
+                row.required_evidence.to_string(),
+            ),
+            (
+                format!("{row_prefix}_provider_gate_required"),
+                row.provider_gate_required.to_string(),
+            ),
+            (
+                format!("{row_prefix}_decoded_reference_required"),
+                row.decoded_reference_required.to_string(),
+            ),
+            (
+                format!("{row_prefix}_claim_gate_status"),
+                row.claim_gate_status.to_string(),
+            ),
+        ]);
+    }
+    fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn vortex075_local_io_provider_disposition_fields(
+    report: &Vortex075LocalIoProviderDispositionReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(
+        &mut fields,
+        "vortex075_local_io_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        &mut fields,
+        "vortex075_local_io_report_id",
+        report.report_id,
+    );
+    push_field(&mut fields, "vortex075_local_io_phase_id", report.phase_id);
+    push_field(
+        &mut fields,
+        "vortex075_local_io_provider_version",
+        report.upstream_vortex_provider_version,
+    );
+    push_field(
+        &mut fields,
+        "vortex075_local_io_gate_status",
+        report.gate_status,
+    );
+    push_field(
+        &mut fields,
+        "vortex075_local_io_support_status",
+        report.support_status,
+    );
+    push_field(
+        &mut fields,
+        "vortex075_local_io_row_order",
+        &report.row_order().join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "vortex075_local_io_provider_candidate_count",
+        report.provider_candidate_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "vortex075_local_io_blocked_future_device_count",
+        report.blocked_future_device_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "vortex075_local_io_deterministic_blocker_required_count",
+        report.deterministic_blocker_required_count(),
+    );
+    push_field(
+        &mut fields,
+        "vortex075_local_io_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_field(
+        &mut fields,
+        "vortex075_local_io_claim_boundary",
+        report.claim_boundary,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex075_local_io_runtime_execution",
+        report.runtime_execution,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex075_local_io_data_read",
+        report.data_read,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex075_local_io_data_written",
+        report.data_written,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex075_local_io_data_decoded",
+        report.data_decoded,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex075_local_io_data_materialized",
+        report.data_materialized,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex075_local_io_object_store_io",
+        report.object_store_io,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex075_local_io_table_catalog_io",
+        report.table_catalog_io,
+    );
+    push_bool_field(&mut fields, "vortex075_local_io_write_io", report.write_io);
+    push_bool_field(
+        &mut fields,
+        "vortex075_local_io_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex075_local_io_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex075_local_io_fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex075_local_io_side_effect_free",
+        report.side_effect_free(),
+    );
+    push_count_field(
+        &mut fields,
+        "vortex075_local_io_diagnostic_count",
+        report.diagnostics.len(),
+    );
+    for row in &report.rows {
+        let row_prefix = format!("vortex075_local_io_row_{}", row.surface.as_str());
+        fields.extend([
+            (
+                format!("{row_prefix}_status"),
+                row.status.as_str().to_string(),
+            ),
+            (
+                format!("{row_prefix}_format_family"),
+                row.format_family.to_string(),
+            ),
+            (
+                format!("{row_prefix}_upstream_api_surface"),
+                row.upstream_api_surface.to_string(),
+            ),
+            (
+                format!("{row_prefix}_shardloom_disposition"),
+                row.shardloom_disposition.to_string(),
+            ),
+            (
+                format!("{row_prefix}_required_evidence"),
+                row.required_evidence.to_string(),
+            ),
+            (
+                format!("{row_prefix}_provider_gate_required"),
+                row.provider_gate_required.to_string(),
+            ),
+            (
+                format!("{row_prefix}_fidelity_report_required"),
+                row.fidelity_report_required.to_string(),
+            ),
+            (
+                format!("{row_prefix}_deterministic_blocker_required"),
+                row.deterministic_blocker_required.to_string(),
+            ),
+            (
+                format!("{row_prefix}_native_io_certificate_required"),
+                row.native_io_certificate_required.to_string(),
+            ),
+            (
+                format!("{row_prefix}_claim_gate_status"),
+                row.claim_gate_status.to_string(),
+            ),
+        ]);
+    }
+    fields
+}
+
 pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
     let report = VortexAdapterCapabilityReport::foundation();
     let scan_report = plan_vortex_scan_compatibility();
     let provider_report = VortexComputeProviderReport::local_scan_provider();
     let local_io_report = VortexLocalIoCoverageReport::current();
     let object_store_io_gate = VortexObjectStoreIoGateReport::current();
+    let heavy_operator_disposition = Vortex075HeavyOperatorProviderDispositionReport::current();
+    let local_io_provider_disposition = Vortex075LocalIoProviderDispositionReport::current();
     let mut diagnostics = report.diagnostics.clone();
     diagnostics.extend(object_store_io_gate.diagnostics.clone());
+    diagnostics.extend(heavy_operator_disposition.diagnostics.clone());
+    diagnostics.extend(local_io_provider_disposition.diagnostics.clone());
     emit(
         "vortex-api-inventory",
         format,
         CommandStatus::Success,
         "vortex API inventory".to_string(),
         format!(
-            "{}\n{}\n{}\n{}\n{}",
+            "{}\n{}\n{}\n{}\n{}\n{}\n{}",
             report.to_human_text(),
             scan_report
                 .source_split_runtime_admission_proof
@@ -1778,7 +2099,9 @@ pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
                 .segment_extraction_admission_report
                 .to_human_text(),
             local_io_report.to_human_text(),
-            object_store_io_gate.to_human_text()
+            object_store_io_gate.to_human_text(),
+            heavy_operator_disposition.to_human_text(),
+            local_io_provider_disposition.to_human_text()
         ),
         diagnostics,
         vortex_api_inventory_fields(
@@ -1786,6 +2109,8 @@ pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
             &provider_report,
             &local_io_report,
             &object_store_io_gate,
+            &heavy_operator_disposition,
+            &local_io_provider_disposition,
         ),
     );
     ExitCode::SUCCESS

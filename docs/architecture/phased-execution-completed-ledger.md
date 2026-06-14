@@ -16,6 +16,65 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Vortex 0.75 provider disposition reports
+  - Date: 2026-06-14
+  - Source:
+    - `PERF-RUNTIME-7B` in `docs/architecture/phased-execution-plan.md`.
+    - `PROD-READY-1A` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/vortex-public-api-inventory.md`.
+    - `docs/skills/vortex/vortex-first-provider-check.md`.
+    - `docs/skills/vortex/vortex-versioning-upstream.md`.
+  - Branch: `codex/perf-runtime-7b-provider-disposition`.
+  - Scope:
+    - Added the side-effect-free
+      `shardloom.vortex075_heavy_operator_provider_disposition.v1` report in `shardloom-vortex`
+      and exposed it through `vortex-api-inventory`.
+    - Classified Vortex 0.75 grouped `sum`/`count`, validity/mask no-null execution, branchless
+      zip, dictionary/FSST reuse, and layout child cache as provider candidates pending ShardLoom
+      provider gates, decoded-reference parity, execution certificates, Native I/O evidence, and
+      benchmark rows.
+    - Recorded `byte_length()` as already wrapped by the existing ShardLoom binary byte-length
+      kernel until provider parity is proven.
+    - Recorded Vortex DataFusion 54 integration as baseline/oracle-only, with
+      `fallback_attempted=false`, `external_engine_invoked=false`, and no ShardLoom runtime
+      admission.
+    - Added the side-effect-free
+      `shardloom.vortex075_local_io_provider_disposition.v1` report in `shardloom-vortex` and
+      exposed it through `vortex-api-inventory`.
+    - Classified layout-reader context/cache, JSON extension Arrow import/export,
+      WKB/geospatial extension preservation, Interleave encoding, binary zstd/compression
+      metadata, row-byte encoder, and validity/mask semantics as local-I/O provider candidates
+      pending adapter/fidelity evidence.
+    - Recorded Arrow device/GPU/JNI/cuDF paths as blocked for a future device-residency track, not
+      local CPU v1 runtime.
+    - Checked the active `PERF-RUNTIME-7B` and `PROD-READY-1A` provider-disposition checklist rows
+      while keeping the remaining native-kernel and production format-certification rows open.
+  - Evidence commands:
+    - `cargo test -p shardloom-vortex vortex075_ --lib -- --nocapture`.
+    - `cargo test -p shardloom-vortex --lib -- --nocapture`.
+    - `CARGO_INCREMENTAL=0 cargo test -p shardloom-cli --test vortex_api_inventory_snapshots -- --nocapture`.
+    - `cargo fmt --all -- --check`.
+    - `cargo clippy -p shardloom-vortex --lib -- -D warnings`.
+    - `cargo clippy -p shardloom-cli --test vortex_api_inventory_snapshots -- -D warnings`.
+    - `cargo clippy --workspace --all-targets -- -D warnings`.
+  - Claim boundary:
+    - May claim the Vortex 0.75 heavy-operator and local-I/O provider-disposition reports exist
+      and are exposed through the API inventory.
+    - May not claim Vortex 0.75 grouped aggregate, validity/mask, branchless zip,
+      dictionary/FSST, layout cache, byte-length, JSON/geospatial extension, Interleave,
+      compression, row encoder, or device/GPU providers are runtime-admitted or faster.
+  - Fallback boundary:
+    - Both reports are report-only and side-effect-free:
+      `runtime_execution=false`, `data_read=false`, `data_decoded=false`,
+      `data_materialized=false`, `external_engine_invoked=false`, and
+      `fallback_attempted=false`.
+  - Residual work:
+    - If refreshed rows still show multi-ms prepared/native operator spikes, close the remaining
+      `PERF-RUNTIME-7B` native kernel-family row with decoded-reference parity tests and
+      benchmark evidence.
+    - `PROD-READY-1A` still must close real production format profiles, pushdown/fidelity reports,
+      Vortex-native broad read/write certification, compatibility output reports, and local format
+      edge-case fixtures before any production local-I/O claim.
 - [x] Session label: PROD-READY-0A common production certification gate
   - Date: 2026-06-14
   - Source:
