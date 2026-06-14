@@ -84,7 +84,8 @@ git diff --check
 ```
 
 `<workspace-msrv-toolchain>` is the concrete toolchain derived from `[workspace.package]`
-`rust-version` in the root `Cargo.toml` (for example, `1.96.0` when the manifest says `1.96`).
+`rust-version` in the root `Cargo.toml` (for a two-component manifest value, append `.0` for the
+rustup toolchain lane).
 
 For docs-only intake or mapping work, run at minimum:
 

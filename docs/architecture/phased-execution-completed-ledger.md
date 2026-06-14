@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-RUNTIME-7A cold compatibility-to-certified route burn-down closeout
+  - Date: 2026-06-14
+  - Source:
+    - `PERF-RUNTIME-7A` in `docs/architecture/phased-execution-plan.md`.
+    - Current promoted `full_local` benchmark artifact generated `2026-06-13T11:33:10Z` from
+      source revision `5743638a9225f479a0096f1c6db51a0068cac68f`.
+    - Workspace Rust/Vortex version-source contract from `PROD-V1-5A`.
+  - Branch: pending current cohesive runtime/release batch.
+  - Scope:
+    - Completed the remaining source-specific artifact elision assessment by implementing
+      scenario-aware fact schema pruning for cold compatibility-to-certified routes:
+      non-id-consuming routes no longer write or replay the fact `id` column, while id-consuming
+      routes and full prepared-reuse imports preserve it.
+    - Kept source-role pruning explicit: fact-only routes avoid dimension source/Vortex artifacts;
+      join routes still materialize dimension evidence, and broad prepared-batch reuse tests opt
+      into full text-column preservation.
+    - Updated CSV/JSONL selected-field parsing so unselected `id` and `category` fields are skipped
+      on selective/nested/dirty/null/grouping routes, with duplicate selected-field and malformed
+      selected-tail diagnostics still fail-closed.
+    - Repaired source-read, projection, typed-builder, materialization-boundary, capillary, runtime
+      scheduler, and native replay evidence expectations to match the new lean artifact schema.
+    - Tightened the Rust/Vortex version-source cleanup by keeping formatter examples synthetic and
+      removing an active MSRV literal from release-intake guidance; operational Rust/Vortex values
+      continue to derive from root `Cargo.toml` through `scripts/release_report_utils.py`,
+      `scripts/write_ci_version_env.py`, and `shardloom-vortex/build.rs`.
+  - Evidence commands:
+    - `python3 scripts/check_workspace_version_sources.py`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_write_ci_version_env_formats_reusable_shell_assignments`.
+    - `cargo fmt --all -- --check`.
+    - `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib benchmark_jsonl -- --nocapture`.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib nested_json_field_scan_runs_jsonl_fixture -- --nocapture`.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib traditional_analytics::tests -- --nocapture`.
+    - `git diff --check`.
+  - Generated reports and artifacts:
+    - `target/workspace-version-source-report.json`: status `passed`.
+  - Claim boundary:
+    - May claim source-level cold route work was reduced for admitted scenario shapes and that
+      focused validation covers the lean fact-only schema, join/full-reuse exceptions, selected
+      CSV/JSONL parsing, and version-source contract.
+    - Does not claim a new benchmark improvement, superiority, Spark displacement, production
+      package readiness, or public release freshness until a benchmark refresh and release gates
+      are run after this code lands.
+  - Fallback boundary:
+    - Runtime tests preserve `fallback_attempted=false` and `external_engine_invoked=false`;
+      compatibility inputs remain translation/admission surfaces, not external-engine execution.
+  - Residual work:
+    - Next runtime optimization work starts at `PERF-RUNTIME-7B`; any fresh performance statement
+      still requires a rerun/promotion of the benchmark bundle after merge.
 - [x] Session label: PROD-V1-4A docs, website, install, and example productization closeout
   - Date: 2026-06-14
   - Source:
