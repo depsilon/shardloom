@@ -9495,26 +9495,26 @@ class ReleaseScriptTests(unittest.TestCase):
             "write_ci_version_env_formats_for_test",
         )
         env = {
-            "SHARDLOOM_RUST_MSRV_TOOLCHAIN": "1.96.0",
-            "SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION": "0.75",
+            "SHARDLOOM_RUST_MSRV_TOOLCHAIN": "fixture-rust-msrv",
+            "SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION": "fixture-vortex",
         }
 
         self.assertIn(
-            "$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN = \"1.96.0\"",
+            '$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN = "fixture-rust-msrv"',
             module.format_env(env, "powershell"),
         )
         self.assertIn(
-            "export SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION='0.75'",
+            "export SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION='fixture-vortex'",
             module.format_env(env, "posix"),
         )
         self.assertEqual(
             json.loads(module.format_env(env, "json"))[
                 "SHARDLOOM_RUST_MSRV_TOOLCHAIN"
             ],
-            "1.96.0",
+            "fixture-rust-msrv",
         )
         self.assertIn(
-            "SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION=0.75",
+            "SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION=fixture-vortex",
             module.format_env(env, "env"),
         )
 

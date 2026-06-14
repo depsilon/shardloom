@@ -283,6 +283,7 @@ struct FastFactJsonlValues<'a> {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Clone, Copy)]
 struct FastFactCsvValues<'a> {
     id: u64,
     group_key: u32,
@@ -25740,14 +25741,14 @@ fn selected_batch_evidence_posture(
 )> {
     if let Some(tier) = requested_evidence_tier {
         let tier_level = tier.evidence_level();
-        if let Some(level) = requested_evidence_level {
-            if level != tier_level {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "traditional-analytics-vortex-batch-run evidence_level={} conflicts with evidence_tier={}; fallback execution was not attempted",
-                    level.as_str(),
-                    tier.as_str()
-                )));
-            }
+        if let Some(level) = requested_evidence_level
+            && level != tier_level
+        {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "traditional-analytics-vortex-batch-run evidence_level={} conflicts with evidence_tier={}; fallback execution was not attempted",
+                level.as_str(),
+                tier.as_str()
+            )));
         }
         let selected_level = selected_batch_evidence_level(Some(tier_level), write_result_vortex)?;
         return Ok((selected_level, tier));
@@ -27286,6 +27287,7 @@ fn vortex_array_from_record_batch(
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 struct TraditionalFactVortexColumns {
     selection: TraditionalFactTextColumnSelection,
+    row_count: usize,
     id: Vec<u64>,
     group_key: Vec<u32>,
     dim_key: Vec<u32>,
@@ -27311,6 +27313,7 @@ impl TraditionalFactVortexColumns {
     fn with_selection(capacity: usize, selection: TraditionalFactTextColumnSelection) -> Self {
         Self {
             selection,
+            row_count: 0,
             id: Vec::with_capacity(capacity),
             group_key: Vec::with_capacity(capacity),
             dim_key: Vec::with_capacity(capacity),
@@ -27328,7 +27331,7 @@ impl TraditionalFactVortexColumns {
     }
 
     fn len(&self) -> usize {
-        self.id.len()
+        self.row_count
     }
 
     fn push_fast_jsonl_values(
@@ -27386,7 +27389,11 @@ impl TraditionalFactVortexColumns {
         column_selection: TraditionalFactTextColumnSelection,
     ) -> Result<()> {
         self.push_values(
-            parse_jsonl_numeric_field(fields, path, line_number, "id")?,
+            if column_selection.id {
+                parse_jsonl_numeric_field(fields, path, line_number, "id")?
+            } else {
+                0
+            },
             if column_selection.group_key {
                 parse_jsonl_numeric_field(fields, path, line_number, "group_key")?
             } else {
@@ -27468,7 +27475,13 @@ impl TraditionalFactVortexColumns {
         dirty_numeric: Option<String>,
         dirty_flag: Option<String>,
     ) {
-        self.id.push(id);
+        self.row_count = self
+            .row_count
+            .checked_add(1)
+            .expect("traditional analytics fact Vortex provider row count overflow");
+        if self.selection.id {
+            self.id.push(id);
+        }
         if self.selection.group_key {
             self.group_key.push(group_key);
         }
@@ -27513,7 +27526,17 @@ impl TraditionalFactVortexColumns {
         batch: &arrow_array::RecordBatch,
         path: &std::path::Path,
     ) -> Result<()> {
-        self.id.extend(arrow_u64_column(batch, path, "id")?);
+        self.row_count = self
+            .row_count
+            .checked_add(batch.num_rows())
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "traditional analytics fact Vortex provider row count overflow".to_string(),
+                )
+            })?;
+        if self.selection.id {
+            self.id.extend(arrow_u64_column(batch, path, "id")?);
+        }
         if self.selection.group_key {
             self.group_key
                 .extend(arrow_u32_column(batch, path, "group_key")?);
@@ -27588,8 +27611,12 @@ impl TraditionalFactVortexColumns {
         };
         use arrow_schema::{DataType, Field, Schema};
 
-        let mut fields = vec![Field::new("id", DataType::UInt64, false)];
-        let mut arrays = vec![Arc::new(UInt64Array::from(self.id)) as ArrayRef];
+        let mut fields = Vec::new();
+        let mut arrays = Vec::new();
+        if self.selection.id {
+            fields.push(Field::new("id", DataType::UInt64, false));
+            arrays.push(Arc::new(UInt64Array::from(self.id)) as ArrayRef);
+        }
         if self.selection.group_key {
             fields.push(Field::new("group_key", DataType::UInt32, false));
             arrays.push(Arc::new(UInt32Array::from(self.group_key)) as ArrayRef);
@@ -28788,6 +28815,7 @@ fn text_source_row_capacity_hint(source_bytes_hint: u64, bytes_per_row: u64) -> 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TraditionalFactTextColumnSelection {
+    id: bool,
     group_key: bool,
     dim_key: bool,
     value: bool,
@@ -28806,6 +28834,7 @@ struct TraditionalFactTextColumnSelection {
 impl TraditionalFactTextColumnSelection {
     const fn full() -> Self {
         Self {
+            id: true,
             group_key: true,
             dim_key: true,
             value: true,
@@ -28823,6 +28852,7 @@ impl TraditionalFactTextColumnSelection {
 
     const fn core_only() -> Self {
         Self {
+            id: true,
             group_key: true,
             dim_key: true,
             value: true,
@@ -28843,18 +28873,18 @@ impl TraditionalFactTextColumnSelection {
             TraditionalAnalyticsScenario::CsvFileIngest
             | TraditionalAnalyticsScenario::ManySmallFilesScan => Self {
                 metric: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::SelectiveFilter => Self {
                 value: true,
                 metric: true,
                 flag: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::GroupByAggregation => Self {
                 group_key: true,
                 metric: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::SortAndTopK
             | TraditionalAnalyticsScenario::SmallChangeOverLargeBase => Self {
@@ -28864,15 +28894,15 @@ impl TraditionalFactTextColumnSelection {
             TraditionalAnalyticsScenario::HashJoin => Self {
                 dim_key: true,
                 metric: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::WideProjection => Self {
                 group_key: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::DistinctCount => Self {
                 category: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::FilterProjectionLimit => Self {
                 value: true,
@@ -28883,19 +28913,19 @@ impl TraditionalFactTextColumnSelection {
                 group_key: true,
                 metric: true,
                 category: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => Self {
                 metric: true,
                 category: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::JoinAggregate => Self {
                 dim_key: true,
                 value: true,
                 metric: true,
                 category: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::RowNumberWindow
             | TraditionalAnalyticsScenario::TopNPerGroup => Self {
@@ -28906,26 +28936,26 @@ impl TraditionalFactTextColumnSelection {
             TraditionalAnalyticsScenario::PartitionPruning => Self {
                 metric: true,
                 event_date: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::NullHeavyAggregate => Self {
                 nullable_metric_00: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::CleanCastFilterWrite => Self {
                 raw_event_time: true,
                 dirty_numeric: true,
                 dirty_flag: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::MalformedTimestampDirtyCsv => Self {
                 raw_event_time: true,
                 dirty_numeric: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             TraditionalAnalyticsScenario::NestedJsonFieldScan => Self {
                 nested_payload: true,
-                ..Self::id_only()
+                ..Self::none()
             },
             _ => Self::core_only(),
         }
@@ -28933,6 +28963,14 @@ impl TraditionalFactTextColumnSelection {
 
     const fn id_only() -> Self {
         Self {
+            id: true,
+            ..Self::none()
+        }
+    }
+
+    const fn none() -> Self {
+        Self {
+            id: false,
             group_key: false,
             dim_key: false,
             value: false,
@@ -28949,7 +28987,7 @@ impl TraditionalFactTextColumnSelection {
     }
 
     const fn decoded_mask(self) -> u32 {
-        SOURCE_READ_FACT_ID
+        (if self.id { SOURCE_READ_FACT_ID } else { 0 })
             | if self.group_key {
                 SOURCE_READ_FACT_GROUP_KEY
             } else {
@@ -29072,7 +29110,10 @@ fn fact_columnar_projection_fields_for_selection(
     column_selection: TraditionalFactTextColumnSelection,
     category_required: bool,
 ) -> Vec<&'static str> {
-    let mut projection = vec!["id"];
+    let mut projection = Vec::new();
+    if column_selection.id {
+        projection.push("id");
+    }
     if column_selection.group_key {
         projection.push("group_key");
     }
@@ -29445,7 +29486,11 @@ fn extend_traditional_fact_csv_columns_from_content(
         dirty_numeric_index,
         dirty_flag_index,
     );
-    let id_position = selected_csv_position(&selected_indices, 0);
+    let id_position = selected_csv_optional_position_for_selection(
+        &selected_indices,
+        Some(0),
+        column_selection.id,
+    );
     let group_key_position = selected_csv_optional_position_for_selection(
         &selected_indices,
         Some(1),
@@ -29513,30 +29558,25 @@ fn extend_traditional_fact_csv_columns_from_content(
         }
         let row_number = line_index + 2;
         let line = line.trim_end_matches('\r');
-        if fixed_schema_fast_path {
-            if let Some(values) = parse_benchmark_fact_csv_fast_values_with_selection(
+        if fixed_schema_fast_path
+            && let Some(values) = parse_benchmark_fact_csv_fast_values_with_selection(
                 line,
                 path,
                 row_number,
                 column_selection,
-            )? {
-                columns.push_fast_csv_values(values);
-                rows = rows.checked_add(1).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "traditional analytics fact CSV row count overflow".to_string(),
-                    )
-                })?;
-                continue;
-            }
+            )?
+        {
+            columns.push_fast_csv_values(values);
+            rows = rows.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "traditional analytics fact CSV row count overflow".to_string(),
+                )
+            })?;
+            continue;
         }
         let selected = split_selected_csv_record(line, path, row_number, &selected_indices)?;
         columns.push_values(
-            parse_csv_field(
-                selected_csv_required(&selected, id_position, path, row_number, "id")?,
-                path,
-                row_number,
-                "id",
-            )?,
+            selected_csv_parsed_or_default(&selected, id_position, path, row_number, "id")?,
             selected_csv_parsed_or_default(
                 &selected,
                 group_key_position,
@@ -30087,7 +30127,10 @@ fn fact_row_from_jsonl_fields(
 fn fact_jsonl_selected_fields_for_selection(
     column_selection: TraditionalFactTextColumnSelection,
 ) -> Vec<&'static str> {
-    let mut fields = vec!["id"];
+    let mut fields = Vec::new();
+    if column_selection.id {
+        fields.push("id");
+    }
     if column_selection.group_key {
         fields.push("group_key");
     }
@@ -30135,7 +30178,11 @@ fn fact_row_from_jsonl_fields_with_selection(
     column_selection: TraditionalFactTextColumnSelection,
 ) -> Result<TraditionalFactRow> {
     Ok(TraditionalFactRow {
-        id: parse_jsonl_numeric_field(fields, path, line_number, "id")?,
+        id: if column_selection.id {
+            parse_jsonl_numeric_field(fields, path, line_number, "id")?
+        } else {
+            0
+        },
         group_key: if column_selection.group_key {
             parse_jsonl_numeric_field(fields, path, line_number, "group_key")?
         } else {
@@ -30242,7 +30289,7 @@ fn parse_benchmark_fact_jsonl_fast_with_selection(
     else {
         return Ok(None);
     };
-    fact_row_from_fast_jsonl_values(values, path, line_number).map(Some)
+    fact_row_from_fast_jsonl_values(values, path, line_number, column_selection).map(Some)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -30266,8 +30313,15 @@ fn parse_benchmark_fact_jsonl_fast_values_with_selection<'a>(
     if !take_json_prefix(&mut cursor, "\"id\":") {
         return Ok(None);
     }
-    let Some(id) =
-        parse_fast_json_number_before(&mut cursor, ",\"group_key\":", path, line_number, "id")?
+    let Some(id) = parse_or_skip_fast_json_number_before(
+        &mut cursor,
+        ",\"group_key\":",
+        column_selection.id,
+        0,
+        path,
+        line_number,
+        "id",
+    )?
     else {
         return Ok(None);
     };
@@ -30357,96 +30411,47 @@ fn parse_benchmark_fact_jsonl_fixed_values_with_selection<'a>(
         return Ok(None);
     };
     let bytes = inner.as_bytes();
-    let mut index = 0_usize;
-    if !take_json_bytes_prefix(bytes, &mut index, b"\"id\":") {
+    let mut parser = FastJsonPrefixParser::new(bytes, path, line_number);
+    if !parser.take_prefix(b"\"id\":") {
         return Ok(None);
     }
-    let Some(id) = parse_fast_json_u64_before_prefix(
-        bytes,
-        &mut index,
-        b",\"group_key\":",
-        true,
-        0,
-        path,
-        line_number,
-        "id",
-    )?
+    let Some(id) = parser.u64_before_prefix(b",\"group_key\":", column_selection.id, 0, "id")?
     else {
         return Ok(None);
     };
-    let Some(group_key) = parse_fast_json_u32_before_prefix(
-        bytes,
-        &mut index,
-        b",\"dim_key\":",
-        column_selection.group_key,
-        0,
-        path,
-        line_number,
-        "group_key",
-    )?
+    let Some(group_key) =
+        parser.u32_before_prefix(b",\"dim_key\":", column_selection.group_key, 0, "group_key")?
     else {
         return Ok(None);
     };
-    let Some(dim_key) = parse_fast_json_u32_before_prefix(
-        bytes,
-        &mut index,
-        b",\"value\":",
-        column_selection.dim_key,
-        0,
-        path,
-        line_number,
-        "dim_key",
-    )?
+    let Some(dim_key) =
+        parser.u32_before_prefix(b",\"value\":", column_selection.dim_key, 0, "dim_key")?
     else {
         return Ok(None);
     };
-    let Some(value) = parse_fast_json_u32_before_prefix(
-        bytes,
-        &mut index,
-        b",\"metric\":",
-        column_selection.value,
-        0,
-        path,
-        line_number,
-        "value",
-    )?
+    let Some(value) =
+        parser.u32_before_prefix(b",\"metric\":", column_selection.value, 0, "value")?
     else {
         return Ok(None);
     };
-    let Some(metric) = parse_fast_json_f64_before_prefix(
-        bytes,
-        &mut index,
-        b",\"flag\":",
-        column_selection.metric,
-        0.0,
-        path,
-        line_number,
-        "metric",
-    )?
+    let Some(metric) =
+        parser.f64_before_prefix(b",\"flag\":", column_selection.metric, 0.0, "metric")?
     else {
         return Ok(None);
     };
-    let Some(flag) = parse_fast_json_u8_before_prefix(
-        bytes,
-        &mut index,
-        b",\"category\":",
-        column_selection.flag,
-        0,
-        path,
-        line_number,
-        "flag",
-    )?
+    let Some(flag) =
+        parser.u8_before_prefix(b",\"category\":", column_selection.flag, 0, "flag")?
     else {
         return Ok(None);
     };
     let tail =
-        parse_benchmark_fact_jsonl_tail(&inner[index..], path, line_number, column_selection)?
+        parse_benchmark_fact_jsonl_tail(parser.tail(inner), path, line_number, column_selection)?
             .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(format!(
-                    "fact JSONL '{}' line {line_number} contains an invalid category/tail payload",
-                    path.display()
-                ))
-            })?;
+            ShardLoomError::InvalidOperation(format!(
+                "fact JSONL '{}' line {line_number} contains an invalid category/tail payload",
+                path.display()
+            ))
+        })?;
     Ok(Some(FastFactJsonlValues {
         id,
         group_key,
@@ -30463,9 +30468,13 @@ fn fact_row_from_fast_jsonl_values(
     values: FastFactJsonlValues<'_>,
     path: &std::path::Path,
     line_number: usize,
+    column_selection: TraditionalFactTextColumnSelection,
 ) -> Result<TraditionalFactRow> {
-    let category =
-        parse_json_string_token(values.tail.category_token, path, line_number, "category")?;
+    let category = if column_selection.category {
+        parse_json_string_token(values.tail.category_token, path, line_number, "category")?
+    } else {
+        String::new()
+    };
     Ok(TraditionalFactRow {
         id: values.id,
         group_key: values.group_key,
@@ -30979,149 +30988,120 @@ fn find_prefix_from(bytes: &[u8], start: usize, prefix: &[u8]) -> Option<usize> 
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn parse_or_skip_fast_json_bytes_before_prefix<T>(
-    bytes: &[u8],
-    index: &mut usize,
-    next_prefix: &[u8],
-    parse_value: bool,
-    default_value: T,
-    path: &std::path::Path,
+struct FastJsonPrefixParser<'a> {
+    bytes: &'a [u8],
+    index: usize,
+    path: &'a std::path::Path,
     line_number: usize,
-    field: &str,
-) -> Result<Option<T>>
-where
-    T: std::str::FromStr,
-    T::Err: std::fmt::Display,
-{
-    let Some(prefix_index) = find_prefix_from(bytes, *index, next_prefix) else {
-        return Ok(None);
-    };
-    let token = &bytes[*index..prefix_index];
-    *index = prefix_index + next_prefix.len();
-    if parse_value {
-        parse_fast_json_number_bytes(token, path, line_number, field).map(Some)
-    } else {
-        Ok(Some(default_value))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl<'a> FastJsonPrefixParser<'a> {
+    const fn new(bytes: &'a [u8], path: &'a std::path::Path, line_number: usize) -> Self {
+        Self {
+            bytes,
+            index: 0,
+            path,
+            line_number,
+        }
     }
-}
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn parse_or_skip_fast_json_unsigned_before_prefix<T>(
-    bytes: &[u8],
-    index: &mut usize,
-    next_prefix: &[u8],
-    parse_value: bool,
-    default_value: T,
-    path: &std::path::Path,
-    line_number: usize,
-    field: &str,
-) -> Result<Option<T>>
-where
-    T: TryFrom<u64>,
-    T::Error: std::fmt::Display,
-{
-    let Some(prefix_index) = find_prefix_from(bytes, *index, next_prefix) else {
-        return Ok(None);
-    };
-    let token = &bytes[*index..prefix_index];
-    *index = prefix_index + next_prefix.len();
-    if parse_value {
-        parse_unsigned_json_number_bytes(token, path, line_number, field).map(Some)
-    } else {
-        Ok(Some(default_value))
+    fn take_prefix(&mut self, prefix: &[u8]) -> bool {
+        take_json_bytes_prefix(self.bytes, &mut self.index, prefix)
     }
-}
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn parse_fast_json_u64_before_prefix(
-    bytes: &[u8],
-    index: &mut usize,
-    next_prefix: &[u8],
-    parse_value: bool,
-    default_value: u64,
-    path: &std::path::Path,
-    line_number: usize,
-    field: &str,
-) -> Result<Option<u64>> {
-    parse_or_skip_fast_json_unsigned_before_prefix(
-        bytes,
-        index,
-        next_prefix,
-        parse_value,
-        default_value,
-        path,
-        line_number,
-        field,
-    )
-}
+    fn tail<'b>(&self, inner: &'b str) -> &'b str {
+        &inner[self.index..]
+    }
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn parse_fast_json_u32_before_prefix(
-    bytes: &[u8],
-    index: &mut usize,
-    next_prefix: &[u8],
-    parse_value: bool,
-    default_value: u32,
-    path: &std::path::Path,
-    line_number: usize,
-    field: &str,
-) -> Result<Option<u32>> {
-    parse_or_skip_fast_json_unsigned_before_prefix(
-        bytes,
-        index,
-        next_prefix,
-        parse_value,
-        default_value,
-        path,
-        line_number,
-        field,
-    )
-}
+    fn bytes_before_prefix(&mut self, next_prefix: &[u8]) -> Option<&'a [u8]> {
+        let prefix_index = find_prefix_from(self.bytes, self.index, next_prefix)?;
+        let token = &self.bytes[self.index..prefix_index];
+        self.index = prefix_index + next_prefix.len();
+        Some(token)
+    }
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn parse_fast_json_u8_before_prefix(
-    bytes: &[u8],
-    index: &mut usize,
-    next_prefix: &[u8],
-    parse_value: bool,
-    default_value: u8,
-    path: &std::path::Path,
-    line_number: usize,
-    field: &str,
-) -> Result<Option<u8>> {
-    parse_or_skip_fast_json_unsigned_before_prefix(
-        bytes,
-        index,
-        next_prefix,
-        parse_value,
-        default_value,
-        path,
-        line_number,
-        field,
-    )
-}
+    fn parse_or_skip<T>(
+        &mut self,
+        next_prefix: &[u8],
+        parse_value: bool,
+        default_value: T,
+        field: &str,
+    ) -> Result<Option<T>>
+    where
+        T: std::str::FromStr,
+        T::Err: std::fmt::Display,
+    {
+        let Some(token) = self.bytes_before_prefix(next_prefix) else {
+            return Ok(None);
+        };
+        if parse_value {
+            parse_fast_json_number_bytes(token, self.path, self.line_number, field).map(Some)
+        } else {
+            Ok(Some(default_value))
+        }
+    }
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn parse_fast_json_f64_before_prefix(
-    bytes: &[u8],
-    index: &mut usize,
-    next_prefix: &[u8],
-    parse_value: bool,
-    default_value: f64,
-    path: &std::path::Path,
-    line_number: usize,
-    field: &str,
-) -> Result<Option<f64>> {
-    parse_or_skip_fast_json_bytes_before_prefix(
-        bytes,
-        index,
-        next_prefix,
-        parse_value,
-        default_value,
-        path,
-        line_number,
-        field,
-    )
+    fn parse_or_skip_unsigned<T>(
+        &mut self,
+        next_prefix: &[u8],
+        parse_value: bool,
+        default_value: T,
+        field: &str,
+    ) -> Result<Option<T>>
+    where
+        T: TryFrom<u64>,
+        T::Error: std::fmt::Display,
+    {
+        let Some(token) = self.bytes_before_prefix(next_prefix) else {
+            return Ok(None);
+        };
+        if parse_value {
+            parse_unsigned_json_number_bytes(token, self.path, self.line_number, field).map(Some)
+        } else {
+            Ok(Some(default_value))
+        }
+    }
+
+    fn u64_before_prefix(
+        &mut self,
+        next_prefix: &[u8],
+        parse_value: bool,
+        default_value: u64,
+        field: &str,
+    ) -> Result<Option<u64>> {
+        self.parse_or_skip_unsigned(next_prefix, parse_value, default_value, field)
+    }
+
+    fn u32_before_prefix(
+        &mut self,
+        next_prefix: &[u8],
+        parse_value: bool,
+        default_value: u32,
+        field: &str,
+    ) -> Result<Option<u32>> {
+        self.parse_or_skip_unsigned(next_prefix, parse_value, default_value, field)
+    }
+
+    fn u8_before_prefix(
+        &mut self,
+        next_prefix: &[u8],
+        parse_value: bool,
+        default_value: u8,
+        field: &str,
+    ) -> Result<Option<u8>> {
+        self.parse_or_skip_unsigned(next_prefix, parse_value, default_value, field)
+    }
+
+    fn f64_before_prefix(
+        &mut self,
+        next_prefix: &[u8],
+        parse_value: bool,
+        default_value: f64,
+        field: &str,
+    ) -> Result<Option<f64>> {
+        self.parse_or_skip(next_prefix, parse_value, default_value, field)
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -31345,12 +31325,12 @@ fn parse_benchmark_fact_csv_fast_values_with_selection<'a>(
     }
     let max_selected_field = column_selection.fixed_csv_max_selected_field_index();
     let mut fields = line.split(',');
-    let id = parse_csv_u64_field(
-        next_fast_csv_field(&mut fields, path, line_number, "id")?,
-        path,
-        line_number,
-        "id",
-    )?;
+    let id_field = next_fast_csv_field(&mut fields, path, line_number, "id")?;
+    let id = if column_selection.id {
+        parse_csv_u64_field(id_field, path, line_number, "id")?
+    } else {
+        0
+    };
     let mut group_key = 0;
     let mut dim_key = 0;
     let mut value = 0;
@@ -31776,7 +31756,10 @@ fn traditional_fact_csv_selected_indices_for_selection(
     dirty_numeric_index: Option<usize>,
     dirty_flag_index: Option<usize>,
 ) -> Vec<usize> {
-    let mut indices = vec![0];
+    let mut indices = Vec::new();
+    if column_selection.id {
+        indices.push(0);
+    }
     indices.extend(
         [
             column_selection.group_key.then_some(Some(1)),
@@ -38264,7 +38247,7 @@ fn days_in_month(year: u32, month: u32) -> u32 {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn is_leap_year(year: u32) -> bool {
-    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+    year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -38743,20 +38726,15 @@ mod tests {
             1,
             true,
             TraditionalTextProjectionEvidence {
-                projected_fields: SOURCE_READ_FACT_ID
-                    | SOURCE_READ_FACT_VALUE
+                projected_fields: SOURCE_READ_FACT_VALUE
                     | SOURCE_READ_FACT_METRIC
                     | SOURCE_READ_FACT_FLAG,
                 filter_fields: SOURCE_READ_FACT_VALUE | SOURCE_READ_FACT_FLAG,
-                decoded_columns: SOURCE_READ_FACT_ID
-                    | SOURCE_READ_FACT_VALUE
+                decoded_columns: SOURCE_READ_FACT_VALUE
                     | SOURCE_READ_FACT_METRIC
                     | SOURCE_READ_FACT_FLAG,
                 skipped_columns: SOURCE_READ_FACT_ALL_MASK
-                    & !(SOURCE_READ_FACT_ID
-                        | SOURCE_READ_FACT_VALUE
-                        | SOURCE_READ_FACT_METRIC
-                        | SOURCE_READ_FACT_FLAG),
+                    & !(SOURCE_READ_FACT_VALUE | SOURCE_READ_FACT_METRIC | SOURCE_READ_FACT_FLAG),
             },
         )
         .expect("text evidence");
@@ -38780,15 +38758,12 @@ mod tests {
             mixed.row_materialization_status(),
             "typed_text_column_builders_without_row_structs"
         );
-        assert_eq!(mixed.projected_field_mask_hex(), "0x00000039");
+        assert_eq!(mixed.projected_field_mask_hex(), "0x00000038");
         assert_eq!(mixed.filter_field_mask_hex(), "0x00000028");
-        assert_eq!(
-            mixed.decoded_columns(),
-            "fact.id|fact.value|fact.metric|fact.flag"
-        );
+        assert_eq!(mixed.decoded_columns(), "fact.value|fact.metric|fact.flag");
         assert_eq!(
             mixed.skipped_columns(),
-            "fact.group_key|fact.dim_key|fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+            "fact.id|fact.group_key|fact.dim_key|fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
         );
         assert_eq!(
             mixed.row_assembly_strategy(),
@@ -38837,20 +38812,15 @@ mod tests {
             11,
             1,
             TraditionalTextProjectionEvidence {
-                projected_fields: SOURCE_READ_FACT_ID
-                    | SOURCE_READ_FACT_VALUE
+                projected_fields: SOURCE_READ_FACT_VALUE
                     | SOURCE_READ_FACT_METRIC
                     | SOURCE_READ_FACT_FLAG,
                 filter_fields: SOURCE_READ_FACT_VALUE | SOURCE_READ_FACT_FLAG,
-                decoded_columns: SOURCE_READ_FACT_ID
-                    | SOURCE_READ_FACT_VALUE
+                decoded_columns: SOURCE_READ_FACT_VALUE
                     | SOURCE_READ_FACT_METRIC
                     | SOURCE_READ_FACT_FLAG,
                 skipped_columns: SOURCE_READ_FACT_ALL_MASK
-                    & !(SOURCE_READ_FACT_ID
-                        | SOURCE_READ_FACT_VALUE
-                        | SOURCE_READ_FACT_METRIC
-                        | SOURCE_READ_FACT_FLAG),
+                    & !(SOURCE_READ_FACT_VALUE | SOURCE_READ_FACT_METRIC | SOURCE_READ_FACT_FLAG),
             },
         )
         .expect("projection-aware columnar evidence");
@@ -38871,15 +38841,15 @@ mod tests {
             evidence.row_assembly_strategy(),
             "projected_columnar_provider_batch_without_traditional_rows"
         );
-        assert_eq!(evidence.projected_field_mask_hex(), "0x00000039");
+        assert_eq!(evidence.projected_field_mask_hex(), "0x00000038");
         assert_eq!(evidence.filter_field_mask_hex(), "0x00000028");
         assert_eq!(
             evidence.decoded_columns(),
-            "fact.id|fact.value|fact.metric|fact.flag"
+            "fact.value|fact.metric|fact.flag"
         );
         assert_eq!(
             evidence.skipped_columns(),
-            "fact.group_key|fact.dim_key|fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+            "fact.id|fact.group_key|fact.dim_key|fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
         );
         assert!(evidence.columnar_preserved);
         assert!(!evidence.scalar_rows_materialized);
@@ -38918,10 +38888,10 @@ mod tests {
         assert_field_eq(
             &fields,
             "source_columnar_projected_field_mask",
-            "0x00000039",
+            "0x00000038",
         );
-        assert_field_eq(&fields, "source_columnar_preserved_column_count", "4");
-        assert_field_eq(&fields, "source_columnar_skipped_column_count", "9");
+        assert_field_eq(&fields, "source_columnar_preserved_column_count", "3");
+        assert_field_eq(&fields, "source_columnar_skipped_column_count", "10");
         assert_field_eq(&fields, "source_columnar_materialized_row_count", "0");
         assert_field_eq(
             &fields,
@@ -38956,18 +38926,12 @@ mod tests {
         );
         assert_eq!(
             selective.decoded_mask(),
-            SOURCE_READ_FACT_ID
-                | SOURCE_READ_FACT_VALUE
-                | SOURCE_READ_FACT_METRIC
-                | SOURCE_READ_FACT_FLAG
+            SOURCE_READ_FACT_VALUE | SOURCE_READ_FACT_METRIC | SOURCE_READ_FACT_FLAG
         );
         assert_eq!(
             selective.skipped_mask(),
             SOURCE_READ_FACT_ALL_MASK
-                & !(SOURCE_READ_FACT_ID
-                    | SOURCE_READ_FACT_VALUE
-                    | SOURCE_READ_FACT_METRIC
-                    | SOURCE_READ_FACT_FLAG)
+                & !(SOURCE_READ_FACT_VALUE | SOURCE_READ_FACT_METRIC | SOURCE_READ_FACT_FLAG)
         );
         let core_only = traditional_fact_csv_selected_indices_for_selection(
             selective,
@@ -38978,7 +38942,7 @@ mod tests {
             optional_indices.4,
             optional_indices.5,
         );
-        assert_eq!(core_only, vec![0, 3, 4, 5]);
+        assert_eq!(core_only, vec![3, 4, 5]);
         assert_eq!(selective.fixed_csv_max_selected_field_index(), 5);
 
         let partition = traditional_fact_csv_selected_indices_for_selection(
@@ -38992,7 +38956,7 @@ mod tests {
             optional_indices.4,
             optional_indices.5,
         );
-        assert_eq!(partition, vec![0, 4, 7]);
+        assert_eq!(partition, vec![4, 7]);
 
         let clean_cast = traditional_fact_csv_selected_indices_for_selection(
             TraditionalFactTextColumnSelection::for_scenario(
@@ -39005,7 +38969,7 @@ mod tests {
             optional_indices.4,
             optional_indices.5,
         );
-        assert_eq!(clean_cast, vec![0, 9, 10, 11]);
+        assert_eq!(clean_cast, vec![9, 10, 11]);
 
         let malformed = traditional_fact_csv_selected_indices_for_selection(
             TraditionalFactTextColumnSelection::for_scenario(
@@ -39018,7 +38982,7 @@ mod tests {
             optional_indices.4,
             optional_indices.5,
         );
-        assert_eq!(malformed, vec![0, 9, 10]);
+        assert_eq!(malformed, vec![9, 10]);
 
         let nested = traditional_fact_csv_selected_indices_for_selection(
             TraditionalFactTextColumnSelection::for_scenario(
@@ -39031,7 +38995,7 @@ mod tests {
             optional_indices.4,
             optional_indices.5,
         );
-        assert_eq!(nested, vec![0, 12]);
+        assert_eq!(nested, vec![12]);
         assert_eq!(
             TraditionalFactTextColumnSelection::for_scenario(
                 TraditionalAnalyticsScenario::NestedJsonFieldScan,
@@ -39051,7 +39015,7 @@ mod tests {
             optional_indices.4,
             optional_indices.5,
         );
-        assert_eq!(null_heavy, vec![0, 8]);
+        assert_eq!(null_heavy, vec![8]);
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -39073,7 +39037,7 @@ mod tests {
         )
         .expect("fast CSV parse")
         .expect("canonical unquoted row");
-        assert_eq!(selective.id, 101);
+        assert_eq!(selective.id, 0);
         assert_eq!(selective.value, 123);
         assert_eq!(selective.metric, 4.5);
         assert_eq!(selective.flag, 1);
@@ -39105,6 +39069,19 @@ mod tests {
             .is_none(),
             "quoted CSV rows must stay on the general parser"
         );
+
+        let filter_project = parse_benchmark_fact_csv_fast_values_with_selection(
+            line,
+            path,
+            2,
+            TraditionalFactTextColumnSelection::for_scenario(
+                TraditionalAnalyticsScenario::FilterProjectionLimit,
+            ),
+        )
+        .expect("fast CSV parse")
+        .expect("canonical unquoted row");
+        assert_eq!(filter_project.id, 101);
+        assert_eq!(filter_project.value, 123);
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -39140,7 +39117,16 @@ mod tests {
                 ),
                 false,
             ),
-            vec!["id", "value", "metric", "flag"]
+            vec!["value", "metric", "flag"]
+        );
+        assert_eq!(
+            fact_columnar_projection_fields_for_selection(
+                TraditionalFactTextColumnSelection::for_scenario(
+                    TraditionalAnalyticsScenario::FilterProjectionLimit,
+                ),
+                false,
+            ),
+            vec!["id", "value", "flag"]
         );
         assert_eq!(
             fact_columnar_projection_fields_for_selection(
@@ -39149,7 +39135,7 @@ mod tests {
                 ),
                 true,
             ),
-            vec!["id", "category"]
+            vec!["category"]
         );
         assert_eq!(
             fact_columnar_projection_fields_for_selection(
@@ -39158,7 +39144,7 @@ mod tests {
                 ),
                 false,
             ),
-            vec!["id", "nested_payload"]
+            vec!["nested_payload"]
         );
         assert_eq!(
             fact_columnar_projection_fields_for_selection(
@@ -39167,7 +39153,7 @@ mod tests {
                 ),
                 false,
             ),
-            vec!["id", "raw_event_time", "dirty_numeric", "dirty_flag"]
+            vec!["raw_event_time", "dirty_numeric", "dirty_flag"]
         );
     }
 
@@ -39615,22 +39601,22 @@ mod tests {
             source.evidence.decode_status(),
             "projection_aware_columnar_provider_decode"
         );
-        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00000039");
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00000038");
         assert_eq!(source.evidence.filter_field_mask_hex(), "0x00000028");
         assert_eq!(
             source.evidence.decoded_columns(),
-            "fact.id|fact.value|fact.metric|fact.flag"
+            "fact.value|fact.metric|fact.flag"
         );
         assert_eq!(
             source.evidence.skipped_columns(),
-            "fact.group_key|fact.dim_key|fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+            "fact.id|fact.group_key|fact.dim_key|fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
         );
         assert_eq!(source.evidence.row_assembly_micros, 0);
         assert!(source.evidence.columnar_handoff_micros > 0);
         assert!(source.evidence.columnar_preserved);
         assert!(!source.evidence.scalar_rows_materialized);
         assert_eq!(source.batch.num_rows(), fact_rows.len());
-        assert_eq!(source.batch.num_columns(), 4);
+        assert_eq!(source.batch.num_columns(), 3);
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -39690,12 +39676,12 @@ mod tests {
                 source.evidence.decode_status(),
                 "projection_aware_columnar_provider_decode"
             );
-            assert_eq!(source.evidence.projected_field_mask_hex(), "0x00000201");
+            assert_eq!(source.evidence.projected_field_mask_hex(), "0x00000200");
             assert_eq!(
                 source.evidence.skipped_columns(),
-                "fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category|fact.event_date|fact.nullable_metric_00|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+                "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category|fact.event_date|fact.nullable_metric_00|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
             );
-            assert_eq!(source.batch.num_columns(), 2);
+            assert_eq!(source.batch.num_columns(), 1);
             assert!(arrow_string_column(&source.batch, &fact_path, "dirty_numeric").is_err());
             assert!(!source.evidence.scalar_rows_materialized);
 
@@ -39743,15 +39729,15 @@ mod tests {
             &fact_avro,
             TraditionalAnalyticsInputFormat::Avro,
             TraditionalAnalyticsResourcePolicy::auto().resolve_for_sources(1024),
-            TraditionalAnalyticsScenario::SelectiveFilter,
+            TraditionalAnalyticsScenario::FilterProjectionLimit,
             TraditionalFactTextColumnSelection::for_scenario(
-                TraditionalAnalyticsScenario::SelectiveFilter,
+                TraditionalAnalyticsScenario::FilterProjectionLimit,
             ),
         )
         .expect("projection-aware reordered Avro provider batch");
 
         assert_eq!(source.row_count, 1);
-        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00000039");
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00000029");
         assert_eq!(
             arrow_u64_column(&source.batch, &fact_avro, "id").expect("id"),
             vec![8]
@@ -39786,15 +39772,12 @@ mod tests {
             source.evidence.decode_status(),
             "projection_aware_columnar_provider_decode"
         );
-        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00000201");
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00000200");
         assert_eq!(source.evidence.filter_field_mask_hex(), "0x00000000");
-        assert_eq!(
-            source.evidence.decoded_columns(),
-            "fact.id|fact.nested_payload"
-        );
+        assert_eq!(source.evidence.decoded_columns(), "fact.nested_payload");
         assert_eq!(
             source.evidence.skipped_columns(),
-            "fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category|fact.event_date|fact.nullable_metric_00|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category|fact.event_date|fact.nullable_metric_00|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
         );
         let nested_payloads =
             arrow_string_column(&source.batch, &fact_avro, "nested_payload").expect("nested");
@@ -39835,15 +39818,15 @@ mod tests {
             source.evidence.decode_status(),
             "projection_aware_columnar_provider_decode"
         );
-        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00001c01");
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00001c00");
         assert_eq!(source.evidence.filter_field_mask_hex(), "0x00001c00");
         assert_eq!(
             source.evidence.decoded_columns(),
-            "fact.id|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+            "fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
         );
         assert_eq!(
             source.evidence.skipped_columns(),
-            "fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload"
+            "fact.id|fact.group_key|fact.dim_key|fact.value|fact.metric|fact.flag|fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload"
         );
         let raw_event_time =
             arrow_string_column(&source.batch, &fact_avro, "raw_event_time").expect("raw time");
@@ -39956,15 +39939,15 @@ mod tests {
             source.evidence.decode_status(),
             "projection_aware_text_column_decode"
         );
-        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00000039");
+        assert_eq!(source.evidence.projected_field_mask_hex(), "0x00000038");
         assert_eq!(source.evidence.filter_field_mask_hex(), "0x00000028");
         assert_eq!(
             source.evidence.decoded_columns(),
-            "fact.id|fact.value|fact.metric|fact.flag"
+            "fact.value|fact.metric|fact.flag"
         );
         assert_eq!(
             source.evidence.skipped_columns(),
-            "fact.group_key|fact.dim_key|fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
+            "fact.id|fact.group_key|fact.dim_key|fact.category|fact.event_date|fact.nullable_metric_00|fact.nested_payload|fact.raw_event_time|fact.dirty_numeric|fact.dirty_flag"
         );
         assert_eq!(source.evidence.row_assembly_micros, 0);
         assert_eq!(source.evidence.anomaly_quarantine_micros, 0);
@@ -39972,7 +39955,7 @@ mod tests {
         assert!(source.evidence.projection_aware_text_decode);
         assert!(!source.evidence.scalar_rows_materialized);
         assert_eq!(source.batch.num_rows(), 1);
-        assert_eq!(source.batch.num_columns(), 4);
+        assert_eq!(source.batch.num_columns(), 3);
 
         let err = read_traditional_fact_text_vortex_provider_batch_with_evidence(
             &fact_jsonl,
@@ -40006,8 +39989,8 @@ mod tests {
         )
         .unwrap()
         .expect("wide benchmark row should still use fast path");
-        assert_eq!(core_only.id, 8);
-        assert_eq!(core_only.category, "c8");
+        assert_eq!(core_only.id, 0);
+        assert_eq!(core_only.category, "");
         assert_eq!(core_only.event_date, None);
         assert_eq!(core_only.nullable_metric_00, None);
         assert_eq!(core_only.nested_payload, None);
@@ -40026,8 +40009,8 @@ mod tests {
         )
         .unwrap()
         .expect("projected fast path should not decode unselected optional tails");
-        assert_eq!(projected.id, 9);
-        assert_eq!(projected.category, "c9");
+        assert_eq!(projected.id, 0);
+        assert_eq!(projected.category, "");
         assert_eq!(projected.nullable_metric_00, None);
         assert!(
             parse_benchmark_fact_jsonl_fast(projected_with_bad_unused_optional, &path, 2).is_err(),
@@ -40095,8 +40078,8 @@ mod tests {
         )
         .unwrap()
         .expect("core-only selected decode should skip profile-specific tail fields");
-        assert_eq!(core.id, 10);
-        assert_eq!(core.category, "c10");
+        assert_eq!(core.id, 0);
+        assert_eq!(core.category, "");
         assert_eq!(core.event_date, None);
         assert_eq!(core.nullable_metric_00, None);
 
@@ -40233,7 +40216,7 @@ mod tests {
             "selected malformed optional JSONL text must still fail deterministically"
         );
 
-        let duplicate_selected = "{ \"id\":8, \"id\":9, \"group_key\":4, \"dim_key\":5, \"value\":84, \"metric\":2.5, \"flag\":0, \"category\":\"c8\" }";
+        let duplicate_selected = "{ \"id\":8, \"group_key\":4, \"dim_key\":5, \"value\":84, \"value\":85, \"metric\":2.5, \"flag\":0, \"category\":\"c8\" }";
         let mut duplicate_columns = TraditionalFactVortexColumns::with_capacity(1);
         assert!(
             extend_traditional_fact_jsonl_columns_from_content(
@@ -41314,7 +41297,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "vortex_capillary_preparation_activation_observed_rows",
-            "5",
+            "3",
         );
         assert_field_eq(
             &fields,
@@ -41546,7 +41529,7 @@ mod tests {
             "source_state_parse_normalization",
             "text_parse_to_vortex_provider_record_batch_no_persistent_row_buffer",
         );
-        assert_field_eq(&import_fields, "source_state_record_batch_count", "2");
+        assert_field_eq(&import_fields, "source_state_record_batch_count", "1");
         assert_field_eq(
             &import_fields,
             "source_state_projection_aware_text_decode",
@@ -41565,7 +41548,7 @@ mod tests {
         assert_field_eq(
             &import_fields,
             "source_read_projected_field_mask",
-            "0x0000e27f",
+            "0x00000200",
         );
         assert_field_eq(
             &import_fields,
@@ -41577,10 +41560,10 @@ mod tests {
             "source_read_decoded_columns",
             "fact.nested_payload",
         );
-        assert_field_contains(
-            &import_fields,
-            "source_read_decoded_columns",
-            "dim.dim_label",
+        assert!(
+            !import_fields
+                .get("source_read_decoded_columns")
+                .is_some_and(|value| value.contains("dim.dim_label"))
         );
         assert_field_contains(
             &import_fields,
@@ -41592,8 +41575,8 @@ mod tests {
             "source_read_skipped_columns",
             "fact.dirty_flag",
         );
-        assert_field_eq(&import_fields, "source_read_decoded_column_count", "11");
-        assert_field_eq(&import_fields, "source_read_skipped_column_count", "5");
+        assert_field_eq(&import_fields, "source_read_decoded_column_count", "1");
+        assert_field_eq(&import_fields, "source_read_skipped_column_count", "12");
         assert_field_eq(
             &import_fields,
             "source_read_row_materialization_status",
@@ -41634,22 +41617,22 @@ mod tests {
         assert_field_eq(
             &import_fields,
             "source_typed_builder_projected_column_count",
-            "11",
+            "1",
         );
         assert_field_eq(
             &import_fields,
             "source_typed_builder_full_column_count",
-            "16",
+            "13",
         );
         assert_field_eq(
             &import_fields,
             "source_typed_builder_decoded_column_count",
-            "11",
+            "1",
         );
         assert_field_eq(
             &import_fields,
             "source_typed_builder_skipped_column_count",
-            "5",
+            "12",
         );
         assert_field_eq(
             &import_fields,
@@ -41690,7 +41673,7 @@ mod tests {
         assert_field_eq(
             &import_fields,
             "source_projection_required_field_mask",
-            "0x0000e27f",
+            "0x00000200",
         );
         assert_field_eq(
             &import_fields,
@@ -41700,17 +41683,17 @@ mod tests {
         assert_field_eq(
             &import_fields,
             "source_projection_output_field_mask",
-            "0x0000e27f",
+            "0x00000200",
         );
         assert_field_eq(
             &import_fields,
             "source_projection_decoded_column_count",
-            "11",
+            "1",
         );
         assert_field_eq(
             &import_fields,
             "source_projection_skipped_column_count",
-            "5",
+            "12",
         );
         assert_field_eq(&import_fields, "source_projection_blocker", "none");
         assert_field_eq(
@@ -41731,7 +41714,7 @@ mod tests {
         assert_field_eq(
             &import_fields,
             "source_state_query_dim_row_count_reuse_status",
-            "reused_imported_dim_row_count_for_query_dispatch",
+            "dim_source_not_required_for_query_dispatch",
         );
         assert_field_eq(
             &import_fields,
@@ -45707,6 +45690,7 @@ mod tests {
                 root.join("workspace"),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
             .with_native_vortex_replay_verification(true),
         )
         .unwrap();
@@ -46089,6 +46073,7 @@ mod tests {
                 root.join("workspace"),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
             .with_native_vortex_replay_verification(true),
         )
         .unwrap();
@@ -46213,6 +46198,7 @@ mod tests {
                 root.join("workspace"),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
             .with_native_vortex_replay_verification(true),
         )
         .unwrap();
@@ -46771,6 +46757,7 @@ mod tests {
                 root.join("workspace"),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
             .with_native_vortex_replay_verification(true),
         )
         .unwrap();
@@ -46948,6 +46935,7 @@ mod tests {
                 root.join("workspace"),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
             .with_native_vortex_replay_verification(true),
         )
         .unwrap();
@@ -47139,6 +47127,7 @@ mod tests {
                 root.join("workspace"),
             )
             .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_all_text_columns_preserved_for_reuse(true)
             .with_native_vortex_replay_verification(true),
         )
         .unwrap();
@@ -50061,15 +50050,15 @@ mod tests {
                 "fact.metric".to_string()
             ]
         );
-        assert_eq!(import_report.materialization_boundary_rows, 3);
+        assert_eq!(import_report.materialization_boundary_rows, 5);
         assert!(import_report.data_materialized);
-        assert_eq!(import_report.dim_source_bytes, 0);
-        assert_eq!(import_report.dim_vortex_bytes, 0);
+        assert!(import_report.dim_source_bytes > 0);
+        assert!(import_report.dim_vortex_bytes > 0);
         assert_eq!(
             import_report.source_bytes_read,
-            import_report.fact_source_bytes
+            import_report.fact_source_bytes + import_report.dim_source_bytes
         );
-        assert!(!import_report.dim_vortex_path.exists());
+        assert!(import_report.dim_vortex_path.exists());
         let import_fields = field_map(import_report.fields());
         assert_field_eq(
             &import_fields,
@@ -50372,7 +50361,7 @@ mod tests {
             import_report.streaming_projected_columns,
             vec!["id".to_string(), "metric".to_string()]
         );
-        assert_eq!(import_report.materialization_boundary_rows, 14);
+        assert_eq!(import_report.materialization_boundary_rows, 12);
         assert!(import_report.data_materialized);
 
         let native_report =
@@ -50478,7 +50467,7 @@ mod tests {
                 "metric".to_string()
             ]
         );
-        assert_eq!(import_report.materialization_boundary_rows, 5);
+        assert_eq!(import_report.materialization_boundary_rows, 3);
         assert!(import_report.data_materialized);
 
         let native_report =
@@ -50588,7 +50577,7 @@ mod tests {
                 "metric".to_string()
             ]
         );
-        assert_eq!(import_report.materialization_boundary_rows, 5);
+        assert_eq!(import_report.materialization_boundary_rows, 3);
         assert!(import_report.data_materialized);
 
         let native_report =
@@ -50692,7 +50681,7 @@ mod tests {
             import_report.streaming_projected_columns,
             vec!["category".to_string(), "metric".to_string()]
         );
-        assert_eq!(import_report.materialization_boundary_rows, 5);
+        assert_eq!(import_report.materialization_boundary_rows, 3);
         assert!(import_report.data_materialized);
 
         let native_report =
@@ -50775,7 +50764,7 @@ mod tests {
             import_report.streaming_projected_columns,
             vec!["event_date".to_string(), "metric".to_string()]
         );
-        assert_eq!(import_report.materialization_boundary_rows, 5);
+        assert_eq!(import_report.materialization_boundary_rows, 3);
         assert!(import_report.data_materialized);
 
         let native_report =
@@ -50862,7 +50851,7 @@ mod tests {
                 "metric".to_string()
             ]
         );
-        assert_eq!(import_report.materialization_boundary_rows, 5);
+        assert_eq!(import_report.materialization_boundary_rows, 3);
         assert!(import_report.data_materialized);
 
         let native_report =
@@ -50949,7 +50938,7 @@ mod tests {
             import_report.streaming_projected_columns,
             vec!["group_key".to_string(), "metric".to_string()]
         );
-        assert_eq!(import_report.materialization_boundary_rows, 5);
+        assert_eq!(import_report.materialization_boundary_rows, 3);
         assert!(import_report.data_materialized);
 
         let native_report =
@@ -51638,6 +51627,7 @@ mod tests {
                 dim_csv,
                 workspace,
             )
+            .with_all_text_columns_preserved_for_reuse(true)
             .with_native_vortex_replay_verification(true),
         )
         .unwrap();
@@ -51832,8 +51822,8 @@ mod tests {
             report.runtime_scheduler_mode,
             "deterministic_local_task_sequence"
         );
-        assert!(report.runtime_scheduler_ref.contains("tasks/5"));
-        assert_eq!(report.runtime_task_count, 5);
+        assert!(report.runtime_scheduler_ref.contains("tasks/4"));
+        assert_eq!(report.runtime_task_count, 4);
         assert_eq!(
             report.runtime_scheduled_task_count,
             report.runtime_task_count
