@@ -98,6 +98,37 @@ OBJECT_STORE_REQUIRED_UNSUPPORTED_OPERATIONS = {
     "object_store_table_commit",
     "object_store_distributed_runtime",
 }
+LOCAL_TABLE_MANIFEST_WORKLOAD_ID = "local_manifest_table_runtime_v1_candidate"
+LOCAL_TABLE_REQUIRED_EFFECT_PERMISSIONS = {
+    "explicit_local_file_read",
+    "explicit_local_file_write",
+    "local_manifest_table_metadata_io",
+    "local_manifest_write_io",
+    "no_network",
+    "no_live_credentials",
+    "no_provider_probe",
+    "no_external_catalog",
+    "no_object_store_io",
+    "no_external_table_format_dependency",
+}
+LOCAL_TABLE_REQUIRED_UNSUPPORTED_OPERATIONS = {
+    "external_iceberg_runtime",
+    "external_delta_runtime",
+    "external_hudi_runtime",
+    "external_catalog_resolution",
+    "object_store_table_commit",
+    "merge_update_delete_runtime",
+}
+LOCAL_TABLE_REQUIRED_SECURITY_EVIDENCE_REFS = {
+    "credential_policy_status=not_required_local_manifest_fixture",
+    "credential_resolution_performed=false",
+    "network_probe_performed=false",
+    "provider_probe_performed=false",
+    "external_catalog_resolution_performed=false",
+    "external_table_format_dependency_invoked=false",
+    "catalog_io_performed=false",
+    "object_store_io=false",
+}
 
 CLAIM_SURFACE_REFS = {
     "README.md": (
@@ -551,6 +582,111 @@ def validate_object_store_local_emulator_workload(row: object) -> tuple[dict[str
     return summary, blockers
 
 
+def validate_local_table_manifest_workload(row: object) -> tuple[dict[str, Any], list[str]]:
+    if not isinstance(row, dict):
+        return {"present": False, "status": "not_applicable"}, []
+    if row.get("workload_id") != LOCAL_TABLE_MANIFEST_WORKLOAD_ID:
+        return {"present": False, "status": "not_applicable"}, []
+
+    blockers: list[str] = []
+    evidence = row.get("evidence") if isinstance(row.get("evidence"), dict) else {}
+    unsupported_rows_value = row.get("unsupported_diagnostics")
+    unsupported_rows = unsupported_rows_value if isinstance(unsupported_rows_value, list) else []
+    unsupported_operations = {
+        item.get("operation")
+        for item in unsupported_rows
+        if isinstance(item, dict) and isinstance(item.get("operation"), str)
+    }
+    effect_permissions_value = row.get("effect_permissions")
+    effect_permissions = (
+        set(effect_permissions_value)
+        if isinstance(effect_permissions_value, list)
+        else set()
+    )
+    missing_effects = sorted(LOCAL_TABLE_REQUIRED_EFFECT_PERMISSIONS - effect_permissions)
+    missing_unsupported = sorted(
+        LOCAL_TABLE_REQUIRED_UNSUPPORTED_OPERATIONS - unsupported_operations
+    )
+
+    if row.get("v1_scope_classification") != "v1_candidate_pending_feasibility":
+        blockers.append("local table manifest workload must remain a v1 feasibility candidate")
+    if row.get("production_ready") is not False:
+        blockers.append("local table manifest workload must not be production_ready")
+    if row.get("claim_gate_status") != "not_claim_grade":
+        blockers.append("local table manifest workload must remain not_claim_grade")
+    if row.get("production_claim_allowed") is not False:
+        blockers.append("local table manifest production_claim_allowed must be false")
+    if row.get("performance_claim_allowed") is not False:
+        blockers.append("local table manifest performance_claim_allowed must be false")
+    if row.get("fallback_attempted") is not False or row.get("external_engine_invoked") is not False:
+        blockers.append("local table manifest no-fallback fields must be false")
+    if missing_effects:
+        blockers.append(
+            "local table manifest effect_permissions missing " + ",".join(missing_effects)
+        )
+    if missing_unsupported:
+        blockers.append(
+            "local table manifest unsupported_diagnostics missing "
+            + ",".join(missing_unsupported)
+        )
+
+    expected_evidence_statuses = {
+        "runtime_execution": "passed_scoped_local_manifest",
+        "correctness": "passed_scoped_local_manifest",
+        "native_io_certificate": "passed_fixture_smoke_only",
+        "execution_certificate": "passed_fixture_smoke_only",
+        "fault_tolerance": "passed_scoped_local_recovery_smoke",
+        "security_governance": "passed_scoped_local_manifest",
+        "release_api_stability": "passed_scoped_local_manifest",
+        "unsupported_diagnostics": "passed_scoped_local_manifest",
+    }
+    for key, expected in expected_evidence_statuses.items():
+        evidence_row = evidence.get(key) if isinstance(evidence, dict) else None
+        status = evidence_row.get("status") if isinstance(evidence_row, dict) else None
+        if status != expected:
+            blockers.append(f"local table manifest evidence.{key}.status must be {expected}")
+
+    security_evidence = (
+        evidence.get("security_governance") if isinstance(evidence, dict) else None
+    )
+    security_refs_value = (
+        security_evidence.get("evidence_refs")
+        if isinstance(security_evidence, dict)
+        else None
+    )
+    security_refs = (
+        set(security_refs_value) if isinstance(security_refs_value, list) else set()
+    )
+    missing_security_refs = sorted(
+        LOCAL_TABLE_REQUIRED_SECURITY_EVIDENCE_REFS - security_refs
+    )
+    if missing_security_refs:
+        blockers.append(
+            "local table manifest security_governance.evidence_refs missing "
+            + ",".join(missing_security_refs)
+        )
+
+    for key in ("memory_backpressure", "benchmark"):
+        evidence_row = evidence.get(key) if isinstance(evidence, dict) else None
+        status = evidence_row.get("status") if isinstance(evidence_row, dict) else None
+        if not isinstance(status, str) or not status.startswith("blocked_"):
+            blockers.append(f"local table manifest evidence.{key}.status must remain blocked")
+
+    summary = {
+        "present": True,
+        "status": "passed" if not blockers else "blocked",
+        "workload_id": LOCAL_TABLE_MANIFEST_WORKLOAD_ID,
+        "scope": row.get("environment"),
+        "claim_gate_status": row.get("claim_gate_status"),
+        "production_claim_allowed": row.get("production_claim_allowed"),
+        "performance_claim_allowed": row.get("performance_claim_allowed"),
+        "effect_permissions_checked": sorted(LOCAL_TABLE_REQUIRED_EFFECT_PERMISSIONS),
+        "unsupported_operations_checked": sorted(LOCAL_TABLE_REQUIRED_UNSUPPORTED_OPERATIONS),
+        "blockers": blockers,
+    }
+    return summary, blockers
+
+
 def build_report(
     repo_root: Path,
     *,
@@ -596,6 +732,15 @@ def build_report(
             row_blockers.extend(object_store_blockers)
             if object_store_blockers:
                 row["validation_blockers"].extend(object_store_blockers)
+                row["status"] = "blocked"
+            local_table_summary, local_table_blockers = (
+                validate_local_table_manifest_workload(workload)
+            )
+            if local_table_summary.get("present"):
+                row["local_table_manifest_profile"] = local_table_summary
+            row_blockers.extend(local_table_blockers)
+            if local_table_blockers:
+                row["validation_blockers"].extend(local_table_blockers)
                 row["status"] = "blocked"
             workload_rows.append(row)
             validation_blockers.extend(row_blockers)

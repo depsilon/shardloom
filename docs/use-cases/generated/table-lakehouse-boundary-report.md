@@ -12,7 +12,7 @@
 
 ## Can ShardLoom Do This?
 
-Table and lakehouse boundary is not admitted runtime support yet. Use the blocker and evidence requirements to understand what remains.
+External table and lakehouse boundary is not admitted runtime support yet. ShardLoom has scoped local-manifest metadata, append-commit rehearsal, and recovery evidence, but that evidence does not promote Iceberg, Delta, Hudi, catalog, object-store table, merge/update/delete, production, or performance claims.
 
 ## Claim Boundary
 
@@ -40,6 +40,11 @@ Table-format runtime needs metadata, snapshot, delete/tombstone, write, commit, 
 - `commit_protocol_status`
 - `rollback_status`
 - `local_table_append_commit_rehearsal_smoke_present`
+- `local_table_manifest_write_request_count`
+- `local_table_commit_record_write_request_count`
+- `local_table_recovery_read_request_count`
+- `table_translation_report_status`
+- `table_metadata_loss_status`
 - `fallback_attempted=false`
 - `external_engine_invoked=false`
 - `claim_gate_status=not_claim_grade`

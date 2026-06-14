@@ -41,6 +41,115 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
+fn assert_json_fields(output: &str, expected_fields: &[(&str, &str)]) {
+    for (key, value) in expected_fields {
+        assert!(
+            output.contains(&field(key, value)),
+            "missing field {key}={value} in output: {output}"
+        );
+    }
+}
+
+fn assert_local_table_commit_native_io_fields(
+    output: &str,
+    manifest_bytes: usize,
+    commit_record_bytes: usize,
+) {
+    let total_bytes = manifest_bytes
+        .saturating_add(commit_record_bytes)
+        .to_string();
+    let manifest_bytes = manifest_bytes.to_string();
+    let commit_record_bytes = commit_record_bytes.to_string();
+    assert_json_fields(
+        output,
+        &[
+            ("local_table_manifest_write_request_count", "1"),
+            ("local_table_commit_record_write_request_count", "1"),
+            ("local_table_manifest_bytes_written", &manifest_bytes),
+            (
+                "local_table_commit_record_bytes_written",
+                &commit_record_bytes,
+            ),
+            ("local_table_total_bytes_written", &total_bytes),
+            (
+                "local_table_commit_bounded_status",
+                "bounded_manifest_and_commit_record_under_fixture_budget",
+            ),
+            (
+                "local_table_commit_retry_policy_status",
+                "not_required_single_attempt_local_manifest_commit",
+            ),
+            ("local_table_commit_retry_attempt_count", "0"),
+            (
+                "local_table_commit_rate_limit_policy_status",
+                "not_required_local_manifest_no_network",
+            ),
+            ("local_table_commit_rollback_cleanup_request_count", "0"),
+            (
+                "local_table_commit_ambiguous_status",
+                "not_observed_local_commit_record_written",
+            ),
+            (
+                "local_table_commit_idempotency_scope",
+                "local_manifest_target_manifest_digest",
+            ),
+            (
+                "table_translation_report_status",
+                "not_required_shardloom_local_manifest_native_fixture",
+            ),
+            (
+                "table_metadata_loss_status",
+                "not_applicable_native_local_manifest_fixture",
+            ),
+        ],
+    );
+}
+
+fn assert_local_table_recovery_native_io_fields(
+    output: &str,
+    manifest_bytes: usize,
+    commit_record_bytes: usize,
+) {
+    let total_bytes = manifest_bytes
+        .saturating_add(commit_record_bytes)
+        .to_string();
+    let manifest_bytes = manifest_bytes.to_string();
+    let commit_record_bytes = commit_record_bytes.to_string();
+    assert_json_fields(
+        output,
+        &[
+            ("local_table_recovery_read_request_count", "2"),
+            ("local_table_recovery_manifest_bytes_read", &manifest_bytes),
+            (
+                "local_table_recovery_commit_record_bytes_read",
+                &commit_record_bytes,
+            ),
+            ("local_table_recovery_total_bytes_read", &total_bytes),
+            (
+                "local_table_recovery_retry_policy_status",
+                "not_required_single_attempt_local_manifest_recovery",
+            ),
+            ("local_table_recovery_retry_attempt_count", "0"),
+            (
+                "local_table_recovery_rate_limit_policy_status",
+                "not_required_local_manifest_no_network",
+            ),
+            (
+                "local_table_recovery_ambiguous_commit_status",
+                "replay_matched_sidecar_commit_record",
+            ),
+            (
+                "table_translation_report_status",
+                "not_required_shardloom_local_manifest_native_fixture",
+            ),
+            (
+                "table_metadata_loss_status",
+                "not_applicable_native_local_manifest_fixture",
+            ),
+        ],
+    );
+}
+
 fn sidecar_path(target: &Path) -> PathBuf {
     PathBuf::from(format!(
         "{}.shardloom-table-commit.json",
@@ -75,6 +184,7 @@ fn local_table_append_commit_rehearsal_writes_manifest_and_commit_record() {
     assert!(success, "stdout={output} stderr={stderr}");
     assert!(stderr.is_empty(), "stderr={stderr}");
     let manifest = fs::read_to_string(&target).expect("committed manifest");
+    let commit_record = fs::read_to_string(sidecar_path(&target)).expect("commit record");
     assert!(manifest.contains("\"operation\": \"append_only_commit_rehearsal\""));
     assert!(sidecar_path(&target).exists(), "commit record exists");
     assert!(output.contains("\"command\":\"local-table-append-commit-rehearsal-smoke\""));
@@ -116,6 +226,7 @@ fn local_table_append_commit_rehearsal_writes_manifest_and_commit_record() {
     assert!(output.contains(&field("commit_execution_performed", "false")));
     assert!(output.contains(&field("table_catalog_commit_performed", "false")));
     assert!(output.contains(&field("object_store_io", "false")));
+    assert_local_table_commit_native_io_fields(&output, manifest.len(), commit_record.len());
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("external_engine_invoked", "false")));
 
@@ -159,6 +270,31 @@ fn rollback_after_commit_cleans_manifest_and_record() {
         "performed_local_manifest_cleanup"
     )));
     assert!(output.contains(&field("cleanup_deleted_count", "2")));
+    assert_json_fields(
+        &output,
+        &[
+            ("local_table_manifest_write_request_count", "1"),
+            ("local_table_commit_record_write_request_count", "1"),
+            (
+                "local_table_commit_bounded_status",
+                "bounded_manifest_and_commit_record_under_fixture_budget",
+            ),
+            (
+                "local_table_commit_retry_policy_status",
+                "not_required_single_attempt_local_manifest_commit",
+            ),
+            ("local_table_commit_retry_attempt_count", "0"),
+            (
+                "local_table_commit_rate_limit_policy_status",
+                "not_required_local_manifest_no_network",
+            ),
+            ("local_table_commit_rollback_cleanup_request_count", "2"),
+            (
+                "local_table_commit_ambiguous_status",
+                "rollback_cleanup_completed",
+            ),
+        ],
+    );
     assert!(output.contains(&field("committed_manifest_present", "false")));
     assert!(output.contains(&field("commit_record_present", "false")));
     assert!(output.contains(&field("table_metadata_write_performed", "true")));
@@ -190,6 +326,8 @@ fn local_table_commit_recovery_replays_manifest_and_commit_record() {
         "stdout={commit_output} stderr={commit_stderr}"
     );
     assert!(sidecar_path(&target).exists(), "commit sidecar exists");
+    let manifest = fs::read_to_string(&target).expect("committed manifest");
+    let commit_record = fs::read_to_string(sidecar_path(&target)).expect("commit record");
 
     let recovery_args = vec![
         "local-table-commit-recovery-smoke".to_string(),
@@ -238,6 +376,7 @@ fn local_table_commit_recovery_replays_manifest_and_commit_record() {
     )));
     assert!(output.contains(&field("idempotency_status", "recovered_from_commit_record")));
     assert!(output.contains(&field("table_metadata_read_performed", "true")));
+    assert_local_table_recovery_native_io_fields(&output, manifest.len(), commit_record.len());
     assert!(output.contains(&field("manifest_write_performed", "false")));
     assert!(output.contains(&field("write_io", "false")));
     assert!(output.contains(&field("object_store_io", "false")));
@@ -296,6 +435,24 @@ fn local_table_commit_recovery_blocks_mismatched_sidecar_without_fallback() {
         "blocked_recovery_mismatch"
     )));
     assert!(output.contains(&field("idempotency_status", "recovered_mismatch")));
+    assert_json_fields(
+        &output,
+        &[
+            ("local_table_recovery_read_request_count", "2"),
+            (
+                "local_table_recovery_retry_policy_status",
+                "not_retried_recovery_evidence_mismatch",
+            ),
+            (
+                "local_table_recovery_rate_limit_policy_status",
+                "not_required_local_manifest_no_network",
+            ),
+            (
+                "local_table_recovery_ambiguous_commit_status",
+                "blocked_recovery_mismatch",
+            ),
+        ],
+    );
     assert!(output.contains(&field("manifest_write_performed", "false")));
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
@@ -471,6 +628,29 @@ fn remote_manifest_target_is_blocked_without_probe_or_write() {
     assert!(output.contains(&field("provider_probe_performed", "false")));
     assert!(output.contains(&field("table_metadata_write_performed", "false")));
     assert!(output.contains(&field("manifest_write_performed", "false")));
+    assert_json_fields(
+        &output,
+        &[
+            ("local_table_manifest_write_request_count", "0"),
+            ("local_table_commit_record_write_request_count", "0"),
+            ("local_table_manifest_bytes_written", "0"),
+            ("local_table_commit_record_bytes_written", "0"),
+            ("local_table_total_bytes_written", "0"),
+            ("local_table_commit_bounded_status", "not_performed_blocked"),
+            (
+                "local_table_commit_retry_policy_status",
+                "blocked_before_retry",
+            ),
+            (
+                "local_table_commit_rate_limit_policy_status",
+                "blocked_before_rate_limit_policy",
+            ),
+            (
+                "local_table_commit_ambiguous_status",
+                "blocked_before_commit_claim",
+            ),
+        ],
+    );
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("write_io", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
@@ -499,6 +679,27 @@ fn remote_commit_recovery_target_is_blocked_without_probe_or_read() {
     assert!(output.contains(&field("network_probe_performed", "false")));
     assert!(output.contains(&field("provider_probe_performed", "false")));
     assert!(output.contains(&field("table_metadata_read_performed", "false")));
+    assert_json_fields(
+        &output,
+        &[
+            ("local_table_recovery_read_request_count", "0"),
+            ("local_table_recovery_manifest_bytes_read", "0"),
+            ("local_table_recovery_commit_record_bytes_read", "0"),
+            ("local_table_recovery_total_bytes_read", "0"),
+            (
+                "local_table_recovery_retry_policy_status",
+                "blocked_before_retry",
+            ),
+            (
+                "local_table_recovery_rate_limit_policy_status",
+                "blocked_before_rate_limit_policy",
+            ),
+            (
+                "local_table_recovery_ambiguous_commit_status",
+                "blocked_before_recovery_replay",
+            ),
+        ],
+    );
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("write_io", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));

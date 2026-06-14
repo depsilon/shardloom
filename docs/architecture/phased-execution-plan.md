@@ -342,9 +342,13 @@ with a recorded infeasibility reason, not merely because they are broad.
   - Source: attached Lakehouse/Table Runtime review, `docs/architecture/scale-readiness-contract.md`,
     `docs/skills/translation-layer.md`, universal input/output contracts, and primary table
     protocol specs to be source-checked before implementation.
-  - Current state: table metadata/reporting is separate from table runtime. Metadata reads,
-    snapshot listings, or compatibility output rows do not imply scan, append, overwrite,
-    merge/update/delete, commit, rollback, schema evolution, or catalog support.
+  - Current state: external table metadata/reporting is separate from production table runtime.
+    Scoped ShardLoom-owned `local-manifest` fixture evidence now covers in-memory metadata read,
+    snapshot/manifest summary, local append commit rehearsal, rollback cleanup, sidecar recovery
+    replay/mismatch diagnostics, request/byte/retry/boundedness evidence, and native
+    table-translation/no-loss posture. That does not imply Iceberg/Delta/Hudi, external catalog,
+    object-store table commit, data scan, overwrite, merge/update/delete, schema evolution,
+    distributed, production, or performance support.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
     table protocol/workload in v1 if source-checked specs, scan semantics, write/commit scope,
     rollback/recovery, conflict handling, and no-fallback evidence can close; otherwise narrow or
@@ -355,14 +359,20 @@ with a recorded infeasibility reason, not merely because they are broad.
     commits, dynamic admission for delete/schema/evolution features, and PulseWeave-style
     coordination only where it improves ShardLoom-native task/retry/commit evidence.
   - Execution checklist:
-    - [ ] Select the first table protocol/workload profile and document why other protocols remain
-      blocked.
-    - [ ] Source-check current primary protocol specs before implementation: Iceberg, Delta, Hudi,
-      and any chosen catalog such as Iceberg REST, Glue-like, Hive-like, Nessie, Polaris, or
-      Gravitino-style APIs.
+    - [x] Select the first scoped table workload profile:
+      `local_manifest_table_runtime_v1_candidate`, a ShardLoom-owned local-manifest fixture
+      profile; Iceberg, Delta, Hudi, external catalogs, object-store tables, and mutation
+      semantics remain blocked until their source-spec and runtime evidence exists.
+    - [x] Implement scoped local-manifest metadata read, snapshot/manifest summary, append commit
+      rehearsal, rollback cleanup, sidecar commit recovery replay/mismatch diagnostics,
+      Native I/O request/byte/retry/boundedness evidence, idempotency evidence, and native
+      table-translation/no-loss posture.
+    - [ ] Source-check current primary external protocol specs before external implementation:
+      Iceberg, Delta, Hudi, and any chosen catalog such as Iceberg REST, Glue-like, Hive-like,
+      Nessie, Polaris, or Gravitino-style APIs.
     - [ ] Implement metadata readers, snapshot/time-travel selection, manifest/log/timeline
       parsing, schema evolution, partition evolution, and delete/tombstone/deletion-vector
-      semantics for the selected profile.
+      semantics for an external selected profile.
     - [ ] Lower table scans into ShardLoom-native splits with Native I/O certificates and
       deterministic unsupported diagnostics for unadmitted table features.
     - [ ] Implement writes only for proven semantics: append/overwrite first; merge/update/delete

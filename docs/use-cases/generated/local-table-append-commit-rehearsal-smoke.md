@@ -52,10 +52,25 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `rollback_status`
 - `cleanup_deleted_count`
 - `idempotency_key`
+- `commit_record_bytes`
+- `local_table_manifest_write_request_count`
+- `local_table_commit_record_write_request_count`
+- `local_table_manifest_bytes_written`
+- `local_table_commit_record_bytes_written`
+- `local_table_total_bytes_written`
+- `local_table_commit_bounded_status`
+- `local_table_commit_retry_policy_status`
+- `local_table_commit_retry_attempt_count`
+- `local_table_commit_rate_limit_policy_status`
+- `local_table_commit_rollback_cleanup_request_count`
+- `local_table_commit_ambiguous_status`
+- `local_table_commit_idempotency_scope`
 - `manifest_payload_digest`
 - `committed_manifest_digest`
 - `commit_record_digest`
 - `correctness_digest`
+- `table_translation_report_status`
+- `table_metadata_loss_status`
 - `credential_resolution_performed=false`
 - `network_probe_performed=false`
 - `catalog_io_performed=false`
@@ -68,7 +83,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-A fixture-smoke report with base/append/committed snapshot ids, committed manifest and sidecar commit-record digests, idempotency, optional rollback cleanup, local-manifest Native I/O evidence, catalog/object-store/network-disabled fields, fallback_attempted=false, and external_engine_invoked=false.
+A fixture-smoke report with base/append/committed snapshot ids, committed manifest and sidecar commit-record digests, idempotency, optional rollback cleanup, request/byte/retry/boundedness evidence, local-manifest Native I/O evidence, native table translation/no-loss posture, catalog/object-store/network-disabled fields, fallback_attempted=false, and external_engine_invoked=false.
 
 ## Common Mistakes
 

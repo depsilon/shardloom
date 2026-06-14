@@ -464,6 +464,226 @@
         "object-store Vortex Source/Sink integration remains blocked",
         "table/object-store commit semantics remain blocked"
       ]
+    },
+    {
+      "workload_id": "local_manifest_table_runtime_v1_candidate",
+      "workload_name": "Local manifest table runtime v1 candidate",
+      "v1_scope_classification": "v1_candidate_pending_feasibility",
+      "readiness_status": "blocked_external_table_protocol_and_claim_grade_evidence_missing",
+      "production_ready": false,
+      "claim_gate_status": "not_claim_grade",
+      "production_claim_allowed": false,
+      "performance_claim_allowed": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false,
+      "environment": "single_process_local_manifest_fixture_table",
+      "data_scale": "bounded in-memory local manifest metadata plus local committed manifest and sidecar files; no object-store, catalog, external table protocol, production scale, or lakehouse claim",
+      "input_formats": [
+        "shardloom_local_manifest_fixture",
+        "local_committed_manifest",
+        "local_table_commit_sidecar_record"
+      ],
+      "output_formats": [
+        "local_committed_manifest",
+        "local_table_commit_sidecar_record"
+      ],
+      "statefulness": "append_commit_rehearsal_with_idempotency_key_and_recovery_replay",
+      "effect_permissions": [
+        "explicit_local_file_read",
+        "explicit_local_file_write",
+        "local_manifest_table_metadata_io",
+        "local_manifest_write_io",
+        "no_network",
+        "no_live_credentials",
+        "no_provider_probe",
+        "no_external_catalog",
+        "no_object_store_io",
+        "no_external_table_format_dependency"
+      ],
+      "security_posture": "local_manifest_no_secrets_no_network_no_external_catalog_or_table_dependency",
+      "unsupported_edge_boundary": "Iceberg, Delta, Hudi, external catalogs, object-store table commits, merge/update/delete, production lakehouse transactions, distributed execution, and production performance claims remain blocked until separate source-checked protocol and runtime evidence closes.",
+      "technique_review": {
+        "pulseweave": {
+          "decision": "pending_for_real_catalog_or_parallel_table_runtime",
+          "reason": "The scoped local-manifest profile is single-process and fixture-bounded; PulseWeave should apply when snapshot planning, object-store manifests, retries, or multi-split commits introduce concurrent capillary tasks."
+        },
+        "capillary_work_units": {
+          "decision": "applied_scoped",
+          "reason": "Metadata read, append commit rehearsal, sidecar commit record, rollback cleanup, and recovery replay are separate bounded table work units with explicit evidence fields."
+        },
+        "dynamic_admission_work_shaping": {
+          "decision": "applied_scoped",
+          "reason": "Only the ShardLoom-owned local-manifest fixture profile is admitted; external table formats, catalogs, object stores, and mutation semantics fail before external effects."
+        },
+        "metadata_first_execution": {
+          "decision": "applied_scoped",
+          "reason": "The profile captures schema, snapshot, manifest, segment, row-count, digest, idempotency, and sidecar recovery evidence before any table claim."
+        },
+        "timing_surface_separation": {
+          "decision": "not_applicable_until_benchmark_profile",
+          "reason": "The local-manifest table profile is correctness and safety evidence; no table performance route or timing claim is made."
+        },
+        "evidence_tier_controls": {
+          "decision": "applied",
+          "reason": "Local-manifest table evidence is fixture-smoke only while production lakehouse/table-format evidence remains blocked."
+        }
+      },
+      "evidence": {
+        "runtime_execution": {
+          "status": "passed_scoped_local_manifest",
+          "evidence_refs": [
+            "shardloom-cli/tests/local_table_metadata_read_smoke.rs",
+            "shardloom-cli/tests/local_table_append_commit_rehearsal_smoke.rs"
+          ]
+        },
+        "correctness": {
+          "status": "passed_scoped_local_manifest",
+          "evidence_refs": [
+            "local-table-metadata-read-smoke local_table_metadata_read_smoke_exposes_typed_metadata_summary",
+            "local-table-append-commit-rehearsal-smoke local_table_append_commit_rehearsal_writes_manifest_and_commit_record",
+            "local-table-commit-recovery-smoke local_table_commit_recovery_replays_manifest_and_commit_record"
+          ]
+        },
+        "native_io_certificate": {
+          "status": "passed_fixture_smoke_only",
+          "evidence_refs": [
+            "native_io_certificate_status=fixture_smoke_only",
+            "local_table_manifest_write_request_count=1",
+            "local_table_commit_record_write_request_count=1",
+            "local_table_manifest_bytes_written",
+            "local_table_commit_record_bytes_written",
+            "local_table_total_bytes_written",
+            "local_table_commit_bounded_status=bounded_manifest_and_commit_record_under_fixture_budget",
+            "local_table_commit_retry_attempt_count=0",
+            "local_table_recovery_read_request_count=2",
+            "local_table_recovery_total_bytes_read",
+            "local_table_recovery_retry_attempt_count=0",
+            "table_translation_report_status=not_required_shardloom_local_manifest_native_fixture",
+            "table_metadata_loss_status=not_applicable_native_local_manifest_fixture",
+            "docs/use-cases/generated/local-table-append-commit-rehearsal-smoke.md",
+            "docs/use-cases/generated/table-lakehouse-boundary-report.md"
+          ]
+        },
+        "execution_certificate": {
+          "status": "passed_fixture_smoke_only",
+          "evidence_refs": [
+            "table_runtime_supported=true",
+            "table_append_commit_rehearsal_supported=true",
+            "table_commit_recovery_supported=true",
+            "fallback_attempted=false",
+            "external_engine_invoked=false"
+          ]
+        },
+        "fault_tolerance": {
+          "status": "passed_scoped_local_recovery_smoke",
+          "evidence_refs": [
+            "table_commit_recovery_status=recovered",
+            "table_commit_recovery_status=blocked_recovery_mismatch",
+            "manifest_replay_status=verified_local_manifest_sidecar",
+            "commit_record_replay_status=verified_local_manifest_sidecar",
+            "local_table_commit_ambiguous_status=not_observed_local_commit_record_written",
+            "local_table_commit_ambiguous_status=rollback_cleanup_completed",
+            "local_table_recovery_ambiguous_commit_status=replay_matched_sidecar_commit_record",
+            "local_table_recovery_ambiguous_commit_status=blocked_recovery_mismatch"
+          ]
+        },
+        "memory_backpressure": {
+          "status": "blocked_partial_fixture_manifest_write_budget_only_missing_production_streaming_backpressure",
+          "evidence_refs": [
+            "local_table_commit_bounded_status=bounded_manifest_and_commit_record_under_fixture_budget",
+            "PROD-READY-1C bounded table manifest/runtime profile"
+          ]
+        },
+        "benchmark": {
+          "status": "blocked_not_claim_grade",
+          "evidence_refs": [
+            "table benchmark profile not yet generated",
+            "external table protocol proof missing"
+          ]
+        },
+        "security_governance": {
+          "status": "passed_scoped_local_manifest",
+          "evidence_refs": [
+            "credential_policy_status=not_required_local_manifest_fixture",
+            "credential_resolution_performed=false",
+            "network_probe_performed=false",
+            "provider_probe_performed=false",
+            "external_catalog_resolution_performed=false",
+            "external_table_format_dependency_invoked=false",
+            "catalog_io_performed=false",
+            "object_store_io=false"
+          ]
+        },
+        "release_api_stability": {
+          "status": "passed_scoped_local_manifest",
+          "evidence_refs": [
+            "shardloom.local_table_metadata_read_smoke.v1",
+            "shardloom.local_table_append_commit_rehearsal_smoke.v1",
+            "shardloom.local_table_commit_recovery_smoke.v1"
+          ]
+        },
+        "unsupported_diagnostics": {
+          "status": "passed_scoped_local_manifest",
+          "evidence_refs": [
+            "SL_OBJECT_STORE_UNSUPPORTED",
+            "SL_COMMIT_NOT_ATOMIC",
+            "SL_PROD_UNSUPPORTED_TABLE_RUNTIME",
+            "docs/release/known-unsupported-paths.md"
+          ]
+        }
+      },
+      "unsupported_diagnostics": [
+        {
+          "operation": "external_iceberg_runtime",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_TABLE_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "external_delta_runtime",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_TABLE_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "external_hudi_runtime",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_TABLE_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "external_catalog_resolution",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_TABLE_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "object_store_table_commit",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_TABLE_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "merge_update_delete_runtime",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_TABLE_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        }
+      ],
+      "production_blockers": [
+        "memory_backpressure=blocked_missing_bounded_streaming_and_backpressure_profile",
+        "benchmark=blocked_not_claim_grade",
+        "external Iceberg/Delta/Hudi source-checked protocol proof missing",
+        "external catalog and object-store table commit semantics remain blocked",
+        "merge/update/delete runtime remains blocked",
+        "production lakehouse transaction claim remains blocked"
+      ]
     }
   ]
 }
