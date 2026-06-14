@@ -44,6 +44,14 @@ def bool_text(value: Any) -> str:
     return "unknown"
 
 
+def inverse_bool_text(value: Any) -> str:
+    if value is True:
+        return "false"
+    if value is False:
+        return "true"
+    return "unknown"
+
+
 def cell(value: Any) -> str:
     text = ", ".join(str(item) for item in value) if isinstance(value, list) else str(value)
     return text.replace("|", "\\|").replace("\n", " ").strip()
@@ -155,8 +163,8 @@ def render(runs_today: dict[str, Any], package_matrix: dict[str, Any]) -> str:
         f"runs_today_schema_version={runs_today.get('schema_version', 'missing')}",
         f"runs_today_row_count={runs_today.get('row_count', 'missing')}",
         f"package_channel_schema_version={package_matrix.get('schema_version', 'missing')}",
-        f"fallback_attempted={bool_text(runs_today.get('all_rows_fallback_attempted_false'))}",
-        f"external_engine_invoked={bool_text(runs_today.get('all_rows_external_engine_invoked_false'))}",
+        f"fallback_attempted={inverse_bool_text(runs_today.get('all_rows_fallback_attempted_false'))}",
+        f"external_engine_invoked={inverse_bool_text(runs_today.get('all_rows_external_engine_invoked_false'))}",
         f"performance_claim_allowed={bool_text(runs_today.get('performance_claim_allowed'))}",
         f"package_publication_allowed={bool_text(runs_today.get('package_publication_allowed'))}",
         "```",

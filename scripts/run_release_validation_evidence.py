@@ -197,6 +197,10 @@ def required_validation_commands(
             "v1_security_ci_hardening_gate",
             [python_executable, "scripts/check_v1_security_ci_hardening.py"],
         ),
+        (
+            "v1_release_boundary_firewall",
+            [python_executable, "scripts/check_v1_release_boundary.py"],
+        ),
         ("golden_workflow_validator", [python_executable, "scripts/check_golden_workflows.py"]),
         ("admitted_semantics_matrix", [python_executable, "scripts/check_admitted_semantics_matrix.py"]),
         ("runtime_execution_envelopes", [python_executable, "scripts/check_runtime_execution_envelopes.py"]),

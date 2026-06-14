@@ -11,6 +11,10 @@ It has two modes:
   including package-channel readiness, benchmark publication freshness, hard-release readiness, and
   human publication approval.
 
+Local product evidence includes `target/v1-release-boundary-report.json`, which keeps public docs,
+package metadata, generated support surfaces, package dry-run proof, and unsupported
+production-family boundaries fail-closed before this final aggregator can pass.
+
 Default mode is allowed to pass with:
 
 ```text
@@ -33,6 +37,7 @@ SQL, or broad DataFrame claims.
 Run:
 
 ```powershell
+python scripts\check_v1_release_boundary.py
 python scripts\check_finished_product_readiness.py
 python scripts\check_finished_product_readiness.py --require-public-release-ready
 ```
