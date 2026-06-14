@@ -794,9 +794,9 @@ impl VortexNativeWriterSchemaCertificationRow {
             materialization_boundary: "columnar_source_state_preserved_to_vortex_array_provider",
             replay_evidence: "vortex_ingest_smoke_preserves_columnar_source_state_for_all_structured_formats",
             unsupported_diagnostic_code: "vortex_ingest.unsupported_columnar_arrow_type",
-            required_future_evidence: "nullable_columnar_validity_matrix,nested_extension_dtype_matrix,layout_statistics_fidelity_report",
+            required_future_evidence: "nested_extension_dtype_matrix,layout_statistics_fidelity_report,selection_vector_null_fidelity",
             claim_gate_status: "scoped_feature_gated_runtime",
-            claim_boundary: "scoped flat columnar local Vortex prepared-state writer only; no nullable/nested/extension dtype production writer claim",
+            claim_boundary: "scoped non-null flat columnar local Vortex prepared-state writer only; nullable flat columnar validity is certified in a separate row; no nested/extension dtype production writer claim",
             local_write_runtime: true,
             reopen_verified: true,
             metadata_statistics_broadly_certified: false,
@@ -839,28 +839,28 @@ impl VortexNativeWriterSchemaCertificationRow {
     }
 
     #[must_use]
-    pub const fn nullable_columnar_validity_provider_candidate() -> Self {
+    pub const fn nullable_columnar_validity_runtime() -> Self {
         Self {
             row_id: "nullable_columnar_validity_provider_gate",
-            writer_lane_id: "nullable_columnar_vortex_writer_provider_gate",
-            status: VortexNativeWriterCertificationStatus::ProviderCandidatePendingEvidence,
+            writer_lane_id: "flat_columnar_vortex_ingest_prepared_state_write",
+            status: VortexNativeWriterCertificationStatus::ScopedFeatureGatedRuntime,
             feature_gate: "vortex-write,universal-format-io",
-            provider_decision: "use_vortex_native_provider_pending_gate",
+            provider_decision: "use_vortex_native_provider",
             provider_surface: "ArrayRef::from_arrow(RecordBatch) with nullable columnar validity",
             schema_family: "nullable_columnar_source_state",
             dtype_scope: "nullable_boolean_int_uint_float_utf8_binary_date_timestamp_columns",
-            validity_scope: "requires_alltrue_allfalse_sparse_and_mixed_validity_matrix",
+            validity_scope: "all_valid_all_null_and_mixed_validity_preserved_for_flat_columnar_arrays",
             encoding_scope: "vortex_from_arrow_record_batch_nullable_validity_writer_default",
-            metadata_preservation_status: "candidate_pending_validity_fidelity_report",
-            statistics_preservation_status: "candidate_pending_nullable_statistics_report",
-            materialization_boundary: "columnar_source_state_preserved_but_blocked_before_runtime_write_until_null_semantics_pass",
-            replay_evidence: "required_before_admission",
+            metadata_preservation_status: "logical_schema_nullability_and_projection_mask_preserved_physical_layout_writer_default",
+            statistics_preservation_status: "reopen_row_count_verified_null_counts_replayed_statistics_not_broadly_certified",
+            materialization_boundary: "columnar_source_state_preserved_to_vortex_array_provider",
+            replay_evidence: "local_flat_columnar_nullable_source_writes_reopens_validity",
             unsupported_diagnostic_code: "vortex_ingest.nullable_columnar_writer_requires_validity_matrix",
-            required_future_evidence: "nullable_columnar_fixture_matrix,decoded_reference_parity,reopen_scan_certificate,native_io_certificate,no_fallback_evidence",
-            claim_gate_status: "not_claim_grade",
-            claim_boundary: "nullable columnar Vortex writer support is a provider candidate only; current runtime remains scoped to non-null columnar arrays and typed scalar-row null hints",
-            local_write_runtime: false,
-            reopen_verified: false,
+            required_future_evidence: "sparse_validity_matrix,layout_statistics_fidelity_report,selection_vector_null_fidelity,performance_benchmark_evidence",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "scoped nullable flat columnar local Vortex prepared-state writer only; no sparse/nested/extension dtype, object-store, table/catalog, generalized writer, or performance claim",
+            local_write_runtime: true,
+            reopen_verified: true,
             metadata_statistics_broadly_certified: false,
             object_store_io: false,
             table_catalog_io: false,
@@ -969,12 +969,12 @@ impl VortexNativeWriterSchemaCertificationReport {
                 VortexNativeWriterSchemaCertificationRow::typed_complex_scalar_rows(),
                 VortexNativeWriterSchemaCertificationRow::flat_columnar_source_state(),
                 VortexNativeWriterSchemaCertificationRow::dictionary_encoded_primitives_provider_candidate(),
-                VortexNativeWriterSchemaCertificationRow::nullable_columnar_validity_provider_candidate(),
+                VortexNativeWriterSchemaCertificationRow::nullable_columnar_validity_runtime(),
                 VortexNativeWriterSchemaCertificationRow::extension_dtype_provider_candidate(),
                 VortexNativeWriterSchemaCertificationRow::generalized_schema_encoding_writer_blocked(),
             ],
             claim_gate_status: "scoped_evidence_only",
-            claim_boundary: "feature-gated local flat scalar, typed complex source-free, and flat columnar Vortex prepared-state writer evidence only; dictionary, nullable columnar, and extension schema families are provider candidates pending evidence; generalized schema/encoding, object-store, table/catalog, lakehouse, and performance claims remain blocked",
+            claim_boundary: "feature-gated local flat scalar, typed complex source-free, flat columnar, and nullable flat columnar Vortex prepared-state writer evidence only; dictionary/interleave and extension schema families are provider candidates pending evidence; generalized schema/encoding, object-store, table/catalog, lakehouse, and performance claims remain blocked",
             broad_schema_encoding_certification_complete: false,
             metadata_statistics_broadly_certified: false,
             local_runtime_claim_allowed: true,
@@ -3159,8 +3159,8 @@ mod tests {
             report.report_id,
             "prod-ready-1a.vortex-native-writer-schema-certification"
         );
-        assert_eq!(report.scoped_runtime_row_count(), 3);
-        assert_eq!(report.provider_candidate_row_count(), 3);
+        assert_eq!(report.scoped_runtime_row_count(), 4);
+        assert_eq!(report.provider_candidate_row_count(), 2);
         assert_eq!(report.blocked_row_count(), 1);
         assert!(report.local_runtime_claim_allowed);
         assert!(!report.performance_claim_allowed);
@@ -3184,13 +3184,13 @@ mod tests {
         );
         assert!(
             report
-                .provider_candidate_row_ids()
-                .contains(&"dictionary_encoded_primitives_provider_gate")
+                .scoped_runtime_row_ids()
+                .contains(&"nullable_columnar_validity_provider_gate")
         );
         assert!(
             report
                 .provider_candidate_row_ids()
-                .contains(&"nullable_columnar_validity_provider_gate")
+                .contains(&"dictionary_encoded_primitives_provider_gate")
         );
         assert!(
             report

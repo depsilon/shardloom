@@ -246,11 +246,11 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_scoped_runtime_row_count",
-        "3"
+        "4"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_provider_candidate_row_count",
-        "3"
+        "2"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_blocked_row_count",
@@ -258,11 +258,11 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_scoped_runtime_row_ids",
-        "flat_scalar_rows_nullable_primitives,typed_complex_scalar_rows_arrow_provider,flat_columnar_source_state_arrow_provider"
+        "flat_scalar_rows_nullable_primitives,typed_complex_scalar_rows_arrow_provider,flat_columnar_source_state_arrow_provider,nullable_columnar_validity_provider_gate"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_provider_candidate_row_ids",
-        "dictionary_encoded_primitives_provider_gate,nullable_columnar_validity_provider_gate,extension_dtype_json_wkb_provider_gate"
+        "dictionary_encoded_primitives_provider_gate,extension_dtype_json_wkb_provider_gate"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_blocked_row_ids",
@@ -301,8 +301,12 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
         "provider_candidate_pending_evidence"
     )));
     assert!(output.contains(&field(
-        "vortex_native_writer_schema_certification_row_nullable_columnar_validity_provider_gate_unsupported_diagnostic_code",
-        "vortex_ingest.nullable_columnar_writer_requires_validity_matrix"
+        "vortex_native_writer_schema_certification_row_nullable_columnar_validity_provider_gate_status",
+        "scoped_feature_gated_runtime"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_nullable_columnar_validity_provider_gate_replay_evidence",
+        "local_flat_columnar_nullable_source_writes_reopens_validity"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_row_extension_dtype_json_wkb_provider_gate_provider_surface",
