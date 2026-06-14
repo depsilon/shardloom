@@ -95,6 +95,7 @@ struct LocalTableAppendCommitReport {
     cleanup_deleted_count: usize,
     manifest_bytes: usize,
     written_bytes: usize,
+    commit_record_bytes: usize,
     manifest_payload_digest: String,
     committed_manifest_digest: String,
     commit_record_digest: String,
@@ -107,6 +108,7 @@ struct LocalTableAppendCommitOutcome {
     staging_path: PathBuf,
     cleanup_deleted_count: usize,
     written_bytes: usize,
+    commit_record_bytes: usize,
     committed_manifest_digest: String,
     commit_record_digest: String,
 }
@@ -154,6 +156,7 @@ struct LocalTableCommitRecoveryReport {
     recovered_idempotency_key: String,
     idempotency_status: &'static str,
     manifest_bytes: usize,
+    commit_record_bytes: usize,
     manifest_digest: String,
     commit_record_digest: String,
     expected_manifest_digest: String,
@@ -192,6 +195,7 @@ impl LocalTableCommitRecoveryReport {
             recovered_idempotency_key: "not_emitted_blocked".to_string(),
             idempotency_status: "not_emitted_blocked",
             manifest_bytes: 0,
+            commit_record_bytes: 0,
             manifest_digest: "not_emitted_no_manifest_replay".to_string(),
             commit_record_digest: "not_emitted_no_commit_record_replay".to_string(),
             expected_manifest_digest: "not_emitted_no_manifest_replay".to_string(),
@@ -272,6 +276,7 @@ impl LocalTableAppendCommitReport {
             cleanup_deleted_count: 0,
             manifest_bytes: 0,
             written_bytes: 0,
+            commit_record_bytes: 0,
             manifest_payload_digest: "not_emitted_no_manifest_write".to_string(),
             committed_manifest_digest: "not_emitted_no_manifest_write".to_string(),
             commit_record_digest: "not_emitted_no_commit_record".to_string(),
@@ -589,6 +594,7 @@ fn execute_local_table_append_commit_rehearsal(
         cleanup_deleted_count: outcome.cleanup_deleted_count,
         manifest_bytes: manifest_payload.len(),
         written_bytes: outcome.written_bytes,
+        commit_record_bytes: outcome.commit_record_bytes,
         manifest_payload_digest,
         committed_manifest_digest: outcome.committed_manifest_digest,
         commit_record_digest: outcome.commit_record_digest,
@@ -726,6 +732,7 @@ fn execute_local_table_commit_recovery_smoke(
             );
         }
     };
+    let commit_record_bytes = commit_record.len();
 
     let expected_manifest_payload = build_committed_manifest_payload();
     let expected_manifest_digest = fnv64_digest(&expected_manifest_payload);
@@ -817,6 +824,7 @@ fn execute_local_table_commit_recovery_smoke(
             recovered_idempotency_key,
             idempotency_status: "recovered_mismatch",
             manifest_bytes: manifest_payload.len(),
+            commit_record_bytes,
             manifest_digest,
             commit_record_digest,
             expected_manifest_digest,
@@ -842,6 +850,7 @@ fn execute_local_table_commit_recovery_smoke(
         recovered_idempotency_key,
         idempotency_status: "recovered_from_commit_record",
         manifest_bytes,
+        commit_record_bytes,
         manifest_digest,
         commit_record_digest,
         expected_manifest_digest,
@@ -925,6 +934,7 @@ fn local_table_commit_recovery_fields(
     push_recovery_replay_fields(&mut fields, report);
     push_recovery_digest_fields(&mut fields, report);
     push_recovery_count_fields(&mut fields, report);
+    push_table_recovery_native_io_evidence_fields(&mut fields, report);
     push_recovery_policy_boundary_fields(&mut fields, report);
     fields
 }
@@ -1070,6 +1080,7 @@ fn push_recovery_digest_fields(
     );
     push_field(fields, "idempotency_status", report.idempotency_status);
     push_count_field(fields, "manifest_bytes", report.manifest_bytes);
+    push_count_field(fields, "commit_record_bytes", report.commit_record_bytes);
     push_bool_field(
         fields,
         "manifest_bytes_matched",
@@ -1096,6 +1107,58 @@ fn push_recovery_digest_fields(
         fields,
         "recorded_correctness_digest",
         &report.recorded_correctness_digest,
+    );
+}
+
+fn push_table_recovery_native_io_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalTableCommitRecoveryReport,
+) {
+    push_count_field(
+        fields,
+        "local_table_recovery_read_request_count",
+        local_table_recovery_read_request_count(report),
+    );
+    push_count_field(
+        fields,
+        "local_table_recovery_manifest_bytes_read",
+        report.manifest_bytes,
+    );
+    push_count_field(
+        fields,
+        "local_table_recovery_commit_record_bytes_read",
+        report.commit_record_bytes,
+    );
+    push_count_field(
+        fields,
+        "local_table_recovery_total_bytes_read",
+        local_table_recovery_total_bytes_read(report),
+    );
+    push_field(
+        fields,
+        "local_table_recovery_retry_policy_status",
+        local_table_recovery_retry_policy_status(report),
+    );
+    push_count_field(fields, "local_table_recovery_retry_attempt_count", 0);
+    push_field(
+        fields,
+        "local_table_recovery_rate_limit_policy_status",
+        local_table_recovery_rate_limit_policy_status(report),
+    );
+    push_field(
+        fields,
+        "local_table_recovery_ambiguous_commit_status",
+        local_table_recovery_ambiguous_commit_status(report),
+    );
+    push_field(
+        fields,
+        "table_translation_report_status",
+        "not_required_shardloom_local_manifest_native_fixture",
+    );
+    push_field(
+        fields,
+        "table_metadata_loss_status",
+        "not_applicable_native_local_manifest_fixture",
     );
 }
 
@@ -1388,7 +1451,81 @@ fn push_commit_fields(fields: &mut Vec<(String, String)>, report: &LocalTableApp
     );
     push_count_field(fields, "manifest_bytes", report.manifest_bytes);
     push_count_field(fields, "written_bytes", report.written_bytes);
+    push_count_field(fields, "commit_record_bytes", report.commit_record_bytes);
     push_field(fields, "commit_record_digest", &report.commit_record_digest);
+    push_table_append_native_io_evidence_fields(fields, report);
+}
+
+fn push_table_append_native_io_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalTableAppendCommitReport,
+) {
+    push_count_field(
+        fields,
+        "local_table_manifest_write_request_count",
+        local_table_manifest_write_request_count(report),
+    );
+    push_count_field(
+        fields,
+        "local_table_commit_record_write_request_count",
+        local_table_commit_record_write_request_count(report),
+    );
+    push_count_field(
+        fields,
+        "local_table_manifest_bytes_written",
+        report.written_bytes,
+    );
+    push_count_field(
+        fields,
+        "local_table_commit_record_bytes_written",
+        report.commit_record_bytes,
+    );
+    push_count_field(
+        fields,
+        "local_table_total_bytes_written",
+        local_table_total_bytes_written(report),
+    );
+    push_field(
+        fields,
+        "local_table_commit_bounded_status",
+        local_table_commit_bounded_status(report),
+    );
+    push_field(
+        fields,
+        "local_table_commit_retry_policy_status",
+        local_table_commit_retry_policy_status(report),
+    );
+    push_count_field(fields, "local_table_commit_retry_attempt_count", 0);
+    push_field(
+        fields,
+        "local_table_commit_rate_limit_policy_status",
+        local_table_commit_rate_limit_policy_status(report),
+    );
+    push_count_field(
+        fields,
+        "local_table_commit_rollback_cleanup_request_count",
+        report.cleanup_deleted_count,
+    );
+    push_field(
+        fields,
+        "local_table_commit_ambiguous_status",
+        local_table_commit_ambiguous_status(report),
+    );
+    push_field(
+        fields,
+        "local_table_commit_idempotency_scope",
+        local_table_commit_idempotency_scope(report),
+    );
+    push_field(
+        fields,
+        "table_translation_report_status",
+        "not_required_shardloom_local_manifest_native_fixture",
+    );
+    push_field(
+        fields,
+        "table_metadata_loss_status",
+        "not_applicable_native_local_manifest_fixture",
+    );
 }
 
 fn push_policy_boundary_fields(
@@ -1511,6 +1648,7 @@ fn perform_local_manifest_append_commit(
         correctness_digest,
     );
     let commit_record_digest = fnv64_digest(&commit_record);
+    let commit_record_bytes = commit_record.len();
     if let Err(error) = write_workspace_safe_local_bytes(
         &workspace_root,
         commit_record_path,
@@ -1540,6 +1678,7 @@ fn perform_local_manifest_append_commit(
         staging_path: manifest_write_report.staging_path,
         cleanup_deleted_count,
         written_bytes: manifest_payload.len(),
+        commit_record_bytes,
         committed_manifest_digest,
         commit_record_digest,
     })
@@ -2047,6 +2186,112 @@ fn cleanup_status(
         (LocalTableAppendCommitStatus::Committed, _) => "staging_manifest_removed",
         (LocalTableAppendCommitStatus::RolledBack, true) => "rollback_cleanup_performed",
         _ => "not_performed_blocked",
+    }
+}
+
+fn local_table_manifest_write_request_count(report: &LocalTableAppendCommitReport) -> usize {
+    usize::from(!report.has_errors())
+}
+
+fn local_table_commit_record_write_request_count(report: &LocalTableAppendCommitReport) -> usize {
+    usize::from(!report.has_errors())
+}
+
+fn local_table_total_bytes_written(report: &LocalTableAppendCommitReport) -> usize {
+    report
+        .written_bytes
+        .saturating_add(report.commit_record_bytes)
+}
+
+fn local_table_commit_bounded_status(report: &LocalTableAppendCommitReport) -> &'static str {
+    if report.has_errors() {
+        "not_performed_blocked"
+    } else {
+        "bounded_manifest_and_commit_record_under_fixture_budget"
+    }
+}
+
+fn local_table_commit_retry_policy_status(report: &LocalTableAppendCommitReport) -> &'static str {
+    if report.has_errors() {
+        "blocked_before_retry"
+    } else {
+        "not_required_single_attempt_local_manifest_commit"
+    }
+}
+
+fn local_table_commit_rate_limit_policy_status(
+    report: &LocalTableAppendCommitReport,
+) -> &'static str {
+    if report.has_errors() {
+        "blocked_before_rate_limit_policy"
+    } else {
+        "not_required_local_manifest_no_network"
+    }
+}
+
+fn local_table_commit_ambiguous_status(report: &LocalTableAppendCommitReport) -> &'static str {
+    match report.status {
+        LocalTableAppendCommitStatus::Committed => "not_observed_local_commit_record_written",
+        LocalTableAppendCommitStatus::RolledBack => "rollback_cleanup_completed",
+        _ => "blocked_before_commit_claim",
+    }
+}
+
+fn local_table_commit_idempotency_scope(report: &LocalTableAppendCommitReport) -> &'static str {
+    if report.has_errors() {
+        "not_emitted_blocked"
+    } else {
+        "local_manifest_target_manifest_digest"
+    }
+}
+
+fn local_table_recovery_read_request_count(report: &LocalTableCommitRecoveryReport) -> usize {
+    if report.manifest_bytes > 0 || report.commit_record_bytes > 0 {
+        2
+    } else {
+        0
+    }
+}
+
+fn local_table_recovery_total_bytes_read(report: &LocalTableCommitRecoveryReport) -> usize {
+    report
+        .manifest_bytes
+        .saturating_add(report.commit_record_bytes)
+}
+
+fn local_table_recovery_retry_policy_status(
+    report: &LocalTableCommitRecoveryReport,
+) -> &'static str {
+    match report.status {
+        LocalTableCommitRecoveryStatus::Recovered => {
+            "not_required_single_attempt_local_manifest_recovery"
+        }
+        LocalTableCommitRecoveryStatus::BlockedRecoveryMismatch => {
+            "not_retried_recovery_evidence_mismatch"
+        }
+        _ => "blocked_before_retry",
+    }
+}
+
+fn local_table_recovery_rate_limit_policy_status(
+    report: &LocalTableCommitRecoveryReport,
+) -> &'static str {
+    match report.status {
+        LocalTableCommitRecoveryStatus::Recovered
+        | LocalTableCommitRecoveryStatus::BlockedRecoveryMismatch => {
+            "not_required_local_manifest_no_network"
+        }
+        _ => "blocked_before_rate_limit_policy",
+    }
+}
+
+fn local_table_recovery_ambiguous_commit_status(
+    report: &LocalTableCommitRecoveryReport,
+) -> &'static str {
+    match report.status {
+        LocalTableCommitRecoveryStatus::Recovered => "replay_matched_sidecar_commit_record",
+        LocalTableCommitRecoveryStatus::BlockedRecoveryMismatch => "blocked_recovery_mismatch",
+        _ => "blocked_before_recovery_replay",
     }
 }
 
