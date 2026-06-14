@@ -37,6 +37,19 @@ PACKAGE_NAME_READINESS_DOC = Path("docs/release/package-name-readiness.md")
 EXPECTED_PYTHON_PACKAGE_NAME = "shardloom"
 EXPECTED_PYTHON_REQUIRES = ">=3.10"
 EXPECTED_PUBLIC_CRATE_CANDIDATES = ["shardloom-protocol", "shardloom-client"]
+GITHUB_PRERELEASE_BUNDLE_SCHEMA_VERSION = "shardloom.github_prerelease_asset_bundle.v1"
+GITHUB_PRERELEASE_REQUIRED_ASSET_KINDS = [
+    "source_archive",
+    "release_notes",
+    "release_binary",
+    "python_wheel",
+    "python_sdist",
+    "checksum_manifest",
+    "rust_workspace_sbom",
+    "python_artifact_sbom",
+    "cli_binary_sbom",
+    "supply_chain_provenance",
+]
 INTERNAL_CRATE_MANIFESTS = [
     "shardloom-core/Cargo.toml",
     "shardloom-plan/Cargo.toml",
@@ -490,6 +503,75 @@ def ref_paths_exist(repo_root: Path, rows: list[dict[str, Any]]) -> list[str]:
     return missing
 
 
+def validate_github_prerelease_asset_bundle(
+    repo_root: Path,
+    provenance_report: dict[str, Any] | None,
+) -> tuple[dict[str, Any], list[str]]:
+    blockers: list[str] = []
+    summary: dict[str, Any] = {
+        "status": None,
+        "asset_manifest_ref": None,
+        "required_asset_kinds": GITHUB_PRERELEASE_REQUIRED_ASSET_KINDS,
+        "present_asset_kinds": [],
+        "missing_asset_kinds": GITHUB_PRERELEASE_REQUIRED_ASSET_KINDS,
+        "staged_asset_count": 0,
+    }
+    if provenance_report is None:
+        blockers.append("missing GitHub prerelease provenance bundle evidence")
+        return summary, blockers
+
+    status = provenance_report.get("github_prerelease_asset_bundle_status")
+    summary["status"] = status
+    if status != "prepared_local_no_publication":
+        blockers.append(
+            "github prerelease asset bundle status must be prepared_local_no_publication"
+        )
+    manifest_ref = provenance_report.get("github_prerelease_asset_manifest_ref")
+    summary["asset_manifest_ref"] = manifest_ref
+    if not isinstance(manifest_ref, str) or not manifest_ref.strip():
+        blockers.append("github prerelease asset manifest ref missing")
+        return summary, blockers
+
+    manifest_path = resolve(repo_root, Path(manifest_ref))
+    manifest = load_json(manifest_path)
+    if manifest is None:
+        blockers.append(f"github prerelease asset manifest missing: {manifest_ref}")
+        return summary, blockers
+    if manifest.get("schema_version") != GITHUB_PRERELEASE_BUNDLE_SCHEMA_VERSION:
+        blockers.append("github prerelease asset manifest schema_version mismatch")
+    if manifest.get("status") != "prepared_local_no_publication":
+        blockers.append(
+            "github prerelease asset manifest status must be prepared_local_no_publication"
+        )
+    for field in ["publication_attempted", "tag_created", "secrets_required"]:
+        if manifest.get(field) is not False:
+            blockers.append(f"github prerelease asset manifest {field} must be false")
+    present_kinds = manifest.get("present_asset_kinds")
+    if not isinstance(present_kinds, list):
+        blockers.append("github prerelease asset manifest present_asset_kinds must be a list")
+        present_kinds = []
+    summary["present_asset_kinds"] = present_kinds
+    missing_kinds = [
+        kind for kind in GITHUB_PRERELEASE_REQUIRED_ASSET_KINDS if kind not in present_kinds
+    ]
+    summary["missing_asset_kinds"] = missing_kinds
+    if missing_kinds:
+        blockers.append(
+            "github prerelease asset manifest missing asset kinds: "
+            + ",".join(missing_kinds)
+        )
+    staged_refs = ref_rows(manifest, "staged_asset_refs")
+    summary["staged_asset_count"] = len(staged_refs)
+    if len(staged_refs) < len(GITHUB_PRERELEASE_REQUIRED_ASSET_KINDS):
+        blockers.append("github prerelease asset manifest has too few staged assets")
+    missing_paths = ref_paths_exist(repo_root, staged_refs)
+    if missing_paths:
+        blockers.append(
+            "github prerelease asset manifest missing files: " + ",".join(missing_paths)
+        )
+    return summary, blockers
+
+
 def validate_local_gate_evidence(
     *,
     repo_root: Path,
@@ -601,12 +683,19 @@ def validate_local_gate_evidence(
     artifact_rows = ref_rows(provenance_report, "artifact_refs")
     sbom_rows = ref_rows(provenance_report, "sbom_refs")
     checksum_rows = ref_rows(provenance_report, "checksum_refs")
+    github_prerelease_bundle, github_prerelease_bundle_blockers = (
+        validate_github_prerelease_asset_bundle(repo_root, provenance_report)
+    )
     provenance_fields = {
         "provenance_status": None,
         "artifact_ref_count": len(artifact_rows),
         "sbom_ref_count": len(sbom_rows),
         "checksum_ref_count": len(checksum_rows),
         "fallback_dependency_absent": None,
+        "github_prerelease_asset_bundle_status": github_prerelease_bundle["status"],
+        "github_prerelease_asset_manifest_ref": github_prerelease_bundle[
+            "asset_manifest_ref"
+        ],
     }
     if provenance_report is None:
         blockers.append("missing supply-chain release evidence report")
@@ -649,6 +738,7 @@ def validate_local_gate_evidence(
                 ],
             )
         )
+    blockers.extend(github_prerelease_bundle_blockers)
 
     return {
         "status": "passed" if not blockers else "blocked",
@@ -656,6 +746,7 @@ def validate_local_gate_evidence(
         "dependency_audit": dependency_fields,
         "package_smoke": smoke_fields,
         "provenance": provenance_fields,
+        "github_prerelease_asset_bundle": github_prerelease_bundle,
         "blockers": blockers,
         "publication_attempted": False,
         "tag_created": False,

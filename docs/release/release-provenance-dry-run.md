@@ -27,6 +27,9 @@ target/release-provenance-dry-run/workflow-policy-snapshot.json
 target/release-provenance-dry-run/shardloom-rust-workspace.cdx.json
 target/release-provenance-dry-run/shardloom-python-artifacts.cdx.json
 target/release-provenance-dry-run/shardloom-cli-binary.cdx.json
+target/release-provenance-dry-run/github-prerelease-release-notes.md
+target/release-provenance-dry-run/shardloom-<source>-source.tar.gz
+target/release-provenance-dry-run/github-prerelease-assets/asset-manifest.json
 ```
 
 ## Evidence
@@ -36,10 +39,12 @@ The generated `SupplyChainReleaseEvidence` dry-run report records:
 - source commit and dirty-state status
 - local builder identity
 - local CLI and Python artifact refs
+- local source archive and release-notes refs
 - Rust workspace SBOM ref
 - Python artifact SBOM ref
 - CLI binary SBOM ref
 - checksum manifest ref
+- staged GitHub pre-release asset manifest ref
 - PyPI Trusted Publisher workflow policy snapshot
 - `publication_attempted=false`
 - `tag_created=false`
@@ -50,6 +55,11 @@ The SBOM JSON files are local CycloneDX-style dry-run evidence produced from che
 `Cargo.lock`, Python package metadata, and local artifact digests. They are not a substitute for
 maintainer-approved release SBOM tooling, but they make the release gate executable before public
 publication is authorized.
+
+The GitHub pre-release asset manifest is a local staging contract only. It requires a source
+archive from `git archive HEAD`, release notes, CLI binary, wheel, sdist, checksum manifest, Rust
+SBOM, Python SBOM, CLI SBOM, and provenance JSON. It does not create a tag, GitHub release object,
+uploaded asset, or public package claim.
 
 ## Workflow Hardening Snapshot
 
@@ -82,8 +92,8 @@ and benchmark checks complete. Its transcript records:
 `scripts/check_package_channel_readiness.py --require-local-evidence` consumes
 `target/release-provenance-dry-run/supply-chain-release-evidence.json` and requires artifact refs,
 SBOM refs, checksum refs, `provenance_status=dry_run_unsigned_local_evidence`,
-`fallback_dependency_absent=true`, and no-publication safety fields before the package-gate report
-can pass.
+`fallback_dependency_absent=true`, the staged GitHub pre-release asset manifest, and no-publication
+safety fields before the package-gate report can pass.
 
 ## Non-Goals
 

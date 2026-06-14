@@ -7354,6 +7354,189 @@ class ReleaseScriptTests(unittest.TestCase):
             any("publish = false" in blocker for blocker in report["blockers"])
         )
 
+    def _package_channel_dependency_audit_fixture(self) -> dict[str, object]:
+        return {
+            "schema_version": "shardloom.dependency_audit_report.v1",
+            "cargo_deny_status": "passed",
+            "cargo_audit_status": "passed",
+            "pip_audit_status": "passed",
+            "license_policy_status": "passed",
+            "advisory_status": "passed",
+            "fallback_dependency_absent": True,
+        }
+
+    def _package_channel_release_dry_run_fixture(self) -> dict[str, object]:
+        return {
+            "schema_version": "shardloom.release_dry_run_proof.v1",
+            "proof_status": "passed",
+            "clean_venv_install_status": "passed",
+            "wheel_import_and_client_smoke_performed": True,
+            "cli_status_smoke_performed": True,
+            "cli_capabilities_smoke_performed": True,
+            "local_python_example_smoke_performed": True,
+            "local_python_user_surface_quickstart_performed": True,
+            "local_python_result_and_evidence_printed": True,
+            "local_python_unsupported_path_evidence_printed": True,
+            "generated_output_proof_distinct_from_no_dataset_smoke": True,
+            "generated_source_user_rows_smoke_performed": True,
+            "generated_source_range_smoke_performed": True,
+            "prepared_native_benchmark_smoke_performed": True,
+            "provenance_dry_run_performed": True,
+            "sbom_checksum_manifest_generated": True,
+            "publication_attempted": False,
+            "tag_created": False,
+            "secrets_required": False,
+            "external_runtime_dependencies_added": False,
+            "fallback_engine_dependency_added": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "public_package_release_claim_allowed": False,
+        }
+
+    def _package_channel_provenance_fixture(
+        self,
+        module: object,
+        repo_root: Path,
+        *,
+        omit_bundle_kind: str | None = None,
+    ) -> dict[str, object]:
+        target = repo_root / "target" / "release-provenance-dry-run"
+        asset_dir = target / "github-prerelease-assets"
+        asset_dir.mkdir(parents=True)
+
+        def write_ref(kind: str, filename: str) -> dict[str, object]:
+            path = target / filename
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(f"{kind}\n", encoding="utf-8")
+            return {
+                "kind": kind,
+                "path": path.relative_to(repo_root).as_posix(),
+                "exists": True,
+                "sha256": "0" * 64,
+            }
+
+        artifact_refs = [
+            write_ref("source_archive", "shardloom-source.tar.gz"),
+            write_ref("release_notes", "github-prerelease-release-notes.md"),
+            write_ref("release_binary", "shardloom"),
+            write_ref("python_wheel", "shardloom-0.1.0.dev0-py3-none-any.whl"),
+            write_ref("python_sdist", "shardloom-0.1.0.dev0.tar.gz"),
+        ]
+        sbom_refs = [
+            write_ref("rust_workspace_sbom", "shardloom-rust-workspace.cdx.json"),
+            write_ref("python_artifact_sbom", "shardloom-python-artifacts.cdx.json"),
+            write_ref("cli_binary_sbom", "shardloom-cli-binary.cdx.json"),
+        ]
+        checksum_refs = [write_ref("checksum_manifest", "checksums.sha256")]
+        provenance_ref = write_ref(
+            "supply_chain_provenance", "supply-chain-release-evidence.json"
+        )
+
+        staged_refs = []
+        for row in [*artifact_refs, *sbom_refs, *checksum_refs, provenance_ref]:
+            if row["kind"] == omit_bundle_kind:
+                continue
+            staged_path = asset_dir / Path(str(row["path"])).name
+            staged_path.write_text(f"{row['kind']}\n", encoding="utf-8")
+            staged_refs.append(
+                {
+                    "kind": row["kind"],
+                    "path": staged_path.relative_to(repo_root).as_posix(),
+                    "exists": True,
+                    "sha256": "1" * 64,
+                    "source_path": row["path"],
+                }
+            )
+
+        present_kinds = sorted(str(row["kind"]) for row in staged_refs)
+        missing_kinds = [
+            kind
+            for kind in module.GITHUB_PRERELEASE_REQUIRED_ASSET_KINDS
+            if kind not in present_kinds
+        ]
+        manifest = {
+            "schema_version": module.GITHUB_PRERELEASE_BUNDLE_SCHEMA_VERSION,
+            "status": "prepared_local_no_publication"
+            if not missing_kinds
+            else "blocked",
+            "required_asset_kinds": module.GITHUB_PRERELEASE_REQUIRED_ASSET_KINDS,
+            "present_asset_kinds": present_kinds,
+            "missing_asset_kinds": missing_kinds,
+            "staged_asset_refs": staged_refs,
+            "publication_attempted": False,
+            "tag_created": False,
+            "secrets_required": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+        }
+        manifest_path = asset_dir / "asset-manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+        return {
+            "schema_version": "shardloom.supply_chain_release_evidence.v1",
+            "provenance_status": "dry_run_unsigned_local_evidence",
+            "fallback_dependency_absent": True,
+            "artifact_refs": artifact_refs,
+            "sbom_refs": sbom_refs,
+            "checksum_refs": checksum_refs,
+            "github_prerelease_asset_bundle_status": "prepared_local_no_publication",
+            "github_prerelease_asset_manifest_ref": manifest_path.relative_to(
+                repo_root
+            ).as_posix(),
+            "publication_attempted": False,
+            "tag_created": False,
+            "secrets_required": False,
+            "external_runtime_dependencies_added": False,
+            "fallback_engine_dependency_added": False,
+        }
+
+    def test_package_channel_local_gate_accepts_github_prerelease_asset_bundle(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_bundle_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            report = module.validate_local_gate_evidence(
+                repo_root=repo_root,
+                dependency_audit_report=self._package_channel_dependency_audit_fixture(),
+                release_dry_run_transcript=self._package_channel_release_dry_run_fixture(),
+                provenance_report=self._package_channel_provenance_fixture(
+                    module, repo_root
+                ),
+            )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(
+            report["github_prerelease_asset_bundle"]["status"],
+            "prepared_local_no_publication",
+        )
+        self.assertEqual(report["github_prerelease_asset_bundle"]["missing_asset_kinds"], [])
+
+    def test_package_channel_local_gate_blocks_incomplete_github_prerelease_bundle(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_bundle_blocker_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            report = module.validate_local_gate_evidence(
+                repo_root=repo_root,
+                dependency_audit_report=self._package_channel_dependency_audit_fixture(),
+                release_dry_run_transcript=self._package_channel_release_dry_run_fixture(),
+                provenance_report=self._package_channel_provenance_fixture(
+                    module,
+                    repo_root,
+                    omit_bundle_kind="python_sdist",
+                ),
+            )
+
+        self.assertEqual(report["status"], "blocked")
+        self.assertTrue(
+            any("python_sdist" in blocker for blocker in report["blockers"]),
+            report["blockers"],
+        )
+
     def test_dependency_audit_resolves_configured_pip_audit_python(self) -> None:
         module = self._load_script_module(
             "check_dependency_audit.py", "check_dependency_audit_pip_audit_for_test"
