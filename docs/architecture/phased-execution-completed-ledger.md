@@ -16,6 +16,88 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-READY-1A production format and local I/O adapter certification
+  - Date: 2026-06-14
+  - Source:
+    - `PROD-READY-1A` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/universal-input-contract.md`.
+    - `docs/architecture/vortex-adapter-integration-plan.md`.
+    - `docs/architecture/vortex-public-api-inventory.md`.
+    - Merged PRs #1248 through #1253, ending at commit
+      `f7eca8ed7b76c6d9bfc45e6f17bc1c2fb1732ea8`.
+  - Scope:
+    - Closed local format production certification for the v1 local-file envelope: Vortex native
+      input/output, CSV/JSONL text, Parquet/Arrow IPC columnar, Avro/ORC compatibility inputs,
+      and compatibility output/export targets.
+    - Added release-gated production profiles for parser/reader behavior, malformed-row handling,
+      encoding/null/coercion rules, projection-aware typed builders, nested/complex dtype support,
+      deterministic blockers, pushdown/fidelity posture, compatibility output metadata loss, and
+      local edge-case fixtures.
+    - Added the Vortex 0.75 local-I/O provider disposition report for layout-reader context/cache,
+      JSON extension Arrow import/export, WKB/geospatial extension preservation, Interleave
+      encoding, binary zstd/compression metadata, row-byte encoder evaluation, and validity/mask
+      semantics.
+    - Added `shardloom.vortex_local_io_coverage.v1` and
+      `shardloom.vortex_native_writer_schema_certification.v1` through `vortex-api-inventory`.
+    - Certified seven scoped feature-gated local Vortex writer runtime rows: flat scalar rows,
+      typed complex source-free rows, flat columnar SourceState handoff, nullable columnar
+      validity, flat Arrow Decimal128 columnar handoff, flat Arrow dictionary utf8/binary handoff,
+      and flat Arrow dictionary integer/unsigned-integer/finite-float handoff.
+    - Kept `generalized_schema_encoding_writer` blocked with
+      `SL_UNSUPPORTED_GENERALIZED_VORTEX_PAYLOAD_WRITE` instead of implying broad arbitrary schema
+      support.
+  - Closed format profiles:
+    - Vortex native local read/write profiles with scoped Native I/O/reopen evidence and explicit
+      provider/version surfaces.
+    - CSV and JSONL/NDJSON text profiles with typed parser contracts, malformed data policy, and
+      fail-closed unsupported-shape diagnostics.
+    - Parquet and Arrow IPC columnar profiles with projection/fidelity reporting and materialization
+      disclosure.
+    - Avro and ORC compatibility profiles with explicit preservation/loss reports and writer
+      blockers for unsupported typed nested paths.
+    - Compatibility output targets with `TranslationReport` coverage for preserved/lost metadata,
+      materialization cost, unsupported schema diagnostics, and non-execution-fallback boundaries.
+  - Unsupported shapes and residual boundaries:
+    - Object-store Vortex I/O, table/catalog integration, manifest commit integration, lakehouse
+      table runtime, SQL/DataFrame production runtime, broad payload shapes, and performance
+      claims remain outside this item.
+    - JSON/WKB extension dtype preservation remains a provider-candidate/wrapped-concept row pending
+      extension fidelity reports and deterministic expression blockers.
+    - Boolean dictionary, decimal dictionary, interleave-preserving dictionary layouts,
+      generalized dictionary layout fidelity, Decimal256, negative-scale decimals, sparse/nested
+      generalized writer paths, and arbitrary schema/encoding payload writing remain unsupported
+      until separate evidence lands.
+  - Evidence commands and artifacts:
+    - `python3 scripts/check_local_format_production_profiles.py --output target/local-format-production-profiles-report.json`.
+    - `python3 scripts/check_local_format_pushdown_fidelity.py --output target/local-format-pushdown-fidelity-validation.json`.
+    - `python3 scripts/check_compatibility_output_translation_reports.py --output target/compatibility-output-translation-report-validation.json`.
+    - `python3 scripts/check_local_format_edge_case_fixtures.py --output target/local-format-edge-case-fixture-validation.json`.
+    - `cargo test -p shardloom-vortex native_writer_schema_certification_classifies_scoped_and_blocked_rows --lib`.
+    - `cargo test -p shardloom-cli --test vortex_api_inventory_snapshots`.
+    - `cargo test -p shardloom-vortex --features vortex-write,universal-format-io --lib`.
+    - `cargo clippy --workspace --all-targets -- -D warnings`.
+    - PR #1253 was merged only after the full remote check set passed, including Rust baseline,
+      Rust feature matrix, Python/package smoke, Python compatibility/test shards, CodeQL,
+      dependency/security gates, website/docs validation, release runtime/user/package/governance
+      evidence, release readiness reports, and Cloudflare Workers build.
+  - Claim boundary:
+    - May claim production-candidate local format profiles and scoped feature-gated local Vortex
+      writer runtime rows exactly as recorded in the capability/report surfaces.
+    - May not claim broad arbitrary schema writing, object-store/table/lakehouse runtime,
+      SQL/DataFrame production support, public package readiness, benchmark performance
+      improvement, or engine superiority from this closeout.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Trino, Dask, Ray, pandas, PyArrow, Vortex
+      query-engine integration, or other external engine was admitted as ShardLoom fallback
+      execution.
+    - Certified rows and report surfaces preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`; compatibility readers/writers are translation/export
+      surfaces, not execution fallback engines.
+  - Residual work:
+    - Package-channel approval/proof remains tracked by `PROD-V1-5A`.
+    - Production runtime families beyond local I/O continue in `PROD-READY-1B` through
+      `PROD-READY-1G`.
+
 - [x] Session label: RELEASE-READY-16A v1 release boundary and unsupported-surface firewall
   - Date: 2026-06-14
   - Source:
