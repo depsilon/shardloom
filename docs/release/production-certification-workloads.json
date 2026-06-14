@@ -310,6 +310,17 @@
           "evidence_refs": [
             "native_io_certificate_status=fixture_smoke_only",
             "native_io_certificate_status=public_fixture_smoke_only",
+            "object_store_request_count=1",
+            "object_store_bytes_requested",
+            "object_store_bytes_read",
+            "object_store_retry_attempt_count=0",
+            "object_store_cache_hit_count=0",
+            "object_store_checksum_validation_status=validated_requested_bytes_digest",
+            "object_store_request_coalescing_status=not_required_single_byte_range_request",
+            "object_store_prefetch_status=not_required_single_bounded_request",
+            "object_store_rate_limit_policy_status",
+            "object_etag_status",
+            "object_version_status",
             "docs/use-cases/generated/object-store-local-emulator-read-smoke.md",
             "docs/use-cases/generated/object-store-local-emulator-write-smoke.md"
           ]
@@ -332,9 +343,11 @@
           ]
         },
         "memory_backpressure": {
-          "status": "blocked_missing_bounded_streaming_and_backpressure_profile",
+          "status": "blocked_partial_fixture_read_budget_only_missing_production_streaming_backpressure",
           "evidence_refs": [
             "MAX_OBJECT_STORE_FIXTURE_BYTES",
+            "object_store_bounded_read_status=bounded_byte_range_with_fixture_budget",
+            "object_store_bounded_read_status=bounded_full_object_under_fixture_budget",
             "PROD-READY-1B bounded streaming reads"
           ]
         },

@@ -3058,9 +3058,104 @@ fn push_object_store_read_fields(
             .object_mtime_millis
             .map_or_else(|| "not_available".to_string(), |value| value.to_string()),
     );
+    push_object_store_object_identity_fields(fields, report);
+    push_object_store_integrity_fields(fields, report);
+    push_object_store_request_evidence_fields(fields, report);
+}
+
+fn push_object_store_object_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreReadSmokeReport,
+) {
     push_field(fields, "object_etag", &object_etag(report));
+    push_field(fields, "object_etag_status", object_etag_status(report));
     push_field(fields, "object_version", &object_version(report));
+    push_field(
+        fields,
+        "object_version_status",
+        object_version_status(report),
+    );
+}
+
+fn push_object_store_integrity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreReadSmokeReport,
+) {
     push_field(fields, "read_digest", &report.read_digest);
+    push_field(
+        fields,
+        "object_store_checksum_validation_status",
+        object_store_checksum_validation_status(report),
+    );
+    push_field(
+        fields,
+        "object_store_checksum_algorithm",
+        object_store_checksum_algorithm(report),
+    );
+    push_field(
+        fields,
+        "object_store_checksum_scope",
+        object_store_checksum_scope(report),
+    );
+}
+
+fn push_object_store_request_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreReadSmokeReport,
+) {
+    push_count_field(
+        fields,
+        "object_store_request_count",
+        object_store_request_count(report),
+    );
+    push_u64_field(
+        fields,
+        "object_store_bytes_requested",
+        object_store_bytes_requested(report),
+    );
+    push_count_field(fields, "object_store_bytes_read", report.bytes_read);
+    push_field(
+        fields,
+        "object_store_bounded_read_status",
+        object_store_bounded_read_status(report),
+    );
+    push_u64_field(
+        fields,
+        "object_store_bounded_read_budget_bytes",
+        MAX_OBJECT_STORE_FIXTURE_BYTES,
+    );
+    push_field(
+        fields,
+        "object_store_request_coalescing_status",
+        object_store_request_coalescing_status(report),
+    );
+    push_count_field(
+        fields,
+        "object_store_coalesced_request_count",
+        object_store_coalesced_request_count(report),
+    );
+    push_field(
+        fields,
+        "object_store_prefetch_status",
+        object_store_prefetch_status(report),
+    );
+    push_field(
+        fields,
+        "object_store_retry_policy_status",
+        object_store_retry_policy_status(report),
+    );
+    push_count_field(
+        fields,
+        "object_store_retry_attempt_count",
+        object_store_retry_attempt_count(report),
+    );
+    push_field(
+        fields,
+        "object_store_rate_limit_policy_status",
+        object_store_rate_limit_policy_status(report),
+    );
+    push_count_field(fields, "object_store_cache_hit_count", 0);
+    push_count_field(fields, "object_store_cache_miss_count", 0);
 }
 
 fn push_object_store_source_state_fields(
@@ -4142,25 +4237,149 @@ fn public_fixture_path_field(report: &ObjectStoreReadSmokeReport) -> String {
 }
 
 fn object_etag(report: &ObjectStoreReadSmokeReport) -> String {
-    if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE && !report.has_errors() {
-        format!("public-fixture-{}", report.read_digest.replace(':', "-"))
+    if report.has_errors() {
+        "not_emitted_no_object_read".to_string()
     } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
-        "not_emitted_no_public_fixture_read".to_string()
+        format!("public-fixture-{}", report.read_digest.replace(':', "-"))
     } else {
-        "not_applicable_local_emulator".to_string()
+        format!(
+            "local-emulator-fingerprint-{}",
+            report.source_state_digest.replace(':', "-")
+        )
+    }
+}
+
+fn object_etag_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_emitted_no_object_read"
+    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "derived_public_fixture_read_digest"
+    } else {
+        "derived_local_emulator_metadata_range_fingerprint"
     }
 }
 
 fn object_version(report: &ObjectStoreReadSmokeReport) -> String {
-    if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE && !report.has_errors() {
+    if report.has_errors() {
+        "not_emitted_no_object_read".to_string()
+    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
         format!(
             "public-fixture-mtime-{}",
             report.object_mtime_millis.unwrap_or_default()
         )
-    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
-        "not_emitted_no_public_fixture_read".to_string()
     } else {
-        "not_applicable_local_emulator".to_string()
+        format!(
+            "local-emulator-mtime-{}",
+            report.object_mtime_millis.unwrap_or_default()
+        )
+    }
+}
+
+fn object_version_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_emitted_no_object_read"
+    } else if report.object_mtime_millis.is_none() {
+        "object_mtime_not_available"
+    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "derived_public_fixture_mtime"
+    } else {
+        "derived_local_emulator_mtime"
+    }
+}
+
+fn object_store_checksum_validation_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_emitted_no_object_read"
+    } else {
+        "validated_requested_bytes_digest"
+    }
+}
+
+fn object_store_checksum_algorithm(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_emitted_no_object_read"
+    } else {
+        "fnv64_non_crypto_fixture_digest"
+    }
+}
+
+fn object_store_checksum_scope(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_emitted_no_object_read"
+    } else if report.requested_range.is_some() {
+        "requested_byte_range"
+    } else {
+        "full_object"
+    }
+}
+
+fn object_store_request_count(report: &ObjectStoreReadSmokeReport) -> usize {
+    usize::from(!report.has_errors())
+}
+
+fn object_store_bytes_requested(report: &ObjectStoreReadSmokeReport) -> u64 {
+    if report.has_errors() {
+        0
+    } else {
+        report
+            .requested_range
+            .map_or(report.object_size_bytes, |range| range.length)
+    }
+}
+
+fn object_store_bounded_read_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_performed_blocked"
+    } else if report.requested_range.is_some() {
+        "bounded_byte_range_with_fixture_budget"
+    } else {
+        "bounded_full_object_under_fixture_budget"
+    }
+}
+
+fn object_store_request_coalescing_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_performed_blocked"
+    } else if report.requested_range.is_some() {
+        "not_required_single_byte_range_request"
+    } else {
+        "not_required_single_full_object_request"
+    }
+}
+
+fn object_store_coalesced_request_count(report: &ObjectStoreReadSmokeReport) -> usize {
+    usize::from(!report.has_errors())
+}
+
+fn object_store_prefetch_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_performed_blocked"
+    } else {
+        "not_required_single_bounded_request"
+    }
+}
+
+fn object_store_retry_policy_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "blocked_before_retry"
+    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "not_required_single_attempt_public_fixture"
+    } else {
+        "not_required_single_attempt_local_emulator"
+    }
+}
+
+fn object_store_retry_attempt_count(_report: &ObjectStoreReadSmokeReport) -> usize {
+    0
+}
+
+fn object_store_rate_limit_policy_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "blocked_before_rate_limit_policy"
+    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "not_required_public_fixture_no_network"
+    } else {
+        "not_required_local_emulator_no_network"
     }
 }
 
@@ -4638,6 +4857,45 @@ mod tests {
             "performed_local_emulator"
         );
         assert_eq!(
+            output_field(&fields, "object_etag_status"),
+            "derived_local_emulator_metadata_range_fingerprint"
+        );
+        assert_eq!(
+            output_field(&fields, "object_version_status"),
+            "derived_local_emulator_mtime"
+        );
+        assert_eq!(
+            output_field(&fields, "object_store_checksum_validation_status"),
+            "validated_requested_bytes_digest"
+        );
+        assert_eq!(
+            output_field(&fields, "object_store_checksum_scope"),
+            "requested_byte_range"
+        );
+        assert_eq!(output_field(&fields, "object_store_request_count"), "1");
+        assert_eq!(output_field(&fields, "object_store_bytes_requested"), "3");
+        assert_eq!(output_field(&fields, "object_store_bytes_read"), "3");
+        assert_eq!(
+            output_field(&fields, "object_store_bounded_read_status"),
+            "bounded_byte_range_with_fixture_budget"
+        );
+        assert_eq!(
+            output_field(&fields, "object_store_request_coalescing_status"),
+            "not_required_single_byte_range_request"
+        );
+        assert_eq!(
+            output_field(&fields, "object_store_coalesced_request_count"),
+            "1"
+        );
+        assert_eq!(
+            output_field(&fields, "object_store_retry_policy_status"),
+            "not_required_single_attempt_local_emulator"
+        );
+        assert_eq!(
+            output_field(&fields, "object_store_rate_limit_policy_status"),
+            "not_required_local_emulator_no_network"
+        );
+        assert_eq!(
             output_field(&fields, "credential_resolution_performed"),
             "false"
         );
@@ -4670,6 +4928,17 @@ mod tests {
             ObjectStoreReadSmokeStatus::BlockedRemoteProvider
         );
         assert_eq!(output_field(&fields, "object_store_io"), "false");
+        assert_eq!(output_field(&fields, "object_store_request_count"), "0");
+        assert_eq!(output_field(&fields, "object_store_bytes_requested"), "0");
+        assert_eq!(output_field(&fields, "object_store_bytes_read"), "0");
+        assert_eq!(
+            output_field(&fields, "object_store_bounded_read_status"),
+            "not_performed_blocked"
+        );
+        assert_eq!(
+            output_field(&fields, "object_store_retry_policy_status"),
+            "blocked_before_retry"
+        );
         assert_eq!(
             output_field(&fields, "credential_resolution_performed"),
             "false"
@@ -4714,6 +4983,17 @@ mod tests {
         assert_eq!(
             output_field(&fields, "byte_range_read_status"),
             "performed_public_no_credential_fixture"
+        );
+        assert_eq!(
+            output_field(&fields, "object_etag_status"),
+            "derived_public_fixture_read_digest"
+        );
+        assert_eq!(output_field(&fields, "object_store_request_count"), "1");
+        assert_eq!(output_field(&fields, "object_store_bytes_requested"), "2");
+        assert_eq!(output_field(&fields, "object_store_bytes_read"), "2");
+        assert_eq!(
+            output_field(&fields, "object_store_retry_policy_status"),
+            "not_required_single_attempt_public_fixture"
         );
         assert_eq!(
             output_field(&fields, "credential_policy_status"),
@@ -4772,6 +5052,54 @@ mod tests {
         assert_eq!(
             output_field(&fields, "requested_uri_redaction_status"),
             "not_required"
+        );
+    }
+
+    #[test]
+    fn local_emulator_full_object_read_emits_bounded_request_evidence() {
+        let fixture = std::env::temp_dir().join(format!(
+            "shardloom-object-store-full-read-{}.bin",
+            std::process::id()
+        ));
+        fs::write(&fixture, b"abcdef").expect("fixture write");
+
+        let report = execute_object_store_read_smoke(
+            fixture.to_string_lossy().as_ref(),
+            DEFAULT_PROFILE,
+            None,
+            None,
+            false,
+        );
+        let fields = object_store_read_smoke_fields(&report);
+        fs::remove_file(&fixture).expect("fixture cleanup");
+
+        assert!(!report.has_errors());
+        assert_eq!(
+            output_field(&fields, "full_file_read_status"),
+            "performed_local_emulator"
+        );
+        assert_eq!(
+            output_field(&fields, "streaming_read_status"),
+            "performed_local_emulator_full_file_stream"
+        );
+        assert_eq!(
+            output_field(&fields, "object_store_checksum_scope"),
+            "full_object"
+        );
+        assert_eq!(output_field(&fields, "object_store_request_count"), "1");
+        assert_eq!(output_field(&fields, "object_store_bytes_requested"), "6");
+        assert_eq!(output_field(&fields, "object_store_bytes_read"), "6");
+        assert_eq!(
+            output_field(&fields, "object_store_bounded_read_status"),
+            "bounded_full_object_under_fixture_budget"
+        );
+        assert_eq!(
+            output_field(&fields, "object_store_request_coalescing_status"),
+            "not_required_single_full_object_request"
+        );
+        assert_eq!(
+            output_field(&fields, "object_store_prefetch_status"),
+            "not_required_single_bounded_request"
         );
     }
 

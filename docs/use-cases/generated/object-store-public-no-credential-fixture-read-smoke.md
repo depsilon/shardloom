@@ -46,7 +46,25 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `full_file_read_status`
 - `listing_status`
 - `object_etag`
+- `object_etag_status`
 - `object_version`
+- `object_version_status`
+- `object_store_checksum_validation_status`
+- `object_store_checksum_algorithm`
+- `object_store_checksum_scope`
+- `object_store_request_count`
+- `object_store_bytes_requested`
+- `object_store_bytes_read`
+- `object_store_bounded_read_status`
+- `object_store_bounded_read_budget_bytes`
+- `object_store_request_coalescing_status`
+- `object_store_coalesced_request_count`
+- `object_store_prefetch_status`
+- `object_store_retry_policy_status`
+- `object_store_retry_attempt_count`
+- `object_store_rate_limit_policy_status`
+- `object_store_cache_hit_count`
+- `object_store_cache_miss_count`
 - `source_state_id`
 - `source_state_digest`
 - `source_fingerprint_kind`
@@ -64,7 +82,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-A public fixture report with parsed provider/bucket/key fields, no credential/network/provider probe fields, optional single-object fixture listing evidence, SourceState digest fields, ETag/version fixture evidence, Native I/O status, fallback_attempted=false, and external_engine_invoked=false.
+A public fixture report with parsed provider/bucket/key fields, no credential/network/provider probe fields, optional single-object fixture listing evidence, SourceState digest fields, ETag/version fixture posture, requested-byte digest evidence, bounded-read budget evidence, request/byte/retry/cache counters, Native I/O status, fallback_attempted=false, and external_engine_invoked=false.
 
 ## Common Mistakes
 

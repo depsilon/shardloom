@@ -38,6 +38,24 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `object_store_read_status`
 - `byte_range_read_status`
 - `full_file_read_status`
+- `object_etag_status`
+- `object_version_status`
+- `object_store_checksum_validation_status`
+- `object_store_checksum_algorithm`
+- `object_store_checksum_scope`
+- `object_store_request_count`
+- `object_store_bytes_requested`
+- `object_store_bytes_read`
+- `object_store_bounded_read_status`
+- `object_store_bounded_read_budget_bytes`
+- `object_store_request_coalescing_status`
+- `object_store_coalesced_request_count`
+- `object_store_prefetch_status`
+- `object_store_retry_policy_status`
+- `object_store_retry_attempt_count`
+- `object_store_rate_limit_policy_status`
+- `object_store_cache_hit_count`
+- `object_store_cache_miss_count`
 - `source_state_id`
 - `source_state_digest`
 - `source_fingerprint_kind`
@@ -51,7 +69,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-A fixture-smoke report with SourceState digest fields, selected byte-range evidence, Native I/O certificate status, credential/network probes disabled, fallback_attempted=false, and external_engine_invoked=false.
+A fixture-smoke report with SourceState digest fields, selected byte-range evidence, requested-byte digest evidence, bounded-read budget evidence, request/byte/retry/cache counters, Native I/O certificate status, credential/network probes disabled, fallback_attempted=false, and external_engine_invoked=false.
 
 ## Common Mistakes
 
