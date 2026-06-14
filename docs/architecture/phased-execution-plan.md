@@ -276,9 +276,10 @@ with a recorded infeasibility reason, not merely because they are broad.
 - [ ] `PROD-READY-1B` Object-store runtime production path.
   - Source: attached Object-Store Runtime review, `docs/architecture/scale-readiness-contract.md`,
     RFC 0017, RFC 0014, `docs/skills/object-store-runtime.md`, and object-store readiness gates.
-  - Current state: object-store/table rows are report-only or blocked for listing, byte-range
-    reads, streaming reads, writes, staging, commit, credentials, network effects, and production
-    certificates.
+  - Current state: `docs/release/production-certification-workloads.json` now declares the scoped
+    `object_store_local_emulator_runtime_v1_candidate` profile with local-emulator fixture evidence
+    and deterministic blockers for live S3/GCS/ADLS, credentialed access, table commits,
+    distributed runtime, bounded streaming/backpressure, and claim-grade benchmarks.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
     object-store workload/backend in v1 if emulator plus approved real-backend proof, credential
     safety, bounded streaming, commit/cleanup, and certificate evidence can close; otherwise
@@ -289,7 +290,7 @@ with a recorded infeasibility reason, not merely because they are broad.
     control for bounded in-flight work, metadata-first listing/statistics decisions, and explicit
     hot-runtime versus proof/commit timing surfaces.
   - Execution checklist:
-    - [ ] Define the first supported object-store workload/environment and review each other
+    - [x] Define the first supported object-store workload/environment and review each other
       scheme/backend for v1 feasibility before deferring it.
     - [ ] Implement provider abstraction for selected schemes with credential policy, redaction,
       request signing boundary, and no-probe defaults for explain/estimate/doctor/capabilities.
