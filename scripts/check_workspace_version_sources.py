@@ -39,8 +39,14 @@ INTERNAL_WORKSPACE_DEPENDENCIES = (
     "shardloom-vortex",
 )
 ACTIVE_DOC_VERSION_CONSUMERS = (
+    "README.md",
+    "python/README.md",
+    "python/src/shardloom.egg-info/PKG-INFO",
     "docs/architecture/effectful-operation-admission-matrix.md",
     "docs/architecture/pulseweave-runtime-control.md",
+    "docs/architecture/v1-local-output-sink-scope.md",
+    "docs/architecture/v1-source-prepared-state-scope.md",
+    "docs/architecture/v1-vortex-runtime-scope.md",
     "docs/architecture/wrapper-connector-implementation-registry.md",
     "docs/dependencies/vortex-upstream-release-intake-runbook.md",
     "docs/release/ci-gate-matrix.md",
@@ -91,6 +97,52 @@ def require_marker(blockers: list[str], label: str, text: str, marker: str) -> N
 def forbid_marker(blockers: list[str], label: str, text: str, marker: str) -> None:
     if marker in text:
         blockers.append(f"{label}: forbidden marker {marker!r}")
+
+
+def active_doc_version_patterns(version_env: dict[str, str]) -> list[tuple[str, re.Pattern[str]]]:
+    vortex_manifest = re.escape(
+        version_env.get("SHARDLOOM_UPSTREAM_VORTEX_MANIFEST_VERSION", "")
+    )
+    vortex_lock = re.escape(version_env.get("SHARDLOOM_UPSTREAM_VORTEX_LOCK_VERSION", ""))
+    patterns: list[tuple[str, re.Pattern[str]]] = [
+        ("pinned Rust toolchain command", pattern)
+        for pattern in PINNED_RUST_TOOLCHAIN_PATTERNS
+    ]
+    if vortex_manifest:
+        patterns.extend(
+            [
+                (
+                    "pinned active Vortex manifest dependency",
+                    re.compile(rf"\bvortex\s*=\s*['\"]{vortex_manifest}['\"]"),
+                ),
+                (
+                    "pinned active upstream Vortex provider prose",
+                    re.compile(rf"\bupstream Vortex [`'\"]?{vortex_manifest}\b"),
+                ),
+                (
+                    "pinned active Vortex provider prose",
+                    re.compile(rf"\bVortex [`'\"]?{vortex_manifest}\b"),
+                ),
+            ]
+        )
+    if vortex_lock:
+        patterns.extend(
+            [
+                (
+                    "pinned active Vortex lock dependency",
+                    re.compile(rf"\bvortex@{vortex_lock}\b"),
+                ),
+                (
+                    "pinned active Vortex docs URL",
+                    re.compile(rf"\bdocs\.rs/vortex/{vortex_lock}\b"),
+                ),
+                (
+                    "pinned active Vortex crates URL",
+                    re.compile(rf"\bcrates\.io/crates/vortex/{vortex_lock}\b"),
+                ),
+            ]
+        )
+    return patterns
 
 
 def toml_dotted_key_value(text: str, key: str) -> str | None:
@@ -279,12 +331,22 @@ def build_report(repo_root: Path) -> dict[str, Any]:
                 )
     for relative_path in ACTIVE_DOC_VERSION_CONSUMERS:
         text = read_text(repo_root / relative_path, missing_ok=True)
-        for pattern in PINNED_RUST_TOOLCHAIN_PATTERNS:
+        for label, pattern in active_doc_version_patterns(version_env):
             for match in pattern.finditer(text):
                 blockers.append(
-                    f"{relative_path}: pinned Rust toolchain command {match.group(0)!r}; "
-                    "derive it with scripts/write_ci_version_env.py"
+                    f"{relative_path}: {label} {match.group(0)!r}; "
+                    "derive it from root Cargo.toml through scripts/write_ci_version_env.py "
+                    "or scripts/release_report_utils.py"
                 )
+        if (
+            "python scripts\\write_ci_version_env.py" in text
+            and "python scripts\\write_ci_version_env.py --format powershell | Invoke-Expression"
+            not in text
+        ):
+            blockers.append(
+                f"{relative_path}: PowerShell version setup must pipe "
+                "scripts\\write_ci_version_env.py --format powershell into Invoke-Expression"
+            )
 
     benchmark_harness = read_text(
         repo_root / "benchmarks/traditional_analytics/run.py",

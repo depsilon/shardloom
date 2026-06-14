@@ -149,14 +149,14 @@ Compatibility posture:
 
 Validation recorded for the bump:
 
-- `cargo +1.91.1 check -p shardloom-vortex --features upstream-vortex`
-- `cargo +1.91.1 check -p shardloom-vortex --features universal-format-io`
-- `cargo +1.91.1 check -p shardloom-vortex --features vortex-file-io`
-- `cargo +1.91.1 check -p shardloom-vortex --features vortex-write`
-- `cargo +1.91.1 check -p shardloom-vortex --features vortex-local-primitives`
-- `cargo +1.91.1 check -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
-- `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
-- `cargo +1.91.1 test -p shardloom-cli unstructured_and_adapter_capabilities_expose_report_only_matrix -- --nocapture`
+- `cargo +<workspace-msrv-toolchain> check -p shardloom-vortex --features upstream-vortex`
+- `cargo +<workspace-msrv-toolchain> check -p shardloom-vortex --features universal-format-io`
+- `cargo +<workspace-msrv-toolchain> check -p shardloom-vortex --features vortex-file-io`
+- `cargo +<workspace-msrv-toolchain> check -p shardloom-vortex --features vortex-write`
+- `cargo +<workspace-msrv-toolchain> check -p shardloom-vortex --features vortex-local-primitives`
+- `cargo +<workspace-msrv-toolchain> check -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+- `cargo +<workspace-msrv-toolchain> test -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+- `cargo +<workspace-msrv-toolchain> test -p shardloom-cli unstructured_and_adapter_capabilities_expose_report_only_matrix -- --nocapture`
 - `python scripts\check_dependency_audit.py --release-gate --json-output target\dependency-audit-report.json`
 
 Claim boundary:

@@ -7172,9 +7172,10 @@ class ReleaseScriptTests(unittest.TestCase):
                 "```powershell\n"
                 "$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core --lib\n"
                 "```\n"
+                f"Vortex API/provider surface: upstream Vortex `{CURRENT_VORTEX_MANIFEST_VERSION}`\n"
                 if stale
                 else "```powershell\n"
-                "python scripts\\write_ci_version_env.py\n"
+                "python scripts\\write_ci_version_env.py --format powershell | Invoke-Expression\n"
                 "$env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN\n"
                 "cargo test -p shardloom-core --lib\n"
                 "```\n"
@@ -7752,6 +7753,28 @@ class ReleaseScriptTests(unittest.TestCase):
         )
 
         self.assertEqual(prefix, ["/usr/local/bin/pip-audit"])
+
+    def test_dependency_audit_resolves_target_local_pip_audit_venv(self) -> None:
+        module = self._load_script_module(
+            "check_dependency_audit.py",
+            "check_dependency_audit_pip_audit_target_venv_for_test",
+        )
+        target_python = (
+            REPO_ROOT
+            / "target"
+            / "release-readiness-audit"
+            / "pip-audit-venv"
+            / "bin"
+            / "python"
+        )
+
+        prefix = module.resolve_pip_audit_command(
+            module_available=lambda candidate: candidate == str(target_python),
+            executable_lookup=lambda _name: None,
+            home=Path("/missing-home"),
+        )
+
+        self.assertEqual(prefix, [str(target_python), "-m", "pip_audit"])
 
     def test_dependency_audit_probes_symlinked_python_by_executing_it(self) -> None:
         module = self._load_script_module(
@@ -9464,6 +9487,36 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn("forbidden marker", blockers)
         self.assertIn("scripts/write_ci_version_env.py", blockers)
         self.assertIn("pinned Rust toolchain command", blockers)
+        self.assertIn("pinned active upstream Vortex provider prose", blockers)
+
+    def test_write_ci_version_env_formats_reusable_shell_assignments(self) -> None:
+        module = self._load_script_module(
+            "write_ci_version_env.py",
+            "write_ci_version_env_formats_for_test",
+        )
+        env = {
+            "SHARDLOOM_RUST_MSRV_TOOLCHAIN": "1.96.0",
+            "SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION": "0.75",
+        }
+
+        self.assertIn(
+            "$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN = \"1.96.0\"",
+            module.format_env(env, "powershell"),
+        )
+        self.assertIn(
+            "export SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION='0.75'",
+            module.format_env(env, "posix"),
+        )
+        self.assertEqual(
+            json.loads(module.format_env(env, "json"))[
+                "SHARDLOOM_RUST_MSRV_TOOLCHAIN"
+            ],
+            "1.96.0",
+        )
+        self.assertIn(
+            "SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION=0.75",
+            module.format_env(env, "env"),
+        )
 
     def test_finished_product_readiness_allows_local_ready_publication_blocked(self) -> None:
         module = self._load_script_module(

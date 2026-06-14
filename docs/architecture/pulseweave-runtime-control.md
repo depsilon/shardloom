@@ -580,7 +580,7 @@ Acceptance:
 Verification:
 
 ```powershell
-python scripts\write_ci_version_env.py
+python scripts\write_ci_version_env.py --format powershell | Invoke-Expression
 $env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
 cargo test -p shardloom-exec pulseweave --lib
 cargo test -p shardloom-contract-tests --test dynamic_work_shaping
@@ -606,7 +606,7 @@ Acceptance:
 Verification:
 
 ```powershell
-python scripts\write_ci_version_env.py
+python scripts\write_ci_version_env.py --format powershell | Invoke-Expression
 $env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
 cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_emits_real_byte_local_scale_evidence_in_vortex_route --lib
 cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_certifies_stateless_split_operator_for_sequence_selective_filter --lib
@@ -634,7 +634,7 @@ Acceptance:
 Verification:
 
 ```powershell
-python scripts\write_ci_version_env.py
+python scripts\write_ci_version_env.py --format powershell | Invoke-Expression
 $env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
 cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch --lib
 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
@@ -662,7 +662,7 @@ Verification:
 
 ```powershell
 python -m pytest python/tests/test_cli_client.py -k "pulseweave or evidence_summary or traditional_analytics"
-python scripts\write_ci_version_env.py
+python scripts\write_ci_version_env.py --format powershell | Invoke-Expression
 $env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
 python scripts\check_runtime_execution_envelopes.py
@@ -689,7 +689,7 @@ Verification:
 
 ```powershell
 python benchmarks\traditional_analytics\run.py --profile tiny_smoke --engines shardloom-prepare-batch --iterations 2
-python scripts\write_ci_version_env.py
+python scripts\write_ci_version_env.py --format powershell | Invoke-Expression
 $env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
 python scripts\check_website_readiness.py

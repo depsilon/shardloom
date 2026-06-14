@@ -208,7 +208,9 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [x] Add a workspace Rust/Vortex version-source contract so Rust MSRV derives from root
       `[workspace.package].rust-version`, upstream Vortex evidence derives from root
       `[workspace.dependencies].vortex`, and CI/release/benchmark surfaces reuse the shared
-      manifest-derived helper rather than duplicating current-version literals.
+      manifest-derived helper rather than duplicating current-version literals; local shell docs
+      must use `scripts/write_ci_version_env.py --format powershell | Invoke-Expression` or the
+      equivalent POSIX/JSON exporter instead of pinning Rust or Vortex versions.
     - [x] Record and machine-check package identities: Python package `shardloom`, current
       workspace Rust crates unpublished, and crates.io limited to future stable public
       protocol/client crates until separate API/schema and maintainer approval exists.
