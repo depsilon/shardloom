@@ -7347,6 +7347,27 @@ class EvidenceSchemaRegistryReport:
 
 
 @dataclass(frozen=True, slots=True)
+class ProductionUnsupportedDiagnosticRow:
+    """One production-family unsupported diagnostic row from `runs-today`."""
+
+    row_id: str
+    production_family: str
+    user_surface: tuple[str, ...]
+    entrypoint_kind: str
+    support_status: str
+    diagnostic_code: str
+    blocker_id: str
+    message: str
+    next_action: str
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str
+    route_scope: str
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    side_effects_performed: bool
+
+
+@dataclass(frozen=True, slots=True)
 class RunsTodaySupportRow:
     """One current-support row from the `runs-today` matrix."""
 
@@ -7508,6 +7529,118 @@ class RunsTodaySupportMatrix:
         """Whether this matrix authorizes package publication."""
 
         return self.envelope.field_bool("runs_today_package_publication_allowed", True) is True
+
+    @property
+    def production_unsupported_diagnostic_schema_version(self) -> str:
+        """Return the production-family unsupported diagnostic catalog schema."""
+
+        return _required_field(
+            self.envelope,
+            "production_unsupported_diagnostic_schema_version",
+        )
+
+    @property
+    def production_unsupported_diagnostic_row_ids(self) -> tuple[str, ...]:
+        """Return production unsupported diagnostic row identifiers."""
+
+        return _csv_values(
+            self.envelope.field("production_unsupported_diagnostic_row_order")
+        )
+
+    @property
+    def production_unsupported_diagnostic_rows(
+        self,
+    ) -> tuple[ProductionUnsupportedDiagnosticRow, ...]:
+        """Return production unsupported diagnostics in declared order."""
+
+        rows: list[ProductionUnsupportedDiagnosticRow] = []
+        for row_id in self.production_unsupported_diagnostic_row_ids:
+            prefix = f"production_unsupported_diagnostic_row_{row_id}_"
+            rows.append(
+                ProductionUnsupportedDiagnosticRow(
+                    row_id=row_id,
+                    production_family=_required_field(
+                        self.envelope,
+                        f"{prefix}production_family",
+                    ),
+                    user_surface=_csv_values(
+                        self.envelope.field(f"{prefix}user_surface")
+                    ),
+                    entrypoint_kind=_required_field(
+                        self.envelope,
+                        f"{prefix}entrypoint_kind",
+                    ),
+                    support_status=_required_field(
+                        self.envelope,
+                        f"{prefix}support_status",
+                    ),
+                    diagnostic_code=_required_field(
+                        self.envelope,
+                        f"{prefix}diagnostic_code",
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    message=_required_field(self.envelope, f"{prefix}message"),
+                    next_action=_required_field(self.envelope, f"{prefix}next_action"),
+                    required_evidence=_csv_values(
+                        self.envelope.field(f"{prefix}required_evidence")
+                    ),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    route_scope=_required_field(self.envelope, f"{prefix}route_scope"),
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                    side_effects_performed=self.envelope.field_bool(
+                        f"{prefix}side_effects_performed",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
+
+    @property
+    def production_unsupported_diagnostic_all_rows_safe(self) -> bool:
+        """Whether every production unsupported diagnostic is no-fallback/no-effect."""
+
+        return (
+            self.envelope.field_bool(
+                "production_unsupported_diagnostic_all_rows_fallback_attempted_false",
+                False,
+            )
+            is True
+            and self.envelope.field_bool(
+                "production_unsupported_diagnostic_all_rows_external_engine_invoked_false",
+                False,
+            )
+            is True
+            and self.envelope.field_bool(
+                "production_unsupported_diagnostic_all_rows_side_effects_performed_false",
+                False,
+            )
+            is True
+        )
+
+    def production_unsupported_diagnostic_row(
+        self,
+        row_id: str,
+    ) -> ProductionUnsupportedDiagnosticRow:
+        """Return a single production unsupported diagnostic row by id."""
+
+        normalized = row_id.strip().replace("-", "_")
+        for row in self.production_unsupported_diagnostic_rows:
+            if row.row_id == normalized:
+                return row
+        raise KeyError(row_id)
 
     def rows_by_family(self, family: str) -> tuple[RunsTodaySupportRow, ...]:
         """Return rows matching one family."""

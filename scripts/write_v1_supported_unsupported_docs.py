@@ -144,6 +144,63 @@ def render_package_channels(package_matrix: dict[str, Any]) -> list[str]:
     return lines
 
 
+def render_production_unsupported_diagnostics(runs_today: dict[str, Any]) -> list[str]:
+    diagnostics = [
+        row
+        for row in runs_today.get("production_unsupported_diagnostics", [])
+        if isinstance(row, dict)
+    ]
+    if not diagnostics:
+        return []
+    lines = [
+        "## Production Unsupported Diagnostics",
+        "",
+        "These rows are generated from the `runs-today` production diagnostic catalog and the "
+        "known unsupported paths release boundary. They are user-facing diagnostics for preview, "
+        "fixture, report-only, release-gate, and claim-gate entrypoints that must not execute "
+        "unsupported production work.",
+        "",
+        "```text",
+        "production_unsupported_diagnostic_schema_version="
+        f"{runs_today.get('production_unsupported_diagnostic_schema_version', 'missing')}",
+        "production_unsupported_diagnostic_row_count="
+        f"{runs_today.get('production_unsupported_diagnostic_row_count', 'missing')}",
+        "production_unsupported_diagnostic_fallback_attempted="
+        f"{inverse_bool_text(runs_today.get('production_unsupported_diagnostic_all_rows_fallback_attempted_false'))}",
+        "production_unsupported_diagnostic_external_engine_invoked="
+        f"{inverse_bool_text(runs_today.get('production_unsupported_diagnostic_all_rows_external_engine_invoked_false'))}",
+        "production_unsupported_diagnostic_side_effects_performed="
+        f"{inverse_bool_text(runs_today.get('production_unsupported_diagnostic_all_rows_side_effects_performed_false'))}",
+        "```",
+        "",
+    ]
+    lines.extend(
+        table(
+            (
+                "Family",
+                "Entrypoints",
+                "Status",
+                "Diagnostic code",
+                "Blocker",
+                "Next action",
+            ),
+            [
+                (
+                    row.get("production_family", row.get("id", "")),
+                    row.get("user_surface", []),
+                    row.get("support_status", "unknown"),
+                    row.get("diagnostic_code", ""),
+                    row.get("blocker_id", ""),
+                    row.get("next_action", ""),
+                )
+                for row in diagnostics
+            ],
+        )
+    )
+    lines.append("")
+    return lines
+
+
 def render(runs_today: dict[str, Any], package_matrix: dict[str, Any]) -> str:
     lines = [
         "<!-- SPDX-License-Identifier: Apache-2.0 -->",
@@ -162,6 +219,10 @@ def render(runs_today: dict[str, Any], package_matrix: dict[str, Any]) -> str:
         "```text",
         f"runs_today_schema_version={runs_today.get('schema_version', 'missing')}",
         f"runs_today_row_count={runs_today.get('row_count', 'missing')}",
+        "production_unsupported_diagnostic_schema_version="
+        f"{runs_today.get('production_unsupported_diagnostic_schema_version', 'missing')}",
+        "production_unsupported_diagnostic_row_count="
+        f"{runs_today.get('production_unsupported_diagnostic_row_count', 'missing')}",
         f"package_channel_schema_version={package_matrix.get('schema_version', 'missing')}",
         f"fallback_attempted={inverse_bool_text(runs_today.get('all_rows_fallback_attempted_false'))}",
         f"external_engine_invoked={inverse_bool_text(runs_today.get('all_rows_external_engine_invoked_false'))}",
@@ -175,6 +236,7 @@ def render(runs_today: dict[str, Any], package_matrix: dict[str, Any]) -> str:
         "",
     ]
     lines.extend(render_runs_today(runs_today))
+    lines.extend(render_production_unsupported_diagnostics(runs_today))
     lines.extend(render_package_channels(package_matrix))
     lines.extend(
         [

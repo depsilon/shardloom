@@ -1934,6 +1934,30 @@ class CompatibilityPreparedVortexRoute:
                     manifest_payload.get("source_admission_packet_digest") or ""
                 ),
                 "prepare_batch_prepared_state_index_external_engine_invoked": "false",
+                "prepare_batch_prepared_state_read_through_cache_schema_version": (
+                    "shardloom.traditional_analytics.prepared_state_read_through_cache.v1"
+                ),
+                "prepare_batch_prepared_state_read_through_cache_status": (
+                    "python_route_manifest_payload_reuse_index_not_read_through"
+                ),
+                "prepare_batch_prepared_state_read_through_cache_source": (
+                    "python_prepared_route_manifest_payload"
+                ),
+                "prepare_batch_prepared_state_read_through_cache_hit": "false",
+                "prepare_batch_prepared_state_read_through_manifest_read_required": "true",
+                "prepare_batch_prepared_state_read_through_manifest_digest_verified": "true",
+                "prepare_batch_prepared_state_read_through_source_fingerprint_verified": "true",
+                "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified": "true",
+                "prepare_batch_prepared_state_read_through_native_io_certificate_verified": "true",
+                "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status": (
+                    "not_applicable_python_route_manifest_payload_not_vortex_reader_state"
+                ),
+                "prepare_batch_prepared_state_read_through_cache_fallback_attempted": "false",
+                "prepare_batch_prepared_state_read_through_cache_external_engine_invoked": "false",
+                "prepare_batch_prepared_state_read_through_cache_claim_boundary": (
+                    "Python prepared-route manifest reuse keeps read-through cache evidence explicit; "
+                    "it does not reuse Vortex reader state, stale artifacts, or external engines"
+                ),
                 "prepare_batch_prepared_state_manifest_lookup_micros": "0",
                 "prepare_batch_prepared_state_cache_hit_micros": "0",
                 "prepare_batch_prepared_state_cache_miss_create_micros": "0",

@@ -224,6 +224,19 @@ WEBSITE_ROW_KEYS = (
     "prepare_batch_prepared_state_index_key_components",
     "prepare_batch_prepared_state_index_source_packet_digest",
     "prepare_batch_prepared_state_index_external_engine_invoked",
+    "prepare_batch_prepared_state_read_through_cache_schema_version",
+    "prepare_batch_prepared_state_read_through_cache_status",
+    "prepare_batch_prepared_state_read_through_cache_source",
+    "prepare_batch_prepared_state_read_through_cache_hit",
+    "prepare_batch_prepared_state_read_through_manifest_read_required",
+    "prepare_batch_prepared_state_read_through_manifest_digest_verified",
+    "prepare_batch_prepared_state_read_through_source_fingerprint_verified",
+    "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified",
+    "prepare_batch_prepared_state_read_through_native_io_certificate_verified",
+    "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status",
+    "prepare_batch_prepared_state_read_through_cache_fallback_attempted",
+    "prepare_batch_prepared_state_read_through_cache_external_engine_invoked",
+    "prepare_batch_prepared_state_read_through_cache_claim_boundary",
     "prepare_batch_prepared_state_dependency_schema_version",
     "prepare_batch_prepared_state_dependency_status",
     "prepare_batch_prepared_state_dependency_checked_roles",
@@ -853,6 +866,19 @@ WEBSITE_SUMMARY_ROW_KEYS = (
     "prepare_batch_prepared_state_index_schema_version",
     "prepare_batch_prepared_state_index_digest",
     "prepare_batch_prepared_state_index_external_engine_invoked",
+    "prepare_batch_prepared_state_read_through_cache_schema_version",
+    "prepare_batch_prepared_state_read_through_cache_status",
+    "prepare_batch_prepared_state_read_through_cache_source",
+    "prepare_batch_prepared_state_read_through_cache_hit",
+    "prepare_batch_prepared_state_read_through_manifest_read_required",
+    "prepare_batch_prepared_state_read_through_manifest_digest_verified",
+    "prepare_batch_prepared_state_read_through_source_fingerprint_verified",
+    "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified",
+    "prepare_batch_prepared_state_read_through_native_io_certificate_verified",
+    "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status",
+    "prepare_batch_prepared_state_read_through_cache_fallback_attempted",
+    "prepare_batch_prepared_state_read_through_cache_external_engine_invoked",
+    "prepare_batch_prepared_state_read_through_cache_claim_boundary",
     "prepare_batch_prepared_state_dependency_status",
     "prepare_batch_prepared_state_partial_repair_status",
     "prepare_batch_prepared_state_partial_repair_changed_roles",
@@ -1801,9 +1827,54 @@ def publication_proof_record_for_row(row: dict[str, Any]) -> dict[str, Any] | No
     }
 
 
+def publication_proof_sidecar_source_digest(chunks: list[dict[str, Any]]) -> str:
+    digest = hashlib.sha256()
+    for chunk in sorted(chunks, key=lambda item: str(item.get("path") or "")):
+        digest.update(str(chunk.get("path") or "").encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(chunk.get("row_count") or "").encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(chunk.get("sha256") or "").encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(chunk.get("uncompressed_sha256") or "").encode("utf-8"))
+        digest.update(b"\0")
+    return "sha256:" + digest.hexdigest()
+
+
+def publication_proof_record_set_digest(records: list[dict[str, Any]]) -> str:
+    digest = hashlib.sha256()
+    for record in sorted(records, key=lambda item: str(item.get("record_id") or "")):
+        digest.update(str(record.get("record_id") or "").encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(record.get("record_digest") or "").encode("utf-8"))
+        digest.update(b"\0")
+    return "sha256:" + digest.hexdigest()
+
+
+def publication_proof_sidecar_fast_reuse_allowed(
+    payload: dict[str, Any],
+    source_row_chunks_digest: str,
+) -> bool:
+    return (
+        payload.get("schema_version") == PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION
+        and payload.get("resume_status") == "reused_existing_publication_proof_sidecar"
+        and payload.get("source_row_chunks_digest") == source_row_chunks_digest
+        and payload.get("fallback_attempted") is False
+        and payload.get("external_engine_invoked") is False
+        and isinstance(payload.get("records"), list)
+        and payload.get("record_count") == len(payload.get("records") or [])
+        and payload.get("reused_record_count") == payload.get("record_count")
+        and payload.get("written_record_count") == 0
+        and payload.get("stale_record_count") == 0
+    )
+
+
 def publication_proof_sidecar_payload(
     rows: list[dict[str, Any]],
     existing_payload: dict[str, Any] | None = None,
+    *,
+    source_row_chunks_digest: str,
+    source_row_chunk_count: int,
 ) -> dict[str, Any]:
     records = [
         record
@@ -1828,9 +1899,13 @@ def publication_proof_sidecar_payload(
             written += 1
     current_ids = {str(record["record_id"]) for record in records}
     obsolete = sorted(set(existing_records) - current_ids)
+    record_set_digest = publication_proof_record_set_digest(records)
     return {
         "schema_version": PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "source_row_chunks_digest": source_row_chunks_digest,
+        "source_row_chunk_count": source_row_chunk_count,
+        "record_set_digest": record_set_digest,
         "record_count": len(records),
         "reused_record_count": reused,
         "written_record_count": written,
@@ -1862,26 +1937,76 @@ def write_publication_proof_sidecar(
     rows: list[dict[str, Any]],
     chunks: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    _ = chunks
     path = directory / PUBLICATION_PROOF_SIDECAR_NAME
     existing_payload = load_json(path) if path.exists() else None
+    source_row_chunks_digest = publication_proof_sidecar_source_digest(chunks)
+    source_row_chunk_count = len(chunks)
+    if isinstance(existing_payload, dict) and publication_proof_sidecar_fast_reuse_allowed(
+        existing_payload,
+        source_row_chunks_digest,
+    ):
+        payload = existing_payload
+        write_status = "skipped_unchanged_publication_proof_sidecar_write"
+        return {
+            "path": repo_relative(path),
+            "publication_proof_sidecar_schema_version": PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION,
+            "publication_proof_sidecar_status": payload["resume_status"],
+            "publication_proof_sidecar_record_count": payload["record_count"],
+            "publication_proof_sidecar_reused_record_count": payload["reused_record_count"],
+            "publication_proof_sidecar_written_record_count": payload["written_record_count"],
+            "publication_proof_sidecar_stale_record_count": payload["stale_record_count"],
+            "publication_proof_sidecar_source_row_chunks_digest": payload[
+                "source_row_chunks_digest"
+            ],
+            "publication_proof_sidecar_source_row_chunk_count": payload[
+                "source_row_chunk_count"
+            ],
+            "publication_proof_sidecar_record_set_digest": payload["record_set_digest"],
+            "publication_proof_sidecar_write_status": write_status,
+            "publication_proof_sidecar_reuse_scope": (
+                "row_chunk_digest_and_publication_proof_record_digest"
+            ),
+            "publication_proof_sidecar_human_render_reuse_status": (
+                "reused_compact_machine_evidence_without_rewriting_sidecar"
+            ),
+            "publication_proof_sidecar_fallback_attempted": payload["fallback_attempted"],
+            "publication_proof_sidecar_external_engine_invoked": payload[
+                "external_engine_invoked"
+            ],
+        }
     payload = publication_proof_sidecar_payload(
         rows,
         existing_payload if isinstance(existing_payload, dict) else None,
+        source_row_chunks_digest=source_row_chunks_digest,
+        source_row_chunk_count=source_row_chunk_count,
     )
     existing_records = (
         existing_payload.get("records")
         if isinstance(existing_payload, dict)
         else None
     )
+    write_status = "written_changed_publication_proof_sidecar"
     if existing_records != payload["records"]:
         write_json(path, payload)
     elif isinstance(existing_payload, dict):
         payload = {**existing_payload, **{k: payload[k] for k in payload if k != "records"}}
         payload["records"] = existing_records
         payload["resume_status"] = "reused_existing_publication_proof_sidecar"
+        payload["reused_record_count"] = payload["record_count"]
+        payload["written_record_count"] = 0
+        payload["record_set_digest"] = publication_proof_record_set_digest(existing_records)
+        payload["source_row_chunks_digest"] = source_row_chunks_digest
+        payload["source_row_chunk_count"] = source_row_chunk_count
+        write_status = "updated_publication_proof_sidecar_reuse_metadata"
         if payload != existing_payload:
             write_json(path, payload)
+        else:
+            write_status = "skipped_unchanged_publication_proof_sidecar_write"
+    human_render_reuse_status = (
+        "reused_compact_machine_evidence_without_rewriting_sidecar"
+        if write_status == "skipped_unchanged_publication_proof_sidecar_write"
+        else "coalesced_publication_proof_records_written_or_metadata_updated"
+    )
     return {
         "path": repo_relative(path),
         "publication_proof_sidecar_schema_version": PUBLICATION_PROOF_SIDECAR_SCHEMA_VERSION,
@@ -1890,6 +2015,18 @@ def write_publication_proof_sidecar(
         "publication_proof_sidecar_reused_record_count": payload["reused_record_count"],
         "publication_proof_sidecar_written_record_count": payload["written_record_count"],
         "publication_proof_sidecar_stale_record_count": payload["stale_record_count"],
+        "publication_proof_sidecar_source_row_chunks_digest": payload[
+            "source_row_chunks_digest"
+        ],
+        "publication_proof_sidecar_source_row_chunk_count": payload[
+            "source_row_chunk_count"
+        ],
+        "publication_proof_sidecar_record_set_digest": payload["record_set_digest"],
+        "publication_proof_sidecar_write_status": write_status,
+        "publication_proof_sidecar_reuse_scope": (
+            "row_chunk_digest_and_publication_proof_record_digest"
+        ),
+        "publication_proof_sidecar_human_render_reuse_status": human_render_reuse_status,
         "publication_proof_sidecar_fallback_attempted": payload["fallback_attempted"],
         "publication_proof_sidecar_external_engine_invoked": payload[
             "external_engine_invoked"
@@ -4982,6 +5119,105 @@ def prepared_state_optimization_fields_for_row(row: dict[str, Any]) -> dict[str,
                 ),
                 default=False,
             )
+        ),
+        "prepare_batch_prepared_state_read_through_cache_schema_version": first_meaningful_field(
+            fields,
+            ("prepare_batch_prepared_state_read_through_cache_schema_version",),
+        )
+        or "shardloom.traditional_analytics.prepared_state_read_through_cache.v1",
+        "prepare_batch_prepared_state_read_through_cache_status": first_meaningful_field(
+            fields,
+            ("prepare_batch_prepared_state_read_through_cache_status",),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_read_through_cache_source": first_meaningful_field(
+            fields,
+            ("prepare_batch_prepared_state_read_through_cache_source",),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_read_through_cache_hit": bool(
+            first_bool_field(
+                fields,
+                ("prepare_batch_prepared_state_read_through_cache_hit",),
+                default=False,
+            )
+        ),
+        "prepare_batch_prepared_state_read_through_manifest_read_required": bool(
+            first_bool_field(
+                fields,
+                ("prepare_batch_prepared_state_read_through_manifest_read_required",),
+                default=False,
+            )
+        ),
+        "prepare_batch_prepared_state_read_through_manifest_digest_verified": bool(
+            first_bool_field(
+                fields,
+                (
+                    "prepare_batch_prepared_state_read_through_manifest_digest_verified",
+                ),
+                default=False,
+            )
+        ),
+        "prepare_batch_prepared_state_read_through_source_fingerprint_verified": bool(
+            first_bool_field(
+                fields,
+                (
+                    "prepare_batch_prepared_state_read_through_source_fingerprint_verified",
+                ),
+                default=False,
+            )
+        ),
+        "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified": bool(
+            first_bool_field(
+                fields,
+                (
+                    "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified",
+                ),
+                default=False,
+            )
+        ),
+        "prepare_batch_prepared_state_read_through_native_io_certificate_verified": bool(
+            first_bool_field(
+                fields,
+                (
+                    "prepare_batch_prepared_state_read_through_native_io_certificate_verified",
+                ),
+                default=False,
+            )
+        ),
+        "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status": first_meaningful_field(
+            fields,
+            (
+                "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status",
+            ),
+        )
+        or "not_reported",
+        "prepare_batch_prepared_state_read_through_cache_fallback_attempted": bool(
+            first_bool_field(
+                fields,
+                (
+                    "prepare_batch_prepared_state_read_through_cache_fallback_attempted",
+                ),
+                default=False,
+            )
+        ),
+        "prepare_batch_prepared_state_read_through_cache_external_engine_invoked": bool(
+            first_bool_field(
+                fields,
+                (
+                    "prepare_batch_prepared_state_read_through_cache_external_engine_invoked",
+                ),
+                default=False,
+            )
+        ),
+        "prepare_batch_prepared_state_read_through_cache_claim_boundary": first_meaningful_field(
+            fields,
+            ("prepare_batch_prepared_state_read_through_cache_claim_boundary",),
+        )
+        or (
+            "prepared-state read-through cache evidence only; no stale reuse, "
+            "external-engine execution, Vortex reader-state reuse, or performance superiority "
+            "claim is authorized"
         ),
         "prepare_batch_prepared_state_optimization_claim_boundary": first_meaningful_field(
             fields,

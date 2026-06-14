@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -3814,20 +3815,47 @@ class ReleaseScriptTests(unittest.TestCase):
                 "reused_existing_publication_proof_sidecar",
             )
             self.assertEqual(second["publication_proof_sidecar_reused_record_count"], 1)
+            self.assertEqual(second["publication_proof_sidecar_written_record_count"], 0)
+            self.assertTrue(
+                str(
+                    second["publication_proof_sidecar_source_row_chunks_digest"]
+                ).startswith("sha256:")
+            )
+            self.assertTrue(
+                str(second["publication_proof_sidecar_record_set_digest"]).startswith(
+                    "sha256:"
+                )
+            )
+
+            sidecar_path = output_dir / module.PUBLICATION_PROOF_SIDECAR_NAME
+            second_digest = hashlib.sha256(sidecar_path.read_bytes()).hexdigest()
+            third_same = module.write_publication_proof_sidecar(output_dir, [row], chunks)
+            self.assertEqual(
+                third_same["publication_proof_sidecar_status"],
+                "reused_existing_publication_proof_sidecar",
+            )
+            self.assertEqual(
+                third_same["publication_proof_sidecar_write_status"],
+                "skipped_unchanged_publication_proof_sidecar_write",
+            )
+            self.assertEqual(
+                hashlib.sha256(sidecar_path.read_bytes()).hexdigest(),
+                second_digest,
+            )
 
             changed = {**row, "evidence_render_proof_digest": "sha256:proof-b"}
             changed_chunks = module.write_row_chunks(output_dir, [changed])
-            third = module.write_publication_proof_sidecar(
+            fourth = module.write_publication_proof_sidecar(
                 output_dir,
                 [changed],
                 changed_chunks,
             )
             self.assertEqual(
-                third["publication_proof_sidecar_status"],
+                fourth["publication_proof_sidecar_status"],
                 "admitted_incremental_publication_proof_sidecar",
             )
-            self.assertEqual(third["publication_proof_sidecar_written_record_count"], 1)
-            self.assertEqual(third["publication_proof_sidecar_stale_record_count"], 0)
+            self.assertEqual(fourth["publication_proof_sidecar_written_record_count"], 1)
+            self.assertEqual(fourth["publication_proof_sidecar_stale_record_count"], 0)
             changed_sidecar = json.loads(
                 (output_dir / module.PUBLICATION_PROOF_SIDECAR_NAME).read_text(
                     encoding="utf-8"
@@ -10238,6 +10266,16 @@ jobs:
             "docs/release/v1-inclusion-scope-matrix.md\n"
             "v1 candidates pending feasibility are not outside v1 by default\n"
             "deferred rows require deterministic unsupported diagnostics\n"
+            "shardloom.production_unsupported_diagnostics.v1\n"
+            "fallback_attempted=false\n"
+            "external_engine_invoked=false\n"
+            "side_effects_performed=false\n"
+            "claim_gate_status=not_claim_grade\n"
+            + "\n".join(
+                f"diagnostic_row_id={row_id}"
+                for row_id in module.REQUIRED_PRODUCTION_UNSUPPORTED_DIAGNOSTIC_ROWS
+            )
+            + "\n"
         )
         for rel_path, text in {
             module.PHASE_PLAN.as_posix(): phase_plan,
@@ -11435,6 +11473,37 @@ jobs:
             any("missing diagnostic boundary" in blocker for blocker in report["blockers"])
         )
 
+    def test_v1_inclusion_scope_blocks_missing_production_diagnostic_row(self) -> None:
+        module = self._load_script_module(
+            "check_v1_inclusion_scope.py",
+            "check_v1_inclusion_scope_production_diagnostic_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_v1_inclusion_scope_fixture(module, repo_root)
+            unsupported_path = repo_root / module.KNOWN_UNSUPPORTED_PATHS
+            unsupported_path.write_text(
+                unsupported_path.read_text(encoding="utf-8").replace(
+                    "diagnostic_row_id=object_store_runtime\n",
+                    "",
+                ),
+                encoding="utf-8",
+            )
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertIn(
+            "object_store_runtime",
+            report["production_unsupported_diagnostic_missing_rows"],
+        )
+        self.assertTrue(
+            any(
+                "production unsupported diagnostic row missing: object_store_runtime" in blocker
+                for blocker in report["blockers"]
+            )
+        )
+
     def test_v1_supported_doc_generator_inverts_no_fallback_aggregate(self) -> None:
         module = self._load_script_module(
             "write_v1_supported_unsupported_docs.py",
@@ -11451,6 +11520,26 @@ jobs:
                 "all_rows_external_engine_invoked_false": True,
                 "performance_claim_allowed": False,
                 "package_publication_allowed": False,
+                "production_unsupported_diagnostic_schema_version": (
+                    "shardloom.production_unsupported_diagnostics.v1"
+                ),
+                "production_unsupported_diagnostic_row_count": 1,
+                "production_unsupported_diagnostic_all_rows_fallback_attempted_false": True,
+                "production_unsupported_diagnostic_all_rows_external_engine_invoked_false": True,
+                "production_unsupported_diagnostic_all_rows_side_effects_performed_false": True,
+                "production_unsupported_diagnostics": [
+                    {
+                        "id": "object_store_runtime",
+                        "production_family": "object_store",
+                        "user_surface": ["object_store_read", "s3://"],
+                        "support_status": "unsupported_boundary",
+                        "diagnostic_code": "SL_UNSUPPORTED_PRODUCTION_OBJECT_STORE",
+                        "blocker_id": (
+                            "review-p0-3.object_store_runtime_and_path_safety_required"
+                        ),
+                        "next_action": "Use object-store capability reports.",
+                    }
+                ],
             },
             {
                 "schema_version": "shardloom.package_channel_readiness_matrix.v1",
@@ -11465,6 +11554,210 @@ jobs:
         header = rendered.split("```text", maxsplit=1)[1].split("```", maxsplit=1)[0]
         self.assertIn("fallback_attempted=false", header)
         self.assertIn("external_engine_invoked=false", header)
+        self.assertIn("## Production Unsupported Diagnostics", rendered)
+        self.assertIn("SL_UNSUPPORTED_PRODUCTION_OBJECT_STORE", rendered)
+        self.assertIn("production_unsupported_diagnostic_side_effects_performed=false", rendered)
+
+    def test_local_format_production_profiles_validator_accepts_current_matrix(self) -> None:
+        module = self._load_script_module(
+            "check_local_format_production_profiles.py",
+            "check_local_format_production_profiles_for_test",
+        )
+
+        report = module.build_report(REPO_ROOT)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["covered_profile_count"], 5)
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+
+    def test_local_format_production_profiles_validator_blocks_missing_format(self) -> None:
+        module = self._load_script_module(
+            "check_local_format_production_profiles.py",
+            "check_local_format_production_profiles_missing_format_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            source = REPO_ROOT / module.DEFAULT_MATRIX
+            target = repo_root / module.DEFAULT_MATRIX
+            target.parent.mkdir(parents=True, exist_ok=True)
+            payload = json.loads(source.read_text(encoding="utf-8"))
+            row = next(
+                profile
+                for profile in payload["profiles"]
+                if profile["profile_id"] == "parquet_arrow_ipc_columnar_source"
+            )
+            row["formats"] = ["parquet"]
+            target.write_text(json.dumps(payload), encoding="utf-8")
+
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "parquet_arrow_ipc_columnar_source: missing formats ['arrow-ipc']"
+                in blocker
+                for blocker in report["blockers"]
+            )
+        )
+
+    def test_local_format_pushdown_fidelity_validator_accepts_current_report(self) -> None:
+        module = self._load_script_module(
+            "check_local_format_pushdown_fidelity.py",
+            "check_local_format_pushdown_fidelity_for_test",
+        )
+
+        report = module.build_report(REPO_ROOT)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["covered_row_count"], 5)
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+
+    def test_local_format_pushdown_fidelity_validator_blocks_missing_row(self) -> None:
+        module = self._load_script_module(
+            "check_local_format_pushdown_fidelity.py",
+            "check_local_format_pushdown_fidelity_missing_row_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            source = REPO_ROOT / module.DEFAULT_REPORT
+            target = repo_root / module.DEFAULT_REPORT
+            target.parent.mkdir(parents=True, exist_ok=True)
+            payload = json.loads(source.read_text(encoding="utf-8"))
+            payload["rows"] = [
+                row for row in payload["rows"] if row["row_id"] != "arrow_ipc_columnar"
+            ]
+            target.write_text(json.dumps(payload), encoding="utf-8")
+
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("arrow_ipc_columnar", report["missing_row_ids"])
+        self.assertTrue(
+            any(
+                "missing row arrow_ipc_columnar" in blocker
+                for blocker in report["blockers"]
+            )
+        )
+
+    def test_compatibility_output_translation_report_validator_accepts_current_report(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_compatibility_output_translation_reports.py",
+            "check_compatibility_output_translation_reports_for_test",
+        )
+
+        report = module.build_report(REPO_ROOT)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["covered_row_count"], 9)
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+
+    def test_compatibility_output_translation_report_validator_blocks_lossless_compat(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_compatibility_output_translation_reports.py",
+            "check_compatibility_output_translation_reports_lossless_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            source = REPO_ROOT / module.DEFAULT_REPORT
+            target = repo_root / module.DEFAULT_REPORT
+            target.parent.mkdir(parents=True, exist_ok=True)
+            payload = json.loads(source.read_text(encoding="utf-8"))
+            row = next(
+                row
+                for row in payload["rows"]
+                if row["row_id"] == "parquet_compatibility_output"
+            )
+            row["metadata_lost_or_partial"] = []
+            target.write_text(json.dumps(payload), encoding="utf-8")
+
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "parquet_compatibility_output: compatibility outputs must list metadata_lost_or_partial"
+                in blocker
+                for blocker in report["blockers"]
+            )
+        )
+
+    def test_local_format_edge_case_fixture_validator_accepts_current_matrix(self) -> None:
+        module = self._load_script_module(
+            "check_local_format_edge_case_fixtures.py",
+            "check_local_format_edge_case_fixtures_for_test",
+        )
+
+        report = module.build_report(REPO_ROOT)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["covered_row_count"], 7)
+        self.assertEqual(report["missing_profile_refs"], [])
+        self.assertEqual(report["missing_edge_families"], [])
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+
+    def test_local_format_edge_case_fixture_validator_blocks_unknown_property_ref(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_local_format_edge_case_fixtures.py",
+            "check_local_format_edge_case_fixtures_unknown_property_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            source = REPO_ROOT / module.DEFAULT_REPORT
+            target = repo_root / module.DEFAULT_REPORT
+            target.parent.mkdir(parents=True, exist_ok=True)
+            payload = json.loads(source.read_text(encoding="utf-8"))
+            row = next(
+                row
+                for row in payload["rows"]
+                if row["row_id"] == "csv_null_heavy_aggregate"
+            )
+            row["property_or_fuzz_case_refs"] = ["not_a_known_property_case"]
+            target.write_text(json.dumps(payload), encoding="utf-8")
+
+            correctness_source = REPO_ROOT / module.DEFAULT_CORRECTNESS_MATRIX
+            correctness_target = repo_root / module.DEFAULT_CORRECTNESS_MATRIX
+            correctness_target.parent.mkdir(parents=True, exist_ok=True)
+            correctness_target.write_text(
+                correctness_source.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
+            for ref in {
+                Path(item.split("::", maxsplit=1)[0])
+                for item in source.read_text(encoding="utf-8").split('"')
+                if "/" in item and "." in item and not item.startswith("docs/release")
+            }:
+                source_path = REPO_ROOT / ref
+                if not source_path.exists():
+                    continue
+                target_path = repo_root / ref
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                target_path.write_text("", encoding="utf-8")
+
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "csv_null_heavy_aggregate: unknown property_or_fuzz_case_ref not_a_known_property_case"
+                in blocker
+                for blocker in report["blockers"]
+            )
+        )
 
     def test_v1_release_boundary_accepts_claim_safe_fixture(self) -> None:
         module = self._load_script_module(

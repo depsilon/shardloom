@@ -275,6 +275,22 @@ def required_validation_commands(
             [python_executable, "scripts/check_v1_local_output_sink_scope.py"],
         ),
         (
+            "local_format_production_profiles_gate",
+            [python_executable, "scripts/check_local_format_production_profiles.py"],
+        ),
+        (
+            "local_format_pushdown_fidelity_gate",
+            [python_executable, "scripts/check_local_format_pushdown_fidelity.py"],
+        ),
+        (
+            "compatibility_output_translation_report_gate",
+            [python_executable, "scripts/check_compatibility_output_translation_reports.py"],
+        ),
+        (
+            "local_format_edge_case_fixture_gate",
+            [python_executable, "scripts/check_local_format_edge_case_fixtures.py"],
+        ),
+        (
             "v1_local_resource_safety_gate",
             [python_executable, "scripts/check_v1_local_resource_safety.py"],
         ),

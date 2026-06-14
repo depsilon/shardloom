@@ -16,6 +16,9 @@ from release_report_utils import fail_closed_fields, read_text, require_markers,
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.v1_inclusion_scope_report.v1"
 MATRIX_SCHEMA_VERSION = "shardloom.v1_inclusion_scope_matrix.v1"
+PRODUCTION_UNSUPPORTED_DIAGNOSTIC_SCHEMA_VERSION = (
+    "shardloom.production_unsupported_diagnostics.v1"
+)
 
 PHASE_PLAN = Path("docs/architecture/phased-execution-plan.md")
 MATRIX_DOC = Path("docs/release/v1-inclusion-scope-matrix.md")
@@ -57,6 +60,27 @@ KNOWN_UNSUPPORTED_MARKERS = (
     MATRIX_DOC.as_posix(),
     "v1 candidates pending feasibility are not outside v1 by default",
     "deferred rows require deterministic unsupported diagnostics",
+    PRODUCTION_UNSUPPORTED_DIAGNOSTIC_SCHEMA_VERSION,
+)
+
+REQUIRED_PRODUCTION_UNSUPPORTED_DIAGNOSTIC_ROWS = (
+    "broad_sql_dataframe_runtime",
+    "object_store_runtime",
+    "lakehouse_table_runtime",
+    "foundry_integration_pack",
+    "live_hybrid_remote_distributed_runtime",
+    "rest_event_remote_api_runtime",
+    "arbitrary_extension_effect_runtime",
+    "public_package_publication",
+    "performance_superiority_replacement_claim",
+    "production_readiness_claim",
+)
+
+PRODUCTION_UNSUPPORTED_ROW_REQUIRED_MARKERS = (
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
+    "side_effects_performed=false",
+    "claim_gate_status=not_claim_grade",
 )
 
 
@@ -125,6 +149,16 @@ def build_report(repo_root: Path) -> dict[str, Any]:
     blockers.extend(
         require_markers(KNOWN_UNSUPPORTED_PATHS.as_posix(), unsupported_text, KNOWN_UNSUPPORTED_MARKERS)
     )
+    missing_production_unsupported_diagnostic_rows = [
+        row_id
+        for row_id in REQUIRED_PRODUCTION_UNSUPPORTED_DIAGNOSTIC_ROWS
+        if f"diagnostic_row_id={row_id}" not in unsupported_text
+    ]
+    for row_id in missing_production_unsupported_diagnostic_rows:
+        blockers.append(f"production unsupported diagnostic row missing: {row_id}")
+    for marker in PRODUCTION_UNSUPPORTED_ROW_REQUIRED_MARKERS:
+        if marker not in unsupported_text:
+            blockers.append(f"production unsupported diagnostic catalog missing {marker}")
 
     phase_items = open_phase_items(phase_text)
     matrix_rows = parse_matrix_rows(matrix_text)
@@ -194,6 +228,19 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "known_unsupported_paths": KNOWN_UNSUPPORTED_PATHS.as_posix(),
         "open_phase_item_count": len(phase_items),
         "matrix_row_count": len(matrix_rows),
+        "production_unsupported_diagnostic_schema_version": (
+            PRODUCTION_UNSUPPORTED_DIAGNOSTIC_SCHEMA_VERSION
+        ),
+        "production_unsupported_diagnostic_required_row_count": len(
+            REQUIRED_PRODUCTION_UNSUPPORTED_DIAGNOSTIC_ROWS
+        ),
+        "production_unsupported_diagnostic_covered_row_count": len(
+            REQUIRED_PRODUCTION_UNSUPPORTED_DIAGNOSTIC_ROWS
+        )
+        - len(missing_production_unsupported_diagnostic_rows),
+        "production_unsupported_diagnostic_missing_rows": (
+            missing_production_unsupported_diagnostic_rows
+        ),
         "missing_phase_classification_count": missing_phase_classification_count,
         "classification_counts": classification_counts,
         "claim_gate_status": "not_claim_grade",

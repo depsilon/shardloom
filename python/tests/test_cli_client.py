@@ -73,6 +73,7 @@ from shardloom import (
     PreparedVortexQuery,
     PreparedVortexScanPushdownRow,
     PredicateDtypeCoverageRow,
+    ProductionUnsupportedDiagnosticRow,
     RestApiContractPlan,
     RestApiDataPlane,
     RestApiDiscoveryContract,
@@ -517,6 +518,40 @@ class ShardLoomClientTests(unittest.TestCase):
                     ["runs_today_all_rows_no_fallback_no_external_engine", "true"],
                     ["runs_today_performance_claim_allowed", "false"],
                     ["runs_today_package_publication_allowed", "false"],
+                    ["production_unsupported_diagnostic_schema_version", "shardloom.production_unsupported_diagnostics.v1"],
+                    ["production_unsupported_diagnostic_row_count", "2"],
+                    ["production_unsupported_diagnostic_row_order", "broad_sql_dataframe_runtime,object_store_runtime"],
+                    ["production_unsupported_diagnostic_all_rows_fallback_attempted_false", "true"],
+                    ["production_unsupported_diagnostic_all_rows_external_engine_invoked_false", "true"],
+                    ["production_unsupported_diagnostic_all_rows_side_effects_performed_false", "true"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_production_family", "sql_dataframe"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_user_surface", "sql,LazyFrame.collect,workflow-unsupported-plan"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_entrypoint_kind", "report_only_or_preview"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_support_status", "unsupported_boundary"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_diagnostic_code", "SL_UNSUPPORTED_PRODUCTION_SQL_DATAFRAME"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_blocker_id", "cg21.workflow.sql.frontend_unsupported"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_message", "Broad production SQL/DataFrame execution is not admitted."],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_next_action", "Use capabilities sql,dataframe before requesting execution."],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_required_evidence", "sql_parser,binder,planner"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_claim_gate_status", "not_claim_grade"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_route_scope", "preview_or_report_only"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_fallback_attempted", "false"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_external_engine_invoked", "false"],
+                    ["production_unsupported_diagnostic_row_broad_sql_dataframe_runtime_side_effects_performed", "false"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_production_family", "object_store"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_user_surface", "object_store_read,s3://"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_entrypoint_kind", "stub_or_fixture"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_support_status", "unsupported_boundary"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_diagnostic_code", "SL_UNSUPPORTED_PRODUCTION_OBJECT_STORE"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_blocker_id", "review-p0-3.object_store_runtime_and_path_safety_required"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_message", "Production object-store runtime is not admitted."],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_next_action", "Use object-store capability reports."],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_required_evidence", "credential_policy,native_io_certificate"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_claim_gate_status", "not_claim_grade"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_route_scope", "fixture_only_or_blocked"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_fallback_attempted", "false"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_external_engine_invoked", "false"],
+                    ["production_unsupported_diagnostic_row_object_store_runtime_side_effects_performed", "false"],
                     ["runs_today_row_cli_sql_local_source_smoke_family", "cli_command"],
                     ["runs_today_row_cli_sql_local_source_smoke_surface", "sql-local-source-smoke"],
                     ["runs_today_row_cli_sql_local_source_smoke_support_state", "executable"],
@@ -579,6 +614,23 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(matrix.all_rows_no_fallback_no_external_engine)
         self.assertFalse(matrix.performance_claim_allowed)
         self.assertFalse(matrix.package_publication_allowed)
+        self.assertEqual(
+            matrix.production_unsupported_diagnostic_schema_version,
+            "shardloom.production_unsupported_diagnostics.v1",
+        )
+        self.assertTrue(matrix.production_unsupported_diagnostic_all_rows_safe)
+        production_sql = matrix.production_unsupported_diagnostic_row(
+            "broad-sql-dataframe-runtime"
+        )
+        self.assertIsInstance(production_sql, ProductionUnsupportedDiagnosticRow)
+        self.assertEqual(
+            production_sql.diagnostic_code,
+            "SL_UNSUPPORTED_PRODUCTION_SQL_DATAFRAME",
+        )
+        self.assertIn("workflow-unsupported-plan", production_sql.user_surface)
+        self.assertFalse(production_sql.fallback_attempted)
+        self.assertFalse(production_sql.external_engine_invoked)
+        self.assertFalse(production_sql.side_effects_performed)
         row = matrix.row("cli_sql_local_source_smoke")
         self.assertIsInstance(row, RunsTodaySupportRow)
         self.assertEqual(row.support_state, "executable")
@@ -3847,6 +3899,30 @@ class ShardLoomClientTests(unittest.TestCase):
                 str(second.batch.field("prepare_batch_prepared_state_index_digest")).startswith(
                     "sha256:"
                 )
+            )
+            self.assertEqual(
+                second.batch.field(
+                    "prepare_batch_prepared_state_read_through_cache_schema_version"
+                ),
+                "shardloom.traditional_analytics.prepared_state_read_through_cache.v1",
+            )
+            self.assertEqual(
+                second.batch.field(
+                    "prepare_batch_prepared_state_read_through_cache_status"
+                ),
+                "python_route_manifest_payload_reuse_index_not_read_through",
+            )
+            self.assertEqual(
+                second.batch.field(
+                    "prepare_batch_prepared_state_read_through_cache_fallback_attempted"
+                ),
+                "false",
+            )
+            self.assertEqual(
+                second.batch.field(
+                    "prepare_batch_prepared_state_read_through_cache_external_engine_invoked"
+                ),
+                "false",
             )
             self.assertEqual(
                 second.batch.field("prepare_batch_prepared_state_dependency_status"),

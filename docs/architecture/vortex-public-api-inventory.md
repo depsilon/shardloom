@@ -1027,9 +1027,31 @@ fallback execution.
 - `vortex-api-inventory` now emits `shardloom.vortex_local_io_coverage.v1`.
 - The selected reader lane is `local_vortex_primitive_scan_filter_project` under
   `vortex-local-primitives`.
-- The selected writer lane is `native_count_output_payload_write` under `vortex-write`.
+- The selected writer lane is `flat_scalar_vortex_ingest_prepared_state_write` under
+  `vortex-write`.
+- `flat_columnar_vortex_ingest_prepared_state_write` is also listed as a feature-gated runtime lane
+  under `vortex-write,universal-format-io` for flat columnar SourceState handoff through
+  `ArrayRef::from_arrow(RecordBatch)`.
 - `shardloom-cli` exposes a direct `vortex-write` feature so users can enable the existing native
-  count-payload writer without enabling the full traditional analytics benchmark feature bundle.
+  count-payload writer and current scoped local Vortex ingest paths without enabling the full
+  traditional analytics benchmark feature bundle.
+- `vortex-api-inventory` now also emits
+  `shardloom.vortex_native_writer_schema_certification.v1` under report id
+  `prod-ready-1a.vortex-native-writer-schema-certification`. The report separates three scoped
+  feature-gated local runtime rows from the still-blocked generalized writer:
+  - `flat_scalar_rows_nullable_primitives` uses ShardLoom's scalar-row-to-Vortex struct writer for
+    nullable primitive/scalar shapes with known DType hints.
+  - `typed_complex_scalar_rows_arrow_provider` uses upstream Vortex
+    `ArrayRef::from_arrow(RecordBatch)` as a native provider for source-free typed list/struct
+    rows when logical/Arrow DType hints are present.
+  - `flat_columnar_source_state_arrow_provider` uses upstream Vortex
+    `ArrayRef::from_arrow(RecordBatch)` for flat non-null columnar SourceState handoff.
+  - `generalized_schema_encoding_writer` remains `blocked_pending_evidence` with diagnostic
+    `SL_UNSUPPORTED_GENERALIZED_VORTEX_PAYLOAD_WRITE`.
+- The writer certification report records provider decision, provider surface, schema family,
+  DType scope, validity scope, encoding scope, metadata/statistics preservation posture,
+  materialization boundary, replay evidence, claim boundary, and no-fallback/no-external-engine
+  flags for each row.
 - The broad local schema/encoding writer remains blocked behind schema payload matrix, encoding
   payload matrix, correctness fixture, materialization/decode certificate, Native I/O certificate,
   and no-fallback evidence.

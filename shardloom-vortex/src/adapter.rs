@@ -429,6 +429,68 @@ impl VortexLocalIoCoverageRow {
     }
 
     #[must_use]
+    pub const fn flat_scalar_vortex_ingest_prepared_state_writer() -> Self {
+        Self {
+            lane_id: "flat_scalar_vortex_ingest_prepared_state_write",
+            io_direction: "write",
+            support_status: VortexLocalIoLaneStatus::FeatureGatedRuntime,
+            user_surface: "vortex-ingest-smoke,ctx.prepare_vortex,ctx.from_rows(...).write_vortex,ctx.sql_values(...).write_vortex",
+            feature_gate: "vortex-write",
+            upstream_api_surface: "VortexSessionDefault,SingleThreadRuntime,WriteOptionsSessionExt,VortexFile::scan,ArrayStreamExt::read_all",
+            schema_encoding_scope: "flat scalar rows and inferable typed nested source-free outputs admitted by vortex_ingest only",
+            correctness_refs: "local_flat_scalar_rows_write_and_reopen_vortex_artifact,sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields,generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidence",
+            benchmark_refs: "traditional_analytics.prepare_once_vortex_ingest,local_python_example_replay",
+            execution_certificate_refs: "VortexPreparedStateWriteReport,output_native_io_certificate_status=certified_local_vortex_sink",
+            native_io_certificate_refs: "native_io_certificate_status=certified,vortex_preparation_spine_native_io_certificate_status=certified_local_vortex_preparation_spine,reopen_row_count_verified",
+            materialization_decode_refs: "flat_scalar_source_state_to_vortex_prepared_state; explicit materialization boundary before Vortex write",
+            policy_refs: "fallback_attempted=false,external_engine_invoked=false,object_store_io=false,table_catalog_io=false",
+            unsupported_diagnostic_code: "vortex_ingest.requires_vortex_write_feature",
+            blocker_id: "prod-ready-1a.generalized_local_vortex_schema_writer",
+            required_future_evidence: "broad_schema_payload_matrix,encoding_payload_matrix,nested_layout_certificate,statistics_preservation_matrix,commit_certificate",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "feature-gated local flat scalar/typed source-free Vortex ingest only; no generalized schema, encoding, object-store, table/catalog, or performance claim",
+            runtime_lane_available: true,
+            data_read_lane: false,
+            data_written_lane: true,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn flat_columnar_vortex_ingest_prepared_state_writer() -> Self {
+        Self {
+            lane_id: "flat_columnar_vortex_ingest_prepared_state_write",
+            io_direction: "write",
+            support_status: VortexLocalIoLaneStatus::FeatureGatedRuntime,
+            user_surface: "vortex-ingest-smoke over Parquet, Arrow IPC, Avro, and ORC local SourceState",
+            feature_gate: "vortex-write,universal-format-io",
+            upstream_api_surface: "ArrayRef::from_arrow(RecordBatch),VortexSessionDefault,WriteOptionsSessionExt,VortexFile::scan,ArrayStreamExt::read_all",
+            schema_encoding_scope: "flat columnar SourceState batches with projection mask and Vortex array provider handoff",
+            correctness_refs: "vortex_ingest_smoke_preserves_columnar_source_state_for_parquet,vortex_ingest_smoke_preserves_columnar_source_state_for_all_structured_formats",
+            benchmark_refs: "traditional_analytics.compatibility_roundtrip_structured_formats",
+            execution_certificate_refs: "VortexPreparedStateWriteReport,source_columnar_provider_evidence,vortex_array_build_provider_evidence",
+            native_io_certificate_refs: "native_io_certificate_status=certified,vortex_preparation_spine_native_io_certificate_status=certified_local_vortex_preparation_spine,reopen_row_count_verified",
+            materialization_decode_refs: "columnar_source_state_preserved_to_vortex_array_provider; no scalar row decode for non-empty batches",
+            policy_refs: "fallback_attempted=false,external_engine_invoked=false,object_store_io=false,table_catalog_io=false",
+            unsupported_diagnostic_code: "vortex_ingest.requires_universal_format_io_feature",
+            blocker_id: "prod-ready-1a.generalized_local_vortex_columnar_writer",
+            required_future_evidence: "nested_extension_dtype_matrix,statistics_preservation_matrix,layout_fidelity_report,commit_certificate",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "feature-gated flat columnar local Vortex ingest only; no generalized nested/extension dtype, object-store, table/catalog, or performance claim",
+            runtime_lane_available: true,
+            data_read_lane: false,
+            data_written_lane: true,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
     pub const fn broad_local_writer_blocked() -> Self {
         Self {
             lane_id: "general_local_schema_encoding_writer",
@@ -496,14 +558,16 @@ impl VortexLocalIoCoverageReport {
             report_id: "gar0005a.local_vortex_io.coverage",
             gar_id: "GAR-0005-A",
             selected_reader_lane: "local_vortex_primitive_scan_filter_project",
-            selected_writer_lane: "native_count_output_payload_write",
+            selected_writer_lane: "flat_scalar_vortex_ingest_prepared_state_write",
             rows: vec![
                 VortexLocalIoCoverageRow::local_primitive_scan_reader(),
                 VortexLocalIoCoverageRow::native_count_payload_writer(),
+                VortexLocalIoCoverageRow::flat_scalar_vortex_ingest_prepared_state_writer(),
+                VortexLocalIoCoverageRow::flat_columnar_vortex_ingest_prepared_state_writer(),
                 VortexLocalIoCoverageRow::broad_local_writer_blocked(),
             ],
             claim_gate_status: "scoped_evidence_only",
-            claim_boundary: "local primitive scan lanes and one native count payload writer only; no object-store, broad schema/encoding writer, table/catalog, lakehouse, SQL/DataFrame, or performance claim",
+            claim_boundary: "local primitive scan lanes, feature-gated flat scalar/columnar Vortex ingest writers, and one native count payload writer only; no object-store, generalized schema/encoding writer, table/catalog, lakehouse, SQL/DataFrame, or performance claim",
             runtime_execution: false,
             data_read: false,
             data_written: false,
@@ -581,6 +645,299 @@ impl VortexLocalIoCoverageReport {
             self.selected_writer_lane,
             self.runtime_lane_count(),
             self.blocked_lane_count(),
+            self.claim_gate_status,
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexNativeWriterCertificationStatus {
+    ScopedFeatureGatedRuntime,
+    BlockedPendingEvidence,
+}
+
+impl VortexNativeWriterCertificationStatus {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ScopedFeatureGatedRuntime => "scoped_feature_gated_runtime",
+            Self::BlockedPendingEvidence => "blocked_pending_evidence",
+        }
+    }
+
+    #[must_use]
+    pub const fn runtime_available(self) -> bool {
+        matches!(self, Self::ScopedFeatureGatedRuntime)
+    }
+
+    #[must_use]
+    pub const fn is_blocked(self) -> bool {
+        matches!(self, Self::BlockedPendingEvidence)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexNativeWriterSchemaCertificationRow {
+    pub row_id: &'static str,
+    pub writer_lane_id: &'static str,
+    pub status: VortexNativeWriterCertificationStatus,
+    pub feature_gate: &'static str,
+    pub provider_decision: &'static str,
+    pub provider_surface: &'static str,
+    pub schema_family: &'static str,
+    pub dtype_scope: &'static str,
+    pub validity_scope: &'static str,
+    pub encoding_scope: &'static str,
+    pub metadata_preservation_status: &'static str,
+    pub statistics_preservation_status: &'static str,
+    pub materialization_boundary: &'static str,
+    pub replay_evidence: &'static str,
+    pub unsupported_diagnostic_code: &'static str,
+    pub required_future_evidence: &'static str,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub local_write_runtime: bool,
+    pub reopen_verified: bool,
+    pub metadata_statistics_broadly_certified: bool,
+    pub object_store_io: bool,
+    pub table_catalog_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl VortexNativeWriterSchemaCertificationRow {
+    #[must_use]
+    pub const fn flat_scalar_rows() -> Self {
+        Self {
+            row_id: "flat_scalar_rows_nullable_primitives",
+            writer_lane_id: "flat_scalar_vortex_ingest_prepared_state_write",
+            status: VortexNativeWriterCertificationStatus::ScopedFeatureGatedRuntime,
+            feature_gate: "vortex-write",
+            provider_decision: "implement_shardloom_kernel",
+            provider_surface: "shardloom_scalar_rows_to_vortex_struct",
+            schema_family: "flat_scalar_rows",
+            dtype_scope: "boolean,int64,uint64,float64_finite,utf8,binary,decimal128,date32,timestamp_micros",
+            validity_scope: "nullable_and_all_null_columns_admitted_when_dtype_hint_is_known",
+            encoding_scope: "upstream_vortex_writer_default_struct_children",
+            metadata_preservation_status: "logical_dtype_and_nullability_preserved_physical_layout_writer_default",
+            statistics_preservation_status: "reopen_row_count_verified_statistics_writer_default_not_broadly_certified",
+            materialization_boundary: "source_state_scalar_rows_materialized_before_vortex_write",
+            replay_evidence: "VortexPreparedStateWriteReport.reopen_row_count_verified",
+            unsupported_diagnostic_code: "vortex_ingest.unsupported_scalar_family",
+            required_future_evidence: "physical_statistics_preservation_matrix,layout_encoding_matrix,source_selection_vector_fidelity",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "scoped flat scalar local Vortex prepared-state writer only; no arbitrary schema, object-store, table/catalog, or performance claim",
+            local_write_runtime: true,
+            reopen_verified: true,
+            metadata_statistics_broadly_certified: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn typed_complex_scalar_rows() -> Self {
+        Self {
+            row_id: "typed_complex_scalar_rows_arrow_provider",
+            writer_lane_id: "flat_scalar_vortex_ingest_prepared_state_write",
+            status: VortexNativeWriterCertificationStatus::ScopedFeatureGatedRuntime,
+            feature_gate: "vortex-write,universal-format-io",
+            provider_decision: "use_vortex_native_provider",
+            provider_surface: "ArrayRef::from_arrow(RecordBatch)",
+            schema_family: "typed_source_free_list_struct_rows",
+            dtype_scope: "list_and_struct_when_logical_and_arrow_dtype_hints_are_present",
+            validity_scope: "source_schema_driven_validity_through_arrow_record_batch_provider",
+            encoding_scope: "vortex_from_arrow_record_batch_writer_default",
+            metadata_preservation_status: "typed_nested_logical_schema_preserved_through_vortex_provider",
+            statistics_preservation_status: "reopen_row_count_verified_nested_statistics_not_broadly_certified",
+            materialization_boundary: "materialized_scalar_rows_to_arrow_record_batch_before_vortex_array_provider",
+            replay_evidence: "typed_nested_rows_write_via_vortex_arrow_provider",
+            unsupported_diagnostic_code: "vortex_ingest.typed_nested_requires_universal_format_io",
+            required_future_evidence: "nested_layout_fidelity_matrix,extension_dtype_matrix,statistics_preservation_matrix",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "scoped typed nested source-free Vortex output only; no arbitrary JSON/map/variant execution or generalized nested writer claim",
+            local_write_runtime: true,
+            reopen_verified: true,
+            metadata_statistics_broadly_certified: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn flat_columnar_source_state() -> Self {
+        Self {
+            row_id: "flat_columnar_source_state_arrow_provider",
+            writer_lane_id: "flat_columnar_vortex_ingest_prepared_state_write",
+            status: VortexNativeWriterCertificationStatus::ScopedFeatureGatedRuntime,
+            feature_gate: "vortex-write,universal-format-io",
+            provider_decision: "use_vortex_native_provider",
+            provider_surface: "ArrayRef::from_arrow(RecordBatch)",
+            schema_family: "flat_columnar_source_state",
+            dtype_scope: "non_null_boolean,int_widths,uint_widths,float_finite,utf8,binary,date32,timestamp_micros",
+            validity_scope: "non_null_columnar_arrays_only_nulls_blocked_before_write",
+            encoding_scope: "vortex_from_arrow_record_batch_without_scalar_row_decode",
+            metadata_preservation_status: "logical_schema_and_projection_mask_preserved_physical_layout_writer_default",
+            statistics_preservation_status: "reopen_row_count_verified_source_statistics_loss_report_required",
+            materialization_boundary: "columnar_source_state_preserved_to_vortex_array_provider",
+            replay_evidence: "vortex_ingest_smoke_preserves_columnar_source_state_for_all_structured_formats",
+            unsupported_diagnostic_code: "vortex_ingest.unsupported_columnar_arrow_type",
+            required_future_evidence: "nullable_columnar_validity_matrix,nested_extension_dtype_matrix,layout_statistics_fidelity_report",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "scoped flat columnar local Vortex prepared-state writer only; no nullable/nested/extension dtype production writer claim",
+            local_write_runtime: true,
+            reopen_verified: true,
+            metadata_statistics_broadly_certified: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn generalized_schema_encoding_writer_blocked() -> Self {
+        Self {
+            row_id: "generalized_schema_encoding_writer",
+            writer_lane_id: "general_local_schema_encoding_writer",
+            status: VortexNativeWriterCertificationStatus::BlockedPendingEvidence,
+            feature_gate: "not_enabled",
+            provider_decision: "blocked_until_vortex_or_shardloom_evidence",
+            provider_surface: "broader Vortex writer API usage blocked outside scoped local lanes",
+            schema_family: "generalized_schema_encoding",
+            dtype_scope: "arbitrary_nested_extension_dictionary_map_variant_device_and_table_shapes",
+            validity_scope: "requires_null_validity_and_extension_semantics_matrix",
+            encoding_scope: "requires_encoding_layout_statistics_preservation_matrix",
+            metadata_preservation_status: "not_certified",
+            statistics_preservation_status: "not_certified",
+            materialization_boundary: "blocked_before_write",
+            replay_evidence: "required_before_admission",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_GENERALIZED_VORTEX_PAYLOAD_WRITE",
+            required_future_evidence: "schema_payload_matrix,encoding_payload_matrix,statistics_preservation_matrix,native_io_certificate,commit_certificate,no_fallback_evidence",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "general local Vortex writer support remains blocked until generalized schema, encoding, statistics, and commit evidence exists",
+            local_write_runtime: false,
+            reopen_verified: false,
+            metadata_statistics_broadly_certified: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn no_external_fallback(self) -> bool {
+        !self.object_store_io
+            && !self.table_catalog_io
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexNativeWriterSchemaCertificationReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub rows: Vec<VortexNativeWriterSchemaCertificationRow>,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+    pub broad_schema_encoding_certification_complete: bool,
+    pub metadata_statistics_broadly_certified: bool,
+    pub local_runtime_claim_allowed: bool,
+    pub performance_claim_allowed: bool,
+    pub object_store_io: bool,
+    pub table_catalog_io: bool,
+    pub external_engine_invoked: bool,
+    pub fallback_attempted: bool,
+}
+
+impl VortexNativeWriterSchemaCertificationReport {
+    #[must_use]
+    pub fn current() -> Self {
+        Self {
+            schema_version: "shardloom.vortex_native_writer_schema_certification.v1",
+            report_id: "prod-ready-1a.vortex-native-writer-schema-certification",
+            rows: vec![
+                VortexNativeWriterSchemaCertificationRow::flat_scalar_rows(),
+                VortexNativeWriterSchemaCertificationRow::typed_complex_scalar_rows(),
+                VortexNativeWriterSchemaCertificationRow::flat_columnar_source_state(),
+                VortexNativeWriterSchemaCertificationRow::generalized_schema_encoding_writer_blocked(),
+            ],
+            claim_gate_status: "scoped_evidence_only",
+            claim_boundary: "feature-gated local flat scalar, typed complex source-free, and flat columnar Vortex prepared-state writer evidence only; generalized schema/encoding, object-store, table/catalog, lakehouse, and performance claims remain blocked",
+            broad_schema_encoding_certification_complete: false,
+            metadata_statistics_broadly_certified: false,
+            local_runtime_claim_allowed: true,
+            performance_claim_allowed: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn scoped_runtime_row_ids(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.status.runtime_available())
+            .map(|row| row.row_id)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn blocked_row_ids(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_blocked())
+            .map(|row| row.row_id)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn scoped_runtime_row_count(&self) -> usize {
+        self.scoped_runtime_row_ids().len()
+    }
+
+    #[must_use]
+    pub fn blocked_row_count(&self) -> usize {
+        self.blocked_row_ids().len()
+    }
+
+    #[must_use]
+    pub fn no_external_fallback(&self) -> bool {
+        !self.object_store_io
+            && !self.table_catalog_io
+            && !self.external_engine_invoked
+            && !self.fallback_attempted
+            && self
+                .rows
+                .iter()
+                .copied()
+                .all(VortexNativeWriterSchemaCertificationRow::no_external_fallback)
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "Vortex native writer schema certification\nschema_version: {}\nreport: {}\nscoped runtime rows: {}\nblocked rows: {}\nbroad schema certification complete: {}\nclaim gate: {}\nfallback execution: disabled",
+            self.schema_version,
+            self.report_id,
+            self.scoped_runtime_row_count(),
+            self.blocked_row_count(),
+            self.broad_schema_encoding_certification_complete,
             self.claim_gate_status,
         )
     }
@@ -2626,7 +2983,7 @@ mod tests {
         let report = VortexLocalIoCoverageReport::current();
         assert_eq!(report.gar_id, "GAR-0005-A");
         assert!(report.selected_lanes_classified());
-        assert_eq!(report.runtime_lane_count(), 2);
+        assert_eq!(report.runtime_lane_count(), 4);
         assert_eq!(report.blocked_lane_count(), 1);
         assert!(
             report
@@ -2637,6 +2994,16 @@ mod tests {
             report
                 .runtime_lane_ids()
                 .contains(&"native_count_output_payload_write")
+        );
+        assert!(
+            report
+                .runtime_lane_ids()
+                .contains(&"flat_scalar_vortex_ingest_prepared_state_write")
+        );
+        assert!(
+            report
+                .runtime_lane_ids()
+                .contains(&"flat_columnar_vortex_ingest_prepared_state_write")
         );
         assert!(
             report
@@ -2658,7 +3025,69 @@ mod tests {
         assert!(
             report
                 .claim_boundary
-                .contains("no object-store, broad schema/encoding writer")
+                .contains("no object-store, generalized schema/encoding writer")
+        );
+    }
+
+    #[test]
+    fn native_writer_schema_certification_classifies_scoped_and_blocked_rows() {
+        let report = VortexNativeWriterSchemaCertificationReport::current();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.vortex_native_writer_schema_certification.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "prod-ready-1a.vortex-native-writer-schema-certification"
+        );
+        assert_eq!(report.scoped_runtime_row_count(), 3);
+        assert_eq!(report.blocked_row_count(), 1);
+        assert!(report.local_runtime_claim_allowed);
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.broad_schema_encoding_certification_complete);
+        assert!(!report.metadata_statistics_broadly_certified);
+        assert!(report.no_external_fallback());
+        assert!(
+            report
+                .scoped_runtime_row_ids()
+                .contains(&"flat_scalar_rows_nullable_primitives")
+        );
+        assert!(
+            report
+                .scoped_runtime_row_ids()
+                .contains(&"typed_complex_scalar_rows_arrow_provider")
+        );
+        assert!(
+            report
+                .scoped_runtime_row_ids()
+                .contains(&"flat_columnar_source_state_arrow_provider")
+        );
+        assert!(
+            report
+                .blocked_row_ids()
+                .contains(&"generalized_schema_encoding_writer")
+        );
+        let generalized = report
+            .rows
+            .iter()
+            .find(|row| row.row_id == "generalized_schema_encoding_writer")
+            .expect("generalized writer row is present");
+        assert_eq!(
+            generalized.status,
+            VortexNativeWriterCertificationStatus::BlockedPendingEvidence
+        );
+        assert_eq!(
+            generalized.unsupported_diagnostic_code,
+            "SL_UNSUPPORTED_GENERALIZED_VORTEX_PAYLOAD_WRITE"
+        );
+        assert!(!generalized.local_write_runtime);
+        assert!(!generalized.fallback_attempted);
+        assert!(!generalized.external_engine_invoked);
+        assert!(
+            report
+                .to_human_text()
+                .contains("fallback execution: disabled")
         );
     }
 

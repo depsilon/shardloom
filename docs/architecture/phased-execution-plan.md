@@ -271,111 +271,6 @@ with a recorded infeasibility reason, not merely because they are broad.
 
 ### Open Work Checklist
 
-- [ ] `PERF-RUNTIME-7C` Prepared lookup/create and route-total attribution cleanup.
-  - Source: current route-share Amdahl and stage-inclusion tables from the `full_local` artifact
-    generated `2026-06-14T12:37:12Z`. `prepare_once_first_query` hot-route geomean is `0.84 ms`,
-    dominated by `prepared_state_lookup_or_create` around `0.56 ms` (`66.9%` route share).
-    `prepare_once_batch` is `0.10 ms`, while warm prepared and native Vortex query lanes are
-    around `0.03 ms` and still carry diagnostic stage fields larger than selected route totals.
-  - Current state: prepared lookup/create is a moderate absolute cost and a large relative cost for
-    first-query prepared routes. Route-share rows are optimization-ready, but some diagnostic
-    fields are intentionally non-additive and can distract optimization targeting.
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: applicable. Use dynamic admission for cache-hit/miss policy,
-    metadata-first manifest verification, and PulseWeave-style run-local coalescing for repeated
-    dependency-packet checks. If prepared lookup/create touches Vortex reader construction, evaluate
-    Vortex 0.75 layout-reader context/cache as a provider-gated read-through option before adding
-    a ShardLoom-local cache. Capillary work units apply only if manifest/artifact verification is
-    split into bounded source/prepared-state units.
-  - Execution checklist:
-    - [x] Confirm `preparation_engine_millis` prefers narrow prepared-state/import fields and does
-      not use `total_runtime_micros` as the narrow prepare timing source.
-    - [x] Keep `prepare_route_total_ms` separate for full route totals.
-    - [x] Hash serialized JSON bytes directly for source-admission, prepared-state manifest, and
-      index digests to avoid an intermediate UTF-8 string allocation.
-    - [x] Run a targeted one-iteration local prepare-batch smoke showing
-      `prepared_state_lookup_or_create` remains separate from `prepare_route_total`.
-    - [x] Refresh prepared-route benchmark rows to measure whether manifest lookup/create moved.
-    - [ ] If lookup remains material, evaluate a manifest/index read-through cache that still
-      verifies manifest digest, source fingerprints, artifact fingerprints, native I/O
-      certificates, and no-fallback fields before reuse.
-    - [ ] If read-through caching uses Vortex reader state, classify the Vortex 0.75 layout-reader
-      context/cache surface as adopted, wrapped, or blocked, and record source-fingerprint,
-      cache-scope, Native I/O, and no-decode/no-materialization evidence before reuse.
-  - Next outcome: split manifest lookup, cache-hit, cache-miss create, dependency-packet
-    verification, artifact write, and register-update timings into additive and diagnostic fields;
-    remove avoidable lookup/create work on cache hits; keep first-query and amortized formulas
-    explicit.
-  - User-visible surface: prepared-state reuse evidence, benchmark route formulas, Python
-    front-door prepared-route examples, and release evidence reports.
-  - Implementation scope: prepared-state manifest/register helpers, session cache counters,
-    timing field promotion in `benchmarks/traditional_analytics/run.py`, Rust tests for
-    cache-hit/miss/stale-packet behavior, and website data fields if schema-safe.
-  - Evidence required: cache hit/miss counters, stale-packet rejection evidence, additive timing
-    formulas, no result-sink/evidence render in hot-runtime totals, and benchmark rows showing
-    lookup/create attribution.
-  - Acceptance: first-query prepared route reports precise lookup/create subcomponents; cache-hit
-    path avoids unnecessary register/write work; prepared batch amortized route remains formula
-    backed; no `total_runtime_micros` fallback is used as a narrow prepare timing source.
-  - Verification: focused prepared-state Rust tests, release-script tests for timing promotion,
-    publication claim gate, route timing instrument readiness, and targeted benchmark refresh when
-    source behavior changes.
-  - Non-goals: no package/public release claim, no external cache service, no distributed session
-    runtime.
-  - Claim boundary: may claim attribution and scoped first-query prepared-route improvements only
-    with benchmark evidence.
-  - Fallback boundary: prepared-state reuse must remain ShardLoom-native and fail closed on stale
-    dependency packets.
-  - Ledger rule: after merge/session completion, move measured closeout and command evidence to
-    the completed ledger.
-- [ ] `PERF-RUNTIME-7D` Publication-proof sink/evidence overhead burn-down without redefining hot
-  runtime.
-  - Source: current promoted `full_local` artifact generated `2026-06-14T12:37:12Z`.
-    Publication-proof routes add roughly `2.89-3.13 ms` evidence render and about
-    `0.39-0.43 ms` result-sink work to warm/native/prepared lanes; this is significant for
-    proof/publication throughput but not a core hot-runtime regression.
-  - Current state: `publication_proof` rows are correctly separated from `hot_runtime`, but the
-    proof path still spends more time rendering human evidence than executing warm/native queries.
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: applicable for proof publication, not hot runtime. Use
-    evidence-tier controls and timing-surface separation first, then PulseWeave-style coalescing or
-    digest-keyed sidecar reuse for repeated publication records. Capillary units apply only to
-    bounded proof-record writes, not to hiding sink/evidence work from publication totals.
-  - Execution checklist:
-    - [x] Confirm Rust runtime rows emit compact machine evidence and mark human evidence render as
-      outside the Rust timed route.
-    - [x] Confirm benchmark promotion already writes an incremental publication-proof sidecar with
-      reused/written/removed record counts and no-fallback fields.
-    - [x] After benchmark promotion, confirm sidecar admission counts and website labels keep
-      proof overhead out of hot runtime; the refreshed run wrote `600` proof records, reused `0`,
-      and removed `120` stale records because the row digest changed.
-    - [ ] Repeat promotion over an unchanged machine-evidence artifact and confirm sidecar reuse
-      before claiming publication-proof reuse improvements.
-    - [ ] If publication-proof rows still spend multi-ms in repeated human formatting after sidecar
-      reuse, optimize the Python/website render surface rather than the ShardLoom hot runtime.
-  - Next outcome: coalesce and cache publication-proof render work, reuse machine evidence digests,
-    keep full Vortex replay/result-sink timing explicit, and avoid repeating human formatting when
-    the compact machine evidence is unchanged.
-  - User-visible surface: benchmark website, publication-proof sidecar, release readiness reports,
-    and result-sink/evidence-render timing fields.
-  - Implementation scope: publication-proof sidecar writer/reuser, benchmark promotion scripts,
-    website data ingestion, readiness validators, and Python tests for stale/reused proof records.
-  - Evidence required: sidecar reused/written/stale counts, no-fallback proof fields, explicit
-    `sink_timing_included_in_route_total=true` for proof surfaces, and unchanged hot-runtime totals.
-  - Acceptance: publication-proof rows remain visible and slower for stated reasons; repeated
-    publication over unchanged machine evidence reuses proof records; website labels continue to
-    distinguish hot route geomean from publication-proof route geomean.
-  - Verification: release-script tests, benchmark publication/front-door/readiness validators,
-    website readiness, and targeted artifact promotion after source changes.
-  - Non-goals: no hiding proof cost in hot runtime, no removal of publication-proof rows, no public
-    performance claim from proof-path-only improvements.
-  - Claim boundary: may claim only proof-publication overhead reduction or attribution quality,
-    not core runtime speed, unless a refreshed artifact proves core runtime changed.
-  - Fallback boundary: proof generation must not call external compute engines or use external
-    fallback execution.
-  - Ledger rule: after merge/session completion, move measured closeout and command evidence to
-    the completed ledger.
-
 #### Production Readiness / Release Track
 
 - [ ] `RELEASE-READY-16A` V1 release boundary and unsupported-surface firewall.
@@ -408,7 +303,7 @@ with a recorded infeasibility reason, not merely because they are broad.
       matching production-ready item closed in this plan and ledger.
     - [x] Add package dry-run evidence showing the v1 package candidate installs, imports, runs
       supported examples, emits no fallback evidence, and does not publish to package channels.
-    - [ ] Add user-facing unsupported diagnostics for production-family entrypoints that exist as
+    - [x] Add user-facing unsupported diagnostics for production-family entrypoints that exist as
       stubs, preview routes, or report-only commands.
     - [ ] Move the closed release-boundary checklist, exact command evidence, and residual
       unsupported production families to the completed ledger after merge.
@@ -454,22 +349,29 @@ with a recorded infeasibility reason, not merely because they are broad.
     encoder, and validity/mask semantics should be used or explicitly blocked through provider
     gates before local I/O adapters duplicate those concepts.
   - Execution checklist:
-    - [ ] Declare per-format production profiles: Vortex native input/output, CSV/JSONL text,
+    - [x] Declare per-format production profiles: Vortex native input/output, CSV/JSONL text,
       Parquet/Arrow IPC columnar, Avro/ORC compatibility, and compatibility output/export targets.
-    - [ ] Add parser/reader contracts for malformed rows, encoding/null/coercion rules,
+    - [x] Add parser/reader contracts for malformed rows, encoding/null/coercion rules,
       projection-aware typed builders, nested/complex dtype support, and deterministic blockers.
     - [x] Add a Vortex 0.75 local-I/O provider disposition report for layout-reader context/cache,
       JSON extension Arrow import/export, WKB/geospatial extension preservation or deterministic
       blockers, Interleave encoding preservation, binary zstd/compression metadata, row-byte
       encoder write-path evaluation, and validity/mask semantics.
-    - [ ] Add pushdown and fidelity reports for columnar formats: projection/filter/statistics
+    - [x] Add pushdown and fidelity reports for columnar formats: projection/filter/statistics
       support, metadata preservation, layout/statistics loss, and materialization cost.
     - [ ] Add Vortex-native broad read/write certification with metadata/statistics preservation,
       no-fallback Native I/O certificates, and local replay evidence.
-    - [ ] Add compatibility output `TranslationReport` coverage for preserved/lost metadata,
+      - [x] Refresh the local Vortex I/O coverage matrix so current feature-gated flat scalar and
+        flat columnar `vortex_ingest` prepared-state write/reopen lanes are explicit.
+      - [x] Add a native Vortex writer schema/encoding certification matrix that marks flat
+        scalar, typed complex source-free, and flat columnar local writer lanes as scoped
+        feature-gated runtime evidence while keeping generalized schema/encoding writes blocked.
+      - [ ] Promote generalized schema/encoding Vortex writer certification beyond the scoped
+        flat scalar/columnar lanes.
+    - [x] Add compatibility output `TranslationReport` coverage for preserved/lost metadata,
       materialization cost, unsupported schema diagnostics, and explicit non-execution-fallback
       boundaries.
-    - [ ] Add representative correctness and fuzz/property fixtures for local format edge cases.
+    - [x] Add representative correctness and fuzz/property fixtures for local format edge cases.
     - [ ] Move completed format-family evidence and any unclosed format profiles to the ledger
       after merge.
   - Next outcome: local format support can be promoted from scoped benchmark evidence to declared

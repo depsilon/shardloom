@@ -5776,11 +5776,31 @@ struct RunsTodaySupportRow {
     external_engine_invoked: bool,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ProductionUnsupportedDiagnosticRow {
+    id: &'static str,
+    production_family: &'static str,
+    user_surface: &'static str,
+    entrypoint_kind: &'static str,
+    support_status: &'static str,
+    diagnostic_code: &'static str,
+    blocker_id: &'static str,
+    message: &'static str,
+    next_action: &'static str,
+    required_evidence: &'static str,
+    claim_gate_status: &'static str,
+    route_scope: &'static str,
+}
+
 const RUNS_TODAY_COMMAND: &str = "runs-today";
 const RUNS_TODAY_SCHEMA_VERSION: &str = "shardloom.runs_today_support_matrix.v1";
 const RUNS_TODAY_MATRIX_ID: &str = "review-p0-1.current-support";
 const RUNS_TODAY_DOCS_REF: &str = "docs/status/runs-today-support-matrix.json";
 const RUNS_TODAY_WEBSITE_DATA_REF: &str = "not_published_to_clean_slate_website";
+const PRODUCTION_UNSUPPORTED_DIAGNOSTIC_SCHEMA_VERSION: &str =
+    "shardloom.production_unsupported_diagnostics.v1";
+const PRODUCTION_UNSUPPORTED_DIAGNOSTIC_DOCS_REF: &str =
+    "docs/release/known-unsupported-paths.md#production-family-diagnostic-catalog";
 const RUNS_TODAY_SUPPORT_STATE_VOCABULARY: [&str; 6] = [
     "executable",
     "feature_gated",
@@ -6393,6 +6413,149 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
     },
 ];
 
+const PRODUCTION_UNSUPPORTED_DIAGNOSTIC_ROWS: &[ProductionUnsupportedDiagnosticRow] = &[
+    ProductionUnsupportedDiagnosticRow {
+        id: "broad_sql_dataframe_runtime",
+        production_family: "sql_dataframe",
+        user_surface: "sql,LazyFrame.collect,workflow-unsupported-plan,capabilities sql,capabilities dataframe",
+        entrypoint_kind: "report_only_or_preview",
+        support_status: "unsupported_boundary",
+        diagnostic_code: "SL_UNSUPPORTED_PRODUCTION_SQL_DATAFRAME",
+        blocker_id: "cg21.workflow.sql.frontend_unsupported",
+        message: "Broad production SQL/DataFrame execution is not admitted; scoped local-source/source-free smokes remain fixture evidence only.",
+        next_action: "Use capabilities sql,dataframe and workflow-unsupported-plan to inspect supported local shapes before requesting execution.",
+        required_evidence: "sql_parser,binder,planner,dataframe_semantics,execution_certificate,native_io_certificate,semantic_conformance",
+        claim_gate_status: "not_claim_grade",
+        route_scope: "preview_or_report_only",
+    },
+    ProductionUnsupportedDiagnosticRow {
+        id: "object_store_runtime",
+        production_family: "object_store",
+        user_surface: "object_store_read,object_store_write,s3://,gcs://,adls://,http_range,object-store-write-smoke",
+        entrypoint_kind: "stub_or_fixture",
+        support_status: "unsupported_boundary",
+        diagnostic_code: "SL_UNSUPPORTED_PRODUCTION_OBJECT_STORE",
+        blocker_id: "review-p0-3.object_store_runtime_and_path_safety_required",
+        message: "Production object-store reads/writes, credentials, range requests, network retries, and commit safety are not admitted by the v1 local scope.",
+        next_action: "Use object-store capability reports and local fixture smokes; do not use cloud URIs as runtime support evidence.",
+        required_evidence: "credential_policy,byte_range_reads,retry_recovery,commit_cleanup,native_io_certificate,emulator_and_approved_backend_proof",
+        claim_gate_status: "not_claim_grade",
+        route_scope: "fixture_only_or_blocked",
+    },
+    ProductionUnsupportedDiagnosticRow {
+        id: "lakehouse_table_runtime",
+        production_family: "lakehouse_table",
+        user_surface: "table_commit,catalog_integration,local-table-append-commit-rehearsal-smoke,local-table-commit-recovery-smoke",
+        entrypoint_kind: "stub_or_fixture",
+        support_status: "unsupported_boundary",
+        diagnostic_code: "SL_UNSUPPORTED_PRODUCTION_TABLE_RUNTIME",
+        blocker_id: "platform.table_catalog_runtime_evidence_required",
+        message: "Lakehouse catalog transactions, table metadata evolution, object-store table commits, and production table recovery are not admitted.",
+        next_action: "Use local table-commit rehearsal reports only as fixture evidence until table runtime gates close.",
+        required_evidence: "catalog_contract,transaction_policy,commit_protocol,recovery_replay,metadata_fidelity,native_io_certificate",
+        claim_gate_status: "not_claim_grade",
+        route_scope: "fixture_only_or_blocked",
+    },
+    ProductionUnsupportedDiagnosticRow {
+        id: "foundry_integration_pack",
+        production_family: "foundry",
+        user_surface: "foundry_generated_output,foundry_dataset_source,foundry_dataset_sink,capabilities adapters",
+        entrypoint_kind: "report_only",
+        support_status: "unsupported_boundary",
+        diagnostic_code: "SL_UNSUPPORTED_PRODUCTION_FOUNDRY",
+        blocker_id: "platform.foundry_integration_evidence_required",
+        message: "Foundry proof-of-use, dataset source/sink execution, and platform-certified behavior are not available in the local v1 scope.",
+        next_action: "Keep Foundry references as optional future integration evidence until approved platform proof exists.",
+        required_evidence: "foundry_runtime_contract,credential_policy,platform_smoke,source_sink_certificate,governance_mapping",
+        claim_gate_status: "not_claim_grade",
+        route_scope: "report_only",
+    },
+    ProductionUnsupportedDiagnosticRow {
+        id: "live_hybrid_remote_distributed_runtime",
+        production_family: "live_hybrid_remote_distributed",
+        user_surface: "live,hybrid,remote,distributed,rest-api-event-stream,certified-live-fixture",
+        entrypoint_kind: "fixture_or_plan_preview",
+        support_status: "unsupported_boundary",
+        diagnostic_code: "SL_UNSUPPORTED_PRODUCTION_EXECUTION_FABRIC",
+        blocker_id: "cg22.cg23.object_store_runtime_evidence_required",
+        message: "Production live, hybrid, remote, and distributed execution fabric claims are blocked outside scoped local fixtures and planning reports.",
+        next_action: "Use engine capability and remote API plan reports for discovery; do not request production fabric execution.",
+        required_evidence: "state_store,broker_policy,remote_api_contract,retry_recovery,checkpointing,exactly_once_evidence,distributed_scheduler_certificate",
+        claim_gate_status: "not_claim_grade",
+        route_scope: "fixture_or_report_only",
+    },
+    ProductionUnsupportedDiagnosticRow {
+        id: "rest_event_remote_api_runtime",
+        production_family: "rest_event_remote_api",
+        user_surface: "rest-api-contract-plan,rest-api-plan-preview,remote_result_delivery,event_stream",
+        entrypoint_kind: "plan_preview",
+        support_status: "unsupported_boundary",
+        diagnostic_code: "SL_UNSUPPORTED_PRODUCTION_REMOTE_API",
+        blocker_id: "cg23.remote_api.lifecycle.uncertified_blocked",
+        message: "REST/event APIs are discovery and control-plane plans only; remote execution and data-plane delivery are blocked.",
+        next_action: "Use REST/API contract plan outputs for schema review; do not treat plan previews as remote runtime support.",
+        required_evidence: "openapi_contract,asyncapi_contract,authz_policy,data_plane_policy,lifecycle_state_machine,security_review",
+        claim_gate_status: "not_claim_grade",
+        route_scope: "plan_preview_only",
+    },
+    ProductionUnsupportedDiagnosticRow {
+        id: "arbitrary_extension_effect_runtime",
+        production_family: "extensions_udfs_effects",
+        user_surface: "extension-registry,extension-inspect,udf-runtime-plan,api_call,embedding_generation,sqlite_effects",
+        entrypoint_kind: "metadata_or_fixture",
+        support_status: "unsupported_boundary",
+        diagnostic_code: "SL_UNSUPPORTED_PRODUCTION_EXTENSION_EFFECT",
+        blocker_id: "gar-0032-d.effectful_runtime_blocked",
+        message: "Arbitrary extensions, plugins, Python callables, network APIs, model calls, and external effects are blocked unless a typed effect policy admits a specific fixture.",
+        next_action: "Use extension inspection and effect admission matrices; production effectful execution requires separate policy and certificate evidence.",
+        required_evidence: "extension_manifest,permission_policy,sandboxing,effect_budget_certificate,credential_policy,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        route_scope: "metadata_or_fixture_only",
+    },
+    ProductionUnsupportedDiagnosticRow {
+        id: "public_package_publication",
+        production_family: "package_publication",
+        user_surface: "TestPyPI,PyPI,Homebrew,Scoop,winget,conda-forge,GHCR,crates.io",
+        entrypoint_kind: "release_gate",
+        support_status: "blocked",
+        diagnostic_code: "SL_UNSUPPORTED_PUBLIC_PACKAGE_PUBLICATION",
+        blocker_id: "release.package_publication_gate_required",
+        message: "Public package publication, release tags, signing, uploads, and channel install claims require maintainer approval and channel proof.",
+        next_action: "Use package-channel readiness reports and local dry-run proof until explicit maintainer approval exists.",
+        required_evidence: "maintainer_approval,testpypi_proof,pypi_proof,channel_install_smoke,sbom,checksums,provenance,rollback_policy",
+        claim_gate_status: "not_claim_grade",
+        route_scope: "release_blocked",
+    },
+    ProductionUnsupportedDiagnosticRow {
+        id: "performance_superiority_replacement_claim",
+        production_family: "public_claims",
+        user_surface: "performance_superiority,spark_replacement,engine_replacement",
+        entrypoint_kind: "claim_gate",
+        support_status: "blocked",
+        diagnostic_code: "SL_UNSUPPORTED_PERFORMANCE_SUPERIORITY_CLAIM",
+        blocker_id: "cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required",
+        message: "Performance superiority, Spark displacement, and broad replacement claims are blocked unless workload-scoped correctness and benchmark evidence is current.",
+        next_action: "Attach the selected timing surface, evidence tier, benchmark artifact, and correctness report before making a public performance claim.",
+        required_evidence: "claim_grade_correctness,benchmark_methodology,current_benchmark_artifact,timing_surface,evidence_tier,baseline_context",
+        claim_gate_status: "not_claim_grade",
+        route_scope: "claim_blocked",
+    },
+    ProductionUnsupportedDiagnosticRow {
+        id: "production_readiness_claim",
+        production_family: "production_readiness",
+        user_surface: "production_ready,finished_product,public_release_ready",
+        entrypoint_kind: "claim_gate",
+        support_status: "blocked",
+        diagnostic_code: "SL_UNSUPPORTED_PRODUCTION_READINESS_CLAIM",
+        blocker_id: "release.production_readiness_gate_required",
+        message: "Finished-product and production-readiness claims remain blocked until runtime scope, package channels, security, docs, benchmark, schema, and approval gates pass.",
+        next_action: "Use finished-product readiness and hard release-readiness reports; do not claim production support from local fixtures alone.",
+        required_evidence: "finished_product_readiness,hard_release_readiness,package_channel_proof,security_gate,docs_examples,api_schema_stability,maintainer_approval",
+        claim_gate_status: "not_claim_grade",
+        route_scope: "claim_blocked",
+    },
+];
+
 pub(crate) fn handle_runs_today(format: OutputFormat) -> ExitCode {
     emit(
         RUNS_TODAY_COMMAND,
@@ -6518,6 +6681,107 @@ fn runs_today_fields() -> Vec<(String, String)> {
         "runs_today_claim_boundary",
         "current-state discoverability only; this matrix does not expand runtime support or authorize production, package, performance, object-store, lakehouse, Foundry, REST, or Spark-replacement claims",
     );
+    push_field(
+        &mut fields,
+        "production_unsupported_diagnostic_schema_version",
+        PRODUCTION_UNSUPPORTED_DIAGNOSTIC_SCHEMA_VERSION,
+    );
+    push_field(
+        &mut fields,
+        "production_unsupported_diagnostic_docs_ref",
+        PRODUCTION_UNSUPPORTED_DIAGNOSTIC_DOCS_REF,
+    );
+    push_count_field(
+        &mut fields,
+        "production_unsupported_diagnostic_row_count",
+        PRODUCTION_UNSUPPORTED_DIAGNOSTIC_ROWS.len(),
+    );
+    push_field(
+        &mut fields,
+        "production_unsupported_diagnostic_row_order",
+        &production_unsupported_diagnostic_row_order(),
+    );
+    push_bool_field(
+        &mut fields,
+        "production_unsupported_diagnostic_all_rows_fallback_attempted_false",
+        true,
+    );
+    push_bool_field(
+        &mut fields,
+        "production_unsupported_diagnostic_all_rows_external_engine_invoked_false",
+        true,
+    );
+    push_bool_field(
+        &mut fields,
+        "production_unsupported_diagnostic_all_rows_side_effects_performed_false",
+        true,
+    );
+    push_bool_field(
+        &mut fields,
+        "production_unsupported_diagnostic_catalog_complete_for_v1_release_boundary",
+        true,
+    );
+    for row in PRODUCTION_UNSUPPORTED_DIAGNOSTIC_ROWS {
+        let prefix = format!("production_unsupported_diagnostic_row_{}_", row.id);
+        push_field(
+            &mut fields,
+            &format!("{prefix}production_family"),
+            row.production_family,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}user_surface"),
+            row.user_surface,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}entrypoint_kind"),
+            row.entrypoint_kind,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}support_status"),
+            row.support_status,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}diagnostic_code"),
+            row.diagnostic_code,
+        );
+        push_field(&mut fields, &format!("{prefix}blocker_id"), row.blocker_id);
+        push_field(&mut fields, &format!("{prefix}message"), row.message);
+        push_field(
+            &mut fields,
+            &format!("{prefix}next_action"),
+            row.next_action,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}required_evidence"),
+            row.required_evidence,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}route_scope"),
+            row.route_scope,
+        );
+        push_bool_field(&mut fields, &format!("{prefix}fallback_attempted"), false);
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}external_engine_invoked"),
+            false,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}side_effects_performed"),
+            false,
+        );
+    }
     for row in RUNS_TODAY_SUPPORT_ROWS {
         let prefix = format!("runs_today_row_{}_", row.id);
         push_field(&mut fields, &format!("{prefix}family"), row.family);
@@ -6629,6 +6893,14 @@ fn runs_today_evidence_refs() -> String {
         }
     }
     refs.join(",")
+}
+
+fn production_unsupported_diagnostic_row_order() -> String {
+    PRODUCTION_UNSUPPORTED_DIAGNOSTIC_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 fn runs_today_all_rows_fallback_attempted_false() -> bool {

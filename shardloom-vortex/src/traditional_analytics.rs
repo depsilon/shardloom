@@ -108,6 +108,8 @@ const PREPARED_STATE_LOOKUP_TIMING_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_lookup_timing.v1";
 const PREPARED_STATE_INDEX_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_index.v1";
+const PREPARED_STATE_READ_THROUGH_CACHE_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.prepared_state_read_through_cache.v1";
 const PREPARED_STATE_DELTA_OVERLAY_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_state_delta_overlay.v1";
 const PREPARED_STATE_OPTIMIZATION_SCHEMA_VERSION: &str =
@@ -8754,6 +8756,38 @@ impl TraditionalPreparedDeltaOverlayReport {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct TraditionalPreparedReadThroughCacheEvidence {
+    status: String,
+}
+
+impl TraditionalPreparedReadThroughCacheEvidence {
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn new(status: impl Into<String>) -> Self {
+        Self {
+            status: status.into(),
+        }
+    }
+
+    fn manifest_read_required(&self) -> bool {
+        !matches!(
+            self.status.as_str(),
+            "cache_miss_no_manifest" | "index_read_through_hit_manifest_snapshot_verified"
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+struct TraditionalPreparedBatchHitEvidence {
+    manifest_digest: String,
+    source_admission_packet_digest: String,
+    source_admission_packet_artifact_manifest_hash: String,
+    index_digest: String,
+    index_lookup_status: String,
+    read_through_cache: TraditionalPreparedReadThroughCacheEvidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct TraditionalPreparedBatchReuseReport {
     mode: TraditionalPreparedBatchReuseMode,
     hit: bool,
@@ -8764,6 +8798,7 @@ struct TraditionalPreparedBatchReuseReport {
     source_admission_packet_artifact_manifest_hash: String,
     index_digest: String,
     index_lookup_status: String,
+    read_through_cache: TraditionalPreparedReadThroughCacheEvidence,
     repair_reused_roles: String,
     repair_repaired_roles: String,
     repair_invalidated_derived_states: String,
@@ -8808,6 +8843,9 @@ impl TraditionalPreparedBatchReuseReport {
             source_admission_packet_artifact_manifest_hash,
             index_digest,
             index_lookup_status: "index_created_after_full_prepare".to_string(),
+            read_through_cache: TraditionalPreparedReadThroughCacheEvidence::new(
+                "cache_miss_full_prepare_registered",
+            ),
             repair_reused_roles: "none".to_string(),
             repair_repaired_roles: "none".to_string(),
             repair_invalidated_derived_states: "all_prepared_state_derived_indexes".to_string(),
@@ -8833,6 +8871,9 @@ impl TraditionalPreparedBatchReuseReport {
             source_admission_packet_artifact_manifest_hash: "none".to_string(),
             index_digest: "none".to_string(),
             index_lookup_status: "index_miss_no_manifest".to_string(),
+            read_through_cache: TraditionalPreparedReadThroughCacheEvidence::new(
+                "cache_miss_no_manifest",
+            ),
             repair_reused_roles: "none".to_string(),
             repair_repaired_roles: "none".to_string(),
             repair_invalidated_derived_states: "all_prepared_state_derived_indexes".to_string(),
@@ -8849,10 +8890,7 @@ impl TraditionalPreparedBatchReuseReport {
 
     fn hit(
         manifest_path: PathBuf,
-        manifest_digest: String,
-        source_admission_packet_digest: String,
-        source_admission_packet_artifact_manifest_hash: String,
-        index_digest: String,
+        evidence: TraditionalPreparedBatchHitEvidence,
         prepare_fields: Vec<(String, String)>,
     ) -> Self {
         Self {
@@ -8860,11 +8898,13 @@ impl TraditionalPreparedBatchReuseReport {
             hit: true,
             reason: "manifest_fingerprints_match".to_string(),
             invalidation_reason: "none".to_string(),
-            manifest_digest,
-            source_admission_packet_digest,
-            source_admission_packet_artifact_manifest_hash,
-            index_digest,
-            index_lookup_status: "workspace_index_manifest_hit".to_string(),
+            manifest_digest: evidence.manifest_digest,
+            source_admission_packet_digest: evidence.source_admission_packet_digest,
+            source_admission_packet_artifact_manifest_hash: evidence
+                .source_admission_packet_artifact_manifest_hash,
+            index_digest: evidence.index_digest,
+            index_lookup_status: evidence.index_lookup_status,
+            read_through_cache: evidence.read_through_cache,
             repair_reused_roles: "fact_input,dim_input,cdc_delta_input".to_string(),
             repair_repaired_roles: "none".to_string(),
             repair_invalidated_derived_states: "none".to_string(),
@@ -8903,6 +8943,9 @@ impl TraditionalPreparedBatchReuseReport {
             source_admission_packet_artifact_manifest_hash,
             index_digest,
             index_lookup_status: "workspace_index_partial_repair".to_string(),
+            read_through_cache: TraditionalPreparedReadThroughCacheEvidence::new(
+                "cache_miss_partial_repair_registered",
+            ),
             repair_reused_roles,
             repair_repaired_roles,
             repair_invalidated_derived_states,
@@ -8938,6 +8981,9 @@ impl TraditionalPreparedBatchReuseReport {
             source_admission_packet_artifact_manifest_hash,
             index_digest,
             index_lookup_status: "workspace_index_delta_overlay".to_string(),
+            read_through_cache: TraditionalPreparedReadThroughCacheEvidence::new(
+                "cache_miss_delta_overlay_registered",
+            ),
             repair_reused_roles: "fact_input_base,dim_input".to_string(),
             repair_repaired_roles: "fact_input_append_only_delta_overlay".to_string(),
             repair_invalidated_derived_states:
@@ -9668,6 +9714,32 @@ impl TraditionalAnalyticsPreparedBatchReport {
             prepared_state_native_io_certificate_status.as_str(),
             prepared_state_attractor_route_family,
         ]);
+        let prepared_state_read_through_cache_hit =
+            self.prepared_state_reuse.index_lookup_status == "workspace_index_read_through_hit";
+        let prepared_state_read_through_cache_source = if prepared_state_read_through_cache_hit {
+            "workspace_prepared_state_index_snapshot"
+        } else if workspace_reuse_hit {
+            "workspace_manifest_parse_fallback"
+        } else {
+            "not_applicable_no_cache_hit"
+        };
+        let prepared_state_read_through_manifest_digest_verified = workspace_reuse_hit
+            || workspace_delta_overlay_performed
+            || workspace_partial_repair_performed;
+        let prepared_state_read_through_source_fingerprint_verified = workspace_reuse_hit
+            || workspace_delta_overlay_performed
+            || workspace_partial_repair_performed;
+        let prepared_state_read_through_artifact_fingerprint_verified = workspace_reuse_hit
+            || workspace_delta_overlay_performed
+            || workspace_partial_repair_performed;
+        let prepared_state_read_through_native_io_verified =
+            prepared_state_native_io_certificate_status == "certified";
+        let prepared_state_vortex075_layout_reader_context_cache_status =
+            if prepared_state_read_through_cache_hit {
+                "not_used_prepare_lookup_reused_manifest_snapshot_not_vortex_reader_state"
+            } else {
+                "not_applicable_prepare_lookup_no_vortex_reader_state_reuse"
+            };
         let prepared_state_optimization_strategy = if workspace_reuse_hit {
             "manifest_reuse"
         } else if workspace_delta_overlay_performed {
@@ -10395,6 +10467,67 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_prepared_state_index_external_engine_invoked".to_string(),
                 "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_cache_schema_version".to_string(),
+                PREPARED_STATE_READ_THROUGH_CACHE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_cache_status".to_string(),
+                self.prepared_state_reuse.read_through_cache.status.clone(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_cache_source".to_string(),
+                prepared_state_read_through_cache_source.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_cache_hit".to_string(),
+                prepared_state_read_through_cache_hit.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_manifest_read_required".to_string(),
+                self.prepared_state_reuse
+                    .read_through_cache
+                    .manifest_read_required()
+                    .to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_manifest_digest_verified"
+                    .to_string(),
+                prepared_state_read_through_manifest_digest_verified.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_source_fingerprint_verified"
+                    .to_string(),
+                prepared_state_read_through_source_fingerprint_verified.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified"
+                    .to_string(),
+                prepared_state_read_through_artifact_fingerprint_verified.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_native_io_certificate_verified"
+                    .to_string(),
+                prepared_state_read_through_native_io_verified.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status"
+                    .to_string(),
+                prepared_state_vortex075_layout_reader_context_cache_status.to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_cache_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_cache_external_engine_invoked"
+                    .to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_read_through_cache_claim_boundary".to_string(),
+                "prepared-state read-through cache may skip full manifest parsing only after manifest-file fingerprint, manifest digest, route request digest, source fingerprints, prepared-artifact fingerprints, Native I/O status, and no-fallback fields validate; it does not reuse Vortex reader state or authorize stale artifacts".to_string(),
             ),
             (
                 "prepare_batch_prepared_state_manifest_lookup_micros".to_string(),
@@ -16748,6 +16881,8 @@ struct TraditionalPreparedBatchWorkspaceReuseDecision {
     manifest_path: PathBuf,
     manifest_payload: Option<serde_json::Value>,
     request_payload: serde_json::Value,
+    index_lookup_status: String,
+    read_through_cache_status: String,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -16765,6 +16900,8 @@ impl TraditionalPreparedBatchWorkspaceReuseDecision {
             manifest_path,
             manifest_payload: None,
             request_payload,
+            index_lookup_status: "index_miss_no_manifest".to_string(),
+            read_through_cache_status: "cache_miss_no_manifest".to_string(),
         }
     }
 
@@ -16783,6 +16920,8 @@ impl TraditionalPreparedBatchWorkspaceReuseDecision {
             manifest_path,
             manifest_payload: Some(manifest_payload),
             request_payload,
+            index_lookup_status: "workspace_index_manifest_miss".to_string(),
+            read_through_cache_status: "manifest_read_required_after_index_miss".to_string(),
         }
     }
 
@@ -16791,6 +16930,8 @@ impl TraditionalPreparedBatchWorkspaceReuseDecision {
         manifest_digest: String,
         manifest_payload: serde_json::Value,
         request_payload: serde_json::Value,
+        index_lookup_status: impl Into<String>,
+        read_through_cache_status: impl Into<String>,
     ) -> Self {
         Self {
             hit: true,
@@ -16799,6 +16940,8 @@ impl TraditionalPreparedBatchWorkspaceReuseDecision {
             manifest_path,
             manifest_payload: Some(manifest_payload),
             request_payload,
+            index_lookup_status: index_lookup_status.into(),
+            read_through_cache_status: read_through_cache_status.into(),
         }
     }
 }
@@ -16820,7 +16963,109 @@ fn traditional_prepared_batch_index_path(workspace_dir: &std::path::Path) -> Pat
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn prepared_state_index_digest_from_manifest(manifest_payload: &serde_json::Value) -> String {
     json_string_field(manifest_payload, "prepared_state_index_digest")
+        .or_else(|| json_string_field(manifest_payload, "index_digest"))
         .unwrap_or_else(|| prepared_state_index_payload(manifest_payload).1)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_state_index_manifest_snapshot(
+    manifest_payload: &serde_json::Value,
+    index_digest: Option<&str>,
+) -> serde_json::Value {
+    let field = |key: &str| {
+        manifest_payload
+            .get(key)
+            .cloned()
+            .unwrap_or(serde_json::Value::Null)
+    };
+    let mut snapshot = serde_json::json!({
+        "schema_version": field("schema_version"),
+        "route_id": field("route_id"),
+        "batch_route_id": field("batch_route_id"),
+        "route_request_digest": field("route_request_digest"),
+        "manifest_digest": field("manifest_digest"),
+        "manifest_path": field("manifest_path"),
+        "fact_input": field("fact_input"),
+        "dim_input": field("dim_input"),
+        "cdc_delta_input": field("cdc_delta_input"),
+        "source_admission_packet": field("source_admission_packet"),
+        "source_admission_packet_digest": field("source_admission_packet_digest"),
+        "source_admission_packet_artifact_manifest_hash": field(
+            "source_admission_packet_artifact_manifest_hash",
+        ),
+        "source_admission_packet_row_estimate_status": field(
+            "source_admission_packet_row_estimate_status",
+        ),
+        "source_admission_packet_fact_row_estimate": field(
+            "source_admission_packet_fact_row_estimate",
+        ),
+        "source_admission_packet_dim_row_estimate": field(
+            "source_admission_packet_dim_row_estimate",
+        ),
+        "source_admission_packet_cdc_delta_row_estimate": field(
+            "source_admission_packet_cdc_delta_row_estimate",
+        ),
+        "source_admission_digest_policy_schema_version": field(
+            "source_admission_digest_policy_schema_version",
+        ),
+        "source_admission_digest_policy_status": field("source_admission_digest_policy_status"),
+        "source_admission_full_content_digest_requested": field(
+            "source_admission_full_content_digest_requested",
+        ),
+        "source_admission_full_content_digest_required_for_claim_grade": field(
+            "source_admission_full_content_digest_required_for_claim_grade",
+        ),
+        "source_admission_digest_policy_claim_boundary": field(
+            "source_admission_digest_policy_claim_boundary",
+        ),
+        "prepare_policy": field("prepare_policy"),
+        "prepare_command": field("prepare_command"),
+        "prepare_fields": field("prepare_fields"),
+        "prepared_artifacts": field("prepared_artifacts"),
+        "prepared_state_dependency_schema_version": field(
+            "prepared_state_dependency_schema_version",
+        ),
+        "prepared_state_dependency_checked_roles": field(
+            "prepared_state_dependency_checked_roles",
+        ),
+        "prepared_state_dependency_recheck_policy": field(
+            "prepared_state_dependency_recheck_policy",
+        ),
+        "prepared_state_partial_repair_schema_version": field(
+            "prepared_state_partial_repair_schema_version",
+        ),
+        "prepared_state_partial_repair_status": field("prepared_state_partial_repair_status"),
+        "prepared_state_partial_repair_regeneration_performed": field(
+            "prepared_state_partial_repair_regeneration_performed",
+        ),
+        "prepared_state_partial_repair_stale_segment_reuse_allowed": field(
+            "prepared_state_partial_repair_stale_segment_reuse_allowed",
+        ),
+        "prepared_state_delta_overlay_base": field("prepared_state_delta_overlay_base"),
+        "source_state_id": field("source_state_id"),
+        "source_state_digest": field("source_state_digest"),
+        "prepared_state_id": field("prepared_state_id"),
+        "prepared_state_digest": field("prepared_state_digest"),
+        "fallback_attempted": field("fallback_attempted"),
+        "external_engine_invoked": field("external_engine_invoked"),
+    });
+    if let Some(index_digest) = index_digest {
+        json_object_insert(
+            &mut snapshot,
+            "prepared_state_index_digest",
+            serde_json::Value::String(index_digest.to_string()),
+        );
+    }
+    snapshot
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_state_index_manifest_snapshot_digest(snapshot: &serde_json::Value) -> String {
+    let mut digest_payload = snapshot.clone();
+    if let Some(object) = digest_payload.as_object_mut() {
+        object.remove("prepared_state_index_digest");
+    }
+    stable_json_value_digest(&digest_payload)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -16888,12 +17133,29 @@ fn prepared_state_index_payload(
         "prepare_policy_digest": prepare_policy_digest,
     });
     let index_digest = stable_json_value_digest(&key);
+    let manifest_snapshot =
+        prepared_state_index_manifest_snapshot(manifest_payload, Some(index_digest.as_str()));
+    let manifest_snapshot_digest =
+        prepared_state_index_manifest_snapshot_digest(&manifest_snapshot);
+    let manifest_file_fingerprint = json_string_field(manifest_payload, "manifest_path").map_or(
+        serde_json::Value::Null,
+        |path| {
+            local_reuse_path_fingerprint(
+                std::path::Path::new(&path),
+                "prepared-state reuse manifest",
+            )
+            .unwrap_or(serde_json::Value::Null)
+        },
+    );
     let payload = serde_json::json!({
         "schema_version": PREPARED_STATE_INDEX_SCHEMA_VERSION,
         "index_digest": index_digest,
         "index_key": key,
         "manifest_digest": json_string_field(manifest_payload, "manifest_digest")
             .unwrap_or_else(|| "missing_manifest_digest".to_string()),
+        "manifest_snapshot_digest": manifest_snapshot_digest,
+        "manifest_file_fingerprint": manifest_file_fingerprint,
+        "manifest_snapshot": manifest_snapshot,
         "manifest_path": json_string_field(manifest_payload, "manifest_path")
             .unwrap_or_else(|| PREPARED_STATE_REUSE_PATH_WORKSPACE.to_string()),
         "fallback_attempted": false,
@@ -16914,6 +17176,101 @@ fn write_prepared_state_index(
         &index_payload,
     )?;
     Ok(index_digest)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_state_index_snapshot_native_io_certified(snapshot: &serde_json::Value) -> bool {
+    snapshot
+        .get("prepare_fields")
+        .and_then(serde_json::Value::as_object)
+        .and_then(|fields| fields.get("native_io_certificate_status"))
+        .and_then(serde_json::Value::as_str)
+        == Some("certified")
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn evaluate_prepared_state_index_read_through_cache(
+    index_path: &std::path::Path,
+    manifest_path: &std::path::Path,
+    request_digest: &str,
+    request_payload: &serde_json::Value,
+) -> Result<Option<TraditionalPreparedBatchWorkspaceReuseDecision>> {
+    if !index_path.exists() {
+        return Ok(None);
+    }
+    let Ok(index_text) = std::fs::read_to_string(index_path) else {
+        return Ok(None);
+    };
+    let index_payload: serde_json::Value = match serde_json::from_str(&index_text) {
+        Ok(payload) => payload,
+        Err(_) => return Ok(None),
+    };
+    if json_string_field(&index_payload, "schema_version").as_deref()
+        != Some(PREPARED_STATE_INDEX_SCHEMA_VERSION)
+    {
+        return Ok(None);
+    }
+    if json_bool_field(&index_payload, "fallback_attempted")
+        || json_bool_field(&index_payload, "external_engine_invoked")
+    {
+        return Ok(None);
+    }
+    let Some(manifest_snapshot) = index_payload.get("manifest_snapshot").cloned() else {
+        return Ok(None);
+    };
+    if json_string_field(&manifest_snapshot, "schema_version").as_deref()
+        != Some(PREPARED_STATE_REUSE_POLICY_WORKSPACE)
+    {
+        return Ok(None);
+    }
+    let index_digest = json_string_field(&index_payload, "index_digest").unwrap_or_default();
+    if index_digest.is_empty()
+        || prepared_state_index_digest_from_manifest(&manifest_snapshot) != index_digest
+    {
+        return Ok(None);
+    }
+    if json_string_field(&index_payload, "manifest_snapshot_digest").as_deref()
+        != Some(prepared_state_index_manifest_snapshot_digest(&manifest_snapshot).as_str())
+    {
+        return Ok(None);
+    }
+    let manifest_digest =
+        json_string_field(&manifest_snapshot, "manifest_digest").unwrap_or_default();
+    if json_string_field(&index_payload, "manifest_digest").as_deref()
+        != Some(manifest_digest.as_str())
+    {
+        return Ok(None);
+    }
+    let current_manifest_fingerprint =
+        local_reuse_path_fingerprint(manifest_path, "prepared-state reuse manifest")?;
+    if index_payload.get("manifest_file_fingerprint") != Some(&current_manifest_fingerprint) {
+        return Ok(None);
+    }
+    if json_string_field(&manifest_snapshot, "route_request_digest").as_deref()
+        != Some(request_digest)
+    {
+        return Ok(None);
+    }
+    let artifact_reason = prepared_batch_artifact_invalidation_reason(&manifest_snapshot)?;
+    if artifact_reason != "none" {
+        return Ok(None);
+    }
+    if json_bool_field(&manifest_snapshot, "fallback_attempted")
+        || json_bool_field(&manifest_snapshot, "external_engine_invoked")
+    {
+        return Ok(None);
+    }
+    if !prepared_state_index_snapshot_native_io_certified(&manifest_snapshot) {
+        return Ok(None);
+    }
+    Ok(Some(TraditionalPreparedBatchWorkspaceReuseDecision::hit(
+        manifest_path.to_path_buf(),
+        manifest_digest,
+        manifest_snapshot,
+        request_payload.clone(),
+        "workspace_index_read_through_hit",
+        "index_read_through_hit_manifest_snapshot_verified",
+    )))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -16943,6 +17300,15 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
             "no_reuse_manifest",
             request_payload,
         ));
+    }
+    let index_path = traditional_prepared_batch_index_path(workspace_dir);
+    if let Some(decision) = evaluate_prepared_state_index_read_through_cache(
+        &index_path,
+        &manifest_path,
+        request_digest.as_str(),
+        &request_payload,
+    )? {
+        return Ok(decision);
     }
     let manifest_text = match std::fs::read_to_string(&manifest_path) {
         Ok(text) => text,
@@ -17044,6 +17410,8 @@ fn evaluate_traditional_prepared_batch_workspace_reuse(
         manifest_digest,
         manifest_payload,
         request_payload,
+        "workspace_index_manifest_hit",
+        "manifest_read_fallback_hit",
     ))
 }
 
@@ -25225,12 +25593,19 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
         let index_digest = prepared_state_index_digest_from_manifest(manifest_payload);
         let prepare_fields = prepared_batch_reuse_prepare_fields(manifest_payload);
         let cache_hit_micros = duration_to_micros(cache_hit_start.elapsed());
-        let prepared_state_reuse = TraditionalPreparedBatchReuseReport::hit(
-            reuse_decision.manifest_path,
-            reuse_decision.manifest_digest,
+        let hit_evidence = TraditionalPreparedBatchHitEvidence {
+            manifest_digest: reuse_decision.manifest_digest,
             source_admission_packet_digest,
             source_admission_packet_artifact_manifest_hash,
             index_digest,
+            index_lookup_status: reuse_decision.index_lookup_status,
+            read_through_cache: TraditionalPreparedReadThroughCacheEvidence::new(
+                reuse_decision.read_through_cache_status,
+            ),
+        };
+        let prepared_state_reuse = TraditionalPreparedBatchReuseReport::hit(
+            reuse_decision.manifest_path,
+            hit_evidence,
             prepare_fields,
         )
         .with_lifecycle_timing(TraditionalPreparedBatchLifecycleTiming {
@@ -43788,6 +44163,35 @@ mod tests {
             manifest_payload.pointer("/prepared_artifacts/fact/fingerprint/content_digest"),
             Some(&serde_json::Value::Null)
         );
+        let index_payload: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(traditional_prepared_batch_index_path(&workspace))
+                .expect("read prepared-state index"),
+        )
+        .expect("parse prepared-state index");
+        assert_eq!(
+            index_payload
+                .get("schema_version")
+                .and_then(serde_json::Value::as_str),
+            Some(PREPARED_STATE_INDEX_SCHEMA_VERSION)
+        );
+        assert!(
+            index_payload
+                .get("manifest_snapshot")
+                .and_then(serde_json::Value::as_object)
+                .is_some()
+        );
+        assert!(
+            index_payload
+                .get("manifest_snapshot_digest")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|value| value.starts_with("sha256:"))
+        );
+        assert!(
+            index_payload
+                .get("manifest_file_fingerprint")
+                .and_then(serde_json::Value::as_object)
+                .is_some()
+        );
         assert_eq!(
             manifest_payload
                 .get("source_admission_digest_policy_schema_version")
@@ -44168,6 +44572,71 @@ mod tests {
         );
         assert_field_eq(
             &second_fields,
+            "prepare_batch_prepared_state_index_lookup_status",
+            "workspace_index_read_through_hit",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_cache_schema_version",
+            PREPARED_STATE_READ_THROUGH_CACHE_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_cache_status",
+            "index_read_through_hit_manifest_snapshot_verified",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_cache_source",
+            "workspace_prepared_state_index_snapshot",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_cache_hit",
+            "true",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_manifest_read_required",
+            "false",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_manifest_digest_verified",
+            "true",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_source_fingerprint_verified",
+            "true",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified",
+            "true",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_native_io_certificate_verified",
+            "true",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status",
+            "not_used_prepare_lookup_reused_manifest_snapshot_not_vortex_reader_state",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_cache_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &second_fields,
+            "prepare_batch_prepared_state_read_through_cache_external_engine_invoked",
+            "false",
+        );
+        assert_field_eq(
+            &second_fields,
             "prepare_batch_preparation_timing_source",
             "workspace_manifest_hit_zero_prepare",
         );
@@ -44385,6 +44854,21 @@ mod tests {
             &third_fields,
             "prepare_batch_prepared_state_lookup_status",
             "workspace_manifest_partial_repair",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_read_through_cache_hit",
+            "false",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_read_through_source_fingerprint_verified",
+            "true",
+        );
+        assert_field_eq(
+            &third_fields,
+            "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified",
+            "true",
         );
         assert_field_eq(
             &third_fields,

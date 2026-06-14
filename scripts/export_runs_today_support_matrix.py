@@ -133,6 +133,37 @@ def normalize(envelope: dict[str, Any]) -> dict[str, Any]:
                 ),
             }
         )
+    production_diagnostic_row_ids = csv_values(
+        fields.get("production_unsupported_diagnostic_row_order")
+    )
+    production_unsupported_diagnostics = []
+    for row_id in production_diagnostic_row_ids:
+        prefix = f"production_unsupported_diagnostic_row_{row_id}_"
+        production_unsupported_diagnostics.append(
+            {
+                "id": row_id,
+                "production_family": fields[f"{prefix}production_family"],
+                "user_surface": csv_values(fields[f"{prefix}user_surface"]),
+                "entrypoint_kind": fields[f"{prefix}entrypoint_kind"],
+                "support_status": fields[f"{prefix}support_status"],
+                "diagnostic_code": fields[f"{prefix}diagnostic_code"],
+                "blocker_id": fields[f"{prefix}blocker_id"],
+                "message": fields[f"{prefix}message"],
+                "next_action": fields[f"{prefix}next_action"],
+                "required_evidence": csv_values(fields[f"{prefix}required_evidence"]),
+                "claim_gate_status": fields[f"{prefix}claim_gate_status"],
+                "route_scope": fields[f"{prefix}route_scope"],
+                "fallback_attempted": field_bool(fields, f"{prefix}fallback_attempted"),
+                "external_engine_invoked": field_bool(
+                    fields,
+                    f"{prefix}external_engine_invoked",
+                ),
+                "side_effects_performed": field_bool(
+                    fields,
+                    f"{prefix}side_effects_performed",
+                ),
+            }
+        )
     support_state_vocabulary = csv_values(fields["runs_today_support_state_vocabulary"])
     if tuple(support_state_vocabulary) != SUPPORT_STATES:
         raise ValueError(f"unexpected support-state vocabulary: {support_state_vocabulary}")
@@ -188,6 +219,32 @@ def normalize(envelope: dict[str, Any]) -> dict[str, Any]:
         ),
         "claim_gate_status": fields["runs_today_claim_gate_status"],
         "claim_boundary": fields["runs_today_claim_boundary"],
+        "production_unsupported_diagnostic_schema_version": fields.get(
+            "production_unsupported_diagnostic_schema_version"
+        ),
+        "production_unsupported_diagnostic_docs_ref": fields.get(
+            "production_unsupported_diagnostic_docs_ref"
+        ),
+        "production_unsupported_diagnostic_row_order": production_diagnostic_row_ids,
+        "production_unsupported_diagnostic_row_count": field_int(
+            fields,
+            "production_unsupported_diagnostic_row_count",
+        )
+        if "production_unsupported_diagnostic_row_count" in fields
+        else len(production_unsupported_diagnostics),
+        "production_unsupported_diagnostic_all_rows_fallback_attempted_false": field_bool(
+            fields,
+            "production_unsupported_diagnostic_all_rows_fallback_attempted_false",
+        ),
+        "production_unsupported_diagnostic_all_rows_external_engine_invoked_false": field_bool(
+            fields,
+            "production_unsupported_diagnostic_all_rows_external_engine_invoked_false",
+        ),
+        "production_unsupported_diagnostic_all_rows_side_effects_performed_false": field_bool(
+            fields,
+            "production_unsupported_diagnostic_all_rows_side_effects_performed_false",
+        ),
+        "production_unsupported_diagnostics": production_unsupported_diagnostics,
         "rows": rows,
     }
 
