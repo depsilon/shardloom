@@ -50,6 +50,11 @@ EXPECTED_OUTPUT_FORMATS = 7
 EXPECTED_OUTPUT_WRITE_METHODS = 9
 EXPECTED_OUTPUT_ROUTE_IDS = 8
 EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS = 113
+EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES = 6
+EXPECTED_EXAMPLE_REPLAY_RUNTIME_COMMANDS = 3
+EXPECTED_EXAMPLE_REPLAY_SCENARIOS = len(EXPECTED_EXAMPLE_SCENARIOS)
+EXPECTED_EXAMPLE_REPLAY_ERROR_SCENARIOS = len(EXPECTED_ERROR_SCENARIOS)
+EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES = 2
 
 EXPECTED_GOLDEN_WORKFLOWS = {
     "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
@@ -306,6 +311,7 @@ class ReportPaths:
     source_prepared_state: Path = Path("target/v1-source-prepared-state-scope-report.json")
     local_output_sink: Path = Path("target/v1-local-output-sink-scope-report.json")
     python_user_surface: Path = Path("target/python-user-surface-completion-gate.json")
+    example_replay: Path = Path("target/v1-example-replay-report.json")
 
 
 def parse_args() -> argparse.Namespace:
@@ -334,6 +340,11 @@ def parse_args() -> argparse.Namespace:
         "--python-user-surface-report",
         type=Path,
         default=ReportPaths.python_user_surface,
+    )
+    parser.add_argument(
+        "--example-replay-report",
+        type=Path,
+        default=ReportPaths.example_replay,
     )
     parser.add_argument(
         "--output",
@@ -421,6 +432,13 @@ def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         "output_write_methods": EXPECTED_OUTPUT_WRITE_METHODS,
         "output_routes": EXPECTED_OUTPUT_ROUTE_IDS,
         "python_user_surface_method_rows": EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS,
+        "example_replay_doc_sources": EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES,
+        "example_replay_runtime_commands": EXPECTED_EXAMPLE_REPLAY_RUNTIME_COMMANDS,
+        "example_replay_scenarios": EXPECTED_EXAMPLE_REPLAY_SCENARIOS,
+        "example_replay_expected_error_scenarios": EXPECTED_EXAMPLE_REPLAY_ERROR_SCENARIOS,
+        "example_replay_unsupported_failure_fixtures": (
+            EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES
+        ),
         "golden_workflows": len(EXPECTED_GOLDEN_WORKFLOWS),
         "golden_stage_count_min": EXPECTED_GOLDEN_STAGE_COUNT_MIN,
         "executable_fixtures": EXPECTED_EXECUTABLE_FIXTURES,
@@ -487,6 +505,11 @@ def _validate_matrix(matrix: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         "python_user_surface": {
             "path": "target/python-user-surface-completion-gate.json",
             "schema_version": "shardloom.python_user_surface_completion_gate.v1",
+            "required_status": "passed",
+        },
+        "example_replay": {
+            "path": "target/v1-example-replay-report.json",
+            "schema_version": "shardloom.v1_example_replay_report.v1",
             "required_status": "passed",
         },
     }
@@ -1019,6 +1042,81 @@ def _validate_python_user_surface(payload: dict[str, Any]) -> tuple[dict[str, An
     }, blockers
 
 
+def _validate_example_replay(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    blockers = _expect_status(
+        payload,
+        "example_replay",
+        "shardloom.v1_example_replay_report.v1",
+    )
+    expected_values = {
+        "docs_marker_source_count": EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES,
+        "runtime_command_count": EXPECTED_EXAMPLE_REPLAY_RUNTIME_COMMANDS,
+        "golden_workflow_replay_verified_count": len(EXPECTED_GOLDEN_WORKFLOWS),
+        "benchmark_scenario_count": EXPECTED_EXAMPLE_REPLAY_SCENARIOS,
+        "benchmark_expected_error_scenario_count": (
+            EXPECTED_EXAMPLE_REPLAY_ERROR_SCENARIOS
+        ),
+        "unsupported_failure_fixture_count": (
+            EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES
+        ),
+    }
+    for field, expected in expected_values.items():
+        if payload.get(field) != expected:
+            blockers.append(f"example_replay: {field}={payload.get(field, 'missing')}")
+    for field in [
+        "docs_marker_status",
+        "runtime_command_status",
+        "golden_workflow_replay_status",
+        "docs_example_execution_status",
+        "python_readme_example_execution_status",
+        "website_example_execution_status",
+        "quickstart_smoke_status",
+        "benchmark_scenario_execution_status",
+        "timing_review_status",
+        "unsupported_failure_fixture_status",
+    ]:
+        if payload.get(field) != "passed":
+            blockers.append(f"example_replay: {field}={payload.get(field, 'missing')}")
+    if payload.get("all_no_fallback_no_external_engine") is not True:
+        blockers.append("example_replay: all_no_fallback_no_external_engine must be true")
+    if payload.get("correctness_claim_allowed") is not True:
+        blockers.append("example_replay: correctness_claim_allowed must be true")
+    if payload.get("runtime_support_claim_allowed") is not False:
+        blockers.append("example_replay: runtime_support_claim_allowed must be false")
+    if payload.get("claim_gate_status") != "not_claim_grade":
+        blockers.append(
+            "example_replay: claim_gate_status="
+            + str(payload.get("claim_gate_status", "missing"))
+        )
+    observed_errors = {str(value) for value in payload.get("expected_error_scenario_ids", [])}
+    if observed_errors != EXPECTED_ERROR_SCENARIOS:
+        blockers.append(
+            "example_replay: expected_error_scenario_ids mismatch: "
+            + f"missing={sorted(EXPECTED_ERROR_SCENARIOS - observed_errors)} "
+            + f"extra={sorted(observed_errors - EXPECTED_ERROR_SCENARIOS)}"
+        )
+    return {
+        "docs_marker_source_count": payload.get("docs_marker_source_count"),
+        "docs_marker_count": payload.get("docs_marker_count"),
+        "docs_marker_pass_count": payload.get("docs_marker_pass_count"),
+        "runtime_command_count": payload.get("runtime_command_count"),
+        "golden_workflow_replay_verified_count": payload.get(
+            "golden_workflow_replay_verified_count"
+        ),
+        "golden_workflow_stage_count": payload.get("golden_workflow_stage_count"),
+        "benchmark_scenario_count": payload.get("benchmark_scenario_count"),
+        "benchmark_expected_error_scenario_count": payload.get(
+            "benchmark_expected_error_scenario_count"
+        ),
+        "unsupported_failure_fixture_count": payload.get(
+            "unsupported_failure_fixture_count"
+        ),
+        "all_no_fallback_no_external_engine": payload.get(
+            "all_no_fallback_no_external_engine"
+        ),
+    }, blockers
+
+
 def _validate_golden(payload: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     blockers = _expect_status(
         payload,
@@ -1396,6 +1494,7 @@ def build_report(
         ("source_prepared_state", paths.source_prepared_state),
         ("local_output_sink", paths.local_output_sink),
         ("python_user_surface", paths.python_user_surface),
+        ("example_replay", paths.example_replay),
     ]:
         payload, report_blockers, ref = _load_report(repo_root, path)
         inputs[key] = payload
@@ -1411,6 +1510,7 @@ def build_report(
         "golden_workflow": _validate_golden,
         "admitted_semantics": _validate_admitted,
         "python_user_surface": _validate_python_user_surface,
+        "example_replay": _validate_example_replay,
     }
     for key, validator in validators.items():
         payload = inputs[key]
@@ -1453,12 +1553,9 @@ def build_report(
         else "failed",
         "golden_workflow_validator_status": _report_status(inputs, "golden_workflow"),
         "admitted_semantics_validator_status": _report_status(inputs, "admitted_semantics"),
-        "docs_example_execution_status": "covered_by_front_door_scenarios_and_golden_workflows"
-        if not blockers
-        else "blocked",
-        "unsupported_path_test_status": "covered_by_admitted_semantics_diagnostics"
-        if not blockers
-        else "blocked",
+        "example_replay_validator_status": _report_status(inputs, "example_replay"),
+        "docs_example_execution_status": "passed" if not blockers else "blocked",
+        "unsupported_path_test_status": "passed" if not blockers else "blocked",
         "decoded_reference_differential_execution_performed": _report_bool(
             inputs,
             "admitted_semantics",
@@ -1520,6 +1617,7 @@ def main() -> int:
         source_prepared_state=args.source_prepared_state_report,
         local_output_sink=args.local_output_sink_report,
         python_user_surface=args.python_user_surface_report,
+        example_replay=args.example_replay_report,
     )
     report = build_report(repo_root, paths, args.matrix)
     output = resolve_path(repo_root, args.output)

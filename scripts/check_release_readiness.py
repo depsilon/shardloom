@@ -147,6 +147,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/v1-api-schema-stability-report.json"),
     )
     parser.add_argument(
+        "--v1-example-replay-report",
+        type=Path,
+        default=Path("target/v1-example-replay-report.json"),
+    )
+    parser.add_argument(
         "--v1-correctness-conformance-report",
         type=Path,
         default=Path("target/v1-correctness-conformance-report.json"),
@@ -459,6 +464,10 @@ def main() -> int:
     v1_api_schema_stability_report_path = resolve(
         repo_root,
         args.v1_api_schema_stability_report,
+    )
+    v1_example_replay_report_path = resolve(
+        repo_root,
+        args.v1_example_replay_report,
     )
     v1_correctness_conformance_report_path = resolve(
         repo_root,
@@ -1798,6 +1807,80 @@ def main() -> int:
         )
     )
 
+    v1_example_replay = load_json(v1_example_replay_report_path)
+    v1_example_replay_blockers: list[str] = []
+    if v1_example_replay is None:
+        v1_example_replay_blockers.append("missing v1 example replay report")
+    else:
+        if (
+            v1_example_replay.get("schema_version")
+            != "shardloom.v1_example_replay_report.v1"
+        ):
+            v1_example_replay_blockers.append(
+                "v1 example replay schema_version="
+                + str(v1_example_replay.get("schema_version", "missing"))
+            )
+        if v1_example_replay.get("status") != "passed":
+            v1_example_replay_blockers.extend(
+                v1_example_replay.get("blockers", ["v1 example replay report blocked"])
+            )
+        for field, expected in [
+            ("docs_marker_source_count", 6),
+            ("runtime_command_count", 3),
+            ("golden_workflow_replay_verified_count", 3),
+            ("benchmark_scenario_count", 9),
+            ("benchmark_expected_error_scenario_count", 1),
+            ("unsupported_failure_fixture_count", 2),
+            ("docs_marker_status", "passed"),
+            ("runtime_command_status", "passed"),
+            ("golden_workflow_replay_status", "passed"),
+            ("docs_example_execution_status", "passed"),
+            ("python_readme_example_execution_status", "passed"),
+            ("website_example_execution_status", "passed"),
+            ("quickstart_smoke_status", "passed"),
+            ("benchmark_scenario_execution_status", "passed"),
+            ("timing_review_status", "passed"),
+            ("unsupported_failure_fixture_status", "passed"),
+            ("claim_gate_status", "not_claim_grade"),
+        ]:
+            if v1_example_replay.get(field) != expected:
+                v1_example_replay_blockers.append(
+                    f"v1 example replay {field}="
+                    + str(v1_example_replay.get(field, "missing"))
+                )
+        for field in [
+            "all_no_fallback_no_external_engine",
+            "correctness_claim_allowed",
+        ]:
+            if v1_example_replay.get(field) is not True:
+                v1_example_replay_blockers.append(
+                    f"v1 example replay {field} must be true"
+                )
+        for field in [
+            "runtime_support_claim_allowed",
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+            "publication_attempted",
+            "tag_created",
+            "package_upload_attempted",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if v1_example_replay.get(field) is not False:
+                v1_example_replay_blockers.append(
+                    f"v1 example replay {field} must be false"
+                )
+    checks.append(
+        check(
+            "v1_example_replay_gate",
+            str(args.v1_example_replay_report).replace("\\", "/"),
+            v1_example_replay_blockers,
+        )
+    )
+
     v1_correctness_conformance = load_json(v1_correctness_conformance_report_path)
     v1_correctness_conformance_blockers: list[str] = []
     if v1_correctness_conformance is None:
@@ -1821,20 +1904,15 @@ def main() -> int:
                 )
             )
         for field, expected in [
-            ("input_report_count", 7),
+            ("input_report_count", 8),
             ("matrix_status", "passed"),
             ("v1_correctness_matrix_status", "passed"),
             ("scope_report_status", "passed"),
             ("golden_workflow_validator_status", "passed"),
             ("admitted_semantics_validator_status", "passed"),
-            (
-                "docs_example_execution_status",
-                "covered_by_front_door_scenarios_and_golden_workflows",
-            ),
-            (
-                "unsupported_path_test_status",
-                "covered_by_admitted_semantics_diagnostics",
-            ),
+            ("example_replay_validator_status", "passed"),
+            ("docs_example_execution_status", "passed"),
+            ("unsupported_path_test_status", "passed"),
         ]:
             if v1_correctness_conformance.get(field) != expected:
                 v1_correctness_conformance_blockers.append(
@@ -1870,10 +1948,10 @@ def main() -> int:
             expected_matrix_values = {
                 "schema_version": "shardloom.v1_correctness_conformance_matrix.v1",
                 "matrix_id": "prod-v1-2b.correctness_conformance",
-                "expected_count_field_count": 29,
+                "expected_count_field_count": 34,
                 "required_semantic_case_count": 47,
                 "required_unsupported_case_count": 11,
-                "report_input_count": 7,
+                "report_input_count": 8,
                 "residual_gap_count": 3,
             }
             for field, expected in expected_matrix_values.items():
@@ -1970,6 +2048,16 @@ def main() -> int:
                     "python_user_surface",
                     "required_operation_method_rows_present",
                 ): 13,
+                ("example_replay", "docs_marker_source_count"): 6,
+                ("example_replay", "runtime_command_count"): 3,
+                ("example_replay", "golden_workflow_replay_verified_count"): 3,
+                ("example_replay", "benchmark_scenario_count"): 9,
+                ("example_replay", "benchmark_expected_error_scenario_count"): 1,
+                ("example_replay", "unsupported_failure_fixture_count"): 2,
+                (
+                    "example_replay",
+                    "all_no_fallback_no_external_engine",
+                ): True,
                 ("operation_coverage", "operation_coverage_status"): "passed",
                 ("operation_coverage", "operation_coverage_row_count"): 9,
                 ("operation_coverage", "operation_coverage_semantic_link_count"): 28,
@@ -2399,6 +2487,7 @@ def main() -> int:
         "python scripts/check_v1_source_prepared_state_scope.py",
         "python scripts/check_v1_local_output_sink_scope.py",
         "python scripts/check_v1_api_schema_stability.py",
+        "python scripts/check_v1_example_replay.py",
         "python scripts/check_v1_correctness_conformance.py",
         "python scripts/check_user_surface_runtime_gap_inventory.py",
         "python scripts/check_user_surface_graduation_matrix.py",
@@ -2469,6 +2558,9 @@ def main() -> int:
         ).replace("\\", "/"),
         "v1_api_schema_stability_report_ref": str(
             args.v1_api_schema_stability_report
+        ).replace("\\", "/"),
+        "v1_example_replay_report_ref": str(
+            args.v1_example_replay_report
         ).replace("\\", "/"),
         "v1_correctness_conformance_report_ref": str(
             args.v1_correctness_conformance_report

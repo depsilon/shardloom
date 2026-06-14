@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-2B v1 example replay and correctness closeout
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-2B` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/release/v1-correctness-conformance-matrix.json`.
+    - `target/golden-workflow-report.json`.
+    - `target/v1-example-replay-report.json`.
+    - `target/v1-correctness-conformance-report.json`.
+  - Branch: `codex/v1-example-replay-closeout`.
+  - Scope:
+    - Added `scripts/check_v1_example_replay.py` as the bounded local docs/example replay gate.
+      The gate rebuilds the feature-gated local CLI when needed, validates golden workflow
+      replay/certificate markers, checks README/Python README/docs/Astro/Starlight snippet anchors,
+      and sequentially runs the local Python smoke plus benchmark-page ETL scenario and timing
+      review examples.
+    - Promoted `target/v1-example-replay-report.json` into the v1 correctness/conformance matrix as
+      the eighth required input report, replacing inferred docs/example coverage with explicit
+      `docs_example_execution_status=passed` and `unsupported_path_test_status=passed`.
+    - Wired the replay report through GitHub Actions, CI gate matrix drift validation, release
+      validation evidence, hard release-readiness checks, release docs, and release-script tests.
+    - Removed the stale duplicate local file `docs/release/v1-correctness-conformance-matrix 2.json`.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/check_v1_example_replay.py scripts/check_v1_correctness_conformance.py scripts/check_release_readiness.py scripts/run_release_validation_evidence.py scripts/check_ci_gate_matrix.py python/tests/test_release_scripts.py`.
+    - `python3 scripts/check_v1_example_replay.py --profile-order debug,release`.
+    - `python3 scripts/check_v1_correctness_conformance.py`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_release_validation_evidence_uses_configured_python_and_conda python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_passes_complete_fixture python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_example_replay_report python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_example_replay_drift python.tests.test_release_scripts.ReleaseScriptTests.test_v1_correctness_conformance_gate_fails_missing_front_door_scenario`.
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+  - Generated report:
+    - `target/v1-example-replay-report.json`.
+    - `target/v1-correctness-conformance-report.json`.
+    - `target/hard-release-readiness-gate.json`.
+    - Example replay status: `passed`.
+    - Docs/example source anchors: `6`.
+    - Runtime commands: `3`.
+    - Golden workflow replay/certificate verified workflows: `3`.
+    - Benchmark ETL scenarios: `9`.
+    - Expected fail-closed scenarios: `1`.
+    - Unsupported/fail-closed fixtures: `2`.
+    - V1 conformance input reports: `8`.
+    - V1 conformance matrix expected-count fields: `34`.
+  - Claim boundary:
+    - May claim the declared local v1 correctness/conformance gate has explicit docs/README/website
+      replay evidence for the current Python examples, golden workflow replay/certificate evidence,
+      and deterministic unsupported/fail-closed fixtures.
+    - Does not approve broad SQL/DataFrame parity, production readiness, performance claims,
+      package publication, Spark replacement, or external-runtime fallback.
+  - Fallback boundary:
+    - The replay gate runs only local ShardLoom CLI/Python paths. External engines remain allowed
+      only as explicit test oracles where separately approved and are never ShardLoom runtime
+      fallback.
 - [x] Session label: PROD-V1-2B seeded v1 property semantic coverage
   - Date: 2026-06-13
   - Source:

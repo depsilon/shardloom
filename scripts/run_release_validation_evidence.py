@@ -267,6 +267,10 @@ def required_validation_commands(
             [python_executable, "scripts/check_v1_api_schema_stability.py"],
         ),
         (
+            "v1_example_replay_gate",
+            [python_executable, "scripts/check_v1_example_replay.py"],
+        ),
+        (
             "v1_correctness_conformance_gate",
             [python_executable, "scripts/check_v1_correctness_conformance.py"],
         ),

@@ -59,6 +59,12 @@
       "path": "target/python-user-surface-completion-gate.json",
       "schema_version": "shardloom.python_user_surface_completion_gate.v1",
       "required_status": "passed"
+    },
+    {
+      "report_id": "example_replay",
+      "path": "target/v1-example-replay-report.json",
+      "schema_version": "shardloom.v1_example_replay_report.v1",
+      "required_status": "passed"
     }
   ],
   "expected_counts": {
@@ -77,6 +83,11 @@
     "output_write_methods": 9,
     "output_routes": 8,
     "python_user_surface_method_rows": 113,
+    "example_replay_doc_sources": 6,
+    "example_replay_runtime_commands": 3,
+    "example_replay_scenarios": 9,
+    "example_replay_expected_error_scenarios": 1,
+    "example_replay_unsupported_failure_fixtures": 2,
     "golden_workflows": 3,
     "golden_stage_count_min": 9,
     "executable_fixtures": 117,

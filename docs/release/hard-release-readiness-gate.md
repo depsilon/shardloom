@@ -590,19 +590,30 @@ grade, or public API/schema claims without the remaining publication rows.
 `PROD-V1-2B` adds local v1 correctness/conformance aggregation under the same release boundary:
 
 ```text
+python scripts\check_v1_example_replay.py
 python scripts\check_v1_correctness_conformance.py
 docs/release/v1-correctness-conformance-matrix.json
+target/v1-example-replay-report.json
 target/v1-correctness-conformance-report.json
+shardloom.v1_example_replay_report.v1
 shardloom.v1_correctness_conformance_matrix.v1
 shardloom.v1_correctness_conformance_report.v1
-input_report_count=7
+docs_marker_source_count=6
+runtime_command_count=3
+golden_workflow_replay_verified_count=3
+benchmark_scenario_count=9
+benchmark_expected_error_scenario_count=1
+unsupported_failure_fixture_count=2
+all_no_fallback_no_external_engine=true
+input_report_count=8
 matrix_status=passed
 v1_correctness_matrix_status=passed
 scope_report_status=passed
 golden_workflow_validator_status=passed
 admitted_semantics_validator_status=passed
-docs_example_execution_status=covered_by_front_door_scenarios_and_golden_workflows
-unsupported_path_test_status=covered_by_admitted_semantics_diagnostics
+example_replay_validator_status=passed
+docs_example_execution_status=passed
+unsupported_path_test_status=passed
 decoded_reference_differential_execution_performed=true
 property_execution_performed=true
 correctness_claim_allowed=true
@@ -616,7 +627,8 @@ external_engine_invoked=false
 
 This aggregate report proves that the current v1 correctness evidence is present and coherent
 across golden workflows, admitted semantics, front-door scope, Vortex scope, source/prepared-state
-scope, local output/sink scope, and Python user-surface scope. It does not approve broad
+scope, local output/sink scope, Python user-surface scope, and the bounded docs/README/website
+example replay gate. It does not approve broad
 SQL/DataFrame parity, production
 readiness, package publication, performance claims, or external-runtime fallback.
 
