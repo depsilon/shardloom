@@ -67,6 +67,24 @@ READY_STATUS = "production_ready"
 BLOCKED_STATUS_PREFIXES = ("blocked_", "not_ready_", "v1_candidate_")
 EVIDENCE_PASS_PREFIXES = ("passed", "certified")
 UNSUPPORTED_STATUS = "deterministic_unsupported_diagnostic"
+OBJECT_STORE_LOCAL_EMULATOR_WORKLOAD_ID = "object_store_local_emulator_runtime_v1_candidate"
+OBJECT_STORE_REQUIRED_EFFECT_PERMISSIONS = {
+    "explicit_local_file_read",
+    "explicit_local_file_write",
+    "local_emulator_object_store_io",
+    "no_network",
+    "no_live_credentials",
+    "no_provider_probe",
+    "no_table_commit",
+}
+OBJECT_STORE_REQUIRED_UNSUPPORTED_OPERATIONS = {
+    "live_s3_provider_runtime",
+    "live_gcs_provider_runtime",
+    "live_adls_provider_runtime",
+    "credentialed_object_store_read",
+    "object_store_table_commit",
+    "object_store_distributed_runtime",
+}
 
 CLAIM_SURFACE_REFS = {
     "README.md": (
@@ -412,6 +430,95 @@ def validate_workload(row: object) -> tuple[dict[str, Any], list[str], list[str]
     return summary, validation_blockers, production_blockers
 
 
+def validate_object_store_local_emulator_workload(row: object) -> tuple[dict[str, Any], list[str]]:
+    if not isinstance(row, dict):
+        return {"present": False, "status": "not_applicable"}, []
+    if row.get("workload_id") != OBJECT_STORE_LOCAL_EMULATOR_WORKLOAD_ID:
+        return {"present": False, "status": "not_applicable"}, []
+
+    blockers: list[str] = []
+    evidence = row.get("evidence") if isinstance(row.get("evidence"), dict) else {}
+    unsupported_rows_value = row.get("unsupported_diagnostics")
+    unsupported_rows = unsupported_rows_value if isinstance(unsupported_rows_value, list) else []
+    unsupported_operations = {
+        item.get("operation")
+        for item in unsupported_rows
+        if isinstance(item, dict) and isinstance(item.get("operation"), str)
+    }
+    effect_permissions_value = row.get("effect_permissions")
+    effect_permissions = (
+        set(effect_permissions_value)
+        if isinstance(effect_permissions_value, list)
+        else set()
+    )
+    missing_effects = sorted(OBJECT_STORE_REQUIRED_EFFECT_PERMISSIONS - effect_permissions)
+    missing_unsupported = sorted(
+        OBJECT_STORE_REQUIRED_UNSUPPORTED_OPERATIONS - unsupported_operations
+    )
+
+    if row.get("v1_scope_classification") != "v1_candidate_pending_feasibility":
+        blockers.append("object-store local-emulator workload must remain a v1 feasibility candidate")
+    if row.get("production_ready") is not False:
+        blockers.append("object-store local-emulator workload must not be production_ready")
+    if row.get("claim_gate_status") != "not_claim_grade":
+        blockers.append("object-store local-emulator workload must remain not_claim_grade")
+    if row.get("production_claim_allowed") is not False:
+        blockers.append("object-store local-emulator production_claim_allowed must be false")
+    if row.get("performance_claim_allowed") is not False:
+        blockers.append("object-store local-emulator performance_claim_allowed must be false")
+    if row.get("fallback_attempted") is not False or row.get("external_engine_invoked") is not False:
+        blockers.append("object-store local-emulator no-fallback fields must be false")
+    if missing_effects:
+        blockers.append(
+            "object-store local-emulator effect_permissions missing "
+            + ",".join(missing_effects)
+        )
+    if missing_unsupported:
+        blockers.append(
+            "object-store local-emulator unsupported_diagnostics missing "
+            + ",".join(missing_unsupported)
+        )
+
+    expected_evidence_prefixes = {
+        "runtime_execution": "passed_scoped_local_emulator",
+        "correctness": "passed_scoped_local_emulator",
+        "native_io_certificate": "passed_fixture_smoke_only",
+        "execution_certificate": "passed_fixture_smoke_only",
+        "fault_tolerance": "passed_scoped_local_recovery_smoke",
+        "security_governance": "passed_scoped_local_emulator",
+        "release_api_stability": "passed_scoped_local_emulator",
+        "unsupported_diagnostics": "passed_scoped_local_emulator",
+    }
+    for key, expected in expected_evidence_prefixes.items():
+        evidence_row = evidence.get(key) if isinstance(evidence, dict) else None
+        status = evidence_row.get("status") if isinstance(evidence_row, dict) else None
+        if status != expected:
+            blockers.append(
+                f"object-store local-emulator evidence.{key}.status must be {expected}"
+            )
+    for key in ("memory_backpressure", "benchmark"):
+        evidence_row = evidence.get(key) if isinstance(evidence, dict) else None
+        status = evidence_row.get("status") if isinstance(evidence_row, dict) else None
+        if not isinstance(status, str) or not status.startswith("blocked_"):
+            blockers.append(
+                f"object-store local-emulator evidence.{key}.status must remain blocked"
+            )
+
+    summary = {
+        "present": True,
+        "status": "passed" if not blockers else "blocked",
+        "workload_id": OBJECT_STORE_LOCAL_EMULATOR_WORKLOAD_ID,
+        "scope": row.get("environment"),
+        "claim_gate_status": row.get("claim_gate_status"),
+        "production_claim_allowed": row.get("production_claim_allowed"),
+        "performance_claim_allowed": row.get("performance_claim_allowed"),
+        "effect_permissions_checked": sorted(OBJECT_STORE_REQUIRED_EFFECT_PERMISSIONS),
+        "unsupported_operations_checked": sorted(OBJECT_STORE_REQUIRED_UNSUPPORTED_OPERATIONS),
+        "blockers": blockers,
+    }
+    return summary, blockers
+
+
 def build_report(
     repo_root: Path,
     *,
@@ -449,6 +556,15 @@ def build_report(
         workload_rows = []
         for workload in workloads:
             row, row_blockers, row_production_blockers = validate_workload(workload)
+            object_store_summary, object_store_blockers = (
+                validate_object_store_local_emulator_workload(workload)
+            )
+            if object_store_summary.get("present"):
+                row["object_store_local_emulator_profile"] = object_store_summary
+            row_blockers.extend(object_store_blockers)
+            if object_store_blockers:
+                row["validation_blockers"].extend(object_store_blockers)
+                row["status"] = "blocked"
             workload_rows.append(row)
             validation_blockers.extend(row_blockers)
             production_evidence_blockers.extend(

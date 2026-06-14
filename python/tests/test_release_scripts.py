@@ -9875,6 +9875,74 @@ class ReleaseScriptTests(unittest.TestCase):
             )
         return matrix_path
 
+    def _object_store_local_emulator_workload(self, module: object) -> dict[str, object]:
+        evidence_statuses = {
+            "runtime_execution": "passed_scoped_local_emulator",
+            "correctness": "passed_scoped_local_emulator",
+            "native_io_certificate": "passed_fixture_smoke_only",
+            "execution_certificate": "passed_fixture_smoke_only",
+            "fault_tolerance": "passed_scoped_local_recovery_smoke",
+            "memory_backpressure": "blocked_missing_bounded_streaming_and_backpressure_profile",
+            "benchmark": "blocked_not_claim_grade",
+            "security_governance": "passed_scoped_local_emulator",
+            "release_api_stability": "passed_scoped_local_emulator",
+            "unsupported_diagnostics": "passed_scoped_local_emulator",
+        }
+        unsupported_rows = []
+        for operation in module.OBJECT_STORE_REQUIRED_UNSUPPORTED_OPERATIONS:
+            diagnostic_code = "SL_PROD_UNSUPPORTED_OBJECT_STORE_RUNTIME"
+            if operation == "object_store_table_commit":
+                diagnostic_code = "SL_PROD_UNSUPPORTED_TABLE_RUNTIME"
+            elif operation == "object_store_distributed_runtime":
+                diagnostic_code = "SL_PROD_UNSUPPORTED_DISTRIBUTED_RUNTIME"
+            unsupported_rows.append(
+                {
+                    "operation": operation,
+                    "diagnostic_code": diagnostic_code,
+                    "status": module.UNSUPPORTED_STATUS,
+                    "fallback_attempted": False,
+                    "external_engine_invoked": False,
+                }
+            )
+
+        return {
+            "workload_id": module.OBJECT_STORE_LOCAL_EMULATOR_WORKLOAD_ID,
+            "workload_name": "Object-store local-emulator runtime v1 candidate",
+            "v1_scope_classification": "v1_candidate_pending_feasibility",
+            "readiness_status": "blocked_real_backend_and_claim_grade_evidence_missing",
+            "production_ready": False,
+            "claim_gate_status": "not_claim_grade",
+            "production_claim_allowed": False,
+            "performance_claim_allowed": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "environment": "single_process_local_emulator_fixture_object_store",
+            "data_scale": "bounded local-emulator fixture objects",
+            "input_formats": ["local_emulator_object"],
+            "output_formats": ["local_emulator_object"],
+            "statefulness": "single_object_read_write_recovery_with_idempotency_key",
+            "effect_permissions": sorted(module.OBJECT_STORE_REQUIRED_EFFECT_PERMISSIONS),
+            "security_posture": "local_emulator_no_secrets_no_network",
+            "unsupported_edge_boundary": "live providers and table commits remain blocked",
+            "technique_review": {
+                key: {"decision": "applied_scoped", "reason": "fixture"}
+                for key in module.TECHNIQUE_REVIEW_KEYS
+            },
+            "evidence": {
+                key: {
+                    "status": evidence_statuses[key],
+                    "evidence_refs": [f"target/object-store/{key}.json"],
+                }
+                for key in module.REQUIRED_EVIDENCE_KEYS
+            },
+            "unsupported_diagnostics": unsupported_rows,
+            "production_blockers": [
+                "memory_backpressure=blocked_missing_bounded_streaming_and_backpressure_profile",
+                "benchmark=blocked_not_claim_grade",
+                "approved real backend proof missing",
+            ],
+        }
+
     def test_production_certification_gate_passes_with_blocked_workload(self) -> None:
         module = self._load_script_module(
             "check_production_certification_gate.py",
@@ -9941,6 +10009,68 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["production_certification_status"], "production_ready")
         self.assertEqual(report["production_ready_workload_count"], 1)
         self.assertTrue(report["production_claim_allowed"])
+
+    def test_production_certification_gate_accepts_object_store_local_emulator_profile(self) -> None:
+        module = self._load_script_module(
+            "check_production_certification_gate.py",
+            "check_production_certification_gate_object_store_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            matrix_path = self._write_production_certification_fixture(module, root)
+            payload = json.loads(matrix_path.read_text(encoding="utf-8"))
+            payload["workloads"].append(self._object_store_local_emulator_workload(module))
+            matrix_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            report = module.build_report(root, matrix=matrix_path)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        rows = {row["workload_id"]: row for row in report["workloads"]}
+        object_store_row = rows[module.OBJECT_STORE_LOCAL_EMULATOR_WORKLOAD_ID]
+        profile = object_store_row["object_store_local_emulator_profile"]
+        self.assertEqual(object_store_row["status"], "passed")
+        self.assertEqual(profile["status"], "passed")
+        self.assertFalse(profile["production_claim_allowed"])
+        self.assertFalse(profile["performance_claim_allowed"])
+        self.assertEqual(
+            profile["effect_permissions_checked"],
+            sorted(module.OBJECT_STORE_REQUIRED_EFFECT_PERMISSIONS),
+        )
+        self.assertEqual(
+            profile["unsupported_operations_checked"],
+            sorted(module.OBJECT_STORE_REQUIRED_UNSUPPORTED_OPERATIONS),
+        )
+
+    def test_production_certification_gate_blocks_object_store_claim_safety_drift(self) -> None:
+        module = self._load_script_module(
+            "check_production_certification_gate.py",
+            "check_production_certification_gate_object_store_blocked_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            matrix_path = self._write_production_certification_fixture(module, root)
+            payload = json.loads(matrix_path.read_text(encoding="utf-8"))
+            workload = self._object_store_local_emulator_workload(module)
+            workload["effect_permissions"] = [
+                item
+                for item in workload["effect_permissions"]
+                if item != "no_network"
+            ]
+            payload["workloads"].append(workload)
+            matrix_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            report = module.build_report(root, matrix=matrix_path)
+
+        self.assertEqual(report["status"], "blocked")
+        blockers = "\n".join(report["blockers"])
+        self.assertIn("effect_permissions missing no_network", blockers)
+        rows = {row["workload_id"]: row for row in report["workloads"]}
+        object_store_row = rows[module.OBJECT_STORE_LOCAL_EMULATOR_WORKLOAD_ID]
+        self.assertEqual(object_store_row["status"], "blocked")
+        self.assertEqual(
+            object_store_row["object_store_local_emulator_profile"]["status"],
+            "blocked",
+        )
 
     def test_pre_5j_dependency_freshness_blocks_stale_vortex_provider_surfaces(self) -> None:
         module = self._load_script_module(
