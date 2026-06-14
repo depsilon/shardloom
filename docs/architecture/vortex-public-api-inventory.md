@@ -1040,8 +1040,8 @@ fallback execution.
   traditional analytics benchmark feature bundle.
 - `vortex-api-inventory` now also emits
   `shardloom.vortex_native_writer_schema_certification.v1` under report id
-  `prod-ready-1a.vortex-native-writer-schema-certification`. The report separates six scoped
-  feature-gated local runtime rows, two provider-candidate schema families, and the still-blocked
+  `prod-ready-1a.vortex-native-writer-schema-certification`. The report separates seven scoped
+  feature-gated local runtime rows, one provider-candidate schema family, and the still-blocked
   generalized writer:
   - `flat_scalar_rows_nullable_primitives` uses ShardLoom's scalar-row-to-Vortex struct writer for
     nullable primitive/scalar shapes with known DType hints.
@@ -1059,9 +1059,12 @@ fallback execution.
   - `dictionary_encoded_utf8_binary_provider_gate` uses upstream Vortex
     `ArrayRef::from_arrow(RecordBatch)` for flat Arrow dictionary utf8/binary columnar SourceState
     handoff, with null-key/repeated-value replay evidence and no scalar-row materialization.
-  - `dictionary_encoded_primitives_provider_gate` records broader primitive dictionary and
-    interleave encoding preservation as a Vortex-native provider candidate pending primitive
-    dictionary fixtures, ordering, encoding-preservation, Native I/O, and replay evidence.
+  - `dictionary_encoded_primitives_provider_gate` uses upstream Vortex
+    `ArrayRef::from_arrow(RecordBatch)` for flat Arrow dictionary integer/finite-float columnar
+    SourceState handoff, with null-key/repeated-value replay evidence and no scalar-row
+    materialization.
+  - Boolean dictionary, decimal dictionary, interleave-preserving dictionary layouts, and
+    generalized dictionary layout fidelity remain outside the scoped runtime claim.
   - `extension_dtype_json_wkb_provider_gate` records JSON/WKB extension preservation as a wrapped
     Vortex concept pending extension fidelity reports and deterministic expression blockers.
   - `generalized_schema_encoding_writer` remains `blocked_pending_evidence` with diagnostic
@@ -1071,9 +1074,9 @@ fallback execution.
   materialization boundary, replay evidence, claim boundary, and no-fallback/no-external-engine
   flags for each row.
 - The broad local schema/encoding writer remains blocked behind Decimal256/negative-scale decimal
-  review, generalized dictionary/interleave provider evidence, extension dtype fidelity, schema
-  payload matrix, encoding payload matrix, correctness fixture, materialization/decode certificate,
-  Native I/O certificate, and no-fallback evidence.
+  review, boolean/decimal dictionary and interleave provider evidence, extension dtype fidelity,
+  schema payload matrix, encoding payload matrix, correctness fixture, materialization/decode
+  certificate, Native I/O certificate, and no-fallback evidence.
 - Object-store Vortex I/O, table/catalog integration, manifest commit integration, broad payload
   shapes, SQL/DataFrame runtime, lakehouse output, performance claims, and fallback execution remain
   unsupported.
