@@ -67,18 +67,21 @@ Dependabot cannot:
 For dependency bumps, run:
 
 ```powershell
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test no_fallback_invariants
+$env:RUSTUP_TOOLCHAIN='<workspace-msrv-toolchain>'; cargo fmt --all -- --check
+$env:RUSTUP_TOOLCHAIN='<workspace-msrv-toolchain>'; cargo clippy --workspace --all-targets -- -D warnings
+$env:RUSTUP_TOOLCHAIN='<workspace-msrv-toolchain>'; cargo test --workspace --all-targets
+$env:RUSTUP_TOOLCHAIN='<workspace-msrv-toolchain>'; cargo test -p shardloom-contract-tests --test release_readiness_metadata
+$env:RUSTUP_TOOLCHAIN='<workspace-msrv-toolchain>'; cargo test -p shardloom-contract-tests --test no_fallback_invariants
 git diff --check
 ```
+
+`<workspace-msrv-toolchain>` is the concrete toolchain derived from `[workspace.package]`
+`rust-version` in the root `Cargo.toml` (for example, `1.96.0` when the manifest says `1.96`).
 
 For docs-only intake or mapping work, run at minimum:
 
 ```powershell
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata
+$env:RUSTUP_TOOLCHAIN='<workspace-msrv-toolchain>'; cargo test -p shardloom-contract-tests --test release_readiness_metadata
 git diff --check
 ```
 

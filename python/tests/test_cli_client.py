@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import importlib
 import os
+import re
 import sys
 import tempfile
 import textwrap
@@ -10,7 +11,25 @@ import unittest
 from unittest import mock
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _current_upstream_vortex_provider_version() -> str:
+    text = (REPO_ROOT / "shardloom-vortex" / "src" / "lib.rs").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(
+        r'pub\s+const\s+UPSTREAM_VORTEX_PROVIDER_VERSION\s*:\s*&str\s*=\s*"([^"]+)"',
+        text,
+    )
+    if match is None:
+        raise RuntimeError("missing UPSTREAM_VORTEX_PROVIDER_VERSION")
+    return match.group(1)
+
+
+UPSTREAM_VORTEX_PROVIDER_VERSION = _current_upstream_vortex_provider_version()
+
+sys.path.insert(0, str(REPO_ROOT / "python" / "src"))
 
 shardloom_session_module = importlib.import_module("shardloom.session")
 
@@ -1105,7 +1124,10 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "plan_kind", "value": "vortex_primitive"},
                         {"key": "execution_status", "value": "executed"},
                         {"key": "provider_api_surface", "value": "vortex_local_primitive"},
-                        {"key": "provider_version", "value": "0.74"},
+                        {
+                            "key": "provider_version",
+                            "value": UPSTREAM_VORTEX_PROVIDER_VERSION,
+                        },
                         {"key": "evidence_completeness_status", "value": "evidence_incomplete"},
                         {"key": "result_refs", "value": "result.rows"},
                         {"key": "artifact_refs", "value": "vortex_local_engine_report"},
@@ -1130,7 +1152,10 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": "evidence_slot_result_refs_refs", "value": "result.rows"},
                                 {"key": "evidence_slot_result_refs_detail", "value": "result refs are present"},
                                 {"key": "evidence_slot_provider_version_status", "value": "present"},
-                                {"key": "evidence_slot_provider_version_refs", "value": "0.74"},
+                                {
+                                    "key": "evidence_slot_provider_version_refs",
+                                    "value": UPSTREAM_VORTEX_PROVIDER_VERSION,
+                                },
                                 {"key": "evidence_slot_provider_version_detail", "value": "provider version is present"},
                                 {"key": "evidence_slot_native_io_certificate_refs_status", "value": "evidence_incomplete"},
                                 {"key": "evidence_slot_native_io_certificate_refs_refs", "value": "none"},
@@ -1259,13 +1284,23 @@ class ShardLoomClientTests(unittest.TestCase):
                 "certificates": [{"id": "cert.execution", "kind": "execution_certificate", "status": "available", "uri": None}],
                 "policy": {"fields": [{"key": "fallback_attempted", "value": "false"}]},
                 "lifecycle": {"fields": [{"key": "execution_status", "value": "executed"}]},
-                "capability_snapshot": {"fields": [{"key": "provider_version", "value": "0.74"}]},
+                "capability_snapshot": {
+                    "fields": [
+                        {
+                            "key": "provider_version",
+                            "value": UPSTREAM_VORTEX_PROVIDER_VERSION,
+                        }
+                    ]
+                },
                 "fields": [
                     {"key": "plan_id", "value": "plan.count"},
                     {"key": "plan_kind", "value": "vortex_primitive"},
                     {"key": "execution_status", "value": "executed"},
                     {"key": "provider_api_surface", "value": "vortex_local_primitive"},
-                    {"key": "provider_version", "value": "0.74"},
+                    {
+                        "key": "provider_version",
+                        "value": UPSTREAM_VORTEX_PROVIDER_VERSION,
+                    },
                     {"key": "evidence_completeness_status", "value": "evidence_incomplete"},
                     {"key": "result_refs", "value": "result.rows"},
                     {"key": "artifact_refs", "value": "vortex_local_engine_report"},
@@ -1289,7 +1324,7 @@ class ShardLoomClientTests(unittest.TestCase):
         result = ExecutionResultEnvelopeView(envelope)
 
         self.assertEqual(result.plan_id, "plan.count")
-        self.assertEqual(result.provider_version, "0.74")
+        self.assertEqual(result.provider_version, UPSTREAM_VORTEX_PROVIDER_VERSION)
         self.assertEqual(result.result_refs, ("result.rows",))
         self.assertIn("vortex_local_engine_report", result.inline_artifact_ids)
         self.assertEqual(result.execution_certificate_refs, ("cert.execution",))
@@ -9348,7 +9383,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_kind", "value": "vortex_scan"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_api_surface", "value": "VortexFile::scan,ScanBuilder::into_array_iter"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_crate", "value": "vortex"},
-                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_version", "value": "0.74"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_version", "value": "__UPSTREAM_VORTEX_PROVIDER_VERSION__"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_feature_gate", "value": "vortex-encoded-read-spike"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_shardloom_admission_policy", "value": "local_fixture_scan_count_only"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_compute_row_ref", "value": "compute_row.local_vortex_count"},
@@ -9635,6 +9670,9 @@ class ShardLoomClientTests(unittest.TestCase):
                     ],
                 }))
                 """
+            ).replace(
+                "__UPSTREAM_VORTEX_PROVIDER_VERSION__",
+                UPSTREAM_VORTEX_PROVIDER_VERSION,
             )
         )
 
@@ -9656,7 +9694,7 @@ class ShardLoomClientTests(unittest.TestCase):
         count_lane = admission_lanes["local_vortex_count_scalar"]
         self.assertEqual(count_lane.admission_status, "admitted_fixture_certified")
         self.assertEqual(count_lane.provider_kind, "vortex_scan")
-        self.assertEqual(count_lane.provider_version, "0.74")
+        self.assertEqual(count_lane.provider_version, UPSTREAM_VORTEX_PROVIDER_VERSION)
         self.assertIn("ScanBuilder::into_array_iter", count_lane.provider_api_surface)
         self.assertEqual(
             count_lane.claim_boundary,

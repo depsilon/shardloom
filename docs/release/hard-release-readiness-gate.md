@@ -50,6 +50,9 @@ Producer evidence artifacts:
   manifest/artifact digests before trusting the precomputed completeness report.
 - `website-docs-evidence`: website readiness report.
 - `ci-gate-matrix-report`: CI matrix drift contract.
+- `v1-security-ci-hardening-report`: dependency audit, license, forbidden-fallback dependency,
+  SBOM/checksum/provenance, package-artifact scan, security posture, compatibility-matrix, and
+  release-evidence bundle closeout for the v1 local release-hardening surface.
 
 This split reduces PR wall-clock time without weakening the hard gate. The final report still
 requires the same JSON evidence files, keeps public release/package claims blocked until their
@@ -86,6 +89,12 @@ The gate aggregates:
 - local v1 observability/supportability report for doctor/support-bundle/capability/runtime
   surfaces, redaction, issue-template intake, plan-only explain/estimate diagnostics, benchmark
   timing-surface fields, and no-network/no-effect boundaries
+- v1 security/CI hardening report for dependency audit, license classification,
+  forbidden-fallback dependency absence, SBOM, checksum manifest, provenance, vulnerability scan,
+  package artifact scan, no-signing rationale, Trusted Publisher/OIDC posture, Python 3.10 through
+  3.13 compatibility, OS matrix coverage, Rust MSRV derived from root Cargo.toml validation,
+  artifact retention, and
+  release evidence bundle upload
 - user route capability report for input/output route selection, Vortex-normalization boundaries,
   materialization/decode boundaries, output/evidence routes, and local benchmark-range route
   posture, including the scenario-level local-file benchmark route map
@@ -122,6 +131,7 @@ python scripts\check_v1_observability_support.py
 python scripts\check_v1_api_schema_stability.py
 python scripts\check_v1_example_replay.py
 python scripts\check_v1_correctness_conformance.py
+python scripts\check_v1_security_ci_hardening.py
 python scripts\check_user_surface_runtime_gap_inventory.py
 python scripts\check_user_route_capability_report.py
 python scripts\check_pre_5j_dependency_freshness.py

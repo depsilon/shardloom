@@ -304,16 +304,16 @@ pub(crate) fn handle_traditional_analytics_run(
             write_result_vortex,
         });
 
-    if requested_execution_mode == ShardLoomExecutionMode::DirectCompatibilityTransient {
-        if let Some(reason) = direct_transient_unsupported {
-            return emit_direct_compatibility_transient_unsupported(
-                format,
-                input_format,
-                verify_native_vortex_replay,
-                write_result_vortex,
-                reason,
-            );
-        }
+    if requested_execution_mode == ShardLoomExecutionMode::DirectCompatibilityTransient
+        && let Some(reason) = direct_transient_unsupported
+    {
+        return emit_direct_compatibility_transient_unsupported(
+            format,
+            input_format,
+            verify_native_vortex_replay,
+            write_result_vortex,
+            reason,
+        );
     }
     let request = shardloom_vortex::TraditionalAnalyticsRequest::new(
         scenario,

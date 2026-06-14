@@ -10,7 +10,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from release_report_utils import fail_closed_fields, read_text, resolve_path, write_json
+from release_report_utils import (
+    fail_closed_fields,
+    read_text,
+    resolve_path,
+    write_json,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -58,6 +63,31 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         release_blocker_refs=("workspace feature/build matrix",),
     ),
     CiLane(
+        lane_id="rust_msrv_validation",
+        job_id="rust-msrv",
+        commands=(
+            "cargo check --workspace --no-default-features",
+            "python scripts/write_release_compatibility_lane_report.py",
+            '--lane "$SHARDLOOM_RUST_MSRV_LANE"',
+            '--rust-toolchain "$SHARDLOOM_RUST_MSRV_TOOLCHAIN"',
+        ),
+        artifact_refs=(
+            "target/release-compatibility/rust_msrv_*.json",
+            "release-compatibility-rust-msrv",
+        ),
+        release_blocker_refs=(
+            "Rust MSRV derived from root Cargo.toml validation",
+        ),
+        workflow_markers=(
+            'python scripts/write_ci_version_env.py --github-env "$GITHUB_ENV"',
+            'rustup toolchain install "$SHARDLOOM_RUST_MSRV_TOOLCHAIN"',
+            'rustup default "$SHARDLOOM_RUST_MSRV_TOOLCHAIN"',
+            "key: rust-msrv-${{ hashFiles('Cargo.toml') }}",
+            "SHARDLOOM_RUST_MSRV_LANE",
+            "retention-days: 14",
+        ),
+    ),
+    CiLane(
         lane_id="python_test_shards",
         job_id="python-test-shards",
         commands=(
@@ -94,6 +124,34 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "if: always()",
             "actions/download-artifact@v8",
             "merge-multiple: true",
+        ),
+    ),
+    CiLane(
+        lane_id="python_compatibility_matrix",
+        job_id="python-compatibility-matrix",
+        commands=(
+            "python -m compileall -q python/src scripts examples benchmarks/traditional_analytics",
+            "python -m build python",
+            "python scripts/write_release_compatibility_lane_report.py --lane ${{ matrix.lane }} --surface python --python-version ${{ matrix.python-version }} --os-name ${{ matrix.os }}",
+        ),
+        artifact_refs=(
+            "target/release-compatibility/${{ matrix.lane }}.json",
+            "release-compatibility-${{ matrix.lane }}",
+        ),
+        release_blocker_refs=(
+            "Python 3.10 through 3.13 compatibility",
+            "OS matrix",
+        ),
+        workflow_markers=(
+            "fail-fast: false",
+            "python-version: \"3.10\"",
+            "python-version: \"3.11\"",
+            "python-version: \"3.12\"",
+            "python-version: \"3.13\"",
+            "ubuntu-latest",
+            "macos-latest",
+            "windows-latest",
+            "retention-days: 14",
         ),
     ),
     CiLane(
@@ -276,6 +334,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "python scripts/check_production_usability_gate.py",
             "python scripts/check_v1_api_schema_stability.py",
             "python scripts/check_v1_correctness_conformance.py",
+            "python scripts/check_v1_security_ci_hardening.py",
             "python scripts/check_release_readiness.py",
         ),
         artifact_refs=(
@@ -302,6 +361,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/v1-example-replay-report.json",
             "target/v1-example-replay",
             "target/v1-correctness-conformance-report.json",
+            "target/v1-security-ci-hardening-report.json",
             "target/python-user-surface-completion-gate.json",
             "target/sql-python-dataframe-parity-gate.json",
             "target/v1-front-door-runtime-scope-report.json",
@@ -327,6 +387,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "production usability gate",
             "v1 API/schema stability gate",
             "v1 correctness/conformance gate",
+            "v1 security/CI hardening gate",
             "hard release readiness gate",
             "release readiness artifact aggregation",
         ),

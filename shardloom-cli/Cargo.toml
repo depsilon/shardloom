@@ -21,8 +21,8 @@ shardloom-core = { version = "0.1.0", path = "../shardloom-core" }
 shardloom-exec = { version = "0.1.0", path = "../shardloom-exec" }
 shardloom-plan = { version = "0.1.0", path = "../shardloom-plan" }
 shardloom-vortex = { version = "0.1.0", path = "../shardloom-vortex" }
-arrow-schema = "58.3.0"
-regex = "1.12.3"
+arrow-schema = { workspace = true }
+regex = { workspace = true }
 rusqlite = { version = "0.40.1", default-features = false, features = ["bundled"] }
 
 [features]
@@ -37,11 +37,11 @@ vortex-traditional-analytics-benchmark = [
 ]
 
 [dev-dependencies]
-arrow-array = "58.3.0"
-arrow-avro = { version = "58.3.0", default-features = false, features = ["deflate", "snappy"] }
-arrow-ipc = "58.3.0"
+arrow-array = { workspace = true }
+arrow-avro = { workspace = true }
+arrow-ipc = { workspace = true }
 orc-rust = { version = "0.8.0", default-features = false }
-parquet = "58.3.0"
+parquet = { workspace = true }
 
 [[bin]]
 name = "shardloom"

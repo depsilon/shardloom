@@ -7684,10 +7684,9 @@ fn vortex_ingest_scout_blocked_source_path<'a>(
     if error
         .to_string()
         .contains("vortex_ingest differential delta source")
+        && let Some(delta) = request.delta.as_ref()
     {
-        if let Some(delta) = request.delta.as_ref() {
-            return delta.source_path.as_path();
-        }
+        return delta.source_path.as_path();
     }
     request.source_path.as_path()
 }
@@ -7696,17 +7695,17 @@ fn vortex_ingest_scout_blocked_request(
     request: &VortexIngestRequest,
     error_text: &str,
 ) -> VortexIngestRequest {
-    if error_text.contains("vortex_ingest differential delta source") {
-        if let Some(delta) = request.delta.as_ref() {
-            return VortexIngestRequest {
-                source_path: delta.source_path.clone(),
-                source_format_override: request.source_format_override,
-                target_path: delta.target_path.clone(),
-                allow_overwrite: request.allow_overwrite,
-                certification_level: request.certification_level,
-                delta: None,
-            };
-        }
+    if error_text.contains("vortex_ingest differential delta source")
+        && let Some(delta) = request.delta.as_ref()
+    {
+        return VortexIngestRequest {
+            source_path: delta.source_path.clone(),
+            source_format_override: request.source_format_override,
+            target_path: delta.target_path.clone(),
+            allow_overwrite: request.allow_overwrite,
+            certification_level: request.certification_level,
+            delta: None,
+        };
     }
     request.clone()
 }
@@ -11777,18 +11776,18 @@ fn collect_left_equi_matches(
         "left",
     )?;
     let mut left_match_count = 0usize;
-    if let Some(key_parts) = key_parts.as_ref() {
-        if let Some(right_matches) = right_rows_by_key.get(key_parts) {
-            for (right_index, right_row) in right_matches {
-                left_match_count += 1;
-                if context.join.join_type.emits_matched_pairs() {
-                    accumulator.push_matched_candidate(context, left_row, right_row)?;
-                } else {
-                    accumulator.increment_joined_candidate()?;
-                }
-                if let Some(matched) = right_matched_rows.get_mut(*right_index) {
-                    *matched = true;
-                }
+    if let Some(key_parts) = key_parts.as_ref()
+        && let Some(right_matches) = right_rows_by_key.get(key_parts)
+    {
+        for (right_index, right_row) in right_matches {
+            left_match_count += 1;
+            if context.join.join_type.emits_matched_pairs() {
+                accumulator.push_matched_candidate(context, left_row, right_row)?;
+            } else {
+                accumulator.increment_joined_candidate()?;
+            }
+            if let Some(matched) = right_matched_rows.get_mut(*right_index) {
+                *matched = true;
             }
         }
     }
@@ -14962,12 +14961,12 @@ fn validate_aggregate_source_columns(
     header: &[String],
 ) -> Result<(), ShardLoomError> {
     for aggregate in parsed.aggregates.iter().chain(&parsed.having_aggregates) {
-        if let Some(column) = aggregate.column.as_deref() {
-            if !header.iter().any(|candidate| candidate == column) {
-                return Err(unsupported_sql_error(&format!(
-                    "aggregate column {column:?} is not present in the CSV header"
-                )));
-            }
+        if let Some(column) = aggregate.column.as_deref()
+            && !header.iter().any(|candidate| candidate == column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "aggregate column {column:?} is not present in the CSV header"
+            )));
         }
     }
     Ok(())
@@ -15736,11 +15735,11 @@ fn join_left_existence_source_refs(parsed: &ParsedSqlLocalSource) -> BTreeSet<&s
     for column in &parsed.group_by {
         source_refs.insert(column.as_str());
     }
-    if !parsed.is_aggregate() {
-        if let Some(order_by) = parsed.order_by.as_ref() {
-            for key in &order_by.keys {
-                source_refs.insert(key.column.as_str());
-            }
+    if !parsed.is_aggregate()
+        && let Some(order_by) = parsed.order_by.as_ref()
+    {
+        for key in &order_by.keys {
+            source_refs.insert(key.column.as_str());
         }
     }
     for aggregate in &parsed.aggregates {
@@ -30116,10 +30115,10 @@ fn validate_sql_vortex_output_plan(path: &Path) -> Result<(), ShardLoomError> {
 }
 
 fn strip_utf8_bom_from_first_header_cell(header: &mut [String]) {
-    if let Some(first) = header.first_mut() {
-        if let Some(stripped) = first.strip_prefix('\u{feff}') {
-            *first = stripped.to_string();
-        }
+    if let Some(first) = header.first_mut()
+        && let Some(stripped) = first.strip_prefix('\u{feff}')
+    {
+        *first = stripped.to_string();
     }
 }
 
@@ -31020,38 +31019,35 @@ fn rewrite_having_aggregate_predicate(
             index += 1;
             continue;
         }
-        if !in_string {
-            if let Some(function_name) = aggregate_function_prefix_at(raw, index) {
-                let open_index = index + function_name.len();
-                let close_index =
-                    matching_closing_parenthesis(raw, open_index)?.ok_or_else(|| {
-                        unsupported_sql_error(
-                            "HAVING aggregate predicates require complete aggregate function calls",
-                        )
-                    })?;
-                let expression = &raw[index..=close_index];
-                let mut aggregate = parse_aggregate_projection(expression)?.ok_or_else(|| {
-                    unsupported_sql_error(
-                        "HAVING aggregate predicates admit COUNT, SUM, AVG, MIN, or MAX only",
-                    )
-                })?;
-                let alias_base = sanitize_having_aggregate_alias(&aggregate.output_name());
-                let mut suffix = aggregates.len() + 1;
-                let alias = loop {
-                    let candidate = format!("__having_{alias_base}_{suffix}");
-                    if reserved_aliases.insert(candidate.clone()) {
-                        break candidate;
-                    }
-                    suffix += 1;
-                };
-                aggregate.alias = Some(alias.clone());
-                aggregates.push(aggregate);
-                rewritten.push_str(&raw[cursor..index]);
-                rewritten.push_str(&alias);
-                index = close_index + 1;
-                cursor = index;
-                continue;
-            }
+        if !in_string && let Some(function_name) = aggregate_function_prefix_at(raw, index) {
+            let open_index = index + function_name.len();
+            let close_index = matching_closing_parenthesis(raw, open_index)?.ok_or_else(|| {
+                unsupported_sql_error(
+                    "HAVING aggregate predicates require complete aggregate function calls",
+                )
+            })?;
+            let expression = &raw[index..=close_index];
+            let mut aggregate = parse_aggregate_projection(expression)?.ok_or_else(|| {
+                unsupported_sql_error(
+                    "HAVING aggregate predicates admit COUNT, SUM, AVG, MIN, or MAX only",
+                )
+            })?;
+            let alias_base = sanitize_having_aggregate_alias(&aggregate.output_name());
+            let mut suffix = aggregates.len() + 1;
+            let alias = loop {
+                let candidate = format!("__having_{alias_base}_{suffix}");
+                if reserved_aliases.insert(candidate.clone()) {
+                    break candidate;
+                }
+                suffix += 1;
+            };
+            aggregate.alias = Some(alias.clone());
+            aggregates.push(aggregate);
+            rewritten.push_str(&raw[cursor..index]);
+            rewritten.push_str(&alias);
+            index = close_index + 1;
+            cursor = index;
+            continue;
         }
         index += 1;
     }
@@ -32127,14 +32123,14 @@ fn parse_conditional_projection(
     let else_branch = parse_conditional_projection_branch(else_raw, "ELSE")?;
     let then_dtype = then_branch.literal_dtype();
     let else_dtype = else_branch.literal_dtype();
-    if let (Some(then_dtype), Some(else_dtype)) = (&then_dtype, &else_dtype) {
-        if then_dtype != else_dtype {
-            return Err(unsupported_sql_error(&format!(
-                "CASE projection THEN/ELSE branches must have matching dtypes; got {} and {}",
-                then_dtype.as_str(),
-                else_dtype.as_str()
-            )));
-        }
+    if let (Some(then_dtype), Some(else_dtype)) = (&then_dtype, &else_dtype)
+        && then_dtype != else_dtype
+    {
+        return Err(unsupported_sql_error(&format!(
+            "CASE projection THEN/ELSE branches must have matching dtypes; got {} and {}",
+            then_dtype.as_str(),
+            else_dtype.as_str()
+        )));
     }
     Ok(Some(ParsedConditionalProjection {
         alias: alias.to_string(),
@@ -35531,10 +35527,10 @@ fn parse_decimal_cast_predicate_literal_source(
             "decimal CAST predicate literal must not be empty",
         ));
     }
-    if let Some((_, scale)) = decimal_dtype_precision_scale(target_dtype) {
-        if let Some(normalized) = normalize_decimal_literal_to_target_scale(trimmed, scale) {
-            return Ok(ScalarValue::Utf8(normalized));
-        }
+    if let Some((_, scale)) = decimal_dtype_precision_scale(target_dtype)
+        && let Some(normalized) = normalize_decimal_literal_to_target_scale(trimmed, scale)
+    {
+        return Ok(ScalarValue::Utf8(normalized));
     }
     Ok(ScalarValue::Utf8(trimmed.to_string()))
 }
@@ -35575,10 +35571,10 @@ fn cast_scalar_literal_to_dtype(
         target_dtype.clone(),
     );
     let report = evaluate_expression(&expression, &ExpressionInputRow::new());
-    if !report.has_errors() {
-        if let Some(value) = report.value {
-            return Ok(value);
-        }
+    if !report.has_errors()
+        && let Some(value) = report.value
+    {
+        return Ok(value);
     }
     let reason = report
         .diagnostics
@@ -37520,12 +37516,12 @@ fn parse_in_subquery_selected_columns(
 }
 
 fn reject_complex_subquery_membership_projection(select_raw: &str) -> Result<(), ShardLoomError> {
-    if let Ok(projection_list) = parse_projection_list(select_raw) {
-        if !projection_list.complex_projections.is_empty() {
-            return Err(unsupported_sql_error(
-                "projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization; scoped complex equality is limited to SELECT DISTINCT and UNION DISTINCT result-boundary rows",
-            ));
-        }
+    if let Ok(projection_list) = parse_projection_list(select_raw)
+        && !projection_list.complex_projections.is_empty()
+    {
+        return Err(unsupported_sql_error(
+            "projected subqueries do not admit ARRAY or STRUCT projection outputs for membership materialization; scoped complex equality is limited to SELECT DISTINCT and UNION DISTINCT result-boundary rows",
+        ));
     }
     Ok(())
 }
@@ -38318,10 +38314,10 @@ fn parse_sql_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
     if let Ok(parsed) = value.parse::<i64>() {
         return Ok(ScalarValue::Int64(parsed));
     }
-    if let Ok(parsed) = value.parse::<f64>() {
-        if parsed.is_finite() {
-            return Ok(ScalarValue::Float64(parsed));
-        }
+    if let Ok(parsed) = value.parse::<f64>()
+        && parsed.is_finite()
+    {
+        return Ok(ScalarValue::Float64(parsed));
     }
     Err(unsupported_sql_error(
         "SQL local-source literals are limited to int64, finite float64, boolean, null, and single-quoted UTF-8 strings",

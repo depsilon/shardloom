@@ -1762,7 +1762,7 @@ fn eval_binary_utf8_decode(
 }
 
 fn decode_hex_bytes(value: &str) -> std::result::Result<Vec<u8>, &'static str> {
-    if value.len() % 2 != 0 {
+    if !value.len().is_multiple_of(2) {
         return Err("UNHEX requires an even number of hexadecimal digits");
     }
     value
@@ -1787,7 +1787,7 @@ fn hex_nibble(value: u8) -> Option<u8> {
 
 fn decode_standard_base64(value: &str) -> std::result::Result<Vec<u8>, &'static str> {
     let bytes = value.as_bytes();
-    if bytes.len() % 4 != 0 {
+    if !bytes.len().is_multiple_of(4) {
         return Err("FROM_BASE64 requires standard padded base64 with length multiple of 4");
     }
     let mut decoded = Vec::with_capacity(bytes.len() / 4 * 3);

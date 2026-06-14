@@ -5,6 +5,7 @@ import io
 import json
 import os
 import importlib.util
+import re
 import subprocess
 import sys
 import tempfile
@@ -15,6 +16,57 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _current_vortex_manifest_version() -> str:
+    text = (REPO_ROOT / "Cargo.toml").read_text(encoding="utf-8")
+    match = re.search(
+        r'^vortex\s*=\s*(?:"([^"]+)"|\{[^}\n]*version\s*=\s*"([^"]+)")',
+        text,
+        re.MULTILINE,
+    )
+    if match is None:
+        raise RuntimeError("missing vortex dependency version")
+    return next(group for group in match.groups() if group is not None)
+
+
+def _current_vortex_lock_version() -> str:
+    text = (REPO_ROOT / "Cargo.lock").read_text(encoding="utf-8")
+    name: str | None = None
+    version: str | None = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == "[[package]]":
+            if name == "vortex" and version is not None:
+                return version
+            name = None
+            version = None
+            continue
+        if stripped.startswith("name = "):
+            name = json.loads(stripped.split("=", 1)[1].strip())
+        elif stripped.startswith("version = "):
+            version = json.loads(stripped.split("=", 1)[1].strip())
+    if name == "vortex" and version is not None:
+        return version
+    raise RuntimeError("missing vortex lockfile version")
+
+
+def _current_upstream_vortex_provider_version() -> str:
+    text = (REPO_ROOT / "shardloom-vortex" / "src" / "lib.rs").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(
+        r'pub\s+const\s+UPSTREAM_VORTEX_PROVIDER_VERSION\s*:\s*&str\s*=\s*"([^"]+)"',
+        text,
+    )
+    if match is None:
+        raise RuntimeError("missing UPSTREAM_VORTEX_PROVIDER_VERSION")
+    return match.group(1)
+
+
+CURRENT_VORTEX_MANIFEST_VERSION = _current_vortex_manifest_version()
+CURRENT_VORTEX_LOCK_VERSION = _current_vortex_lock_version()
+UPSTREAM_VORTEX_PROVIDER_VERSION = _current_upstream_vortex_provider_version()
 
 
 class ReleaseScriptTests(unittest.TestCase):
@@ -6087,7 +6139,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-3A` Security, supply-chain, and CI/release-validation hardening for v1.",
+            "`PROD-V1-4A` Docs, website, install, and example productization after v1 scope stabilizes.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -7018,15 +7070,23 @@ class ReleaseScriptTests(unittest.TestCase):
             "open_dependabot_prs": [
                 self._dependabot_pr(1149, "Bump actions/download-artifact from 7 to 8"),
                 self._dependabot_pr(
-                    1150,
-                    "Bump vortex from 0.73.0 to 0.74.0 in the vortex-upstream group",
+                    1223,
+                    "Bump vortex from 0.74.0 to 0.75.0 in the vortex-upstream group",
                 ),
                 self._dependabot_pr(1151, "Bump serde_json from 1.0.149 to 1.0.150"),
                 self._dependabot_pr(1152, "Bump sha2 from 0.10.9 to 0.11.0"),
                 self._dependabot_pr(1153, "Bump rusqlite from 0.40.0 to 0.40.1"),
+                self._dependabot_pr(1226, "Bump regex from 1.12.3 to 1.12.4"),
             ],
-            "open_dependabot_pr_count": 5,
-            "admitted_open_dependabot_prs": [1149, 1150, 1151, 1152, 1153],
+            "open_dependabot_pr_count": 6,
+            "admitted_open_dependabot_prs": [
+                1149,
+                1151,
+                1152,
+                1153,
+                1223,
+                1226,
+            ],
             "unknown_open_dependabot_prs": [],
             "benchmark_refresh_dependency_gate_status": "passed",
             "benchmark_refresh_allowed": True,
@@ -7139,6 +7199,10 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             commands["v1_correctness_conformance_gate"],
             ["/tool/python3.12", "scripts/check_v1_correctness_conformance.py"],
+        )
+        self.assertEqual(
+            commands["v1_security_ci_hardening_gate"],
+            ["/tool/python3.12", "scripts/check_v1_security_ci_hardening.py"],
         )
         self.assertEqual(
             commands["benchmark_artifact_completeness"],
@@ -8389,6 +8453,50 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(security_group, "security_dependency_provenance")
         self.assertEqual(security_env, {})
 
+    def test_v1_security_ci_hardening_blocks_missing_pip_audit_and_requires_matrix_lanes(self) -> None:
+        module = self._load_script_module(
+            "check_v1_security_ci_hardening.py",
+            "check_v1_security_ci_hardening_for_test",
+        )
+
+        dependency_check = module.check_dependency_audit(
+            {
+                "schema_version": "shardloom.dependency_audit_report.v1",
+                "cargo_deny_status": "passed",
+                "cargo_audit_status": "passed",
+                "pip_audit_status": "missing",
+                "license_policy_status": "passed",
+                "advisory_status": "failed",
+                "fallback_dependency_absent": True,
+            }
+        )
+        self.assertEqual(dependency_check["status"], "blocked")
+        self.assertIn(
+            "dependency audit pip_audit_status=missing",
+            dependency_check["blockers"],
+        )
+
+        ci_check = module.check_ci_matrix(
+            {
+                "schema_version": "shardloom.ci_gate_matrix_report.v1",
+                "status": "passed",
+                "lanes": [{"lane_id": "rust_baseline"}],
+                "publication_attempted": False,
+                "tag_created": False,
+                "secrets_required": False,
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+            }
+        )
+        self.assertEqual(ci_check["status"], "blocked")
+        self.assertTrue(
+            any(
+                "python_compatibility_matrix" in blocker
+                and "rust_msrv_validation" in blocker
+                for blocker in ci_check["blockers"]
+            )
+        )
+
     def test_security_posture_requires_sha_pinned_privileged_actions(self) -> None:
         module = self._load_script_module(
             "check_security_posture.py", "check_security_posture_pinning_for_test"
@@ -8499,12 +8607,13 @@ class ReleaseScriptTests(unittest.TestCase):
             open_prs=[
                 self._dependabot_pr(1149, "Bump actions/download-artifact from 7 to 8"),
                 self._dependabot_pr(
-                    1150,
-                    "Bump vortex from 0.73.0 to 0.74.0 in the vortex-upstream group",
+                    1223,
+                    "Bump vortex from 0.74.0 to 0.75.0 in the vortex-upstream group",
                 ),
                 self._dependabot_pr(1151, "Bump serde_json from 1.0.149 to 1.0.150"),
                 self._dependabot_pr(1152, "Bump sha2 from 0.10.9 to 0.11.0"),
                 self._dependabot_pr(1153, "Bump rusqlite from 0.40.0 to 0.40.1"),
+                self._dependabot_pr(1226, "Bump regex from 1.12.3 to 1.12.4"),
             ],
             open_prs_status="loaded_from_file",
             require_live_github=True,
@@ -8513,7 +8622,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(
             report["admitted_open_dependabot_prs"],
-            [1149, 1150, 1151, 1152, 1153],
+            [1149, 1151, 1152, 1153, 1223, 1226],
         )
         self.assertTrue(report["benchmark_refresh_allowed"])
         self.assertFalse(report["benchmark_run_performed"])
@@ -8592,6 +8701,11 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            (root / "Cargo.toml").write_text(
+                "[workspace.dependencies]\n"
+                f'vortex = "{CURRENT_VORTEX_MANIFEST_VERSION}"\n',
+                encoding="utf-8",
+            )
             cli_manifest = root / "shardloom-cli" / "Cargo.toml"
             cli_manifest.parent.mkdir(parents=True)
             cli_manifest.write_text(
@@ -8603,13 +8717,13 @@ class ReleaseScriptTests(unittest.TestCase):
             vortex_manifest.parent.mkdir(parents=True)
             vortex_manifest.write_text(
                 "[dependencies]\n"
-                'vortex = { version = "0.74", optional = true }\n',
+                "vortex = { workspace = true, optional = true }\n",
                 encoding="utf-8",
             )
             (root / "Cargo.lock").write_text(
                 "[[package]]\n"
                 'name = "vortex"\n'
-                'version = "0.74.0"\n'
+                f'version = "{CURRENT_VORTEX_LOCK_VERSION}"\n'
                 "\n"
                 "[[package]]\n"
                 'name = "rusqlite"\n'
@@ -8638,8 +8752,11 @@ class ReleaseScriptTests(unittest.TestCase):
             rusqlite,
             {"version": "0.40.1", "default-features": False, "features": ["bundled"]},
         )
-        self.assertEqual(vortex, {"version": "0.74", "optional": True})
-        self.assertEqual(lock_versions["vortex"], "0.74.0")
+        self.assertEqual(
+            vortex,
+            {"version": CURRENT_VORTEX_MANIFEST_VERSION, "optional": True},
+        )
+        self.assertEqual(lock_versions["vortex"], CURRENT_VORTEX_LOCK_VERSION)
         self.assertEqual(lock_versions["rusqlite"], "0.40.1")
         self.assertEqual(lock_versions["libsqlite3-sys"], "0.38.1")
 
@@ -8650,6 +8767,12 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            lib_rs = root / "shardloom-vortex" / "src" / "lib.rs"
+            lib_rs.parent.mkdir(parents=True)
+            lib_rs.write_text(
+                f'pub const UPSTREAM_VORTEX_PROVIDER_VERSION: &str = "{UPSTREAM_VORTEX_PROVIDER_VERSION}";\n',
+                encoding="utf-8",
+            )
             benchmark = root / "benchmarks" / "traditional_analytics" / "run.py"
             benchmark.parent.mkdir(parents=True)
             benchmark.write_text(
@@ -8774,11 +8897,16 @@ jobs:
         )
 
         self.assertIn("python scripts/check_release_readiness.py", release_lane.commands)
+        self.assertIn("python scripts/check_v1_security_ci_hardening.py", release_lane.commands)
         self.assertNotIn(
             "python scripts/check_release_readiness.py --allow-blocked",
             release_lane.commands,
         )
         self.assertIn("continue-on-error: true", release_lane.workflow_markers)
+
+        lane_ids = {lane.lane_id for lane in module.REQUIRED_LANES}
+        self.assertIn("python_compatibility_matrix", lane_ids)
+        self.assertIn("rust_msrv_validation", lane_ids)
 
     def test_release_readiness_job_runs_after_failed_dependencies(self) -> None:
         workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(

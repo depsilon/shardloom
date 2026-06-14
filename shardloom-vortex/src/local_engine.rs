@@ -874,32 +874,32 @@ fn append_runtime_rows_not_scanned_metric(
     query_result: Option<&VortexQueryPrimitiveResult>,
     local_primitive: Option<&VortexLocalPrimitiveExecutionReport>,
 ) {
-    if let Some(local) = local_primitive {
-        if matches!(local.status, VortexLocalPrimitiveExecutionStatus::Executed) {
-            work.add_metric(VortexWorkAvoidedMetric::unknown(
-                VortexWorkAvoidedMetricKind::RowsNotScanned,
-                format!(
-                    "local primitive scanned {} rows; row-skip accounting is not yet implemented for this runtime path",
-                    local.rows_scanned
-                ),
-            ));
-            return;
-        }
+    if let Some(local) = local_primitive
+        && matches!(local.status, VortexLocalPrimitiveExecutionStatus::Executed)
+    {
+        work.add_metric(VortexWorkAvoidedMetric::unknown(
+            VortexWorkAvoidedMetricKind::RowsNotScanned,
+            format!(
+                "local primitive scanned {} rows; row-skip accounting is not yet implemented for this runtime path",
+                local.rows_scanned
+            ),
+        ));
+        return;
     }
-    if let Some(query_result) = query_result {
-        if matches!(
+    if let Some(query_result) = query_result
+        && matches!(
             query_result.status,
             VortexQueryPrimitiveStatus::MetadataAnswered
-        ) && query_result.request.kind == VortexQueryPrimitiveKind::CountAll
-            && let VortexQueryPrimitiveValue::Count(count) = query_result.value
-        {
-            work.add_metric(VortexWorkAvoidedMetric::known_u64(
-                VortexWorkAvoidedMetricKind::RowsNotScanned,
-                count,
-                "metadata result avoided scanning rows at runtime",
-            ));
-            return;
-        }
+        )
+        && query_result.request.kind == VortexQueryPrimitiveKind::CountAll
+        && let VortexQueryPrimitiveValue::Count(count) = query_result.value
+    {
+        work.add_metric(VortexWorkAvoidedMetric::known_u64(
+            VortexWorkAvoidedMetricKind::RowsNotScanned,
+            count,
+            "metadata result avoided scanning rows at runtime",
+        ));
+        return;
     }
     work.add_metric(VortexWorkAvoidedMetric::unknown(
         VortexWorkAvoidedMetricKind::RowsNotScanned,
@@ -939,10 +939,10 @@ fn collect_report_diagnostics(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = request.diagnostics.clone();
     diagnostics.extend(query_result.diagnostics.clone());
-    if let Some(report) = metadata_open_report {
-        if metadata_open_diagnostics_are_blocking(local_primitive_execution_report, report) {
-            diagnostics.extend(report.diagnostics.clone());
-        }
+    if let Some(report) = metadata_open_report
+        && metadata_open_diagnostics_are_blocking(local_primitive_execution_report, report)
+    {
+        diagnostics.extend(report.diagnostics.clone());
     }
     if let Some(report) = local_execution_report {
         diagnostics.extend(report.diagnostics.clone());
@@ -1011,10 +1011,10 @@ fn map_status(
     if let Some(status) = metadata_open_report.and_then(map_metadata_open_status) {
         return status;
     }
-    if let Some(report) = local_primitive {
-        if let Some(status) = map_local_primitive_status(report.status) {
-            return status;
-        }
+    if let Some(report) = local_primitive
+        && let Some(status) = map_local_primitive_status(report.status)
+    {
+        return status;
     }
     if let Some(b) = bounded {
         return map_bounded_execution_status(b.status);

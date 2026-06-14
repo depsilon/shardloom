@@ -16,6 +16,7 @@ import json
 import math
 import os
 import platform
+import re
 import shutil
 import statistics
 import sys
@@ -110,7 +111,23 @@ VORTEX_SEGMENT_EXTRACTION_ADMISSION_REF = (
 VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF = (
     "vortex-runtime-utilization-audit://layout_device_managed_boundary.v1"
 )
-UPSTREAM_VORTEX_PROVIDER_VERSION = "0.74"
+
+
+def _read_upstream_vortex_provider_version() -> str:
+    source = Path(__file__).resolve().parents[2] / "shardloom-vortex" / "src" / "lib.rs"
+    text = source.read_text(encoding="utf-8")
+    match = re.search(
+        r'pub\s+const\s+UPSTREAM_VORTEX_PROVIDER_VERSION\s*:\s*&str\s*=\s*"([^"]+)"',
+        text,
+    )
+    if match is None:
+        raise RuntimeError(
+            "shardloom-vortex/src/lib.rs is missing UPSTREAM_VORTEX_PROVIDER_VERSION"
+        )
+    return match.group(1)
+
+
+UPSTREAM_VORTEX_PROVIDER_VERSION = _read_upstream_vortex_provider_version()
 SHARDLOOM_VORTEX_PROVIDER_VERSION = (
     f"shardloom-vortex=0.1.0;vortex={UPSTREAM_VORTEX_PROVIDER_VERSION}"
 )
