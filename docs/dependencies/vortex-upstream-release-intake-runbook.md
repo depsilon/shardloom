@@ -40,8 +40,13 @@ Dependabot cannot:
 3. Update or add a release intake note under `docs/dependencies/`.
 4. Update `docs/architecture/vortex-public-api-inventory.md` with every runtime-relevant API,
    dependency-only item, baseline-only item, not-applicable item, and blocked item.
-5. If the release changes the dependency version, update `shardloom-vortex/Cargo.toml` and
-   `Cargo.lock`.
+5. If the release changes the dependency version, update the root `Cargo.toml`
+   `[workspace.dependencies]` `vortex` entry and `Cargo.lock`.
+   `shardloom-vortex/Cargo.toml` must keep `vortex = { workspace = true, optional = true }`;
+   `shardloom-vortex/build.rs` derives
+   `SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION` from the workspace dependency so Rust evidence,
+   Python release tooling, and benchmark publication do not carry duplicate current-version
+   strings.
 6. Run feature-gated compile checks for every existing Vortex feature gate:
    - `cargo check -p shardloom-vortex`
    - `cargo check -p shardloom-vortex --features upstream-vortex`

@@ -16,6 +16,97 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-4A docs, website, install, and example productization closeout
+  - Date: 2026-06-14
+  - Source:
+    - `PROD-V1-4A` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/release/public-status-matrix.md`.
+    - `docs/status/runs-today-support-matrix.json`.
+    - `docs/release/package-channel-readiness-matrix.json`.
+    - `website-src/` Astro/Starlight source and generated `website/` output.
+  - Branch: `codex/prod-v1-docs-productization`.
+  - Scope:
+    - Rebuilt the install path around explicit source-checkout, package-status, support-bundle,
+      and generated supported/unsupported pages:
+      `docs/getting-started/source-checkout-install.md`,
+      `docs/getting-started/package-user-install.md`,
+      `docs/getting-started/troubleshooting-support.md`, and
+      `docs/getting-started/v1-supported-unsupported.md`.
+    - Added `scripts/write_v1_supported_unsupported_docs.py` to generate the v1 support boundary
+      from checked-in runs-today and package-channel matrices, and
+      `scripts/check_v1_docs_productization.py` to enforce generated-doc freshness, install-page
+      separation, unsupported examples, package-command withholding, and website/field-guide
+      markers.
+    - Updated README, examples, public-status docs, website start page, benchmark scenario snippet,
+      Starlight sync templates, generated Starlight pages, generated website output, and static
+      asset checks so public docs point to the same v1 support and no-fallback boundaries.
+    - Added stable v1 local examples for CSV, JSONL, Parquet, Vortex, prepare Vortex, warm prepared
+      query, bounded collect, local output write, evidence inspection, and blocker inspection;
+      added unsupported examples for broad SQL, unbounded collect, object-store, Foundry, and
+      effectful API/UDF-like paths.
+    - UAT finding folded in: the run-as-is local Python scenario now uses the default admitted
+      local JSONL sink for `clean_cast_filter_write`; feature-gated Vortex output remains documented
+      under the output/sink scope instead of being required for default source-checkout replay.
+    - Repository hygiene folded in: upstream Vortex provider-version evidence is now derived from
+      the root workspace dependency by `shardloom-vortex/build.rs`; Python release, benchmark, and
+      CI env helpers use the same manifest-derived source. Rust MSRV/toolchain env continues to
+      derive from root `[workspace.package] rust-version`.
+    - Version-drift guard folded in: runtime-utilization reports now read the shared upstream
+      Vortex provider constant, and the pre-5J dependency freshness gate resolves the current
+      provider-version token so hard-coded current provider literals are blocked without adding a
+      new literal to every future Vortex bump.
+  - Evidence commands:
+    - `cargo fmt --all -- --check`.
+    - `cargo check -p shardloom-vortex --no-default-features`.
+    - `cargo check -p shardloom-vortex --features upstream-vortex`.
+    - `cargo test -p shardloom-vortex --lib --no-default-features`.
+    - `cargo clippy --workspace --all-targets -- -D warnings`.
+    - `cargo test --workspace --all-targets`.
+    - `python3 -m py_compile scripts/write_v1_supported_unsupported_docs.py scripts/check_v1_docs_productization.py scripts/check_public_status_docs.py scripts/check_v1_example_replay.py scripts/check_python_user_surface_completion.py examples/local-python-benchmark-scenarios/scenario_support.py`.
+    - `python3 scripts/write_ci_version_env.py`.
+    - `python3 scripts/check_pre_5j_dependency_freshness.py --open-prs-json target/empty-open-prs.json --output target/pre-5j-dependency-freshness-gate-local.json`.
+    - `PYTHONPATH=python/src:scripts python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_accepts_current_dependabot_prs python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_parses_cargo_files_without_tomllib python.tests.test_release_scripts.ReleaseScriptTests.test_pre_5j_dependency_freshness_blocks_stale_vortex_provider_surfaces`.
+    - `python3 scripts/write_v1_supported_unsupported_docs.py --check`.
+    - `python3 scripts/check_v1_docs_productization.py`.
+    - `python3 scripts/check_public_status_docs.py`.
+    - `python3 scripts/check_public_claim_language.py --scan-path README.md --scan-path docs/getting-started/install.md --scan-path docs/getting-started/source-checkout-install.md --scan-path docs/getting-started/package-user-install.md --scan-path docs/getting-started/examples.md --scan-path docs/getting-started/v1-supported-unsupported.md --scan-path docs/getting-started/troubleshooting-support.md --scan-path website-src/src/pages/start.astro --scan-path website-src/src/components/BenchmarkDashboard.astro --scan-path website-src/src/content/docs/field-guide/start-local-proof.mdx --scan-path website-src/src/content/docs/field-guide/python-surface.mdx`.
+    - `python3 scripts/check_v1_example_replay.py --skip-build --profile-order release,debug`.
+    - `python3 scripts/check_python_user_surface_completion.py`.
+    - `python3 scripts/check_production_usability_gate.py`.
+    - `node scripts/sync-content.mjs && astro build && node scripts/postbuild-static.mjs` from
+      `website-src` using the bundled Node runtime.
+    - `node scripts/sync-content.mjs && astro check` from `website-src` using the bundled Node
+      runtime.
+    - `python3 scripts/check_website_readiness.py`.
+    - `node website/validate_static_assets.js` using the bundled Node runtime.
+    - `git diff --check`.
+  - Generated reports and artifacts:
+    - `target/v1-docs-productization-report.json`:
+      `shardloom.v1_docs_productization_report.v1`, status `passed`.
+    - `target/v1-example-replay-report.json`: status `passed`; sequential local Python scenario
+      replay, timing review, and quickstart smoke passed with no fallback or external-engine
+      execution.
+    - `target/public-status-docs-report.json`: status `passed`.
+    - `target/public-claim-language-report.json`: status `passed`.
+    - `target/python-user-surface-completion-gate.json`: status `passed`.
+    - `target/website-readiness-report.json`: status `passed`.
+    - Generated `docs/getting-started/v1-supported-unsupported.md` from checked-in matrices.
+    - Regenerated `website/` static output and Pagefind assets from `website-src/`.
+  - Claim boundary:
+    - May claim the public docs, website entry points, support-boundary page, example snippets, and
+      source/package install split are coherent for the declared local v1 scope and backed by
+      validators.
+    - Does not approve public package publication, release tags, production support, performance
+      superiority, Spark/engine replacement, broad SQL/DataFrame parity, object-store/lakehouse
+      runtime, Foundry production support, or unscoped Vortex writer support.
+  - Fallback boundary:
+    - Docs and replay evidence require `fallback_attempted=false` and
+      `external_engine_invoked=false`. Unsupported examples remain deterministic blocker examples,
+      not fallback execution.
+  - Residual work:
+    - Package-channel publication, channel-specific live install/upgrade/uninstall commands,
+      signing/attestation, release tags, and final hard release readiness remain under
+      `PROD-V1-5A` and later release-ready items.
 - [x] Session label: PROD-V1-3A v1 security/CI hardening closeout
   - Date: 2026-06-14
   - Source:

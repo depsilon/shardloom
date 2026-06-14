@@ -170,7 +170,7 @@ REQUIRED_DOC_MARKERS = {
         "ctx.read_csv(\"data/fact.csv\", schema={",
         "fact.filter(sl.col(\"flag\") == True)",
         ".select(\"id\", \"group_key\", \"value\")",
-        ".write_vortex(\"target/clean-cast-filter-write.vortex\", allow_overwrite=True)",
+        ".write_jsonl(\"target/clean-cast-filter-write.jsonl\", allow_overwrite=True)",
         "materialization_report.blocker_id",
         "fallback_attempted, result.external_engine_invoked",
     ],

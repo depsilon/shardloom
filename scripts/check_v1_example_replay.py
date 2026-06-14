@@ -56,7 +56,7 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
         "# selective filter",
         "# malformed timestamp / dirty CSV",
         "# nested JSON field scan",
-        "target/clean-cast-filter-write.vortex",
+        "target/clean-cast-filter-write.jsonl",
     ),
     "python/README.md": (
         "from shardloom import context",
@@ -86,7 +86,7 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
         "# selective filter",
         "# malformed timestamp / dirty CSV",
         "# nested JSON field scan",
-        "target/clean-cast-filter-write.vortex",
+        "target/clean-cast-filter-write.jsonl",
     ),
     "website-src/src/content/docs/field-guide/python-surface.mdx": (
         "from shardloom import context",

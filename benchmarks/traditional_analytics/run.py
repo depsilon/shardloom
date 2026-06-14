@@ -29,10 +29,15 @@ from pathlib import Path
 from typing import Any, Callable
 
 
-PYTHON_SRC = Path(__file__).resolve().parents[2] / "python" / "src"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+PYTHON_SRC = REPO_ROOT / "python" / "src"
 if str(PYTHON_SRC) not in sys.path:
     sys.path.insert(0, str(PYTHON_SRC))
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 
+from release_report_utils import upstream_vortex_provider_version  # noqa: E402
 from shardloom import validate_runtime_execution_fields  # noqa: E402
 
 
@@ -113,21 +118,7 @@ VORTEX_LAYOUT_DEVICE_MANAGED_BOUNDARY_REF = (
 )
 
 
-def _read_upstream_vortex_provider_version() -> str:
-    source = Path(__file__).resolve().parents[2] / "shardloom-vortex" / "src" / "lib.rs"
-    text = source.read_text(encoding="utf-8")
-    match = re.search(
-        r'pub\s+const\s+UPSTREAM_VORTEX_PROVIDER_VERSION\s*:\s*&str\s*=\s*"([^"]+)"',
-        text,
-    )
-    if match is None:
-        raise RuntimeError(
-            "shardloom-vortex/src/lib.rs is missing UPSTREAM_VORTEX_PROVIDER_VERSION"
-        )
-    return match.group(1)
-
-
-UPSTREAM_VORTEX_PROVIDER_VERSION = _read_upstream_vortex_provider_version()
+UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)
 SHARDLOOM_VORTEX_PROVIDER_VERSION = (
     f"shardloom-vortex=0.1.0;vortex={UPSTREAM_VORTEX_PROVIDER_VERSION}"
 )

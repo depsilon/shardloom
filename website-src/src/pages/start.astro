@@ -34,6 +34,7 @@ print(result.fallback_attempted, result.external_engine_invoked)`;
     <div>
       <h2>Recommended first route</h2>
       <p class="narrow">Run the documented first-10-minutes checks from the repo, then move to certified local workload docs.</p>
+      <p class="narrow"><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md">Source checkout install</a> is the active path. <a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md">Package user install status</a> remains blocked until channels are live.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">PowerShell</div>
@@ -50,6 +51,19 @@ python examples\local-python-smoke\run.py --repo-root .
 python scripts\check_python_user_surface_completion.py
 python scripts\check_production_usability_gate.py</code></pre>
       <div class="code-evidence"><span><strong>claim boundary</strong>local source-checkout proof</span><span><strong>fallback_attempted</strong>false where execution evidence is emitted</span></div>
+    </div>
+  </section>
+  <section class="section-grid">
+    <div>
+      <h2>Support boundary</h2>
+      <p class="narrow">Use the generated v1 support surface before assuming a path is live. Package commands are withheld until publication gates close.</p>
+    </div>
+    <div class="code-panel">
+      <div class="panel-label">Docs</div>
+      <pre><code>docs/getting-started/v1-supported-unsupported.md
+docs/getting-started/troubleshooting-support.md
+package_install_commands_visible=false</code></pre>
+      <div class="code-evidence"><span><strong>source</strong>runs-today + package-channel matrices</span><span><strong>support</strong>doctor/support-bundle JSON</span></div>
     </div>
   </section>
   <section class="section-grid">

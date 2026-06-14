@@ -217,11 +217,11 @@ def upstream_vortex_lock_version(repo_root: Path) -> str:
 
 
 def upstream_vortex_provider_version(repo_root: Path) -> str:
-    text = read_text(repo_root / "shardloom-vortex/src/lib.rs", missing_ok=False)
-    match = re.search(
-        r'pub\s+const\s+UPSTREAM_VORTEX_PROVIDER_VERSION\s*:\s*&str\s*=\s*"([^"]+)"',
-        text,
-    )
-    if match is None:
-        raise ValueError("missing UPSTREAM_VORTEX_PROVIDER_VERSION in shardloom-vortex/src/lib.rs")
-    return match.group(1)
+    """Return the upstream Vortex provider line used by Rust evidence surfaces.
+
+    `shardloom-vortex/build.rs` exports this value to Rust from the root
+    workspace dependency, so Python release tooling should use the same source
+    instead of parsing a duplicated Rust string literal.
+    """
+
+    return upstream_vortex_manifest_version(repo_root)

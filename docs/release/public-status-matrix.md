@@ -81,8 +81,12 @@ external_engine_invoked=false
 | `docs/architecture/v1-local-output-sink-scope.md` | Scoped local output/sink scope. | Local output sink scope report, golden fixtures, user route capability report, and benchmark sink/replay fields. |
 | `docs/architecture/v1-observability-support.md` | Scoped local observability/supportability boundary. | Observability support report, diagnostic-code stability doc, troubleshooting guide, issue templates, route capability report, API/schema stability report, and benchmark timing-surface fields. |
 | `docs/getting-started/install.md` | Source checkout and local install path. | This matrix plus package-channel readiness docs. |
+| `docs/getting-started/source-checkout-install.md` | Source checkout build and local proof path. | This matrix plus release dry-run proof docs. |
+| `docs/getting-started/package-user-install.md` | Package-channel availability, uninstall, and upgrade boundary before publication. | Package-channel readiness matrix plus this matrix. |
 | `docs/getting-started/first-10-minutes.md` | Local proof walkthrough. | This matrix plus release dry-run proof docs. |
 | `docs/getting-started/examples.md` | Copyable scoped examples and blockers. | This matrix plus relevant capability docs. |
+| `docs/getting-started/v1-supported-unsupported.md` | Generated current supported/unsupported surface. | Runs-today support matrix plus package-channel matrix. |
+| `docs/getting-started/troubleshooting-support.md` | Local troubleshooting and support-bundle guide. | V1 observability/support scope plus diagnostic-code stability docs. |
 | `python/README.md` | Python wrapper/API posture. | This matrix plus Python user-surface and parity gates. |
 | `docs/release/public-technical-preview-readiness.md` | Historical public-preview readiness pass and checklist. | This matrix for current posture. |
 | `website-src/` | Public web interpretation layer. | This matrix, synced data artifacts, and website readiness checks. |
