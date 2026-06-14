@@ -6087,7 +6087,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-2B` Correctness, conformance, and golden workflow closure for v1.",
+            "`PROD-V1-2C` Local memory, resource safety, cancellation, and cleanup closure.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -7125,6 +7125,10 @@ class ReleaseScriptTests(unittest.TestCase):
             ["/tool/python3.12", "scripts/check_v1_api_schema_stability.py"],
         )
         self.assertEqual(
+            commands["v1_example_replay_gate"],
+            ["/tool/python3.12", "scripts/check_v1_example_replay.py"],
+        )
+        self.assertEqual(
             commands["v1_correctness_conformance_gate"],
             ["/tool/python3.12", "scripts/check_v1_correctness_conformance.py"],
         )
@@ -7252,6 +7256,12 @@ class ReleaseScriptTests(unittest.TestCase):
                         ),
                         "required_status": "passed",
                     },
+                    {
+                        "report_id": "example_replay",
+                        "path": "target/v1-example-replay-report.json",
+                        "schema_version": "shardloom.v1_example_replay_report.v1",
+                        "required_status": "passed",
+                    },
                 ],
                 "expected_counts": {
                     "front_door_supported_rows": (
@@ -7278,6 +7288,21 @@ class ReleaseScriptTests(unittest.TestCase):
                     "output_routes": module.EXPECTED_OUTPUT_ROUTE_IDS,
                     "python_user_surface_method_rows": (
                         module.EXPECTED_PYTHON_USER_SURFACE_METHOD_ROWS
+                    ),
+                    "example_replay_doc_sources": (
+                        module.EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES
+                    ),
+                    "example_replay_runtime_commands": (
+                        module.EXPECTED_EXAMPLE_REPLAY_RUNTIME_COMMANDS
+                    ),
+                    "example_replay_scenarios": (
+                        module.EXPECTED_EXAMPLE_REPLAY_SCENARIOS
+                    ),
+                    "example_replay_expected_error_scenarios": (
+                        module.EXPECTED_EXAMPLE_REPLAY_ERROR_SCENARIOS
+                    ),
+                    "example_replay_unsupported_failure_fixtures": (
+                        module.EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES
                     ),
                     "golden_workflows": len(module.EXPECTED_GOLDEN_WORKFLOWS),
                     "golden_stage_count_min": module.EXPECTED_GOLDEN_STAGE_COUNT_MIN,
@@ -7557,6 +7582,49 @@ class ReleaseScriptTests(unittest.TestCase):
             },
         )
         write(
+            paths.example_replay,
+            {
+                "schema_version": "shardloom.v1_example_replay_report.v1",
+                "status": "passed",
+                "blockers": [],
+                "docs_marker_source_count": (
+                    module.EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES
+                ),
+                "docs_marker_count": 36,
+                "docs_marker_pass_count": 36,
+                "docs_marker_status": "passed",
+                "runtime_command_count": (
+                    module.EXPECTED_EXAMPLE_REPLAY_RUNTIME_COMMANDS
+                ),
+                "runtime_command_status": "passed",
+                "golden_workflow_replay_status": "passed",
+                "golden_workflow_replay_verified_count": len(
+                    module.EXPECTED_GOLDEN_WORKFLOWS
+                ),
+                "golden_workflow_stage_count": module.EXPECTED_GOLDEN_STAGE_COUNT_MIN,
+                "docs_example_execution_status": "passed",
+                "python_readme_example_execution_status": "passed",
+                "website_example_execution_status": "passed",
+                "quickstart_smoke_status": "passed",
+                "benchmark_scenario_execution_status": "passed",
+                "timing_review_status": "passed",
+                "benchmark_scenario_count": module.EXPECTED_EXAMPLE_REPLAY_SCENARIOS,
+                "benchmark_expected_error_scenario_count": (
+                    module.EXPECTED_EXAMPLE_REPLAY_ERROR_SCENARIOS
+                ),
+                "expected_error_scenario_ids": sorted(module.EXPECTED_ERROR_SCENARIOS),
+                "unsupported_failure_fixture_count": (
+                    module.EXPECTED_EXAMPLE_REPLAY_UNSUPPORTED_FIXTURES
+                ),
+                "unsupported_failure_fixture_status": "passed",
+                "all_no_fallback_no_external_engine": True,
+                "claim_gate_status": "not_claim_grade",
+                "runtime_support_claim_allowed": False,
+                "correctness_claim_allowed": True,
+                **false_fields,
+            },
+        )
+        write(
             paths.source_prepared_state,
             {
                 "schema_version": "shardloom.v1_source_prepared_state_scope_report.v1",
@@ -7621,13 +7689,16 @@ class ReleaseScriptTests(unittest.TestCase):
             report = module.build_report(repo_root, module.ReportPaths())
 
         self.assertEqual(report["status"], "passed", report["blockers"])
-        self.assertEqual(report["input_report_count"], 7)
+        self.assertEqual(report["input_report_count"], 8)
         self.assertTrue(report["correctness_claim_allowed"])
         self.assertTrue(report["decoded_reference_differential_execution_performed"])
         self.assertTrue(report["property_execution_performed"])
         self.assertTrue(report["deterministic_fuzz_execution_performed"])
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
+        self.assertEqual(report["docs_example_execution_status"], "passed")
+        self.assertEqual(report["unsupported_path_test_status"], "passed")
+        self.assertEqual(report["example_replay_validator_status"], "passed")
         self.assertEqual(
             report["summaries"]["admitted_semantics"]["required_semantic_case_count"],
             len(module.REQUIRED_SEMANTIC_CASE_IDS),
@@ -7718,6 +7789,21 @@ class ReleaseScriptTests(unittest.TestCase):
                 "required_operation_method_count"
             ],
             module.REQUIRED_OPERATION_UNIQUE_PYTHON_METHOD_COUNT,
+        )
+        self.assertEqual(
+            report["summaries"]["example_replay"]["docs_marker_source_count"],
+            module.EXPECTED_EXAMPLE_REPLAY_DOC_SOURCES,
+        )
+        self.assertEqual(
+            report["summaries"]["example_replay"]["runtime_command_count"],
+            module.EXPECTED_EXAMPLE_REPLAY_RUNTIME_COMMANDS,
+        )
+        self.assertEqual(
+            report["summaries"]["example_replay"]["benchmark_scenario_count"],
+            module.EXPECTED_EXAMPLE_REPLAY_SCENARIOS,
+        )
+        self.assertTrue(
+            report["summaries"]["example_replay"]["all_no_fallback_no_external_engine"]
         )
         self.assertEqual(
             report["summaries"]["operation_coverage"][
@@ -8034,6 +8120,65 @@ class ReleaseScriptTests(unittest.TestCase):
             any(
                 "operation_coverage: hash_join: missing front-door example scenario"
                 in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_missing_example_replay_report(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_missing_example_replay_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            (repo_root / module.ReportPaths().example_replay).unlink()
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertFalse(report["correctness_claim_allowed"])
+        self.assertEqual(report["docs_example_execution_status"], "blocked")
+        self.assertTrue(
+            any(
+                "example_replay: missing report" in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+
+    def test_v1_correctness_conformance_gate_fails_example_replay_drift(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_v1_correctness_conformance.py",
+            "check_v1_correctness_conformance_example_replay_drift_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            self._write_v1_correctness_conformance_fixture_reports(module, repo_root)
+            example_path = repo_root / module.ReportPaths().example_replay
+            example = json.loads(example_path.read_text(encoding="utf-8"))
+            example["website_example_execution_status"] = "blocked"
+            example["benchmark_scenario_count"] -= 1
+            example_path.write_text(json.dumps(example), encoding="utf-8")
+            report = module.build_report(repo_root, module.ReportPaths())
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "example_replay: website_example_execution_status=blocked" in blocker
+                for blocker in report["blockers"]
+            ),
+            report["blockers"],
+        )
+        self.assertTrue(
+            any(
+                "example_replay: benchmark_scenario_count=8" in blocker
                 for blocker in report["blockers"]
             ),
             report["blockers"],
