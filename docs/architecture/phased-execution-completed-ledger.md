@@ -16,6 +16,84 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-RUNTIME-7B full-local publication refresh and high-cardinality join
+  closeout
+  - Date: 2026-06-14
+  - Source:
+    - `PERF-RUNTIME-7B` in `docs/architecture/phased-execution-plan.md`.
+    - Promoted `full_local` benchmark artifact under `website/assets/benchmarks/latest/`.
+    - `target/benchmark-artifacts/traditional-full-local.json` generated locally for promotion.
+  - Branch: `codex/perf-runtime-7b-full-local-refresh`.
+  - Scope:
+    - Added a row-count and dimension-cardinality guard that admits the sparse packed
+      `join_aggregate` accumulator up front for high-cardinality local benchmark shapes, avoiding
+      dense packed-table construction followed by rollover.
+    - Preserved the dense packed accumulator for compact domains and preserved the existing
+      fail-closed category/label semantics.
+    - Promoted a fresh full-local benchmark bundle after the residual hot-loop changes from the
+      preceding 7B session, replacing stale website benchmark chunks with row-run
+      `rows-33076b50e42b6df1`.
+    - Rebuilt the Astro/Starlight website so the benchmark page, import-time data, deployable
+      assets, and manifest all point at the refreshed artifact.
+  - Timing classification:
+    - Targeted 100k `join_aggregate` ShardLoom native/prepared rows improved from the prior
+      full-local operator tail of roughly `5.6-6.5 ms` to about `3.5-3.9 ms` after the sparse
+      guard.
+    - Promoted full-local prepared/native operator geomeans now show `join_aggregate` around
+      `3.599 ms`, `small_change_over_large_base` around `2.856 ms`, and
+      `nested_json_field_scan` around `2.284 ms`; remaining prepared/native operator tails are
+      measurable but no longer the dominant promoted hotspot family.
+    - `multi_key_group_by` prepared/native geomean is around `0.020 ms` operator and
+      `0.021 ms` query; `hash_join` is around `0.286 ms` operator and `0.438 ms` query.
+    - The promoted optimization-target report now points the next significant work toward cold
+      source/format decode, especially JSONL and AVRO hot-runtime rows, rather than further 7B
+      residual-operator slivers.
+  - Promoted artifact summary:
+    - Raw full-local run: `1200` rows, `1194` success rows, `6` unsupported rows.
+    - ShardLoom rows in the raw full-local run: `480/480` success and `480/480` claim-grade with
+      runtime validation status `passed`.
+    - The only unsupported raw rows are external-baseline-only DataFusion
+      `nested_json_field_scan` rows across CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC.
+    - Published website row chunks now contain `1920` rows: `600` hot-runtime ShardLoom rows,
+      `600` publication-proof ShardLoom rows, and `720` external-baseline rows.
+    - `performance_claim_allowed=false`; the artifact is current evidence and optimization
+      direction, not a broad superiority, Spark-displacement, package-release, or production
+      claim.
+  - Evidence commands:
+    - `cargo fmt --all -- --check`.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark string_interner_fast_paths_dense_generated_categories --lib -- --nocapture`.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark sparse_packed_group_accumulator_reports_high_cardinality_guard --lib -- --nocapture`.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_join_aggregate_uses_prepared_native_vortex_scan --lib -- --nocapture`.
+    - `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`.
+    - `benchmarks/traditional_analytics/.venv/bin/python benchmarks/traditional_analytics/run.py --rows 100000 --iterations 3 --engines shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario "join + aggregate" --dataset-profile tiny_smoke --shardloom-build-profile release --shardloom-evidence-tier metadata_sink --shardloom-evidence-level certified --output target/benchmark-artifacts/perf-runtime-7b-join-full-local-targeted.json --data-dir target/benchmark-artifacts/traditional-full-local-data --no-markdown`.
+    - `benchmarks/traditional_analytics/.venv/bin/python benchmarks/traditional_analytics/run.py --claim-readiness-rerun --rows 100000 --iterations 3 --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask --formats csv,jsonl,parquet,arrow-ipc,avro,orc --dataset-profile tiny_smoke --require-all-engines --output target/benchmark-artifacts/traditional-full-local.json --data-dir target/benchmark-artifacts/traditional-full-local-data --regenerate`.
+    - `benchmarks/traditional_analytics/.venv/bin/python scripts/promote_benchmark_artifact.py --profile full_local --input target/benchmark-artifacts/traditional-full-local.json`.
+    - `NODE=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node; NODEBIN=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin; cd website-src && "$NODE" scripts/sync-content.mjs && PATH="$NODEBIN:$PATH" "$NODE" node_modules/.bin/astro build && "$NODE" scripts/postbuild-static.mjs`.
+    - `NODE=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node; NODEBIN=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin; cd website-src && "$NODE" scripts/sync-content.mjs && PATH="$NODEBIN:$PATH" "$NODE" node_modules/.bin/astro check`.
+    - `python3 scripts/check_website_readiness.py --output target/website-readiness-report.json`.
+    - `NODE=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node; "$NODE" website/validate_static_assets.js`.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json`.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree --output target/benchmark-publication-claim-gate-report.json`.
+    - `python3 scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree --output target/front-door-benchmark-publication-gate.json`.
+    - `python3 scripts/check_runtime_promotion_evidence.py`.
+    - `python3 scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json --output target/benchmark-optimization-targets-report.json`.
+  - Validation note:
+    - `website-public/validate_static_assets.js` was intentionally not used as a gate because
+      `website-public/` is the Astro public asset source, not the built static output root; running
+      the copied validator there fails on missing built pages such as `index.html`.
+  - Claim boundary:
+    - May claim the refreshed benchmark website data is current to the promoted full-local artifact
+      and that 7B residual operator burn-down is complete for the scoped local benchmark rows.
+    - May not claim broad performance superiority, encoded-native heavy-operator promotion,
+      production readiness, package publication, or Spark displacement from this artifact.
+  - Fallback boundary:
+    - No external engine, query-engine integration, Spark, DataFusion, DuckDB, Polars, Velox, or
+      Vortex query-engine fallback was introduced.
+    - External engines remain benchmark baselines only.
+  - Residual work:
+    - Future optimization should start from the promoted optimization-target report: JSONL/AVRO
+      cold source decode and prepared lookup/create/proof-publication items already tracked by the
+      open 7C/7D queue.
 - [x] Session label: PERF-RUNTIME-7B residual operator hot-loop tail burn-down
   - Date: 2026-06-14
   - Source:

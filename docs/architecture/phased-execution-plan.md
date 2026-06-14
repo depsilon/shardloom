@@ -271,99 +271,12 @@ with a recorded infeasibility reason, not merely because they are broad.
 
 ### Open Work Checklist
 
-- [ ] `PERF-RUNTIME-7B` Heavy residual operator tail promotion for multi-key group-by and
-  join-aggregate.
-  - Source: current promoted `full_local` benchmark artifact row-level timing generated
-    `2026-06-13T11:33:10Z`. Heavy hot tails now show cold `multi_key_group_by` geomean
-    `66.76 ms` with diagnostic operator compute around `13.03 ms`, cold `join_aggregate`
-    geomean `61.34 ms`, and prepared/native `join_aggregate` route geomeans around
-    `4.93-7.68 ms` with operator compute around `3.34-4.43 ms`. Other prepared/native heavy
-    grouping rows are near zero and look marginal unless future artifacts disagree.
-    `docs/architecture/vortex-public-api-inventory.md` records Vortex 0.75 grouped
-    `sum`/`count`, validity/mask, branchless zip, dictionary/FSST, `byte_length()`, and layout-cache
-    opportunities that must be evaluated before ShardLoom adds another owned kernel.
-  - Current state: operator mode inventory still reports residual-native operator promotion
-    blockers: `residual_native_operator_encoding_promotion`,
-    `selective_filter_selection_vector_metric_aggregation`, and
-    `compatibility_import_materialization_elimination`. Diagnostic operator fields are visible but
-    many operator timings are not additive to selected route totals.
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: applicable, but operator semantics come first. Dynamic kernel
-    admission should select by cardinality/domain/null shape; encoded/partially encoded kernels
-    should be preferred where decoded-reference parity exists. Vortex-first provider selection
-    must check 0.75 grouped aggregate, validity/mask, zip, dictionary/FSST, and byte-length
-    surfaces before inventing new ShardLoom kernels. Capillary or PulseWeave controls apply around
-    source/preparation/result work, not as a substitute for native operator correctness.
-  - Execution checklist:
-    - [x] Reuse the packed dense group accumulator for `join_aggregate`, replacing the older
-      dense-left/per-dimension `HashMap` category accumulator in the hot loop.
-    - [x] Add a dense-contiguous dimension-key membership fast path for compact dimension domains.
-    - [x] Promote packed join result rendering to runtime code and preserve deterministic label
-      coalescing/fail-closed category checks.
-    - [x] Remove the obsolete dense-left category accumulator and old BTreeMap renderer instead
-      of keeping unused legacy code.
-    - [x] Run a targeted one-iteration local smoke for `join + aggregate` across CSV/JSONL cold and
-      prepare-batch lanes; treat the result as route validation only until refreshed benchmark rows
-      are promoted.
-    - [x] Refresh full-local `join_aggregate`, `multi_key_group_by`, and high-cardinality rows to
-      classify remaining opportunities as significant or marginal.
-    - [x] Add generated dense-category interner admission for canonical `c0..cN` benchmark
-      categories so distinct/multi-key/join residual operators avoid repeated string hashing when
-      source shape proves dense ordered labels.
-    - [x] Add a Vortex 0.75 provider disposition report for heavy operators: grouped `sum`/`count`,
-      validity/mask no-null fast paths, branchless zip, dictionary/FSST reuse, and `byte_length()`
-      must be classified as adopted, wrapped, blocked, or superseded by a ShardLoom-native kernel
-      with decoded-reference parity.
-    - [x] If refreshed rows still show multi-ms prepared/native operator spikes, add the next
-      residual-native hot-loop family with decoded-reference parity tests before claiming
-      promotion: generated-category interner hash bypass, incremental CDC overlay count/sum, direct
-      primitive-array CDC base scans, byte-view CDC parsing, and exact generated nested-payload
-      parsing now cover the `join_aggregate`, `multi_key_group_by`,
-      `high_cardinality_string_group_distinct`, `small_change_over_large_base`, and
-      `nested_json_field_scan` tails without admitting an encoded-native claim.
-    - [x] Refresh targeted local rows after the residual hot-loop burn-down across CSV/JSONL
-      ShardLoom native, prepared/native, and prepare-batch lanes for `join_aggregate`,
-      `multi_key_group_by`, `high_cardinality_string_group_distinct`,
-      `small_change_over_large_base`, and `nested_json_field_scan`; current local rows show
-      successful sub-2 ms query/operator paths for the refreshed profiles and explicit residual
-      optimization statuses for each family.
-    - [ ] Run the full-local publication refresh and promote website artifacts after this runtime
-      patch lands, then classify any remaining multi-ms prepared/native operator tail from promoted
-      rows as marginal, benchmark-noise, Vortex-provider candidate, or next ShardLoom-native kernel
-      work.
-  - Next outcome: promote a cohesive heavy-operator family rather than isolated scenario slivers:
-    multi-key grouping, join+aggregate, high-cardinality distinct/group, and their prepared/native
-    residual tails. Add encoded or partially encoded kernels where correctness evidence supports
-    them; otherwise emit deterministic blocked diagnostics with precise next-step fields.
-  - User-visible surface: benchmark operator hot-path candidates, runtime certificates, Python/SQL
-    scenario behavior, benchmark route rows, and capability/diagnostic fields.
-  - Implementation scope: operator/kernel code in `shardloom-vortex/src/traditional_analytics.rs`
-    or extracted local helpers if needed, encoded-kernel evidence fields, route/operator
-    diagnostics, and regression tests for nulls, high cardinality, ordering-sensitive top/join
-    outputs, and decoded-reference parity.
-  - Evidence required: decoded-reference correctness, null/missing-key semantics, no-fallback
-    certificates, operator execution mode transition evidence, timing-surface-safe route fields,
-    and benchmark rows proving whether the tail changed.
-  - Acceptance: supported heavy operator rows no longer remain generic
-    `residual_native_operator_not_encoded_native` when a native kernel exists; unsupported shapes
-    fail or remain blocked with deterministic blocker codes; prepared/native `join_aggregate`
-    spikes are explained by additive timing fields or reduced by native execution; route totals
-    remain authoritative.
-  - Verification: focused Rust unit/integration tests for heavy operators, decoded-reference
-    parity tests, benchmark publication claim gate, route timing instrument readiness, and full
-    workspace gates when shared operator contracts move.
-  - Non-goals: no broad SQL planner rewrite, no distributed shuffle, no external engine execution,
-    no hidden decode-to-Arrow fallback.
-  - Claim boundary: encoded/operator improvements may be claimed only per supported operator family
-    with correctness and benchmark evidence.
-  - Fallback boundary: external engines remain baselines only and never execute ShardLoom work.
-  - Ledger rule: after merge/session completion, move measured closeout and command evidence to
-    the completed ledger.
 - [ ] `PERF-RUNTIME-7C` Prepared lookup/create and route-total attribution cleanup.
-  - Source: current route-share Amdahl and stage-inclusion tables. `prepare_once_first_query`
-    hot-route geomean is `1.45 ms`, dominated by `prepared_state_lookup_or_create` around
-    `1.00 ms` (`68.8%` route share). `prepare_once_batch`, warm, and native lanes have very low
-    geomeans but still carry diagnostic stage fields larger than selected route totals.
+  - Source: current route-share Amdahl and stage-inclusion tables from the `full_local` artifact
+    generated `2026-06-14T12:37:12Z`. `prepare_once_first_query` hot-route geomean is `0.84 ms`,
+    dominated by `prepared_state_lookup_or_create` around `0.56 ms` (`66.9%` route share).
+    `prepare_once_batch` is `0.10 ms`, while warm prepared and native Vortex query lanes are
+    around `0.03 ms` and still carry diagnostic stage fields larger than selected route totals.
   - Current state: prepared lookup/create is a moderate absolute cost and a large relative cost for
     first-query prepared routes. Route-share rows are optimization-ready, but some diagnostic
     fields are intentionally non-additive and can distract optimization targeting.
@@ -417,9 +330,9 @@ with a recorded infeasibility reason, not merely because they are broad.
     the completed ledger.
 - [ ] `PERF-RUNTIME-7D` Publication-proof sink/evidence overhead burn-down without redefining hot
   runtime.
-  - Source: current promoted `full_local` artifact generated `2026-06-13T11:33:10Z`.
-    Publication-proof routes add roughly `3.50-5.13 ms` evidence render and about
-    `0.47-0.60 ms` result-sink work to warm/native/prepared lanes; this is significant for
+  - Source: current promoted `full_local` artifact generated `2026-06-14T12:37:12Z`.
+    Publication-proof routes add roughly `2.89-3.13 ms` evidence render and about
+    `0.39-0.43 ms` result-sink work to warm/native/prepared lanes; this is significant for
     proof/publication throughput but not a core hot-runtime regression.
   - Current state: `publication_proof` rows are correctly separated from `hot_runtime`, but the
     proof path still spends more time rendering human evidence than executing warm/native queries.
@@ -897,9 +810,10 @@ with a recorded infeasibility reason, not merely because they are broad.
 
 | Status | Work | Next decision |
 | --- | --- | --- |
+| Closed | `PERF-RUNTIME-7B` | Completed in the ledger with full-local publication refresh evidence generated `2026-06-14T12:37:12Z`; remaining prepared/native operator tails are classified for future optimization direction, not an open 7B blocker. |
 | Closed | `RELEASE-PACKAGE-15` | Completed in the ledger with clean-source benchmark publication evidence for source revision `74a2e7d4f77eed0686971518e010463da26f2cdf`; no autonomous implementation item remains. |
 | Historical | PR #1174 benchmark row/readiness context, repo-wide audit closeout, release-sequence closeout, and completed benchmark/profile, sub-evidence, user-surface proof | Preserved in `docs/architecture/phased-execution-completed-ledger.md`; do not treat as active work. |
-| Current evidence | `full_local` benchmark refresh | Promoted website benchmark bundle generated `2026-06-13T11:33:10Z` from source revision `5743638a9225f479a0096f1c6db51a0068cac68f`; `performance_claim_allowed=false`; use for freshness and optimization direction only. |
+| Current evidence | `full_local` benchmark refresh | Promoted website benchmark bundle generated `2026-06-14T12:37:12Z` from source revision `64cae36e49085511b756508d0ad56807b821b2ef`; `performance_claim_allowed=false`; use for freshness and optimization direction only. |
 | Mapped, not autonomous queue | Unchecked global architecture review rows | Governed by `docs/architecture/global-architecture-review.md` and `docs/architecture/runtime-gap-family-burn-down.md`; promote concrete implementation items here before work begins. |
 | Deferred approval/artifact gate | Public release/package approval | Clean local Conda proof, dependency/security/package local-gate evidence, and current benchmark-publication evidence now pass locally; remaining blockers are package-channel approval/proof, publication/API/schema stability approval, and per-claim evidence promotion before any public claim. |
 

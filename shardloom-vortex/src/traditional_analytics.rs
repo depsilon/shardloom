@@ -19556,6 +19556,15 @@ const TRADITIONAL_DENSE_PACKED_GROUP_SLOT_BUDGET: usize = 1_000_000;
 const TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY: usize = 4_096;
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const TRADITIONAL_PACKED_GROUP_HIGH_CARDINALITY_ROW_THRESHOLD: u64 = 50_000;
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const TRADITIONAL_PACKED_GROUP_HIGH_CARDINALITY_DIM_THRESHOLD: usize = 512;
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const TRADITIONAL_PACKED_GROUP_HIGH_CARDINALITY_SPARSE_CAPACITY: usize = 16_384;
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 type TraditionalPackedU32Pair = u64;
 
 const RESIDUAL_OPERATOR_OPTIMIZATION_SCHEMA_VERSION: &str =
@@ -19702,9 +19711,17 @@ impl TraditionalResidualOperatorOptimizationEvidence {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn sparse_rollover(family: &'static str) -> Self {
+        Self::sparse_with_status(
+            family,
+            "rolled_to_sparse_accumulator_wide_key_or_slot_budget",
+        )
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn sparse_with_status(family: &'static str, status: &'static str) -> Self {
         Self {
             family,
-            status: "rolled_to_sparse_accumulator_wide_key_or_slot_budget",
+            status,
             dense_accumulator_used: false,
             sparse_rollover_used: true,
             dense_max_key: None,
@@ -20033,7 +20050,10 @@ impl TraditionalDensePackedGroupAccum {
 #[derive(Debug, Clone, PartialEq)]
 enum TraditionalPackedGroupAccumulator {
     Dense(TraditionalDensePackedGroupAccum),
-    Sparse(std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum>),
+    Sparse {
+        groups: std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum>,
+        status: &'static str,
+    },
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -20045,6 +20065,15 @@ impl Default for TraditionalPackedGroupAccumulator {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalPackedGroupAccumulator {
+    fn sparse_with_capacity(capacity: usize, status: &'static str) -> Self {
+        Self::Sparse {
+            groups: std::collections::HashMap::with_capacity(
+                capacity.max(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY),
+            ),
+            status,
+        }
+    }
+
     fn add(&mut self, left: u32, right: u32, metric: f64) -> Result<()> {
         match self {
             Self::Dense(dense) => {
@@ -20053,11 +20082,14 @@ impl TraditionalPackedGroupAccumulator {
                 } else {
                     let mut sparse = std::mem::take(dense).into_hash_map();
                     add_packed_group_accum(&mut sparse, left, right, metric);
-                    *self = Self::Sparse(sparse);
+                    *self = Self::Sparse {
+                        groups: sparse,
+                        status: "rolled_to_sparse_accumulator_wide_key_or_slot_budget",
+                    };
                     Ok(())
                 }
             }
-            Self::Sparse(groups) => {
+            Self::Sparse { groups, .. } => {
                 add_packed_group_accum(groups, left, right, metric);
                 Ok(())
             }
@@ -20083,8 +20115,8 @@ impl TraditionalPackedGroupAccumulator {
                     dense_status,
                 )
             }
-            Self::Sparse(_) => {
-                TraditionalResidualOperatorOptimizationEvidence::sparse_rollover(family)
+            Self::Sparse { status, .. } => {
+                TraditionalResidualOperatorOptimizationEvidence::sparse_with_status(family, status)
             }
         }
     }
@@ -20094,7 +20126,7 @@ impl TraditionalPackedGroupAccumulator {
     ) -> std::collections::HashMap<TraditionalPackedU32Pair, TraditionalGroupAccum> {
         match self {
             Self::Dense(dense) => dense.into_hash_map(),
-            Self::Sparse(groups) => groups,
+            Self::Sparse { groups, .. } => groups,
         }
     }
 }
@@ -34281,7 +34313,17 @@ fn run_streaming_join_aggregate_scenario_with_dim_state(
     let mut category_interner =
         TraditionalStringInterner::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
     let dense_contiguous_dim_max_key = dim_state.key_lookup.dense_contiguous_max_key();
-    let mut groups = TraditionalPackedGroupAccumulator::default();
+    let fact_row_count = vortex_file_row_count(fact_path)?;
+    let mut groups = if fact_row_count >= TRADITIONAL_PACKED_GROUP_HIGH_CARDINALITY_ROW_THRESHOLD
+        && dim_state.key_lookup.key_count >= TRADITIONAL_PACKED_GROUP_HIGH_CARDINALITY_DIM_THRESHOLD
+    {
+        TraditionalPackedGroupAccumulator::sparse_with_capacity(
+            TRADITIONAL_PACKED_GROUP_HIGH_CARDINALITY_SPARSE_CAPACITY,
+            "applied_residual_sparse_packed_join_aggregate_high_cardinality_guard",
+        )
+    } else {
+        TraditionalPackedGroupAccumulator::default()
+    };
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
         &["dim_key", "category", "metric"],
@@ -49993,6 +50035,34 @@ mod tests {
         assert_eq!(rows.get(&dense_key).unwrap().row_count, 2);
         assert!((rows.get(&dense_key).unwrap().metric_sum - 4.0).abs() < f64::EPSILON);
         assert!((rows.get(&sparse_key).unwrap().metric_sum - 5.0).abs() < f64::EPSILON);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn sparse_packed_group_accumulator_reports_high_cardinality_guard() {
+        let mut groups = TraditionalPackedGroupAccumulator::sparse_with_capacity(
+            2,
+            "applied_residual_sparse_packed_join_aggregate_high_cardinality_guard",
+        );
+        groups.add(2, 1, 1.0).unwrap();
+        groups.add(2, 1, 3.0).unwrap();
+
+        let evidence = groups.optimization_evidence_for_family(
+            "join_aggregate",
+            "applied_residual_dense_packed_join_aggregate_accumulator",
+        );
+        assert_eq!(evidence.family, "join_aggregate");
+        assert_eq!(
+            evidence.status,
+            "applied_residual_sparse_packed_join_aggregate_high_cardinality_guard"
+        );
+        assert!(!evidence.dense_accumulator_used);
+        assert!(evidence.sparse_rollover_used);
+
+        let rows = groups.into_hash_map();
+        let key = pack_traditional_u32_pair(2, 1);
+        assert_eq!(rows.get(&key).unwrap().row_count, 2);
+        assert!((rows.get(&key).unwrap().metric_sum - 4.0).abs() < f64::EPSILON);
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
