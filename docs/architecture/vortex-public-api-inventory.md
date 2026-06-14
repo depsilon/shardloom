@@ -1038,7 +1038,8 @@ fallback execution.
 - `vortex-api-inventory` now also emits
   `shardloom.vortex_native_writer_schema_certification.v1` under report id
   `prod-ready-1a.vortex-native-writer-schema-certification`. The report separates three scoped
-  feature-gated local runtime rows from the still-blocked generalized writer:
+  feature-gated local runtime rows, three provider-candidate schema families, and the still-blocked
+  generalized writer:
   - `flat_scalar_rows_nullable_primitives` uses ShardLoom's scalar-row-to-Vortex struct writer for
     nullable primitive/scalar shapes with known DType hints.
   - `typed_complex_scalar_rows_arrow_provider` uses upstream Vortex
@@ -1046,6 +1047,14 @@ fallback execution.
     rows when logical/Arrow DType hints are present.
   - `flat_columnar_source_state_arrow_provider` uses upstream Vortex
     `ArrayRef::from_arrow(RecordBatch)` for flat non-null columnar SourceState handoff.
+  - `dictionary_encoded_primitives_provider_gate` records dictionary/interleave encoding as a
+    Vortex-native provider candidate pending ordering, null-key, encoding-preservation, Native I/O,
+    and replay evidence.
+  - `nullable_columnar_validity_provider_gate` records nullable columnar handoff as a provider
+    candidate pending all-true/all-false/sparse/mixed validity fixtures, decoded reference parity,
+    reopen certificates, and no-fallback evidence.
+  - `extension_dtype_json_wkb_provider_gate` records JSON/WKB extension preservation as a wrapped
+    Vortex concept pending extension fidelity reports and deterministic expression blockers.
   - `generalized_schema_encoding_writer` remains `blocked_pending_evidence` with diagnostic
     `SL_UNSUPPORTED_GENERALIZED_VORTEX_PAYLOAD_WRITE`.
 - The writer certification report records provider decision, provider surface, schema family,

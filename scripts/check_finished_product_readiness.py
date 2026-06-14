@@ -195,6 +195,11 @@ PUBLICATION_REPORTS: tuple[ReportRequirement, ...] = (
         Path("target/hard-release-readiness-gate.json"),
         "shardloom.hard_release_readiness_gate.v1",
     ),
+    ReportRequirement(
+        "final_release_approval_post_release_verification",
+        Path("target/final-release-approval-post-release-verification-report.json"),
+        "shardloom.final_release_approval_report.v1",
+    ),
 )
 
 
@@ -283,6 +288,21 @@ def publication_report_summary(
 ) -> tuple[dict[str, Any], list[str], bool]:
     payload = load_json(resolve(repo_root, requirement.path), missing_ok=True)
     blockers = report_blockers(requirement, payload)
+    if (
+        requirement.name == "final_release_approval_post_release_verification"
+        and payload is not None
+        and payload.get("public_release_ready") is not True
+    ):
+        public_blocker_rows = payload.get("public_release_blockers")
+        if isinstance(public_blocker_rows, list) and public_blocker_rows:
+            blockers.append(
+                "final_release_approval_post_release_verification: "
+                + "; ".join(str(item) for item in public_blocker_rows[:20])
+            )
+        else:
+            blockers.append(
+                "final_release_approval_post_release_verification: public_release_ready=false"
+            )
     public_ready = payload is not None and not blockers
     public_blockers: list[str] = []
     if payload is None:

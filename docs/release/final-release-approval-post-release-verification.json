@@ -1,0 +1,72 @@
+{
+  "schema_version": "shardloom.final_release_approval_post_release_verification.v1",
+  "status": "blocked_pending_maintainer_approval",
+  "publication_authorization_state": "human_approval_required",
+  "public_release_ready": false,
+  "post_release_verification_ready": false,
+  "approval_artifact_ref": "target/final-release-approval/maintainer-approval.json",
+  "approved_release_tag": null,
+  "approved_release_commit": null,
+  "approved_package_channels": [],
+  "claim_boundary": "This artifact is a no-publication approval and post-release verification contract. It does not approve publication, create tags, upload packages, sign artifacts, push containers, or allow production, performance, Spark-replacement, object-store, lakehouse, Foundry, broad SQL/DataFrame, or fallback-execution claims.",
+  "fallback_boundary": "Post-release verification must prove ShardLoom runtime paths keep fallback_attempted=false and external_engine_invoked=false. Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or another external query engine as fallback execution.",
+  "verification_rows": [
+    {
+      "row_id": "package_install_uninstall_smoke",
+      "verification_status": "blocked_pending_public_release",
+      "required_evidence": "clean install transcript, uninstall transcript, package smoke transcript, SBOM/checksum/provenance refs, package-channel readiness report",
+      "evidence_ref": "target/package-channel-readiness-report.json",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "first_10_minutes_public_smoke",
+      "verification_status": "blocked_pending_public_release",
+      "required_evidence": "public package install followed by first-10-minutes commands and transcript",
+      "evidence_ref": "target/release-dry-run-proof/transcript.json",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "golden_workflow_public_smoke",
+      "verification_status": "blocked_pending_public_release",
+      "required_evidence": "golden workflow validator transcript over the public package or approved release artifact",
+      "evidence_ref": "target/golden-workflow-report.json",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "no_fallback_runtime_smoke",
+      "verification_status": "blocked_pending_public_release",
+      "required_evidence": "runtime envelope or Python client smoke showing fallback_attempted=false and external_engine_invoked=false",
+      "evidence_ref": "target/runtime-execution-envelopes-report.json",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "docs_links_public_smoke",
+      "verification_status": "blocked_pending_public_release",
+      "required_evidence": "public docs link/readiness validation after release links are live",
+      "evidence_ref": "target/website-readiness-report.json",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "website_support_matrix_public_smoke",
+      "verification_status": "blocked_pending_public_release",
+      "required_evidence": "website support matrix and benchmark/public-status pages reflect the approved release artifact and claim boundaries",
+      "evidence_ref": "target/public-status-docs-report.json",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    }
+  ],
+  "publication_attempted": false,
+  "tag_created": false,
+  "secrets_required": false,
+  "package_upload_attempted": false,
+  "package_channel_submission_attempted": false,
+  "oci_push_attempted": false,
+  "signing_key_used": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false
+}

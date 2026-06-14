@@ -653,6 +653,7 @@ impl VortexLocalIoCoverageReport {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VortexNativeWriterCertificationStatus {
     ScopedFeatureGatedRuntime,
+    ProviderCandidatePendingEvidence,
     BlockedPendingEvidence,
 }
 
@@ -661,6 +662,7 @@ impl VortexNativeWriterCertificationStatus {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ScopedFeatureGatedRuntime => "scoped_feature_gated_runtime",
+            Self::ProviderCandidatePendingEvidence => "provider_candidate_pending_evidence",
             Self::BlockedPendingEvidence => "blocked_pending_evidence",
         }
     }
@@ -668,6 +670,11 @@ impl VortexNativeWriterCertificationStatus {
     #[must_use]
     pub const fn runtime_available(self) -> bool {
         matches!(self, Self::ScopedFeatureGatedRuntime)
+    }
+
+    #[must_use]
+    pub const fn is_provider_candidate(self) -> bool {
+        matches!(self, Self::ProviderCandidatePendingEvidence)
     }
 
     #[must_use]
@@ -801,6 +808,99 @@ impl VortexNativeWriterSchemaCertificationRow {
     }
 
     #[must_use]
+    pub const fn dictionary_encoded_primitives_provider_candidate() -> Self {
+        Self {
+            row_id: "dictionary_encoded_primitives_provider_gate",
+            writer_lane_id: "dictionary_encoding_writer_provider_gate",
+            status: VortexNativeWriterCertificationStatus::ProviderCandidatePendingEvidence,
+            feature_gate: "vortex-write,upstream-vortex",
+            provider_decision: "use_vortex_native_provider_pending_gate",
+            provider_surface: "vortex_dictionary_and_interleave_encoding_surfaces",
+            schema_family: "dictionary_encoded_primitives",
+            dtype_scope: "dictionary_encoded_utf8_binary_and_low_cardinality_primitives",
+            validity_scope: "requires_dictionary_validity_and_null_key_semantics_matrix",
+            encoding_scope: "requires_dictionary_interleave_encoding_preservation_matrix",
+            metadata_preservation_status: "candidate_pending_layout_fidelity_report",
+            statistics_preservation_status: "candidate_pending_dictionary_statistics_report",
+            materialization_boundary: "blocked_before_runtime_write_until_provider_gate_passes",
+            replay_evidence: "required_before_admission",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_DICTIONARY_VORTEX_PAYLOAD_WRITE",
+            required_future_evidence: "dictionary_ordering_fixture,null_key_fixture,encoding_preservation_matrix,native_io_certificate,no_fallback_evidence",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "dictionary-encoded Vortex writer support is a provider candidate only; no runtime write claim until dictionary semantics and replay certificates pass",
+            local_write_runtime: false,
+            reopen_verified: false,
+            metadata_statistics_broadly_certified: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn nullable_columnar_validity_provider_candidate() -> Self {
+        Self {
+            row_id: "nullable_columnar_validity_provider_gate",
+            writer_lane_id: "nullable_columnar_vortex_writer_provider_gate",
+            status: VortexNativeWriterCertificationStatus::ProviderCandidatePendingEvidence,
+            feature_gate: "vortex-write,universal-format-io",
+            provider_decision: "use_vortex_native_provider_pending_gate",
+            provider_surface: "ArrayRef::from_arrow(RecordBatch) with nullable columnar validity",
+            schema_family: "nullable_columnar_source_state",
+            dtype_scope: "nullable_boolean_int_uint_float_utf8_binary_date_timestamp_columns",
+            validity_scope: "requires_alltrue_allfalse_sparse_and_mixed_validity_matrix",
+            encoding_scope: "vortex_from_arrow_record_batch_nullable_validity_writer_default",
+            metadata_preservation_status: "candidate_pending_validity_fidelity_report",
+            statistics_preservation_status: "candidate_pending_nullable_statistics_report",
+            materialization_boundary: "columnar_source_state_preserved_but_blocked_before_runtime_write_until_null_semantics_pass",
+            replay_evidence: "required_before_admission",
+            unsupported_diagnostic_code: "vortex_ingest.nullable_columnar_writer_requires_validity_matrix",
+            required_future_evidence: "nullable_columnar_fixture_matrix,decoded_reference_parity,reopen_scan_certificate,native_io_certificate,no_fallback_evidence",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "nullable columnar Vortex writer support is a provider candidate only; current runtime remains scoped to non-null columnar arrays and typed scalar-row null hints",
+            local_write_runtime: false,
+            reopen_verified: false,
+            metadata_statistics_broadly_certified: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn extension_dtype_provider_candidate() -> Self {
+        Self {
+            row_id: "extension_dtype_json_wkb_provider_gate",
+            writer_lane_id: "extension_dtype_vortex_writer_provider_gate",
+            status: VortexNativeWriterCertificationStatus::ProviderCandidatePendingEvidence,
+            feature_gate: "vortex-write,universal-format-io,upstream-vortex",
+            provider_decision: "wrap_vortex_concept_pending_gate",
+            provider_surface: "vortex_json_wkb_extension_arrow_import_export",
+            schema_family: "json_wkb_extension_dtype_preservation",
+            dtype_scope: "json_extension,wkb_geospatial_extension,extension_metadata_preservation_only",
+            validity_scope: "requires_extension_nullability_and_metadata_roundtrip_matrix",
+            encoding_scope: "requires_extension_import_export_layout_fidelity_matrix",
+            metadata_preservation_status: "candidate_pending_extension_fidelity_report",
+            statistics_preservation_status: "statistics_not_claimed_until_extension_report_exists",
+            materialization_boundary: "blocked_before_runtime_write_until_extension_fidelity_and_expression_blockers_pass",
+            replay_evidence: "required_before_admission",
+            unsupported_diagnostic_code: "SL_UNSUPPORTED_EXTENSION_DTYPE_VORTEX_PAYLOAD_WRITE",
+            required_future_evidence: "json_extension_fixture,wkb_extension_fixture,translation_report,unsupported_expression_diagnostics,native_io_certificate,no_fallback_evidence",
+            claim_gate_status: "not_claim_grade",
+            claim_boundary: "extension dtype writer support is preservation-candidate only; no JSON/geospatial expression or arbitrary extension execution claim",
+            local_write_runtime: false,
+            reopen_verified: false,
+            metadata_statistics_broadly_certified: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
     pub const fn generalized_schema_encoding_writer_blocked() -> Self {
         Self {
             row_id: "generalized_schema_encoding_writer",
@@ -868,10 +968,13 @@ impl VortexNativeWriterSchemaCertificationReport {
                 VortexNativeWriterSchemaCertificationRow::flat_scalar_rows(),
                 VortexNativeWriterSchemaCertificationRow::typed_complex_scalar_rows(),
                 VortexNativeWriterSchemaCertificationRow::flat_columnar_source_state(),
+                VortexNativeWriterSchemaCertificationRow::dictionary_encoded_primitives_provider_candidate(),
+                VortexNativeWriterSchemaCertificationRow::nullable_columnar_validity_provider_candidate(),
+                VortexNativeWriterSchemaCertificationRow::extension_dtype_provider_candidate(),
                 VortexNativeWriterSchemaCertificationRow::generalized_schema_encoding_writer_blocked(),
             ],
             claim_gate_status: "scoped_evidence_only",
-            claim_boundary: "feature-gated local flat scalar, typed complex source-free, and flat columnar Vortex prepared-state writer evidence only; generalized schema/encoding, object-store, table/catalog, lakehouse, and performance claims remain blocked",
+            claim_boundary: "feature-gated local flat scalar, typed complex source-free, and flat columnar Vortex prepared-state writer evidence only; dictionary, nullable columnar, and extension schema families are provider candidates pending evidence; generalized schema/encoding, object-store, table/catalog, lakehouse, and performance claims remain blocked",
             broad_schema_encoding_certification_complete: false,
             metadata_statistics_broadly_certified: false,
             local_runtime_claim_allowed: true,
@@ -898,6 +1001,15 @@ impl VortexNativeWriterSchemaCertificationReport {
     }
 
     #[must_use]
+    pub fn provider_candidate_row_ids(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter(|row| row.status.is_provider_candidate())
+            .map(|row| row.row_id)
+            .collect()
+    }
+
+    #[must_use]
     pub fn blocked_row_ids(&self) -> Vec<&'static str> {
         self.rows
             .iter()
@@ -909,6 +1021,11 @@ impl VortexNativeWriterSchemaCertificationReport {
     #[must_use]
     pub fn scoped_runtime_row_count(&self) -> usize {
         self.scoped_runtime_row_ids().len()
+    }
+
+    #[must_use]
+    pub fn provider_candidate_row_count(&self) -> usize {
+        self.provider_candidate_row_ids().len()
     }
 
     #[must_use]
@@ -932,10 +1049,11 @@ impl VortexNativeWriterSchemaCertificationReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "Vortex native writer schema certification\nschema_version: {}\nreport: {}\nscoped runtime rows: {}\nblocked rows: {}\nbroad schema certification complete: {}\nclaim gate: {}\nfallback execution: disabled",
+            "Vortex native writer schema certification\nschema_version: {}\nreport: {}\nscoped runtime rows: {}\nprovider candidate rows: {}\nblocked rows: {}\nbroad schema certification complete: {}\nclaim gate: {}\nfallback execution: disabled",
             self.schema_version,
             self.report_id,
             self.scoped_runtime_row_count(),
+            self.provider_candidate_row_count(),
             self.blocked_row_count(),
             self.broad_schema_encoding_certification_complete,
             self.claim_gate_status,
@@ -3042,6 +3160,7 @@ mod tests {
             "prod-ready-1a.vortex-native-writer-schema-certification"
         );
         assert_eq!(report.scoped_runtime_row_count(), 3);
+        assert_eq!(report.provider_candidate_row_count(), 3);
         assert_eq!(report.blocked_row_count(), 1);
         assert!(report.local_runtime_claim_allowed);
         assert!(!report.performance_claim_allowed);
@@ -3062,6 +3181,21 @@ mod tests {
             report
                 .scoped_runtime_row_ids()
                 .contains(&"flat_columnar_source_state_arrow_provider")
+        );
+        assert!(
+            report
+                .provider_candidate_row_ids()
+                .contains(&"dictionary_encoded_primitives_provider_gate")
+        );
+        assert!(
+            report
+                .provider_candidate_row_ids()
+                .contains(&"nullable_columnar_validity_provider_gate")
+        );
+        assert!(
+            report
+                .provider_candidate_row_ids()
+                .contains(&"extension_dtype_json_wkb_provider_gate")
         );
         assert!(
             report

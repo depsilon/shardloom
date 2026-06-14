@@ -7279,6 +7279,12 @@ class ReleaseScriptTests(unittest.TestCase):
                 "claim_gate_status": "not_claim_grade",
                 **{field: False for field in safety_fields},
             }
+            if requirement.name == "final_release_approval_post_release_verification":
+                payload["public_release_ready"] = public_ready
+                payload["post_release_verification_ready"] = public_ready
+                payload["public_release_blockers"] = (
+                    [] if public_ready else ["post-release verification required"]
+                )
             path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
         matrix_path = root / "docs" / "release" / "package-channel-readiness-matrix.json"
@@ -7418,6 +7424,32 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertTrue(
             any("publish = false" in blocker for blocker in report["blockers"])
         )
+
+    def test_package_channel_matrix_records_v1_feasibility_review(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_v1_feasibility_for_test",
+        )
+        matrix = json.loads(
+            (REPO_ROOT / "docs/release/package-channel-readiness-matrix.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        blockers = module.validate_matrix(matrix)
+        summary = module.v1_feasibility_summary(matrix)
+
+        self.assertEqual(blockers, [])
+        self.assertEqual(summary["status"], "passed")
+        self.assertEqual(summary["review_status"], "reviewed")
+        self.assertEqual(
+            summary["status_counts"]["included_pending_channel_proof"], 3
+        )
+        self.assertEqual(
+            summary["status_counts"]["feasible_pending_channel_proof"], 4
+        )
+        self.assertEqual(summary["status_counts"]["not_in_v1_scope_recorded"], 2)
+        self.assertFalse(summary["rows"][0]["ready"])
 
     def _package_channel_dependency_audit_fixture(self) -> dict[str, object]:
         return {
@@ -7889,6 +7921,10 @@ class ReleaseScriptTests(unittest.TestCase):
             ["/tool/python3.12", "scripts/check_v1_release_boundary.py"],
         )
         self.assertEqual(
+            commands["final_release_approval_post_release_verification"],
+            ["/tool/python3.12", "scripts/check_final_release_approval.py"],
+        )
+        self.assertEqual(
             commands["benchmark_artifact_completeness"],
             [
                 "/tool/python3.12",
@@ -7899,6 +7935,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 "target/benchmark-artifact-completeness-report.json",
             ],
         )
+
         self.assertEqual(
             commands["pre_5j_dependency_freshness_gate"],
             [
@@ -7927,6 +7964,28 @@ class ReleaseScriptTests(unittest.TestCase):
                 "/opt/homebrew/bin/micromamba",
             ],
         )
+
+    def test_final_release_approval_contract_blocks_public_release_until_verified(self) -> None:
+        module = self._load_script_module(
+            "check_final_release_approval.py",
+            "check_final_release_approval_for_test",
+        )
+
+        report = module.build_report(REPO_ROOT)
+        public_report = module.build_report(
+            REPO_ROOT,
+            require_public_release_ready=True,
+        )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["contract_validation_status"], "passed")
+        self.assertFalse(report["public_release_ready"])
+        self.assertFalse(report["post_release_verification_ready"])
+        self.assertTrue(report["public_release_blockers"])
+        self.assertEqual(public_report["status"], "failed")
+        self.assertIn("approved_release_tag missing", public_report["blockers"])
+        self.assertFalse(public_report["fallback_attempted"])
+        self.assertFalse(public_report["external_engine_invoked"])
 
     def _write_v1_correctness_conformance_fixture_reports(
         self,

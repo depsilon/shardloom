@@ -32,6 +32,13 @@ EXPECTED_CHANNEL_IDS = [
     "crates_io_future",
 ]
 
+EXPECTED_V1_FEASIBILITY_REVIEWED_CHANNEL_IDS = EXPECTED_CHANNEL_IDS
+V1_FEASIBILITY_STATUSES = {
+    "included_pending_channel_proof",
+    "feasible_pending_channel_proof",
+    "not_in_v1_scope_recorded",
+}
+
 PYPROJECT = Path("python/pyproject.toml")
 PACKAGE_NAME_READINESS_DOC = Path("docs/release/package-name-readiness.md")
 
@@ -243,6 +250,15 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
         blockers.append(f"channel_count={matrix.get('channel_count')}")
     if matrix.get("required_channel_ids") != EXPECTED_CHANNEL_IDS:
         blockers.append("required_channel_ids must match the expected release-channel list")
+    if matrix.get("channel_v1_feasibility_review_status") != "reviewed":
+        blockers.append("channel_v1_feasibility_review_status must be reviewed")
+    if (
+        matrix.get("v1_feasibility_reviewed_channel_ids")
+        != EXPECTED_V1_FEASIBILITY_REVIEWED_CHANNEL_IDS
+    ):
+        blockers.append(
+            "v1_feasibility_reviewed_channel_ids must match the expected release-channel list"
+        )
     if matrix.get("package_gate_required_evidence") != PACKAGE_GATE_REQUIRED_EVIDENCE:
         blockers.append("package_gate_required_evidence must match the package-gate evidence list")
     if (
@@ -306,10 +322,20 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
             "rollback_yank_policy",
             "auth_provenance_requirement",
             "trusted_publisher_status",
+            "v1_feasibility_status",
+            "v1_scope_decision",
+            "v1_feasibility_reason",
             "claim_boundary",
         ]:
             if not _non_empty_string(row, field):
                 blockers.append(prefix + f"missing {field}")
+        if row.get("v1_feasibility_status") not in V1_FEASIBILITY_STATUSES:
+            blockers.append(prefix + "v1_feasibility_status is invalid")
+        if row.get("v1_feasibility_status") == "not_in_v1_scope_recorded":
+            if row.get("ready") is True:
+                blockers.append(prefix + "not_in_v1_scope rows cannot be ready")
+            if "not in v1" not in str(row.get("v1_scope_decision", "")).lower():
+                blockers.append(prefix + "v1_scope_decision must record not-in-v1 scope")
         for field in [
             "ready",
             "trusted_publisher_required",
@@ -483,6 +509,40 @@ def validate_package_identity_contract(
         "secrets_required": False,
         "fallback_attempted": False,
         "external_engine_invoked": False,
+    }
+
+
+def v1_feasibility_summary(matrix: dict[str, Any] | None) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    status_counts = {status: 0 for status in sorted(V1_FEASIBILITY_STATUSES)}
+    if isinstance(matrix, dict):
+        for row in matrix.get("channels", []):
+            if not isinstance(row, dict):
+                continue
+            status = str(row.get("v1_feasibility_status", "missing"))
+            if status in status_counts:
+                status_counts[status] += 1
+            rows.append(
+                {
+                    "channel_id": row.get("channel_id"),
+                    "v1_feasibility_status": row.get("v1_feasibility_status"),
+                    "v1_scope_decision": row.get("v1_scope_decision"),
+                    "v1_feasibility_reason": row.get("v1_feasibility_reason"),
+                    "ready": row.get("ready"),
+                    "status": row.get("status"),
+                }
+            )
+    reviewed_ids = (matrix or {}).get("v1_feasibility_reviewed_channel_ids", [])
+    return {
+        "status": "passed"
+        if reviewed_ids == EXPECTED_V1_FEASIBILITY_REVIEWED_CHANNEL_IDS
+        and len(rows) == len(EXPECTED_CHANNEL_IDS)
+        else "blocked",
+        "review_status": (matrix or {}).get("channel_v1_feasibility_review_status"),
+        "reviewed_channel_ids": reviewed_ids,
+        "expected_reviewed_channel_ids": EXPECTED_V1_FEASIBILITY_REVIEWED_CHANNEL_IDS,
+        "status_counts": status_counts,
+        "rows": rows,
     }
 
 
@@ -904,6 +964,12 @@ def self_test(matrix: dict[str, Any] | None) -> list[str]:
     expected = f"{first['channel_id']}: ready=true requires install_transcript_ref"
     if expected not in ready_blockers:
         blockers.append("self-test did not reject a ready package channel without evidence refs")
+    missing_feasibility = json.loads(json.dumps(matrix))
+    missing_feasibility["channel_v1_feasibility_review_status"] = "missing"
+    feasibility_blockers = validate_matrix(missing_feasibility)
+    expected_feasibility = "channel_v1_feasibility_review_status must be reviewed"
+    if expected_feasibility not in feasibility_blockers:
+        blockers.append("self-test did not reject missing channel feasibility review status")
 
     missing_local = validate_local_gate_evidence(
         repo_root=ROOT,
@@ -970,6 +1036,7 @@ def main() -> int:
         "local_gate_evidence_required": args.require_local_evidence,
         "local_gate_evidence_status": local_gate_evidence["status"],
         "local_gate_evidence": local_gate_evidence,
+        "channel_v1_feasibility": v1_feasibility_summary(matrix),
         "claim_gate_status": (matrix or {}).get("claim_gate_status", "missing"),
         "public_package_release_claim_allowed": (matrix or {}).get(
             "public_package_release_claim_allowed", False
