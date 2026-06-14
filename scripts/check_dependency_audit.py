@@ -328,6 +328,13 @@ def pip_audit_python_candidates(home: Path) -> list[Path]:
     return [
         ROOT / ".venv" / "bin" / "python",
         PYTHON_PROJECT / ".venv" / "bin" / "python",
+        ROOT
+        / "target"
+        / "release-readiness-audit"
+        / "pip-audit-venv"
+        / "bin"
+        / "python",
+        ROOT / "target" / "release-dry-run-proof" / "venv" / "bin" / "python",
         home
         / ".cache"
         / "codex-runtimes"

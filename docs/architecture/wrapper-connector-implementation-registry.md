@@ -140,7 +140,7 @@ ecosystem claims.
 Expected local checks:
 
 ```powershell
-python scripts\write_ci_version_env.py
+python scripts\write_ci_version_env.py --format powershell | Invoke-Expression
 $env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
 cargo test -p shardloom-core wrapper_architecture --lib
 cargo test -p shardloom-cli --test capability_discovery_snapshots

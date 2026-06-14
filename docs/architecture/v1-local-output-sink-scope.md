@@ -139,8 +139,9 @@ Vortex-first provider check:
   - `blocked_until_vortex_or_shardloom_evidence` for append mode, object-store output paths,
     table/catalog writes, Iceberg/Delta transactions, remote URI sinks, and broad nested/complex
     sink shapes.
-- Vortex API/provider surface: upstream Vortex `0.75` behind `shardloom-vortex` feature gates such
-  as `vortex-write`, `vortex-file-io`, and `vortex-traditional-analytics-benchmark`.
+- Vortex API/provider surface: upstream Vortex provider version derived from root `Cargo.toml`
+  `[workspace.dependencies].vortex` behind `shardloom-vortex` feature gates such as
+  `vortex-write`, `vortex-file-io`, and `vortex-traditional-analytics-benchmark`.
 - ShardLoom provider/report/certificate surface: Python write helpers, public workflow route/run
   facade, local generated-source output smokes, SQL local-source sinks, prepared/native Vortex
   result sinks, output Native I/O certificates, output fidelity reports, result-sink replay fields,

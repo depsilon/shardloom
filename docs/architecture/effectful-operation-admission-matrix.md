@@ -65,7 +65,7 @@ or external-engine delegation.
 Use:
 
 ```powershell
-python scripts\write_ci_version_env.py
+python scripts\write_ci_version_env.py --format powershell | Invoke-Expression
 $env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
 cargo test -p shardloom-core effectful_operation_admission_matrix_admits_only_local_fixtures --lib
 cargo test -p shardloom-core deterministic_embedding_vector_fixture --lib

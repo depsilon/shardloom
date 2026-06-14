@@ -115,8 +115,9 @@ Vortex-first provider check:
     I/O, generalized Source/Sink runtime, broad Vortex SQL/DataFrame parity,
     nested/complex dtype general Vortex behavior, vector/device/GPU Vortex runtime, and other
     unproved shapes.
-- Vortex API/provider surface: upstream Vortex `0.75` behind `shardloom-vortex` feature gates such
-  as `vortex-local-primitives`, `vortex-file-io`, and
+- Vortex API/provider surface: upstream Vortex provider version derived from root `Cargo.toml`
+  `[workspace.dependencies].vortex` behind `shardloom-vortex` feature gates such as
+  `vortex-local-primitives`, `vortex-file-io`, and
   `vortex-traditional-analytics-benchmark`.
 - ShardLoom provider/report/certificate surface: route capability reports, local Vortex primitive
   report, prepared benchmark route rows, execution certificates, Native I/O certificates, and

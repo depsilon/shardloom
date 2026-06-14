@@ -2473,7 +2473,8 @@ The repository smoke script prints command, status, certificate, Native I/O,
 materialization, work-metric, evidence-artifact, and no-fallback fields:
 
 ```powershell
-$env:RUSTUP_TOOLCHAIN = "1.91.1"
+python scripts\write_ci_version_env.py --format powershell | Invoke-Expression
+$env:RUSTUP_TOOLCHAIN = $env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
 cargo build -p shardloom-cli --features vortex-local-primitives --bin shardloom
 
 $env:PYTHONPATH = "python\src"
@@ -2547,7 +2548,8 @@ To include the currently certified fixture execution path, build the CLI with
 the local primitive feature and opt in explicitly:
 
 ```powershell
-$env:RUSTUP_TOOLCHAIN = "1.91.1"
+python scripts\write_ci_version_env.py --format powershell | Invoke-Expression
+$env:RUSTUP_TOOLCHAIN = $env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
 cargo build -p shardloom-cli --features vortex-local-primitives --bin shardloom
 
 $env:PYTHONPATH = "python\src"
