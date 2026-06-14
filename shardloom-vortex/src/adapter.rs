@@ -839,6 +839,37 @@ impl VortexNativeWriterSchemaCertificationRow {
     }
 
     #[must_use]
+    pub const fn decimal128_columnar_runtime() -> Self {
+        Self {
+            row_id: "decimal128_columnar_provider_gate",
+            writer_lane_id: "flat_columnar_vortex_ingest_prepared_state_write",
+            status: VortexNativeWriterCertificationStatus::ScopedFeatureGatedRuntime,
+            feature_gate: "vortex-write,universal-format-io",
+            provider_decision: "use_vortex_native_provider",
+            provider_surface: "ArrayRef::from_arrow(RecordBatch) with Arrow Decimal128 columns",
+            schema_family: "decimal128_columnar_source_state",
+            dtype_scope: "decimal128_precision_1_to_38_non_negative_scale_less_than_or_equal_precision",
+            validity_scope: "decimal128_nulls_and_precision_scale_preserved_for_flat_columnar_arrays",
+            encoding_scope: "vortex_decimal_array_provider_roundtrip_physical_layout_not_broadly_certified",
+            metadata_preservation_status: "logical_decimal_precision_scale_schema_projection_mask_and_nullability_preserved_physical_layout_writer_default",
+            statistics_preservation_status: "reopen_row_count_verified_decimal_values_replayed_statistics_not_broadly_certified",
+            materialization_boundary: "columnar_source_state_preserved_to_vortex_array_provider",
+            replay_evidence: "local_flat_columnar_decimal_source_writes_reopens_precision_scale",
+            unsupported_diagnostic_code: "vortex_ingest.unsupported_columnar_arrow_type",
+            required_future_evidence: "decimal_statistics_fidelity_report,layout_statistics_fidelity_report,performance_benchmark_evidence",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "scoped flat columnar Arrow decimal128 local Vortex prepared-state writer only; no decimal256, negative-scale decimal, generalized schema/encoding, object-store, table/catalog, generalized writer, or performance claim",
+            local_write_runtime: true,
+            reopen_verified: true,
+            metadata_statistics_broadly_certified: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
     pub const fn dictionary_encoded_primitives_provider_candidate() -> Self {
         Self {
             row_id: "dictionary_encoded_primitives_provider_gate",
@@ -1000,13 +1031,14 @@ impl VortexNativeWriterSchemaCertificationReport {
                 VortexNativeWriterSchemaCertificationRow::typed_complex_scalar_rows(),
                 VortexNativeWriterSchemaCertificationRow::flat_columnar_source_state(),
                 VortexNativeWriterSchemaCertificationRow::nullable_columnar_validity_runtime(),
+                VortexNativeWriterSchemaCertificationRow::decimal128_columnar_runtime(),
                 VortexNativeWriterSchemaCertificationRow::dictionary_encoded_utf8_binary_runtime(),
                 VortexNativeWriterSchemaCertificationRow::dictionary_encoded_primitives_provider_candidate(),
                 VortexNativeWriterSchemaCertificationRow::extension_dtype_provider_candidate(),
                 VortexNativeWriterSchemaCertificationRow::generalized_schema_encoding_writer_blocked(),
             ],
             claim_gate_status: "scoped_evidence_only",
-            claim_boundary: "feature-gated local flat scalar, typed complex source-free, flat columnar, nullable flat columnar, and flat dictionary utf8/binary columnar Vortex prepared-state writer evidence only; generalized dictionary/interleave primitive and extension schema families are provider candidates pending evidence; generalized schema/encoding, object-store, table/catalog, lakehouse, and performance claims remain blocked",
+            claim_boundary: "feature-gated local flat scalar, typed complex source-free, flat columnar, nullable flat columnar, flat decimal128 columnar, and flat dictionary utf8/binary columnar Vortex prepared-state writer evidence only; generalized dictionary/interleave primitive and extension schema families are provider candidates pending evidence; generalized schema/encoding, object-store, table/catalog, lakehouse, and performance claims remain blocked",
             broad_schema_encoding_certification_complete: false,
             metadata_statistics_broadly_certified: false,
             local_runtime_claim_allowed: true,
@@ -3191,7 +3223,7 @@ mod tests {
             report.report_id,
             "prod-ready-1a.vortex-native-writer-schema-certification"
         );
-        assert_eq!(report.scoped_runtime_row_count(), 5);
+        assert_eq!(report.scoped_runtime_row_count(), 6);
         assert_eq!(report.provider_candidate_row_count(), 2);
         assert_eq!(report.blocked_row_count(), 1);
         assert!(report.local_runtime_claim_allowed);
@@ -3223,6 +3255,11 @@ mod tests {
             report
                 .scoped_runtime_row_ids()
                 .contains(&"dictionary_encoded_utf8_binary_provider_gate")
+        );
+        assert!(
+            report
+                .scoped_runtime_row_ids()
+                .contains(&"decimal128_columnar_provider_gate")
         );
         assert!(
             report

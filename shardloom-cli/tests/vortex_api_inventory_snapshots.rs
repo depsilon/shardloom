@@ -246,7 +246,7 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_scoped_runtime_row_count",
-        "5"
+        "6"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_provider_candidate_row_count",
@@ -258,7 +258,7 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_scoped_runtime_row_ids",
-        "flat_scalar_rows_nullable_primitives,typed_complex_scalar_rows_arrow_provider,flat_columnar_source_state_arrow_provider,nullable_columnar_validity_provider_gate,dictionary_encoded_utf8_binary_provider_gate"
+        "flat_scalar_rows_nullable_primitives,typed_complex_scalar_rows_arrow_provider,flat_columnar_source_state_arrow_provider,nullable_columnar_validity_provider_gate,decimal128_columnar_provider_gate,dictionary_encoded_utf8_binary_provider_gate"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_provider_candidate_row_ids",
@@ -284,6 +284,10 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
         "vortex_native_writer_schema_certification_no_external_fallback",
         "true"
     )));
+    assert_native_writer_schema_certification_rows(&output);
+}
+
+fn assert_native_writer_schema_certification_rows(output: &str) {
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_row_flat_scalar_rows_nullable_primitives_status",
         "scoped_feature_gated_runtime"
@@ -307,6 +311,14 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_row_dictionary_encoded_utf8_binary_provider_gate_replay_evidence",
         "local_flat_columnar_dictionary_source_writes_reopens_values"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_decimal128_columnar_provider_gate_status",
+        "scoped_feature_gated_runtime"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_decimal128_columnar_provider_gate_replay_evidence",
+        "local_flat_columnar_decimal_source_writes_reopens_precision_scale"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_row_nullable_columnar_validity_provider_gate_status",
