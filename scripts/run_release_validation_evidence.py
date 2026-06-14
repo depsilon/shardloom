@@ -201,6 +201,10 @@ def required_validation_commands(
             "v1_release_boundary_firewall",
             [python_executable, "scripts/check_v1_release_boundary.py"],
         ),
+        (
+            "final_release_approval_post_release_verification",
+            [python_executable, "scripts/check_final_release_approval.py"],
+        ),
         ("golden_workflow_validator", [python_executable, "scripts/check_golden_workflows.py"]),
         ("admitted_semantics_matrix", [python_executable, "scripts/check_admitted_semantics_matrix.py"]),
         ("runtime_execution_envelopes", [python_executable, "scripts/check_runtime_execution_envelopes.py"]),

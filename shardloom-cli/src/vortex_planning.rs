@@ -1535,6 +1535,11 @@ fn vortex_native_writer_schema_certification_fields(
     );
     push_count_field(
         &mut fields,
+        "vortex_native_writer_schema_certification_provider_candidate_row_count",
+        report.provider_candidate_row_count(),
+    );
+    push_count_field(
+        &mut fields,
         "vortex_native_writer_schema_certification_blocked_row_count",
         report.blocked_row_count(),
     );
@@ -1542,6 +1547,11 @@ fn vortex_native_writer_schema_certification_fields(
         &mut fields,
         "vortex_native_writer_schema_certification_scoped_runtime_row_ids",
         &report.scoped_runtime_row_ids().join(","),
+    );
+    push_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_provider_candidate_row_ids",
+        &report.provider_candidate_row_ids().join(","),
     );
     push_field(
         &mut fields,

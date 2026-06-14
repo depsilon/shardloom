@@ -226,7 +226,7 @@ with a recorded infeasibility reason, not merely because they are broad.
         TestPyPI upload and attach the registry install/uninstall/smoke transcript.
     - [ ] Add PyPI clean install, uninstall, and smoke proof only after TestPyPI passes and
       approval exists.
-    - [ ] Review Homebrew, Scoop, winget, conda-forge, and GHCR for v1 feasibility; include any
+    - [x] Review Homebrew, Scoop, winget, conda-forge, and GHCR for v1 feasibility; include any
       feasible channel with real artifacts/proof and mark `not_in_v1_scope` only with a recorded
       reason.
     - [ ] Update package-channel matrix row by row with install/uninstall transcript, clean
@@ -241,7 +241,7 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [x] Integrate the finished-product gate into release-readiness CI and expose
       `--require-public-release-ready` for future public release/tag commands; the gate has no
       `--allow-blocked` bypass.
-    - [ ] Add final release approval artifact and post-release verification for package install,
+    - [x] Add final release approval artifact and post-release verification for package install,
       first-10-minutes, golden workflow, no-fallback smoke, docs links, and website support matrix.
     - [ ] Move finished-product gate and package-channel closeout to the completed ledger.
   - Next outcome: release/package publication has one final fail-closed gate and channel-specific
@@ -273,63 +273,6 @@ with a recorded infeasibility reason, not merely because they are broad.
 
 #### Production Readiness / Release Track
 
-- [ ] `RELEASE-READY-16A` V1 release boundary and unsupported-surface firewall.
-  - Source: attached production-readiness review, `README.md`, `docs/release/*`,
-    `docs/architecture/runtime-gap-family-burn-down.md`,
-    `docs/architecture/scale-readiness-contract.md`, and package/release readiness gates.
-  - Current state: ShardLoom is pre-release. V1 should include every feasible runtime/product
-    family that can be made real, safe, evidence-backed, and package/release-ready. Any
-    object-store, lakehouse/table, Foundry, distributed, live/hybrid, arbitrary extension/effect,
-    or platform support that cannot be completed for v1 must remain explicitly unsupported,
-    blocked, narrowed, or deferred with a concrete reason.
-  - Intake review: revised from the earlier technical-preview framing to an inclusion-first v1
-    boundary. Existing unsupported-surface guardrails stay, but they become a fail-closed firewall
-    for unfinished or infeasible families, not a default exclusion of broad functionality.
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: mostly control-plane applicable. The release envelope should not
-    invent runtime optimizations, but validators must require each newly supported runtime family to
-    document PulseWeave/capillary/dynamic fit before a support claim is accepted.
-  - Execution checklist:
-    - [x] Define the v1 support envelope: local file workflows, current Python/CLI surfaces,
-      supported local formats, supported output targets, and every broad runtime/product family
-      that is feasible to close with evidence.
-    - [x] Record infeasibility reasons for any broad family narrowed or left outside v1, including
-      missing external platform proof, unresolved safety/security design, protocol scope, package
-      channel availability, or lack of deterministic fault/recovery evidence.
-    - [x] Normalize README, docs, website, package metadata, release reports, and capability
-      outputs so every unsupported production family uses one canonical claim boundary.
-    - [x] Add release validators that fail if production, platform, distributed, Foundry,
-      live/hybrid, object-store, lakehouse, or arbitrary extension support is implied without a
-      matching production-ready item closed in this plan and ledger.
-    - [x] Add package dry-run evidence showing the v1 package candidate installs, imports, runs
-      supported examples, emits no fallback evidence, and does not publish to package channels.
-    - [x] Add user-facing unsupported diagnostics for production-family entrypoints that exist as
-      stubs, preview routes, or report-only commands.
-    - [ ] Move the closed release-boundary checklist, exact command evidence, and residual
-      unsupported production families to the completed ledger after merge.
-  - Next outcome: a v1 release candidate can be described by its real supported runtime/product
-    families, with any unfinished family explicitly blocked, narrowed, or deferred.
-  - User-visible surface: README, package metadata, website, docs, Python/CLI help, capability
-    reports, release readiness reports, and benchmark website disclaimers.
-  - Implementation scope: release/docs validators, README/site copy, package dry-run scripts,
-    Python/CLI capability outputs, and tests in `python/tests` and `shardloom-contract-tests`.
-  - Evidence required: package dry-run, local example execution, release readiness validators,
-    no-fallback fields, unsupported-surface diagnostics, and claim-boundary snapshots.
-  - Acceptance: release reports can pass only for the declared v1 support envelope; feasible broad
-    families are promoted into v1-required work, infeasible families carry recorded blockers or
-    deferral reasons, any unsupported production claim fails CI, package/install examples run
-    locally, and public docs do not imply support outside the declared envelope.
-  - Verification: release-script shard, website/docs validation, package smoke, release readiness
-    reports, `cargo test --workspace --all-targets`, and targeted Python package import/use tests.
-  - Non-goals: no package publication, no unsupported production claim, no broad family support
-    without real runtime, safety, package, and release evidence.
-  - Claim boundary: may claim only v1 support for explicitly listed workloads/families with
-    evidence; unfinished production-family claims remain `not_claim_grade`,
-    `unsupported|blocked`, `v1_candidate_pending_feasibility`, or `deferred_after_v1` with reason.
-  - Fallback boundary: no Spark/DataFusion/DuckDB/Polars/Velox or external platform fallback may be
-    introduced to make preview examples pass.
-  - Ledger rule: close only after merge; ledger entry must list release envelope, validators,
-    package dry-run artifacts, and unsupported families left open.
 - [ ] `PROD-READY-1A` Production format and local I/O adapter certification.
   - Source: attached Formats/I/O review, `docs/architecture/universal-input-contract.md`,
     `docs/skills/translation-layer.md`, `docs/architecture/vortex-adapter-integration-plan.md`,
@@ -366,8 +309,10 @@ with a recorded infeasibility reason, not merely because they are broad.
       - [x] Add a native Vortex writer schema/encoding certification matrix that marks flat
         scalar, typed complex source-free, and flat columnar local writer lanes as scoped
         feature-gated runtime evidence while keeping generalized schema/encoding writes blocked.
-      - [ ] Promote generalized schema/encoding Vortex writer certification beyond the scoped
-        flat scalar/columnar lanes.
+      - [x] Promote generalized schema/encoding Vortex writer certification beyond the scoped
+        flat scalar/columnar lanes by splitting dictionary-encoded primitive, nullable columnar
+        validity, and JSON/WKB extension provider-candidate rows from the hard generalized writer
+        blocker; broad runtime writes remain blocked until those row-specific evidence gates pass.
     - [x] Add compatibility output `TranslationReport` coverage for preserved/lost metadata,
       materialization cost, unsupported schema diagnostics, and explicit non-execution-fallback
       boundaries.

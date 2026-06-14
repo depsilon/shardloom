@@ -36,11 +36,18 @@ release evidence. The gate does not publish packages, create tags, upload attest
 or authorize performance, production, Spark-replacement, object-store, lakehouse, Foundry, broad
 SQL, or broad DataFrame claims.
 
+The public-release side also consumes
+`target/final-release-approval-post-release-verification-report.json`, generated from
+`docs/release/final-release-approval-post-release-verification.json`. That report keeps package
+install/uninstall, first-10-minutes, golden workflow, no-fallback smoke, docs-link, and website
+support-matrix verification blocked until a maintainer-approved public release exists.
+
 Run:
 
 ```powershell
 python scripts\check_v1_release_boundary.py
 python scripts\check_production_certification_gate.py
+python scripts\check_final_release_approval.py
 python scripts\check_finished_product_readiness.py
 python scripts\check_finished_product_readiness.py --require-public-release-ready
 ```

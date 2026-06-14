@@ -249,12 +249,20 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
         "3"
     )));
     assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_provider_candidate_row_count",
+        "3"
+    )));
+    assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_blocked_row_count",
         "1"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_scoped_runtime_row_ids",
         "flat_scalar_rows_nullable_primitives,typed_complex_scalar_rows_arrow_provider,flat_columnar_source_state_arrow_provider"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_provider_candidate_row_ids",
+        "dictionary_encoded_primitives_provider_gate,nullable_columnar_validity_provider_gate,extension_dtype_json_wkb_provider_gate"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_blocked_row_ids",
@@ -287,6 +295,18 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_row_flat_columnar_source_state_arrow_provider_writer_lane_id",
         "flat_columnar_vortex_ingest_prepared_state_write"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_dictionary_encoded_primitives_provider_gate_status",
+        "provider_candidate_pending_evidence"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_nullable_columnar_validity_provider_gate_unsupported_diagnostic_code",
+        "vortex_ingest.nullable_columnar_writer_requires_validity_matrix"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_extension_dtype_json_wkb_provider_gate_provider_surface",
+        "vortex_json_wkb_extension_arrow_import_export"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_row_generalized_schema_encoding_writer_status",

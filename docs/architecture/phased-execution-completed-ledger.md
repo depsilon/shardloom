@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: RELEASE-READY-16A v1 release boundary and unsupported-surface firewall
+  - Date: 2026-06-14
+  - Source:
+    - `RELEASE-READY-16A` in `docs/architecture/phased-execution-plan.md`.
+    - Production-readiness review requiring inclusion-first v1 release boundaries.
+    - Merged PR #1248, commit `838309081602fbad419a5fa1674faa126f70ca08`.
+  - Branch: `codex/perf-runtime-7c-prepared-index-cache`.
+  - Scope:
+    - Defined the v1 support envelope around local file workflows, current Python/CLI surfaces,
+      scoped local formats, supported output targets, and broad production-family boundaries that
+      remain explicit until their own runtime evidence closes.
+    - Added user-facing unsupported diagnostics and release validators for production-family
+      entrypoints that exist as stubs, preview routes, or report-only surfaces.
+    - Normalized README/docs/website/package metadata/capability outputs so production-family
+      claims use a single canonical release boundary.
+    - Added package dry-run evidence that installs, imports, runs supported examples, emits
+      no-fallback fields, and does not publish to package channels.
+  - Evidence commands:
+    - `cargo fmt --all -- --check`.
+    - `python3 -m py_compile scripts/check_local_format_production_profiles.py scripts/check_local_format_pushdown_fidelity.py`.
+    - `cargo test -p shardloom-vortex native_writer_schema_certification_classifies_scoped_and_blocked_rows --lib`.
+    - `cargo test -p shardloom-cli --test vortex_api_inventory_snapshots`.
+    - `cargo clippy -p shardloom-vortex --lib -- -D warnings`.
+    - `cargo clippy -p shardloom-cli --test vortex_api_inventory_snapshots -- -D warnings`.
+    - `python3 scripts/check_local_format_production_profiles.py --output target/local-format-production-profiles-report.json`.
+    - `python3 scripts/check_local_format_pushdown_fidelity.py --output target/local-format-pushdown-fidelity-validation.json`.
+    - `python3 scripts/check_compatibility_output_translation_reports.py --output target/compatibility-output-translation-report-validation.json`.
+    - `python3 scripts/check_local_format_edge_case_fixtures.py --output target/local-format-edge-case-fixture-validation.json`.
+    - `cargo test -p shardloom-vortex --lib`.
+  - Remote evidence:
+    - PR #1248 was merged only after all required GitHub checks were green, including Rust
+      baseline, Rust feature matrix, Python package smoke/compatibility/test shards, release
+      readiness reports, release runtime/user/package/governance evidence, CodeQL, dependency and
+      security gates, website/docs validation, and Cloudflare Workers build.
+  - Claim boundary:
+    - May claim the v1 release-boundary firewall and unsupported-surface diagnostics exist and are
+      release-gated.
+    - May not claim public package publication, production object-store/table/distributed/live/
+      Foundry support, broad SQL/DataFrame production readiness, performance superiority, Spark
+      replacement, or public release readiness.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Trino, Dask, Ray, pandas, PyArrow, or other
+      external engine was admitted as ShardLoom fallback execution.
+    - Runtime evidence and package dry-run paths preserve `fallback_attempted=false` and
+      `external_engine_invoked=false` for ShardLoom execution surfaces.
+  - Residual work:
+    - Package-channel approval/proof, future public-release execution of post-release
+      verification, and production-family runtime candidates remain tracked by `PROD-V1-5A` and
+      `PROD-READY-1A` through `PROD-READY-1G`.
+
 - [x] Session label: PERF-RUNTIME-7D publication-proof sidecar reuse and no-rewrite fast path
   - Date: 2026-06-14
   - Source:
