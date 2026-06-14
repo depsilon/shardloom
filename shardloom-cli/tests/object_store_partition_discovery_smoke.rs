@@ -59,6 +59,28 @@ fn local_emulator_partition_discovery_smoke_lists_key_value_directories() {
         "shardloom.object_store_partition_discovery_smoke.v1"
     )));
     assert!(output.contains(&field("provider_profile", "local-emulator")));
+    assert!(output.contains(&field(
+        "provider_admission_report_id",
+        "shardloom.object_store_provider_admission.v1"
+    )));
+    assert!(output.contains(&field(
+        "provider_admission_operation",
+        "partition_discovery"
+    )));
+    assert!(output.contains(&field(
+        "provider_admission_status",
+        "admitted_local_emulator"
+    )));
+    assert!(output.contains(&field(
+        "provider_admission_classification",
+        "use_shardloom_local_emulator_provider"
+    )));
+    assert!(output.contains(&field("request_signing_allowed", "false")));
+    assert!(output.contains(&field("request_signing_performed", "false")));
+    assert!(output.contains(&field(
+        "request_signing_status",
+        "not_required_local_emulator"
+    )));
     assert!(output.contains(&field("partition_discovery_status", "succeeded")));
     assert!(output.contains(&field(
         "partition_listing_status",
@@ -140,6 +162,21 @@ fn remote_provider_partition_discovery_is_blocked_before_credentials_or_network(
         "partition_discovery_status",
         "blocked_remote_provider"
     )));
+    assert!(output.contains(&field(
+        "provider_admission_operation",
+        "partition_discovery"
+    )));
+    assert!(output.contains(&field(
+        "provider_admission_status",
+        "blocked_live_provider_no_probe"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_status",
+        "credential_policy_required_not_admitted"
+    )));
+    assert!(output.contains(&field("request_signing_allowed", "false")));
+    assert!(output.contains(&field("request_signing_performed", "false")));
+    assert!(output.contains(&field("request_signing_status", "blocked_not_invoked")));
     assert!(output.contains("\"code\":\"SL_OBJECT_STORE_UNSUPPORTED\""));
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("object_store_listing_io", "false")));

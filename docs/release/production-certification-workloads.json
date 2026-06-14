@@ -257,6 +257,7 @@
         "no_network",
         "no_live_credentials",
         "no_provider_probe",
+        "no_request_signing",
         "no_table_commit"
       ],
       "security_posture": "local_emulator_no_secrets_no_network_with_redacted_remote_uri_diagnostics",
@@ -347,10 +348,20 @@
         "security_governance": {
           "status": "passed_scoped_local_emulator",
           "evidence_refs": [
+            "provider_admission_report_id=shardloom.object_store_provider_admission.v1",
+            "provider_admission_status=admitted_local_emulator",
+            "provider_admission_status=admitted_public_no_credential_fixture",
+            "provider_admission_status=blocked_live_provider_no_probe",
+            "credential_policy_status=credential_policy_required_not_admitted",
             "credential_resolution_performed=false",
             "network_probe_performed=false",
             "provider_probe_performed=false",
-            "requested_uri_redaction_status"
+            "request_signing_performed=false",
+            "request_signing_status=blocked_not_invoked",
+            "requested_uri_redaction_status",
+            "uri_redaction_policy_status",
+            "explain_estimate_doctor_probe_policy=static_no_provider_probe_default",
+            "capability_discovery_probe_policy=static_capability_report_no_provider_probe"
           ]
         },
         "release_api_stability": {

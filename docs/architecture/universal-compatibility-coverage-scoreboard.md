@@ -276,6 +276,8 @@ Every object-store ladder row preserves:
 
 ```text
 credential_resolution_performed=false
+request_signing_allowed=false
+request_signing_performed=false
 network_probe_allowed=false
 provider_probe_allowed=false
 write_io=false

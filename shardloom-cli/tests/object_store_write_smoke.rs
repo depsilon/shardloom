@@ -89,6 +89,25 @@ fn local_emulator_write_commits_payload_and_manifest_evidence() {
         "shardloom.object_store_write_smoke.v1"
     )));
     assert!(output.contains(&field("provider_profile", "local-emulator")));
+    assert!(output.contains(&field(
+        "provider_admission_report_id",
+        "shardloom.object_store_provider_admission.v1"
+    )));
+    assert!(output.contains(&field("provider_admission_operation", "write")));
+    assert!(output.contains(&field(
+        "provider_admission_status",
+        "admitted_local_emulator"
+    )));
+    assert!(output.contains(&field(
+        "provider_admission_classification",
+        "use_shardloom_local_emulator_provider"
+    )));
+    assert!(output.contains(&field("request_signing_allowed", "false")));
+    assert!(output.contains(&field("request_signing_performed", "false")));
+    assert!(output.contains(&field(
+        "request_signing_status",
+        "not_required_local_emulator"
+    )));
     assert!(output.contains(&field("object_store_write_status", "committed")));
     assert!(output.contains(&field("write_staging_status", "performed_local_emulator")));
     assert!(output.contains(&field("commit_protocol_status", "committed")));
@@ -148,6 +167,16 @@ fn local_emulator_write_recovery_replays_commit_manifest_evidence() {
         "shardloom.object_store_write_recovery_smoke.v1"
     )));
     assert!(output.contains(&field("mode", "object_store_write_recovery_smoke")));
+    assert!(output.contains(&field("provider_admission_operation", "write_recovery")));
+    assert!(output.contains(&field(
+        "provider_admission_status",
+        "admitted_local_emulator"
+    )));
+    assert!(output.contains(&field("request_signing_performed", "false")));
+    assert!(output.contains(&field(
+        "request_signing_status",
+        "not_required_local_emulator"
+    )));
     assert!(output.contains(&field("object_store_write_recovery_status", "recovered")));
     assert!(output.contains(&field(
         "recovery_replay_status",
@@ -251,7 +280,19 @@ fn remote_recovery_target_is_blocked_without_probe_or_read() {
         "object_store_write_recovery_status",
         "blocked_remote_provider"
     )));
+    assert!(output.contains(&field("provider_admission_operation", "write_recovery")));
+    assert!(output.contains(&field(
+        "provider_admission_status",
+        "blocked_live_provider_no_probe"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_status",
+        "credential_policy_required_not_admitted"
+    )));
     assert!(output.contains(&field("credential_resolution_performed", "false")));
+    assert!(output.contains(&field("request_signing_allowed", "false")));
+    assert!(output.contains(&field("request_signing_performed", "false")));
+    assert!(output.contains(&field("request_signing_status", "blocked_not_invoked")));
     assert!(output.contains(&field("network_probe_performed", "false")));
     assert!(output.contains(&field("provider_probe_performed", "false")));
     assert!(output.contains(&field("object_store_io", "false")));
@@ -492,7 +533,23 @@ fn remote_target_is_blocked_without_write_or_probe() {
         "object_store_write_status",
         "blocked_remote_provider"
     )));
+    assert!(output.contains(&field("provider_admission_operation", "write")));
+    assert!(output.contains(&field(
+        "provider_admission_status",
+        "blocked_live_provider_no_probe"
+    )));
+    assert!(output.contains(&field(
+        "provider_admission_boundary",
+        "blocked_before_credentials_signing_provider_or_network_probe"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_status",
+        "credential_policy_required_not_admitted"
+    )));
     assert!(output.contains(&field("credential_resolution_performed", "false")));
+    assert!(output.contains(&field("request_signing_allowed", "false")));
+    assert!(output.contains(&field("request_signing_performed", "false")));
+    assert!(output.contains(&field("request_signing_status", "blocked_not_invoked")));
     assert!(output.contains(&field("network_probe_performed", "false")));
     assert!(output.contains(&field("provider_probe_performed", "false")));
     assert!(output.contains(&field("object_store_io", "false")));

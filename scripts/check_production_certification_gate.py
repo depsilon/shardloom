@@ -75,7 +75,20 @@ OBJECT_STORE_REQUIRED_EFFECT_PERMISSIONS = {
     "no_network",
     "no_live_credentials",
     "no_provider_probe",
+    "no_request_signing",
     "no_table_commit",
+}
+OBJECT_STORE_REQUIRED_SECURITY_EVIDENCE_REFS = {
+    "provider_admission_report_id=shardloom.object_store_provider_admission.v1",
+    "provider_admission_status=admitted_local_emulator",
+    "provider_admission_status=admitted_public_no_credential_fixture",
+    "provider_admission_status=blocked_live_provider_no_probe",
+    "credential_policy_status=credential_policy_required_not_admitted",
+    "request_signing_performed=false",
+    "request_signing_status=blocked_not_invoked",
+    "uri_redaction_policy_status",
+    "explain_estimate_doctor_probe_policy=static_no_provider_probe_default",
+    "capability_discovery_probe_policy=static_capability_report_no_provider_probe",
 }
 OBJECT_STORE_REQUIRED_UNSUPPORTED_OPERATIONS = {
     "live_s3_provider_runtime",
@@ -496,6 +509,25 @@ def validate_object_store_local_emulator_workload(row: object) -> tuple[dict[str
             blockers.append(
                 f"object-store local-emulator evidence.{key}.status must be {expected}"
             )
+    security_evidence = (
+        evidence.get("security_governance") if isinstance(evidence, dict) else None
+    )
+    security_refs_value = (
+        security_evidence.get("evidence_refs")
+        if isinstance(security_evidence, dict)
+        else None
+    )
+    security_refs = (
+        set(security_refs_value) if isinstance(security_refs_value, list) else set()
+    )
+    missing_security_refs = sorted(
+        OBJECT_STORE_REQUIRED_SECURITY_EVIDENCE_REFS - security_refs
+    )
+    if missing_security_refs:
+        blockers.append(
+            "object-store local-emulator security_governance.evidence_refs missing "
+            + ",".join(missing_security_refs)
+        )
     for key in ("memory_backpressure", "benchmark"):
         evidence_row = evidence.get(key) if isinstance(evidence, dict) else None
         status = evidence_row.get("status") if isinstance(evidence_row, dict) else None

@@ -292,7 +292,7 @@ with a recorded infeasibility reason, not merely because they are broad.
   - Execution checklist:
     - [x] Define the first supported object-store workload/environment and review each other
       scheme/backend for v1 feasibility before deferring it.
-    - [ ] Implement provider abstraction for selected schemes with credential policy, redaction,
+    - [x] Implement provider abstraction for selected schemes with credential policy, redaction,
       request signing boundary, and no-probe defaults for explain/estimate/doctor/capabilities.
     - [ ] Add listing, object version/ETag capture, checksum validation, byte-range read, request
       coalescing, prefetch, retry/backoff, rate-limit handling, and bounded streaming reads.

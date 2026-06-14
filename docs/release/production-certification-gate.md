@@ -22,8 +22,9 @@ The validator checks:
 - workload name, environment, scale, formats, statefulness, effects, security posture, and
   unsupported edge boundary;
 - the scoped `object_store_local_emulator_runtime_v1_candidate` profile when present, including
-  local-emulator-only effects, no-network/no-credential posture, live-provider blocked diagnostics,
-  and blocked benchmark/backpressure evidence until claim-grade proof exists;
+  local-emulator-only effects, provider admission status, request-signing boundary,
+  no-network/no-credential/no-provider-probe posture, live-provider blocked diagnostics, and
+  blocked benchmark/backpressure evidence until claim-grade proof exists;
 - required evidence keys for runtime execution, correctness, Native I/O, execution certificates,
   fault tolerance, memory/backpressure, benchmarks, security/governance, release/API stability,
   and unsupported diagnostics;
