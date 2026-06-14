@@ -203,8 +203,12 @@ with a recorded infeasibility reason, not merely because they are broad.
     dynamic/capillary/PulseWeave decisions where applicable; package publication itself should not
     introduce runtime shortcuts.
   - Execution checklist:
-    - [ ] Ensure public package publication is blocked until v1 runtime scope, API/schema gate,
+    - [x] Ensure public package publication is blocked until v1 runtime scope, API/schema gate,
       security/provenance, docs, and release validation are ready.
+    - [x] Add a workspace Rust/Vortex version-source contract so Rust MSRV derives from root
+      `[workspace.package].rust-version`, upstream Vortex evidence derives from root
+      `[workspace.dependencies].vortex`, and CI/release/benchmark surfaces reuse the shared
+      manifest-derived helper rather than duplicating current-version literals.
     - [ ] Approve package identities and keep internal Rust crates unpublished unless extracted
       into stable public protocol/client crates.
     - [ ] Implement GitHub pre-release artifacts: source archive, CLI binaries, wheel, sdist,
@@ -220,12 +224,13 @@ with a recorded infeasibility reason, not merely because they are broad.
       policy, authorization proof, and maintainer approval for every ready channel.
     - [ ] Change `python/pyproject.toml` development classifier only after public package
       readiness is real.
-    - [ ] Add `scripts/check_finished_product_readiness.py` consuming production usability, hard
+    - [x] Add `scripts/check_finished_product_readiness.py` consuming production usability, hard
       release readiness, package-channel readiness, API/schema stability, per-claim evidence,
       security, dependency audit, SBOM/checksum/provenance, golden workflows, admitted semantics,
       website readiness, docs-example proof, and CI matrix reports.
-    - [ ] Integrate the finished-product gate into public release/tag commands and reserve
-      `--allow-blocked` for local dry-run diagnostics.
+    - [x] Integrate the finished-product gate into release-readiness CI and expose
+      `--require-public-release-ready` for future public release/tag commands; the gate has no
+      `--allow-blocked` bypass.
     - [ ] Add final release approval artifact and post-release verification for package install,
       first-10-minutes, golden workflow, no-fallback smoke, docs links, and website support matrix.
     - [ ] Move finished-product gate and package-channel closeout to the completed ledger.

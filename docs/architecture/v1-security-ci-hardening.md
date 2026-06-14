@@ -82,6 +82,11 @@ The CI hardening design keeps expensive work parallel:
 
 - Rust baseline and feature matrix remain separate.
 - Rust MSRV derived from root Cargo.toml validation runs as its own small job.
+- The workspace version-source report keeps Rust MSRV and upstream Vortex provider evidence
+  manifest-derived: root `Cargo.toml` owns `[workspace.package].rust-version` and
+  `[workspace.dependencies].vortex`; `scripts/release_report_utils.py`,
+  `scripts/write_ci_version_env.py`, benchmark evidence, and `shardloom-vortex/build.rs` consume
+  those sources rather than duplicating current-version strings.
 - Python 3.10 through 3.13 plus OS matrix smoke/build checks run in a separate matrix job.
 - Dependency/security, package smoke, runtime core, user-surface, benchmark, website/docs, and CI
   drift checks produce independent artifacts.

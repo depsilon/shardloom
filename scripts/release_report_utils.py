@@ -225,3 +225,21 @@ def upstream_vortex_provider_version(repo_root: Path) -> str:
     """
 
     return upstream_vortex_manifest_version(repo_root)
+
+
+def workspace_version_env(repo_root: Path) -> dict[str, str]:
+    """Return the manifest-derived version variables shared by CI and evidence tools."""
+
+    return {
+        "SHARDLOOM_RUST_MSRV_TOOLCHAIN": rust_toolchain_version(repo_root),
+        "SHARDLOOM_RUST_MSRV_LANE": rust_msrv_lane_id(repo_root),
+        "SHARDLOOM_UPSTREAM_VORTEX_MANIFEST_VERSION": upstream_vortex_manifest_version(
+            repo_root
+        ),
+        "SHARDLOOM_UPSTREAM_VORTEX_LOCK_VERSION": upstream_vortex_lock_version(
+            repo_root
+        ),
+        "SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION": upstream_vortex_provider_version(
+            repo_root
+        ),
+    }

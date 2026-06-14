@@ -336,6 +336,8 @@ jobs:
           PY
       - name: Contribution governance
         run: python scripts/check_contribution_governance.py
+      - name: Workspace version source contract
+        run: python scripts/check_workspace_version_sources.py
       - name: Package-channel readiness
         run: python scripts/check_package_channel_readiness.py --require-local-evidence
       - uses: actions/upload-artifact@v7
@@ -344,6 +346,7 @@ jobs:
           name: release-package-governance-evidence
           path: |
             target/contribution-governance-report.json
+            target/workspace-version-source-report.json
             target/package-channel-readiness-report.json
           if-no-files-found: ignore
           retention-days: 14
@@ -561,6 +564,7 @@ jobs:
           test -d target/admitted-semantics-matrix
           test -f target/release-architecture-tracker-report.json
           test -f target/contribution-governance-report.json
+          test -f target/workspace-version-source-report.json
           test -f target/package-channel-readiness-report.json
           test -f target/python-user-surface-completion-gate.json
           test -f target/sql-python-dataframe-parity-gate.json
@@ -598,6 +602,8 @@ jobs:
       - name: Hard release readiness gate
         continue-on-error: true
         run: python scripts/check_release_readiness.py
+      - name: Finished product readiness gate
+        run: python scripts/check_finished_product_readiness.py
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -618,6 +624,7 @@ jobs:
             target/final-release-rehearsal
             target/public-status-docs-report.json
             target/website-readiness-report.json
+            target/workspace-version-source-report.json
             target/production-usability-gate.json
             target/v1-api-schema-stability-report.json
             target/v1-correctness-conformance-report.json
@@ -644,6 +651,7 @@ jobs:
             target/ci-gate-matrix-report.json
             target/python-test-evidence.json
             target/hard-release-readiness-gate.json
+            target/finished-product-readiness-report.json
           if-no-files-found: ignore
           retention-days: 14
 
