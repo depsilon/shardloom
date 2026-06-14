@@ -11916,6 +11916,22 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
+                elif args == [
+                    "extension-inspect",
+                    "--manifest",
+                    "target/extension.json",
+                    "--format",
+                    "json",
+                ]:
+                    command = "extension-inspect"
+                    fields = [
+                        {"key": "extension_manifest_input_kind", "value": "local_manifest_file"},
+                        {"key": "extension_manifest_inspection_status", "value": "validated"},
+                        {"key": "extension_manifest_extension_code_executed", "value": "false"},
+                        {"key": "extension_manifest_external_effect_executed", "value": "false"},
+                        {"key": "extension_manifest_fallback_attempted", "value": "false"},
+                        {"key": "extension_manifest_external_engine_invoked", "value": "false"},
+                    ]
                 elif args == ["udf-runtime-plan", "fixture", "--format", "json"]:
                     command = "udf-runtime-plan"
                     fields = [
@@ -11998,6 +12014,17 @@ class ShardLoomClientTests(unittest.TestCase):
             client.extension_inspect("example.fixture").field("extension_code_executed"),
             "false",
         )
+        manifest_inspected = client.extension_inspect(
+            manifest_path="target/extension.json"
+        )
+        self.assertEqual(manifest_inspected.command, "extension-inspect")
+        self.assertEqual(
+            manifest_inspected.field("extension_manifest_input_kind"),
+            "local_manifest_file",
+        )
+        self.assertFalse(
+            manifest_inspected.field_bool("extension_manifest_extension_code_executed")
+        )
         self.assertEqual(
             client.udf_runtime_plan("fixture").field("udf_runtime_kind"),
             "builtin_deterministic_fixture",
@@ -12035,6 +12062,15 @@ class ShardLoomClientTests(unittest.TestCase):
         inspected = ctx.extension_inspect("example.fixture")
         self.assertEqual(inspected.command, "extension-inspect")
         self.assertFalse(inspected.field_bool("extension_code_executed"))
+        ctx_manifest = ctx.extension_inspect(manifest_path="target/extension.json")
+        self.assertEqual(ctx_manifest.command, "extension-inspect")
+        self.assertEqual(
+            ctx_manifest.field("extension_manifest_inspection_status"),
+            "validated",
+        )
+        self.assertFalse(
+            ctx_manifest.field_bool("extension_manifest_external_effect_executed")
+        )
         udf_plan = ctx.udf_runtime_plan("fixture")
         self.assertEqual(udf_plan.field("udf_runtime_kind"), "builtin_deterministic_fixture")
         self.assertFalse(udf_plan.field_bool("udf_execution_performed"))
@@ -12050,6 +12086,9 @@ class ShardLoomClientTests(unittest.TestCase):
         for envelope in (inspected, udf_plan, udf_smoke, embedding_smoke):
             self.assertFalse(envelope.field_bool("fallback_attempted"))
             self.assertFalse(envelope.field_bool("external_engine_invoked"))
+        for envelope in (manifest_inspected, ctx_manifest):
+            self.assertFalse(envelope.field_bool("extension_manifest_fallback_attempted"))
+            self.assertFalse(envelope.field_bool("extension_manifest_external_engine_invoked"))
 
     def test_plan_import_and_export_helpers_expose_substrait_contract(self) -> None:
         binary = self.fake_cli(

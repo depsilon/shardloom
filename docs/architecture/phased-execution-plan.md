@@ -507,9 +507,13 @@ with a recorded infeasibility reason, not merely because they are broad.
   - Source: attached UDF / Plugin / Effect Execution review, RFC 0011, RFC 0023,
     `docs/skills/modular-extensibility.md`, `docs/skills/extension-plugin-sandboxing.md`, and
     security/governance gates.
-  - Current state: extension/UDF/effect surfaces are architectural or report-only. Manifest
-    inspection, UDF/API/LLM/model/vector execution, network/filesystem/secret effects, and plugin
-    runtime are not production-supported.
+  - Current state: extension/UDF/effect surfaces are mostly architectural or report-only. Bounded
+    local JSON extension-manifest inspection now parses `shardloom.extension_manifest.v1`
+    capability, permission, effect, sandbox, license, provenance, ABI, lifecycle, and runtime
+    metadata without loading code. Built-in deterministic scalar UDF and embedding/vector fixtures
+    remain fixture-smoke only. UDF/API/LLM/model/vector execution, network/filesystem/secret
+    effects, dynamic plugin loading, dependency expansion, and plugin runtime are not production
+    supported.
   - Intake review: accepted as a v1 candidate for safe scoped subsets. Include manifest
     inspection and typed deterministic UDF/plugin/effect classes in v1 where sandboxing, denial,
     audit, timeout/resource, and no-fallback evidence can close; defer dangerous effect classes
@@ -520,11 +524,18 @@ with a recorded infeasibility reason, not merely because they are broad.
     applies only to explicit, policy-admitted batching/coalescing and must not hide effects or
     materialization boundaries.
   - Execution checklist:
-    - [ ] Define manifest-first extension model with capability, permission, license, provenance,
-      effect, determinism, materialization, null behavior, dtype, timeout, memory, CPU, retry,
-      idempotency, and audit metadata.
-    - [ ] Implement non-executing manifest inspection and capability discovery that cannot run
-      extension code.
+    - [x] Define scoped manifest-first extension inspection model with capability, permission,
+      license, provenance, effect, sandbox, ABI, lifecycle, runtime, and review metadata.
+    - [x] Implement bounded local JSON `extension-inspect --manifest <local-json>` inspection that
+      cannot load extension code, execute UDFs, resolve credentials, probe networks, expand
+      dependencies, or enable runtime support.
+    - [x] Add blocked production-certification workload declaration for the scoped metadata-only
+      manifest inspection surface without authorizing extension runtime or performance claims.
+    - [ ] Complete production-grade manifest model with determinism, materialization, null
+      behavior, dtype, timeout, memory, CPU, retry, idempotency, and audit metadata before
+      arbitrary UDF or plugin runtime support.
+    - [ ] Implement capability discovery over an approved manifest directory/registry without
+      executing extension code.
     - [ ] Implement typed UDF registry for scoped scalar/aggregate/table functions with encoded
       capability vs materialization-required classification.
     - [ ] Add sandboxing policy: Rust-native first where possible, WASM later only after ABI
