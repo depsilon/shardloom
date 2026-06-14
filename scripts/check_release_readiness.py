@@ -147,6 +147,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/v1-local-resource-safety-report.json"),
     )
     parser.add_argument(
+        "--v1-observability-support-report",
+        type=Path,
+        default=Path("target/v1-observability-support-report.json"),
+    )
+    parser.add_argument(
         "--v1-api-schema-stability-report",
         type=Path,
         default=Path("target/v1-api-schema-stability-report.json"),
@@ -469,6 +474,10 @@ def main() -> int:
     v1_local_resource_safety_report_path = resolve(
         repo_root,
         args.v1_local_resource_safety_report,
+    )
+    v1_observability_support_report_path = resolve(
+        repo_root,
+        args.v1_observability_support_report,
     )
     v1_api_schema_stability_report_path = resolve(
         repo_root,
@@ -1895,6 +1904,89 @@ def main() -> int:
         )
     )
 
+    v1_observability_support = load_json(v1_observability_support_report_path)
+    v1_observability_support_blockers: list[str] = []
+    if v1_observability_support is None:
+        v1_observability_support_blockers.append(
+            "missing v1 observability/supportability report"
+        )
+    else:
+        if (
+            v1_observability_support.get("schema_version")
+            != "shardloom.v1_observability_support_report.v1"
+        ):
+            v1_observability_support_blockers.append(
+                "v1 observability/supportability schema_version="
+                + str(v1_observability_support.get("schema_version", "missing"))
+            )
+        if v1_observability_support.get("status") != "passed":
+            v1_observability_support_blockers.extend(
+                v1_observability_support.get(
+                    "blockers",
+                    ["v1 observability/supportability gate blocked"],
+                )
+            )
+        for field, expected in [
+            ("runtime_command_count", 8),
+            ("runtime_command_pass_count", 8),
+            ("doctor_status", "passed"),
+            ("support_bundle_status", "passed"),
+            ("agent_contract_status", "passed"),
+            ("capability_discovery_status", "passed"),
+            ("runtime_observability_status", "passed"),
+            ("observability_schema_status", "passed"),
+            ("explain_plan_only_status", "passed"),
+            ("estimate_plan_only_status", "passed"),
+            ("route_capability_status", "passed"),
+            ("api_schema_stability_status", "passed"),
+            ("docs_status", "passed"),
+            ("issue_template_status", "passed"),
+            ("benchmark_observability_status", "passed"),
+            ("claim_gate_status", "not_claim_grade"),
+        ]:
+            if v1_observability_support.get(field) != expected:
+                v1_observability_support_blockers.append(
+                    f"v1 observability/supportability {field}="
+                    + str(v1_observability_support.get(field, "missing"))
+                )
+        for field in [
+            "v1_scope_ready",
+            "observability_support_evidence_ready",
+            "side_effect_free_support_surfaces",
+            "support_bundle_redaction_ready",
+            "all_no_fallback_no_external_engine",
+        ]:
+            if v1_observability_support.get(field) is not True:
+                v1_observability_support_blockers.append(
+                    f"v1 observability/supportability {field} must be true"
+                )
+        for field in [
+            "telemetry_exporter_enabled",
+            "remote_support_upload_enabled",
+            "runtime_profile_collection_enabled",
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+            "publication_attempted",
+            "tag_created",
+            "package_upload_attempted",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if v1_observability_support.get(field) is not False:
+                v1_observability_support_blockers.append(
+                    f"v1 observability/supportability {field} must be false"
+                )
+    checks.append(
+        check(
+            "v1_observability_support_gate",
+            str(args.v1_observability_support_report).replace("\\", "/"),
+            v1_observability_support_blockers,
+        )
+    )
+
     v1_example_replay = load_json(v1_example_replay_report_path)
     v1_example_replay_blockers: list[str] = []
     if v1_example_replay is None:
@@ -2575,6 +2667,7 @@ def main() -> int:
         "python scripts/check_v1_source_prepared_state_scope.py",
         "python scripts/check_v1_local_output_sink_scope.py",
         "python scripts/check_v1_local_resource_safety.py",
+        "python scripts/check_v1_observability_support.py",
         "python scripts/check_v1_api_schema_stability.py",
         "python scripts/check_v1_example_replay.py",
         "python scripts/check_v1_correctness_conformance.py",
@@ -2647,6 +2740,9 @@ def main() -> int:
         ).replace("\\", "/"),
         "v1_local_resource_safety_report_ref": str(
             args.v1_local_resource_safety_report
+        ).replace("\\", "/"),
+        "v1_observability_support_report_ref": str(
+            args.v1_observability_support_report
         ).replace("\\", "/"),
         "v1_api_schema_stability_report_ref": str(
             args.v1_api_schema_stability_report

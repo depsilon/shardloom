@@ -26,6 +26,9 @@ The scoped local SourceState and prepared-state reuse boundary is defined in
 The scoped local output/sink scope is defined in
 [`docs/architecture/v1-local-output-sink-scope.md`](../architecture/v1-local-output-sink-scope.md);
 append remains unsupported outside a later closed gate.
+The scoped local observability/supportability boundary is defined in
+[`docs/architecture/v1-observability-support.md`](../architecture/v1-observability-support.md);
+support bundles remain local/redacted and remote telemetry/upload surfaces remain unsupported.
 
 ## Claim Boundary
 
@@ -59,6 +62,7 @@ external_engine_invoked=false
 | Vortex preparation and local primitives | Feature-gated local `vortex_ingest` creates `VortexPreparedState` evidence for scoped flat local inputs. Scoped local Vortex primitives are covered by the feature-gated local Vortex runtime scope. | Explicit preparation, prepared/native route inspection, and local primitive count/filter/project route reports. | Broad writer support, object-store/table/catalog preparation, generalized Vortex Source/Sink runtime, production staging. |
 | SourceState and prepared-state reuse | Scoped local prepared-state reuse is closed by the SourceState/prepared-state scope, golden fixtures, invalidation matrix, and current benchmark evidence fields. The canonical claim remains scoped local prepared-state reuse. | Local SourceState normalization, workspace or explicit VortexPreparedState reuse, direct transient labeling, and deterministic invalidation proof. | Global hidden cache, external cache service, object-store/table prepared-state reuse, broad non-local preparation, production cache claims. |
 | Local output/sink scope | Scoped local JSONL/CSV, feature-gated structured exports, feature-gated Vortex sinks, fanout helpers, write policies, replay evidence, and metadata-loss reporting are closed by the local output/sink scope. | Local artifact writes with explicit no-fallback and replay/fidelity evidence. | Append mode, object-store output paths, table/catalog writes, Iceberg/Delta transactions, remote URI sinks, broad nested/complex sink claims. |
+| Observability/supportability | Scoped local doctor, support-bundle, agent-contract, capability, runtime-report, schema-coverage, plan-only explain/estimate, diagnostic-code, issue-template, and benchmark-field checks are closed by the v1 observability/support boundary. | Local redacted support bundles, deterministic troubleshooting, side-effect-free support surfaces, and no-fallback/no-external-engine support evidence. | OpenTelemetry/OpenLineage export, remote support upload, live profiling collection, production observability/SRE claims, package publication, and performance claims. |
 | Benchmarks | Promoted artifacts separate route lanes, timing surfaces, evidence tiers, and claim gates. | Evidence interpretation for hot runtime, replay proof, publication proof, and external baselines. | Public performance superiority, Spark displacement, stale-artifact claims, timing-surface substitution. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked for broader platform routes. | Capability posture, local fixture proof where explicitly named, blocked diagnostics. | Production platform/runtime claims and managed-service integrations. |
 | Website | Static public interpretation layer over checked-in source/evidence. | Claim-safe docs, use-case, benchmark, status, and architecture views. | Runtime expansion, package publication, public benchmark freshness beyond promoted artifacts. |
@@ -75,6 +79,7 @@ external_engine_invoked=false
 | `docs/architecture/v1-vortex-runtime-scope.md` | Scoped feature-gated local/prepared v1 Vortex runtime boundary. | Local Vortex primitive route report, user route capability report, and local benchmark route report. |
 | `docs/architecture/v1-source-prepared-state-scope.md` | Scoped local SourceState and prepared-state reuse boundary. | Source prepared-state scope report, golden fixtures, invalidation matrix, user route capability report, and local benchmark route report. |
 | `docs/architecture/v1-local-output-sink-scope.md` | Scoped local output/sink scope. | Local output sink scope report, golden fixtures, user route capability report, and benchmark sink/replay fields. |
+| `docs/architecture/v1-observability-support.md` | Scoped local observability/supportability boundary. | Observability support report, diagnostic-code stability doc, troubleshooting guide, issue templates, route capability report, API/schema stability report, and benchmark timing-surface fields. |
 | `docs/getting-started/install.md` | Source checkout and local install path. | This matrix plus package-channel readiness docs. |
 | `docs/getting-started/first-10-minutes.md` | Local proof walkthrough. | This matrix plus release dry-run proof docs. |
 | `docs/getting-started/examples.md` | Copyable scoped examples and blockers. | This matrix plus relevant capability docs. |

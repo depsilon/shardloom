@@ -6087,7 +6087,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-2D` Observability, supportability, and troubleshooting closure.",
+            "`PROD-V1-3A` Security, supply-chain, and CI/release-validation hardening for v1.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -7123,6 +7123,10 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             commands["v1_local_resource_safety_gate"],
             ["/tool/python3.12", "scripts/check_v1_local_resource_safety.py"],
+        )
+        self.assertEqual(
+            commands["v1_observability_support_gate"],
+            ["/tool/python3.12", "scripts/check_v1_observability_support.py"],
         )
         self.assertEqual(
             commands["v1_api_schema_stability_gate"],
@@ -8325,6 +8329,31 @@ class ReleaseScriptTests(unittest.TestCase):
             ),
             report["blockers"],
         )
+
+    def test_v1_observability_support_validator_redacts_command_evidence(self) -> None:
+        module = self._load_script_module(
+            "check_v1_observability_support.py",
+            "check_v1_observability_support_redaction_for_test",
+        )
+
+        command = [
+            "shardloom",
+            "support-bundle",
+            "--note",
+            "token=abc123 Authorization: Bearer secret-value",
+            "--format",
+            "json",
+        ]
+
+        text = module.command_text(command)
+        argv = [module.redact_report_text(part) for part in command]
+
+        self.assertIn("token=<redacted>", text)
+        self.assertIn("Bearer <redacted>", text)
+        self.assertNotIn("abc123", text)
+        self.assertNotIn("secret-value", text)
+        self.assertNotIn("abc123", " ".join(argv))
+        self.assertNotIn("secret-value", " ".join(argv))
 
     def test_release_validation_evidence_records_security_posture_and_pip_audit_env(self) -> None:
         module = self._load_script_module(

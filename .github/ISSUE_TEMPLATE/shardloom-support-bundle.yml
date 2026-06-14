@@ -1,0 +1,83 @@
+name: ShardLoom support bundle
+description: Share a redacted local support bundle for a ShardLoom issue.
+title: "[support] "
+labels: ["support"]
+body:
+  - type: textarea
+    id: support-bundle
+    attributes:
+      label: JSON envelope
+      description: Paste the redacted output from support-bundle --format json.
+      render: json
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: command
+      description: Command or Python snippet associated with the support bundle.
+      placeholder: "shardloom support-bundle --format json"
+    validations:
+      required: true
+  - type: input
+    id: diagnostic-code
+    attributes:
+      label: diagnostic code
+      description: Primary diagnostic code if one is present.
+      placeholder: "SL_INVALID_INPUT"
+    validations:
+      required: false
+  - type: input
+    id: route-id
+    attributes:
+      label: route id
+      description: Route id, route_lane_id, or scenario id if relevant.
+      placeholder: "local_file_prepare_once_first_query"
+    validations:
+      required: false
+  - type: dropdown
+    id: fallback-attempted
+    attributes:
+      label: fallback_attempted
+      options:
+        - "false"
+        - "true"
+    validations:
+      required: true
+  - type: dropdown
+    id: external-engine-invoked
+    attributes:
+      label: external_engine_invoked
+      options:
+        - "false"
+        - "true"
+    validations:
+      required: true
+  - type: input
+    id: cli-version
+    attributes:
+      label: CLI version
+      placeholder: "shardloom 0.x from source checkout"
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "Python 3.12.4"
+    validations:
+      required: true
+  - type: input
+    id: rust-version
+    attributes:
+      label: Rust version
+      placeholder: "rustc 1.xx.x"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "macOS 15, Ubuntu 24.04, Windows 11"
+    validations:
+      required: true

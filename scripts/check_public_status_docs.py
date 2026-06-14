@@ -141,6 +141,15 @@ PUBLIC_DOC_MARKERS = {
         "fallback_attempted=false",
         "external_engine_invoked=false",
     ),
+    "docs/architecture/v1-observability-support.md": (
+        "shardloom.v1_observability_support.v1",
+        "doctor --format json",
+        "support-bundle --format json",
+        "target/v1-observability-support-report.json",
+        "no remote support upload claim",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ),
 }
 
 COMPUTE_FLOW_MARKERS = {

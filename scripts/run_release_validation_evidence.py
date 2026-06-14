@@ -267,6 +267,10 @@ def required_validation_commands(
             [python_executable, "scripts/check_v1_local_resource_safety.py"],
         ),
         (
+            "v1_observability_support_gate",
+            [python_executable, "scripts/check_v1_observability_support.py"],
+        ),
+        (
             "v1_api_schema_stability_gate",
             [python_executable, "scripts/check_v1_api_schema_stability.py"],
         ),

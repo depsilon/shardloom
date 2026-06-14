@@ -83,6 +83,9 @@ The gate aggregates:
   proof, deterministic unsupported-path blockers, and no-fallback/no-external-engine fields
 - SQL/Python/DataFrame front-door parity report for scoped shared-runtime rows, broad parity gap
   rows, and performance-equivalence claim blockers
+- local v1 observability/supportability report for doctor/support-bundle/capability/runtime
+  surfaces, redaction, issue-template intake, plan-only explain/estimate diagnostics, benchmark
+  timing-surface fields, and no-network/no-effect boundaries
 - user route capability report for input/output route selection, Vortex-normalization boundaries,
   materialization/decode boundaries, output/evidence routes, and local benchmark-range route
   posture, including the scenario-level local-file benchmark route map
@@ -110,6 +113,15 @@ python scripts\check_contribution_governance.py
 python scripts\check_package_channel_readiness.py --require-local-evidence
 python scripts\check_python_user_surface_completion.py
 python scripts\check_sql_python_dataframe_parity.py
+python scripts\check_v1_front_door_runtime_scope.py
+python scripts\check_v1_vortex_runtime_scope.py
+python scripts\check_v1_source_prepared_state_scope.py
+python scripts\check_v1_local_output_sink_scope.py
+python scripts\check_v1_local_resource_safety.py
+python scripts\check_v1_observability_support.py
+python scripts\check_v1_api_schema_stability.py
+python scripts\check_v1_example_replay.py
+python scripts\check_v1_correctness_conformance.py
 python scripts\check_user_surface_runtime_gap_inventory.py
 python scripts\check_user_route_capability_report.py
 python scripts\check_pre_5j_dependency_freshness.py
@@ -675,6 +687,54 @@ side-effect-free retry/cancellation gate planning, prepared-state non-persistenc
 and local output/sink write-policy evidence. It does not approve larger-than-memory execution,
 native spill runtime, distributed resource handling, object-store recovery, package publication, or
 production claims.
+
+`PROD-V1-2D` adds local v1 observability, supportability, and troubleshooting evidence under the
+same release boundary:
+
+```text
+python scripts/check_v1_observability_support.py
+docs/architecture/v1-observability-support.md
+docs/release/troubleshooting-diagnostics.md
+target/v1-observability-support-report.json
+shardloom.v1_observability_support.v1
+shardloom.v1_observability_support_report.v1
+runtime_command_count=8
+runtime_command_pass_count=8
+doctor_status=passed
+support_bundle_status=passed
+agent_contract_status=passed
+capability_discovery_status=passed
+runtime_observability_status=passed
+observability_schema_status=passed
+explain_plan_only_status=passed
+estimate_plan_only_status=passed
+route_capability_status=passed
+api_schema_stability_status=passed
+docs_status=passed
+issue_template_status=passed
+benchmark_observability_status=passed
+v1_scope_ready=true
+observability_support_evidence_ready=true
+side_effect_free_support_surfaces=true
+support_bundle_redaction_ready=true
+all_no_fallback_no_external_engine=true
+telemetry_exporter_enabled=false
+remote_support_upload_enabled=false
+runtime_profile_collection_enabled=false
+public_release_claim_allowed=false
+public_package_claim_allowed=false
+performance_claim_allowed=false
+production_claim_allowed=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+This gate proves the local v1 supportability boundary: stable route/stage/timing-surface
+observability fields, side-effect-free doctor/capability/support commands, deterministic
+unsupported plan-only explanations, redacted local support bundles, issue-template intake fields,
+and benchmark timing-surface/evidence-tier field coverage. It does not approve
+OpenTelemetry/OpenLineage exporters, remote support upload, live profiling collection, production
+observability, package publication, or performance claims.
 
 `GAR-0041-A` adds the per-claim evidence attachment matrix with schema
 `shardloom.per_claim_evidence_attachment_matrix.v1`. The release gate consumes
