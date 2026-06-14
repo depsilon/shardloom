@@ -142,6 +142,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/v1-local-output-sink-scope-report.json"),
     )
     parser.add_argument(
+        "--v1-local-resource-safety-report",
+        type=Path,
+        default=Path("target/v1-local-resource-safety-report.json"),
+    )
+    parser.add_argument(
         "--v1-api-schema-stability-report",
         type=Path,
         default=Path("target/v1-api-schema-stability-report.json"),
@@ -460,6 +465,10 @@ def main() -> int:
     v1_local_output_sink_scope_report_path = resolve(
         repo_root,
         args.v1_local_output_sink_scope_report,
+    )
+    v1_local_resource_safety_report_path = resolve(
+        repo_root,
+        args.v1_local_resource_safety_report,
     )
     v1_api_schema_stability_report_path = resolve(
         repo_root,
@@ -1807,6 +1816,85 @@ def main() -> int:
         )
     )
 
+    v1_local_resource_safety = load_json(v1_local_resource_safety_report_path)
+    v1_local_resource_safety_blockers: list[str] = []
+    if v1_local_resource_safety is None:
+        v1_local_resource_safety_blockers.append("missing v1 local resource-safety report")
+    else:
+        if (
+            v1_local_resource_safety.get("schema_version")
+            != "shardloom.v1_local_resource_safety_report.v1"
+        ):
+            v1_local_resource_safety_blockers.append(
+                "v1 local resource safety schema_version="
+                + str(v1_local_resource_safety.get("schema_version", "missing"))
+            )
+        if v1_local_resource_safety.get("status") != "passed":
+            v1_local_resource_safety_blockers.extend(
+                v1_local_resource_safety.get(
+                    "blockers",
+                    ["v1 local resource-safety gate blocked"],
+                )
+            )
+        for field, expected in [
+            ("runtime_command_count", 5),
+            ("runtime_command_pass_count", 5),
+            ("prerequisite_report_count", 2),
+            ("memory_budget_config_status", "passed"),
+            ("pre_oom_guard_status", "passed"),
+            ("retry_gate_status", "passed"),
+            ("cancellation_cleanup_status", "passed"),
+            ("memory_runtime_hardening_status", "passed"),
+            ("fault_tolerance_gate_status", "passed"),
+            ("prepared_state_cleanup_status", "passed"),
+            ("local_output_cleanup_status", "passed"),
+            ("claim_gate_status", "not_claim_grade"),
+        ]:
+            if v1_local_resource_safety.get(field) != expected:
+                v1_local_resource_safety_blockers.append(
+                    f"v1 local resource safety {field}="
+                    + str(v1_local_resource_safety.get(field, "missing"))
+                )
+        for field in [
+            "v1_scope_ready",
+            "local_resource_safety_evidence_ready",
+            "unsupported_paths_blocked_without_writes",
+            "all_no_fallback_no_external_engine",
+        ]:
+            if v1_local_resource_safety.get(field) is not True:
+                v1_local_resource_safety_blockers.append(
+                    f"v1 local resource safety {field} must be true"
+                )
+        for field in [
+            "larger_than_memory_claim_allowed",
+            "native_spill_runtime_claim_allowed",
+            "distributed_resource_claim_allowed",
+            "spill_io_performed",
+            "object_store_io",
+            "output_dataset_write_by_resource_gate",
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+            "publication_attempted",
+            "tag_created",
+            "package_upload_attempted",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if v1_local_resource_safety.get(field) is not False:
+                v1_local_resource_safety_blockers.append(
+                    f"v1 local resource safety {field} must be false"
+                )
+    checks.append(
+        check(
+            "v1_local_resource_safety_gate",
+            str(args.v1_local_resource_safety_report).replace("\\", "/"),
+            v1_local_resource_safety_blockers,
+        )
+    )
+
     v1_example_replay = load_json(v1_example_replay_report_path)
     v1_example_replay_blockers: list[str] = []
     if v1_example_replay is None:
@@ -2486,6 +2574,7 @@ def main() -> int:
         "python scripts/check_v1_vortex_runtime_scope.py",
         "python scripts/check_v1_source_prepared_state_scope.py",
         "python scripts/check_v1_local_output_sink_scope.py",
+        "python scripts/check_v1_local_resource_safety.py",
         "python scripts/check_v1_api_schema_stability.py",
         "python scripts/check_v1_example_replay.py",
         "python scripts/check_v1_correctness_conformance.py",
@@ -2555,6 +2644,9 @@ def main() -> int:
         ).replace("\\", "/"),
         "v1_local_output_sink_scope_report_ref": str(
             args.v1_local_output_sink_scope_report
+        ).replace("\\", "/"),
+        "v1_local_resource_safety_report_ref": str(
+            args.v1_local_resource_safety_report
         ).replace("\\", "/"),
         "v1_api_schema_stability_report_ref": str(
             args.v1_api_schema_stability_report

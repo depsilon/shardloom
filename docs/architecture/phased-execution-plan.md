@@ -186,47 +186,6 @@ referenced in the completed ledger or existing release gates. Broad platform/run
 should be included in v1 when they can be made real, safe, and evidence-backed; defer them only
 with a recorded infeasibility reason, not merely because they are broad.
 
-- [ ] `PROD-V1-2C` Local memory, resource safety, cancellation, and cleanup closure.
-  - Source: attached production-shift review section 9; RFC 0014; RFC 0017; memory/spill/OOM docs;
-    output cleanup and prepared-state reuse contracts.
-  - Current state: local/synthetic resource constraints and cleanup evidence exist, but broad
-    production spill/OOM enforcement remains limited. v1 needs deterministic local resource budgets
-    and cleanup for supported routes without claiming distributed spill production support.
-  - Intake review: accepted local v1 resource safety as required; defer broad spill/distributed OOM
-    production enforcement to future production/runtime items.
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: strongly applicable. Resource safety should use dynamic admission
-    by data size/shape, capillary bounded work units, PulseWeave bounded in-flight control where
-    runtime work is coalesced, metadata-first preflight estimates, and separate hot route versus
-    cleanup/proof evidence fields.
-  - Execution checklist:
-    - [ ] Define v1 memory/resource scope, resource budget config, max input guidance, max output
-      or materialization guidance, and deterministic budget-exceeded diagnostics.
-    - [ ] Implement or certify runtime memory reservation for v1 operators and release on success,
-      error, cancellation, and cleanup paths.
-    - [ ] Implement cancellation cleanup and partial-output cleanup for v1 routes and local writes.
-    - [ ] Add bounded materialization policy tests, large local input smoke tests within v1 scope,
-      and failure-injection tests.
-    - [ ] Emit cleanup evidence and resource fields into route/certificate/support reports.
-    - [ ] Move resource-safety closeout and residual spill/distributed blockers to the ledger.
-  - Next outcome: local v1 routes fail before unsafe materialization/OOM where practical and clean
-    up after errors.
-  - User-visible surface: CLI/Python errors, diagnostics, doctor/support bundles, output manifests,
-    release readiness, docs.
-  - Implementation scope: memory/resource policy, route execution, output/prepared cleanup,
-    diagnostics, tests, docs.
-  - Evidence required: budget tests, cleanup tests, failure-injection reports, no-fallback proof,
-    and resource/certificate fields.
-  - Acceptance: v1 routes have deterministic budget/cancellation/cleanup behavior; broad spill and
-    distributed OOM remain deferred unless separately implemented.
-  - Verification: focused Rust/Python tests, failure-injection tests, release-script shard,
-    support bundle tests, and workspace gates for runtime changes.
-  - Non-goals: no full distributed spill runtime, no platform-level autoscaling/resource claim, no
-    hidden external spill engine.
-  - Claim boundary: may claim only local v1 resource safety and cleanup behavior.
-  - Fallback boundary: resource pressure must fail explicitly, not delegate to external engines.
-  - Ledger rule: ledger entry must list budget defaults, tested failures, cleanup evidence, and
-    deferred spill/OOM scope.
 - [ ] `PROD-V1-2D` Observability, supportability, and troubleshooting closure.
   - Source: attached production-shift review section 10; RFC 0012; release readiness reports;
     benchmark timing-surface contracts; diagnostic docs.

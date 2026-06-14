@@ -6087,7 +6087,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-2C` Local memory, resource safety, cancellation, and cleanup closure.",
+            "`PROD-V1-2D` Observability, supportability, and troubleshooting closure.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -7119,6 +7119,10 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             commands["v1_local_output_sink_scope_gate"],
             ["/tool/python3.12", "scripts/check_v1_local_output_sink_scope.py"],
+        )
+        self.assertEqual(
+            commands["v1_local_resource_safety_gate"],
+            ["/tool/python3.12", "scripts/check_v1_local_resource_safety.py"],
         )
         self.assertEqual(
             commands["v1_api_schema_stability_gate"],
