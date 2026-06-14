@@ -808,6 +808,37 @@ impl VortexNativeWriterSchemaCertificationRow {
     }
 
     #[must_use]
+    pub const fn dictionary_encoded_utf8_binary_runtime() -> Self {
+        Self {
+            row_id: "dictionary_encoded_utf8_binary_provider_gate",
+            writer_lane_id: "flat_columnar_vortex_ingest_prepared_state_write",
+            status: VortexNativeWriterCertificationStatus::ScopedFeatureGatedRuntime,
+            feature_gate: "vortex-write,universal-format-io",
+            provider_decision: "use_vortex_native_provider",
+            provider_surface: "ArrayRef::from_arrow(RecordBatch) with Arrow DictionaryArray utf8/binary columns",
+            schema_family: "dictionary_encoded_utf8_binary_columnar_source_state",
+            dtype_scope: "dictionary_encoded_utf8_binary_with_int_key_types",
+            validity_scope: "dictionary_null_keys_and_repeated_values_preserved_for_flat_columnar_arrays",
+            encoding_scope: "arrow_dictionary_array_provider_roundtrip_physical_vortex_encoding_not_broadly_certified",
+            metadata_preservation_status: "logical_dictionary_schema_projection_mask_and_nullability_preserved_physical_layout_writer_default",
+            statistics_preservation_status: "reopen_row_count_verified_dictionary_values_replayed_statistics_not_broadly_certified",
+            materialization_boundary: "columnar_source_state_preserved_to_vortex_array_provider",
+            replay_evidence: "local_flat_columnar_dictionary_source_writes_reopens_values",
+            unsupported_diagnostic_code: "vortex_ingest.unsupported_columnar_arrow_type",
+            required_future_evidence: "layout_statistics_fidelity_report,interleave_encoding_preservation_matrix,performance_benchmark_evidence",
+            claim_gate_status: "scoped_feature_gated_runtime",
+            claim_boundary: "scoped flat columnar Arrow dictionary utf8/binary local Vortex prepared-state writer only; no generalized dictionary primitive, interleave, nested/extension dtype, object-store, table/catalog, generalized writer, or performance claim",
+            local_write_runtime: true,
+            reopen_verified: true,
+            metadata_statistics_broadly_certified: false,
+            object_store_io: false,
+            table_catalog_io: false,
+            external_engine_invoked: false,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
     pub const fn dictionary_encoded_primitives_provider_candidate() -> Self {
         Self {
             row_id: "dictionary_encoded_primitives_provider_gate",
@@ -817,7 +848,7 @@ impl VortexNativeWriterSchemaCertificationRow {
             provider_decision: "use_vortex_native_provider_pending_gate",
             provider_surface: "vortex_dictionary_and_interleave_encoding_surfaces",
             schema_family: "dictionary_encoded_primitives",
-            dtype_scope: "dictionary_encoded_utf8_binary_and_low_cardinality_primitives",
+            dtype_scope: "dictionary_encoded_low_cardinality_primitives_and_interleave_layouts",
             validity_scope: "requires_dictionary_validity_and_null_key_semantics_matrix",
             encoding_scope: "requires_dictionary_interleave_encoding_preservation_matrix",
             metadata_preservation_status: "candidate_pending_layout_fidelity_report",
@@ -825,9 +856,9 @@ impl VortexNativeWriterSchemaCertificationRow {
             materialization_boundary: "blocked_before_runtime_write_until_provider_gate_passes",
             replay_evidence: "required_before_admission",
             unsupported_diagnostic_code: "SL_UNSUPPORTED_DICTIONARY_VORTEX_PAYLOAD_WRITE",
-            required_future_evidence: "dictionary_ordering_fixture,null_key_fixture,encoding_preservation_matrix,native_io_certificate,no_fallback_evidence",
+            required_future_evidence: "primitive_dictionary_fixture,dictionary_ordering_fixture,interleave_encoding_preservation_matrix,native_io_certificate,no_fallback_evidence",
             claim_gate_status: "not_claim_grade",
-            claim_boundary: "dictionary-encoded Vortex writer support is a provider candidate only; no runtime write claim until dictionary semantics and replay certificates pass",
+            claim_boundary: "generalized dictionary primitive and interleave-preserving Vortex writer support remains a provider candidate; scoped utf8/binary Arrow dictionary columnar handoff is certified separately",
             local_write_runtime: false,
             reopen_verified: false,
             metadata_statistics_broadly_certified: false,
@@ -968,13 +999,14 @@ impl VortexNativeWriterSchemaCertificationReport {
                 VortexNativeWriterSchemaCertificationRow::flat_scalar_rows(),
                 VortexNativeWriterSchemaCertificationRow::typed_complex_scalar_rows(),
                 VortexNativeWriterSchemaCertificationRow::flat_columnar_source_state(),
-                VortexNativeWriterSchemaCertificationRow::dictionary_encoded_primitives_provider_candidate(),
                 VortexNativeWriterSchemaCertificationRow::nullable_columnar_validity_runtime(),
+                VortexNativeWriterSchemaCertificationRow::dictionary_encoded_utf8_binary_runtime(),
+                VortexNativeWriterSchemaCertificationRow::dictionary_encoded_primitives_provider_candidate(),
                 VortexNativeWriterSchemaCertificationRow::extension_dtype_provider_candidate(),
                 VortexNativeWriterSchemaCertificationRow::generalized_schema_encoding_writer_blocked(),
             ],
             claim_gate_status: "scoped_evidence_only",
-            claim_boundary: "feature-gated local flat scalar, typed complex source-free, flat columnar, and nullable flat columnar Vortex prepared-state writer evidence only; dictionary/interleave and extension schema families are provider candidates pending evidence; generalized schema/encoding, object-store, table/catalog, lakehouse, and performance claims remain blocked",
+            claim_boundary: "feature-gated local flat scalar, typed complex source-free, flat columnar, nullable flat columnar, and flat dictionary utf8/binary columnar Vortex prepared-state writer evidence only; generalized dictionary/interleave primitive and extension schema families are provider candidates pending evidence; generalized schema/encoding, object-store, table/catalog, lakehouse, and performance claims remain blocked",
             broad_schema_encoding_certification_complete: false,
             metadata_statistics_broadly_certified: false,
             local_runtime_claim_allowed: true,
@@ -3159,7 +3191,7 @@ mod tests {
             report.report_id,
             "prod-ready-1a.vortex-native-writer-schema-certification"
         );
-        assert_eq!(report.scoped_runtime_row_count(), 4);
+        assert_eq!(report.scoped_runtime_row_count(), 5);
         assert_eq!(report.provider_candidate_row_count(), 2);
         assert_eq!(report.blocked_row_count(), 1);
         assert!(report.local_runtime_claim_allowed);
@@ -3186,6 +3218,11 @@ mod tests {
             report
                 .scoped_runtime_row_ids()
                 .contains(&"nullable_columnar_validity_provider_gate")
+        );
+        assert!(
+            report
+                .scoped_runtime_row_ids()
+                .contains(&"dictionary_encoded_utf8_binary_provider_gate")
         );
         assert!(
             report
