@@ -221,6 +221,11 @@ def check_package_channel(payload: dict[str, Any] | None) -> dict[str, Any]:
                 "local_gate_evidence_status="
                 + str(payload.get("local_gate_evidence_status", "missing"))
             )
+        if payload.get("package_identity_contract_status") != "passed":
+            blockers.append(
+                "package_identity_contract_status="
+                + str(payload.get("package_identity_contract_status", "missing"))
+            )
         if payload.get("claim_gate_status") != "not_claim_grade":
             blockers.append(
                 "claim_gate_status=" + str(payload.get("claim_gate_status", "missing"))

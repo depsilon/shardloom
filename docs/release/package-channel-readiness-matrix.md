@@ -38,6 +38,9 @@ approval evidence is attached.
 - The package gate requires dependency inventory, license classification, provenance status,
   forbidden-fallback dependency absence, package smoke transcript, SBOM refs, checksum refs,
   rollback policy refs, and publication authorization state.
+- Package identity is machine-checked by the package-channel validator: the Python package identity
+  remains `shardloom`, current workspace Rust crates must stay `publish = false`, and crates.io is
+  limited to future stable public API crates until separate API/schema approval exists.
 - PyPI and TestPyPI require Trusted Publisher/OIDC posture. Long-lived upload tokens are not
   release-grade for the public package path.
 - Internal Rust crates remain unpublished. crates.io is limited to future stable public API crates

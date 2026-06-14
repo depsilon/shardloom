@@ -256,6 +256,11 @@ def local_report_summary(
                 "package_channel_readiness: local_gate_evidence_status="
                 + str(payload.get("local_gate_evidence_status", "missing"))
             )
+        if payload.get("package_identity_contract_status") != "passed":
+            blockers.append(
+                "package_channel_readiness: package_identity_contract_status="
+                + str(payload.get("package_identity_contract_status", "missing"))
+            )
     summary = {
         "name": requirement.name,
         "path": requirement.path.as_posix(),

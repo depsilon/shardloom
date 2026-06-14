@@ -209,8 +209,9 @@ with a recorded infeasibility reason, not merely because they are broad.
       `[workspace.package].rust-version`, upstream Vortex evidence derives from root
       `[workspace.dependencies].vortex`, and CI/release/benchmark surfaces reuse the shared
       manifest-derived helper rather than duplicating current-version literals.
-    - [ ] Approve package identities and keep internal Rust crates unpublished unless extracted
-      into stable public protocol/client crates.
+    - [x] Record and machine-check package identities: Python package `shardloom`, current
+      workspace Rust crates unpublished, and crates.io limited to future stable public
+      protocol/client crates until separate API/schema and maintainer approval exists.
     - [ ] Implement GitHub pre-release artifacts: source archive, CLI binaries, wheel, sdist,
       checksums, SBOM, provenance, and release notes.
     - [ ] Add TestPyPI upload, clean install, uninstall, and smoke proof before PyPI proof.

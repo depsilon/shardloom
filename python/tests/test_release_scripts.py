@@ -7198,6 +7198,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 payload.pop("status", None)
             if requirement.name == "package_channel_readiness":
                 payload["local_gate_evidence_status"] = "passed"
+                payload["package_identity_contract_status"] = "passed"
             if local_blocked and requirement.name == "v1_api_schema_stability":
                 payload["status"] = "blocked"
                 payload["blockers"] = ["schema fixture drift"]
@@ -7235,6 +7236,123 @@ class ReleaseScriptTests(unittest.TestCase):
         }
         matrix_path.write_text(json.dumps(matrix, indent=2) + "\n", encoding="utf-8")
         return matrix_path
+
+    def _write_package_identity_contract_fixture(
+        self,
+        module: object,
+        repo_root: Path,
+        *,
+        publish_internal_crate: bool = False,
+    ) -> dict[str, object]:
+        pyproject = repo_root / module.PYPROJECT
+        pyproject.parent.mkdir(parents=True, exist_ok=True)
+        pyproject.write_text(
+            "\n".join(
+                [
+                    "[project]",
+                    'name = "shardloom"',
+                    'requires-python = ">=3.10"',
+                    'license = "Apache-2.0"',
+                    "dependencies = []",
+                    "classifiers = [",
+                    '    "Development Status :: 2 - Pre-Alpha",',
+                    "]",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        readiness_doc = repo_root / module.PACKAGE_NAME_READINESS_DOC
+        readiness_doc.parent.mkdir(parents=True, exist_ok=True)
+        readiness_doc.write_text(
+            "\n".join(
+                [
+                    "PyPI: `shardloom`",
+                    "Internal crates remain unpublished.",
+                    "`shardloom-protocol`",
+                    "`shardloom-client`",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        for index, manifest in enumerate(module.INTERNAL_CRATE_MANIFESTS):
+            path = repo_root / manifest
+            path.parent.mkdir(parents=True, exist_ok=True)
+            publish_line = (
+                "publish = true"
+                if index == 0 and publish_internal_crate
+                else "publish = false"
+            )
+            path.write_text(
+                "\n".join(
+                    [
+                        "[package]",
+                        f'name = "{Path(manifest).parent.name}"',
+                        'version = "0.1.0"',
+                        publish_line,
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+        return {
+            "publication_authorization_state": "human_approval_required",
+            "channels": [
+                {
+                    "channel_id": "github_prerelease",
+                    "internal_crates_publish_allowed": False,
+                },
+                {
+                    "channel_id": "crates_io_future",
+                    "workspace_crate_publish_status": (
+                        "all_current_workspace_crates_publish_false"
+                    ),
+                    "internal_crates_publish_allowed": False,
+                    "prepared_local_workspace_refs": module.PACKAGE_WORKSPACE_REF_MANIFESTS,
+                },
+            ],
+        }
+
+    def test_package_identity_contract_accepts_current_unpublished_workspace_crates(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_identity_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            matrix = self._write_package_identity_contract_fixture(module, repo_root)
+            report = module.validate_package_identity_contract(repo_root, matrix)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["python_package_identity"], "shardloom")
+        self.assertEqual(report["internal_crate_publish_status"], "all_publish_false")
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+
+    def test_package_identity_contract_blocks_publishable_internal_crates(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_identity_blocker_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            matrix = self._write_package_identity_contract_fixture(
+                module,
+                repo_root,
+                publish_internal_crate=True,
+            )
+            report = module.validate_package_identity_contract(repo_root, matrix)
+
+        self.assertEqual(report["status"], "blocked")
+        self.assertTrue(
+            any("publish = false" in blocker for blocker in report["blockers"])
+        )
 
     def test_dependency_audit_resolves_configured_pip_audit_python(self) -> None:
         module = self._load_script_module(
@@ -9494,6 +9612,7 @@ jobs:
             "schema_version": "shardloom.package_channel_readiness_report.v1",
             "status": "passed",
             "local_gate_evidence_status": "passed",
+            "package_identity_contract_status": "passed",
             "ready_channel_count": 0,
             "expected_channel_count": 9,
             "blockers": [],
@@ -11309,6 +11428,7 @@ jobs:
                 "status": "passed",
                 "local_gate_evidence_required": True,
                 "local_gate_evidence_status": "passed",
+                "package_identity_contract_status": "passed",
                 "public_package_release_claim_allowed": False,
                 "ready_channel_count": 0,
                 "expected_channel_count": 9,

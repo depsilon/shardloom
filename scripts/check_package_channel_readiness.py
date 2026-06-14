@@ -31,6 +31,22 @@ EXPECTED_CHANNEL_IDS = [
     "crates_io_future",
 ]
 
+PYPROJECT = Path("python/pyproject.toml")
+PACKAGE_NAME_READINESS_DOC = Path("docs/release/package-name-readiness.md")
+
+EXPECTED_PYTHON_PACKAGE_NAME = "shardloom"
+EXPECTED_PYTHON_REQUIRES = ">=3.10"
+EXPECTED_PUBLIC_CRATE_CANDIDATES = ["shardloom-protocol", "shardloom-client"]
+INTERNAL_CRATE_MANIFESTS = [
+    "shardloom-core/Cargo.toml",
+    "shardloom-plan/Cargo.toml",
+    "shardloom-exec/Cargo.toml",
+    "shardloom-vortex/Cargo.toml",
+    "shardloom-cli/Cargo.toml",
+    "shardloom-contract-tests/Cargo.toml",
+]
+PACKAGE_WORKSPACE_REF_MANIFESTS = ["Cargo.toml", *INTERNAL_CRATE_MANIFESTS]
+
 FORBIDDEN_TRUE_FIELDS = [
     "publication_attempted",
     "tag_created",
@@ -157,6 +173,33 @@ def _non_empty_string(row: dict[str, Any], field: str) -> bool:
     return isinstance(row.get(field), str) and bool(row[field].strip())
 
 
+def read_text(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    return path.read_text(encoding="utf-8")
+
+
+def require_marker(
+    blockers: list[str], label: str, text: str | None, marker: str
+) -> None:
+    if text is None:
+        blockers.append(f"{label} missing")
+    elif marker not in text:
+        blockers.append(f"{label} missing marker {marker!r}")
+
+
+def find_channel(matrix: dict[str, Any] | None, channel_id: str) -> dict[str, Any] | None:
+    if matrix is None:
+        return None
+    channels = matrix.get("channels", [])
+    if not isinstance(channels, list):
+        return None
+    for row in channels:
+        if isinstance(row, dict) and row.get("channel_id") == channel_id:
+            return row
+    return None
+
+
 def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
     blockers: list[str] = []
     if matrix is None:
@@ -177,6 +220,23 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
         blockers.append("required_channel_ids must match the expected release-channel list")
     if matrix.get("package_gate_required_evidence") != PACKAGE_GATE_REQUIRED_EVIDENCE:
         blockers.append("package_gate_required_evidence must match the package-gate evidence list")
+    if (
+        matrix.get("package_identity_contract_status")
+        != "local_contract_recorded_publication_approval_blocked"
+    ):
+        blockers.append(
+            "package_identity_contract_status must record local contract with publication approval blocked"
+        )
+    if matrix.get("python_package_identity") != EXPECTED_PYTHON_PACKAGE_NAME:
+        blockers.append(
+            f"python_package_identity must be {EXPECTED_PYTHON_PACKAGE_NAME!r}"
+        )
+    if matrix.get("internal_workspace_crates_publish_allowed") is not False:
+        blockers.append("internal_workspace_crates_publish_allowed must be false")
+    if matrix.get("future_public_crate_candidates") != EXPECTED_PUBLIC_CRATE_CANDIDATES:
+        blockers.append(
+            "future_public_crate_candidates must match the approved future public crate names"
+        )
     gate_refs = matrix.get("gate_evidence_refs")
     if not isinstance(gate_refs, dict):
         blockers.append("gate_evidence_refs must be an object")
@@ -290,6 +350,115 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
         blockers.append("top-level status=ready requires every channel ready")
 
     return blockers
+
+
+def validate_package_identity_contract(
+    repo_root: Path, matrix: dict[str, Any] | None
+) -> dict[str, Any]:
+    blockers: list[str] = []
+
+    pyproject = read_text(repo_root / PYPROJECT)
+    require_marker(
+        blockers,
+        PYPROJECT.as_posix(),
+        pyproject,
+        f'name = "{EXPECTED_PYTHON_PACKAGE_NAME}"',
+    )
+    require_marker(
+        blockers,
+        PYPROJECT.as_posix(),
+        pyproject,
+        f'requires-python = "{EXPECTED_PYTHON_REQUIRES}"',
+    )
+    require_marker(blockers, PYPROJECT.as_posix(), pyproject, 'license = "Apache-2.0"')
+    require_marker(blockers, PYPROJECT.as_posix(), pyproject, "dependencies = []")
+    if pyproject is not None:
+        for forbidden in [
+            "Development Status :: 5 - Production/Stable",
+            "Development Status :: 6 - Mature",
+            "Development Status :: 7 - Inactive",
+        ]:
+            if forbidden in pyproject:
+                blockers.append(
+                    f"{PYPROJECT.as_posix()} contains forbidden classifier {forbidden!r}"
+                )
+
+    unpublished_crates: list[str] = []
+    for manifest in INTERNAL_CRATE_MANIFESTS:
+        text = read_text(repo_root / manifest)
+        require_marker(blockers, manifest, text, "publish = false")
+        if text is not None and "publish = false" in text:
+            unpublished_crates.append(manifest)
+
+    doc = read_text(repo_root / PACKAGE_NAME_READINESS_DOC)
+    require_marker(
+        blockers,
+        PACKAGE_NAME_READINESS_DOC.as_posix(),
+        doc,
+        f"PyPI: `{EXPECTED_PYTHON_PACKAGE_NAME}`",
+    )
+    require_marker(
+        blockers,
+        PACKAGE_NAME_READINESS_DOC.as_posix(),
+        doc,
+        "Internal crates remain unpublished.",
+    )
+    for candidate in EXPECTED_PUBLIC_CRATE_CANDIDATES:
+        require_marker(
+            blockers,
+            PACKAGE_NAME_READINESS_DOC.as_posix(),
+            doc,
+            f"`{candidate}`",
+        )
+
+    crates_row = find_channel(matrix, "crates_io_future")
+    if crates_row is None:
+        blockers.append("missing crates_io_future package identity row")
+    else:
+        if (
+            crates_row.get("workspace_crate_publish_status")
+            != "all_current_workspace_crates_publish_false"
+        ):
+            blockers.append(
+                "crates_io_future workspace_crate_publish_status must prove publish=false"
+            )
+        if crates_row.get("internal_crates_publish_allowed") is not False:
+            blockers.append("crates_io_future internal_crates_publish_allowed must be false")
+        refs = crates_row.get("prepared_local_workspace_refs")
+        if refs != PACKAGE_WORKSPACE_REF_MANIFESTS:
+            blockers.append(
+                "crates_io_future prepared_local_workspace_refs must match current workspace package refs"
+            )
+
+    channels = matrix.get("channels", []) if isinstance(matrix, dict) else []
+    if isinstance(channels, list):
+        for row in channels:
+            if isinstance(row, dict) and row.get("internal_crates_publish_allowed") is not False:
+                blockers.append(
+                    f"{row.get('channel_id', '<missing>')}: "
+                    "internal_crates_publish_allowed must be false"
+                )
+
+    return {
+        "status": "passed" if not blockers else "blocked",
+        "python_package_identity": EXPECTED_PYTHON_PACKAGE_NAME,
+        "python_requires": EXPECTED_PYTHON_REQUIRES,
+        "internal_crate_publish_status": "all_publish_false"
+        if len(unpublished_crates) == len(INTERNAL_CRATE_MANIFESTS)
+        else "blocked",
+        "internal_crate_manifest_count": len(INTERNAL_CRATE_MANIFESTS),
+        "internal_crate_manifests": INTERNAL_CRATE_MANIFESTS,
+        "future_public_crate_candidates": EXPECTED_PUBLIC_CRATE_CANDIDATES,
+        "publication_authorization_state": (matrix or {}).get(
+            "publication_authorization_state", "missing"
+        ),
+        "blockers": blockers,
+        "publication_attempted": False,
+        "tag_created": False,
+        "secrets_required": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+    }
 
 
 def false_field_blockers(payload: dict[str, Any] | None, label: str, fields: list[str]) -> list[str]:
@@ -539,6 +708,7 @@ def main() -> int:
     output_path = resolve(repo_root, args.output)
     matrix = load_json(matrix_path)
     matrix_blockers = validate_matrix(matrix)
+    package_identity_contract = validate_package_identity_contract(repo_root, matrix)
     dependency_audit = load_json(resolve(repo_root, args.dependency_audit_report))
     release_dry_run = load_json(resolve(repo_root, args.release_dry_run_transcript))
     provenance = load_json(resolve(repo_root, args.provenance_report))
@@ -549,6 +719,7 @@ def main() -> int:
         provenance_report=provenance,
     )
     blockers = list(matrix_blockers)
+    blockers.extend(package_identity_contract["blockers"])
     if args.require_local_evidence:
         blockers.extend(local_gate_evidence["blockers"])
     if args.self_test:
@@ -561,6 +732,8 @@ def main() -> int:
         "provenance_report_ref": str(args.provenance_report).replace("\\", "/"),
         "status": "passed" if not blockers else "failed",
         "matrix_validation_status": "passed" if not matrix_blockers else "failed",
+        "package_identity_contract_status": package_identity_contract["status"],
+        "package_identity_contract": package_identity_contract,
         "local_gate_evidence_required": args.require_local_evidence,
         "local_gate_evidence_status": local_gate_evidence["status"],
         "local_gate_evidence": local_gate_evidence,
