@@ -16,6 +16,75 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-2D v1 observability/supportability closeout
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-2D` in `docs/architecture/phased-execution-plan.md`.
+    - RFC 0012 diagnostics, explain, estimate, doctor, and capabilities.
+    - `docs/architecture/v1-observability-support.md`.
+    - `docs/release/troubleshooting-diagnostics.md`.
+    - `target/v1-observability-support-report.json`.
+  - Branch: `codex/v1-observability-support-closeout`.
+  - Scope:
+    - Added `docs/architecture/v1-observability-support.md` as the canonical v1 local
+      observability/supportability boundary. The doc closes local doctor, support-bundle,
+      agent-contract, capability, runtime-report, schema-coverage, plan-only explain/estimate, and
+      benchmark timing-surface support evidence while explicitly blocking telemetry exporters,
+      remote support upload, live profiling collection, package publication, production
+      observability, and performance claims.
+    - Added `docs/release/troubleshooting-diagnostics.md` for diagnostic-code troubleshooting
+      keyed to JSON envelopes, `fallback_attempted=false`, `external_engine_invoked=false`,
+      route/timing-surface fields, and redacted support bundles.
+    - Added `.github/ISSUE_TEMPLATE/shardloom-diagnostic.yml` and
+      `.github/ISSUE_TEMPLATE/shardloom-support-bundle.yml` so issue intake requests command,
+      JSON envelope, diagnostic code, route id, CLI/Python/Rust/OS versions, and fallback/external
+      engine status without asking for secrets.
+    - Added `scripts/check_v1_observability_support.py` to run and validate the local support
+      surfaces, prerequisite route/API reports, documentation markers, issue templates, and current
+      benchmark route/timing/evidence fields.
+    - Wired `target/v1-observability-support-report.json` through GitHub Actions, CI gate matrix
+      validation, release validation evidence, hard release-readiness checks, public-status docs,
+      and v1 inclusion-scope classification.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/check_v1_observability_support.py scripts/check_release_readiness.py scripts/run_release_validation_evidence.py scripts/check_ci_gate_matrix.py scripts/check_public_status_docs.py python/tests/test_release_scripts.py`.
+    - `python3 scripts/check_v1_observability_support.py --skip-build`.
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `python3 scripts/check_v1_inclusion_scope.py`.
+    - `python3 scripts/check_public_status_docs.py`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_release_validation_evidence_uses_configured_python_and_conda python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publish_doctor_accepts_current_static_artifact python.tests.test_release_scripts.ReleaseScriptTests.test_ci_gate_matrix_requires_hard_release_without_allow_blocked`.
+  - Generated report:
+    - `target/v1-observability-support-report.json`.
+    - Schema: `shardloom.v1_observability_support_report.v1`.
+    - Status: `passed`.
+    - Runtime commands: `8`.
+    - Runtime commands passed: `8`.
+    - Doctor, support bundle, agent contract, capabilities certification, runtime report,
+      observability schema coverage, plan-only explain, plan-only estimate, route capability,
+      API/schema stability, docs, issue templates, and benchmark observability all report
+      `passed`.
+    - `v1_scope_ready=true`.
+    - `observability_support_evidence_ready=true`.
+    - `side_effect_free_support_surfaces=true`.
+    - `support_bundle_redaction_ready=true`.
+    - `all_no_fallback_no_external_engine=true`.
+  - Claim boundary:
+    - May claim the declared local v1 supportability gate has deterministic local evidence for
+      route/timing-surface fields, no-network/no-effect support commands, diagnostic-code
+      troubleshooting docs, redacted support bundles, issue-template intake, and benchmark
+      observability field coverage.
+    - Does not approve OpenTelemetry/OpenLineage exporters, remote support upload, live profiling
+      collection, production observability/SRE claims, package publication, benchmark freshness,
+      performance claims, or Spark/engine replacement claims.
+  - Fallback boundary:
+    - The observability gate requires `fallback_attempted=false` and
+      `external_engine_invoked=false` across runtime commands, prerequisite reports, and benchmark
+      ShardLoom rows. Unsupported plan-only explain/estimate paths remain deterministic and do not
+      read, materialize, write, or invoke external effects.
+  - Residual work:
+    - Production telemetry/exporters, live profiling, remote support upload, and broader
+      production observability remain unsupported until a later production-ready item closes them
+      with runtime, security, release, and support evidence.
 - [x] Session label: PROD-V1-2C v1 local resource-safety closeout
   - Date: 2026-06-13
   - Source:

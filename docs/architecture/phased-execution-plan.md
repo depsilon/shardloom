@@ -186,48 +186,6 @@ referenced in the completed ledger or existing release gates. Broad platform/run
 should be included in v1 when they can be made real, safe, and evidence-backed; defer them only
 with a recorded infeasibility reason, not merely because they are broad.
 
-- [ ] `PROD-V1-2D` Observability, supportability, and troubleshooting closure.
-  - Source: attached production-shift review section 10; RFC 0012; release readiness reports;
-    benchmark timing-surface contracts; diagnostic docs.
-  - Current state: route timing, evidence, and claim fields exist across runtime/benchmark
-    surfaces, but v1 supportability needs stable per-route/per-stage fields, resource/output/replay
-    fields, route/capability/unsupported explanations, diagnostic-code troubleshooting docs, issue
-    templates, and local support bundles.
-  - Intake review: accepted local observability/supportability as required; defer OpenTelemetry,
-    OpenLineage, network exporters, and remote support uploaders unless v1 explicitly supports
-    them.
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: applicable. Observability must expose PulseWeave/capillary/dynamic
-    decisions when they affect execution, preserve timing-surface/evidence-tier separation, and use
-    metadata-first explanation paths that do not execute effectful operations.
-  - Execution checklist:
-    - [ ] Add stable per-route, per-stage, memory/resource, output/replay, certificate-ref, and
-      timing-surface fields for v1-supported routes.
-    - [ ] Add route explanation, capability explanation, and unsupported-path explanation output.
-    - [ ] Add troubleshooting docs keyed by diagnostic code.
-    - [ ] Add local support bundle and local debug bundle commands with redaction tests.
-    - [ ] Add issue templates requesting command, JSON envelope, diagnostic code, route id,
-      package/CLI version, OS/Python/Rust version, and fallback status.
-    - [ ] Preserve local/no-network default behavior and explicitly defer telemetry/exporters.
-    - [ ] Move observability/support closeout and command evidence to the completed ledger.
-  - Next outcome: users and agents can diagnose v1 route behavior without hidden probes or
-    external services.
-  - User-visible surface: CLI/Python explain/capability/diagnostic output, docs, issue templates,
-    support bundles, website support pages.
-  - Implementation scope: diagnostics/explain/capability code, support-bundle scripts, docs/site,
-    issue templates, tests.
-  - Evidence required: golden output snapshots, redaction tests, issue-template validation,
-    no-network/effect-free proof, and route field stability fixtures.
-  - Acceptance: v1 diagnostics are stable and actionable; support bundles are local/redacted;
-    unsupported paths explain blockers without running effects.
-  - Verification: Python/CLI snapshot tests, release-script shard, support bundle redaction tests,
-    docs/site validation, and workspace gates for shared diagnostics code.
-  - Non-goals: no OpenTelemetry/OpenLineage/network exporter, no remote support upload, no
-    effectful doctor probes.
-  - Claim boundary: may claim only local supportability for declared v1 surfaces.
-  - Fallback boundary: support tooling must not execute fallback engines or unsupported work.
-  - Ledger rule: ledger entry must include stable field list, diagnostic docs, bundle command
-    evidence, and deferred observability integrations.
 - [ ] `PROD-V1-3A` Security, supply-chain, and CI/release-validation hardening for v1.
   - Source: attached production-shift review sections 13 and 14; RFC 0024; dependency/security
     gates; package-channel readiness matrix; CI workflow.
