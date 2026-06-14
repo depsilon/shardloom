@@ -689,27 +689,30 @@
       "workload_id": "extension_manifest_inspection_v1_candidate",
       "workload_name": "Extension manifest inspection v1 candidate",
       "v1_scope_classification": "v1_candidate_pending_feasibility",
-      "readiness_status": "blocked_manifest_registry_and_runtime_evidence_missing",
+      "readiness_status": "blocked_plugin_udf_effect_runtime_evidence_missing",
       "production_ready": false,
       "claim_gate_status": "not_claim_grade",
       "production_claim_allowed": false,
       "performance_claim_allowed": false,
       "fallback_attempted": false,
       "external_engine_invoked": false,
-      "environment": "single_process_local_manifest_inspection",
-      "data_scale": "bounded local extension manifest JSON up to 256 KiB; no extension registry crawl, dependency expansion, plugin runtime, production scale, or performance claim",
+      "environment": "single_process_local_manifest_inspection_and_registry_discovery",
+      "data_scale": "bounded local extension manifest JSON up to 256 KiB per file and approved local manifest directories up to 64 JSON manifests / 2 MiB aggregate; no dependency expansion, plugin runtime, production scale, or performance claim",
       "input_formats": [
         "shardloom.extension_manifest.v1",
+        "approved_local_manifest_directory",
         "local_json_manifest_file"
       ],
       "output_formats": [
         "shardloom.output.v2_json",
-        "extension_manifest_inspection_fields"
+        "extension_manifest_inspection_fields",
+        "extension_registry_snapshot_fields"
       ],
-      "statefulness": "stateless_metadata_inspection",
+      "statefulness": "stateless_metadata_inspection_and_directory_inventory",
       "effect_permissions": [
         "explicit_local_file_read",
         "bounded_manifest_file_read",
+        "bounded_approved_manifest_directory_read",
         "no_dynamic_loading",
         "no_udf_execution",
         "no_network",
@@ -718,23 +721,23 @@
         "no_external_engine"
       ],
       "security_posture": "metadata_only_local_manifest_no_code_loading_no_effects_no_network_no_secrets",
-      "unsupported_edge_boundary": "Approved manifest registries, arbitrary UDF/plugin runtime, dynamic library loading, WASM/Python execution, dependency expansion, filesystem/network/secret effects, external API/LLM/model/vector operations, and production extension platform claims remain blocked until separate safety and runtime evidence closes.",
+      "unsupported_edge_boundary": "Arbitrary UDF/plugin runtime, dynamic library loading, WASM/Python execution, dependency expansion, filesystem/network/secret effects, external API/LLM/model/vector operations, ambient plugin-path scanning, and production extension platform claims remain blocked until separate safety and runtime evidence closes.",
       "technique_review": {
         "pulseweave": {
-          "decision": "pending_for_registry_or_batch_runtime",
-          "reason": "Single-manifest inspection is serial and metadata-only. PulseWeave should be reconsidered for future approved manifest directory scans or effect batches, but must not hide effect or materialization boundaries."
+          "decision": "not_applied_until_parallel_registry_or_batch_runtime",
+          "reason": "Manifest inspection and approved directory discovery are bounded metadata paths. PulseWeave should be reconsidered only when registry scans become parallel or when policy-admitted effect batches exist; it must not hide effect or materialization boundaries."
         },
         "capillary_work_units": {
           "decision": "applied_scoped",
-          "reason": "Local file admission, bounded read, JSON parse, manifest-field validation, review classification, and no-effect evidence are separated as small deterministic inspection units."
+          "reason": "Local path admission, bounded read, JSON parse, manifest-contract validation, directory inventory, duplicate-ID detection, review classification, and no-effect evidence are separated as deterministic inspection units."
         },
         "dynamic_admission_work_shaping": {
           "decision": "applied_scoped",
-          "reason": "Only explicit local manifest files with the current schema are admitted; remote URIs, symlinks, oversized files, unsupported schema versions, runtime execution, and effectful support claims fail closed."
+          "reason": "Only explicit local manifest files or approved local manifest directories with the current schema are admitted; remote URIs, symlinks, oversized files/directories, unsupported schema versions, duplicate IDs, runtime execution, and effectful support claims fail closed."
         },
         "metadata_first_execution": {
           "decision": "applied",
-          "reason": "The workload inspects declared manifest metadata only and emits capability, permission, effect, sandbox, license, provenance, ABI, lifecycle, runtime, and review fields before any runtime can be enabled."
+          "reason": "The workload inspects declared manifest metadata only and emits capability, permission, effect, sandbox, license, provenance, ABI, lifecycle, runtime, determinism, materialization, null, dtype, timeout, memory, CPU, retry, idempotency, audit, and review fields before any runtime can be enabled."
         },
         "timing_surface_separation": {
           "decision": "not_applicable_until_benchmark_profile",
@@ -750,7 +753,8 @@
           "status": "passed_metadata_only_manifest_inspection",
           "evidence_refs": [
             "shardloom-cli/tests/extension_manifest_effect_matrix_snapshots.rs",
-            "extension-inspect --manifest <local-json> --format json"
+            "extension-inspect --manifest <local-json> --format json",
+            "extension-registry --manifest-dir <local-dir> --format json"
           ]
         },
         "correctness": {
@@ -758,6 +762,9 @@
           "evidence_refs": [
             "extension_inspect_local_manifest_validates_metadata_without_loading_code",
             "extension_inspect_effectful_manifest_requires_review_without_effects",
+            "extension_inspect_missing_contract_requires_review_without_runtime",
+            "extension_registry_manifest_directory_discovers_manifests_without_runtime",
+            "extension_registry_manifest_directory_blocks_duplicate_ids",
             "extension_inspect_blocks_bad_manifest_schema_without_loading_code",
             "extension_inspect_blocks_remote_manifest_without_probe"
           ]
@@ -768,6 +775,9 @@
             "extension_manifest_file_read_request_count=1",
             "extension_manifest_bytes_read",
             "extension_manifest_json_parse_status=passed_no_code_loaded",
+            "extension_manifest_execution_contract_complete",
+            "extension_registry_manifest_file_read_request_count",
+            "extension_registry_manifest_bytes_read",
             "extension_manifest_runtime_execution=false",
             "extension_manifest_extension_code_executed=false"
           ]
@@ -780,22 +790,30 @@
             "extension_manifest_dynamic_loading_performed=false",
             "extension_manifest_udf_execution_performed=false",
             "extension_manifest_external_effect_executed=false",
+            "extension_registry_extension_code_executed=false",
+            "extension_registry_external_effect_executed=false",
             "extension_manifest_fallback_attempted=false",
-            "extension_manifest_external_engine_invoked=false"
+            "extension_manifest_external_engine_invoked=false",
+            "extension_registry_fallback_attempted=false",
+            "extension_registry_external_engine_invoked=false"
           ]
         },
         "fault_tolerance": {
-          "status": "blocked_missing_manifest_registry_retry_and_runtime_fault_matrix",
+          "status": "blocked_missing_runtime_retry_fault_matrix",
           "evidence_refs": [
             "remote URI admission blocked",
             "bad schema admission blocked",
-            "approved manifest directory/registry not implemented"
+            "duplicate manifest ID admission blocked",
+            "approved local manifest directory discovery implemented",
+            "runtime retry/fault matrix remains blocked"
           ]
         },
         "memory_backpressure": {
           "status": "passed_scoped_bounded_manifest_size_only",
           "evidence_refs": [
             "MAX_EXTENSION_MANIFEST_BYTES=262144",
+            "MAX_EXTENSION_REGISTRY_MANIFESTS=64",
+            "MAX_EXTENSION_REGISTRY_BYTES=2097152",
             "oversized file admission blocked by bounded read"
           ]
         },
@@ -821,8 +839,11 @@
           "evidence_refs": [
             "shardloom.extension_manifest.v1",
             "shardloom.extension_manifest_inspection.v1",
+            "shardloom.extension_registry_snapshot.v1",
             "python/src/shardloom/client.py extension_inspect(manifest_path=...)",
-            "python/src/shardloom/context.py extension_inspect(manifest_path=...)"
+            "python/src/shardloom/context.py extension_inspect(manifest_path=...)",
+            "python/src/shardloom/client.py extension_registry(manifest_dir=...)",
+            "python/src/shardloom/context.py extension_registry(manifest_dir=...)"
           ]
         },
         "unsupported_diagnostics": {
@@ -873,10 +894,11 @@
         }
       ],
       "production_blockers": [
-        "fault_tolerance=blocked_missing_manifest_registry_retry_and_runtime_fault_matrix",
+        "fault_tolerance=blocked_missing_runtime_retry_fault_matrix",
         "benchmark=blocked_no_runtime_performance_claim",
-        "approved manifest directory/registry not implemented",
-        "production-grade determinism/materialization/null/dtype/resource/audit model incomplete",
+        "metadata-only manifest registry is not arbitrary plugin runtime support",
+        "typed UDF registry and runtime execution bridge remain blocked",
+        "sandbox enforcement for dynamic plugin/runtime execution remains blocked",
         "arbitrary UDF/plugin/effect runtime remains blocked"
       ]
     }

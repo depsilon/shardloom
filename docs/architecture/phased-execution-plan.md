@@ -509,11 +509,13 @@ with a recorded infeasibility reason, not merely because they are broad.
     security/governance gates.
   - Current state: extension/UDF/effect surfaces are mostly architectural or report-only. Bounded
     local JSON extension-manifest inspection now parses `shardloom.extension_manifest.v1`
-    capability, permission, effect, sandbox, license, provenance, ABI, lifecycle, and runtime
-    metadata without loading code. Built-in deterministic scalar UDF and embedding/vector fixtures
-    remain fixture-smoke only. UDF/API/LLM/model/vector execution, network/filesystem/secret
-    effects, dynamic plugin loading, dependency expansion, and plugin runtime are not production
-    supported.
+    capability, permission, effect, sandbox, license, provenance, ABI, lifecycle, runtime,
+    determinism, materialization, null behavior, dtype, timeout, memory, CPU, retry, idempotency,
+    and audit metadata without loading code. Approved local manifest-directory discovery now
+    inventories bounded `.json` manifests with duplicate-ID rejection through the same parser.
+    Built-in deterministic scalar UDF and embedding/vector fixtures remain fixture-smoke only.
+    UDF/API/LLM/model/vector execution, network/filesystem/secret effects, dynamic plugin loading,
+    dependency expansion, and plugin runtime are not production supported.
   - Intake review: accepted as a v1 candidate for safe scoped subsets. Include manifest
     inspection and typed deterministic UDF/plugin/effect classes in v1 where sandboxing, denial,
     audit, timeout/resource, and no-fallback evidence can close; defer dangerous effect classes
@@ -531,10 +533,10 @@ with a recorded infeasibility reason, not merely because they are broad.
       dependencies, or enable runtime support.
     - [x] Add blocked production-certification workload declaration for the scoped metadata-only
       manifest inspection surface without authorizing extension runtime or performance claims.
-    - [ ] Complete production-grade manifest model with determinism, materialization, null
+    - [x] Complete production-grade manifest model with determinism, materialization, null
       behavior, dtype, timeout, memory, CPU, retry, idempotency, and audit metadata before
       arbitrary UDF or plugin runtime support.
-    - [ ] Implement capability discovery over an approved manifest directory/registry without
+    - [x] Implement capability discovery over an approved manifest directory/registry without
       executing extension code.
     - [ ] Implement typed UDF registry for scoped scalar/aggregate/table functions with encoded
       capability vs materialization-required classification.

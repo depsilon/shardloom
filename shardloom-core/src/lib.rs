@@ -161,14 +161,17 @@ pub use execution_certificate::{
 };
 pub use extension::{
     DeterministicEmbeddingVectorFixtureReport, DeterministicScalarUdfFixtureReport,
-    ExtensionCapability, ExtensionCapabilityStatus, ExtensionCategory, ExtensionEffectDeclaration,
-    ExtensionId, ExtensionInspectionReport, ExtensionInspectionStatus, ExtensionLicenseKind,
-    ExtensionLifecycleState, ExtensionManifest, ExtensionManifestEffectCapabilityMatrix,
-    ExtensionManifestEffectCapabilityRow, ExtensionPermission, ExtensionProvenance,
-    ExtensionRegistrySnapshot, ExtensionVersion, PluginAbiRequirement, PluginAbiStatus,
-    PluginAbiUdfSandboxBlockerReport, PluginAbiUdfSandboxBlockerRow, SandboxPolicy,
-    SandboxPolicyKind, UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
-    run_deterministic_embedding_vector_fixture, run_deterministic_scalar_udf_fixture,
+    ExtensionAuditContract, ExtensionCapability, ExtensionCapabilityStatus, ExtensionCategory,
+    ExtensionDeterminismContract, ExtensionEffectDeclaration, ExtensionExecutionContract,
+    ExtensionId, ExtensionIdempotencyContract, ExtensionInspectionReport,
+    ExtensionInspectionStatus, ExtensionLicenseKind, ExtensionLifecycleState, ExtensionManifest,
+    ExtensionManifestEffectCapabilityMatrix, ExtensionManifestEffectCapabilityRow,
+    ExtensionMaterializationContract, ExtensionNullBehaviorContract, ExtensionPermission,
+    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionRetryContract, ExtensionVersion,
+    PluginAbiRequirement, PluginAbiStatus, PluginAbiUdfSandboxBlockerReport,
+    PluginAbiUdfSandboxBlockerRow, SandboxPolicy, SandboxPolicyKind, UdfRuntimeKind,
+    plan_plugin_abi_udf_sandbox_blocker, run_deterministic_embedding_vector_fixture,
+    run_deterministic_scalar_udf_fixture,
 };
 
 pub use feature_footprint::{

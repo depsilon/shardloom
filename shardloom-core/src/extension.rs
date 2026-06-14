@@ -875,6 +875,354 @@ impl ExtensionEffectDeclaration {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtensionDeterminismContract {
+    PureDeterministic,
+    PureNondeterministic,
+    ExternalEffectBound,
+    Unknown,
+    Unsupported,
+}
+
+impl ExtensionDeterminismContract {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::PureDeterministic => "pure_deterministic",
+            Self::PureNondeterministic => "pure_nondeterministic",
+            Self::ExternalEffectBound => "external_effect_bound",
+            Self::Unknown => "unknown",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_production_declared(&self) -> bool {
+        !matches!(self, Self::Unknown | Self::Unsupported)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtensionMaterializationContract {
+    MetadataOnly,
+    EncodedNative,
+    LateMaterialized,
+    MaterializationRequired,
+    Unsupported,
+}
+
+impl ExtensionMaterializationContract {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::MetadataOnly => "metadata_only",
+            Self::EncodedNative => "encoded_native",
+            Self::LateMaterialized => "late_materialized",
+            Self::MaterializationRequired => "materialization_required",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_production_declared(&self) -> bool {
+        !matches!(self, Self::Unsupported)
+    }
+
+    #[must_use]
+    pub const fn requires_materialization(&self) -> bool {
+        matches!(self, Self::MaterializationRequired)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtensionNullBehaviorContract {
+    NullPropagating,
+    NullSkipping,
+    NullAware,
+    NullError,
+    Unknown,
+    Unsupported,
+}
+
+impl ExtensionNullBehaviorContract {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NullPropagating => "null_propagating",
+            Self::NullSkipping => "null_skipping",
+            Self::NullAware => "null_aware",
+            Self::NullError => "null_error",
+            Self::Unknown => "unknown",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_production_declared(&self) -> bool {
+        !matches!(self, Self::Unknown | Self::Unsupported)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtensionRetryContract {
+    None,
+    IdempotentRetry,
+    AtMostOnce,
+    ManualReplayRequired,
+    Unsupported,
+}
+
+impl ExtensionRetryContract {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::IdempotentRetry => "idempotent_retry",
+            Self::AtMostOnce => "at_most_once",
+            Self::ManualReplayRequired => "manual_replay_required",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_production_declared(&self) -> bool {
+        !matches!(self, Self::Unsupported)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtensionIdempotencyContract {
+    NotRequired,
+    Required,
+    KeyRequired,
+    Unsupported,
+}
+
+impl ExtensionIdempotencyContract {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotRequired => "not_required",
+            Self::Required => "required",
+            Self::KeyRequired => "key_required",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_production_declared(&self) -> bool {
+        !matches!(self, Self::Unsupported)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtensionAuditContract {
+    ManifestOnly,
+    ExecutionCertificateRequired,
+    FullAuditRequired,
+    Unsupported,
+}
+
+impl ExtensionAuditContract {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ManifestOnly => "manifest_only",
+            Self::ExecutionCertificateRequired => "execution_certificate_required",
+            Self::FullAuditRequired => "full_audit_required",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_production_declared(&self) -> bool {
+        !matches!(self, Self::Unsupported)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtensionExecutionContract {
+    pub determinism: ExtensionDeterminismContract,
+    pub materialization: ExtensionMaterializationContract,
+    pub null_behavior: ExtensionNullBehaviorContract,
+    pub input_dtypes: Vec<String>,
+    pub output_dtype: Option<String>,
+    pub timeout_millis: Option<u64>,
+    pub max_memory_bytes: Option<u64>,
+    pub max_cpu_millis: Option<u64>,
+    pub retry: ExtensionRetryContract,
+    pub idempotency: ExtensionIdempotencyContract,
+    pub audit: ExtensionAuditContract,
+}
+
+impl ExtensionExecutionContract {
+    #[must_use]
+    pub fn undeclared() -> Self {
+        Self {
+            determinism: ExtensionDeterminismContract::Unknown,
+            materialization: ExtensionMaterializationContract::MetadataOnly,
+            null_behavior: ExtensionNullBehaviorContract::Unknown,
+            input_dtypes: vec![],
+            output_dtype: None,
+            timeout_millis: None,
+            max_memory_bytes: None,
+            max_cpu_millis: None,
+            retry: ExtensionRetryContract::Unsupported,
+            idempotency: ExtensionIdempotencyContract::Unsupported,
+            audit: ExtensionAuditContract::Unsupported,
+        }
+    }
+
+    #[must_use]
+    pub fn metadata_only() -> Self {
+        Self {
+            determinism: ExtensionDeterminismContract::PureDeterministic,
+            materialization: ExtensionMaterializationContract::MetadataOnly,
+            null_behavior: ExtensionNullBehaviorContract::NullAware,
+            input_dtypes: vec!["metadata".to_string()],
+            output_dtype: Some("metadata".to_string()),
+            timeout_millis: Some(1_000),
+            max_memory_bytes: Some(16 * 1024 * 1024),
+            max_cpu_millis: Some(1_000),
+            retry: ExtensionRetryContract::None,
+            idempotency: ExtensionIdempotencyContract::NotRequired,
+            audit: ExtensionAuditContract::ManifestOnly,
+        }
+    }
+
+    pub fn with_dtypes(
+        mut self,
+        input_dtypes: Vec<String>,
+        output_dtype: impl Into<String>,
+    ) -> Result<Self> {
+        if input_dtypes.iter().any(|dtype| dtype.trim().is_empty()) {
+            return Err(ShardLoomError::InvalidOperation(
+                "extension execution contract input_dtypes must not contain empty values"
+                    .to_string(),
+            ));
+        }
+        let output_dtype = output_dtype.into();
+        validate_non_empty("extension execution contract output_dtype", &output_dtype)?;
+        self.input_dtypes = input_dtypes;
+        self.output_dtype = Some(output_dtype);
+        Ok(self)
+    }
+
+    #[must_use]
+    pub const fn with_timeout_millis(mut self, value: u64) -> Self {
+        self.timeout_millis = Some(value);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_max_memory_bytes(mut self, value: u64) -> Self {
+        self.max_memory_bytes = Some(value);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_max_cpu_millis(mut self, value: u64) -> Self {
+        self.max_cpu_millis = Some(value);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_retry(mut self, retry: ExtensionRetryContract) -> Self {
+        self.retry = retry;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_idempotency(mut self, idempotency: ExtensionIdempotencyContract) -> Self {
+        self.idempotency = idempotency;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_audit(mut self, audit: ExtensionAuditContract) -> Self {
+        self.audit = audit;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_determinism(mut self, determinism: ExtensionDeterminismContract) -> Self {
+        self.determinism = determinism;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_materialization(
+        mut self,
+        materialization: ExtensionMaterializationContract,
+    ) -> Self {
+        self.materialization = materialization;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_null_behavior(
+        mut self,
+        null_behavior: ExtensionNullBehaviorContract,
+    ) -> Self {
+        self.null_behavior = null_behavior;
+        self
+    }
+
+    #[must_use]
+    pub fn dtype_contract_declared(&self) -> bool {
+        !self.input_dtypes.is_empty()
+            && self
+                .output_dtype
+                .as_ref()
+                .is_some_and(|dtype| !dtype.trim().is_empty())
+    }
+
+    #[must_use]
+    pub fn resource_contract_declared(&self) -> bool {
+        self.timeout_millis.is_some()
+            && self.max_memory_bytes.is_some()
+            && self.max_cpu_millis.is_some()
+    }
+
+    #[must_use]
+    pub fn production_contract_complete(&self) -> bool {
+        self.determinism.is_production_declared()
+            && self.materialization.is_production_declared()
+            && self.null_behavior.is_production_declared()
+            && self.dtype_contract_declared()
+            && self.resource_contract_declared()
+            && self.retry.is_production_declared()
+            && self.idempotency.is_production_declared()
+            && self.audit.is_production_declared()
+    }
+
+    #[must_use]
+    pub fn input_dtype_summary(&self) -> String {
+        if self.input_dtypes.is_empty() {
+            return "not_declared".to_string();
+        }
+        self.input_dtypes.join(",")
+    }
+
+    #[must_use]
+    pub fn output_dtype_summary(&self) -> &str {
+        self.output_dtype.as_deref().unwrap_or("not_declared")
+    }
+
+    #[must_use]
+    pub fn resource_summary(&self) -> String {
+        format!(
+            "timeout_ms={},memory_bytes={},cpu_ms={}",
+            self.timeout_millis
+                .map_or_else(|| "not_declared".to_string(), |value| value.to_string()),
+            self.max_memory_bytes
+                .map_or_else(|| "not_declared".to_string(), |value| value.to_string()),
+            self.max_cpu_millis
+                .map_or_else(|| "not_declared".to_string(), |value| value.to_string())
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExtensionLicenseKind {
     Apache2,
     Mit,
@@ -971,6 +1319,7 @@ pub struct ExtensionManifest {
     pub sandbox: SandboxPolicy,
     pub abi: Option<PluginAbiRequirement>,
     pub runtime: Option<UdfRuntimeKind>,
+    pub execution_contract: ExtensionExecutionContract,
     pub provenance: ExtensionProvenance,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -997,6 +1346,7 @@ impl ExtensionManifest {
             sandbox: SandboxPolicy::metadata_only(),
             abi: None,
             runtime: None,
+            execution_contract: ExtensionExecutionContract::undeclared(),
             provenance,
             diagnostics: vec![],
         })
@@ -1019,6 +1369,11 @@ impl ExtensionManifest {
     #[must_use]
     pub const fn with_runtime(mut self, runtime: UdfRuntimeKind) -> Self {
         self.runtime = Some(runtime);
+        self
+    }
+    #[must_use]
+    pub fn with_execution_contract(mut self, contract: ExtensionExecutionContract) -> Self {
+        self.execution_contract = contract;
         self
     }
     #[must_use]
@@ -1066,6 +1421,7 @@ impl ExtensionManifest {
     #[must_use]
     pub fn requires_review(&self) -> bool {
         self.provenance.requires_review()
+            || !self.execution_contract.production_contract_complete()
             || self
                 .permissions
                 .iter()
@@ -2002,6 +2358,24 @@ mod tests {
         assert!(SandboxPolicy::metadata_only().is_safe_default())
     }
     #[test]
+    fn metadata_execution_contract_is_complete() {
+        let contract = ExtensionExecutionContract::metadata_only();
+        assert!(contract.production_contract_complete());
+        assert_eq!(contract.determinism.as_str(), "pure_deterministic");
+        assert_eq!(contract.materialization.as_str(), "metadata_only");
+        assert_eq!(contract.null_behavior.as_str(), "null_aware");
+        assert_eq!(contract.input_dtype_summary(), "metadata");
+        assert_eq!(contract.output_dtype_summary(), "metadata");
+        assert!(contract.resource_contract_declared());
+    }
+    #[test]
+    fn undeclared_execution_contract_requires_review() {
+        let contract = ExtensionExecutionContract::undeclared();
+        assert!(!contract.production_contract_complete());
+        assert!(!contract.dtype_contract_declared());
+        assert!(!contract.resource_contract_declared());
+    }
+    #[test]
     fn network_policy_not_safe() {
         assert!(
             !SandboxPolicy::metadata_only()
@@ -2068,6 +2442,31 @@ mod tests {
         )
         .expect("manifest");
         assert!(m.sandbox.is_safe_default())
+    }
+    #[test]
+    fn manifest_without_execution_contract_requires_review() {
+        let m = ExtensionManifest::new(
+            ExtensionId::new("x").expect("id"),
+            "x",
+            ExtensionVersion::new(0, 1, 0),
+            ExtensionCategory::Unknown,
+            ExtensionProvenance::new(ExtensionLicenseKind::Apache2),
+        )
+        .expect("manifest");
+        assert!(m.requires_review())
+    }
+    #[test]
+    fn manifest_with_metadata_execution_contract_can_avoid_review() {
+        let m = ExtensionManifest::new(
+            ExtensionId::new("x").expect("id"),
+            "x",
+            ExtensionVersion::new(0, 1, 0),
+            ExtensionCategory::Unknown,
+            ExtensionProvenance::new(ExtensionLicenseKind::Apache2),
+        )
+        .expect("manifest")
+        .with_execution_contract(ExtensionExecutionContract::metadata_only());
+        assert!(!m.requires_review())
     }
     #[test]
     fn manifest_with_effect_requires_review() {

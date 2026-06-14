@@ -11909,6 +11909,24 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
+                elif args == [
+                    "extension-registry",
+                    "--manifest-dir",
+                    "target/extensions",
+                    "--format",
+                    "json",
+                ]:
+                    command = "extension-registry"
+                    fields = [
+                        {"key": "extension_registry_input_kind", "value": "approved_local_manifest_directory"},
+                        {"key": "extension_registry_manifest_count", "value": "2"},
+                        {"key": "extension_registry_contract_complete_count", "value": "2"},
+                        {"key": "extension_registry_runtime_execution", "value": "false"},
+                        {"key": "extension_registry_extension_code_executed", "value": "false"},
+                        {"key": "extension_registry_external_effect_executed", "value": "false"},
+                        {"key": "extension_registry_fallback_attempted", "value": "false"},
+                        {"key": "extension_registry_external_engine_invoked", "value": "false"},
+                    ]
                 elif args == ["extension-inspect", "example.fixture", "--format", "json"]:
                     command = "extension-inspect"
                     fields = [
@@ -12010,6 +12028,14 @@ class ShardLoomClientTests(unittest.TestCase):
         client = ShardLoomClient(binary=binary)
 
         self.assertEqual(client.extension_registry().command, "extension-registry")
+        registry_dir = client.extension_registry(manifest_dir="target/extensions")
+        self.assertEqual(registry_dir.command, "extension-registry")
+        self.assertEqual(
+            registry_dir.field("extension_registry_input_kind"),
+            "approved_local_manifest_directory",
+        )
+        self.assertEqual(registry_dir.field_int("extension_registry_manifest_count"), 2)
+        self.assertFalse(registry_dir.field_bool("extension_registry_runtime_execution"))
         self.assertEqual(
             client.extension_inspect("example.fixture").field("extension_code_executed"),
             "false",
@@ -12059,6 +12085,11 @@ class ShardLoomClientTests(unittest.TestCase):
 
         ctx = ShardLoomContext(client=client)
         self.assertEqual(ctx.extension_registry().command, "extension-registry")
+        ctx_registry_dir = ctx.extension_registry(manifest_dir="target/extensions")
+        self.assertEqual(ctx_registry_dir.command, "extension-registry")
+        self.assertFalse(
+            ctx_registry_dir.field_bool("extension_registry_extension_code_executed")
+        )
         inspected = ctx.extension_inspect("example.fixture")
         self.assertEqual(inspected.command, "extension-inspect")
         self.assertFalse(inspected.field_bool("extension_code_executed"))
@@ -12089,6 +12120,9 @@ class ShardLoomClientTests(unittest.TestCase):
         for envelope in (manifest_inspected, ctx_manifest):
             self.assertFalse(envelope.field_bool("extension_manifest_fallback_attempted"))
             self.assertFalse(envelope.field_bool("extension_manifest_external_engine_invoked"))
+        for envelope in (registry_dir, ctx_registry_dir):
+            self.assertFalse(envelope.field_bool("extension_registry_fallback_attempted"))
+            self.assertFalse(envelope.field_bool("extension_registry_external_engine_invoked"))
 
     def test_plan_import_and_export_helpers_expose_substrait_contract(self) -> None:
         binary = self.fake_cli(

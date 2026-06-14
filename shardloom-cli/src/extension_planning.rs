@@ -5,6 +5,7 @@
 //! services, or provide fallback execution.
 
 use std::{
+    collections::HashSet,
     fs,
     path::{Path, PathBuf},
     process::ExitCode,
@@ -14,14 +15,16 @@ use serde_json::Value;
 use shardloom_core::{
     CommandStatus, DeterministicEmbeddingVectorFixtureReport, DeterministicScalarUdfFixtureReport,
     EffectLevel, EffectfulOperationAdmissionMatrix, EffectfulOperationAdmissionRow,
-    ExtensionCapability, ExtensionCapabilityStatus, ExtensionCategory, ExtensionEffectDeclaration,
-    ExtensionId, ExtensionInspectionReport, ExtensionInspectionStatus, ExtensionLicenseKind,
-    ExtensionLifecycleState, ExtensionManifest, ExtensionManifestEffectCapabilityMatrix,
-    ExtensionManifestEffectCapabilityRow, ExtensionPermission, ExtensionProvenance,
-    ExtensionRegistrySnapshot, ExtensionVersion, ExternalEffectKind, OutputFormat, PermissionKind,
-    PluginAbiRequirement, PluginAbiStatus, PluginAbiUdfSandboxBlockerReport,
-    PluginAbiUdfSandboxBlockerRow, SandboxPolicy, SandboxPolicyKind, ShardLoomError,
-    UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
+    ExtensionAuditContract, ExtensionCapability, ExtensionCapabilityStatus, ExtensionCategory,
+    ExtensionDeterminismContract, ExtensionEffectDeclaration, ExtensionExecutionContract,
+    ExtensionId, ExtensionIdempotencyContract, ExtensionInspectionReport,
+    ExtensionInspectionStatus, ExtensionLicenseKind, ExtensionLifecycleState, ExtensionManifest,
+    ExtensionManifestEffectCapabilityMatrix, ExtensionManifestEffectCapabilityRow,
+    ExtensionMaterializationContract, ExtensionNullBehaviorContract, ExtensionPermission,
+    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionRetryContract, ExtensionVersion,
+    ExternalEffectKind, OutputFormat, PermissionKind, PluginAbiRequirement, PluginAbiStatus,
+    PluginAbiUdfSandboxBlockerReport, PluginAbiUdfSandboxBlockerRow, SandboxPolicy,
+    SandboxPolicyKind, ShardLoomError, UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
     run_deterministic_embedding_vector_fixture, run_deterministic_scalar_udf_fixture,
 };
 
@@ -30,20 +33,91 @@ use crate::cli_output::{emit, emit_error};
 const EXTENSION_MANIFEST_SCHEMA_VERSION: &str = "shardloom.extension_manifest.v1";
 const EXTENSION_MANIFEST_INSPECTION_SCHEMA_VERSION: &str =
     "shardloom.extension_manifest_inspection.v1";
+const EXTENSION_REGISTRY_SNAPSHOT_SCHEMA_VERSION: &str = "shardloom.extension_registry_snapshot.v1";
 const MAX_EXTENSION_MANIFEST_BYTES: u64 = 256 * 1024;
+const MAX_EXTENSION_REGISTRY_MANIFESTS: usize = 64;
+const MAX_EXTENSION_REGISTRY_BYTES: usize = 2 * 1024 * 1024;
 
-pub(crate) fn handle_extension_registry(format: OutputFormat) -> ExitCode {
-    let snapshot = ExtensionRegistrySnapshot::empty();
+pub(crate) fn handle_extension_registry(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let (snapshot, input) = match args.next().as_deref() {
+        None => (
+            ExtensionRegistrySnapshot::empty(),
+            ExtensionRegistryInput::EmptyRegistry,
+        ),
+        Some("--manifest-dir") => {
+            let Some(path_raw) = args.next() else {
+                return emit_error(
+                    "extension-registry",
+                    format,
+                    "extension registry discovery failed",
+                    &ShardLoomError::InvalidOperation("missing --manifest-dir path".to_string()),
+                );
+            };
+            if let Some(extra) = args.next() {
+                return emit_error(
+                    "extension-registry",
+                    format,
+                    "extension registry discovery failed",
+                    &ShardLoomError::InvalidOperation(format!(
+                        "unexpected extension-registry argument after --manifest-dir path: {extra}"
+                    )),
+                );
+            }
+            match discover_extension_manifest_directory(&path_raw) {
+                Ok(value) => value,
+                Err(error) => {
+                    return emit_error(
+                        "extension-registry",
+                        format,
+                        "extension registry discovery failed",
+                        &error,
+                    );
+                }
+            }
+        }
+        Some(other) => {
+            return emit_error(
+                "extension-registry",
+                format,
+                "extension registry discovery failed",
+                &ShardLoomError::InvalidOperation(format!(
+                    "unknown extension-registry argument: {other}"
+                )),
+            );
+        }
+    };
+    let status = if snapshot.has_errors() {
+        CommandStatus::Error
+    } else if snapshot.requires_review_count() > 0 {
+        CommandStatus::Warning
+    } else {
+        CommandStatus::Success
+    };
     emit(
         "extension-registry",
         format,
-        CommandStatus::Success,
+        status,
         "extension registry metadata-only snapshot".to_string(),
         snapshot.to_human_text(),
         snapshot.diagnostics.clone(),
-        extension_report_only_fields("extension_registry"),
+        extension_registry_fields(&snapshot, &input),
     );
     ExitCode::SUCCESS
+}
+
+#[derive(Debug, Clone)]
+enum ExtensionRegistryInput {
+    EmptyRegistry,
+    LocalManifestDirectory {
+        path: PathBuf,
+        entry_count: usize,
+        manifest_file_count: usize,
+        file_read_request_count: usize,
+        bytes_read: usize,
+    },
 }
 
 pub(crate) fn handle_extension_inspect(
@@ -137,6 +211,13 @@ enum ExtensionManifestInput {
     },
 }
 
+#[derive(Debug, Clone)]
+struct ParsedLocalExtensionManifest {
+    manifest: ExtensionManifest,
+    bytes_read: usize,
+    manifest_schema_version: String,
+}
+
 fn handle_extension_manifest_inspect(path_raw: &str, format: OutputFormat) -> ExitCode {
     let path = match normalize_local_extension_manifest_path(path_raw) {
         Ok(path) => path,
@@ -149,8 +230,8 @@ fn handle_extension_manifest_inspect(path_raw: &str, format: OutputFormat) -> Ex
             );
         }
     };
-    let bytes = match read_local_extension_manifest_bytes(&path) {
-        Ok(bytes) => bytes,
+    let parsed = match parse_local_extension_manifest_file(&path) {
+        Ok(parsed) => parsed,
         Err(error) => {
             return emit_error(
                 "extension-inspect",
@@ -160,56 +241,7 @@ fn handle_extension_manifest_inspect(path_raw: &str, format: OutputFormat) -> Ex
             );
         }
     };
-    let bytes_read = bytes.len();
-    let manifest_text = match std::str::from_utf8(&bytes) {
-        Ok(text) => text,
-        Err(error) => {
-            return emit_error(
-                "extension-inspect",
-                format,
-                "extension inspect failed",
-                &ShardLoomError::InvalidOperation(format!(
-                    "extension manifest must be valid UTF-8 JSON: {error}; no extension code was loaded"
-                )),
-            );
-        }
-    };
-    let json = match serde_json::from_str::<Value>(manifest_text) {
-        Ok(json) => json,
-        Err(error) => {
-            return emit_error(
-                "extension-inspect",
-                format,
-                "extension inspect failed",
-                &ShardLoomError::InvalidOperation(format!(
-                    "extension manifest JSON parse failed: {error}; no extension code was loaded"
-                )),
-            );
-        }
-    };
-    let schema_version = match json_string(&json, "schema_version") {
-        Ok(value) => value.to_string(),
-        Err(error) => {
-            return emit_error(
-                "extension-inspect",
-                format,
-                "extension inspect failed",
-                &error,
-            );
-        }
-    };
-    let manifest = match parse_extension_manifest_json(&json) {
-        Ok(manifest) => manifest,
-        Err(error) => {
-            return emit_error(
-                "extension-inspect",
-                format,
-                "extension inspect failed",
-                &error,
-            );
-        }
-    };
-    let report = extension_inspection_report_from_manifest(manifest);
+    let report = extension_inspection_report_from_manifest(parsed.manifest);
     let status = if report.has_errors() {
         CommandStatus::Error
     } else if report.status == ExtensionInspectionStatus::RequiresReview {
@@ -228,8 +260,8 @@ fn handle_extension_manifest_inspect(path_raw: &str, format: OutputFormat) -> Ex
             &report,
             ExtensionManifestInput::LocalManifestFile {
                 path,
-                bytes_read,
-                manifest_schema_version: schema_version,
+                bytes_read: parsed.bytes_read,
+                manifest_schema_version: parsed.manifest_schema_version,
             },
         ),
     );
@@ -263,6 +295,9 @@ fn extension_inspection_report_from_manifest(
         .any(ExtensionCapability::is_usable)
     {
         reasons.push("supported_capability_claim_declared");
+    }
+    if !manifest.execution_contract.production_contract_complete() {
+        reasons.push("execution_contract_incomplete");
     }
     if reasons.is_empty() {
         let mut report = ExtensionInspectionReport::metadata_only(manifest);
@@ -315,6 +350,103 @@ fn local_file_uri_path(rest: &str) -> Result<PathBuf, ShardLoomError> {
     )))
 }
 
+fn discover_extension_manifest_directory(
+    path_raw: &str,
+) -> Result<(ExtensionRegistrySnapshot, ExtensionRegistryInput), ShardLoomError> {
+    let path = normalize_local_extension_manifest_path(path_raw)?;
+    let metadata = fs::symlink_metadata(&path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to inspect extension manifest directory '{}': {error}; no extension code was loaded",
+            path.display()
+        ))
+    })?;
+    if metadata.file_type().is_symlink() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "extension manifest directory '{}' is a symlink; inspect an approved regular local directory",
+            path.display()
+        )));
+    }
+    if !metadata.is_dir() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "extension manifest directory '{}' is not a regular local directory",
+            path.display()
+        )));
+    }
+
+    let mut entry_count = 0usize;
+    let mut manifest_paths = Vec::new();
+    for entry in fs::read_dir(&path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read extension manifest directory '{}': {error}; no extension code was loaded",
+            path.display()
+        ))
+    })? {
+        let entry = entry.map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to inspect extension manifest directory entry in '{}': {error}; no extension code was loaded",
+                path.display()
+            ))
+        })?;
+        entry_count += 1;
+        let entry_path = entry.path();
+        if entry_path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
+        {
+            manifest_paths.push(entry_path);
+        }
+    }
+    manifest_paths.sort();
+    if manifest_paths.len() > MAX_EXTENSION_REGISTRY_MANIFESTS {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "extension manifest directory '{}' has {} manifest files, over the {} manifest discovery limit",
+            path.display(),
+            manifest_paths.len(),
+            MAX_EXTENSION_REGISTRY_MANIFESTS
+        )));
+    }
+
+    let mut snapshot = ExtensionRegistrySnapshot::empty();
+    let mut seen_ids = HashSet::new();
+    let mut bytes_read = 0usize;
+    for manifest_path in &manifest_paths {
+        let parsed = parse_local_extension_manifest_file(manifest_path)?;
+        bytes_read = bytes_read.checked_add(parsed.bytes_read).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "extension manifest directory byte count overflowed".to_string(),
+            )
+        })?;
+        if bytes_read > MAX_EXTENSION_REGISTRY_BYTES {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "extension manifest directory '{}' read {} bytes, over the {} byte registry discovery limit",
+                path.display(),
+                bytes_read,
+                MAX_EXTENSION_REGISTRY_BYTES
+            )));
+        }
+        let manifest_id = parsed.manifest.id.as_str().to_string();
+        if !seen_ids.insert(manifest_id.clone()) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "duplicate extension manifest id {manifest_id:?} in approved manifest directory '{}'",
+                path.display()
+            )));
+        }
+        snapshot.add_manifest(parsed.manifest);
+    }
+
+    Ok((
+        snapshot,
+        ExtensionRegistryInput::LocalManifestDirectory {
+            path,
+            entry_count,
+            manifest_file_count: manifest_paths.len(),
+            file_read_request_count: manifest_paths.len(),
+            bytes_read,
+        },
+    ))
+}
+
 fn read_local_extension_manifest_bytes(path: &Path) -> Result<Vec<u8>, ShardLoomError> {
     let metadata = fs::symlink_metadata(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -347,6 +479,30 @@ fn read_local_extension_manifest_bytes(path: &Path) -> Result<Vec<u8>, ShardLoom
             "failed to read extension manifest '{}': {error}; no extension code was loaded",
             path.display()
         ))
+    })
+}
+
+fn parse_local_extension_manifest_file(
+    path: &Path,
+) -> Result<ParsedLocalExtensionManifest, ShardLoomError> {
+    let bytes = read_local_extension_manifest_bytes(path)?;
+    let bytes_read = bytes.len();
+    let manifest_text = std::str::from_utf8(&bytes).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "extension manifest must be valid UTF-8 JSON: {error}; no extension code was loaded"
+        ))
+    })?;
+    let json = serde_json::from_str::<Value>(manifest_text).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "extension manifest JSON parse failed: {error}; no extension code was loaded"
+        ))
+    })?;
+    let manifest_schema_version = json_string(&json, "schema_version")?.to_string();
+    let manifest = parse_extension_manifest_json(&json)?;
+    Ok(ParsedLocalExtensionManifest {
+        manifest,
+        bytes_read,
+        manifest_schema_version,
     })
 }
 
@@ -411,6 +567,9 @@ fn parse_extension_manifest_json(value: &Value) -> Result<ExtensionManifest, Sha
             manifest.add_effect(parse_extension_effect(effect)?);
         }
     }
+    if let Some(contract) = value.get("execution_contract") {
+        manifest = manifest.with_execution_contract(parse_extension_execution_contract(contract)?);
+    }
     Ok(manifest)
 }
 
@@ -450,6 +609,49 @@ fn parse_extension_effect(value: &Value) -> Result<ExtensionEffectDeclaration, S
         declaration = declaration.idempotency_required(idempotency_required);
     }
     Ok(declaration)
+}
+
+fn parse_extension_execution_contract(
+    value: &Value,
+) -> Result<ExtensionExecutionContract, ShardLoomError> {
+    let mut contract = ExtensionExecutionContract::undeclared();
+    if let Some(determinism) = optional_json_string(value, "determinism") {
+        contract = contract.with_determinism(parse_extension_determinism_contract(&determinism)?);
+    }
+    if let Some(materialization) = optional_json_string(value, "materialization") {
+        contract = contract
+            .with_materialization(parse_extension_materialization_contract(&materialization)?);
+    }
+    if let Some(null_behavior) = optional_json_string(value, "null_behavior") {
+        contract =
+            contract.with_null_behavior(parse_extension_null_behavior_contract(&null_behavior)?);
+    }
+    if let Some(input_dtypes) = value.get("input_dtypes") {
+        let dtypes = json_string_vec(input_dtypes, "input_dtypes")?;
+        let output_dtype = optional_json_string(value, "output_dtype").unwrap_or_default();
+        contract = contract.with_dtypes(dtypes, output_dtype)?;
+    } else if let Some(output_dtype) = optional_json_string(value, "output_dtype") {
+        contract = contract.with_dtypes(Vec::new(), output_dtype)?;
+    }
+    if let Some(timeout_millis) = optional_json_u64(value, "timeout_millis") {
+        contract = contract.with_timeout_millis(timeout_millis);
+    }
+    if let Some(max_memory_bytes) = optional_json_u64(value, "max_memory_bytes") {
+        contract = contract.with_max_memory_bytes(max_memory_bytes);
+    }
+    if let Some(max_cpu_millis) = optional_json_u64(value, "max_cpu_millis") {
+        contract = contract.with_max_cpu_millis(max_cpu_millis);
+    }
+    if let Some(retry) = optional_json_string(value, "retry") {
+        contract = contract.with_retry(parse_extension_retry_contract(&retry)?);
+    }
+    if let Some(idempotency) = optional_json_string(value, "idempotency") {
+        contract = contract.with_idempotency(parse_extension_idempotency_contract(&idempotency)?);
+    }
+    if let Some(audit) = optional_json_string(value, "audit") {
+        contract = contract.with_audit(parse_extension_audit_contract(&audit)?);
+    }
+    Ok(contract)
 }
 
 fn parse_plugin_abi_requirement(value: &Value) -> Result<PluginAbiRequirement, ShardLoomError> {
@@ -644,6 +846,81 @@ fn parse_effect_level(raw: &str) -> Result<EffectLevel, ShardLoomError> {
     }
 }
 
+fn parse_extension_determinism_contract(
+    raw: &str,
+) -> Result<ExtensionDeterminismContract, ShardLoomError> {
+    match raw {
+        "pure_deterministic" => Ok(ExtensionDeterminismContract::PureDeterministic),
+        "pure_nondeterministic" => Ok(ExtensionDeterminismContract::PureNondeterministic),
+        "external_effect_bound" => Ok(ExtensionDeterminismContract::ExternalEffectBound),
+        "unknown" => Ok(ExtensionDeterminismContract::Unknown),
+        "unsupported" => Ok(ExtensionDeterminismContract::Unsupported),
+        other => Err(unsupported_manifest_value("determinism", other)),
+    }
+}
+
+fn parse_extension_materialization_contract(
+    raw: &str,
+) -> Result<ExtensionMaterializationContract, ShardLoomError> {
+    match raw {
+        "metadata_only" => Ok(ExtensionMaterializationContract::MetadataOnly),
+        "encoded_native" => Ok(ExtensionMaterializationContract::EncodedNative),
+        "late_materialized" => Ok(ExtensionMaterializationContract::LateMaterialized),
+        "materialization_required" => Ok(ExtensionMaterializationContract::MaterializationRequired),
+        "unsupported" => Ok(ExtensionMaterializationContract::Unsupported),
+        other => Err(unsupported_manifest_value("materialization", other)),
+    }
+}
+
+fn parse_extension_null_behavior_contract(
+    raw: &str,
+) -> Result<ExtensionNullBehaviorContract, ShardLoomError> {
+    match raw {
+        "null_propagating" => Ok(ExtensionNullBehaviorContract::NullPropagating),
+        "null_skipping" => Ok(ExtensionNullBehaviorContract::NullSkipping),
+        "null_aware" => Ok(ExtensionNullBehaviorContract::NullAware),
+        "null_error" => Ok(ExtensionNullBehaviorContract::NullError),
+        "unknown" => Ok(ExtensionNullBehaviorContract::Unknown),
+        "unsupported" => Ok(ExtensionNullBehaviorContract::Unsupported),
+        other => Err(unsupported_manifest_value("null_behavior", other)),
+    }
+}
+
+fn parse_extension_retry_contract(raw: &str) -> Result<ExtensionRetryContract, ShardLoomError> {
+    match raw {
+        "none" => Ok(ExtensionRetryContract::None),
+        "idempotent_retry" => Ok(ExtensionRetryContract::IdempotentRetry),
+        "at_most_once" => Ok(ExtensionRetryContract::AtMostOnce),
+        "manual_replay_required" => Ok(ExtensionRetryContract::ManualReplayRequired),
+        "unsupported" => Ok(ExtensionRetryContract::Unsupported),
+        other => Err(unsupported_manifest_value("retry", other)),
+    }
+}
+
+fn parse_extension_idempotency_contract(
+    raw: &str,
+) -> Result<ExtensionIdempotencyContract, ShardLoomError> {
+    match raw {
+        "not_required" => Ok(ExtensionIdempotencyContract::NotRequired),
+        "required" => Ok(ExtensionIdempotencyContract::Required),
+        "key_required" => Ok(ExtensionIdempotencyContract::KeyRequired),
+        "unsupported" => Ok(ExtensionIdempotencyContract::Unsupported),
+        other => Err(unsupported_manifest_value("idempotency", other)),
+    }
+}
+
+fn parse_extension_audit_contract(raw: &str) -> Result<ExtensionAuditContract, ShardLoomError> {
+    match raw {
+        "manifest_only" => Ok(ExtensionAuditContract::ManifestOnly),
+        "execution_certificate_required" => {
+            Ok(ExtensionAuditContract::ExecutionCertificateRequired)
+        }
+        "full_audit_required" => Ok(ExtensionAuditContract::FullAuditRequired),
+        "unsupported" => Ok(ExtensionAuditContract::Unsupported),
+        other => Err(unsupported_manifest_value("audit", other)),
+    }
+}
+
 fn parse_sandbox_policy_kind(raw: &str) -> Result<SandboxPolicyKind, ShardLoomError> {
     match raw {
         "none" => Ok(SandboxPolicyKind::None),
@@ -717,6 +994,20 @@ fn json_array<'a>(value: &'a Value, label: &str) -> Result<&'a Vec<Value>, Shard
             "extension manifest field {label:?} must be an array"
         ))
     })
+}
+
+fn json_string_vec(value: &Value, label: &str) -> Result<Vec<String>, ShardLoomError> {
+    let values = json_array(value, label)?;
+    values
+        .iter()
+        .map(|value| {
+            value.as_str().map(ToString::to_string).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(format!(
+                    "extension manifest field {label:?} entries must be strings"
+                ))
+            })
+        })
+        .collect()
 }
 
 pub(crate) fn handle_udf_runtime_plan(
@@ -1151,6 +1442,165 @@ fn embedding_vector_local_fixture_fields(
     fields
 }
 
+fn extension_registry_fields(
+    snapshot: &ExtensionRegistrySnapshot,
+    input: &ExtensionRegistryInput,
+) -> Vec<(String, String)> {
+    let mut fields = extension_report_only_fields("extension_registry");
+    push_field(
+        &mut fields,
+        "extension_registry_snapshot_schema_version",
+        EXTENSION_REGISTRY_SNAPSHOT_SCHEMA_VERSION,
+    );
+    append_extension_registry_input_fields(&mut fields, input);
+    append_extension_registry_summary_fields(&mut fields, snapshot);
+    append_extension_registry_no_runtime_fields(&mut fields);
+    fields
+}
+
+fn append_extension_registry_input_fields(
+    fields: &mut Vec<(String, String)>,
+    input: &ExtensionRegistryInput,
+) {
+    match input {
+        ExtensionRegistryInput::EmptyRegistry => {
+            push_field(fields, "extension_registry_input_kind", "empty_registry");
+            push_field(
+                fields,
+                "extension_registry_manifest_dir_path",
+                "not_applicable_empty_registry",
+            );
+            push_bool_field(fields, "extension_registry_directory_read_performed", false);
+            push_count_field(fields, "extension_registry_directory_entry_count", 0);
+            push_count_field(fields, "extension_registry_manifest_file_count", 0);
+            push_count_field(
+                fields,
+                "extension_registry_manifest_file_read_request_count",
+                0,
+            );
+            push_count_field(fields, "extension_registry_manifest_bytes_read", 0);
+        }
+        ExtensionRegistryInput::LocalManifestDirectory {
+            path,
+            entry_count,
+            manifest_file_count,
+            file_read_request_count,
+            bytes_read,
+        } => {
+            push_field(
+                fields,
+                "extension_registry_input_kind",
+                "approved_local_manifest_directory",
+            );
+            push_field(
+                fields,
+                "extension_registry_manifest_dir_path",
+                &path.display().to_string(),
+            );
+            push_bool_field(fields, "extension_registry_directory_read_performed", true);
+            push_count_field(
+                fields,
+                "extension_registry_directory_entry_count",
+                *entry_count,
+            );
+            push_count_field(
+                fields,
+                "extension_registry_manifest_file_count",
+                *manifest_file_count,
+            );
+            push_count_field(
+                fields,
+                "extension_registry_manifest_file_read_request_count",
+                *file_read_request_count,
+            );
+            push_count_field(
+                fields,
+                "extension_registry_manifest_bytes_read",
+                *bytes_read,
+            );
+        }
+    }
+}
+
+fn append_extension_registry_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    snapshot: &ExtensionRegistrySnapshot,
+) {
+    push_count_field(
+        fields,
+        "extension_registry_manifest_count",
+        snapshot.extension_count(),
+    );
+    push_count_field(
+        fields,
+        "extension_registry_requires_review_count",
+        snapshot.requires_review_count(),
+    );
+    push_count_field(
+        fields,
+        "extension_registry_validated_metadata_count",
+        snapshot
+            .manifests
+            .iter()
+            .filter(|manifest| !manifest.requires_review() && !manifest.has_errors())
+            .count(),
+    );
+    push_count_field(
+        fields,
+        "extension_registry_usable_count",
+        snapshot.usable_count(),
+    );
+    push_count_field(
+        fields,
+        "extension_registry_contract_complete_count",
+        snapshot
+            .manifests
+            .iter()
+            .filter(|manifest| manifest.execution_contract.production_contract_complete())
+            .count(),
+    );
+    push_count_field(
+        fields,
+        "extension_registry_contract_incomplete_count",
+        snapshot
+            .manifests
+            .iter()
+            .filter(|manifest| !manifest.execution_contract.production_contract_complete())
+            .count(),
+    );
+    push_field(
+        fields,
+        "extension_registry_manifest_ids",
+        &extension_registry_manifest_ids(snapshot),
+    );
+    push_field(
+        fields,
+        "extension_registry_manifest_categories",
+        &extension_registry_manifest_categories(snapshot),
+    );
+    push_field(
+        fields,
+        "extension_registry_contract_materialization_modes",
+        &extension_registry_materialization_modes(snapshot),
+    );
+}
+
+fn append_extension_registry_no_runtime_fields(fields: &mut Vec<(String, String)>) {
+    for (key, value) in [
+        ("extension_registry_runtime_execution", false),
+        ("extension_registry_dynamic_loading_performed", false),
+        ("extension_registry_extension_code_executed", false),
+        ("extension_registry_external_effect_executed", false),
+        ("extension_registry_network_probe_performed", false),
+        ("extension_registry_credential_resolution_performed", false),
+        ("extension_registry_dependency_expansion_allowed", false),
+        ("extension_registry_fallback_attempted", false),
+        ("extension_registry_external_engine_invoked", false),
+    ] {
+        push_bool_field(fields, key, value);
+    }
+}
+
 fn extension_inspection_fields(
     report: &ExtensionInspectionReport,
     input: ExtensionManifestInput,
@@ -1162,6 +1612,7 @@ fn extension_inspection_fields(
     append_extension_manifest_capability_fields(&mut fields, manifest);
     append_extension_manifest_permission_effect_fields(&mut fields, manifest, report.status);
     append_extension_manifest_sandbox_runtime_fields(&mut fields, manifest);
+    append_extension_manifest_contract_fields(&mut fields, manifest);
     append_extension_manifest_no_runtime_fields(&mut fields, report);
     fields
 }
@@ -1400,6 +1851,93 @@ fn append_extension_manifest_sandbox_runtime_fields(
     );
 }
 
+fn append_extension_manifest_contract_fields(
+    fields: &mut Vec<(String, String)>,
+    manifest: &ExtensionManifest,
+) {
+    let contract = &manifest.execution_contract;
+    push_bool_field(
+        fields,
+        "extension_manifest_execution_contract_complete",
+        contract.production_contract_complete(),
+    );
+    push_field(
+        fields,
+        "extension_manifest_determinism",
+        contract.determinism.as_str(),
+    );
+    push_field(
+        fields,
+        "extension_manifest_materialization",
+        contract.materialization.as_str(),
+    );
+    push_bool_field(
+        fields,
+        "extension_manifest_materialization_required",
+        contract.materialization.requires_materialization(),
+    );
+    push_field(
+        fields,
+        "extension_manifest_null_behavior",
+        contract.null_behavior.as_str(),
+    );
+    push_field(
+        fields,
+        "extension_manifest_input_dtypes",
+        &contract.input_dtype_summary(),
+    );
+    push_field(
+        fields,
+        "extension_manifest_output_dtype",
+        contract.output_dtype_summary(),
+    );
+    push_bool_field(
+        fields,
+        "extension_manifest_dtype_contract_declared",
+        contract.dtype_contract_declared(),
+    );
+    push_field(
+        fields,
+        "extension_manifest_resource_contract",
+        &contract.resource_summary(),
+    );
+    push_count_field(
+        fields,
+        "extension_manifest_timeout_millis",
+        optional_u64_as_count(contract.timeout_millis),
+    );
+    push_count_field(
+        fields,
+        "extension_manifest_max_memory_bytes",
+        optional_u64_as_count(contract.max_memory_bytes),
+    );
+    push_count_field(
+        fields,
+        "extension_manifest_max_cpu_millis",
+        optional_u64_as_count(contract.max_cpu_millis),
+    );
+    push_bool_field(
+        fields,
+        "extension_manifest_resource_contract_declared",
+        contract.resource_contract_declared(),
+    );
+    push_field(
+        fields,
+        "extension_manifest_retry_policy",
+        contract.retry.as_str(),
+    );
+    push_field(
+        fields,
+        "extension_manifest_idempotency_policy",
+        contract.idempotency.as_str(),
+    );
+    push_field(
+        fields,
+        "extension_manifest_audit_policy",
+        contract.audit.as_str(),
+    );
+}
+
 fn append_extension_manifest_no_runtime_fields(
     fields: &mut Vec<(String, String)>,
     report: &ExtensionInspectionReport,
@@ -1467,6 +2005,42 @@ fn extension_effect_levels(manifest: &ExtensionManifest) -> String {
         .effects
         .iter()
         .map(|effect| effect.level.as_str())
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn extension_registry_manifest_ids(snapshot: &ExtensionRegistrySnapshot) -> String {
+    if snapshot.manifests.is_empty() {
+        return "none".to_string();
+    }
+    snapshot
+        .manifests
+        .iter()
+        .map(|manifest| manifest.id.as_str())
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn extension_registry_manifest_categories(snapshot: &ExtensionRegistrySnapshot) -> String {
+    if snapshot.manifests.is_empty() {
+        return "none".to_string();
+    }
+    snapshot
+        .manifests
+        .iter()
+        .map(|manifest| manifest.category.as_str())
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn extension_registry_materialization_modes(snapshot: &ExtensionRegistrySnapshot) -> String {
+    if snapshot.manifests.is_empty() {
+        return "none".to_string();
+    }
+    snapshot
+        .manifests
+        .iter()
+        .map(|manifest| manifest.execution_contract.materialization.as_str())
         .collect::<Vec<_>>()
         .join(",")
 }
@@ -1998,4 +2572,10 @@ fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
 
 fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize) {
     fields.push((key.to_string(), value.to_string()));
+}
+
+fn optional_u64_as_count(value: Option<u64>) -> usize {
+    value
+        .and_then(|value| usize::try_from(value).ok())
+        .unwrap_or(0)
 }

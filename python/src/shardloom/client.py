@@ -12458,9 +12458,19 @@ class ShardLoomClient:
 
         return self.run(["input-adapters"], check=check)
 
-    def extension_registry(self, *, check: bool = True) -> OutputEnvelope:
+    def extension_registry(
+        self,
+        *,
+        manifest_dir: str | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
         """Return the side-effect-free extension registry snapshot."""
 
+        if manifest_dir is not None:
+            return self.run(
+                ["extension-registry", "--manifest-dir", manifest_dir],
+                check=check,
+            )
         return self.run(["extension-registry"], check=check)
 
     def extension_inspect(
