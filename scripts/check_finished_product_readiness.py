@@ -122,6 +122,11 @@ LOCAL_PRODUCT_REPORTS: tuple[ReportRequirement, ...] = (
         "shardloom.v1_security_ci_hardening_report.v1",
     ),
     ReportRequirement(
+        "v1_release_boundary",
+        Path("target/v1-release-boundary-report.json"),
+        "shardloom.v1_release_boundary_report.v1",
+    ),
+    ReportRequirement(
         "user_surface_runtime_gap_inventory",
         Path("target/user-surface-runtime-gap-inventory.json"),
         "shardloom.user_surface_runtime_gap_inventory.v1",

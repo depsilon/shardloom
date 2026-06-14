@@ -21,12 +21,23 @@ import re
 from pathlib import Path
 from typing import Any
 
-from release_report_utils import fail_closed_fields, read_text, workspace_version_env
+from release_report_utils import (
+    fail_closed_fields,
+    read_text,
+    workspace_rust_version,
+    workspace_version_env,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.workspace_version_source_report.v1"
 DEFAULT_OUTPUT = Path("target/workspace-version-source-report.json")
+INTERNAL_WORKSPACE_DEPENDENCIES = (
+    "shardloom-core",
+    "shardloom-exec",
+    "shardloom-plan",
+    "shardloom-vortex",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -70,6 +81,32 @@ def forbid_marker(blockers: list[str], label: str, text: str, marker: str) -> No
         blockers.append(f"{label}: forbidden marker {marker!r}")
 
 
+def toml_dotted_key_value(text: str, key: str) -> str | None:
+    for line in text.splitlines():
+        stripped = line.split("#", 1)[0].strip()
+        if not stripped or stripped.startswith("["):
+            continue
+        candidate, separator, value = stripped.partition("=")
+        if not separator:
+            continue
+        if candidate.strip() == key:
+            return value.strip()
+    return None
+
+
+def require_toml_dotted_key_value(
+    blockers: list[str],
+    label: str,
+    text: str,
+    key: str,
+    expected: str,
+    message: str,
+) -> None:
+    actual = toml_dotted_key_value(text, key)
+    if actual != expected:
+        blockers.append(f"{label}: {message}")
+
+
 def cargo_member_inheritance_checks(repo_root: Path, blockers: list[str]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     members = workspace_members(repo_root)
@@ -83,10 +120,28 @@ def cargo_member_inheritance_checks(repo_root: Path, blockers: list[str]) -> lis
         if not text:
             row_blockers.append(f"{member}/Cargo.toml missing")
         else:
-            if "version.workspace = true" not in text:
-                row_blockers.append("package version must inherit workspace version")
-            if "rust-version.workspace = true" not in text:
-                row_blockers.append("rust-version must inherit workspace rust-version")
+            require_toml_dotted_key_value(
+                row_blockers,
+                member,
+                text,
+                "version.workspace",
+                "true",
+                "package version must inherit workspace version",
+            )
+            require_toml_dotted_key_value(
+                row_blockers,
+                member,
+                text,
+                "rust-version.workspace",
+                "true",
+                "rust-version must inherit workspace rust-version",
+            )
+            for dependency in INTERNAL_WORKSPACE_DEPENDENCIES:
+                actual = toml_dotted_key_value(text, dependency)
+                if actual is not None and actual != "{ workspace = true }":
+                    row_blockers.append(
+                        f"internal dependency {dependency} must inherit workspace dependency"
+                    )
         blockers.extend(f"{member}: {blocker}" for blocker in row_blockers)
         rows.append(
             {
@@ -105,8 +160,10 @@ def build_report(repo_root: Path) -> dict[str, Any]:
 
     try:
         version_env = workspace_version_env(repo_root)
+        rust_version = workspace_rust_version(repo_root)
     except Exception as exc:  # pragma: no cover - exercised through script failure path.
         version_env = {}
+        rust_version = ""
         blockers.append(f"workspace version env derivation failed: {exc}")
 
     root_cargo = read_text(repo_root / "Cargo.toml", missing_ok=True)
@@ -181,6 +238,31 @@ def build_report(repo_root: Path) -> dict[str, Any]:
     ]:
         require_marker(blockers, ".github/workflows/ci.yml", workflow, marker)
 
+    active_version_consumers = [
+        ".github/workflows/ci.yml",
+        "scripts/write_ci_version_env.py",
+        "scripts/check_release_readiness.py",
+        "scripts/run_release_validation_evidence.py",
+        "scripts/check_ci_gate_matrix.py",
+        "scripts/check_v1_security_ci_hardening.py",
+        "benchmarks/traditional_analytics/run.py",
+    ]
+    current_literals = {
+        rust_version,
+        str(version_env.get("SHARDLOOM_RUST_MSRV_TOOLCHAIN", "")),
+        str(version_env.get("SHARDLOOM_UPSTREAM_VORTEX_MANIFEST_VERSION", "")),
+        str(version_env.get("SHARDLOOM_UPSTREAM_VORTEX_LOCK_VERSION", "")),
+        str(version_env.get("SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION", "")),
+    }
+    for relative_path in active_version_consumers:
+        text = read_text(repo_root / relative_path, missing_ok=True)
+        for literal in sorted(item for item in current_literals if item):
+            if literal in text:
+                blockers.append(
+                    f"{relative_path}: duplicate active version literal {literal!r}; "
+                    "derive it from scripts/release_report_utils.py"
+                )
+
     benchmark_harness = read_text(
         repo_root / "benchmarks/traditional_analytics/run.py",
         missing_ok=True,
@@ -215,6 +297,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "upstream_vortex_provider_source": "Cargo.toml#[workspace.dependencies].vortex via shardloom-vortex/build.rs",
         "cargo_member_count": len(member_rows),
         "cargo_member_inheritance": member_rows,
+        "active_version_literal_audit_paths": active_version_consumers,
         "publication_attempted": False,
         "tag_created": False,
         "secrets_required": False,

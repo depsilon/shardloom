@@ -522,18 +522,18 @@ with a recorded infeasibility reason, not merely because they are broad.
     invent runtime optimizations, but validators must require each newly supported runtime family to
     document PulseWeave/capillary/dynamic fit before a support claim is accepted.
   - Execution checklist:
-    - [ ] Define the v1 support envelope: local file workflows, current Python/CLI surfaces,
+    - [x] Define the v1 support envelope: local file workflows, current Python/CLI surfaces,
       supported local formats, supported output targets, and every broad runtime/product family
       that is feasible to close with evidence.
-    - [ ] Record infeasibility reasons for any broad family narrowed or left outside v1, including
+    - [x] Record infeasibility reasons for any broad family narrowed or left outside v1, including
       missing external platform proof, unresolved safety/security design, protocol scope, package
       channel availability, or lack of deterministic fault/recovery evidence.
-    - [ ] Normalize README, docs, website, package metadata, release reports, and capability
+    - [x] Normalize README, docs, website, package metadata, release reports, and capability
       outputs so every unsupported production family uses one canonical claim boundary.
-    - [ ] Add release validators that fail if production, platform, distributed, Foundry,
+    - [x] Add release validators that fail if production, platform, distributed, Foundry,
       live/hybrid, object-store, lakehouse, or arbitrary extension support is implied without a
       matching production-ready item closed in this plan and ledger.
-    - [ ] Add package dry-run evidence showing the v1 package candidate installs, imports, runs
+    - [x] Add package dry-run evidence showing the v1 package candidate installs, imports, runs
       supported examples, emits no fallback evidence, and does not publish to package channels.
     - [ ] Add user-facing unsupported diagnostics for production-family entrypoints that exist as
       stubs, preview routes, or report-only commands.

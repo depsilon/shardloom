@@ -24,9 +24,11 @@ from release_report_utils import (
     upstream_vortex_lock_version,
     upstream_vortex_manifest_version,
     upstream_vortex_provider_version,
+    workspace_rust_version,
     workspace_version_env,
 )
 
+CURRENT_RUST_VERSION = workspace_rust_version(REPO_ROOT)
 CURRENT_VORTEX_MANIFEST_VERSION = upstream_vortex_manifest_version(REPO_ROOT)
 CURRENT_VORTEX_LOCK_VERSION = upstream_vortex_lock_version(REPO_ROOT)
 UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)
@@ -7078,7 +7080,7 @@ class ReleaseScriptTests(unittest.TestCase):
 
                 [workspace.package]
                 version = "0.1.0"
-                rust-version = "1.96"
+                rust-version = "{CURRENT_RUST_VERSION}"
 
                 [workspace.dependencies]
                 vortex = "{CURRENT_VORTEX_MANIFEST_VERSION}"
@@ -7098,8 +7100,11 @@ class ReleaseScriptTests(unittest.TestCase):
         core_manifest.write_text(
             "[package]\n"
             'name = "shardloom-core"\n'
-            "version.workspace = true\n"
-            + ("" if stale else "rust-version.workspace = true\n"),
+            + (
+                "rust-version.workspace = true\n"
+                if stale
+                else "version.workspace = true\nrust-version.workspace = true\n"
+            ),
             encoding="utf-8",
         )
         vortex_manifest = root / "shardloom-vortex" / "Cargo.toml"
@@ -7112,6 +7117,7 @@ class ReleaseScriptTests(unittest.TestCase):
             "\n"
             "[dependencies]\n"
             + (
+                f'shardloom-core = {{ version = "0.1.0", path = "../shardloom-core" }}\n'
                 f'vortex = "{CURRENT_VORTEX_MANIFEST_VERSION}"\n'
                 if stale
                 else "vortex = { workspace = true, optional = true }\n"
@@ -7337,6 +7343,10 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(
             commands["v1_security_ci_hardening_gate"],
             ["/tool/python3.12", "scripts/check_v1_security_ci_hardening.py"],
+        )
+        self.assertEqual(
+            commands["v1_release_boundary_firewall"],
+            ["/tool/python3.12", "scripts/check_v1_release_boundary.py"],
         )
         self.assertEqual(
             commands["benchmark_artifact_completeness"],
@@ -8934,7 +8944,8 @@ class ReleaseScriptTests(unittest.TestCase):
 
         blockers = "\n".join(report["blockers"])
         self.assertEqual(report["status"], "blocked")
-        self.assertIn("shardloom-core: rust-version must inherit", blockers)
+        self.assertIn("shardloom-core: package version must inherit", blockers)
+        self.assertIn("internal dependency shardloom-core must inherit", blockers)
         self.assertIn("shardloom-vortex/Cargo.toml", blockers)
         self.assertIn("forbidden marker", blockers)
         self.assertIn("scripts/write_ci_version_env.py", blockers)
@@ -9207,9 +9218,14 @@ jobs:
 
         self.assertIn("python scripts/check_release_readiness.py", release_lane.commands)
         self.assertIn("python scripts/check_v1_security_ci_hardening.py", release_lane.commands)
+        self.assertIn("python scripts/check_v1_release_boundary.py", release_lane.commands)
         self.assertIn("python scripts/check_finished_product_readiness.py", release_lane.commands)
         self.assertIn(
             "target/finished-product-readiness-report.json",
+            release_lane.artifact_refs,
+        )
+        self.assertIn(
+            "target/v1-release-boundary-report.json",
             release_lane.artifact_refs,
         )
         self.assertNotIn(
@@ -9427,6 +9443,68 @@ jobs:
             path.parent.mkdir(parents=True, exist_ok=True)
             existing = path.read_text(encoding="utf-8") if path.exists() else ""
             path.write_text(existing + text + "\n", encoding="utf-8")
+
+    def _write_v1_release_boundary_fixture(
+        self,
+        module: object,
+        repo_root: Path,
+    ) -> None:
+        public_status_module = self._load_script_module(
+            "check_public_status_docs.py",
+            "check_public_status_docs_v1_release_boundary_fixture",
+        )
+        self._write_public_status_docs_fixture(public_status_module, repo_root)
+
+        for rel_path in (
+            module.RUNS_TODAY_MATRIX,
+            module.PACKAGE_CHANNEL_MATRIX,
+            module.V1_SUPPORTED_DOC,
+            module.PACKAGE_USER_INSTALL_DOC,
+            module.PYPROJECT,
+        ):
+            source = REPO_ROOT / rel_path
+            target = repo_root / rel_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+
+        pkg_info = repo_root / module.PKG_INFO
+        pkg_info.parent.mkdir(parents=True, exist_ok=True)
+        pkg_info.write_text(
+            "\n".join(module.PKG_INFO_REQUIRED_MARKERS) + "\n",
+            encoding="utf-8",
+        )
+
+        false_fields = {field: False for field in module.FALSE_SAFETY_FIELDS}
+        dry_run = {
+            "schema_version": "shardloom.release_dry_run_proof.v1",
+            "proof_status": "passed",
+            "clean_venv_install_status": "passed",
+            "local_wheel": "python/dist/shardloom-0.1.0.dev0-py3-none-any.whl",
+            "local_cli_binary": "target/debug/shardloom",
+            "external_runtime_dependencies_added": False,
+            "fallback_engine_dependency_added": False,
+            **false_fields,
+        }
+        dry_run.update({field: True for field in module.REQUIRED_DRY_RUN_TRUE_FIELDS})
+        dry_run_path = repo_root / module.RELEASE_DRY_RUN_TRANSCRIPT
+        dry_run_path.parent.mkdir(parents=True, exist_ok=True)
+        dry_run_path.write_text(json.dumps(dry_run, indent=2) + "\n", encoding="utf-8")
+
+        package_report = {
+            "schema_version": "shardloom.package_channel_readiness_report.v1",
+            "status": "passed",
+            "local_gate_evidence_status": "passed",
+            "ready_channel_count": 0,
+            "expected_channel_count": 9,
+            "blockers": [],
+            **false_fields,
+        }
+        package_report_path = repo_root / module.PACKAGE_CHANNEL_REPORT
+        package_report_path.parent.mkdir(parents=True, exist_ok=True)
+        package_report_path.write_text(
+            json.dumps(package_report, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
     def _write_v1_front_door_runtime_scope_fixture(
         self,
@@ -10549,6 +10627,105 @@ jobs:
         self.assertEqual(report["status"], "failed")
         self.assertTrue(
             any("missing diagnostic boundary" in blocker for blocker in report["blockers"])
+        )
+
+    def test_v1_supported_doc_generator_inverts_no_fallback_aggregate(self) -> None:
+        module = self._load_script_module(
+            "write_v1_supported_unsupported_docs.py",
+            "write_v1_supported_unsupported_docs_no_fallback_for_test",
+        )
+
+        rendered = module.render(
+            {
+                "schema_version": "shardloom.runs_today_support_matrix.v1",
+                "row_count": 0,
+                "family_order": [],
+                "rows": [],
+                "all_rows_fallback_attempted_false": True,
+                "all_rows_external_engine_invoked_false": True,
+                "performance_claim_allowed": False,
+                "package_publication_allowed": False,
+            },
+            {
+                "schema_version": "shardloom.package_channel_readiness_matrix.v1",
+                "channels": [],
+                "public_package_release_claim_allowed": False,
+                "publication_attempted": False,
+                "tag_created": False,
+                "package_channel_submission_attempted": False,
+            },
+        )
+
+        header = rendered.split("```text", maxsplit=1)[1].split("```", maxsplit=1)[0]
+        self.assertIn("fallback_attempted=false", header)
+        self.assertIn("external_engine_invoked=false", header)
+
+    def test_v1_release_boundary_accepts_claim_safe_fixture(self) -> None:
+        module = self._load_script_module(
+            "check_v1_release_boundary.py",
+            "check_v1_release_boundary_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_v1_release_boundary_fixture(module, repo_root)
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["claim_gate_status"], "not_claim_grade")
+        self.assertFalse(report["public_package_claim_allowed"])
+        self.assertFalse(report["fallback_attempted"])
+        self.assertEqual(report["support_doc"]["header"]["fallback_attempted"], "false")
+        self.assertIn("object-store runtime", report["unsupported_production_families"])
+
+    def test_v1_release_boundary_blocks_stale_support_doc_no_fallback_header(self) -> None:
+        module = self._load_script_module(
+            "check_v1_release_boundary.py",
+            "check_v1_release_boundary_support_doc_blocker_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_v1_release_boundary_fixture(module, repo_root)
+            support_doc = repo_root / module.V1_SUPPORTED_DOC
+            support_doc.write_text(
+                support_doc.read_text(encoding="utf-8").replace(
+                    "fallback_attempted=false",
+                    "fallback_attempted=true",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any(
+                "v1 supported doc header fallback_attempted=true" in blocker
+                for blocker in report["blockers"]
+            )
+        )
+
+    def test_v1_release_boundary_blocks_production_package_classifier(self) -> None:
+        module = self._load_script_module(
+            "check_v1_release_boundary.py",
+            "check_v1_release_boundary_package_classifier_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            self._write_v1_release_boundary_fixture(module, repo_root)
+            pyproject = repo_root / module.PYPROJECT
+            pyproject.write_text(
+                pyproject.read_text(encoding="utf-8")
+                + '\n"Development Status :: 5 - Production/Stable"\n',
+                encoding="utf-8",
+            )
+            report = module.build_report(repo_root)
+
+        self.assertEqual(report["status"], "failed")
+        self.assertTrue(
+            any("forbidden marker" in blocker for blocker in report["blockers"])
         )
 
     def test_release_evidence_artifact_merge_restores_repo_relative_refs(self) -> None:

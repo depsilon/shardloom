@@ -1,6 +1,6 @@
 [package]
 name = "shardloom-contract-tests"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 description.workspace = true
 license.workspace = true
@@ -14,7 +14,7 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-shardloom-core = { version = "0.1.0", path = "../shardloom-core" }
-shardloom-plan = { version = "0.1.0", path = "../shardloom-plan" }
-shardloom-exec = { version = "0.1.0", path = "../shardloom-exec" }
-shardloom-vortex = { version = "0.1.0", path = "../shardloom-vortex" }
+shardloom-core = { workspace = true }
+shardloom-plan = { workspace = true }
+shardloom-exec = { workspace = true }
+shardloom-vortex = { workspace = true }

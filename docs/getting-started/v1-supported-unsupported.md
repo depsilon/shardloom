@@ -13,8 +13,8 @@ This page is generated from `docs/status/runs-today-support-matrix.json` and `do
 runs_today_schema_version=shardloom.runs_today_support_matrix.v1
 runs_today_row_count=37
 package_channel_schema_version=shardloom.package_channel_readiness_matrix.v1
-fallback_attempted=true
-external_engine_invoked=true
+fallback_attempted=false
+external_engine_invoked=false
 performance_claim_allowed=false
 package_publication_allowed=false
 ```
