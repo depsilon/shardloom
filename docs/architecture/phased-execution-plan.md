@@ -314,8 +314,23 @@ with a recorded infeasibility reason, not merely because they are broad.
       validity/mask no-null fast paths, branchless zip, dictionary/FSST reuse, and `byte_length()`
       must be classified as adopted, wrapped, blocked, or superseded by a ShardLoom-native kernel
       with decoded-reference parity.
-    - [ ] If refreshed rows still show multi-ms prepared/native operator spikes, add the next
-      native kernel family with decoded-reference parity tests before claiming promotion.
+    - [x] If refreshed rows still show multi-ms prepared/native operator spikes, add the next
+      residual-native hot-loop family with decoded-reference parity tests before claiming
+      promotion: generated-category interner hash bypass, incremental CDC overlay count/sum, direct
+      primitive-array CDC base scans, byte-view CDC parsing, and exact generated nested-payload
+      parsing now cover the `join_aggregate`, `multi_key_group_by`,
+      `high_cardinality_string_group_distinct`, `small_change_over_large_base`, and
+      `nested_json_field_scan` tails without admitting an encoded-native claim.
+    - [x] Refresh targeted local rows after the residual hot-loop burn-down across CSV/JSONL
+      ShardLoom native, prepared/native, and prepare-batch lanes for `join_aggregate`,
+      `multi_key_group_by`, `high_cardinality_string_group_distinct`,
+      `small_change_over_large_base`, and `nested_json_field_scan`; current local rows show
+      successful sub-2 ms query/operator paths for the refreshed profiles and explicit residual
+      optimization statuses for each family.
+    - [ ] Run the full-local publication refresh and promote website artifacts after this runtime
+      patch lands, then classify any remaining multi-ms prepared/native operator tail from promoted
+      rows as marginal, benchmark-noise, Vortex-provider candidate, or next ShardLoom-native kernel
+      work.
   - Next outcome: promote a cohesive heavy-operator family rather than isolated scenario slivers:
     multi-key grouping, join+aggregate, high-cardinality distinct/group, and their prepared/native
     residual tails. Add encoded or partially encoded kernels where correctness evidence supports
