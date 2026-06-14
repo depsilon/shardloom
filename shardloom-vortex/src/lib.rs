@@ -18,7 +18,8 @@
 /// Current optional upstream `vortex` provider version recorded in `ShardLoom`
 /// native-provider evidence. This is the Vortex crate line, not the
 /// `shardloom-vortex` crate version.
-pub const UPSTREAM_VORTEX_PROVIDER_VERSION: &str = "0.75";
+pub const UPSTREAM_VORTEX_PROVIDER_VERSION: &str =
+    env!("SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION");
 
 // Report-only adapter/API inventory and metadata posture.
 pub use adapter::{

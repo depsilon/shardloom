@@ -360,6 +360,13 @@ const durableDocsPages = [
       order: 1,
       body: `ShardLoom is pre-release. Start from a source checkout, not a package-publication claim.
 
+Canonical install and support pages:
+
+- \`docs/getting-started/source-checkout-install.md\`
+- \`docs/getting-started/package-user-install.md\`
+- \`docs/getting-started/v1-supported-unsupported.md\`
+- \`docs/getting-started/troubleshooting-support.md\`
+
 ## First Commands
 
 \`\`\`powershell
@@ -389,6 +396,9 @@ This proves local technical-preview posture only. It does not prove package publ
       body: `The Python surface is the current user-facing way to describe local ETL scenarios. It is a front door into ShardLoom route admission, not permission to use pandas, Polars, DuckDB, Spark, or DataFusion as fallback execution.
 
 ## Scenario Shape
+
+Markers for the copyable v1 guide examples: \`stable_v1_example_local_csv\`,
+\`stable_v1_example_blocker_inspection\`, and \`unsupported_example_broad_sql\`.
 
 \`\`\`python
 from shardloom import context

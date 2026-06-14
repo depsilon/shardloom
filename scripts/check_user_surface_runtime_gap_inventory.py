@@ -264,6 +264,27 @@ WEBSITE_STATUS_ROUTES: dict[str, dict[str, str]] = {
 
 DOC_STATUS_PATTERNS: tuple[tuple[str, str, str, str, str], ...] = (
     (
+        "v1 supported/unsupported surface",
+        "runtime_available_needs_claim_evidence",
+        "route_specific_v1_support_boundary",
+        "generated v1 supported/unsupported surface",
+        "release.v1_docs_productization_gate",
+    ),
+    (
+        "v1-supported-unsupported.md",
+        "runtime_available_needs_claim_evidence",
+        "route_specific_v1_support_boundary",
+        "generated v1 supported/unsupported surface",
+        "release.v1_docs_productization_gate",
+    ),
+    (
+        "package user install status",
+        "runtime_available_needs_claim_evidence",
+        "not_applicable_package_distribution_gate",
+        "package-channel release evidence pending",
+        "release.package_publication_gate",
+    ),
+    (
         "report-only or blocked status for broader",
         "true_runtime_expansion_item",
         "route_specific_vortex_boundary_required",

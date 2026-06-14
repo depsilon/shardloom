@@ -12,22 +12,13 @@ from unittest import mock
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 
+from release_report_utils import upstream_vortex_provider_version
 
-def _current_upstream_vortex_provider_version() -> str:
-    text = (REPO_ROOT / "shardloom-vortex" / "src" / "lib.rs").read_text(
-        encoding="utf-8"
-    )
-    match = re.search(
-        r'pub\s+const\s+UPSTREAM_VORTEX_PROVIDER_VERSION\s*:\s*&str\s*=\s*"([^"]+)"',
-        text,
-    )
-    if match is None:
-        raise RuntimeError("missing UPSTREAM_VORTEX_PROVIDER_VERSION")
-    return match.group(1)
-
-
-UPSTREAM_VORTEX_PROVIDER_VERSION = _current_upstream_vortex_provider_version()
+UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)
 
 sys.path.insert(0, str(REPO_ROOT / "python" / "src"))
 

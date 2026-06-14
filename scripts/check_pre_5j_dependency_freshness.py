@@ -134,27 +134,59 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
 
 VORTEX_PROVIDER_SURFACE_EXPECTATIONS: tuple[dict[str, Any], ...] = (
     {
+        "path": "shardloom-vortex/src/lib.rs",
+        "required_markers": [
+            'env!("SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION")',
+        ],
+        "forbidden_markers": [
+            'UPSTREAM_VORTEX_PROVIDER_VERSION: &str = "0.72"',
+            'UPSTREAM_VORTEX_PROVIDER_VERSION: &str = "0.73"',
+            'UPSTREAM_VORTEX_PROVIDER_VERSION: &str = "0.74"',
+            'UPSTREAM_VORTEX_PROVIDER_VERSION: &str = "$CURRENT_VORTEX_PROVIDER_VERSION"',
+        ],
+    },
+    {
+        "path": "shardloom-vortex/build.rs",
+        "required_markers": [
+            'workspace_dependency_version(&workspace_manifest_text, "vortex")',
+            "cargo:rustc-env=SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION={vortex_version}",
+        ],
+        "forbidden_markers": [
+            '"0.72"',
+            '"0.73"',
+            '"0.74"',
+            '"$CURRENT_VORTEX_PROVIDER_VERSION"',
+        ],
+    },
+    {
         "path": "benchmarks/traditional_analytics/run.py",
         "required_markers": [
-            "UPSTREAM_VORTEX_PROVIDER_VERSION = _read_upstream_vortex_provider_version()",
+            "from release_report_utils import upstream_vortex_provider_version",
+            "UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)",
             'SHARDLOOM_VORTEX_PROVIDER_VERSION = (',
         ],
         "forbidden_markers": [
+            "_read_upstream_vortex_provider_version",
+            'UPSTREAM_VORTEX_PROVIDER_VERSION = "$CURRENT_VORTEX_PROVIDER_VERSION"',
             'UPSTREAM_VORTEX_PROVIDER_VERSION = "0.73"',
             'UPSTREAM_VORTEX_PROVIDER_VERSION = "0.74"',
             '"0.72" if admitted',
             "vortex=0.72",
+            "vortex=$CURRENT_VORTEX_PROVIDER_VERSION",
             "provider_version, \"0.72\"",
+            'provider_version, "$CURRENT_VORTEX_PROVIDER_VERSION"',
         ],
     },
     {
         "path": "python/tests/test_cli_client.py",
         "required_markers": [
-            "UPSTREAM_VORTEX_PROVIDER_VERSION = _current_upstream_vortex_provider_version()",
+            "from release_report_utils import upstream_vortex_provider_version",
+            "UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)",
             '"value": UPSTREAM_VORTEX_PROVIDER_VERSION',
             "provider_version, UPSTREAM_VORTEX_PROVIDER_VERSION",
         ],
         "forbidden_markers": [
+            "_current_upstream_vortex_provider_version",
             '"provider_version", "value": "0.73"',
             'provider_version, "0.73"',
             '"evidence_slot_provider_version_refs", "value": "0.73"',
@@ -164,6 +196,9 @@ VORTEX_PROVIDER_SURFACE_EXPECTATIONS: tuple[dict[str, Any], ...] = (
             '"provider_version", "value": "0.72"',
             'provider_version, "0.72"',
             '"evidence_slot_provider_version_refs", "value": "0.72"',
+            '"provider_version", "value": "$CURRENT_VORTEX_PROVIDER_VERSION"',
+            'provider_version, "$CURRENT_VORTEX_PROVIDER_VERSION"',
+            '"evidence_slot_provider_version_refs", "value": "$CURRENT_VORTEX_PROVIDER_VERSION"',
         ],
     },
 )
@@ -606,6 +641,7 @@ def validate_admitted_pr(repo_root: Path, pr_number: int, spec: dict[str, Any]) 
 def validate_vortex_provider_version_surfaces(repo_root: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     expected_provider_version = upstream_vortex_provider_version(repo_root)
+    tokens = {"$CURRENT_VORTEX_PROVIDER_VERSION": expected_provider_version}
     for spec in VORTEX_PROVIDER_SURFACE_EXPECTATIONS:
         path = Path(str(spec["path"]))
         text = read_text(repo_root / path)
@@ -613,11 +649,13 @@ def validate_vortex_provider_version_surfaces(repo_root: Path) -> list[dict[str,
         if not text:
             blockers.append(f"missing provider-version evidence surface {path.as_posix()}")
         for marker in spec["required_markers"]:
-            if str(marker) not in text:
-                blockers.append(f"{path.as_posix()} missing marker: {marker}")
+            expected_marker = str(resolve_current_version_token(marker, tokens))
+            if expected_marker not in text:
+                blockers.append(f"{path.as_posix()} missing marker: {expected_marker}")
         for marker in spec["forbidden_markers"]:
-            if str(marker) in text:
-                blockers.append(f"{path.as_posix()} contains stale marker: {marker}")
+            stale_marker = str(resolve_current_version_token(marker, tokens))
+            if stale_marker in text:
+                blockers.append(f"{path.as_posix()} contains stale marker: {stale_marker}")
         rows.append(
             {
                 "path": path.as_posix(),

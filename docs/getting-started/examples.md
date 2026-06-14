@@ -8,6 +8,183 @@ Public status is owned by `docs/release/public-status-matrix.md`. Examples here 
 proofs and blockers; they do not broaden package, production, performance, SQL/DataFrame,
 object-store/lakehouse, Foundry, or Spark-displacement claims.
 
+## Stable V1 Local Examples
+
+These examples show the copy-paste shape of the current v1 local surface. Replace paths and schema
+fields with local files that match your checkout. The examples are intentionally bounded and must
+emit ShardLoom evidence instead of delegating unsupported work to another engine.
+
+<!-- stable_v1_example_local_csv -->
+
+```python
+from shardloom import context
+import shardloom as sl
+
+ctx = context(repo_root=".", profile_order=("release", "debug"))
+
+orders = ctx.read_csv("target/orders.csv", schema={
+    "id": "int64",
+    "amount": "float64",
+    "status": "utf8",
+})
+
+result = (
+    orders.filter(sl.col("amount") >= 10)
+    .select("id", "amount", "status")
+    .limit(100)
+    .collect()
+)
+print(result.output_row_count, result.claim_summary.claim_gate_status)
+print(result.fallback_attempted, result.external_engine_invoked)
+```
+
+<!-- stable_v1_example_local_jsonl -->
+
+```python
+events = ctx.read_json("target/events.jsonl", schema={
+    "id": "int64",
+    "nested_payload": "utf8",
+})
+
+result = (
+    events.filter(sl.col("nested_payload").contains("target"))
+    .select("id", "nested_payload")
+    .limit(100)
+    .collect()
+)
+print(result.output_row_count)
+```
+
+<!-- stable_v1_example_local_parquet -->
+
+```python
+facts = ctx.read_parquet("target/fact.parquet", schema={
+    "id": "int64",
+    "metric": "float64",
+})
+
+result = facts.filter(sl.col("metric") >= 0).select("id", "metric").limit(100).collect()
+print(result.claim_summary.claim_gate_status)
+```
+
+Parquet and other structured compatibility inputs are scoped local-format routes and may require
+the matching feature-gated build. They are not external-engine execution.
+
+<!-- stable_v1_example_local_vortex -->
+
+```python
+native = ctx.read_vortex("target/orders.vortex")
+result = native.filter("gte:amount:10").select("id", "amount").limit(100).collect()
+print(result.fallback_attempted, result.external_engine_invoked)
+```
+
+<!-- stable_v1_example_prepare_vortex -->
+
+```python
+prepared = ctx.prepare_vortex(
+    "target/orders.csv",
+    "target/orders.vortex",
+    allow_overwrite=True,
+)
+print(prepared.vortex_ingest_status, prepared.prepared_state_created)
+```
+
+<!-- stable_v1_example_warm_prepared_query -->
+
+```python
+prepared = ctx.prepare_vortex(
+    "target/orders.csv",
+    "target/orders.vortex",
+    allow_overwrite=True,
+)
+result = prepared.query("selective filter").collect(check=True)
+print(result.claim_gate_status, result.fallback_attempted, result.external_engine_invoked)
+```
+
+<!-- stable_v1_example_bounded_collect -->
+
+```python
+preview = ctx.read_csv("target/orders.csv").select("id", "amount").collect(limit=20)
+print(preview.output_row_count)
+```
+
+<!-- stable_v1_example_local_output_write -->
+
+```python
+written = (
+    ctx.read_csv("target/orders.csv")
+    .filter(sl.col("amount") >= 10)
+    .select("id", "amount")
+    .write_jsonl("target/orders-filtered.jsonl", allow_overwrite=True)
+)
+print(written.output_row_count, written.evidence_summary.output_path)
+```
+
+<!-- stable_v1_example_evidence_inspection -->
+
+```python
+print(result.claim_summary.claim_gate_status)
+print(result.evidence_summary.output_path)
+print(result.fallback_attempted, result.external_engine_invoked)
+print(result.diagnostics)
+```
+
+<!-- stable_v1_example_blocker_inspection -->
+
+```python
+blocked = ctx.read_csv("target/orders.csv").select("id").to_pandas()
+print(blocked.blocker_id)
+print(blocked.required_evidence)
+print(blocked.fallback_attempted, blocked.external_engine_invoked)
+```
+
+## Unsupported Examples
+
+Unsupported examples are part of the public contract: they fail closed and expose deterministic
+blockers.
+
+<!-- unsupported_example_broad_sql -->
+
+```python
+blocked_sql = ctx.sql("SELECT * FROM remote_table JOIN other_table USING (id)").collect()
+print(blocked_sql.blocker_id)
+```
+
+<!-- unsupported_example_unbounded_collect -->
+
+```python
+blocked_collect = ctx.read_csv("target/orders.csv").select("id").to_pandas()
+print(blocked_collect.blocker_id)
+```
+
+<!-- unsupported_example_object_store -->
+
+```python
+blocked_object_store = ctx.read_csv("s3://bucket/orders.csv").limit(10).collect()
+print(blocked_object_store.blocker_id)
+```
+
+<!-- unsupported_example_foundry -->
+
+```python
+blocked_foundry = ctx.read("foundry://dataset/orders").limit(10).collect()
+print(blocked_foundry.blocker_id)
+```
+
+<!-- unsupported_example_udf_effect -->
+
+```python
+blocked_effect = ctx.sql("SELECT CALL_API('https://example.invalid/score') AS score").collect()
+print(blocked_effect.blocker_id)
+```
+
+Each unsupported example must preserve:
+
+```text
+fallback_attempted=false
+external_engine_invoked=false
+```
+
 ## Local Python Smoke
 
 ```powershell

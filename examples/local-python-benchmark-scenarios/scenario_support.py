@@ -170,8 +170,8 @@ def scenario_actions(ctx: Any, sl: Any) -> list[tuple[str, Callable[[], Any]]]:
             )
             .filter(sl.col("amount_float") >= 0)
             .limit(1000)
-            .write_vortex(
-                "target/clean-cast-filter-write.vortex",
+            .write_jsonl(
+                "target/clean-cast-filter-write.jsonl",
                 allow_overwrite=True,
             ),
         ),

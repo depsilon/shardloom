@@ -16,57 +16,19 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS_DIR = REPO_ROOT / "scripts"
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 
+from release_report_utils import (
+    upstream_vortex_lock_version,
+    upstream_vortex_manifest_version,
+    upstream_vortex_provider_version,
+)
 
-def _current_vortex_manifest_version() -> str:
-    text = (REPO_ROOT / "Cargo.toml").read_text(encoding="utf-8")
-    match = re.search(
-        r'^vortex\s*=\s*(?:"([^"]+)"|\{[^}\n]*version\s*=\s*"([^"]+)")',
-        text,
-        re.MULTILINE,
-    )
-    if match is None:
-        raise RuntimeError("missing vortex dependency version")
-    return next(group for group in match.groups() if group is not None)
-
-
-def _current_vortex_lock_version() -> str:
-    text = (REPO_ROOT / "Cargo.lock").read_text(encoding="utf-8")
-    name: str | None = None
-    version: str | None = None
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped == "[[package]]":
-            if name == "vortex" and version is not None:
-                return version
-            name = None
-            version = None
-            continue
-        if stripped.startswith("name = "):
-            name = json.loads(stripped.split("=", 1)[1].strip())
-        elif stripped.startswith("version = "):
-            version = json.loads(stripped.split("=", 1)[1].strip())
-    if name == "vortex" and version is not None:
-        return version
-    raise RuntimeError("missing vortex lockfile version")
-
-
-def _current_upstream_vortex_provider_version() -> str:
-    text = (REPO_ROOT / "shardloom-vortex" / "src" / "lib.rs").read_text(
-        encoding="utf-8"
-    )
-    match = re.search(
-        r'pub\s+const\s+UPSTREAM_VORTEX_PROVIDER_VERSION\s*:\s*&str\s*=\s*"([^"]+)"',
-        text,
-    )
-    if match is None:
-        raise RuntimeError("missing UPSTREAM_VORTEX_PROVIDER_VERSION")
-    return match.group(1)
-
-
-CURRENT_VORTEX_MANIFEST_VERSION = _current_vortex_manifest_version()
-CURRENT_VORTEX_LOCK_VERSION = _current_vortex_lock_version()
-UPSTREAM_VORTEX_PROVIDER_VERSION = _current_upstream_vortex_provider_version()
+CURRENT_VORTEX_MANIFEST_VERSION = upstream_vortex_manifest_version(REPO_ROOT)
+CURRENT_VORTEX_LOCK_VERSION = upstream_vortex_lock_version(REPO_ROOT)
+UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)
 
 
 class ReleaseScriptTests(unittest.TestCase):
@@ -6139,7 +6101,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertEqual(
             packet["next_implementation_slice"],
-            "`PROD-V1-4A` Docs, website, install, and example productization after v1 scope stabilizes.",
+            "`PROD-V1-5A` Package-channel readiness and finished-product hard gate.",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
@@ -8767,16 +8729,35 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            (root / "Cargo.toml").write_text(
+                "[workspace.dependencies]\n"
+                f'vortex = "{CURRENT_VORTEX_MANIFEST_VERSION}"\n',
+                encoding="utf-8",
+            )
             lib_rs = root / "shardloom-vortex" / "src" / "lib.rs"
             lib_rs.parent.mkdir(parents=True)
             lib_rs.write_text(
-                f'pub const UPSTREAM_VORTEX_PROVIDER_VERSION: &str = "{UPSTREAM_VORTEX_PROVIDER_VERSION}";\n',
+                'pub const UPSTREAM_VORTEX_PROVIDER_VERSION: &str =\n'
+                '    env!("SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION");\n',
+                encoding="utf-8",
+            )
+            (root / "shardloom-vortex" / "Cargo.toml").write_text(
+                "[dependencies]\n"
+                "vortex = { workspace = true, optional = true }\n",
+                encoding="utf-8",
+            )
+            build_rs = root / "shardloom-vortex" / "build.rs"
+            build_rs.write_text(
+                'workspace_dependency_version(&workspace_manifest_text, "vortex")\n'
+                'cargo:rustc-env=SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION={vortex_version}\n',
                 encoding="utf-8",
             )
             benchmark = root / "benchmarks" / "traditional_analytics" / "run.py"
             benchmark.parent.mkdir(parents=True)
             benchmark.write_text(
-                'UPSTREAM_VORTEX_PROVIDER_VERSION = "0.73"\n'
+                "from release_report_utils import upstream_vortex_provider_version\n"
+                "UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)\n"
+                f'UPSTREAM_VORTEX_PROVIDER_VERSION = "{CURRENT_VORTEX_MANIFEST_VERSION}"\n'
                 'SHARDLOOM_VORTEX_PROVIDER_VERSION = (\n'
                 '    "shardloom-vortex=0.1.0;vortex=0.73"\n'
                 ')\n'
@@ -8786,6 +8767,8 @@ class ReleaseScriptTests(unittest.TestCase):
             client_tests = root / "python" / "tests" / "test_cli_client.py"
             client_tests.parent.mkdir(parents=True)
             client_tests.write_text(
+                "from release_report_utils import upstream_vortex_provider_version\n"
+                "UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)\n"
                 '{"key": "provider_version", "value": "0.73"}\n'
                 'self.assertEqual(result.provider_version, "0.73")\n',
                 encoding="utf-8",
@@ -8796,6 +8779,10 @@ class ReleaseScriptTests(unittest.TestCase):
         blockers = [blocker for row in rows for blocker in row["blockers"]]
         self.assertTrue(
             any('"0.72" if admitted' in blocker for blocker in blockers),
+            blockers,
+        )
+        self.assertTrue(
+            any(CURRENT_VORTEX_MANIFEST_VERSION in blocker for blocker in blockers),
             blockers,
         )
 
@@ -8929,6 +8916,29 @@ jobs:
             path = repo_root / rel_path
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("\n".join(markers) + "\n", encoding="utf-8")
+        v1_docs_module = self._load_script_module(
+            "check_v1_docs_productization.py",
+            "check_v1_docs_productization_public_status_fixture",
+        )
+        for rel_path in v1_docs_module.DOC_MARKERS:
+            path = repo_root / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            existing = path.read_text(encoding="utf-8") if path.exists() else ""
+            source_text = (REPO_ROOT / rel_path).read_text(encoding="utf-8")
+            if rel_path == v1_docs_module.SUPPORTED_UNSUPPORTED_DOC.as_posix():
+                path.write_text(source_text, encoding="utf-8")
+            else:
+                path.write_text(existing + source_text + "\n", encoding="utf-8")
+        for rel_path in (
+            "docs/status/runs-today-support-matrix.json",
+            "docs/release/package-channel-readiness-matrix.json",
+        ):
+            path = repo_root / rel_path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                (REPO_ROOT / rel_path).read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
         claim_module = self._load_script_module(
             "check_public_claim_language.py",
             "check_public_claim_language_public_status_fixture",

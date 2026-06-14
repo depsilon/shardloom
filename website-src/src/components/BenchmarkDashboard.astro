@@ -239,10 +239,10 @@ fact.join(dim, on="dim_key", how="inner").select(
 # global top-N; benchmark route owns the current top-N-per-group scenario
 fact.select("id", "group_key", "metric").nlargest(10, "metric").collect()
 
-# clean/cast/filter/write
+# clean/cast/filter/write through the default local JSONL sink
 fact.with_column("amount_float", sl.col("dirty_numeric").cast("float64")).filter(
     sl.col("amount_float") >= 0
-).limit(1000).write_vortex("target/clean-cast-filter-write.vortex", allow_overwrite=True)
+).limit(1000).write_jsonl("target/clean-cast-filter-write.jsonl", allow_overwrite=True)
 
 # malformed timestamp / dirty CSV, fail-closed unless cast path is admitted by current data
 fact.with_column("event_day", sl.col("raw_event_time").cast("date32")).limit(1000).collect()

@@ -20,7 +20,10 @@ Use this README as the entry point, then follow the source that matches your que
 | If you want to know... | Start here |
 | --- | --- |
 | What ShardLoom is and is not | [About](https://shardloom.io/about) |
-| How to install and run a local smoke | [Install](docs/getting-started/install.md), [first 10 minutes](docs/getting-started/first-10-minutes.md), [examples](docs/getting-started/examples.md) |
+| How to install and run a local smoke | [Install](docs/getting-started/install.md), [source checkout](docs/getting-started/source-checkout-install.md), [first 10 minutes](docs/getting-started/first-10-minutes.md), [examples](docs/getting-started/examples.md) |
+| Whether package install commands are live | [Package user install status](docs/getting-started/package-user-install.md) |
+| What is currently supported or blocked | [V1 supported/unsupported surface](docs/getting-started/v1-supported-unsupported.md) |
+| How to diagnose a run | [Troubleshooting and support bundle](docs/getting-started/troubleshooting-support.md) |
 | How routes, evidence, and claims fit together | [Compute flow](https://shardloom.io/compute-engine-flow), [canonical compute-flow reference](docs/architecture/compute-engine-flow-reference.md) |
 | What public support claims are currently allowed | [Public status matrix](docs/release/public-status-matrix.md) |
 | What finished-product v1 currently means | [Finished product scope](docs/release/finished-product-scope.md) |
@@ -88,7 +91,11 @@ claim.
 Start with:
 
 - [docs/getting-started/install.md](docs/getting-started/install.md)
+- [docs/getting-started/source-checkout-install.md](docs/getting-started/source-checkout-install.md)
+- [docs/getting-started/package-user-install.md](docs/getting-started/package-user-install.md)
 - [docs/getting-started/first-10-minutes.md](docs/getting-started/first-10-minutes.md)
+- [docs/getting-started/v1-supported-unsupported.md](docs/getting-started/v1-supported-unsupported.md)
+- [docs/getting-started/troubleshooting-support.md](docs/getting-started/troubleshooting-support.md)
 - [docs/getting-started/certified-local-workload.md](docs/getting-started/certified-local-workload.md)
 - [python/README.md](python/README.md)
 
@@ -199,10 +206,11 @@ fact.join(dim, on="dim_key", how="inner").select(
 # global top-N; benchmark route owns the current top-N-per-group scenario
 fact.select("id", "group_key", "metric").nlargest(10, "metric").collect()
 
-# clean/cast/filter/write
+# clean/cast/filter/write through the default local JSONL sink.
+# Use write_vortex only when the CLI is built with the vortex-write feature gate.
 fact.with_column("amount_float", sl.col("dirty_numeric").cast("float64")).filter(
     sl.col("amount_float") >= 0
-).limit(1000).write_vortex("target/clean-cast-filter-write.vortex", allow_overwrite=True)
+).limit(1000).write_jsonl("target/clean-cast-filter-write.jsonl", allow_overwrite=True)
 
 # malformed timestamp / dirty CSV, fail-closed unless cast path is admitted by current data
 fact.with_column("event_day", sl.col("raw_event_time").cast("date32")).limit(1000).collect()
