@@ -6373,7 +6373,7 @@ fn columnar_family_from_dtype_hint(
         Some(LogicalDType::Date32) => Ok("date32"),
         Some(LogicalDType::TimestampMicros) => Ok("timestamp_micros"),
         Some(dtype) => Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros columns only; no fallback execution was attempted",
+            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8/binary columns only; no fallback execution was attempted",
             dtype.as_str()
         ))),
     }
@@ -6409,6 +6409,9 @@ fn reject_columnar_non_finite_floats(column: &str, array: &dyn Array) -> Result<
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn arrow_column_family(column: &str, array: &dyn Array) -> Result<&'static str> {
+    if let Some(family) = dictionary_column_family(array.data_type()) {
+        return Ok(family);
+    }
     if array.as_any().is::<BooleanArray>() {
         return Ok("boolean");
     }
@@ -6448,9 +6451,38 @@ fn arrow_column_family(column: &str, array: &dyn Array) -> Result<&'static str> 
         return Ok("timestamp_micros");
     }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros columns only; no fallback execution was attempted",
+        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8/binary columns only; no fallback execution was attempted",
         array.data_type()
     )))
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn dictionary_column_family(dtype: &ArrowDataType) -> Option<&'static str> {
+    let ArrowDataType::Dictionary(key_dtype, value_dtype) = dtype else {
+        return None;
+    };
+    if !matches!(
+        key_dtype.as_ref(),
+        ArrowDataType::Int8
+            | ArrowDataType::Int16
+            | ArrowDataType::Int32
+            | ArrowDataType::Int64
+            | ArrowDataType::UInt8
+            | ArrowDataType::UInt16
+            | ArrowDataType::UInt32
+            | ArrowDataType::UInt64
+    ) {
+        return None;
+    }
+    match value_dtype.as_ref() {
+        ArrowDataType::Utf8 | ArrowDataType::LargeUtf8 | ArrowDataType::Utf8View => {
+            Some("dictionary_utf8")
+        }
+        ArrowDataType::Binary | ArrowDataType::LargeBinary | ArrowDataType::BinaryView => {
+            Some("dictionary_binary")
+        }
+        _ => None,
+    }
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -8480,6 +8512,7 @@ mod tests {
 
     #[cfg(feature = "universal-format-io")]
     #[test]
+    #[allow(clippy::float_cmp, clippy::too_many_lines)]
     fn local_flat_columnar_nullable_source_writes_reopens_validity() {
         use std::sync::Arc;
 
@@ -8603,6 +8636,144 @@ mod tests {
         assert!(active.value(0));
         assert!(active.is_null(1));
         assert!(!active.value(2));
+
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn local_flat_columnar_dictionary_source_writes_reopens_values() {
+        use std::sync::Arc;
+
+        use arrow_array::{
+            Array as _, ArrayAccessor as _, BinaryArray, DictionaryArray, Int32Array, Int64Array,
+            RecordBatch, StringArray, StructArray, types::Int32Type,
+        };
+        use arrow_schema::{DataType, Field, Schema};
+        use shardloom_core::LogicalDType;
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-dictionary-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec![
+            "id".to_string(),
+            "category".to_string(),
+            "payload".to_string(),
+        ];
+        let dictionary_utf8_dtype =
+            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8));
+        let dictionary_binary_dtype =
+            DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Binary));
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("category", dictionary_utf8_dtype.clone(), true),
+            Field::new("payload", dictionary_binary_dtype.clone(), true),
+        ]));
+        let category = DictionaryArray::<Int32Type>::from_iter([
+            Some("alpha"),
+            Some("beta"),
+            None,
+            Some("alpha"),
+        ]);
+        let payload = DictionaryArray::<Int32Type>::try_new(
+            Int32Array::from(vec![Some(0), Some(1), None, Some(0)]),
+            Arc::new(BinaryArray::from(vec![
+                Some(&b"raw"[..]),
+                Some(&[0x00, 0xff][..]),
+            ])),
+        )
+        .expect("binary dictionary");
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2, 3, 4])),
+                Arc::new(category),
+                Arc::new(payload),
+            ],
+        )
+        .expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            column_dtypes: vec![
+                Some(LogicalDType::Int64),
+                Some(LogicalDType::Utf8),
+                Some(LogicalDType::Binary),
+            ],
+            column_arrow_dtypes: vec![
+                Some(DataType::Int64),
+                Some(dictionary_utf8_dtype),
+                Some(dictionary_binary_dtype),
+            ],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: vec![batch],
+            row_count: 4,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 4);
+        assert_eq!(report.reopen_row_count, 4);
+        assert_eq!(
+            report.column_family_summary(),
+            "id:int64,category:dictionary_utf8,payload:dictionary_binary"
+        );
+        assert_eq!(report.array_build_provider_kind, "vortex_array_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "ArrayRef::from_arrow(RecordBatch)"
+        );
+        assert_eq!(
+            report.preparation_spine.materialization_boundary_status,
+            "columnar_source_state_preserved_to_vortex_array_provider"
+        );
+        assert_eq!(
+            report.preparation_spine.decode_boundary_status,
+            "no_scalar_row_decode_for_non_empty_batches"
+        );
+        assert!(report.manual_scalar_copy_avoided);
+        assert!(!report.preparation_spine.fallback_attempted);
+        assert!(!report.preparation_spine.external_engine_invoked);
+
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, schema.as_ref());
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        let category = struct_array
+            .column_by_name("category")
+            .expect("category column")
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("dictionary category column");
+        let typed = category
+            .downcast_dict::<StringArray>()
+            .expect("utf8 dictionary values");
+        assert_eq!(typed.value(0), "alpha");
+        assert_eq!(typed.value(1), "beta");
+        assert!(typed.is_null(2));
+        assert_eq!(typed.value(3), "alpha");
+        assert_eq!(category.null_count(), 1);
+        let payload = struct_array
+            .column_by_name("payload")
+            .expect("payload column")
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .expect("dictionary payload column");
+        let typed_payload = payload
+            .downcast_dict::<BinaryArray>()
+            .expect("binary dictionary values");
+        assert_eq!(typed_payload.value(0), b"raw");
+        assert_eq!(typed_payload.value(1), &[0x00, 0xff]);
+        assert!(typed_payload.is_null(2));
+        assert_eq!(typed_payload.value(3), b"raw");
+        assert_eq!(payload.null_count(), 1);
 
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");

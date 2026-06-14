@@ -246,7 +246,7 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_scoped_runtime_row_count",
-        "4"
+        "5"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_provider_candidate_row_count",
@@ -258,7 +258,7 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_scoped_runtime_row_ids",
-        "flat_scalar_rows_nullable_primitives,typed_complex_scalar_rows_arrow_provider,flat_columnar_source_state_arrow_provider,nullable_columnar_validity_provider_gate"
+        "flat_scalar_rows_nullable_primitives,typed_complex_scalar_rows_arrow_provider,flat_columnar_source_state_arrow_provider,nullable_columnar_validity_provider_gate,dictionary_encoded_utf8_binary_provider_gate"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_provider_candidate_row_ids",
@@ -299,6 +299,14 @@ fn vortex_api_inventory_exposes_native_writer_schema_certification() {
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_row_dictionary_encoded_primitives_provider_gate_status",
         "provider_candidate_pending_evidence"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_dictionary_encoded_utf8_binary_provider_gate_status",
+        "scoped_feature_gated_runtime"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_dictionary_encoded_utf8_binary_provider_gate_replay_evidence",
+        "local_flat_columnar_dictionary_source_writes_reopens_values"
     )));
     assert!(output.contains(&field(
         "vortex_native_writer_schema_certification_row_nullable_columnar_validity_provider_gate_status",
