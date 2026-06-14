@@ -321,6 +321,18 @@
             "object_store_rate_limit_policy_status",
             "object_etag_status",
             "object_version_status",
+            "object_store_write_request_count=2",
+            "object_store_commit_manifest_write_request_count=1",
+            "object_store_payload_bytes_written",
+            "object_store_commit_manifest_bytes_written",
+            "object_store_total_bytes_written",
+            "object_store_write_bounded_status=bounded_payload_and_manifest_under_fixture_budget",
+            "object_store_multipart_write_status=not_required_single_object_local_emulator_commit",
+            "object_store_write_retry_attempt_count=0",
+            "object_store_write_cache_hit_count=0",
+            "object_store_recovery_read_request_count=2",
+            "object_store_recovery_total_bytes_read",
+            "object_store_recovery_retry_attempt_count=0",
             "docs/use-cases/generated/object-store-local-emulator-read-smoke.md",
             "docs/use-cases/generated/object-store-local-emulator-write-smoke.md"
           ]
@@ -339,15 +351,20 @@
           "evidence_refs": [
             "object_store_write_recovery_status=recovered",
             "object_store_write_recovery_status=blocked_recovery_mismatch",
-            "commit_manifest_replay_status=recovered_local_emulator_sidecar"
+            "commit_manifest_replay_status=recovered_local_emulator_sidecar",
+            "object_store_ambiguous_commit_status=not_observed_local_commit_manifest_written",
+            "object_store_ambiguous_commit_status=rollback_cleanup_completed",
+            "object_store_recovery_ambiguous_commit_status=replay_matched_sidecar_manifest",
+            "object_store_recovery_ambiguous_commit_status=blocked_recovery_mismatch"
           ]
         },
         "memory_backpressure": {
-          "status": "blocked_partial_fixture_read_budget_only_missing_production_streaming_backpressure",
+          "status": "blocked_partial_fixture_read_write_budget_only_missing_production_streaming_backpressure",
           "evidence_refs": [
             "MAX_OBJECT_STORE_FIXTURE_BYTES",
             "object_store_bounded_read_status=bounded_byte_range_with_fixture_budget",
             "object_store_bounded_read_status=bounded_full_object_under_fixture_budget",
+            "object_store_write_bounded_status=bounded_payload_and_manifest_under_fixture_budget",
             "PROD-READY-1B bounded streaming reads"
           ]
         },

@@ -41,6 +41,105 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
+fn field_key(key: &str) -> String {
+    format!("\"key\":\"{key}\"")
+}
+
+fn assert_json_fields(output: &str, expected_fields: &[(&str, &str)]) {
+    for (key, value) in expected_fields {
+        assert!(
+            output.contains(&field(key, value)),
+            "missing field {key}={value} in output: {output}"
+        );
+    }
+}
+
+fn assert_json_field_keys(output: &str, expected_keys: &[&str]) {
+    for key in expected_keys {
+        assert!(
+            output.contains(&field_key(key)),
+            "missing field {key} in output: {output}"
+        );
+    }
+}
+
+fn assert_local_write_commit_evidence_fields(output: &str) {
+    assert_json_fields(
+        output,
+        &[
+            ("object_store_write_request_count", "2"),
+            ("object_store_commit_manifest_write_request_count", "1"),
+            ("object_store_payload_bytes_written", "14"),
+            (
+                "object_store_write_bounded_status",
+                "bounded_payload_and_manifest_under_fixture_budget",
+            ),
+            (
+                "object_store_multipart_write_status",
+                "not_required_single_object_local_emulator_commit",
+            ),
+            ("object_store_multipart_part_count", "0"),
+            (
+                "object_store_write_retry_policy_status",
+                "not_required_single_attempt_local_emulator_commit",
+            ),
+            ("object_store_write_retry_attempt_count", "0"),
+            (
+                "object_store_write_rate_limit_policy_status",
+                "not_required_local_emulator_no_network",
+            ),
+            ("object_store_rollback_cleanup_request_count", "0"),
+            (
+                "object_store_ambiguous_commit_status",
+                "not_observed_local_commit_manifest_written",
+            ),
+            (
+                "object_store_idempotency_scope",
+                "single_object_target_payload_digest",
+            ),
+            ("object_store_write_cache_hit_count", "0"),
+            ("object_store_write_cache_miss_count", "0"),
+        ],
+    );
+    assert_json_field_keys(
+        output,
+        &[
+            "object_store_commit_manifest_bytes_written",
+            "object_store_total_bytes_written",
+        ],
+    );
+}
+
+fn assert_write_recovery_replay_evidence_fields(output: &str) {
+    assert_json_fields(
+        output,
+        &[
+            ("object_store_recovery_read_request_count", "2"),
+            ("object_store_recovery_object_bytes_read", "19"),
+            (
+                "object_store_recovery_retry_policy_status",
+                "not_required_single_attempt_local_emulator_recovery",
+            ),
+            ("object_store_recovery_retry_attempt_count", "0"),
+            (
+                "object_store_recovery_rate_limit_policy_status",
+                "not_required_local_emulator_no_network",
+            ),
+            (
+                "object_store_recovery_ambiguous_commit_status",
+                "replay_matched_sidecar_manifest",
+            ),
+        ],
+    );
+    assert_json_field_keys(
+        output,
+        &[
+            "object_store_recovery_manifest_bytes_read",
+            "object_store_recovery_total_bytes_read",
+        ],
+    );
+}
+
 fn sidecar_path(target: &Path) -> PathBuf {
     PathBuf::from(format!(
         "{}.shardloom-commit.json",
@@ -115,6 +214,7 @@ fn local_emulator_write_commits_payload_and_manifest_evidence() {
     assert!(output.contains(&field("rollback_status", "not_requested")));
     assert!(output.contains(&field("idempotency_key", "orders-batch-001")));
     assert!(output.contains(&field("idempotency_status", "caller_supplied")));
+    assert_local_write_commit_evidence_fields(&output);
     assert!(output.contains(&field("object_store_io", "true")));
     assert!(output.contains(&field("object_store_write_io", "true")));
     assert!(output.contains(&field("write_io", "true")));
@@ -197,6 +297,7 @@ fn local_emulator_write_recovery_replays_commit_manifest_evidence() {
         "idempotency_status",
         "recovered_from_commit_manifest"
     )));
+    assert_write_recovery_replay_evidence_fields(&output);
     assert!(output.contains(&field("native_io_certificate_status", "fixture_smoke_only")));
     assert!(output.contains(&field("claim_gate_status", "fixture_smoke_only")));
     assert!(output.contains(&field("object_store_io", "true")));
@@ -253,6 +354,24 @@ fn write_recovery_blocks_tampered_object_without_fallback() {
     )));
     assert!(output.contains(&field("target_digest_matched", "false")));
     assert!(output.contains(&field("payload_digest_matched", "false")));
+    assert_json_fields(
+        &output,
+        &[
+            ("object_store_recovery_read_request_count", "2"),
+            (
+                "object_store_recovery_retry_policy_status",
+                "not_retried_recovery_evidence_mismatch",
+            ),
+            (
+                "object_store_recovery_rate_limit_policy_status",
+                "not_required_local_emulator_no_network",
+            ),
+            (
+                "object_store_recovery_ambiguous_commit_status",
+                "blocked_recovery_mismatch",
+            ),
+        ],
+    );
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("object_store_read_io", "false")));
     assert!(output.contains(&field("object_store_write_io", "false")));
@@ -295,6 +414,27 @@ fn remote_recovery_target_is_blocked_without_probe_or_read() {
     assert!(output.contains(&field("request_signing_status", "blocked_not_invoked")));
     assert!(output.contains(&field("network_probe_performed", "false")));
     assert!(output.contains(&field("provider_probe_performed", "false")));
+    assert_json_fields(
+        &output,
+        &[
+            ("object_store_recovery_read_request_count", "0"),
+            ("object_store_recovery_object_bytes_read", "0"),
+            ("object_store_recovery_manifest_bytes_read", "0"),
+            ("object_store_recovery_total_bytes_read", "0"),
+            (
+                "object_store_recovery_retry_policy_status",
+                "blocked_before_retry",
+            ),
+            (
+                "object_store_recovery_rate_limit_policy_status",
+                "blocked_before_rate_limit_policy",
+            ),
+            (
+                "object_store_recovery_ambiguous_commit_status",
+                "blocked_before_recovery_replay",
+            ),
+        ],
+    );
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("object_store_read_io", "false")));
     assert!(output.contains(&field("object_store_write_io", "false")));
@@ -337,6 +477,27 @@ fn rollback_after_commit_cleans_target_and_manifest_with_evidence() {
         "performed_local_emulator_cleanup"
     )));
     assert!(output.contains(&field("cleanup_deleted_count", "2")));
+    assert_json_fields(
+        &output,
+        &[
+            ("object_store_write_request_count", "2"),
+            ("object_store_commit_manifest_write_request_count", "1"),
+            ("object_store_payload_bytes_written", "16"),
+            (
+                "object_store_write_bounded_status",
+                "bounded_payload_and_manifest_under_fixture_budget",
+            ),
+            (
+                "object_store_multipart_write_status",
+                "not_required_single_object_local_emulator_commit",
+            ),
+            ("object_store_rollback_cleanup_request_count", "2"),
+            (
+                "object_store_ambiguous_commit_status",
+                "rollback_cleanup_completed",
+            ),
+        ],
+    );
     assert!(output.contains(&field("commit_manifest_present", "false")));
     assert!(output.contains(&field("target_exists_after_commit", "false")));
     assert!(output.contains(&field("object_store_write_io", "true")));
@@ -552,6 +713,33 @@ fn remote_target_is_blocked_without_write_or_probe() {
     assert!(output.contains(&field("request_signing_status", "blocked_not_invoked")));
     assert!(output.contains(&field("network_probe_performed", "false")));
     assert!(output.contains(&field("provider_probe_performed", "false")));
+    assert_json_fields(
+        &output,
+        &[
+            ("object_store_write_request_count", "0"),
+            ("object_store_commit_manifest_write_request_count", "0"),
+            ("object_store_payload_bytes_written", "0"),
+            ("object_store_commit_manifest_bytes_written", "0"),
+            ("object_store_total_bytes_written", "0"),
+            ("object_store_write_bounded_status", "not_performed_blocked"),
+            (
+                "object_store_multipart_write_status",
+                "not_performed_blocked",
+            ),
+            (
+                "object_store_write_retry_policy_status",
+                "blocked_before_retry",
+            ),
+            (
+                "object_store_write_rate_limit_policy_status",
+                "blocked_before_rate_limit_policy",
+            ),
+            (
+                "object_store_ambiguous_commit_status",
+                "blocked_before_commit_claim",
+            ),
+        ],
+    );
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("object_store_write_io", "false")));
     assert!(output.contains(&field("write_io", "false")));
