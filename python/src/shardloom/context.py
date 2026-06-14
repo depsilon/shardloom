@@ -10792,13 +10792,18 @@ class ShardLoomContext:
 
     def extension_inspect(
         self,
-        extension_id: str,
+        extension_id: str | None = None,
         *,
+        manifest_path: str | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Inspect extension manifest metadata without loading extension code."""
 
-        return self.client.extension_inspect(extension_id, check=check)
+        return self.client.extension_inspect(
+            extension_id,
+            manifest_path=manifest_path,
+            check=check,
+        )
 
     def udf_runtime_plan(
         self,

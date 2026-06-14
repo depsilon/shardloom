@@ -16,10 +16,18 @@ The current admitted runtime exception is not a plugin extension: it is the buil
 `docs/architecture/effectful-operation-admission-matrix.md`. Dynamic plugin loading, arbitrary UDFs,
 Python/WASM/Rust extension execution, and external-service UDFs remain blocked here.
 
+`extension-inspect --manifest <local-json>` now performs bounded local JSON manifest inspection for
+`shardloom.extension_manifest.v1`. This is an agent-safe metadata path: it reads a caller-provided
+regular local file under a fixed byte limit, parses declared capability/permission/effect/sandbox/
+license/provenance fields, and emits review/blocker evidence. It does not load a dynamic library,
+execute extension code, run a UDF, resolve credentials, probe the network, expand dependencies, or
+enable the manifest as runtime support.
+
 The matrix is emitted by:
 
 - `shardloom extension-registry --format json`
 - `shardloom extension-inspect <extension_id> --format json`
+- `shardloom extension-inspect --manifest <local-json> --format json`
 - `shardloom udf-runtime-plan <runtime> --format json`
 - `shardloom udf-local-scalar-fixture-smoke <values> --format json`
 - `shardloom capabilities extensions --format json`
@@ -45,6 +53,36 @@ extension_manifest_effect_network_probe_performed=false
 extension_manifest_effect_dependency_expansion_allowed=false
 extension_manifest_effect_fallback_attempted=false
 extension_manifest_effect_external_engine_invoked=false
+```
+
+`extension-inspect --manifest` additionally emits:
+
+```text
+extension_manifest_inspection_schema_version=shardloom.extension_manifest_inspection.v1
+extension_manifest_input_kind=local_manifest_file
+extension_manifest_schema_version=shardloom.extension_manifest.v1
+extension_manifest_json_parse_status=passed_no_code_loaded
+extension_manifest_file_read_request_count=1
+extension_manifest_bytes_read=<bounded local manifest bytes>
+extension_manifest_inspection_status=validated|requires_review
+extension_manifest_id=<manifest id>
+extension_manifest_category=<declared category>
+extension_manifest_capability_count=<count>
+extension_manifest_supported_capability_claim_count=<count>
+extension_manifest_permission_names=<comma-separated permissions>
+extension_manifest_effect_kinds=<comma-separated effects>
+extension_manifest_effect_levels=<comma-separated effect levels>
+extension_manifest_review_required=true|false
+extension_manifest_runtime_execution=false
+extension_manifest_dynamic_loading_performed=false
+extension_manifest_extension_code_executed=false
+extension_manifest_udf_execution_performed=false
+extension_manifest_external_effect_executed=false
+extension_manifest_credential_resolution_performed=false
+extension_manifest_network_probe_performed=false
+extension_manifest_dependency_expansion_allowed=false
+extension_manifest_fallback_attempted=false
+extension_manifest_external_engine_invoked=false
 ```
 
 ## Rows

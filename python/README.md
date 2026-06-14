@@ -2729,20 +2729,27 @@ print(udf.field_bool("fallback_attempted"))
 ```
 
 Extension metadata and UDF runtime posture remain inspectable without executing
-extension code. The same helpers are available on `ShardLoomContext` when you
-want one high-level workflow surface:
+extension code. A local extension manifest can be inspected as bounded metadata;
+the CLI does not load extension code, resolve credentials, probe networks, or
+enable plugin runtime support. The same helpers are available on
+`ShardLoomContext` when you want one high-level workflow surface:
 
 ```python
 extensions = client.extension_registry()
+manifest = client.extension_inspect(manifest_path="target/extension.json")
 fixture_plan = client.udf_runtime_plan("fixture")
 python_plan = client.udf_runtime_plan("python")
 print(extensions.field("extension_manifest_effect_all_runtime_blocked"))
-print(fixture_plan.field("runtime_kind"))
-print(python_plan.field("runtime_support_status"))
+print(manifest.field("extension_manifest_inspection_status"))
+print(manifest.field_bool("extension_manifest_extension_code_executed"))
+print(fixture_plan.field("udf_runtime_kind"))
+print(python_plan.field("udf_runtime_support_status"))
 
 ctx_extensions = ctx.extension_registry()
+ctx_manifest = ctx.extension_inspect(manifest_path="target/extension.json")
 ctx_udf = ctx.udf_local_scalar_fixture_smoke([1, None, 3])
 print(ctx_extensions.field_bool("extension_code_executed"))
+print(ctx_manifest.field_bool("extension_manifest_external_effect_executed"))
 print(ctx_udf.field_bool("fallback_attempted"))
 ```
 

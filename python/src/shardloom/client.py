@@ -12465,12 +12465,17 @@ class ShardLoomClient:
 
     def extension_inspect(
         self,
-        extension_id: str,
+        extension_id: str | None = None,
         *,
+        manifest_path: str | None = None,
         check: bool = True,
     ) -> OutputEnvelope:
         """Inspect extension manifest metadata without loading extension code."""
 
+        if manifest_path is not None:
+            return self.run(["extension-inspect", "--manifest", manifest_path], check=check)
+        if extension_id is None:
+            raise ValueError("extension_id or manifest_path is required")
         return self.run(["extension-inspect", extension_id], check=check)
 
     def udf_runtime_plan(
