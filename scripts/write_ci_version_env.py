@@ -9,11 +9,7 @@ import os
 from pathlib import Path
 
 from release_report_utils import (
-    rust_msrv_lane_id,
-    rust_toolchain_version,
-    upstream_vortex_lock_version,
-    upstream_vortex_manifest_version,
-    upstream_vortex_provider_version,
+    workspace_version_env,
 )
 
 
@@ -33,19 +29,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def version_env(repo_root: Path) -> dict[str, str]:
-    return {
-        "SHARDLOOM_RUST_MSRV_TOOLCHAIN": rust_toolchain_version(repo_root),
-        "SHARDLOOM_RUST_MSRV_LANE": rust_msrv_lane_id(repo_root),
-        "SHARDLOOM_UPSTREAM_VORTEX_MANIFEST_VERSION": upstream_vortex_manifest_version(
-            repo_root
-        ),
-        "SHARDLOOM_UPSTREAM_VORTEX_LOCK_VERSION": upstream_vortex_lock_version(
-            repo_root
-        ),
-        "SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION": upstream_vortex_provider_version(
-            repo_root
-        ),
-    }
+    return workspace_version_env(repo_root)
 
 
 def main() -> int:

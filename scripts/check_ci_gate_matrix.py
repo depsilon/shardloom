@@ -215,14 +215,17 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         commands=(
             "python scripts/merge_release_evidence_artifacts.py",
             "python scripts/check_contribution_governance.py",
+            "python scripts/check_workspace_version_sources.py",
             "python scripts/check_package_channel_readiness.py --require-local-evidence",
         ),
         artifact_refs=(
             "target/contribution-governance-report.json",
+            "target/workspace-version-source-report.json",
             "target/package-channel-readiness-report.json",
         ),
         release_blocker_refs=(
             "contribution governance",
+            "workspace Rust/Vortex version source contract",
             "package channel matrix",
         ),
         workflow_markers=(
@@ -235,6 +238,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/downloads",
             "Merge package/governance input evidence",
             "merge_release_evidence_artifacts.py",
+            "Workspace version source contract",
         ),
     ),
     CiLane(
@@ -336,6 +340,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "python scripts/check_v1_correctness_conformance.py",
             "python scripts/check_v1_security_ci_hardening.py",
             "python scripts/check_release_readiness.py",
+            "python scripts/check_finished_product_readiness.py",
         ),
         artifact_refs=(
             "target/dependency-audit-report.json",
@@ -356,6 +361,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/final-release-rehearsal",
             "target/public-status-docs-report.json",
             "target/website-readiness-report.json",
+            "target/workspace-version-source-report.json",
             "target/production-usability-gate.json",
             "target/v1-api-schema-stability-report.json",
             "target/v1-example-replay-report.json",
@@ -381,6 +387,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/benchmark-optimization-targets-report.json",
             "target/ci-gate-matrix-report.json",
             "target/hard-release-readiness-gate.json",
+            "target/finished-product-readiness-report.json",
         ),
         release_blocker_refs=(
             "final rehearsal",
@@ -389,6 +396,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "v1 correctness/conformance gate",
             "v1 security/CI hardening gate",
             "hard release readiness gate",
+            "finished product readiness gate",
             "release readiness artifact aggregation",
         ),
         workflow_markers=(
@@ -416,6 +424,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "Merge downloaded release evidence",
             "Verify downloaded release evidence",
             "continue-on-error: true",
+            "Finished product readiness gate",
         ),
     ),
     CiLane(

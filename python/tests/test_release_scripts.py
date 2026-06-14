@@ -24,11 +24,13 @@ from release_report_utils import (
     upstream_vortex_lock_version,
     upstream_vortex_manifest_version,
     upstream_vortex_provider_version,
+    workspace_version_env,
 )
 
 CURRENT_VORTEX_MANIFEST_VERSION = upstream_vortex_manifest_version(REPO_ROOT)
 CURRENT_VORTEX_LOCK_VERSION = upstream_vortex_lock_version(REPO_ROOT)
 UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)
+WORKSPACE_VERSION_ENV = workspace_version_env(REPO_ROOT)
 
 
 class ReleaseScriptTests(unittest.TestCase):
@@ -7062,6 +7064,172 @@ class ReleaseScriptTests(unittest.TestCase):
         }
         path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
+    def _write_workspace_version_source_fixture(
+        self,
+        root: Path,
+        *,
+        stale: bool = False,
+    ) -> None:
+        (root / "Cargo.toml").write_text(
+            textwrap.dedent(
+                f"""
+                [workspace]
+                members = ["shardloom-core", "shardloom-vortex"]
+
+                [workspace.package]
+                version = "0.1.0"
+                rust-version = "1.96"
+
+                [workspace.dependencies]
+                vortex = "{CURRENT_VORTEX_MANIFEST_VERSION}"
+                """
+            ).strip()
+            + "\n",
+            encoding="utf-8",
+        )
+        (root / "Cargo.lock").write_text(
+            "[[package]]\n"
+            'name = "vortex"\n'
+            f'version = "{CURRENT_VORTEX_LOCK_VERSION}"\n',
+            encoding="utf-8",
+        )
+        core_manifest = root / "shardloom-core" / "Cargo.toml"
+        core_manifest.parent.mkdir(parents=True)
+        core_manifest.write_text(
+            "[package]\n"
+            'name = "shardloom-core"\n'
+            "version.workspace = true\n"
+            + ("" if stale else "rust-version.workspace = true\n"),
+            encoding="utf-8",
+        )
+        vortex_manifest = root / "shardloom-vortex" / "Cargo.toml"
+        vortex_manifest.parent.mkdir(parents=True)
+        vortex_manifest.write_text(
+            "[package]\n"
+            'name = "shardloom-vortex"\n'
+            "version.workspace = true\n"
+            "rust-version.workspace = true\n"
+            "\n"
+            "[dependencies]\n"
+            + (
+                f'vortex = "{CURRENT_VORTEX_MANIFEST_VERSION}"\n'
+                if stale
+                else "vortex = { workspace = true, optional = true }\n"
+            ),
+            encoding="utf-8",
+        )
+        build_rs = root / "shardloom-vortex" / "build.rs"
+        build_rs.write_text(
+            (
+                f'const VORTEX_VERSION: &str = "{CURRENT_VORTEX_MANIFEST_VERSION}";\n'
+                if stale
+                else 'workspace_dependency_version(&workspace_manifest_text, "vortex")\n'
+                'cargo:rustc-env=SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION={vortex_version}\n'
+            ),
+            encoding="utf-8",
+        )
+        release_utils = root / "scripts" / "release_report_utils.py"
+        release_utils.parent.mkdir(parents=True)
+        release_utils.write_text(
+            "def workspace_rust_version(): pass\n"
+            "def upstream_vortex_manifest_version(): pass\n"
+            "def upstream_vortex_lock_version(): pass\n"
+            "def upstream_vortex_provider_version(): pass\n"
+            "def workspace_version_env(): pass\n",
+            encoding="utf-8",
+        )
+        (root / "scripts" / "write_ci_version_env.py").write_text(
+            (
+                "from release_report_utils import rust_toolchain_version\n"
+                if stale
+                else "from release_report_utils import workspace_version_env\n"
+            ),
+            encoding="utf-8",
+        )
+        workflow = root / ".github" / "workflows" / "ci.yml"
+        workflow.parent.mkdir(parents=True)
+        workflow.write_text(
+            'python scripts/write_ci_version_env.py --github-env "$GITHUB_ENV"\n'
+            'rustup toolchain install "$SHARDLOOM_RUST_MSRV_TOOLCHAIN"\n'
+            'python scripts/write_release_compatibility_lane_report.py --lane "$SHARDLOOM_RUST_MSRV_LANE"\n',
+            encoding="utf-8",
+        )
+        benchmark = root / "benchmarks" / "traditional_analytics" / "run.py"
+        benchmark.parent.mkdir(parents=True)
+        benchmark.write_text(
+            "from release_report_utils import upstream_vortex_provider_version\n"
+            "UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)\n",
+            encoding="utf-8",
+        )
+        (root / "scripts" / "check_pre_5j_dependency_freshness.py").write_text(
+            "$CURRENT_VORTEX_MANIFEST_VERSION\n"
+            "$CURRENT_VORTEX_LOCK_VERSION\n"
+            "$CURRENT_VORTEX_PROVIDER_VERSION\n"
+            "upstream_vortex_provider_version(repo_root)\n",
+            encoding="utf-8",
+        )
+
+    def _write_finished_product_readiness_fixture(
+        self,
+        module: object,
+        root: Path,
+        *,
+        local_blocked: bool = False,
+        public_ready: bool = False,
+    ) -> Path:
+        safety_fields = getattr(module, "FALSE_SAFETY_FIELDS")
+        for requirement in getattr(module, "LOCAL_PRODUCT_REPORTS"):
+            path = root / requirement.path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "schema_version": requirement.schema_version,
+                "status": "passed",
+                "blockers": [],
+                "claim_gate_status": "not_claim_grade",
+                **{field: False for field in safety_fields},
+            }
+            if requirement.status_field is None:
+                payload.pop("status", None)
+            if requirement.name == "package_channel_readiness":
+                payload["local_gate_evidence_status"] = "passed"
+            if local_blocked and requirement.name == "v1_api_schema_stability":
+                payload["status"] = "blocked"
+                payload["blockers"] = ["schema fixture drift"]
+            path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+        for requirement in getattr(module, "PUBLICATION_REPORTS"):
+            path = root / requirement.path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "schema_version": requirement.schema_version,
+                "status": "passed" if public_ready else "blocked",
+                "blockers": [] if public_ready else ["human approval required"],
+                "claim_gate_status": "not_claim_grade",
+                **{field: False for field in safety_fields},
+            }
+            path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+        matrix_path = root / "docs" / "release" / "package-channel-readiness-matrix.json"
+        matrix_path.parent.mkdir(parents=True, exist_ok=True)
+        matrix = {
+            "schema_version": "shardloom.package_channel_readiness_matrix.v1",
+            "status": "ready" if public_ready else "blocked",
+            "public_package_release_claim_allowed": public_ready,
+            "publication_authorization_state": "approved"
+            if public_ready
+            else "human_approval_required",
+            "channels": [
+                {
+                    "channel_id": "pypi",
+                    "status": "ready" if public_ready else "blocked",
+                    "ready": public_ready,
+                }
+            ],
+            **{field: False for field in safety_fields},
+        }
+        matrix_path.write_text(json.dumps(matrix, indent=2) + "\n", encoding="utf-8")
+        return matrix_path
+
     def test_dependency_audit_resolves_configured_pip_audit_python(self) -> None:
         module = self._load_script_module(
             "check_dependency_audit.py", "check_dependency_audit_pip_audit_for_test"
@@ -7129,6 +7297,10 @@ class ReleaseScriptTests(unittest.TestCase):
         )
         self.assertEqual(commands["python_build"], ["/tool/python3.12", "-m", "build", "python"])
         self.assertEqual(commands["release_security_gate"][0], "/tool/python3.12")
+        self.assertEqual(
+            commands["workspace_version_source_contract"],
+            ["/tool/python3.12", "scripts/check_workspace_version_sources.py"],
+        )
         self.assertEqual(commands["package_channel_readiness"][0], "/tool/python3.12")
         self.assertEqual(
             commands["benchmark_constitution"],
@@ -8722,6 +8894,156 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(lock_versions["rusqlite"], "0.40.1")
         self.assertEqual(lock_versions["libsqlite3-sys"], "0.38.1")
 
+    def test_workspace_version_source_contract_accepts_manifest_derived_versions(self) -> None:
+        module = self._load_script_module(
+            "check_workspace_version_sources.py",
+            "check_workspace_version_sources_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace_version_source_fixture(root)
+
+            report = module.build_report(root)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(
+            report["version_env"]["SHARDLOOM_RUST_MSRV_TOOLCHAIN"],
+            WORKSPACE_VERSION_ENV["SHARDLOOM_RUST_MSRV_TOOLCHAIN"],
+        )
+        self.assertEqual(
+            report["version_env"]["SHARDLOOM_UPSTREAM_VORTEX_MANIFEST_VERSION"],
+            CURRENT_VORTEX_MANIFEST_VERSION,
+        )
+        self.assertEqual(
+            report["version_env"]["SHARDLOOM_UPSTREAM_VORTEX_LOCK_VERSION"],
+            CURRENT_VORTEX_LOCK_VERSION,
+        )
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+
+    def test_workspace_version_source_contract_blocks_duplicate_version_sources(self) -> None:
+        module = self._load_script_module(
+            "check_workspace_version_sources.py",
+            "check_workspace_version_sources_blocker_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_workspace_version_source_fixture(root, stale=True)
+
+            report = module.build_report(root)
+
+        blockers = "\n".join(report["blockers"])
+        self.assertEqual(report["status"], "blocked")
+        self.assertIn("shardloom-core: rust-version must inherit", blockers)
+        self.assertIn("shardloom-vortex/Cargo.toml", blockers)
+        self.assertIn("forbidden marker", blockers)
+        self.assertIn("scripts/write_ci_version_env.py", blockers)
+
+    def test_finished_product_readiness_allows_local_ready_publication_blocked(self) -> None:
+        module = self._load_script_module(
+            "check_finished_product_readiness.py",
+            "check_finished_product_readiness_local_ready_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            matrix_path = self._write_finished_product_readiness_fixture(module, root)
+
+            report = module.build_report(
+                root,
+                package_channel_matrix=matrix_path,
+                require_public_release_ready=False,
+            )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(
+            report["finished_product_readiness_status"],
+            "local_v1_ready_publication_blocked",
+        )
+        self.assertTrue(report["local_evidence_ready"])
+        self.assertFalse(report["public_release_ready"])
+        self.assertFalse(report["public_release_claim_allowed"])
+        self.assertFalse(report["public_package_claim_allowed"])
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+        self.assertEqual(report["local_evidence_blockers"], [])
+        self.assertTrue(report["public_release_blockers"])
+
+    def test_finished_product_readiness_public_mode_requires_public_evidence(self) -> None:
+        module = self._load_script_module(
+            "check_finished_product_readiness.py",
+            "check_finished_product_readiness_public_mode_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            matrix_path = self._write_finished_product_readiness_fixture(module, root)
+
+            report = module.build_report(
+                root,
+                package_channel_matrix=matrix_path,
+                require_public_release_ready=True,
+            )
+
+        blockers = "\n".join(report["blockers"])
+        self.assertEqual(report["status"], "blocked")
+        self.assertTrue(report["local_evidence_ready"])
+        self.assertIn("package channels not ready", blockers)
+        self.assertFalse(report["public_release_claim_allowed"])
+
+    def test_finished_product_readiness_public_mode_passes_with_public_evidence(self) -> None:
+        module = self._load_script_module(
+            "check_finished_product_readiness.py",
+            "check_finished_product_readiness_public_ready_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            matrix_path = self._write_finished_product_readiness_fixture(
+                module,
+                root,
+                public_ready=True,
+            )
+
+            report = module.build_report(
+                root,
+                package_channel_matrix=matrix_path,
+                require_public_release_ready=True,
+            )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(
+            report["finished_product_readiness_status"],
+            "public_release_ready",
+        )
+        self.assertTrue(report["public_release_ready"])
+        self.assertTrue(report["public_release_claim_allowed"])
+        self.assertTrue(report["public_package_claim_allowed"])
+        self.assertFalse(report["publication_attempted"])
+        self.assertFalse(report["tag_created"])
+
+    def test_finished_product_readiness_blocks_local_evidence_drift(self) -> None:
+        module = self._load_script_module(
+            "check_finished_product_readiness.py",
+            "check_finished_product_readiness_local_blocker_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            matrix_path = self._write_finished_product_readiness_fixture(
+                module,
+                root,
+                local_blocked=True,
+            )
+
+            report = module.build_report(
+                root,
+                package_channel_matrix=matrix_path,
+                require_public_release_ready=False,
+            )
+
+        blockers = "\n".join(report["local_evidence_blockers"])
+        self.assertEqual(report["status"], "blocked")
+        self.assertFalse(report["local_evidence_ready"])
+        self.assertIn("v1_api_schema_stability", blockers)
+        self.assertIn("schema fixture drift", blockers)
+
     def test_pre_5j_dependency_freshness_blocks_stale_vortex_provider_surfaces(self) -> None:
         module = self._load_script_module(
             "check_pre_5j_dependency_freshness.py",
@@ -8885,11 +9207,27 @@ jobs:
 
         self.assertIn("python scripts/check_release_readiness.py", release_lane.commands)
         self.assertIn("python scripts/check_v1_security_ci_hardening.py", release_lane.commands)
+        self.assertIn("python scripts/check_finished_product_readiness.py", release_lane.commands)
+        self.assertIn(
+            "target/finished-product-readiness-report.json",
+            release_lane.artifact_refs,
+        )
         self.assertNotIn(
             "python scripts/check_release_readiness.py --allow-blocked",
             release_lane.commands,
         )
         self.assertIn("continue-on-error: true", release_lane.workflow_markers)
+
+        package_lane = next(
+            lane
+            for lane in module.REQUIRED_LANES
+            if lane.lane_id == "release_package_governance_evidence"
+        )
+        self.assertIn("python scripts/check_workspace_version_sources.py", package_lane.commands)
+        self.assertIn(
+            "target/workspace-version-source-report.json",
+            package_lane.artifact_refs,
+        )
 
         lane_ids = {lane.lane_id for lane in module.REQUIRED_LANES}
         self.assertIn("python_compatibility_matrix", lane_ids)

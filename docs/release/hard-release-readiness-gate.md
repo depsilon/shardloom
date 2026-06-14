@@ -71,6 +71,10 @@ The gate aggregates:
 - clean Conda environment install proof
 - release security gate report
 - contribution governance intake report
+- workspace Rust/Vortex version source report proving Rust MSRV derives from root
+  `[workspace.package].rust-version`, Vortex provider evidence derives from root
+  `[workspace.dependencies].vortex`, and active CI/evidence surfaces reuse the shared helper instead
+  of hard-coded current-version literals
 - golden local runtime workflow validator report
 - admitted semantics fixture matrix validator report
 - package metadata, license, repository, and homepage metadata
@@ -116,6 +120,7 @@ python -m unittest discover python/tests
 python -m build python
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 cargo run -q -p shardloom-cli -- global-architecture-gate --format json
+python scripts\check_workspace_version_sources.py
 python scripts\check_release_security_gate.py
 python scripts\check_release_architecture_tracker.py --allow-blocked
 python scripts\check_contribution_governance.py

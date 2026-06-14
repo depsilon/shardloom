@@ -47,6 +47,8 @@ Dependabot cannot:
    `SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION` from the workspace dependency so Rust evidence,
    Python release tooling, and benchmark publication do not carry duplicate current-version
    strings.
+   Run `python scripts/check_workspace_version_sources.py` after changing either Rust MSRV or the
+   Vortex dependency so the source-of-truth contract stays machine-checked.
 6. Run feature-gated compile checks for every existing Vortex feature gate:
    - `cargo check -p shardloom-vortex`
    - `cargo check -p shardloom-vortex --features upstream-vortex`
@@ -77,6 +79,7 @@ $env:RUSTUP_TOOLCHAIN='<workspace-msrv-toolchain>'; cargo clippy --workspace --a
 $env:RUSTUP_TOOLCHAIN='<workspace-msrv-toolchain>'; cargo test --workspace --all-targets
 $env:RUSTUP_TOOLCHAIN='<workspace-msrv-toolchain>'; cargo test -p shardloom-contract-tests --test release_readiness_metadata
 $env:RUSTUP_TOOLCHAIN='<workspace-msrv-toolchain>'; cargo test -p shardloom-contract-tests --test no_fallback_invariants
+python scripts/check_workspace_version_sources.py
 git diff --check
 ```
 

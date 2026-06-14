@@ -176,6 +176,10 @@ def required_validation_commands(
         ),
         ("contribution_governance", [python_executable, "scripts/check_contribution_governance.py"]),
         ("ci_gate_matrix_contract", [python_executable, "scripts/check_ci_gate_matrix.py"]),
+        (
+            "workspace_version_source_contract",
+            [python_executable, "scripts/check_workspace_version_sources.py"],
+        ),
         ("release_security_gate", [python_executable, "scripts/check_release_security_gate.py"]),
         (
             "release_architecture_tracker",

@@ -92,6 +92,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/package-channel-readiness-report.json"),
     )
     parser.add_argument(
+        "--workspace-version-source-report",
+        type=Path,
+        default=Path("target/workspace-version-source-report.json"),
+    )
+    parser.add_argument(
         "--per-claim-evidence-matrix",
         type=Path,
         default=Path("docs/release/per-claim-evidence-attachment-matrix.md"),
@@ -451,6 +456,10 @@ def main() -> int:
     validation_evidence_path = resolve(repo_root, args.validation_evidence)
     package_channel_matrix_path = resolve(repo_root, args.package_channel_matrix)
     package_channel_report_path = resolve(repo_root, args.package_channel_report)
+    workspace_version_source_report_path = resolve(
+        repo_root,
+        args.workspace_version_source_report,
+    )
     per_claim_evidence_matrix_path = resolve(repo_root, args.per_claim_evidence_matrix)
     architecture_tracker_report_path = resolve(repo_root, args.architecture_tracker_report)
     final_release_rehearsal_report_path = resolve(repo_root, args.final_release_rehearsal_report)
@@ -812,6 +821,68 @@ def main() -> int:
         if required not in cargo:
             metadata_blockers.append(f"missing Cargo metadata: {required}")
     checks.append(check("package_metadata_license_and_discoverability", "Cargo.toml python/pyproject.toml", metadata_blockers))
+
+    workspace_version_source = load_json(workspace_version_source_report_path)
+    workspace_version_blockers: list[str] = []
+    if workspace_version_source is None:
+        workspace_version_blockers.append("missing workspace version source report")
+    else:
+        if (
+            workspace_version_source.get("schema_version")
+            != "shardloom.workspace_version_source_report.v1"
+        ):
+            workspace_version_blockers.append(
+                "workspace version source schema_version="
+                + str(workspace_version_source.get("schema_version", "missing"))
+            )
+        if workspace_version_source.get("status") != "passed":
+            workspace_version_blockers.extend(
+                workspace_version_source.get(
+                    "blockers", ["workspace version source contract blocked"]
+                )
+            )
+        version_env = workspace_version_source.get("version_env")
+        if not isinstance(version_env, dict):
+            workspace_version_blockers.append("workspace version source missing version_env")
+        else:
+            for key in [
+                "SHARDLOOM_RUST_MSRV_TOOLCHAIN",
+                "SHARDLOOM_RUST_MSRV_LANE",
+                "SHARDLOOM_UPSTREAM_VORTEX_MANIFEST_VERSION",
+                "SHARDLOOM_UPSTREAM_VORTEX_LOCK_VERSION",
+                "SHARDLOOM_UPSTREAM_VORTEX_PROVIDER_VERSION",
+            ]:
+                if not version_env.get(key):
+                    workspace_version_blockers.append(
+                        f"workspace version source missing version_env {key}"
+                    )
+        for field in [
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+            "publication_attempted",
+            "tag_created",
+            "secrets_required",
+            "package_upload_attempted",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if workspace_version_source.get(field) is not False:
+                workspace_version_blockers.append(f"workspace version source {field} must be false")
+        if workspace_version_source.get("claim_gate_status") != "not_claim_grade":
+            workspace_version_blockers.append(
+                "workspace version source claim_gate_status="
+                + str(workspace_version_source.get("claim_gate_status", "missing"))
+            )
+    checks.append(
+        check(
+            "workspace_rust_vortex_version_source_contract",
+            str(args.workspace_version_source_report).replace("\\", "/"),
+            workspace_version_blockers,
+        )
+    )
 
     package_channel_matrix = load_json(package_channel_matrix_path)
     package_channel_blockers = validate_package_channel_matrix(package_channel_matrix)
@@ -2719,6 +2790,7 @@ def main() -> int:
         "cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
         "python scripts/check_contribution_governance.py",
         "python scripts/check_ci_gate_matrix.py",
+        "python scripts/check_workspace_version_sources.py",
         "python scripts/check_release_security_gate.py",
         "python scripts/check_release_architecture_tracker.py --allow-blocked",
         "python scripts/check_package_channel_readiness.py --require-local-evidence",
@@ -2782,6 +2854,9 @@ def main() -> int:
         "public_package_claim_allowed": passed,
         "package_channel_matrix_ref": str(args.package_channel_matrix).replace("\\", "/"),
         "package_channel_report_ref": str(args.package_channel_report).replace("\\", "/"),
+        "workspace_version_source_report_ref": str(
+            args.workspace_version_source_report
+        ).replace("\\", "/"),
         "contribution_governance_report_ref": str(args.contribution_governance_report).replace(
             "\\", "/"
         ),
