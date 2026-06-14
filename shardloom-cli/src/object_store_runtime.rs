@@ -502,6 +502,7 @@ struct ObjectStoreWriteSmokeReport {
     rollback_after_commit: bool,
     payload_bytes: usize,
     written_bytes: usize,
+    commit_manifest_bytes: usize,
     cleanup_deleted_count: usize,
     payload_digest: String,
     target_content_digest: String,
@@ -525,6 +526,7 @@ struct ObjectStoreWriteRecoveryReport {
     object_digest: String,
     recorded_payload_digest: String,
     recorded_target_content_digest: String,
+    commit_manifest_bytes: usize,
     commit_manifest_digest: String,
     target_digest_matched: bool,
     payload_digest_matched: bool,
@@ -637,6 +639,7 @@ struct LocalEmulatorWriteCommit {
     written_bytes: usize,
     cleanup_deleted_count: usize,
     target_content_digest: String,
+    commit_manifest_bytes: usize,
     commit_manifest_digest: String,
 }
 
@@ -666,6 +669,7 @@ impl ObjectStoreWriteSmokeReport {
             rollback_after_commit,
             payload_bytes: 0,
             written_bytes: 0,
+            commit_manifest_bytes: 0,
             cleanup_deleted_count: 0,
             payload_digest: "not_emitted_no_object_write".to_string(),
             target_content_digest: "not_emitted_no_object_write".to_string(),
@@ -724,6 +728,7 @@ impl ObjectStoreWriteRecoveryReport {
             object_digest: "not_emitted_no_object_recovery".to_string(),
             recorded_payload_digest: "not_emitted_no_commit_manifest".to_string(),
             recorded_target_content_digest: "not_emitted_no_commit_manifest".to_string(),
+            commit_manifest_bytes: 0,
             commit_manifest_digest: "not_emitted_no_commit_manifest".to_string(),
             target_digest_matched: false,
             payload_digest_matched: false,
@@ -1507,6 +1512,7 @@ fn execute_object_store_write_smoke(
             rollback_after_commit,
             payload_bytes: payload.len(),
             written_bytes: commit.written_bytes,
+            commit_manifest_bytes: commit.commit_manifest_bytes,
             cleanup_deleted_count: commit.cleanup_deleted_count,
             payload_digest,
             target_content_digest: commit.target_content_digest,
@@ -1650,6 +1656,7 @@ fn execute_object_store_write_recovery_smoke(
     };
 
     let object_digest = fnv64_digest_bytes(&object_bytes);
+    let commit_manifest_bytes = commit_manifest.len();
     let commit_manifest_digest = fnv64_digest(&commit_manifest);
     let recorded_payload_digest = extract_json_string_field(&commit_manifest, "payload_digest")
         .unwrap_or_else(|| "missing_payload_digest".to_string());
@@ -1727,6 +1734,7 @@ fn execute_object_store_write_recovery_smoke(
             object_digest,
             recorded_payload_digest,
             recorded_target_content_digest,
+            commit_manifest_bytes,
             commit_manifest_digest,
             target_digest_matched,
             payload_digest_matched,
@@ -1751,6 +1759,7 @@ fn execute_object_store_write_recovery_smoke(
         object_digest,
         recorded_payload_digest,
         recorded_target_content_digest,
+        commit_manifest_bytes,
         commit_manifest_digest,
         target_digest_matched,
         payload_digest_matched,
@@ -2685,6 +2694,7 @@ fn perform_local_emulator_write_commit(
         &target_content_digest,
     );
     let commit_manifest_digest = fnv64_digest(&manifest);
+    let commit_manifest_bytes = manifest.len();
     if let Err(error) = write_workspace_safe_local_bytes(
         &workspace_root,
         commit_manifest_path,
@@ -2720,6 +2730,7 @@ fn perform_local_emulator_write_commit(
         written_bytes: payload.len(),
         cleanup_deleted_count,
         target_content_digest,
+        commit_manifest_bytes,
         commit_manifest_digest,
     })
 }
@@ -3519,6 +3530,77 @@ fn push_object_store_write_commit_fields(
         "commit_manifest_digest",
         &report.commit_manifest_digest,
     );
+    push_object_store_write_native_io_evidence_fields(fields, report);
+}
+
+fn push_object_store_write_native_io_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreWriteSmokeReport,
+) {
+    push_count_field(
+        fields,
+        "object_store_write_request_count",
+        object_store_write_request_count(report),
+    );
+    push_count_field(
+        fields,
+        "object_store_commit_manifest_write_request_count",
+        object_store_commit_manifest_write_request_count(report),
+    );
+    push_count_field(
+        fields,
+        "object_store_payload_bytes_written",
+        report.written_bytes,
+    );
+    push_count_field(
+        fields,
+        "object_store_commit_manifest_bytes_written",
+        report.commit_manifest_bytes,
+    );
+    push_count_field(
+        fields,
+        "object_store_total_bytes_written",
+        object_store_total_bytes_written(report),
+    );
+    push_field(
+        fields,
+        "object_store_write_bounded_status",
+        object_store_write_bounded_status(report),
+    );
+    push_field(
+        fields,
+        "object_store_multipart_write_status",
+        object_store_multipart_write_status(report),
+    );
+    push_count_field(fields, "object_store_multipart_part_count", 0);
+    push_field(
+        fields,
+        "object_store_write_retry_policy_status",
+        object_store_write_retry_policy_status(report),
+    );
+    push_count_field(fields, "object_store_write_retry_attempt_count", 0);
+    push_field(
+        fields,
+        "object_store_write_rate_limit_policy_status",
+        object_store_write_rate_limit_policy_status(report),
+    );
+    push_count_field(
+        fields,
+        "object_store_rollback_cleanup_request_count",
+        report.cleanup_deleted_count,
+    );
+    push_field(
+        fields,
+        "object_store_ambiguous_commit_status",
+        object_store_ambiguous_commit_status(report),
+    );
+    push_field(
+        fields,
+        "object_store_idempotency_scope",
+        object_store_idempotency_scope(report),
+    );
+    push_count_field(fields, "object_store_write_cache_hit_count", 0);
+    push_count_field(fields, "object_store_write_cache_miss_count", 0);
 }
 
 fn push_object_store_write_policy_fields(
@@ -3749,6 +3831,49 @@ fn push_object_store_write_recovery_digest_fields(
         fields,
         "commit_manifest_digest",
         &report.commit_manifest_digest,
+    );
+    push_object_store_write_recovery_native_io_evidence_fields(fields, report);
+}
+
+fn push_object_store_write_recovery_native_io_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreWriteRecoveryReport,
+) {
+    push_count_field(
+        fields,
+        "object_store_recovery_read_request_count",
+        object_store_recovery_read_request_count(report),
+    );
+    push_count_field(
+        fields,
+        "object_store_recovery_object_bytes_read",
+        report.object_bytes,
+    );
+    push_count_field(
+        fields,
+        "object_store_recovery_manifest_bytes_read",
+        report.commit_manifest_bytes,
+    );
+    push_count_field(
+        fields,
+        "object_store_recovery_total_bytes_read",
+        report.object_bytes + report.commit_manifest_bytes,
+    );
+    push_field(
+        fields,
+        "object_store_recovery_retry_policy_status",
+        object_store_recovery_retry_policy_status(report),
+    );
+    push_count_field(fields, "object_store_recovery_retry_attempt_count", 0);
+    push_field(
+        fields,
+        "object_store_recovery_rate_limit_policy_status",
+        object_store_recovery_rate_limit_policy_status(report),
+    );
+    push_field(
+        fields,
+        "object_store_recovery_ambiguous_commit_status",
+        object_store_recovery_ambiguous_commit_status(report),
     );
 }
 
@@ -4087,6 +4212,114 @@ fn cleanup_status(
         (ObjectStoreWriteSmokeStatus::Committed, _) => "staging_object_removed",
         (ObjectStoreWriteSmokeStatus::RolledBack, true) => "rollback_cleanup_performed",
         _ => "not_performed_blocked",
+    }
+}
+
+fn object_store_write_request_count(report: &ObjectStoreWriteSmokeReport) -> usize {
+    if report.has_errors() { 0 } else { 2 }
+}
+
+fn object_store_commit_manifest_write_request_count(report: &ObjectStoreWriteSmokeReport) -> usize {
+    usize::from(!report.has_errors())
+}
+
+fn object_store_total_bytes_written(report: &ObjectStoreWriteSmokeReport) -> usize {
+    report
+        .written_bytes
+        .saturating_add(report.commit_manifest_bytes)
+}
+
+fn object_store_write_bounded_status(report: &ObjectStoreWriteSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_performed_blocked"
+    } else {
+        "bounded_payload_and_manifest_under_fixture_budget"
+    }
+}
+
+fn object_store_multipart_write_status(report: &ObjectStoreWriteSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_performed_blocked"
+    } else {
+        "not_required_single_object_local_emulator_commit"
+    }
+}
+
+fn object_store_write_retry_policy_status(report: &ObjectStoreWriteSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "blocked_before_retry"
+    } else {
+        "not_required_single_attempt_local_emulator_commit"
+    }
+}
+
+fn object_store_write_rate_limit_policy_status(
+    report: &ObjectStoreWriteSmokeReport,
+) -> &'static str {
+    if report.has_errors() {
+        "blocked_before_rate_limit_policy"
+    } else {
+        "not_required_local_emulator_no_network"
+    }
+}
+
+fn object_store_ambiguous_commit_status(report: &ObjectStoreWriteSmokeReport) -> &'static str {
+    match report.status {
+        ObjectStoreWriteSmokeStatus::Committed => "not_observed_local_commit_manifest_written",
+        ObjectStoreWriteSmokeStatus::RolledBack => "rollback_cleanup_completed",
+        _ => "blocked_before_commit_claim",
+    }
+}
+
+fn object_store_idempotency_scope(report: &ObjectStoreWriteSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_emitted_blocked"
+    } else {
+        "single_object_target_payload_digest"
+    }
+}
+
+fn object_store_recovery_read_request_count(report: &ObjectStoreWriteRecoveryReport) -> usize {
+    if report.object_bytes > 0 || report.commit_manifest_bytes > 0 {
+        2
+    } else {
+        0
+    }
+}
+
+fn object_store_recovery_retry_policy_status(
+    report: &ObjectStoreWriteRecoveryReport,
+) -> &'static str {
+    match report.status {
+        ObjectStoreWriteRecoveryStatus::Recovered => {
+            "not_required_single_attempt_local_emulator_recovery"
+        }
+        ObjectStoreWriteRecoveryStatus::BlockedRecoveryMismatch => {
+            "not_retried_recovery_evidence_mismatch"
+        }
+        _ => "blocked_before_retry",
+    }
+}
+
+fn object_store_recovery_rate_limit_policy_status(
+    report: &ObjectStoreWriteRecoveryReport,
+) -> &'static str {
+    match report.status {
+        ObjectStoreWriteRecoveryStatus::Recovered
+        | ObjectStoreWriteRecoveryStatus::BlockedRecoveryMismatch => {
+            "not_required_local_emulator_no_network"
+        }
+        _ => "blocked_before_rate_limit_policy",
+    }
+}
+
+fn object_store_recovery_ambiguous_commit_status(
+    report: &ObjectStoreWriteRecoveryReport,
+) -> &'static str {
+    match report.status {
+        ObjectStoreWriteRecoveryStatus::Recovered => "replay_matched_sidecar_manifest",
+        ObjectStoreWriteRecoveryStatus::BlockedRecoveryMismatch => "blocked_recovery_mismatch",
+        _ => "blocked_before_recovery_replay",
     }
 }
 

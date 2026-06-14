@@ -278,10 +278,10 @@ with a recorded infeasibility reason, not merely because they are broad.
     RFC 0017, RFC 0014, `docs/skills/object-store-runtime.md`, and object-store readiness gates.
   - Current state: `docs/release/production-certification-workloads.json` now declares the scoped
     `object_store_local_emulator_runtime_v1_candidate` profile with local-emulator fixture evidence,
-    public no-credential URI-shape evidence, scoped read request/byte counters, fixture digest
-    validation, provider-admission evidence, and deterministic blockers for live S3/GCS/ADLS,
-    credentialed access, table commits, distributed runtime, production backpressure, and
-    claim-grade benchmarks.
+    public no-credential URI-shape evidence, scoped read/write/recovery request and byte counters,
+    fixture digest validation, local sidecar commit-manifest recovery evidence, provider-admission
+    evidence, and deterministic blockers for live S3/GCS/ADLS, credentialed access, table commits,
+    distributed runtime, production backpressure, and claim-grade benchmarks.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
     object-store workload/backend in v1 if emulator plus approved real-backend proof, credential
     safety, bounded streaming, commit/cleanup, and certificate evidence can close; otherwise
@@ -303,11 +303,15 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [ ] Extend listing, object version/ETag capture, checksum validation, request coalescing,
       prefetch, retry/backoff, rate-limit handling, and bounded streaming reads to the approved
       real backend profile before any production claim.
-    - [ ] Add staged/multipart writes, commit protocol, rollback/cleanup, idempotency keys, and
-      ambiguous commit diagnostics.
+    - [x] Add scoped local-emulator single-object staged writes, sidecar commit protocol,
+      rollback/cleanup, idempotency keys, recovery replay/mismatch diagnostics, non-multipart
+      posture, and ambiguous-commit evidence fields.
+    - [ ] Extend staged/multipart writes, commit protocol, rollback/cleanup, idempotency keys, and
+      ambiguous commit diagnostics to the approved real backend profile before any production
+      claim.
     - [x] Emit scoped object-store Native I/O certificates with request counts, bytes
-      requested/read, retry attempts, cache hits, credential posture, and no-fallback fields for
-      the local-emulator and public no-credential fixture profiles.
+      requested/read/written, retry attempts, cache hits, credential posture, and no-fallback
+      fields for the local-emulator and public no-credential fixture profiles.
     - [ ] Emit production object-store Native I/O certificates after approved backend, cache,
       streaming/backpressure, and retry evidence exists.
     - [ ] Test against a local emulator and one approved real backend profile before any

@@ -46,6 +46,22 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `payload_digest`
 - `target_content_digest`
 - `commit_manifest_digest`
+- `object_store_write_request_count`
+- `object_store_commit_manifest_write_request_count`
+- `object_store_payload_bytes_written`
+- `object_store_commit_manifest_bytes_written`
+- `object_store_total_bytes_written`
+- `object_store_write_bounded_status`
+- `object_store_multipart_write_status`
+- `object_store_multipart_part_count`
+- `object_store_write_retry_policy_status`
+- `object_store_write_retry_attempt_count`
+- `object_store_write_rate_limit_policy_status`
+- `object_store_rollback_cleanup_request_count`
+- `object_store_ambiguous_commit_status`
+- `object_store_idempotency_scope`
+- `object_store_write_cache_hit_count`
+- `object_store_write_cache_miss_count`
 - `credential_resolution_performed=false`
 - `network_probe_performed=false`
 - `native_io_certificate_status`
@@ -55,7 +71,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-A fixture-smoke report with staged write, sidecar commit-manifest, idempotency, payload/target/manifest digest, optional rollback cleanup, Native I/O, credential/network-disabled, fallback_attempted=false, and external_engine_invoked=false evidence.
+A fixture-smoke report with staged write, sidecar commit-manifest, idempotency, payload/target/manifest digest, optional rollback cleanup, request/byte/retry/cache counters, non-multipart local commit posture, Native I/O, credential/network-disabled, fallback_attempted=false, and external_engine_invoked=false evidence.
 
 ## Common Mistakes
 
