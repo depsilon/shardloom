@@ -23,8 +23,12 @@ pub const UPSTREAM_VORTEX_PROVIDER_VERSION: &str =
 
 // Report-only adapter/API inventory and metadata posture.
 pub use adapter::{
-    VortexAdapterCapability, VortexAdapterCapabilityReport, VortexAdapterCapabilityStatus,
-    VortexApiArea, VortexApiInventoryItem, VortexApiSupportStatus, VortexDTypeMappingReport,
+    Vortex075HeavyOperatorDispositionRow, Vortex075HeavyOperatorDispositionStatus,
+    Vortex075HeavyOperatorProviderDispositionReport, Vortex075HeavyOperatorSurface,
+    Vortex075LocalIoDispositionRow, Vortex075LocalIoDispositionStatus,
+    Vortex075LocalIoProviderDispositionReport, Vortex075LocalIoSurface, VortexAdapterCapability,
+    VortexAdapterCapabilityReport, VortexAdapterCapabilityStatus, VortexApiArea,
+    VortexApiInventoryItem, VortexApiSupportStatus, VortexDTypeMappingReport,
     VortexEncodingLayoutMappingReport, VortexEncodingMappingStatus, VortexLayoutMappingStatus,
     VortexLocalIoCoverageReport, VortexLocalIoCoverageRow, VortexLocalIoLaneStatus,
     VortexMetadataIoMode, VortexMetadataIoStatus, VortexMetadataProbeReport,

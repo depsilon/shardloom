@@ -168,6 +168,26 @@ Runtime-relevant 0.75 API/opportunity map:
 | Arrow device export, GPU/device paths, JNI, cuDF C FFI | `blocked_until_vortex_or_shardloom_evidence` | Future accelerator/device-residency track only. Keep blocked unless a phase adds device memory ownership, CPU fallback refusal, certificates, and package/build policy. | No GPU/device support claim. |
 | DataFusion 54 integration items | `baseline_or_oracle_only` | External comparison or differential oracle context only. Must never execute unsupported ShardLoom runtime work or residual evaluation. | No fallback execution, no ShardLoom runtime claim. |
 
+Executable evidence surface:
+
+- `vortex-api-inventory --format json` now exposes
+  `shardloom.vortex075_heavy_operator_provider_disposition.v1` under report id
+  `perf-runtime-7b.vortex075.heavy_operator_provider_disposition`.
+- `vortex-api-inventory --format json` also exposes
+  `shardloom.vortex075_local_io_provider_disposition.v1` under report id
+  `prod-ready-1a.vortex075.local_io_provider_disposition`.
+- Both reports are side-effect-free and report-only: `runtime_execution=false`, `data_read=false`,
+  `data_decoded=false`, `data_materialized=false`, `external_engine_invoked=false`,
+  `fallback_attempted=false`, and `claim_gate_status=not_claim_grade`.
+- The rows classify Vortex 0.75 grouped aggregate, validity/mask, branchless zip,
+  dictionary/FSST, and layout-cache surfaces as provider candidates; `byte_length()` as wrapped by
+  the existing ShardLoom binary byte-length kernel pending provider parity; and DataFusion 54
+  integration as baseline/oracle-only.
+- The local-I/O rows classify layout-reader context/cache, JSON extension Arrow import/export,
+  WKB/geospatial extension preservation, Interleave encoding, binary zstd/compression metadata,
+  row-byte encoder, and validity/mask semantics as provider candidates pending adapter/fidelity
+  evidence; Arrow device/GPU/JNI/cuDF paths remain blocked for a future device-residency track.
+
 Claim boundary:
 
 - Vortex `0.75.0` compatibility is a dependency/build compatibility and opportunity-mapping claim

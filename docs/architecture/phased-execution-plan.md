@@ -310,7 +310,7 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [x] Add generated dense-category interner admission for canonical `c0..cN` benchmark
       categories so distinct/multi-key/join residual operators avoid repeated string hashing when
       source shape proves dense ordered labels.
-    - [ ] Add a Vortex 0.75 provider disposition report for heavy operators: grouped `sum`/`count`,
+    - [x] Add a Vortex 0.75 provider disposition report for heavy operators: grouped `sum`/`count`,
       validity/mask no-null fast paths, branchless zip, dictionary/FSST reuse, and `byte_length()`
       must be classified as adopted, wrapped, blocked, or superseded by a ShardLoom-native kernel
       with decoded-reference parity.
@@ -530,7 +530,7 @@ with a recorded infeasibility reason, not merely because they are broad.
       Parquet/Arrow IPC columnar, Avro/ORC compatibility, and compatibility output/export targets.
     - [ ] Add parser/reader contracts for malformed rows, encoding/null/coercion rules,
       projection-aware typed builders, nested/complex dtype support, and deterministic blockers.
-    - [ ] Add a Vortex 0.75 local-I/O provider disposition report for layout-reader context/cache,
+    - [x] Add a Vortex 0.75 local-I/O provider disposition report for layout-reader context/cache,
       JSON extension Arrow import/export, WKB/geospatial extension preservation or deterministic
       blockers, Interleave encoding preservation, binary zstd/compression metadata, row-byte
       encoder write-path evaluation, and validity/mask semantics.
