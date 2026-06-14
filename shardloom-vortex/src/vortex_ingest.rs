@@ -23,7 +23,7 @@ use arrow_array::{
     Array, ArrayRef as ArrowArrayRef, BinaryArray, BinaryViewArray, BooleanArray, Date32Array,
     Float32Array, Float64Array, Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray,
     LargeStringArray, StringArray, StringViewArray, TimestampMicrosecondArray, UInt8Array,
-    UInt16Array, UInt32Array, UInt64Array,
+    UInt16Array, UInt32Array, UInt64Array, cast::AsArray as _,
 };
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_schema::DataType as ArrowDataType;
@@ -6381,7 +6381,7 @@ fn columnar_family_from_dtype_hint(
             Ok(format!("decimal128({precision},{scale})"))
         }
         Some(dtype) => Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8/binary columns only; no fallback execution was attempted",
+            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8, binary, integer, and finite-float columns only; no fallback execution was attempted",
             dtype.as_str()
         ))),
     }
@@ -6418,6 +6418,9 @@ fn reject_columnar_non_finite_floats(column: &str, array: &dyn Array) -> Result<
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn arrow_column_family(column: &str, array: &dyn Array) -> Result<String> {
     if let Some(family) = dictionary_column_family(array.data_type()) {
+        if family == "dictionary_float64" {
+            reject_dictionary_non_finite_float_values(column, array)?;
+        }
         return Ok(family.to_string());
     }
     if let Some(family) = decimal128_column_family(column, array.data_type())? {
@@ -6462,7 +6465,7 @@ fn arrow_column_family(column: &str, array: &dyn Array) -> Result<String> {
         return Ok("timestamp_micros".to_string());
     }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8/binary columns only; no fallback execution was attempted",
+        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8, binary, integer, and finite-float columns only; no fallback execution was attempted",
         array.data_type()
     )))
 }
@@ -6492,8 +6495,47 @@ fn dictionary_column_family(dtype: &ArrowDataType) -> Option<&'static str> {
         ArrowDataType::Binary | ArrowDataType::LargeBinary | ArrowDataType::BinaryView => {
             Some("dictionary_binary")
         }
+        ArrowDataType::Int8
+        | ArrowDataType::Int16
+        | ArrowDataType::Int32
+        | ArrowDataType::Int64 => Some("dictionary_int64"),
+        ArrowDataType::UInt8
+        | ArrowDataType::UInt16
+        | ArrowDataType::UInt32
+        | ArrowDataType::UInt64 => Some("dictionary_uint64"),
+        ArrowDataType::Float32 | ArrowDataType::Float64 => Some("dictionary_float64"),
         _ => None,
     }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn reject_dictionary_non_finite_float_values(column: &str, array: &dyn Array) -> Result<()> {
+    let Some(dictionary) = array.as_any_dictionary_opt() else {
+        return Ok(());
+    };
+    let values = dictionary.values();
+    if let Some(values) = values.as_any().downcast_ref::<Float32Array>() {
+        for index in 0..values.len() {
+            if values.is_valid(index) && !values.value(index).is_finite() {
+                return Err(dictionary_non_finite_float_error(column, index));
+            }
+        }
+    }
+    if let Some(values) = values.as_any().downcast_ref::<Float64Array>() {
+        for index in 0..values.len() {
+            if values.is_valid(index) && !values.value(index).is_finite() {
+                return Err(dictionary_non_finite_float_error(column, index));
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn dictionary_non_finite_float_error(column: &str, value_index: usize) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "local vortex_ingest column '{column}' has non-finite dictionary float value at dictionary index {value_index}; scoped Vortex ingest rejects NaN and infinity before provider execution; no fallback execution was attempted"
+    ))
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -9191,6 +9233,235 @@ mod tests {
 
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn local_flat_columnar_dictionary_primitive_source_writes_reopens_values() {
+        use std::sync::Arc;
+
+        use arrow_array::{
+            Array as _, ArrayAccessor as _, DictionaryArray, Float64Array, Int16Array, Int64Array,
+            RecordBatch, StructArray, UInt8Array,
+            types::{Int16Type, UInt8Type},
+        };
+        use arrow_schema::{DataType, Field, Schema};
+        use shardloom_core::LogicalDType;
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-dictionary-primitive-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "bucket".to_string(), "score".to_string()];
+        let dictionary_int_dtype =
+            DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Int64));
+        let dictionary_float_dtype =
+            DataType::Dictionary(Box::new(DataType::Int16), Box::new(DataType::Float64));
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("bucket", dictionary_int_dtype.clone(), true),
+            Field::new("score", dictionary_float_dtype.clone(), true),
+        ]));
+        let bucket = DictionaryArray::<UInt8Type>::try_new(
+            UInt8Array::from(vec![Some(0), Some(1), None, Some(0)]),
+            Arc::new(Int64Array::from(vec![10, 20])),
+        )
+        .expect("int dictionary");
+        let score = DictionaryArray::<Int16Type>::try_new(
+            Int16Array::from(vec![Some(0), Some(1), Some(0), None]),
+            Arc::new(Float64Array::from(vec![1.5, 2.25])),
+        )
+        .expect("float dictionary");
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2, 3, 4])),
+                Arc::new(bucket),
+                Arc::new(score),
+            ],
+        )
+        .expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            column_dtypes: vec![
+                Some(LogicalDType::Int64),
+                Some(LogicalDType::Int64),
+                Some(LogicalDType::Float64),
+            ],
+            column_arrow_dtypes: vec![
+                Some(DataType::Int64),
+                Some(dictionary_int_dtype),
+                Some(dictionary_float_dtype),
+            ],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: vec![batch],
+            row_count: 4,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 4);
+        assert_eq!(report.reopen_row_count, 4);
+        assert_eq!(
+            report.column_family_summary(),
+            "id:int64,bucket:dictionary_int64,score:dictionary_float64"
+        );
+        assert_eq!(report.array_build_provider_kind, "vortex_array_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "ArrayRef::from_arrow(RecordBatch)"
+        );
+        assert!(report.manual_scalar_copy_avoided);
+        assert!(!report.preparation_spine.fallback_attempted);
+        assert!(!report.preparation_spine.external_engine_invoked);
+
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, schema.as_ref());
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        let bucket = struct_array
+            .column_by_name("bucket")
+            .expect("bucket column")
+            .as_any()
+            .downcast_ref::<DictionaryArray<UInt8Type>>()
+            .expect("dictionary bucket column");
+        let bucket_values = bucket
+            .downcast_dict::<Int64Array>()
+            .expect("int dictionary values");
+        assert_eq!(bucket_values.value(0), 10);
+        assert_eq!(bucket_values.value(1), 20);
+        assert!(bucket_values.is_null(2));
+        assert_eq!(bucket_values.value(3), 10);
+        let score = struct_array
+            .column_by_name("score")
+            .expect("score column")
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int16Type>>()
+            .expect("dictionary score column");
+        let score_values = score
+            .downcast_dict::<Float64Array>()
+            .expect("float dictionary values");
+        assert_eq!(score_values.value(0).to_bits(), 1.5_f64.to_bits());
+        assert_eq!(score_values.value(1).to_bits(), 2.25_f64.to_bits());
+        assert_eq!(score_values.value(2).to_bits(), 1.5_f64.to_bits());
+        assert!(score_values.is_null(3));
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_dictionary_float_rejects_non_finite_values_before_provider_path() {
+        use std::sync::Arc;
+
+        use arrow_array::{
+            DictionaryArray, Float64Array, Int64Array, RecordBatch, UInt8Array, types::UInt8Type,
+        };
+        use arrow_schema::{DataType, Field, Schema};
+        use shardloom_core::LogicalDType;
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-dictionary-non-finite-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "score".to_string()];
+        let dictionary_float_dtype =
+            DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Float64));
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("score", dictionary_float_dtype.clone(), true),
+        ]));
+        let score = DictionaryArray::<UInt8Type>::try_new(
+            UInt8Array::from(vec![Some(0), Some(0)]),
+            Arc::new(Float64Array::from(vec![1.5, f64::NAN])),
+        )
+        .expect("float dictionary");
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![Arc::new(Int64Array::from(vec![1, 2])), Arc::new(score)],
+        )
+        .expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            column_dtypes: vec![Some(LogicalDType::Int64), Some(LogicalDType::Float64)],
+            column_arrow_dtypes: vec![Some(DataType::Int64), Some(dictionary_float_dtype)],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: vec![batch],
+            row_count: 2,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let error = write_flat_columnar_vortex_prepared_state(request).expect_err("blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("non-finite dictionary float value at dictionary index 1")
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_dictionary_boolean_blocks_before_provider_path() {
+        use std::sync::Arc;
+
+        use arrow_array::{
+            BooleanArray, DictionaryArray, Int64Array, RecordBatch, UInt8Array, types::UInt8Type,
+        };
+        use arrow_schema::{DataType, Field, Schema};
+        use shardloom_core::LogicalDType;
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-dictionary-boolean-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "active".to_string()];
+        let dictionary_bool_dtype =
+            DataType::Dictionary(Box::new(DataType::UInt8), Box::new(DataType::Boolean));
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("active", dictionary_bool_dtype.clone(), true),
+        ]));
+        let active = DictionaryArray::<UInt8Type>::try_new(
+            UInt8Array::from(vec![Some(0), None]),
+            Arc::new(BooleanArray::from(vec![true])),
+        )
+        .expect("boolean dictionary");
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![Arc::new(Int64Array::from(vec![1, 2])), Arc::new(active)],
+        )
+        .expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            column_dtypes: vec![Some(LogicalDType::Int64), Some(LogicalDType::Boolean)],
+            column_arrow_dtypes: vec![Some(DataType::Int64), Some(dictionary_bool_dtype)],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: vec![batch],
+            row_count: 2,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let error = write_flat_columnar_vortex_prepared_state(request)
+            .expect_err("boolean dictionary blocked")
+            .to_string();
+
+        assert!(error.contains("unsupported Arrow type Dictionary(UInt8, Boolean)"));
+        assert!(error.contains("no fallback execution was attempted"));
+        let _ = std::fs::remove_file(path);
     }
 
     #[cfg(feature = "universal-format-io")]
