@@ -54,9 +54,15 @@ def action_pin_check(text: str) -> dict[str, Any]:
 
 def pypi_trusted_publisher_boundary_check(text: str) -> dict[str, Any]:
     required = [
+        "channel:",
+        "testpypi_proof_ref:",
         "build:",
         "permissions:\n      contents: read",
         "Upload Python dist artifact",
+        "publish-testpypi:",
+        "environment: testpypi",
+        "Publish to TestPyPI with Trusted Publisher",
+        "repository-url: https://test.pypi.org/legacy/",
         "publish:",
         "needs: build",
         "environment: pypi",
@@ -65,12 +71,21 @@ def pypi_trusted_publisher_boundary_check(text: str) -> dict[str, Any]:
         "Publish to PyPI with Trusted Publisher",
     ]
     missing = [item for item in required if item not in text]
-    build_section = text.split("\n  publish:", 1)[0]
+    build_section = text.split("\n  publish-testpypi:", 1)[0]
+    testpypi_section = (
+        text.split("\n  publish-testpypi:", 1)[1].split("\n  publish:", 1)[0]
+        if "\n  publish-testpypi:" in text
+        else ""
+    )
     publish_section = text.split("\n  publish:", 1)[1] if "\n  publish:" in text else ""
     if "id-token: write" in build_section:
         missing.append("build job must not grant id-token: write")
+    if "python -m build python" in testpypi_section:
+        missing.append("publish-testpypi job must not build the package")
     if "python -m build python" in publish_section:
         missing.append("publish job must not build the package")
+    if "inputs.testpypi_proof_ref != ''" not in publish_section:
+        missing.append("publish job must require prior TestPyPI proof ref")
     return {"status": "passed" if not missing else "failed", "missing": missing}
 
 
@@ -113,8 +128,10 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         [
             "workflow_dispatch:",
             "publish-approved",
+            "environment: testpypi",
             "environment: pypi",
             "id-token: write",
+            "repository-url: https://test.pypi.org/legacy/",
             "pypa/gh-action-pypi-publish@release/v1",
         ],
     )

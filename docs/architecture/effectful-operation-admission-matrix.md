@@ -65,10 +65,12 @@ or external-engine delegation.
 Use:
 
 ```powershell
-cargo +1.91.1 test -p shardloom-core effectful_operation_admission_matrix_admits_only_local_fixtures --lib
-cargo +1.91.1 test -p shardloom-core deterministic_embedding_vector_fixture --lib
-cargo +1.91.1 test -p shardloom-cli --test sqlite_local_runtime_snapshots
-cargo +1.91.1 test -p shardloom-cli --test extension_manifest_effect_matrix_snapshots
-cargo +1.91.1 test -p shardloom-cli --test effect_budget_plan_snapshots
+python scripts\write_ci_version_env.py
+$env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
+cargo test -p shardloom-core effectful_operation_admission_matrix_admits_only_local_fixtures --lib
+cargo test -p shardloom-core deterministic_embedding_vector_fixture --lib
+cargo test -p shardloom-cli --test sqlite_local_runtime_snapshots
+cargo test -p shardloom-cli --test extension_manifest_effect_matrix_snapshots
+cargo test -p shardloom-cli --test effect_budget_plan_snapshots
 PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_extension_udf_and_sqlite_effectful_operation_helpers
 ```

@@ -7160,6 +7160,42 @@ class ReleaseScriptTests(unittest.TestCase):
             'python scripts/write_release_compatibility_lane_report.py --lane "$SHARDLOOM_RUST_MSRV_LANE"\n',
             encoding="utf-8",
         )
+        active_doc = (
+            root
+            / "docs"
+            / "architecture"
+            / "effectful-operation-admission-matrix.md"
+        )
+        active_doc.parent.mkdir(parents=True)
+        active_doc.write_text(
+            (
+                "```powershell\n"
+                "$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-core --lib\n"
+                "```\n"
+                if stale
+                else "```powershell\n"
+                "python scripts\\write_ci_version_env.py\n"
+                "$env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN\n"
+                "cargo test -p shardloom-core --lib\n"
+                "```\n"
+            ),
+            encoding="utf-8",
+        )
+        package_channel_gate = root / "scripts" / "check_package_channel_readiness.py"
+        package_channel_gate.write_text("PACKAGE_CHANNEL_VERSION_SOURCE = 'manifest-derived'\n")
+        registry_proof = root / "scripts" / "python_registry_package_proof.py"
+        registry_proof.write_text("REGISTRY_PROOF_VERSION_SOURCE = 'package-version-arg'\n")
+        publish_workflow = root / ".github" / "workflows" / "pypi-publish-draft.yml"
+        publish_workflow.write_text(
+            "on:\n"
+            "  workflow_dispatch:\n"
+            "jobs:\n"
+            "  publish-testpypi:\n"
+            "    steps: []\n"
+            "  publish:\n"
+            "    steps: []\n",
+            encoding="utf-8",
+        )
         benchmark = root / "benchmarks" / "traditional_analytics" / "run.py"
         benchmark.parent.mkdir(parents=True)
         benchmark.write_text(
@@ -7536,6 +7572,158 @@ class ReleaseScriptTests(unittest.TestCase):
             any("python_sdist" in blocker for blocker in report["blockers"]),
             report["blockers"],
         )
+
+    def _python_registry_proof_fixture(
+        self,
+        *,
+        channel_id: str = "testpypi",
+        testpypi_proof_ref: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "schema_version": "shardloom.python_registry_package_proof.v1",
+            "proof_status": "passed",
+            "channel_id": channel_id,
+            "package_name": "shardloom",
+            "package_version": "0.1.0",
+            "install_transcript_status": "passed",
+            "smoke_check_status": "passed",
+            "uninstall_transcript_status": "passed",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "tag_created": False,
+            "secrets_required": False,
+            "registry_upload_attempted_by_this_tool": False,
+            "publication_attempted_by_this_tool": False,
+            "package_channel_submission_attempted_by_this_tool": False,
+            "testpypi_proof_ref": testpypi_proof_ref,
+        }
+
+    def test_python_registry_package_proof_commands_are_channel_specific(self) -> None:
+        module = self._load_script_module(
+            "python_registry_package_proof.py",
+            "python_registry_package_proof_commands_for_test",
+        )
+
+        testpypi_command = module.install_command(
+            Path("/clean/bin/python"),
+            module.REGISTRY_CHANNELS["testpypi"],
+            "0.1.0",
+        )
+        pypi_command = module.install_command(
+            Path("/clean/bin/python"),
+            module.REGISTRY_CHANNELS["pypi"],
+            "0.1.0",
+        )
+        smoke_command = " ".join(module.smoke_command(Path("/clean/bin/python")))
+
+        self.assertIn("--no-deps", testpypi_command)
+        self.assertIn("--index-url", testpypi_command)
+        self.assertIn("https://test.pypi.org/simple/", testpypi_command)
+        self.assertEqual(testpypi_command[-1], "shardloom==0.1.0")
+        self.assertNotIn("--index-url", pypi_command)
+        self.assertEqual(pypi_command[-1], "shardloom==0.1.0")
+        self.assertIn("smoke.fallback_attempted", smoke_command)
+        self.assertIn("external_engine_invoked", smoke_command)
+
+    def test_python_registry_package_proof_blocks_pypi_without_testpypi_ref(self) -> None:
+        module = self._load_script_module(
+            "python_registry_package_proof.py",
+            "python_registry_package_proof_pypi_ref_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            output = repo_root / "target" / "registry-proof.json"
+            status = module.write_transcript(
+                repo_root=repo_root,
+                output=output,
+                channel=module.REGISTRY_CHANNELS["pypi"],
+                version="0.1.0",
+                venv_dir=repo_root / "target" / "proof-venv",
+                steps=[],
+                testpypi_proof_ref=None,
+            )
+            report = json.loads(output.read_text(encoding="utf-8"))
+
+        self.assertEqual(status, 1)
+        self.assertEqual(report["proof_status"], "failed")
+        self.assertIn("prior TestPyPI proof", "\n".join(report["blockers"]))
+        self.assertFalse(report["registry_upload_attempted_by_this_tool"])
+        self.assertFalse(report["publication_attempted_by_this_tool"])
+        self.assertFalse(report["package_channel_submission_attempted_by_this_tool"])
+
+    def test_package_channel_registry_proofs_are_optional_until_channel_ready(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_registry_optional_for_test",
+        )
+        matrix = {
+            "channels": [
+                {"channel_id": "testpypi", "ready": False},
+                {"channel_id": "pypi", "ready": False},
+            ]
+        }
+
+        report = module.validate_python_registry_package_proofs(
+            matrix,
+            testpypi_proof=None,
+            pypi_proof=None,
+        )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertFalse(report["publication_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+
+    def test_package_channel_registry_proofs_require_testpypi_before_pypi(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_registry_sequence_for_test",
+        )
+        matrix = {
+            "channels": [
+                {"channel_id": "testpypi", "ready": False},
+                {"channel_id": "pypi", "ready": True},
+            ]
+        }
+
+        report = module.validate_python_registry_package_proofs(
+            matrix,
+            testpypi_proof=None,
+            pypi_proof=self._python_registry_proof_fixture(channel_id="pypi"),
+        )
+
+        blockers = "\n".join(report["blockers"])
+        self.assertEqual(report["status"], "blocked")
+        self.assertIn("requires testpypi_proof_ref", blockers)
+        self.assertIn("requires prior TestPyPI proof", blockers)
+        self.assertIn("requires testpypi ready first", blockers)
+
+    def test_package_channel_registry_proofs_accept_ordered_public_proofs(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_registry_pass_for_test",
+        )
+        matrix = {
+            "channels": [
+                {"channel_id": "testpypi", "ready": True},
+                {"channel_id": "pypi", "ready": True},
+            ]
+        }
+
+        report = module.validate_python_registry_package_proofs(
+            matrix,
+            testpypi_proof=self._python_registry_proof_fixture(channel_id="testpypi"),
+            pypi_proof=self._python_registry_proof_fixture(
+                channel_id="pypi",
+                testpypi_proof_ref=(
+                    "target/python-registry-package-proof/testpypi-transcript.json"
+                ),
+            ),
+        )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertTrue(report["pypi_requires_prior_testpypi"])
+        self.assertFalse(report["publication_attempted"])
 
     def test_dependency_audit_resolves_configured_pip_audit_python(self) -> None:
         module = self._load_script_module(
@@ -8997,6 +9185,27 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(check["status"], "failed")
         self.assertIn("publish job must not build the package", check["missing"])
 
+    def test_security_posture_rejects_pypi_without_testpypi_proof_guard(self) -> None:
+        module = self._load_script_module(
+            "check_security_posture.py",
+            "check_security_posture_pypi_prior_proof_for_test",
+        )
+        workflow = (
+            REPO_ROOT
+            / ".github"
+            / "workflows"
+            / "pypi-publish-draft.yml"
+        ).read_text(encoding="utf-8")
+        workflow = workflow.replace(" && inputs.testpypi_proof_ref != ''", "")
+
+        check = module.pypi_trusted_publisher_boundary_check(workflow)
+
+        self.assertEqual(check["status"], "failed")
+        self.assertIn(
+            "publish job must require prior TestPyPI proof ref",
+            check["missing"],
+        )
+
     def test_release_readiness_accepts_configured_dry_run_command_evidence(self) -> None:
         module = self._load_script_module(
             "check_release_readiness.py",
@@ -9229,6 +9438,10 @@ class ReleaseScriptTests(unittest.TestCase):
             report["version_env"]["SHARDLOOM_UPSTREAM_VORTEX_LOCK_VERSION"],
             CURRENT_VORTEX_LOCK_VERSION,
         )
+        self.assertIn(
+            "docs/architecture/effectful-operation-admission-matrix.md",
+            report["active_doc_version_literal_audit_paths"],
+        )
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
 
@@ -9250,6 +9463,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn("shardloom-vortex/Cargo.toml", blockers)
         self.assertIn("forbidden marker", blockers)
         self.assertIn("scripts/write_ci_version_env.py", blockers)
+        self.assertIn("pinned Rust toolchain command", blockers)
 
     def test_finished_product_readiness_allows_local_ready_publication_blocked(self) -> None:
         module = self._load_script_module(

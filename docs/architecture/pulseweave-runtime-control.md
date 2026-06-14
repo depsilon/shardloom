@@ -580,8 +580,10 @@ Acceptance:
 Verification:
 
 ```powershell
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-exec pulseweave --lib
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test dynamic_work_shaping
+python scripts\write_ci_version_env.py
+$env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
+cargo test -p shardloom-exec pulseweave --lib
+cargo test -p shardloom-contract-tests --test dynamic_work_shaping
 git diff --check
 ```
 
@@ -604,8 +606,10 @@ Acceptance:
 Verification:
 
 ```powershell
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_emits_real_byte_local_scale_evidence_in_vortex_route --lib
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_certifies_stateless_split_operator_for_sequence_selective_filter --lib
+python scripts\write_ci_version_env.py
+$env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
+cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_emits_real_byte_local_scale_evidence_in_vortex_route --lib
+cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_certifies_stateless_split_operator_for_sequence_selective_filter --lib
 python -m pytest python/tests/test_cli_client.py -k "traditional_analytics_prepare_batch_run or runtime_execution_field_validation"
 git diff --check
 ```
@@ -630,8 +634,10 @@ Acceptance:
 Verification:
 
 ```powershell
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch --lib
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+python scripts\write_ci_version_env.py
+$env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
+cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch --lib
+cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
 python -m compileall -q python/src python/tests scripts examples
 git diff --check
 ```
@@ -656,7 +662,9 @@ Verification:
 
 ```powershell
 python -m pytest python/tests/test_cli_client.py -k "pulseweave or evidence_summary or traditional_analytics"
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+python scripts\write_ci_version_env.py
+$env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
+cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
 python scripts\check_runtime_execution_envelopes.py
 git diff --check
 ```
@@ -681,7 +689,9 @@ Verification:
 
 ```powershell
 python benchmarks\traditional_analytics\run.py --profile tiny_smoke --engines shardloom-prepare-batch --iterations 2
-$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
+python scripts\write_ci_version_env.py
+$env:RUSTUP_TOOLCHAIN=$env:SHARDLOOM_RUST_MSRV_TOOLCHAIN
+cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
 python scripts\check_website_readiness.py
 git diff --check
 ```
