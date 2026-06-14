@@ -906,6 +906,11 @@ def main() -> int:
                 "package-channel local_gate_evidence_status="
                 + str(package_channel_report.get("local_gate_evidence_status"))
             )
+        if package_channel_report.get("package_identity_contract_status") != "passed":
+            package_channel_blockers.append(
+                "package-channel package_identity_contract_status="
+                + str(package_channel_report.get("package_identity_contract_status", "missing"))
+            )
         for field in [
             "publication_attempted",
             "tag_created",

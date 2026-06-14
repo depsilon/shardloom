@@ -11,6 +11,13 @@
   "fallback_engine_dependency_added": false,
   "external_engine_runtime_dependency_added": false,
   "package_access_implies_production_readiness": false,
+  "package_identity_contract_status": "local_contract_recorded_publication_approval_blocked",
+  "python_package_identity": "shardloom",
+  "internal_workspace_crates_publish_allowed": false,
+  "future_public_crate_candidates": [
+    "shardloom-protocol",
+    "shardloom-client"
+  ],
   "channel_count": 9,
   "required_channel_ids": [
     "github_prerelease",

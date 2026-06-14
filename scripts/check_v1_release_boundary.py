@@ -378,6 +378,11 @@ def validate_package_channel_report(
             "package-channel local_gate_evidence_status="
             + str(payload.get("local_gate_evidence_status"))
         )
+    if payload.get("package_identity_contract_status") != "passed":
+        blockers.append(
+            "package-channel package_identity_contract_status="
+            + str(payload.get("package_identity_contract_status", "missing"))
+        )
     if payload.get("ready_channel_count") != 0:
         blockers.append("package-channel ready_channel_count must remain 0 before approval")
     for field in FALSE_SAFETY_FIELDS:
@@ -387,6 +392,7 @@ def validate_package_channel_report(
         "status": "passed" if not blockers else "blocked",
         "report_status": payload.get("status"),
         "local_gate_evidence_status": payload.get("local_gate_evidence_status"),
+        "package_identity_contract_status": payload.get("package_identity_contract_status"),
         "ready_channel_count": payload.get("ready_channel_count"),
     }, blockers
 
