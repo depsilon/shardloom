@@ -2736,19 +2736,25 @@ enable plugin runtime support. The same helpers are available on
 
 ```python
 extensions = client.extension_registry()
+extension_dir = client.extension_registry(manifest_dir="target/extensions")
 manifest = client.extension_inspect(manifest_path="target/extension.json")
 fixture_plan = client.udf_runtime_plan("fixture")
 python_plan = client.udf_runtime_plan("python")
 print(extensions.field("extension_manifest_effect_all_runtime_blocked"))
+print(extension_dir.field("extension_registry_manifest_count"))
+print(extension_dir.field_bool("extension_registry_extension_code_executed"))
 print(manifest.field("extension_manifest_inspection_status"))
+print(manifest.field_bool("extension_manifest_execution_contract_complete"))
 print(manifest.field_bool("extension_manifest_extension_code_executed"))
 print(fixture_plan.field("udf_runtime_kind"))
 print(python_plan.field("udf_runtime_support_status"))
 
 ctx_extensions = ctx.extension_registry()
+ctx_extension_dir = ctx.extension_registry(manifest_dir="target/extensions")
 ctx_manifest = ctx.extension_inspect(manifest_path="target/extension.json")
 ctx_udf = ctx.udf_local_scalar_fixture_smoke([1, None, 3])
 print(ctx_extensions.field_bool("extension_code_executed"))
+print(ctx_extension_dir.field_bool("extension_registry_runtime_execution"))
 print(ctx_manifest.field_bool("extension_manifest_external_effect_executed"))
 print(ctx_udf.field_bool("fallback_attempted"))
 ```

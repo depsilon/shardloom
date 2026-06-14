@@ -1,6 +1,6 @@
 use std::{
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Output},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -89,6 +89,25 @@ fn assert_safe_manifest_summary(output: &str) {
     )));
     assert!(output.contains(&field("extension_manifest_review_required", "false")));
     assert!(output.contains(&field("extension_manifest_file_read_request_count", "1")));
+    assert!(output.contains(&field(
+        "extension_manifest_execution_contract_complete",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_determinism",
+        "pure_deterministic"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_materialization",
+        "metadata_only"
+    )));
+    assert!(output.contains(&field("extension_manifest_null_behavior", "null_aware")));
+    assert!(output.contains(&field("extension_manifest_input_dtypes", "metadata")));
+    assert!(output.contains(&field("extension_manifest_output_dtype", "metadata")));
+    assert!(output.contains(&field(
+        "extension_manifest_resource_contract_declared",
+        "true"
+    )));
 }
 
 fn assert_safe_manifest_no_runtime(output: &str) {
@@ -195,6 +214,193 @@ fn extension_registry_json_exposes_manifest_effect_matrix() {
     )));
 }
 
+fn write_registry_directory_manifests(temp_dir: &Path) {
+    fs::write(temp_dir.join("notes.txt"), "ignored").expect("notes write");
+    fs::write(
+        temp_dir.join("a-safe.json"),
+        r#"{
+  "schema_version": "shardloom.extension_manifest.v1",
+  "extension_id": "example.registry_safe",
+  "name": "Registry Safe",
+  "version": "0.1.0",
+  "category": "observability_exporter",
+  "license": "Apache-2.0",
+  "capabilities": [{"name": "metrics_manifest", "status": "planned"}],
+  "permissions": [{"permission": "read_metadata", "required": false, "reason": "metadata"}],
+  "effects": [{"effect": "none", "level": "pure_deterministic"}],
+  "execution_contract": {
+    "determinism": "pure_deterministic",
+    "materialization": "metadata_only",
+    "null_behavior": "null_aware",
+    "input_dtypes": ["metadata"],
+    "output_dtype": "metadata",
+    "timeout_millis": 1000,
+    "max_memory_bytes": 16777216,
+    "max_cpu_millis": 1000,
+    "retry": "none",
+    "idempotency": "not_required",
+    "audit": "manifest_only"
+  }
+}"#,
+    )
+    .expect("safe write");
+    fs::write(
+        temp_dir.join("b-review.json"),
+        r#"{
+  "schema_version": "shardloom.extension_manifest.v1",
+  "extension_id": "example.registry_review",
+  "name": "Registry Review",
+  "version": "0.1.0",
+  "category": "effect_provider",
+  "license": "Apache-2.0",
+  "capabilities": [{"name": "api_read", "status": "supported"}],
+  "permissions": [{"permission": "call_api", "required": true, "reason": "external API"}],
+  "effects": [{"effect": "api_read", "level": "external_read"}],
+  "execution_contract": {
+    "determinism": "external_effect_bound",
+    "materialization": "materialization_required",
+    "null_behavior": "null_aware",
+    "input_dtypes": ["utf8"],
+    "output_dtype": "utf8",
+    "timeout_millis": 250,
+    "max_memory_bytes": 8388608,
+    "max_cpu_millis": 250,
+    "retry": "at_most_once",
+    "idempotency": "required",
+    "audit": "execution_certificate_required"
+  }
+}"#,
+    )
+    .expect("review write");
+}
+
+fn assert_registry_directory_summary(output: &str) {
+    assert!(output.contains("\"command\":\"extension-registry\""));
+    assert!(output.contains(&field(
+        "extension_registry_snapshot_schema_version",
+        "shardloom.extension_registry_snapshot.v1"
+    )));
+    assert!(output.contains(&field(
+        "extension_registry_input_kind",
+        "approved_local_manifest_directory"
+    )));
+    assert!(output.contains(&field(
+        "extension_registry_directory_read_performed",
+        "true"
+    )));
+    assert!(output.contains(&field("extension_registry_directory_entry_count", "3")));
+    assert!(output.contains(&field("extension_registry_manifest_file_count", "2")));
+    assert!(output.contains(&field(
+        "extension_registry_manifest_file_read_request_count",
+        "2"
+    )));
+    assert!(output.contains(&field("extension_registry_manifest_count", "2")));
+    assert!(output.contains(&field("extension_registry_requires_review_count", "1")));
+    assert!(output.contains(&field("extension_registry_contract_complete_count", "2")));
+    assert!(output.contains(&field("extension_registry_contract_incomplete_count", "0")));
+    assert!(output.contains(&field(
+        "extension_registry_manifest_ids",
+        "example.registry_safe,example.registry_review"
+    )));
+}
+
+fn assert_registry_directory_no_runtime(output: &str) {
+    assert!(output.contains(&field("extension_registry_runtime_execution", "false")));
+    assert!(output.contains(&field(
+        "extension_registry_extension_code_executed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "extension_registry_external_effect_executed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "extension_registry_network_probe_performed",
+        "false"
+    )));
+    assert!(output.contains(&field("extension_registry_fallback_attempted", "false")));
+    assert!(output.contains(&field(
+        "extension_registry_external_engine_invoked",
+        "false"
+    )));
+}
+
+#[test]
+fn extension_registry_manifest_directory_discovers_manifests_without_runtime() {
+    let temp_dir = temp_case_dir("registry-dir");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    write_registry_directory_manifests(&temp_dir);
+
+    let dir_arg = temp_dir.to_string_lossy().to_string();
+    let output = run_json(&[
+        "extension-registry",
+        "--manifest-dir",
+        &dir_arg,
+        "--format",
+        "json",
+    ]);
+    assert_registry_directory_summary(&output);
+    assert_registry_directory_no_runtime(&output);
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
+fn extension_registry_manifest_directory_blocks_duplicate_ids() {
+    let temp_dir = temp_case_dir("registry-dupe");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let body = |name: &str| {
+        format!(
+            r#"{{
+  "schema_version": "shardloom.extension_manifest.v1",
+  "extension_id": "example.duplicate",
+  "name": "{name}",
+  "version": "0.1.0",
+  "category": "observability_exporter",
+  "license": "Apache-2.0",
+  "execution_contract": {{
+    "determinism": "pure_deterministic",
+    "materialization": "metadata_only",
+    "null_behavior": "null_aware",
+    "input_dtypes": ["metadata"],
+    "output_dtype": "metadata",
+    "timeout_millis": 1000,
+    "max_memory_bytes": 16777216,
+    "max_cpu_millis": 1000,
+    "retry": "none",
+    "idempotency": "not_required",
+    "audit": "manifest_only"
+  }}
+}}"#
+        )
+    };
+    fs::write(temp_dir.join("a.json"), body("A")).expect("a write");
+    fs::write(temp_dir.join("b.json"), body("B")).expect("b write");
+
+    let dir_arg = temp_dir.to_string_lossy().to_string();
+    let output = run_raw(&[
+        "extension-registry",
+        "--manifest-dir",
+        &dir_arg,
+        "--format",
+        "json",
+    ]);
+    assert!(!output.status.success());
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    assert!(stdout.contains("\"command\":\"extension-registry\""));
+    assert!(stdout.contains("duplicate extension manifest id"));
+    assert!(stdout.contains("\"fallback\":{\"attempted\":false"));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
 #[test]
 fn extension_inspect_local_manifest_validates_metadata_without_loading_code() {
     let temp_dir = temp_case_dir("safe");
@@ -227,6 +433,19 @@ fn extension_inspect_local_manifest_validates_metadata_without_loading_code() {
     "allow_network": false,
     "allow_environment": false,
     "allow_secret_access": false
+  },
+  "execution_contract": {
+    "determinism": "pure_deterministic",
+    "materialization": "metadata_only",
+    "null_behavior": "null_aware",
+    "input_dtypes": ["metadata"],
+    "output_dtype": "metadata",
+    "timeout_millis": 1000,
+    "max_memory_bytes": 16777216,
+    "max_cpu_millis": 1000,
+    "retry": "none",
+    "idempotency": "not_required",
+    "audit": "manifest_only"
   }
 }"#,
     )
@@ -276,6 +495,19 @@ fn extension_inspect_effectful_manifest_requires_review_without_effects() {
     "allow_network": false,
     "allow_environment": false,
     "allow_secret_access": false
+  },
+  "execution_contract": {
+    "determinism": "external_effect_bound",
+    "materialization": "materialization_required",
+    "null_behavior": "null_aware",
+    "input_dtypes": ["utf8"],
+    "output_dtype": "utf8",
+    "timeout_millis": 250,
+    "max_memory_bytes": 8388608,
+    "max_cpu_millis": 250,
+    "retry": "at_most_once",
+    "idempotency": "required",
+    "audit": "execution_certificate_required"
   }
 }"#,
     )
@@ -326,6 +558,63 @@ fn extension_inspect_effectful_manifest_requires_review_without_effects() {
         "extension_manifest_network_probe_performed",
         "false"
     )));
+    assert!(output.contains(&field(
+        "extension_manifest_external_engine_invoked",
+        "false"
+    )));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
+fn extension_inspect_missing_contract_requires_review_without_runtime() {
+    let temp_dir = temp_case_dir("missing-contract");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let manifest_path = temp_dir.join("missing-contract-extension.json");
+    fs::write(
+        &manifest_path,
+        r#"{
+  "schema_version": "shardloom.extension_manifest.v1",
+  "extension_id": "example.missing_contract",
+  "name": "Missing Contract",
+  "version": "0.1.0",
+  "category": "observability_exporter",
+  "license": "Apache-2.0",
+  "capabilities": [
+    {"name": "metrics_manifest", "status": "planned"}
+  ],
+  "permissions": [
+    {"permission": "read_metadata", "required": false, "reason": "metadata-only inspection"}
+  ],
+  "effects": [
+    {"effect": "none", "level": "pure_deterministic"}
+  ]
+}"#,
+    )
+    .expect("manifest write");
+
+    let manifest_arg = manifest_path.to_string_lossy().to_string();
+    let output = run_json(&[
+        "extension-inspect",
+        "--manifest",
+        &manifest_arg,
+        "--format",
+        "json",
+    ]);
+    assert!(output.contains(&field(
+        "extension_manifest_inspection_status",
+        "requires_review"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_execution_contract_complete",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_resource_contract_declared",
+        "false"
+    )));
+    assert!(output.contains(&field("extension_manifest_fallback_attempted", "false")));
     assert!(output.contains(&field(
         "extension_manifest_external_engine_invoked",
         "false"
