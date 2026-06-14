@@ -59,7 +59,7 @@
     {
       "channel_id": "github_prerelease",
       "display_name": "GitHub pre-release",
-      "target_artifact": "reviewed source archive plus attached local artifacts",
+      "target_artifact": "reviewed source archive plus staged local pre-release assets",
       "status": "blocked",
       "ready": false,
       "install_command": "gh release download <tag> --repo depsilon/shardloom --pattern shardloom-* --dir <install-dir>",
@@ -67,7 +67,7 @@
       "channel_specific_proof_status": "blocked_until_approved_github_prerelease_exists",
       "clean_install_proof_status": "local_release_dry_run_passed_channel_release_missing",
       "smoke_check_status": "local_release_dry_run_passed_channel_download_smoke_missing",
-      "sbom_checksum_provenance_status": "local_refs_present_channel_attachment_missing",
+      "sbom_checksum_provenance_status": "local_github_prerelease_bundle_prepared_channel_attachment_missing",
       "rollback_yank_policy": "Delete or mark the GitHub pre-release as deprecated after maintainer approval; preserve checksums and publish an advisory if any users may have consumed it.",
       "auth_provenance_requirement": "Maintainer-approved GitHub release, attached checksums, SBOM, provenance, and no token secrets.",
       "trusted_publisher_required": false,
@@ -80,11 +80,13 @@
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
       "prepared_local_artifact_refs": [
+        "target/release-provenance-dry-run/github-prerelease-assets/asset-manifest.json",
         "target/release-dry-run-proof/transcript.json",
         "python/dist/shardloom-0.1.0.dev0-py3-none-any.whl",
         "python/dist/shardloom-0.1.0.dev0.tar.gz",
         "target/debug/shardloom"
       ],
+      "prepared_local_github_prerelease_asset_manifest_ref": "target/release-provenance-dry-run/github-prerelease-assets/asset-manifest.json",
       "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
       "prepared_local_install_smoke_ref": "target/release-dry-run-proof/transcript.json",
       "prepared_local_provenance_ref": "target/release-provenance-dry-run/supply-chain-release-evidence.json",

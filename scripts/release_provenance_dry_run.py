@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -19,6 +20,19 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.supply_chain_release_evidence.v1"
+GITHUB_PRERELEASE_BUNDLE_SCHEMA_VERSION = "shardloom.github_prerelease_asset_bundle.v1"
+GITHUB_PRERELEASE_REQUIRED_ASSET_KINDS = [
+    "source_archive",
+    "release_notes",
+    "release_binary",
+    "python_wheel",
+    "python_sdist",
+    "checksum_manifest",
+    "rust_workspace_sbom",
+    "python_artifact_sbom",
+    "cli_binary_sbom",
+    "supply_chain_provenance",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -112,6 +126,96 @@ def artifact_ref(repo_root: Path, path: Path, kind: str) -> dict[str, Any]:
         "size_bytes": path.stat().st_size if exists else None,
         "sha256": sha256_file(path) if exists and path.is_file() else None,
     }
+
+
+def python_artifact_kind(path: Path) -> str:
+    if path.suffix == ".whl":
+        return "python_wheel"
+    if path.name.endswith(".tar.gz"):
+        return "python_sdist"
+    return "python_artifact"
+
+
+def source_archive_name(source_ref: str | None) -> str:
+    label = (source_ref or "unknown-source")[:12]
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", label):
+        label = "unknown-source"
+    return f"shardloom-{label}-source.tar.gz"
+
+
+def write_local_release_notes(path: Path, *, version: str, source_ref: str | None) -> None:
+    short_source = (source_ref or "unknown")[:12]
+    path.write_text(
+        "\n".join(
+            [
+                "# ShardLoom local pre-release artifact notes",
+                "",
+                f"- Version: `{version}`",
+                f"- Source revision: `{short_source}`",
+                "- Publication attempted: `false`",
+                "- Tag created: `false`",
+                "- Secrets required: `false`",
+                "- Claim boundary: local dry-run evidence only; not a public release.",
+                "- Required attached assets: source archive, CLI binary, wheel, sdist, checksums, SBOM, provenance, and these notes.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def stage_github_prerelease_assets(
+    *,
+    repo_root: Path,
+    asset_dir: Path,
+    source_refs: list[dict[str, Any]],
+    manifest_path: Path,
+) -> dict[str, Any]:
+    if asset_dir.exists():
+        shutil.rmtree(asset_dir)
+    asset_dir.mkdir(parents=True, exist_ok=True)
+
+    staged_refs: list[dict[str, Any]] = []
+    seen_names: set[str] = set()
+    for row in source_refs:
+        if not row.get("exists"):
+            continue
+        source_path_text = row.get("path")
+        if not isinstance(source_path_text, str):
+            continue
+        source_path = resolve_under_repo(repo_root, Path(source_path_text))
+        if not source_path.is_file():
+            continue
+        destination_name = source_path.name
+        if destination_name in seen_names:
+            destination_name = f"{row.get('kind', 'asset')}-{destination_name}"
+        seen_names.add(destination_name)
+        destination = asset_dir / destination_name
+        shutil.copy2(source_path, destination)
+        staged = artifact_ref(repo_root, destination, str(row.get("kind", "asset")))
+        staged["source_path"] = source_path_text
+        staged_refs.append(staged)
+
+    present_kinds = {str(row.get("kind")) for row in staged_refs}
+    missing_kinds = [
+        kind for kind in GITHUB_PRERELEASE_REQUIRED_ASSET_KINDS if kind not in present_kinds
+    ]
+    manifest = {
+        "schema_version": GITHUB_PRERELEASE_BUNDLE_SCHEMA_VERSION,
+        "status": "prepared_local_no_publication" if not missing_kinds else "blocked",
+        "asset_dir": rel(repo_root, asset_dir),
+        "required_asset_kinds": GITHUB_PRERELEASE_REQUIRED_ASSET_KINDS,
+        "present_asset_kinds": sorted(present_kinds),
+        "missing_asset_kinds": missing_kinds,
+        "staged_asset_refs": staged_refs,
+        "publication_attempted": False,
+        "tag_created": False,
+        "secrets_required": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+    }
+    write_json(manifest_path, manifest)
+    return manifest
 
 
 def rust_workspace_components(repo_root: Path) -> list[dict[str, Any]]:
@@ -216,6 +320,7 @@ def main() -> int:
     output_dir = resolve_under_repo(repo_root, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     steps: list[dict[str, Any]] = []
+    source_ref = git_value(repo_root, "rev-parse", "HEAD")
 
     if not args.skip_build:
         steps.append(
@@ -239,15 +344,37 @@ def main() -> int:
     binary = repo_root / "target" / args.build_profile / binary_name
     python_artifacts = sorted((repo_root / "python" / "dist").glob("shardloom-*"))
 
+    source_archive_path = output_dir / source_archive_name(source_ref)
+    steps.append(
+        run_step(
+            "build_source_archive",
+            [
+                "git",
+                "archive",
+                "--format=tar.gz",
+                "--output",
+                str(source_archive_path),
+                "HEAD",
+            ],
+            repo_root,
+        )
+    )
+
     rust_sbom_path = output_dir / "shardloom-rust-workspace.cdx.json"
     python_sbom_path = output_dir / "shardloom-python-artifacts.cdx.json"
     binary_sbom_path = output_dir / "shardloom-cli-binary.cdx.json"
     workflow_snapshot_path = output_dir / "workflow-policy-snapshot.json"
     provenance_path = output_dir / "supply-chain-release-evidence.json"
     checksum_path = output_dir / "checksums.sha256"
+    release_notes_path = output_dir / "github-prerelease-release-notes.md"
+    github_prerelease_asset_dir = output_dir / "github-prerelease-assets"
+    github_prerelease_asset_manifest_path = (
+        github_prerelease_asset_dir / "asset-manifest.json"
+    )
 
     cargo = read_toml(repo_root / "Cargo.toml")
     version = cargo.get("workspace", {}).get("package", {}).get("version", "0.0.0")
+    write_local_release_notes(release_notes_path, version=version, source_ref=source_ref)
     write_json(
         rust_sbom_path,
         cyclonedx_bom(
@@ -279,8 +406,13 @@ def main() -> int:
     write_json(workflow_snapshot_path, workflow_snapshot)
 
     artifact_refs = [
+        artifact_ref(repo_root, source_archive_path, "source_archive"),
+        artifact_ref(repo_root, release_notes_path, "release_notes"),
         artifact_ref(repo_root, binary, "release_binary"),
-        *[artifact_ref(repo_root, path, "python_artifact") for path in python_artifacts],
+        *[
+            artifact_ref(repo_root, path, python_artifact_kind(path))
+            for path in python_artifacts
+        ],
     ]
     sbom_refs = [
         artifact_ref(repo_root, rust_sbom_path, "rust_workspace_sbom"),
@@ -298,7 +430,7 @@ def main() -> int:
     provenance = {
         "schema_version": SCHEMA_VERSION,
         "release_ref": "local-dry-run",
-        "source_ref": git_value(repo_root, "rev-parse", "HEAD"),
+        "source_ref": source_ref,
         "source_dirty": bool(git_value(repo_root, "status", "--porcelain")),
         "build_workflow_ref": "local scripts/release_provenance_dry_run.py",
         "builder_identity": f"local:{os.environ.get('USERNAME') or os.environ.get('USER') or 'unknown'}",
@@ -309,6 +441,10 @@ def main() -> int:
         "provenance_status": "dry_run_unsigned_local_evidence",
         "signed_or_attested_status": "not_signed_local_dry_run",
         "verification_instructions_ref": "docs/release/release-provenance-dry-run.md",
+        "github_prerelease_asset_bundle_status": "prepared_local_no_publication",
+        "github_prerelease_asset_manifest_ref": rel(
+            repo_root, github_prerelease_asset_manifest_path
+        ),
         "publish_workflow_policy": workflow_snapshot,
         "fallback_dependency_absent": True,
         "publication_attempted": False,
@@ -321,15 +457,34 @@ def main() -> int:
         "steps": steps,
     }
     write_json(provenance_path, provenance)
+    bundle_manifest = stage_github_prerelease_assets(
+        repo_root=repo_root,
+        asset_dir=github_prerelease_asset_dir,
+        source_refs=[
+            *artifact_refs,
+            *sbom_refs,
+            artifact_ref(repo_root, checksum_path, "checksum_manifest"),
+            artifact_ref(repo_root, provenance_path, "supply_chain_provenance"),
+        ],
+        manifest_path=github_prerelease_asset_manifest_path,
+    )
 
     manifest = {
         "schema_version": "shardloom.release_provenance_dry_run_manifest.v1",
-        "proof_status": "passed" if all(step["returncode"] == 0 for step in steps) else "failed",
+        "proof_status": "passed"
+        if all(step["returncode"] == 0 for step in steps)
+        and bundle_manifest["status"] == "prepared_local_no_publication"
+        else "failed",
         "output_dir": str(output_dir),
         "provenance": rel(repo_root, provenance_path),
         "checksum_manifest": rel(repo_root, checksum_path),
         "sbom_refs": [rel(repo_root, path) for path in [rust_sbom_path, python_sbom_path, binary_sbom_path]],
         "workflow_policy_snapshot": rel(repo_root, workflow_snapshot_path),
+        "github_prerelease_asset_bundle_status": bundle_manifest["status"],
+        "github_prerelease_asset_manifest": rel(
+            repo_root, github_prerelease_asset_manifest_path
+        ),
+        "github_prerelease_asset_count": len(bundle_manifest["staged_asset_refs"]),
         "publication_attempted": False,
         "tag_created": False,
         "secrets_required": False,

@@ -212,8 +212,9 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [x] Record and machine-check package identities: Python package `shardloom`, current
       workspace Rust crates unpublished, and crates.io limited to future stable public
       protocol/client crates until separate API/schema and maintainer approval exists.
-    - [ ] Implement GitHub pre-release artifacts: source archive, CLI binaries, wheel, sdist,
-      checksums, SBOM, provenance, and release notes.
+    - [x] Implement local GitHub pre-release artifact staging: source archive, CLI binaries, wheel,
+      sdist, checksums, SBOM, provenance, release notes, and an asset manifest are generated as
+      no-publication dry-run evidence while approved tags/releases/uploads remain blocked.
     - [ ] Add TestPyPI upload, clean install, uninstall, and smoke proof before PyPI proof.
     - [ ] Add PyPI clean install, uninstall, and smoke proof only after TestPyPI passes and
       approval exists.
