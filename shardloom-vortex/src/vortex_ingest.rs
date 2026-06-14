@@ -6332,8 +6332,8 @@ fn columnar_column_families(
                 if candidate == "float64" {
                     reject_columnar_non_finite_floats(&projected_column.column, array.as_ref())?;
                 }
-                if let Some(existing) = family {
-                    if existing != candidate {
+                if let Some(existing) = family.as_ref() {
+                    if existing != &candidate {
                         return Err(ShardLoomError::InvalidOperation(format!(
                             "local vortex_ingest column '{}' mixes columnar families {existing} and {candidate}; no fallback execution was attempted",
                             projected_column.column
@@ -6352,7 +6352,6 @@ fn columnar_column_families(
                         projected_column.dtype_hint.as_ref(),
                     )?,
                 }
-                .to_string(),
             ))
         })
         .collect()
@@ -6362,18 +6361,27 @@ fn columnar_column_families(
 fn columnar_family_from_dtype_hint(
     column: &str,
     dtype_hint: Option<&LogicalDType>,
-) -> Result<&'static str> {
+) -> Result<String> {
     match dtype_hint {
-        Some(LogicalDType::Boolean) => Ok("boolean"),
-        Some(LogicalDType::Int64) => Ok("int64"),
-        Some(LogicalDType::UInt64) => Ok("uint64"),
-        Some(LogicalDType::Float64) => Ok("float64"),
-        Some(LogicalDType::Utf8) | None => Ok("utf8"),
-        Some(LogicalDType::Binary) => Ok("binary"),
-        Some(LogicalDType::Date32) => Ok("date32"),
-        Some(LogicalDType::TimestampMicros) => Ok("timestamp_micros"),
+        Some(LogicalDType::Boolean) => Ok("boolean".to_string()),
+        Some(LogicalDType::Int64) => Ok("int64".to_string()),
+        Some(LogicalDType::UInt64) => Ok("uint64".to_string()),
+        Some(LogicalDType::Float64) => Ok("float64".to_string()),
+        Some(LogicalDType::Utf8) | None => Ok("utf8".to_string()),
+        Some(LogicalDType::Binary) => Ok("binary".to_string()),
+        Some(LogicalDType::Date32) => Ok("date32".to_string()),
+        Some(LogicalDType::TimestampMicros) => Ok("timestamp_micros".to_string()),
+        Some(LogicalDType::Extension(value)) if value.starts_with("decimal128") => {
+            let (precision, scale) =
+                scalar_decimal128_dtype_precision_scale(column, value)?.ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "local vortex_ingest column '{column}' has invalid decimal128 dtype hint {value:?}; decimal hints must use decimal128(precision,scale) with 1 <= precision <= 38 and scale <= precision; no fallback execution was attempted"
+                    ))
+                })?;
+            Ok(format!("decimal128({precision},{scale})"))
+        }
         Some(dtype) => Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8/binary columns only; no fallback execution was attempted",
+            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8/binary columns only; no fallback execution was attempted",
             dtype.as_str()
         ))),
     }
@@ -6408,50 +6416,53 @@ fn reject_columnar_non_finite_floats(column: &str, array: &dyn Array) -> Result<
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn arrow_column_family(column: &str, array: &dyn Array) -> Result<&'static str> {
+fn arrow_column_family(column: &str, array: &dyn Array) -> Result<String> {
     if let Some(family) = dictionary_column_family(array.data_type()) {
+        return Ok(family.to_string());
+    }
+    if let Some(family) = decimal128_column_family(column, array.data_type())? {
         return Ok(family);
     }
     if array.as_any().is::<BooleanArray>() {
-        return Ok("boolean");
+        return Ok("boolean".to_string());
     }
     if array.as_any().is::<Int8Array>()
         || array.as_any().is::<Int16Array>()
         || array.as_any().is::<Int32Array>()
         || array.as_any().is::<Int64Array>()
     {
-        return Ok("int64");
+        return Ok("int64".to_string());
     }
     if array.as_any().is::<UInt8Array>()
         || array.as_any().is::<UInt16Array>()
         || array.as_any().is::<UInt32Array>()
         || array.as_any().is::<UInt64Array>()
     {
-        return Ok("uint64");
+        return Ok("uint64".to_string());
     }
     if array.as_any().is::<Float32Array>() || array.as_any().is::<Float64Array>() {
-        return Ok("float64");
+        return Ok("float64".to_string());
     }
     if array.as_any().is::<StringArray>()
         || array.as_any().is::<LargeStringArray>()
         || array.as_any().is::<StringViewArray>()
     {
-        return Ok("utf8");
+        return Ok("utf8".to_string());
     }
     if array.as_any().is::<BinaryArray>()
         || array.as_any().is::<LargeBinaryArray>()
         || array.as_any().is::<BinaryViewArray>()
     {
-        return Ok("binary");
+        return Ok("binary".to_string());
     }
     if array.as_any().is::<Date32Array>() {
-        return Ok("date32");
+        return Ok("date32".to_string());
     }
     if array.as_any().is::<TimestampMicrosecondArray>() {
-        return Ok("timestamp_micros");
+        return Ok("timestamp_micros".to_string());
     }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8/binary columns only; no fallback execution was attempted",
+        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, decimal128, date32, timestamp_micros, and non-empty Arrow dictionary-encoded utf8/binary columns only; no fallback execution was attempted",
         array.data_type()
     )))
 }
@@ -6483,6 +6494,24 @@ fn dictionary_column_family(dtype: &ArrowDataType) -> Option<&'static str> {
         }
         _ => None,
     }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn decimal128_column_family(column: &str, dtype: &ArrowDataType) -> Result<Option<String>> {
+    let ArrowDataType::Decimal128(precision, scale) = dtype else {
+        return Ok(None);
+    };
+    let scale = u8::try_from(*scale).map_err(|_| {
+        ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest column '{column}' has unsupported negative decimal128 scale {scale}; scoped columnar decimal128 Vortex ingest requires 0 <= scale <= precision; no fallback execution was attempted"
+        ))
+    })?;
+    if !(1..=38).contains(precision) || scale > *precision {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest column '{column}' has invalid decimal128({precision},{scale}) Arrow dtype; scoped columnar decimal128 Vortex ingest requires 1 <= precision <= 38 and scale <= precision; no fallback execution was attempted"
+        )));
+    }
+    Ok(Some(format!("decimal128({precision},{scale})")))
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -6530,10 +6559,42 @@ fn columnar_column_to_vortex_array(
             .into_iter()
             .collect::<PrimitiveArray>()
             .into_array()),
+        family if family.starts_with("decimal128(") => {
+            empty_columnar_decimal128_to_vortex_array(column, family, arrays)
+        }
         other => Err(ShardLoomError::InvalidOperation(format!(
             "local vortex_ingest column '{column}' has unsupported columnar family {other}; no fallback execution was attempted"
         ))),
     }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn empty_columnar_decimal128_to_vortex_array(
+    column: &str,
+    family: &str,
+    arrays: &[ArrowArrayRef],
+) -> Result<vortex::array::ArrayRef> {
+    use vortex::array::IntoArray as _;
+    use vortex::array::dtype::{DecimalDType, Nullability};
+
+    if !arrays.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest column '{column}' decimal128 columnar arrays must use the Arrow RecordBatch provider; no fallback execution was attempted"
+        )));
+    }
+    let (precision, scale_u8) = scalar_decimal128_family_precision_scale(family)
+        .ok_or_else(|| unexpected_vortex_ingest_family(column, family))?;
+    let scale_i8 = i8::try_from(scale_u8).map_err(|_| {
+        ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest column '{column}' has unsupported decimal128 scale {scale_u8}; no fallback execution was attempted"
+        ))
+    })?;
+    let mut builder = vortex::array::builders::DecimalBuilder::with_capacity::<i128>(
+        0,
+        DecimalDType::new(precision, scale_i8),
+        Nullability::Nullable,
+    );
+    Ok(builder.finish_into_decimal().into_array())
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -8636,6 +8697,197 @@ mod tests {
         assert!(active.value(0));
         assert!(active.is_null(1));
         assert!(!active.value(2));
+
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn local_flat_columnar_decimal_source_writes_reopens_precision_scale() {
+        use std::sync::Arc;
+
+        use arrow_array::{
+            Array as _, Decimal128Array, Int64Array, RecordBatch, StructArray,
+            builder::Decimal128Builder,
+        };
+        use arrow_schema::{DataType, Field, Schema};
+        use shardloom_core::LogicalDType;
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-decimal-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "amount".to_string()];
+        let decimal_dtype = DataType::Decimal128(10, 2);
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("amount", decimal_dtype.clone(), true),
+        ]));
+        let mut amount = Decimal128Builder::with_capacity(4);
+        amount.append_value(1234);
+        amount.append_null();
+        amount.append_value(-800);
+        amount.append_value(0);
+        let amount = amount
+            .finish()
+            .with_precision_and_scale(10, 2)
+            .expect("decimal precision and scale");
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2, 3, 4])),
+                Arc::new(amount),
+            ],
+        )
+        .expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            column_dtypes: vec![
+                Some(LogicalDType::Int64),
+                Some(LogicalDType::Extension("decimal128(10,2)".to_string())),
+            ],
+            column_arrow_dtypes: vec![Some(DataType::Int64), Some(decimal_dtype)],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: vec![batch],
+            row_count: 4,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 4);
+        assert_eq!(report.reopen_row_count, 4);
+        assert_eq!(
+            report.column_family_summary(),
+            "id:int64,amount:decimal128(10,2)"
+        );
+        assert_eq!(report.array_build_provider_kind, "vortex_array_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "ArrayRef::from_arrow(RecordBatch)"
+        );
+        assert_eq!(
+            report.preparation_spine.materialization_boundary_status,
+            "columnar_source_state_preserved_to_vortex_array_provider"
+        );
+        assert_eq!(
+            report.preparation_spine.decode_boundary_status,
+            "no_scalar_row_decode_for_non_empty_batches"
+        );
+        assert!(report.manual_scalar_copy_avoided);
+        assert!(!report.preparation_spine.fallback_attempted);
+        assert!(!report.preparation_spine.external_engine_invoked);
+
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, schema.as_ref());
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        let amount = struct_array
+            .column_by_name("amount")
+            .expect("amount column")
+            .as_any()
+            .downcast_ref::<Decimal128Array>()
+            .expect("decimal amount column");
+        assert_eq!(amount.precision(), 10);
+        assert_eq!(amount.scale(), 2);
+        assert_eq!(amount.value(0), 1234);
+        assert!(amount.is_null(1));
+        assert_eq!(amount.value(2), -800);
+        assert_eq!(amount.value(3), 0);
+        assert_eq!(amount.null_count(), 1);
+
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_empty_flat_columnar_decimal_source_writes_reopens_schema() {
+        use arrow_array::{Decimal128Array, StructArray};
+        use arrow_schema::{DataType, Field, Schema};
+        use shardloom_core::LogicalDType;
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-empty-columnar-decimal-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "amount".to_string()];
+        let decimal_dtype = DataType::Decimal128(12, 4);
+        let schema = Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("amount", decimal_dtype.clone(), true),
+        ]);
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            column_dtypes: vec![
+                Some(LogicalDType::Int64),
+                Some(LogicalDType::Extension("decimal128(12,4)".to_string())),
+            ],
+            column_arrow_dtypes: vec![Some(DataType::Int64), Some(decimal_dtype)],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: Vec::new(),
+            row_count: 0,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 0);
+        assert_eq!(report.reopen_row_count, 0);
+        assert_eq!(
+            report.column_family_summary(),
+            "id:int64,amount:decimal128(12,4)"
+        );
+        assert_eq!(report.array_build_provider_kind, "shardloom_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "shardloom_empty_columnar_struct_builder"
+        );
+        assert_eq!(
+            report.array_build_strategy,
+            "empty_columnar_schema_to_vortex_struct"
+        );
+        assert_eq!(report.array_build_record_batch_count, 0);
+        assert!(!report.manual_scalar_copy_avoided);
+        assert_eq!(
+            report.preparation_spine.vortex_first_decision,
+            "implement_shardloom_kernel"
+        );
+        assert_eq!(
+            report.preparation_spine.materialization_boundary_status,
+            "empty_columnar_schema_materialized_by_shardloom_kernel"
+        );
+        assert_eq!(
+            report.preparation_spine.decode_boundary_status,
+            "empty_source_no_data_decode"
+        );
+        assert!(!report.preparation_spine.fallback_attempted);
+        assert!(!report.preparation_spine.external_engine_invoked);
+
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, &schema);
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        assert_eq!(struct_array.len(), 0);
+        let amount = struct_array
+            .column_by_name("amount")
+            .expect("amount column")
+            .as_any()
+            .downcast_ref::<Decimal128Array>()
+            .expect("decimal amount column");
+        assert_eq!(amount.precision(), 12);
+        assert_eq!(amount.scale(), 4);
+        assert_eq!(amount.len(), 0);
 
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");

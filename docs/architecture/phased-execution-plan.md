@@ -318,6 +318,11 @@ with a recorded infeasibility reason, not merely because they are broad.
         all-valid, all-null, and mixed-validity replay proof, Native I/O/reopen evidence, and
         no-fallback certification while sparse/nested/extension/generalized writer claims remain
         blocked.
+      - [x] Promote flat Arrow Decimal128 columnar handoff from provider-candidate posture to
+        scoped feature-gated runtime evidence through `ArrayRef::from_arrow(RecordBatch)`, with
+        precision/scale/null replay proof, Native I/O/reopen evidence, and no-fallback
+        certification while Decimal256, negative-scale decimal, extension metadata, and
+        generalized writer claims remain blocked.
       - [x] Promote flat Arrow dictionary utf8/binary columnar handoff from provider-candidate
         posture to scoped feature-gated runtime evidence through
         `ArrayRef::from_arrow(RecordBatch)`, with null-key/repeated-value replay proof,
