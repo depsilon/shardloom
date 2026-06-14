@@ -195,9 +195,11 @@ fn vortex_api_inventory_exposes_gar0005a_local_io_coverage() {
     )));
     assert!(output.contains(&field(
         "vortex_local_io_selected_writer_lane",
-        "native_count_output_payload_write"
+        "flat_scalar_vortex_ingest_prepared_state_write"
     )));
-    assert!(output.contains(&field("vortex_local_io_runtime_lane_count", "2")));
+    assert!(output.contains(&field("vortex_local_io_runtime_lane_count", "4")));
+    assert!(output.contains("native_count_output_payload_write"));
+    assert!(output.contains("flat_columnar_vortex_ingest_prepared_state_write"));
     assert!(output.contains(&field("vortex_local_io_blocked_lane_count", "1")));
     assert!(output.contains(&field(
         "vortex_local_io_reader_feature_gate",
@@ -228,6 +230,93 @@ fn vortex_api_inventory_keeps_local_io_inventory_effect_free() {
     assert!(output.contains(&field("vortex_local_io_table_catalog_io", "false")));
     assert!(output.contains(&field("vortex_local_io_external_engine_invoked", "false")));
     assert!(output.contains(&field("vortex_local_io_fallback_attempted", "false")));
+}
+
+#[test]
+fn vortex_api_inventory_exposes_native_writer_schema_certification() {
+    let output = run_vortex_api_inventory_json();
+
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_schema_version",
+        "shardloom.vortex_native_writer_schema_certification.v1"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_report_id",
+        "prod-ready-1a.vortex-native-writer-schema-certification"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_scoped_runtime_row_count",
+        "3"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_blocked_row_count",
+        "1"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_scoped_runtime_row_ids",
+        "flat_scalar_rows_nullable_primitives,typed_complex_scalar_rows_arrow_provider,flat_columnar_source_state_arrow_provider"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_blocked_row_ids",
+        "generalized_schema_encoding_writer"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_local_runtime_claim_allowed",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_performance_claim_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_broad_schema_encoding_certification_complete",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_no_external_fallback",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_flat_scalar_rows_nullable_primitives_status",
+        "scoped_feature_gated_runtime"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_typed_complex_scalar_rows_arrow_provider_provider_decision",
+        "use_vortex_native_provider"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_flat_columnar_source_state_arrow_provider_writer_lane_id",
+        "flat_columnar_vortex_ingest_prepared_state_write"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_generalized_schema_encoding_writer_status",
+        "blocked_pending_evidence"
+    )));
+    assert!(output.contains(&field(
+        "vortex_native_writer_schema_certification_row_generalized_schema_encoding_writer_unsupported_diagnostic_code",
+        "SL_UNSUPPORTED_GENERALIZED_VORTEX_PAYLOAD_WRITE"
+    )));
+}
+
+#[test]
+fn vortex_api_inventory_keeps_native_writer_schema_certification_effect_free() {
+    let output = run_vortex_api_inventory_json();
+
+    for key in [
+        "vortex_native_writer_schema_certification_object_store_io",
+        "vortex_native_writer_schema_certification_table_catalog_io",
+        "vortex_native_writer_schema_certification_external_engine_invoked",
+        "vortex_native_writer_schema_certification_fallback_attempted",
+        "vortex_native_writer_schema_certification_row_generalized_schema_encoding_writer_object_store_io",
+        "vortex_native_writer_schema_certification_row_generalized_schema_encoding_writer_table_catalog_io",
+        "vortex_native_writer_schema_certification_row_generalized_schema_encoding_writer_external_engine_invoked",
+        "vortex_native_writer_schema_certification_row_generalized_schema_encoding_writer_fallback_attempted",
+    ] {
+        assert!(
+            output.contains(&field(key, "false")),
+            "missing false field {key}"
+        );
+    }
 }
 
 #[test]

@@ -226,6 +226,29 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"prepare_batch_prepared_state_partial_repair_schema_version\""));
     assert!(script.contains("\"prepare_batch_prepared_state_partial_repair_status\""));
     assert!(script.contains("\"prepare_batch_prepared_state_partial_repair_blocker_id\""));
+    assert!(script.contains("\"prepare_batch_prepared_state_read_through_cache_schema_version\""));
+    assert!(script.contains("\"prepare_batch_prepared_state_read_through_cache_status\""));
+    assert!(script.contains("\"prepare_batch_prepared_state_read_through_cache_hit\""));
+    assert!(
+        script.contains("\"prepare_batch_prepared_state_read_through_manifest_read_required\"")
+    );
+    assert!(
+        script
+            .contains("\"prepare_batch_prepared_state_read_through_source_fingerprint_verified\"")
+    );
+    assert!(
+        script.contains(
+            "\"prepare_batch_prepared_state_read_through_artifact_fingerprint_verified\""
+        )
+    );
+    assert!(
+        script.contains("\"prepare_batch_prepared_state_read_through_cache_fallback_attempted\"")
+    );
+    assert!(
+        script.contains(
+            "\"prepare_batch_prepared_state_read_through_cache_external_engine_invoked\""
+        )
+    );
     assert!(
         script.contains("\"prepare_batch_prepared_state_partial_repair_regeneration_performed\"")
     );

@@ -1,0 +1,317 @@
+{
+  "schema_version": "shardloom.compatibility_output_translation_report_coverage.v1",
+  "status": "translation_report_coverage_declared_production_certification_incomplete",
+  "claim_gate_status": "not_claim_grade",
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "production_claim_allowed": false,
+  "performance_claim_allowed": false,
+  "table_commit_claim_allowed": false,
+  "object_store_output_claim_allowed": false,
+  "row_count": 9,
+  "row_order": [
+    "vortex_native_output",
+    "csv_compatibility_output",
+    "jsonl_compatibility_output",
+    "parquet_compatibility_output",
+    "arrow_ipc_compatibility_output",
+    "avro_compatibility_output",
+    "orc_compatibility_output",
+    "iceberg_compatible_table_output",
+    "delta_compatible_table_output"
+  ],
+  "translation_model_ref": "shardloom-core/src/translation.rs",
+  "writer_matrix_ref": "shardloom-core::CompatibilityOutputWriterMatrixReport::current",
+  "profile_ref": "docs/release/local-format-production-profiles.json#compatibility_output_exports",
+  "claim_boundary": "Rows cover TranslationReport semantics, metadata preservation/loss, materialization, unsupported-schema diagnostics, and no-fallback boundaries. They do not promote broad production sink, object-store, lakehouse table-commit, performance, or package-release claims.",
+  "rows": [
+    {
+      "row_id": "vortex_native_output",
+      "target_kind": "vortex",
+      "translation_status": "native_output_planned",
+      "fidelity_level": "native_full_fidelity",
+      "metadata_preserved": [
+        "logical_dtype",
+        "nullability",
+        "validity",
+        "segment_statistics",
+        "encoding",
+        "layout",
+        "segment_boundaries"
+      ],
+      "metadata_lost_or_partial": [],
+      "materialization_requirement": "selection_only",
+      "unsupported_schema_diagnostic": "unsupported_vortex_layout_or_dtype_must_emit_deterministic_blocker_before_execution",
+      "writer_support_status": "native_vortex_reference",
+      "current_evidence_refs": [
+        "shardloom-core/src/translation.rs::TranslationPlan::native_vortex",
+        "shardloom-contract-tests/tests/fidelity_invariants.rs",
+        "shardloom-cli/tests/native_count_payload_write_feature.rs"
+      ],
+      "required_next_evidence": [
+        "broad_schema_native_vortex_writer_certificate",
+        "native_io_replay_certificate",
+        "metadata_statistics_preservation_matrix"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "csv_compatibility_output",
+      "target_kind": "csv",
+      "translation_status": "compatibility_output_planned",
+      "fidelity_level": "compatibility_lossy_physical",
+      "metadata_preserved": [
+        "logical_dtype"
+      ],
+      "metadata_lost_or_partial": [
+        "nullability",
+        "encoding",
+        "layout",
+        "segment_boundaries",
+        "segment_statistics"
+      ],
+      "materialization_requirement": "partial_materialization",
+      "unsupported_schema_diagnostic": "nested_struct_list_map_decimal_and_binary_shapes_require_explicit_csv_fidelity_certificate_or_block",
+      "writer_support_status": "local_fixture_smoke",
+      "current_evidence_refs": [
+        "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
+        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "python/tests/test_query_builder.py::fanout_output_fidelity_statuses"
+      ],
+      "required_next_evidence": [
+        "csv_schema_loss_report",
+        "nested_shape_blocker_fixtures",
+        "overwrite_append_policy_certificate"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "jsonl_compatibility_output",
+      "target_kind": "json_lines",
+      "translation_status": "compatibility_output_planned",
+      "fidelity_level": "compatibility_lossy_physical",
+      "metadata_preserved": [
+        "logical_dtype"
+      ],
+      "metadata_lost_or_partial": [
+        "nullability",
+        "encoding",
+        "layout",
+        "segment_boundaries",
+        "segment_statistics"
+      ],
+      "materialization_requirement": "partial_materialization",
+      "unsupported_schema_diagnostic": "nested_payloads_need_explicit_json_mapping_certificate_or_block",
+      "writer_support_status": "local_fixture_smoke",
+      "current_evidence_refs": [
+        "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
+        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "python/tests/test_query_builder.py::output_fidelity_report_status"
+      ],
+      "required_next_evidence": [
+        "jsonl_nested_mapping_fixtures",
+        "jsonl_null_and_type_loss_report",
+        "replay_verification_certificate"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "parquet_compatibility_output",
+      "target_kind": "parquet",
+      "translation_status": "compatibility_output_planned",
+      "fidelity_level": "compatibility_lossy_physical",
+      "metadata_preserved": [
+        "logical_dtype"
+      ],
+      "metadata_lost_or_partial": [
+        "nullability",
+        "encoding",
+        "layout",
+        "segment_boundaries",
+        "segment_statistics"
+      ],
+      "materialization_requirement": "partial_materialization",
+      "unsupported_schema_diagnostic": "unsupported_nested_or_extension_dtype_must_block_with_metadata_loss_diagnostic",
+      "writer_support_status": "local_fixture_smoke",
+      "current_evidence_refs": [
+        "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
+        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "shardloom-contract-tests/tests/fidelity_invariants.rs"
+      ],
+      "required_next_evidence": [
+        "parquet_metadata_loss_report",
+        "nested_dtype_support_matrix",
+        "columnar_replay_verification_certificate"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "arrow_ipc_compatibility_output",
+      "target_kind": "arrow_ipc",
+      "translation_status": "compatibility_output_planned",
+      "fidelity_level": "compatibility_lossy_physical",
+      "metadata_preserved": [
+        "logical_dtype"
+      ],
+      "metadata_lost_or_partial": [
+        "nullability",
+        "encoding",
+        "layout",
+        "segment_boundaries",
+        "segment_statistics"
+      ],
+      "materialization_requirement": "partial_materialization",
+      "unsupported_schema_diagnostic": "extension_dtype_and_vortex_layout_metadata_loss_must_be_reported_or_blocked",
+      "writer_support_status": "local_fixture_smoke",
+      "current_evidence_refs": [
+        "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
+        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "shardloom-contract-tests/tests/fidelity_invariants.rs"
+      ],
+      "required_next_evidence": [
+        "arrow_extension_dtype_loss_report",
+        "validity_mask_roundtrip_fixtures",
+        "columnar_replay_verification_certificate"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "avro_compatibility_output",
+      "target_kind": "avro",
+      "translation_status": "compatibility_output_planned",
+      "fidelity_level": "compatibility_lossy_physical",
+      "metadata_preserved": [
+        "logical_dtype"
+      ],
+      "metadata_lost_or_partial": [
+        "nullability",
+        "encoding",
+        "layout",
+        "segment_boundaries",
+        "segment_statistics"
+      ],
+      "materialization_requirement": "partial_materialization",
+      "unsupported_schema_diagnostic": "union_logical_type_and_nested_shape_loss_must_be_reported_or_blocked",
+      "writer_support_status": "local_fixture_smoke",
+      "current_evidence_refs": [
+        "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
+        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "shardloom-contract-tests/tests/fidelity_invariants.rs"
+      ],
+      "required_next_evidence": [
+        "avro_logical_type_loss_report",
+        "union_schema_blocker_fixtures",
+        "compatibility_replay_verification_certificate"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "orc_compatibility_output",
+      "target_kind": "orc",
+      "translation_status": "compatibility_output_planned",
+      "fidelity_level": "compatibility_lossy_physical",
+      "metadata_preserved": [
+        "logical_dtype"
+      ],
+      "metadata_lost_or_partial": [
+        "nullability",
+        "encoding",
+        "layout",
+        "segment_boundaries",
+        "segment_statistics"
+      ],
+      "materialization_requirement": "partial_materialization",
+      "unsupported_schema_diagnostic": "stripe_statistics_nested_shape_and_logical_type_loss_must_be_reported_or_blocked",
+      "writer_support_status": "local_fixture_smoke",
+      "current_evidence_refs": [
+        "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
+        "shardloom-vortex::traditional_analytics::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "shardloom-contract-tests/tests/fidelity_invariants.rs"
+      ],
+      "required_next_evidence": [
+        "orc_logical_type_loss_report",
+        "nested_shape_blocker_fixtures",
+        "compatibility_replay_verification_certificate"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "iceberg_compatible_table_output",
+      "target_kind": "iceberg_compatible",
+      "translation_status": "compatibility_output_planned",
+      "fidelity_level": "compatibility_lossy_physical",
+      "metadata_preserved": [
+        "logical_dtype"
+      ],
+      "metadata_lost_or_partial": [
+        "nullability",
+        "encoding",
+        "layout",
+        "segment_boundaries",
+        "segment_statistics"
+      ],
+      "materialization_requirement": "partial_materialization",
+      "unsupported_schema_diagnostic": "iceberg_table_metadata_and_commit_semantics_block_until_native_table_commit_runtime_exists",
+      "writer_support_status": "report_only_blocked",
+      "current_evidence_refs": [
+        "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
+        "shardloom-core/src/translation.rs::CompatibilityOutputWriterMatrixReport::blocked_table_target",
+        "docs/architecture/phased-execution-plan.md::PROD-READY-1B"
+      ],
+      "required_next_evidence": [
+        "iceberg_metadata_writer_certificate",
+        "atomic_commit_recovery_fixtures",
+        "object_store_native_io_certificate"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "delta_compatible_table_output",
+      "target_kind": "delta_compatible",
+      "translation_status": "compatibility_output_planned",
+      "fidelity_level": "compatibility_lossy_physical",
+      "metadata_preserved": [
+        "logical_dtype"
+      ],
+      "metadata_lost_or_partial": [
+        "nullability",
+        "encoding",
+        "layout",
+        "segment_boundaries",
+        "segment_statistics"
+      ],
+      "materialization_requirement": "partial_materialization",
+      "unsupported_schema_diagnostic": "delta_log_commit_semantics_block_until_native_table_commit_runtime_exists",
+      "writer_support_status": "report_only_blocked",
+      "current_evidence_refs": [
+        "shardloom-core/src/translation.rs::TranslationPlan::compatibility_output",
+        "shardloom-core/src/translation.rs::CompatibilityOutputWriterMatrixReport::blocked_table_target",
+        "docs/architecture/phased-execution-plan.md::PROD-READY-1B"
+      ],
+      "required_next_evidence": [
+        "delta_log_writer_certificate",
+        "atomic_commit_recovery_fixtures",
+        "object_store_native_io_certificate"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    }
+  ]
+}

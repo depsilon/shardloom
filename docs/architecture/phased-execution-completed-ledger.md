@@ -16,6 +16,105 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PERF-RUNTIME-7D publication-proof sidecar reuse and no-rewrite fast path
+  - Date: 2026-06-14
+  - Source:
+    - `PERF-RUNTIME-7D` in `docs/architecture/phased-execution-plan.md`.
+    - Current promoted `full_local` artifact generated `2026-06-14T12:37:12Z`.
+    - Isolated repeated-promotion output under `target/perf-runtime-7d-sidecar-reuse/`.
+  - Branch: `codex/perf-runtime-7c-prepared-index-cache`.
+  - Scope:
+    - Added a digest-keyed publication-proof sidecar source fingerprint derived from published row
+      chunk digests, plus a record-set digest derived from publication-proof record IDs/digests.
+    - Added a fast path that reuses an already-reused publication-proof sidecar without rewriting
+      it when the row-chunk digest, record counts, no-fallback fields, and reuse counts match.
+    - Promoted the new source-row-chunk digest, record-set digest, write status, reuse scope, and
+      human-render reuse status through benchmark manifests.
+    - Extended artifact completeness validation to compare the new digest fields when they are
+      present.
+  - Runtime/publication evidence:
+    - First isolated promotion over `target/benchmark-artifacts/traditional-full-local.json`
+      produced an incremental sidecar.
+    - Second isolated promotion over the unchanged artifact produced
+      `publication_proof_sidecar_status=reused_existing_publication_proof_sidecar`,
+      `publication_proof_sidecar_record_count=600`,
+      `publication_proof_sidecar_reused_record_count=600`,
+      `publication_proof_sidecar_written_record_count=0`, and
+      `publication_proof_sidecar_stale_record_count=0`.
+    - Third isolated promotion over the same unchanged artifact preserved the sidecar file digest
+      `7ba6ca7ca549b55213c79da5febab64af70c59f840f5ef9bd5346129ed280441` and reported
+      `publication_proof_sidecar_write_status=skipped_unchanged_publication_proof_sidecar_write`
+      plus
+      `publication_proof_sidecar_human_render_reuse_status=reused_compact_machine_evidence_without_rewriting_sidecar`.
+    - Sidecar contract check confirmed schema, record count, reused/written/stale counts,
+      source-row-chunk digest, record-set digest, manifest/sidecar count alignment,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/promote_benchmark_artifact.py scripts/check_benchmark_artifact_completeness.py python/tests/test_release_scripts.py`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_promoter_publication_proof_sidecar_reuses_and_invalidates`.
+    - Three repeated isolated runs of
+      `python3 scripts/promote_benchmark_artifact.py --input target/benchmark-artifacts/traditional-full-local.json --profile full_local --output-dir target/perf-runtime-7d-sidecar-reuse/latest --website-data target/perf-runtime-7d-sidecar-reuse/benchmark-results.json --public-output-dir target/perf-runtime-7d-sidecar-reuse/public/latest --public-website-data target/perf-runtime-7d-sidecar-reuse/public/benchmark-results.json --website-src-data target/perf-runtime-7d-sidecar-reuse/website-src/benchmark-results.json --website-src-manifest target/perf-runtime-7d-sidecar-reuse/website-src/manifest.json`.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/perf-runtime-7d-sidecar-reuse/current-published-completeness.json`.
+  - Validation note:
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest target/perf-runtime-7d-sidecar-reuse/latest/manifest.json --output target/perf-runtime-7d-sidecar-reuse/completeness.json`
+      was blocked only because the isolated output directory did not include
+      `artifact_paths.prepare_batch_role_repair_evidence`; the current published bundle
+      completeness check passed with no blockers.
+    - This closes proof-publication overhead attribution/reuse only. It does not hide result-sink
+      or evidence-render timing from `publication_proof` rows and does not create a hot-runtime,
+      package-release, production, or superiority claim.
+
+- [x] Session label: PERF-RUNTIME-7C prepared-state index read-through cache
+  - Date: 2026-06-14
+  - Source:
+    - `PERF-RUNTIME-7C` in `docs/architecture/phased-execution-plan.md`.
+    - Current full-local route-share evidence generated `2026-06-14T12:37:12Z`, where
+      `prepare_once_first_query` remained dominated by prepared-state lookup/create attribution.
+    - Targeted smoke artifact `target/perf-runtime-7c-prepared-index-cache-smoke.json`.
+  - Branch: `codex/perf-runtime-7c-prepared-index-cache`.
+  - Scope:
+    - Added a workspace-local prepared-state index read-through cache for prepared/native batch
+      reuse. The hot hit path can now reuse the index's compact manifest snapshot instead of
+      parsing the full reuse manifest when the index proves schema, index digest, snapshot digest,
+      manifest file fingerprint, manifest digest, route request digest, source fingerprints,
+      prepared-artifact fingerprints, Native I/O certificate status, and no-fallback fields.
+    - Kept fail-closed behavior: stale/malformed indexes, artifact/source changes, non-certified
+      Native I/O status, fallback/external-engine flags, route digest mismatches, and unreadable
+      indexes fall back to the existing full manifest validation path or trigger repair/create
+      behavior.
+    - Added stable read-through cache evidence fields through Rust runtime rows, Python prepared
+      route envelopes, benchmark row validation, and benchmark artifact promotion.
+    - Classified Vortex 0.75 layout-reader context/cache as not used for this prepared lookup
+      optimization: this path reuses ShardLoom's verified manifest snapshot, not Vortex reader
+      state.
+  - Runtime evidence:
+    - Targeted two-iteration prepared-batch smoke rows reported
+      `prepare_batch_prepared_state_index_lookup_status=workspace_index_read_through_hit`.
+    - Both smoke rows reported
+      `prepare_batch_prepared_state_read_through_cache_status=index_read_through_hit_manifest_snapshot_verified`,
+      `prepare_batch_prepared_state_read_through_cache_hit=true`,
+      `prepare_batch_prepared_state_read_through_manifest_read_required=false`,
+      manifest/source/artifact/Native I/O verification flags `true`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - The smoke row for `selective_filter` reported query runtime around `0.229 ms`; the
+      `filter_projection_limit` row reported query runtime around `0.0025 ms`. This is scoped
+      evidence for the read-through hit path, not a promoted/public performance claim.
+  - Evidence commands:
+    - `python3 -m py_compile benchmarks/traditional_analytics/run.py scripts/promote_benchmark_artifact.py python/src/shardloom/prepared_route.py`.
+    - `python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_prepared_route_reuses_workspace_manifest_without_reprepare`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests`.
+    - `cargo fmt --all -- --check`.
+    - `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`.
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark traditional_prepared_batch_workspace_reuse_traditional_prepared_partial_repair --lib -- --nocapture`.
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture`.
+    - `python3 benchmarks/traditional_analytics/run.py --rows 1000 --dim-rows 100 --iterations 2 --engines shardloom-prepare-batch --formats csv --scenario "selective filter" --scenario "filter + projection + limit" --dataset-profile tiny_smoke --shardloom-build-profile release --shardloom-evidence-level certified --shardloom-evidence-tier metadata_sink --output target/perf-runtime-7c-prepared-index-cache-smoke.json --data-dir target/perf-runtime-7c-prepared-index-cache-smoke-data --no-markdown --regenerate`.
+  - Validation note:
+    - This closes the remaining `PERF-RUNTIME-7C` read-through-cache checklist item. No Vortex
+      reader-state cache was adopted, so the Vortex 0.75 classification is explicitly
+      `not_used_prepare_lookup_reused_manifest_snapshot_not_vortex_reader_state`.
+    - No package/public release claim, external cache service, distributed session runtime, or
+      superiority claim is introduced.
+
 - [x] Session label: PERF-RUNTIME-7B full-local publication refresh and high-cardinality join
   closeout
   - Date: 2026-06-14

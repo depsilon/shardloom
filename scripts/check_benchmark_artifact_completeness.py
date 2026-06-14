@@ -748,6 +748,9 @@ def validate_publication_proof_sidecar(
         ("publication_proof_sidecar_reused_record_count", "reused_record_count"),
         ("publication_proof_sidecar_written_record_count", "written_record_count"),
         ("publication_proof_sidecar_stale_record_count", "stale_record_count"),
+        ("publication_proof_sidecar_source_row_chunks_digest", "source_row_chunks_digest"),
+        ("publication_proof_sidecar_source_row_chunk_count", "source_row_chunk_count"),
+        ("publication_proof_sidecar_record_set_digest", "record_set_digest"),
         ("publication_proof_sidecar_fallback_attempted", "fallback_attempted"),
         ("publication_proof_sidecar_external_engine_invoked", "external_engine_invoked"),
     ):

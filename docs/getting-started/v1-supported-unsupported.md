@@ -12,6 +12,8 @@ This page is generated from `docs/status/runs-today-support-matrix.json` and `do
 ```text
 runs_today_schema_version=shardloom.runs_today_support_matrix.v1
 runs_today_row_count=37
+production_unsupported_diagnostic_schema_version=shardloom.production_unsupported_diagnostics.v1
+production_unsupported_diagnostic_row_count=10
 package_channel_schema_version=shardloom.package_channel_readiness_matrix.v1
 fallback_attempted=false
 external_engine_invoked=false
@@ -87,6 +89,31 @@ Use this page to decide what can be run locally today and what must return a det
 | pypi, crates_io, oci, package_install | blocked | not_enabled | false | false | not_claim_grade | no public package publication or install-channel claim is allowed |
 | performance_superiority, spark_replacement | blocked | not_enabled | false | false | not_claim_grade | no faster-than or replacement claim is allowed |
 | production_readiness | blocked | not_enabled | false | false | not_claim_grade | no production-readiness claim is allowed |
+
+## Production Unsupported Diagnostics
+
+These rows are generated from the `runs-today` production diagnostic catalog and the known unsupported paths release boundary. They are user-facing diagnostics for preview, fixture, report-only, release-gate, and claim-gate entrypoints that must not execute unsupported production work.
+
+```text
+production_unsupported_diagnostic_schema_version=shardloom.production_unsupported_diagnostics.v1
+production_unsupported_diagnostic_row_count=10
+production_unsupported_diagnostic_fallback_attempted=false
+production_unsupported_diagnostic_external_engine_invoked=false
+production_unsupported_diagnostic_side_effects_performed=false
+```
+
+| Family | Entrypoints | Status | Diagnostic code | Blocker | Next action |
+| --- | --- | --- | --- | --- | --- |
+| sql_dataframe | sql, LazyFrame.collect, workflow-unsupported-plan, capabilities sql, capabilities dataframe | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_SQL_DATAFRAME | cg21.workflow.sql.frontend_unsupported | Use capabilities sql,dataframe and workflow-unsupported-plan to inspect supported local shapes before requesting execution. |
+| object_store | object_store_read, object_store_write, s3://, gcs://, adls://, http_range, object-store-write-smoke | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_OBJECT_STORE | review-p0-3.object_store_runtime_and_path_safety_required | Use object-store capability reports and local fixture smokes; do not use cloud URIs as runtime support evidence. |
+| lakehouse_table | table_commit, catalog_integration, local-table-append-commit-rehearsal-smoke, local-table-commit-recovery-smoke | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_TABLE_RUNTIME | platform.table_catalog_runtime_evidence_required | Use local table-commit rehearsal reports only as fixture evidence until table runtime gates close. |
+| foundry | foundry_generated_output, foundry_dataset_source, foundry_dataset_sink, capabilities adapters | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_FOUNDRY | platform.foundry_integration_evidence_required | Keep Foundry references as optional future integration evidence until approved platform proof exists. |
+| live_hybrid_remote_distributed | live, hybrid, remote, distributed, rest-api-event-stream, certified-live-fixture | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_EXECUTION_FABRIC | cg22.cg23.object_store_runtime_evidence_required | Use engine capability and remote API plan reports for discovery; do not request production fabric execution. |
+| rest_event_remote_api | rest-api-contract-plan, rest-api-plan-preview, remote_result_delivery, event_stream | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_REMOTE_API | cg23.remote_api.lifecycle.uncertified_blocked | Use REST/API contract plan outputs for schema review; do not treat plan previews as remote runtime support. |
+| extensions_udfs_effects | extension-registry, extension-inspect, udf-runtime-plan, api_call, embedding_generation, sqlite_effects | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_EXTENSION_EFFECT | gar-0032-d.effectful_runtime_blocked | Use extension inspection and effect admission matrices; production effectful execution requires separate policy and certificate evidence. |
+| package_publication | TestPyPI, PyPI, Homebrew, Scoop, winget, conda-forge, GHCR, crates.io | blocked | SL_UNSUPPORTED_PUBLIC_PACKAGE_PUBLICATION | release.package_publication_gate_required | Use package-channel readiness reports and local dry-run proof until explicit maintainer approval exists. |
+| public_claims | performance_superiority, spark_replacement, engine_replacement | blocked | SL_UNSUPPORTED_PERFORMANCE_SUPERIORITY_CLAIM | cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required | Attach the selected timing surface, evidence tier, benchmark artifact, and correctness report before making a public performance claim. |
+| production_readiness | production_ready, finished_product, public_release_ready | blocked | SL_UNSUPPORTED_PRODUCTION_READINESS_CLAIM | release.production_readiness_gate_required | Use finished-product readiness and hard release-readiness reports; do not claim production support from local fixtures alone. |
 
 ## Package Channels
 

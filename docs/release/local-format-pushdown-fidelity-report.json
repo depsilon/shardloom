@@ -1,0 +1,149 @@
+{
+  "schema_version": "shardloom.local_format_pushdown_fidelity_report.v1",
+  "status": "report_declared_production_certification_incomplete",
+  "claim_gate_status": "not_claim_grade",
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "production_claim_allowed": false,
+  "performance_claim_allowed": false,
+  "row_count": 5,
+  "row_order": [
+    "vortex_native",
+    "parquet_columnar",
+    "arrow_ipc_columnar",
+    "avro_compatibility",
+    "orc_compatibility"
+  ],
+  "claim_boundary": "Pushdown and fidelity rows report current local-format evidence and remaining certification gaps. They do not make broad production adapter, object-store/table, performance, or replacement claims.",
+  "rows": [
+    {
+      "row_id": "vortex_native",
+      "format": "vortex",
+      "format_family": "native_vortex",
+      "profile_ref": "vortex_native_input_output",
+      "projection_pushdown_status": "scoped_local_primitives_and_prepared_routes",
+      "filter_pushdown_status": "scoped_local_primitives_and_prepared_routes",
+      "statistics_support_status": "metadata_statistics_pruning_supported_for_admitted_local_shapes",
+      "metadata_preservation_status": "native_metadata_and_statistics_preservation_required_for_claim",
+      "layout_statistics_loss_status": "none_allowed_for_native_full_fidelity_claims",
+      "materialization_cost_status": "zero_decode_or_explicit_materialization_boundary_required",
+      "current_evidence_refs": [
+        "docs/architecture/vortex-public-api-inventory.md",
+        "shardloom.vortex_local_io_coverage.v1",
+        "shardloom.vortex_native_writer_schema_certification.v1",
+        "flat_scalar_vortex_ingest_prepared_state_write",
+        "flat_columnar_vortex_ingest_prepared_state_write",
+        "compute-capability-matrix",
+        "traditional_benchmark_harness"
+      ],
+      "required_next_evidence": [
+        "broad_layout_dtype_matrix",
+        "native_io_replay_certificate",
+        "unsupported_layout_diagnostics"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "parquet_columnar",
+      "format": "parquet",
+      "format_family": "local_columnar_source",
+      "profile_ref": "parquet_arrow_ipc_columnar_source",
+      "projection_pushdown_status": "feature_gated_reader_projection_report_required",
+      "filter_pushdown_status": "not_production_certified_filter_pushdown_must_be_explicit",
+      "statistics_support_status": "file_statistics_must_be_reported_or_marked_unavailable",
+      "metadata_preservation_status": "schema_nullability_validity_and_logical_type_status_required",
+      "layout_statistics_loss_status": "loss_or_nonuse_must_be_reported",
+      "materialization_cost_status": "columnar_sourcestate_to_vortex_handoff_timing_required",
+      "current_evidence_refs": [
+        "docs/architecture/universal-input-contract.md",
+        "source_columnar_provider_evidence",
+        "vortex_array_build_provider_evidence"
+      ],
+      "required_next_evidence": [
+        "projection_filter_pushdown_fixtures",
+        "statistics_loss_report",
+        "unsupported_dtype_matrix"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "arrow_ipc_columnar",
+      "format": "arrow-ipc",
+      "format_family": "local_columnar_source",
+      "profile_ref": "parquet_arrow_ipc_columnar_source",
+      "projection_pushdown_status": "feature_gated_reader_projection_report_required",
+      "filter_pushdown_status": "not_production_certified_filter_pushdown_must_be_explicit",
+      "statistics_support_status": "batch_metadata_statistics_must_be_reported_or_marked_unavailable",
+      "metadata_preservation_status": "schema_nullability_validity_and_extension_status_required",
+      "layout_statistics_loss_status": "loss_or_nonuse_must_be_reported",
+      "materialization_cost_status": "recordbatch_sourcestate_to_vortex_handoff_timing_required",
+      "current_evidence_refs": [
+        "docs/architecture/universal-input-contract.md",
+        "source_columnar_provider_evidence",
+        "vortex_array_build_provider_evidence"
+      ],
+      "required_next_evidence": [
+        "projection_filter_pushdown_fixtures",
+        "extension_dtype_loss_report",
+        "unsupported_dtype_matrix"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "avro_compatibility",
+      "format": "avro",
+      "format_family": "local_compatibility_source",
+      "profile_ref": "avro_orc_compatibility_source",
+      "projection_pushdown_status": "feature_gated_projection_report_required",
+      "filter_pushdown_status": "unsupported_or_not_production_certified_must_be_explicit",
+      "statistics_support_status": "container_statistics_unavailable_or_reported",
+      "metadata_preservation_status": "logical_type_and_union_mapping_loss_must_be_reported",
+      "layout_statistics_loss_status": "compatibility_import_loss_report_required",
+      "materialization_cost_status": "compatibility_import_materialization_boundary_required",
+      "current_evidence_refs": [
+        "docs/architecture/universal-input-contract.md",
+        "traditional_direct_transient_structured_tests",
+        "feature_gated_universal_format_io"
+      ],
+      "required_next_evidence": [
+        "logical_type_mapping_fixtures",
+        "projection_fidelity_report",
+        "unsupported_union_diagnostics"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "orc_compatibility",
+      "format": "orc",
+      "format_family": "local_compatibility_source",
+      "profile_ref": "avro_orc_compatibility_source",
+      "projection_pushdown_status": "feature_gated_projection_report_required",
+      "filter_pushdown_status": "unsupported_or_not_production_certified_must_be_explicit",
+      "statistics_support_status": "stripe_statistics_unavailable_or_reported",
+      "metadata_preservation_status": "logical_type_and_nested_mapping_loss_must_be_reported",
+      "layout_statistics_loss_status": "compatibility_import_loss_report_required",
+      "materialization_cost_status": "compatibility_import_materialization_boundary_required",
+      "current_evidence_refs": [
+        "docs/architecture/universal-input-contract.md",
+        "traditional_direct_transient_structured_tests",
+        "feature_gated_universal_format_io"
+      ],
+      "required_next_evidence": [
+        "logical_type_mapping_fixtures",
+        "projection_fidelity_report",
+        "unsupported_nested_diagnostics"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    }
+  ]
+}

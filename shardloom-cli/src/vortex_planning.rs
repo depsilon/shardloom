@@ -24,7 +24,8 @@ use shardloom_vortex::{
     VortexLayoutReaderDriverApprovalInput, VortexLayoutReaderDriverApprovalSignal,
     VortexLocalIoCoverageReport, VortexMetadataCountKernelAdmissionReport,
     VortexMetadataFilterKernelAdmissionReport, VortexMetadataOpenRequest,
-    VortexMetadataProbeReport, VortexObjectStoreIoGateReport, VortexProjectionCandidateSource,
+    VortexMetadataProbeReport, VortexNativeWriterSchemaCertificationReport,
+    VortexObjectStoreIoGateReport, VortexProjectionCandidateSource,
     VortexProjectionReadinessSignal, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
     VortexQueryPrimitiveSignal, VortexQueryPrimitiveValue, VortexReadPlan,
     VortexScanCompatibilityReport, VortexStatisticsMappingReport, VortexWriteOptions,
@@ -962,6 +963,7 @@ fn vortex_api_inventory_fields(
     scan_report: &VortexScanCompatibilityReport,
     provider_report: &VortexComputeProviderReport,
     local_io_report: &VortexLocalIoCoverageReport,
+    writer_schema_certification: &VortexNativeWriterSchemaCertificationReport,
     object_store_io_gate: &VortexObjectStoreIoGateReport,
     heavy_operator_disposition: &Vortex075HeavyOperatorProviderDispositionReport,
     local_io_provider_disposition: &Vortex075LocalIoProviderDispositionReport,
@@ -980,6 +982,9 @@ fn vortex_api_inventory_fields(
     fields.extend(vortex_source_split_effect_fields(scan_report));
     fields.extend(vortex_segment_extraction_admission_fields(scan_report));
     fields.extend(vortex_local_io_coverage_fields(local_io_report));
+    fields.extend(vortex_native_writer_schema_certification_fields(
+        writer_schema_certification,
+    ));
     fields.extend(vortex_object_store_io_gate_fields(object_store_io_gate));
     fields.extend(vortex075_heavy_operator_disposition_fields(
         heavy_operator_disposition,
@@ -1497,6 +1502,208 @@ fn vortex_local_io_coverage_fields(report: &VortexLocalIoCoverageReport) -> Vec<
             (
                 "vortex_local_io_broad_writer_claim_boundary".to_string(),
                 row.claim_boundary.to_string(),
+            ),
+        ]);
+    }
+    fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn vortex_native_writer_schema_certification_fields(
+    report: &VortexNativeWriterSchemaCertificationReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    push_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_report_id",
+        report.report_id,
+    );
+    push_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_row_order",
+        &report.row_order().join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_scoped_runtime_row_count",
+        report.scoped_runtime_row_count(),
+    );
+    push_count_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_blocked_row_count",
+        report.blocked_row_count(),
+    );
+    push_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_scoped_runtime_row_ids",
+        &report.scoped_runtime_row_ids().join(","),
+    );
+    push_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_blocked_row_ids",
+        &report.blocked_row_ids().join(","),
+    );
+    push_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_claim_boundary",
+        report.claim_boundary,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_broad_schema_encoding_certification_complete",
+        report.broad_schema_encoding_certification_complete,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_metadata_statistics_broadly_certified",
+        report.metadata_statistics_broadly_certified,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_local_runtime_claim_allowed",
+        report.local_runtime_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_object_store_io",
+        report.object_store_io,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_table_catalog_io",
+        report.table_catalog_io,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex_native_writer_schema_certification_no_external_fallback",
+        report.no_external_fallback(),
+    );
+    for row in &report.rows {
+        let row_prefix = format!(
+            "vortex_native_writer_schema_certification_row_{}",
+            row.row_id
+        );
+        fields.extend([
+            (
+                format!("{row_prefix}_writer_lane_id"),
+                row.writer_lane_id.to_string(),
+            ),
+            (
+                format!("{row_prefix}_status"),
+                row.status.as_str().to_string(),
+            ),
+            (
+                format!("{row_prefix}_feature_gate"),
+                row.feature_gate.to_string(),
+            ),
+            (
+                format!("{row_prefix}_provider_decision"),
+                row.provider_decision.to_string(),
+            ),
+            (
+                format!("{row_prefix}_provider_surface"),
+                row.provider_surface.to_string(),
+            ),
+            (
+                format!("{row_prefix}_schema_family"),
+                row.schema_family.to_string(),
+            ),
+            (
+                format!("{row_prefix}_dtype_scope"),
+                row.dtype_scope.to_string(),
+            ),
+            (
+                format!("{row_prefix}_validity_scope"),
+                row.validity_scope.to_string(),
+            ),
+            (
+                format!("{row_prefix}_encoding_scope"),
+                row.encoding_scope.to_string(),
+            ),
+            (
+                format!("{row_prefix}_metadata_preservation_status"),
+                row.metadata_preservation_status.to_string(),
+            ),
+            (
+                format!("{row_prefix}_statistics_preservation_status"),
+                row.statistics_preservation_status.to_string(),
+            ),
+            (
+                format!("{row_prefix}_materialization_boundary"),
+                row.materialization_boundary.to_string(),
+            ),
+            (
+                format!("{row_prefix}_replay_evidence"),
+                row.replay_evidence.to_string(),
+            ),
+            (
+                format!("{row_prefix}_unsupported_diagnostic_code"),
+                row.unsupported_diagnostic_code.to_string(),
+            ),
+            (
+                format!("{row_prefix}_required_future_evidence"),
+                row.required_future_evidence.to_string(),
+            ),
+            (
+                format!("{row_prefix}_claim_gate_status"),
+                row.claim_gate_status.to_string(),
+            ),
+            (
+                format!("{row_prefix}_claim_boundary"),
+                row.claim_boundary.to_string(),
+            ),
+            (
+                format!("{row_prefix}_local_write_runtime"),
+                row.local_write_runtime.to_string(),
+            ),
+            (
+                format!("{row_prefix}_reopen_verified"),
+                row.reopen_verified.to_string(),
+            ),
+            (
+                format!("{row_prefix}_metadata_statistics_broadly_certified"),
+                row.metadata_statistics_broadly_certified.to_string(),
+            ),
+            (
+                format!("{row_prefix}_object_store_io"),
+                row.object_store_io.to_string(),
+            ),
+            (
+                format!("{row_prefix}_table_catalog_io"),
+                row.table_catalog_io.to_string(),
+            ),
+            (
+                format!("{row_prefix}_external_engine_invoked"),
+                row.external_engine_invoked.to_string(),
+            ),
+            (
+                format!("{row_prefix}_fallback_attempted"),
+                row.fallback_attempted.to_string(),
             ),
         ]);
     }
@@ -2077,6 +2284,7 @@ pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
     let scan_report = plan_vortex_scan_compatibility();
     let provider_report = VortexComputeProviderReport::local_scan_provider();
     let local_io_report = VortexLocalIoCoverageReport::current();
+    let writer_schema_certification = VortexNativeWriterSchemaCertificationReport::current();
     let object_store_io_gate = VortexObjectStoreIoGateReport::current();
     let heavy_operator_disposition = Vortex075HeavyOperatorProviderDispositionReport::current();
     let local_io_provider_disposition = Vortex075LocalIoProviderDispositionReport::current();
@@ -2090,7 +2298,7 @@ pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
         CommandStatus::Success,
         "vortex API inventory".to_string(),
         format!(
-            "{}\n{}\n{}\n{}\n{}\n{}\n{}",
+            "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
             report.to_human_text(),
             scan_report
                 .source_split_runtime_admission_proof
@@ -2099,6 +2307,7 @@ pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
                 .segment_extraction_admission_report
                 .to_human_text(),
             local_io_report.to_human_text(),
+            writer_schema_certification.to_human_text(),
             object_store_io_gate.to_human_text(),
             heavy_operator_disposition.to_human_text(),
             local_io_provider_disposition.to_human_text()
@@ -2108,6 +2317,7 @@ pub(crate) fn handle_vortex_api_inventory(format: OutputFormat) -> ExitCode {
             &scan_report,
             &provider_report,
             &local_io_report,
+            &writer_schema_certification,
             &object_store_io_gate,
             &heavy_operator_disposition,
             &local_io_provider_disposition,

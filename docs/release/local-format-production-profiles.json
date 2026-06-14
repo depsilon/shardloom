@@ -1,0 +1,226 @@
+{
+  "schema_version": "shardloom.local_format_production_profiles.v1",
+  "status": "profiles_declared_adapter_certification_incomplete",
+  "claim_gate_status": "not_claim_grade",
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "production_claim_allowed": false,
+  "performance_claim_allowed": false,
+  "profile_count": 5,
+  "profile_order": [
+    "vortex_native_input_output",
+    "csv_jsonl_text_source",
+    "parquet_arrow_ipc_columnar_source",
+    "avro_orc_compatibility_source",
+    "compatibility_output_exports"
+  ],
+  "technique_review_required_tokens": [
+    "dynamic",
+    "capillary",
+    "PulseWeave",
+    "metadata-first",
+    "timing-surface",
+    "evidence-tier"
+  ],
+  "claim_boundary": "Per-format production profiles declare certification requirements only. They do not promote broad production adapter support, object-store/table runtime, performance, package, or replacement claims.",
+  "fallback_boundary": "Compatibility readers and writers are explicit input/output translation surfaces. They are not Spark, DataFusion, DuckDB, Polars, Velox, or another engine executing unsupported ShardLoom work.",
+  "profiles": [
+    {
+      "profile_id": "vortex_native_input_output",
+      "profile_kind": "native_vortex",
+      "formats": [
+        "vortex"
+      ],
+      "default_build_status": "scoped_local_runtime_supported",
+      "feature_gate": "default_or_vortex_write_for_writes",
+      "current_runtime_status": "scoped_local_primitives_prepared_routes_feature_gated_flat_scalar_and_flat_columnar_vortex_ingest_writes",
+      "production_certification_status": "incomplete",
+      "pushdown_contract": "metadata_statistics_filter_projection_count_primitives_with_certificate_refs",
+      "fidelity_contract": "native_full_fidelity_required_for_vortex_output_claims",
+      "malformed_policy": "fail_closed_invalid_or_unsupported_vortex_layouts",
+      "parser_reader_contract": {
+        "malformed_rows": "invalid_or_unsupported_vortex_layouts_fail_before_scan",
+        "encoding": "preserve_vortex_encoding_metadata_when_admitted",
+        "null_coercion": "preserve_vortex_validity_semantics_or_block",
+        "projection_aware_typed_builders": "not_applicable_native_vortex_layout_reader",
+        "nested_complex_dtype": "block_without_nested_extension_layout_certificate",
+        "deterministic_blocker": "prod-ready-1a.vortex_broad_adapter_certification_required"
+      },
+      "nested_complex_dtype_policy": "blocked_until_nested_extension_layout_certificates",
+      "deterministic_blocker_id": "prod-ready-1a.vortex_broad_adapter_certification_required",
+      "vortex_provider_review": "use_vortex_native_provider; wrap Vortex scan/source/sink and layout concepts through shardloom-vortex with provider version, feature gate, certificate, and no-fallback evidence.",
+      "technique_review": "dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier",
+      "required_certification_evidence": [
+        "native_io_certificate",
+        "execution_certificate",
+        "metadata_statistics_preservation",
+        "layout_statistics_fidelity",
+        "flat_scalar_and_columnar_vortex_ingest_reopen_evidence",
+        "vortex_native_writer_schema_certification_matrix",
+        "unsupported_dtype_diagnostics",
+        "local_replay_evidence"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "profile_id": "csv_jsonl_text_source",
+      "profile_kind": "local_text_source",
+      "formats": [
+        "csv",
+        "json",
+        "jsonl",
+        "ndjson"
+      ],
+      "default_build_status": "scoped_local_runtime_supported",
+      "feature_gate": "default",
+      "current_runtime_status": "flat_local_text_sourcestate_direct_transient_and_vortex_ingest_fixture_coverage",
+      "production_certification_status": "incomplete",
+      "pushdown_contract": "projection_aware_source_state_required_columns_and_filter_columns_recorded",
+      "fidelity_contract": "text_parse_schema_null_coercion_and_dirty_row_policy_must_be_explicit",
+      "malformed_policy": "fail_closed_or_declared_cast_path_only",
+      "parser_reader_contract": {
+        "malformed_rows": "dirty_or_malformed_rows_fail_closed_unless_declared_cast_path_admits_them",
+        "encoding": "utf8_by_default_other_encodings_require_explicit_profile",
+        "null_coercion": "schema_nullability_and_cast_policy_recorded_before_execution",
+        "projection_aware_typed_builders": "direct_typed_column_builders_required_for_admitted_projected_text_shapes",
+        "nested_complex_dtype": "flat_json_or_string_payload_only_until_nested_path_certification",
+        "deterministic_blocker": "prod-ready-1a.text_adapter_error_policy_and_fuzz_required"
+      },
+      "nested_complex_dtype_policy": "flat_json_and_string_payload_scan_only_until_nested_field_certification",
+      "deterministic_blocker_id": "prod-ready-1a.text_adapter_error_policy_and_fuzz_required",
+      "vortex_provider_review": "wrap SourceState scout and Vortex write/reopen providers; direct typed column builders may avoid row-object assembly for admitted text shapes before Vortex preparation.",
+      "technique_review": "dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier",
+      "required_certification_evidence": [
+        "malformed_row_policy",
+        "encoding_and_null_fixtures",
+        "projection_pushdown_report",
+        "typed_builder_correctness",
+        "native_io_certificate",
+        "translation_report_for_outputs"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "profile_id": "parquet_arrow_ipc_columnar_source",
+      "profile_kind": "local_columnar_source",
+      "formats": [
+        "parquet",
+        "arrow-ipc"
+      ],
+      "default_build_status": "feature_gated",
+      "feature_gate": "universal-format-io",
+      "current_runtime_status": "feature_gated_flat_scalar_columnar_sourcestate_and_vortex_array_build_provider_evidence",
+      "production_certification_status": "incomplete",
+      "pushdown_contract": "reader_projection_column_mask_and_filter_only_columns_must_be_recorded",
+      "fidelity_contract": "columnar_schema_null_validity_and_metadata_loss_must_be_reported",
+      "malformed_policy": "unsupported_dtype_or_invalid_file_must_emit_deterministic_blocker",
+      "parser_reader_contract": {
+        "malformed_rows": "invalid_container_or_unsupported_dtype_blocks_before_execution",
+        "encoding": "reader_columnar_encoding_metadata_reported_when_available",
+        "null_coercion": "validity_mask_semantics_preserved_or_blocked",
+        "projection_aware_typed_builders": "reader_column_mask_and_vortex_array_build_provider_recorded",
+        "nested_complex_dtype": "nested_list_map_struct_generalization_blocked_until_semantic_fixtures",
+        "deterministic_blocker": "prod-ready-1a.columnar_adapter_pushdown_fidelity_required"
+      },
+      "nested_complex_dtype_policy": "nested_list_map_struct_generalization_blocked_until_dtype_semantics_fixtures",
+      "deterministic_blocker_id": "prod-ready-1a.columnar_adapter_pushdown_fidelity_required",
+      "vortex_provider_review": "use Vortex ArrayRef::from_arrow RecordBatch only as admitted Vortex-native preparation provider; do not treat Arrow as the default execution model.",
+      "technique_review": "dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier",
+      "required_certification_evidence": [
+        "projection_filter_pushdown_report",
+        "validity_mask_semantics",
+        "unsupported_dtype_diagnostics",
+        "source_to_vortex_handoff_timing",
+        "native_io_certificate",
+        "metadata_fidelity_report"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "profile_id": "avro_orc_compatibility_source",
+      "profile_kind": "local_compatibility_source",
+      "formats": [
+        "avro",
+        "orc"
+      ],
+      "default_build_status": "feature_gated",
+      "feature_gate": "universal-format-io",
+      "current_runtime_status": "feature_gated_flat_scalar_compatibility_bridge_evidence",
+      "production_certification_status": "incomplete",
+      "pushdown_contract": "reader_projection_and_unsupported_filter_pushdown_must_be_explicit",
+      "fidelity_contract": "logical_type_metadata_and_schema_loss_must_be_reported",
+      "malformed_policy": "invalid_container_or_unsupported_logical_type_blocks_before_execution",
+      "parser_reader_contract": {
+        "malformed_rows": "invalid_container_or_unsupported_logical_type_blocks_before_execution",
+        "encoding": "container_and_logical_type_metadata_reported_or_marked_lost",
+        "null_coercion": "nullability_and_union_coercion_requires_explicit_mapping",
+        "projection_aware_typed_builders": "reader_projection_report_required_before_materialization",
+        "nested_complex_dtype": "complex_unions_nested_maps_and_lists_blocked_until_semantic_certification",
+        "deterministic_blocker": "prod-ready-1a.avro_orc_adapter_semantics_required"
+      },
+      "nested_complex_dtype_policy": "complex_unions_nested_maps_and_lists_blocked_until_semantic_certification",
+      "deterministic_blocker_id": "prod-ready-1a.avro_orc_adapter_semantics_required",
+      "vortex_provider_review": "use columnar SourceState to Vortex preparation when admitted; otherwise emit deterministic compatibility-source blockers without external parser-engine fallback.",
+      "technique_review": "dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier",
+      "required_certification_evidence": [
+        "logical_type_mapping_report",
+        "projection_capability_report",
+        "unsupported_shape_diagnostics",
+        "roundtrip_fidelity_report",
+        "native_io_certificate",
+        "fuzz_or_property_fixtures"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "profile_id": "compatibility_output_exports",
+      "profile_kind": "compatibility_output",
+      "formats": [
+        "jsonl",
+        "csv",
+        "parquet",
+        "arrow-ipc",
+        "avro",
+        "orc"
+      ],
+      "default_build_status": "jsonl_csv_default_feature_gated_columnar_structured",
+      "feature_gate": "default_for_jsonl_csv_universal-format-io_for_structured",
+      "current_runtime_status": "local_result_sink_and_feature_gated_compatibility_export_fixture_coverage",
+      "production_certification_status": "incomplete",
+      "pushdown_contract": "sink_requirements_must_not_redefine_hot_runtime_timing_surface",
+      "fidelity_contract": "TranslationReport must list preserved and lost metadata for each target",
+      "malformed_policy": "unsupported_schema_or_overwrite_policy_blocks_before_write",
+      "parser_reader_contract": {
+        "malformed_rows": "not_applicable_output_export_validates_result_schema_before_write",
+        "encoding": "target_encoding_and_metadata_loss_reported_per_format",
+        "null_coercion": "target_nullability_and_logical_type_loss_reported",
+        "projection_aware_typed_builders": "sink_column_selection_must_follow_output_plan",
+        "nested_complex_dtype": "typed_nested_and_decimal_exports_require_explicit_fidelity_evidence",
+        "deterministic_blocker": "prod-ready-1a.compatibility_output_translation_reports_required"
+      },
+      "nested_complex_dtype_policy": "typed_nested_and_decimal_exports_require_explicit_fidelity_evidence",
+      "deterministic_blocker_id": "prod-ready-1a.compatibility_output_translation_reports_required",
+      "vortex_provider_review": "Vortex remains the highest-fidelity output; compatibility exports are translation targets and must not be reported as Vortex-native execution.",
+      "technique_review": "dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier",
+      "required_certification_evidence": [
+        "TranslationReport",
+        "sink_native_io_certificate",
+        "replay_verification",
+        "overwrite_append_policy",
+        "metadata_loss_report",
+        "unsupported_schema_diagnostics"
+      ],
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    }
+  ]
+}

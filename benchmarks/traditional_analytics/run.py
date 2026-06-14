@@ -1239,6 +1239,19 @@ PREPARED_STATE_REPAIR_CONTRACT_FIELDS = (
     "prepare_batch_prepared_state_index_key_components",
     "prepare_batch_prepared_state_index_source_packet_digest",
     "prepare_batch_prepared_state_index_external_engine_invoked",
+    "prepare_batch_prepared_state_read_through_cache_schema_version",
+    "prepare_batch_prepared_state_read_through_cache_status",
+    "prepare_batch_prepared_state_read_through_cache_source",
+    "prepare_batch_prepared_state_read_through_cache_hit",
+    "prepare_batch_prepared_state_read_through_manifest_read_required",
+    "prepare_batch_prepared_state_read_through_manifest_digest_verified",
+    "prepare_batch_prepared_state_read_through_source_fingerprint_verified",
+    "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified",
+    "prepare_batch_prepared_state_read_through_native_io_certificate_verified",
+    "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status",
+    "prepare_batch_prepared_state_read_through_cache_fallback_attempted",
+    "prepare_batch_prepared_state_read_through_cache_external_engine_invoked",
+    "prepare_batch_prepared_state_read_through_cache_claim_boundary",
     "prepare_batch_prepared_state_dependency_schema_version",
     "prepare_batch_prepared_state_dependency_status",
     "prepare_batch_prepared_state_dependency_checked_roles",
@@ -1274,6 +1287,9 @@ PREPARED_STATE_DEPENDENCY_SCHEMA_VERSION = (
 )
 PREPARED_STATE_INDEX_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.prepared_state_index.v1"
+)
+PREPARED_STATE_READ_THROUGH_CACHE_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.prepared_state_read_through_cache.v1"
 )
 PREPARED_STATE_PARTIAL_REPAIR_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.prepared_state_partial_repair.v1"
@@ -7536,6 +7552,96 @@ def prepare_batch_dependency_repair_fields(
                 evidence.get("prepare_batch_prepared_state_index_external_engine_invoked")
             )
             is True
+        ),
+        "prepare_batch_prepared_state_read_through_cache_schema_version": first_meaningful_field(
+            evidence.get(
+                "prepare_batch_prepared_state_read_through_cache_schema_version"
+            ),
+            PREPARED_STATE_READ_THROUGH_CACHE_SCHEMA_VERSION,
+        ),
+        "prepare_batch_prepared_state_read_through_cache_status": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_read_through_cache_status"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_read_through_cache_source": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_read_through_cache_source"),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_read_through_cache_hit": (
+            parse_optional_bool(
+                evidence.get("prepare_batch_prepared_state_read_through_cache_hit")
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_read_through_manifest_read_required": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_read_through_manifest_read_required"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_read_through_manifest_digest_verified": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_read_through_manifest_digest_verified"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_read_through_source_fingerprint_verified": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_read_through_source_fingerprint_verified"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_read_through_artifact_fingerprint_verified"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_read_through_native_io_certificate_verified": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_read_through_native_io_certificate_verified"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status": first_meaningful_field(
+            evidence.get(
+                "prepare_batch_prepared_state_read_through_vortex075_layout_reader_context_cache_status"
+            ),
+            "not_reported" if status == "success" else "not_executed",
+        ),
+        "prepare_batch_prepared_state_read_through_cache_fallback_attempted": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_read_through_cache_fallback_attempted"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_read_through_cache_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get(
+                    "prepare_batch_prepared_state_read_through_cache_external_engine_invoked"
+                )
+            )
+            is True
+        ),
+        "prepare_batch_prepared_state_read_through_cache_claim_boundary": first_meaningful_field(
+            evidence.get("prepare_batch_prepared_state_read_through_cache_claim_boundary"),
+            (
+                "prepared-state read-through cache evidence only; no stale reuse, "
+                "external-engine execution, Vortex reader-state reuse, or performance "
+                "superiority claim is authorized"
+            ),
         ),
         "prepare_batch_prepared_state_dependency_schema_version": first_meaningful_field(
             evidence.get("prepare_batch_prepared_state_dependency_schema_version"),
@@ -15683,6 +15789,24 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             ):
                 raise RuntimeError(
                     "prepared-state index evidence cannot report external engine execution"
+                )
+            if (
+                metrics.get(
+                    "prepare_batch_prepared_state_read_through_cache_fallback_attempted"
+                )
+                is not False
+            ):
+                raise RuntimeError(
+                    "prepared-state read-through cache evidence cannot report fallback attempts"
+                )
+            if (
+                metrics.get(
+                    "prepare_batch_prepared_state_read_through_cache_external_engine_invoked"
+                )
+                is not False
+            ):
+                raise RuntimeError(
+                    "prepared-state read-through cache evidence cannot report external engine execution"
                 )
             if (
                 metrics.get("prepare_batch_prepared_state_optimization_fallback_attempted")

@@ -1,0 +1,243 @@
+{
+  "schema_version": "shardloom.local_format_edge_case_fixture_matrix.v1",
+  "status": "representative_local_format_edge_fixtures_declared",
+  "claim_gate_status": "not_claim_grade",
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "production_claim_allowed": false,
+  "performance_claim_allowed": false,
+  "row_count": 7,
+  "row_order": [
+    "vortex_native_prepared_edge_replay",
+    "csv_dirty_timestamp_and_numeric_cast",
+    "csv_null_heavy_aggregate",
+    "jsonl_nested_payload_scan",
+    "parquet_arrow_ipc_columnar_roundtrip",
+    "avro_orc_compatibility_roundtrip",
+    "compatibility_output_metadata_loss_policy"
+  ],
+  "correctness_matrix_ref": "docs/release/v1-correctness-conformance-matrix.json",
+  "claim_boundary": "Rows map representative local-format edge cases to existing executable fixtures plus deterministic seeded property/fuzz lanes. They do not make a broad production adapter, object-store/table, package, performance, or replacement claim.",
+  "rows": [
+    {
+      "row_id": "vortex_native_prepared_edge_replay",
+      "profile_ref": "vortex_native_input_output",
+      "formats": [
+        "vortex"
+      ],
+      "edge_case_families": [
+        "prepared_native_replay",
+        "metadata_statistics_preservation",
+        "zero_decode_boundary"
+      ],
+      "fixture_status": "covered_by_existing_focused_tests",
+      "fixture_refs": [
+        "shardloom-vortex/src/traditional_analytics.rs::enabled_filter_projection_limit_uses_prepared_native_vortex_scan",
+        "shardloom-contract-tests/tests/fidelity_invariants.rs::translation_plan_and_report_respect_native_vs_compatibility_contract"
+      ],
+      "correctness_case_refs": [
+        "filter_project_limit_property_seed_20260618"
+      ],
+      "property_or_fuzz_case_refs": [
+        "numeric_generic_property_seed_20260521",
+        "filter_project_limit_property_seed_20260618"
+      ],
+      "expected_diagnostic_or_policy": "unsupported_vortex_layout_or_dtype_must_block_before_broad_native_io_claim",
+      "coverage_boundary": "scoped local prepared routes and native output planning only; broad Vortex schema read/write certification remains open",
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "csv_dirty_timestamp_and_numeric_cast",
+      "profile_ref": "csv_jsonl_text_source",
+      "formats": [
+        "csv"
+      ],
+      "edge_case_families": [
+        "malformed_rows",
+        "dirty_numeric_cast",
+        "temporal_cast"
+      ],
+      "fixture_status": "covered_by_existing_focused_tests",
+      "fixture_refs": [
+        "shardloom-vortex/src/traditional_analytics.rs::enabled_malformed_timestamp_dirty_csv_uses_prepared_native_vortex_scan",
+        "python/tests/test_v1_front_door_runtime_scope.py::malformed_timestamp_cast"
+      ],
+      "correctness_case_refs": [
+        "try_cast_projection_null_on_invalid",
+        "temporal_extract_utc_date32_timestamp"
+      ],
+      "property_or_fuzz_case_refs": [
+        "temporal_property_seed_20260623",
+        "expression_parser_fuzz_seed_20260614"
+      ],
+      "expected_diagnostic_or_policy": "fail_closed_unless_declared_cast_path_admits_dirty_value",
+      "coverage_boundary": "current fixture covers scoped cast-clean path; arbitrary malformed CSV recovery remains unsupported unless admitted by profile",
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "csv_null_heavy_aggregate",
+      "profile_ref": "csv_jsonl_text_source",
+      "formats": [
+        "csv"
+      ],
+      "edge_case_families": [
+        "null_coercion",
+        "validity_semantics",
+        "aggregate_null_policy"
+      ],
+      "fixture_status": "covered_by_existing_focused_tests",
+      "fixture_refs": [
+        "shardloom-vortex/src/traditional_analytics.rs::enabled_null_heavy_aggregate_uses_prepared_native_vortex_scan",
+        "docs/release/v1-correctness-conformance-matrix.json"
+      ],
+      "correctness_case_refs": [
+        "null_coalesce_nullif",
+        "null_safe_comparison_predicate_semantics",
+        "predicate_projection_three_valued"
+      ],
+      "property_or_fuzz_case_refs": [
+        "numeric_generic_property_seed_20260521",
+        "filter_project_limit_property_seed_20260618"
+      ],
+      "expected_diagnostic_or_policy": "nullability_and_validity_semantics_preserved_or_blocked",
+      "coverage_boundary": "flat scalar null-heavy aggregate fixture only; nested null semantics remain profile-gated",
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "jsonl_nested_payload_scan",
+      "profile_ref": "csv_jsonl_text_source",
+      "formats": [
+        "jsonl",
+        "ndjson"
+      ],
+      "edge_case_families": [
+        "nested_json_payload",
+        "utf8_string_scan",
+        "declared_flat_payload_boundary"
+      ],
+      "fixture_status": "covered_by_existing_focused_tests",
+      "fixture_refs": [
+        "benchmarks/traditional_analytics/run.py::write_nested_json_fixture",
+        "shardloom-vortex/src/traditional_analytics.rs::generated_nested_payload_fields_preserves_deterministic_diagnostics"
+      ],
+      "correctness_case_refs": [
+        "like_predicate_utf8",
+        "string_function_composition_utf8",
+        "unsupported_struct_access_cast"
+      ],
+      "property_or_fuzz_case_refs": [
+        "string_function_property_seed_20260622",
+        "sql_parser_surface_fuzz_seed_20260613"
+      ],
+      "expected_diagnostic_or_policy": "flat_json_or_string_payload_scan_only_until_nested_path_certification",
+      "coverage_boundary": "string/nested-payload scan coverage only; arbitrary JSON path and struct access remain deterministically blocked",
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "parquet_arrow_ipc_columnar_roundtrip",
+      "profile_ref": "parquet_arrow_ipc_columnar_source",
+      "formats": [
+        "parquet",
+        "arrow-ipc"
+      ],
+      "edge_case_families": [
+        "columnar_projection",
+        "validity_mask",
+        "metadata_loss_report"
+      ],
+      "fixture_status": "covered_by_existing_focused_tests",
+      "fixture_refs": [
+        "shardloom-vortex/src/traditional_analytics.rs::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "shardloom-contract-tests/tests/fidelity_invariants.rs::compatibility_output_writer_matrix_respects_claim_boundaries"
+      ],
+      "correctness_case_refs": [
+        "output_jsonl_property_seed_20260626",
+        "output_writer_policy_fuzz_seed_20260617"
+      ],
+      "property_or_fuzz_case_refs": [
+        "output_jsonl_property_seed_20260626",
+        "output_writer_policy_fuzz_seed_20260617"
+      ],
+      "expected_diagnostic_or_policy": "unsupported_dtype_or_invalid_file_must_emit_deterministic_blocker",
+      "coverage_boundary": "flat scalar local fixture-smoke and columnar provider handoff only; nested extension dtype production support remains gated",
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "avro_orc_compatibility_roundtrip",
+      "profile_ref": "avro_orc_compatibility_source",
+      "formats": [
+        "avro",
+        "orc"
+      ],
+      "edge_case_families": [
+        "compatibility_import",
+        "logical_type_loss",
+        "projection_report"
+      ],
+      "fixture_status": "covered_by_existing_focused_tests",
+      "fixture_refs": [
+        "shardloom-vortex/src/traditional_analytics.rs::enabled_build_roundtrips_common_formats_through_vortex_outputs",
+        "docs/release/local-format-pushdown-fidelity-report.json"
+      ],
+      "correctness_case_refs": [
+        "output_jsonl_property_seed_20260626",
+        "unsupported_union_dtype_cast"
+      ],
+      "property_or_fuzz_case_refs": [
+        "output_writer_policy_fuzz_seed_20260617",
+        "expression_parser_fuzz_seed_20260614"
+      ],
+      "expected_diagnostic_or_policy": "invalid_container_or_unsupported_logical_type_blocks_before_execution",
+      "coverage_boundary": "flat scalar compatibility bridge only; complex unions, maps, and nested lists require semantic certification",
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "row_id": "compatibility_output_metadata_loss_policy",
+      "profile_ref": "compatibility_output_exports",
+      "formats": [
+        "jsonl",
+        "csv",
+        "parquet",
+        "arrow-ipc",
+        "avro",
+        "orc"
+      ],
+      "edge_case_families": [
+        "metadata_loss",
+        "unsupported_schema_diagnostics",
+        "overwrite_append_policy"
+      ],
+      "fixture_status": "covered_by_existing_focused_tests",
+      "fixture_refs": [
+        "docs/release/compatibility-output-translation-report-coverage.json",
+        "scripts/check_compatibility_output_translation_reports.py",
+        "shardloom-contract-tests/tests/fidelity_invariants.rs::translation_plan_and_report_respect_native_vs_compatibility_contract"
+      ],
+      "correctness_case_refs": [
+        "unsupported_output_no_overwrite_policy",
+        "output_writer_policy_fuzz_seed_20260617"
+      ],
+      "property_or_fuzz_case_refs": [
+        "output_writer_policy_fuzz_seed_20260617",
+        "output_jsonl_property_seed_20260626"
+      ],
+      "expected_diagnostic_or_policy": "TranslationReport_must_list_preserved_and_lost_metadata_before_compatibility_output_claim",
+      "coverage_boundary": "local fixture-smoke output coverage only; production sink, object-store output, and lakehouse commits remain blocked",
+      "claim_gate_status": "not_claim_grade",
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    }
+  ]
+}
