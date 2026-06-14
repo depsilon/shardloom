@@ -277,9 +277,11 @@ with a recorded infeasibility reason, not merely because they are broad.
   - Source: attached Object-Store Runtime review, `docs/architecture/scale-readiness-contract.md`,
     RFC 0017, RFC 0014, `docs/skills/object-store-runtime.md`, and object-store readiness gates.
   - Current state: `docs/release/production-certification-workloads.json` now declares the scoped
-    `object_store_local_emulator_runtime_v1_candidate` profile with local-emulator fixture evidence
-    and deterministic blockers for live S3/GCS/ADLS, credentialed access, table commits,
-    distributed runtime, bounded streaming/backpressure, and claim-grade benchmarks.
+    `object_store_local_emulator_runtime_v1_candidate` profile with local-emulator fixture evidence,
+    public no-credential URI-shape evidence, scoped read request/byte counters, fixture digest
+    validation, provider-admission evidence, and deterministic blockers for live S3/GCS/ADLS,
+    credentialed access, table commits, distributed runtime, production backpressure, and
+    claim-grade benchmarks.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
     object-store workload/backend in v1 if emulator plus approved real-backend proof, credential
     safety, bounded streaming, commit/cleanup, and certificate evidence can close; otherwise
@@ -294,12 +296,20 @@ with a recorded infeasibility reason, not merely because they are broad.
       scheme/backend for v1 feasibility before deferring it.
     - [x] Implement provider abstraction for selected schemes with credential policy, redaction,
       request signing boundary, and no-probe defaults for explain/estimate/doctor/capabilities.
-    - [ ] Add listing, object version/ETag capture, checksum validation, byte-range read, request
-      coalescing, prefetch, retry/backoff, rate-limit handling, and bounded streaming reads.
+    - [x] Add scoped local-emulator/public-fixture single-object listing, fixture-derived
+      object version/ETag posture, requested-byte digest validation, byte-range/full-object read,
+      single-request coalescing/prefetch posture, single-attempt retry/rate-limit posture, and
+      bounded fixture read-budget evidence.
+    - [ ] Extend listing, object version/ETag capture, checksum validation, request coalescing,
+      prefetch, retry/backoff, rate-limit handling, and bounded streaming reads to the approved
+      real backend profile before any production claim.
     - [ ] Add staged/multipart writes, commit protocol, rollback/cleanup, idempotency keys, and
       ambiguous commit diagnostics.
-    - [ ] Emit object-store Native I/O certificates with request counts, bytes requested/read,
-      retries, cache hits, credential posture, and no-fallback fields.
+    - [x] Emit scoped object-store Native I/O certificates with request counts, bytes
+      requested/read, retry attempts, cache hits, credential posture, and no-fallback fields for
+      the local-emulator and public no-credential fixture profiles.
+    - [ ] Emit production object-store Native I/O certificates after approved backend, cache,
+      streaming/backpressure, and retry evidence exists.
     - [ ] Test against a local emulator and one approved real backend profile before any
       production claim.
     - [ ] Move closed object-store workload evidence and deferred backend scope to the ledger after
