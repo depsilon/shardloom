@@ -19651,6 +19651,41 @@ impl TraditionalResidualOperatorOptimizationEvidence {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn string_group_generated_category_interner(interner: &TraditionalStringInterner) -> Self {
+        let status = if interner.generated_category_fast_path && interner.len() > 0 {
+            "applied_residual_generated_category_interner_hash_bypass"
+        } else {
+            "applied_residual_general_string_interner_group_distinct"
+        };
+        Self {
+            family: "high_cardinality_string_group_distinct",
+            status,
+            dense_accumulator_used: false,
+            sparse_rollover_used: false,
+            dense_max_key: None,
+            dense_slot_budget: None,
+            dimension_membership_status: "not_applicable",
+            dimension_membership_key_count: None,
+            dimension_membership_max_key: None,
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn cdc_metric_overlay_incremental() -> Self {
+        Self {
+            family: "small_change_over_large_base",
+            status: "applied_residual_incremental_cdc_metric_overlay",
+            dense_accumulator_used: false,
+            sparse_rollover_used: false,
+            dense_max_key: None,
+            dense_slot_budget: None,
+            dimension_membership_status: "not_applicable",
+            dimension_membership_key_count: None,
+            dimension_membership_max_key: None,
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     fn top_k_heap_admission_guard() -> Self {
         Self {
             family: "sort_top_k",
@@ -20097,7 +20132,7 @@ impl TraditionalStringInterner {
         if let Some(id) = self.try_intern_generated_category(value)? {
             return Ok(id);
         }
-        self.generated_category_fast_path = false;
+        self.disable_generated_category_fast_path()?;
         if let Some(id) = self.by_value.get(value) {
             return Ok(*id);
         }
@@ -20135,8 +20170,28 @@ impl TraditionalStringInterner {
             return Ok(None);
         }
         self.values.push(value.to_string());
-        self.by_value.insert(value.to_string(), id);
         Ok(Some(id))
+    }
+
+    fn disable_generated_category_fast_path(&mut self) -> Result<()> {
+        if !self.generated_category_fast_path {
+            return Ok(());
+        }
+        self.generated_category_fast_path = false;
+        if self.by_value.len() == self.values.len() {
+            return Ok(());
+        }
+        self.by_value.clear();
+        self.by_value.reserve(self.values.len());
+        for (id, value) in self.values.iter().enumerate() {
+            let id = u32::try_from(id).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "traditional analytics string interner exceeded u32 ids: {error}"
+                ))
+            })?;
+            self.by_value.insert(value.clone(), id);
+        }
+        Ok(())
     }
 
     fn value(&self, id: u32) -> Option<&str> {
@@ -20146,6 +20201,58 @@ impl TraditionalStringInterner {
 
     fn len(&self) -> usize {
         self.values.len()
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone)]
+struct TraditionalCdcMetricOverlay {
+    metrics_by_id: std::collections::HashMap<u64, f64>,
+    row_count: u64,
+    metric_sum: f64,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalCdcMetricOverlay {
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            metrics_by_id: std::collections::HashMap::with_capacity(capacity),
+            row_count: 0,
+            metric_sum: 0.0,
+        }
+    }
+
+    fn insert_base(&mut self, id: u64, metric: f64) -> Result<()> {
+        self.upsert(id, metric)
+    }
+
+    fn upsert(&mut self, id: u64, metric: f64) -> Result<()> {
+        if let Some(previous) = self.metrics_by_id.insert(id, metric) {
+            self.metric_sum += metric - previous;
+            return Ok(());
+        }
+        self.row_count = self.row_count.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "traditional analytics CDC overlay row count overflow".to_string(),
+            )
+        })?;
+        self.metric_sum += metric;
+        Ok(())
+    }
+
+    fn delete(&mut self, id: u64) {
+        if let Some(previous) = self.metrics_by_id.remove(&id) {
+            self.row_count = self.row_count.saturating_sub(1);
+            self.metric_sum -= previous;
+        }
+    }
+
+    const fn row_count(&self) -> u64 {
+        self.row_count
+    }
+
+    const fn metric_sum(&self) -> f64 {
+        self.metric_sum
     }
 }
 
@@ -34582,6 +34689,11 @@ fn run_streaming_string_group_distinct_scenario_with_dim_rows(
             Ok(())
         },
     )?;
+    let stats = stats.with_residual_operator_optimization(
+        TraditionalResidualOperatorOptimizationEvidence::string_group_generated_category_interner(
+            &category_interner,
+        ),
+    );
     let assembly_start = std::time::Instant::now();
     let result_json = string_group_id_distinct_json(groups, &category_interner)?;
     let rows_materialized = result_rows_materialized(&result_json)?;
@@ -35284,14 +35396,17 @@ fn run_streaming_small_change_over_large_base_scenario_with_dim_rows(
     dim_rows: u64,
     cdc_delta_path: &std::path::Path,
 ) -> Result<TraditionalScenarioExecution> {
-    let mut rows = std::collections::HashMap::<u64, f64>::new();
+    let mut rows =
+        TraditionalCdcMetricOverlay::with_capacity(TRADITIONAL_GROUP_HASH_INITIAL_CAPACITY);
     let fact_stats = scan_fact_vortex_projected(
         fact_path,
         &["id", "metric"],
         None,
         |fields, chunk_rows| {
-            let ids = primitive_field::<u64>(fields, "id")?;
-            let metrics = primitive_field::<f64>(fields, "metric")?;
+            let ids = primitive_array_field(fields, "id")?;
+            let ids = ids.as_slice::<u64>();
+            let metrics = primitive_array_field(fields, "metric")?;
+            let metrics = metrics.as_slice::<f64>();
             if ids.len() != chunk_rows || metrics.len() != chunk_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "small change over large base fact Vortex chunk length mismatch: chunk_rows={chunk_rows}, id_len={}, metric_len={}",
@@ -35299,8 +35414,8 @@ fn run_streaming_small_change_over_large_base_scenario_with_dim_rows(
                     metrics.len()
                 )));
             }
-            for (id, metric) in ids.into_iter().zip(metrics) {
-                rows.insert(id, metric);
+            for (&id, &metric) in ids.iter().zip(metrics) {
+                rows.insert_base(id, metric)?;
             }
             Ok(())
         },
@@ -35421,17 +35536,10 @@ fn run_streaming_small_change_over_large_base_scenario_with_dim_rows(
             cdc_stats.vortex_scan_decoded_values,
         )?,
         residual_operator_optimization:
-            TraditionalResidualOperatorOptimizationEvidence::not_applicable(),
+            TraditionalResidualOperatorOptimizationEvidence::cdc_metric_overlay_incremental(),
     };
-    let mut result_ids = rows.keys().copied().collect::<Vec<_>>();
-    result_ids.sort_unstable();
-    let metric_sum = result_ids
-        .iter()
-        .filter_map(|id| rows.get(id))
-        .copied()
-        .sum();
     Ok(TraditionalScenarioExecution {
-        result_json: scalar_result_json(usize_to_u64(rows.len())?, metric_sum),
+        result_json: scalar_result_json(rows.row_count(), rows.metric_sum()),
         fact_rows: fact_stats.source_row_count,
         dim_rows,
         cdc_delta_rows: cdc_stats.source_row_count,
@@ -35445,15 +35553,16 @@ fn run_streaming_small_change_over_large_base_scenario_with_dim_rows(
 fn apply_cdc_delta_overlay_chunk(
     fields: &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
     chunk_rows: usize,
-    rows: &mut std::collections::HashMap<u64, f64>,
+    rows: &mut TraditionalCdcMetricOverlay,
     saw_cdc_delta: &mut bool,
     cdc_row_offset: &mut usize,
 ) -> Result<()> {
-    let ids = primitive_field::<u64>(fields, "id")?;
-    let ops = utf8_field(fields, "op")?;
-    let values = utf8_field(fields, "value")?;
-    let metrics = utf8_field(fields, "metric")?;
-    let effective_ts = utf8_field(fields, "effective_ts")?;
+    let ids = primitive_array_field(fields, "id")?;
+    let ids = ids.as_slice::<u64>();
+    let ops = varbin_view_field(fields, "op")?;
+    let values = varbin_view_field(fields, "value")?;
+    let metrics = varbin_view_field(fields, "metric")?;
+    let effective_ts = varbin_view_field(fields, "effective_ts")?;
     if ids.len() != chunk_rows
         || ops.len() != chunk_rows
         || values.len() != chunk_rows
@@ -35469,32 +35578,39 @@ fn apply_cdc_delta_overlay_chunk(
             effective_ts.len()
         )));
     }
-    for index in 0..chunk_rows {
+    for (index, &id) in ids.iter().enumerate().take(chunk_rows) {
         *saw_cdc_delta = true;
         let row_number = *cdc_row_offset + index + 1;
-        if !generated_timestamp_shape_is_valid(&effective_ts[index]) {
+        let effective_ts = effective_ts.bytes_at(index);
+        if !generated_timestamp_shape_bytes_is_valid(effective_ts.as_slice()) {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "CDC delta row {row_number} has invalid effective_ts"
             )));
         }
-        match ops[index].as_str() {
-            "delete" => {
-                rows.remove(&ids[index]);
+        let op = ops.bytes_at(index);
+        match op.as_slice() {
+            b"delete" => {
+                rows.delete(id);
             }
-            "update" | "insert" => {
-                let _value = values[index].parse::<u32>().map_err(|error| {
+            b"update" | b"insert" => {
+                let value = values.bytes_at(index);
+                let value_text = utf8_bytes_at(value.as_slice(), "value", row_number - 1)?;
+                let _value = value_text.parse::<u32>().map_err(|error| {
                     ShardLoomError::InvalidOperation(format!(
                         "CDC delta row {row_number} has invalid value: {error}"
                     ))
                 })?;
-                let metric = metrics[index].parse::<f64>().map_err(|error| {
+                let metric = metrics.bytes_at(index);
+                let metric_text = utf8_bytes_at(metric.as_slice(), "metric", row_number - 1)?;
+                let metric = metric_text.parse::<f64>().map_err(|error| {
                     ShardLoomError::InvalidOperation(format!(
                         "CDC delta row {row_number} has invalid metric: {error}"
                     ))
                 })?;
-                rows.insert(ids[index], metric);
+                rows.upsert(id, metric)?;
             }
             other => {
+                let other = utf8_bytes_at(other, "op", row_number - 1)?;
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "CDC delta row {row_number} has unsupported op '{other}'"
                 )));
@@ -37979,14 +38095,19 @@ fn generated_nested_payload_fields_generated_shape(
     const FLAG_MARKER: &[u8] = b"\",\"flag\":";
     const METRICS_MARKER: &[u8] = b"},\"metrics\":{\"value\":";
     const SCORE_MARKER: &[u8] = b",\"score\":";
+    const GENERATED_DATE_BYTES: usize = 10;
 
     let Some(after_prefix) = consume_prefix(payload, PREFIX) else {
         return Ok(None);
     };
-    let Some(flag_marker_offset) = find_bytes(&payload[after_prefix..], FLAG_MARKER) else {
+    let flag_marker_start = after_prefix + GENERATED_DATE_BYTES;
+    let Some(flag_marker_end) = flag_marker_start.checked_add(FLAG_MARKER.len()) else {
         return Ok(None);
     };
-    let mut cursor = after_prefix + flag_marker_offset + FLAG_MARKER.len();
+    if payload.get(flag_marker_start..flag_marker_end) != Some(FLAG_MARKER) {
+        return Ok(None);
+    }
+    let mut cursor = flag_marker_end;
     let flag = if payload[cursor..].starts_with(b"true") {
         cursor += b"true".len();
         true
@@ -37997,14 +38118,18 @@ fn generated_nested_payload_fields_generated_shape(
         return Ok(None);
     };
 
-    let Some(after_metrics_marker) = consume_prefix(&payload[cursor..], METRICS_MARKER) else {
+    if !payload[cursor..].starts_with(METRICS_MARKER) {
+        return Ok(None);
+    }
+    cursor += METRICS_MARKER.len();
+    let Some(value_end_offset) = payload[cursor..].iter().position(|byte| *byte == b',') else {
         return Ok(None);
     };
-    cursor += after_metrics_marker;
-    let Some(score_marker_offset) = find_bytes(&payload[cursor..], SCORE_MARKER) else {
+    cursor += value_end_offset;
+    if !payload[cursor..].starts_with(SCORE_MARKER) {
         return Ok(None);
-    };
-    let score_start = cursor + score_marker_offset + SCORE_MARKER.len();
+    }
+    let score_start = cursor + SCORE_MARKER.len();
     let Some(score) = parse_generated_nested_score_simple(payload, score_start, row_index) else {
         return Ok(None);
     };
@@ -38148,16 +38273,6 @@ fn parse_generated_nested_score_simple(
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn consume_prefix(payload: &[u8], prefix: &[u8]) -> Option<usize> {
     payload.starts_with(prefix).then_some(prefix.len())
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() {
-        return Some(0);
-    }
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -41887,6 +42002,26 @@ mod tests {
                 .get("operator_encoded_native_claim_allowed")
                 .map(String::as_str),
             Some("false")
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_family",
+            "small_change_over_large_base",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_status",
+            "applied_residual_incremental_cdc_metric_overlay",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_dense_accumulator_used",
+            "false",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_sparse_rollover_used",
+            "false",
         );
         assert_ne!(
             field_u64(&native_fields, "vortex_scan_micros"),
@@ -49778,6 +49913,12 @@ mod tests {
         assert_eq!(category_interner.intern("c1").expect("c1"), 1);
         assert_eq!(category_interner.intern("c0").expect("c0 repeat"), 0);
         assert_eq!(category_interner.value(1), Some("c1"));
+        assert!(category_interner.generated_category_fast_path);
+        assert!(category_interner.by_value.is_empty());
+        assert_eq!(category_interner.intern("other").expect("fallback"), 2);
+        assert!(!category_interner.generated_category_fast_path);
+        assert_eq!(category_interner.intern("c1").expect("c1 fallback"), 1);
+        assert_eq!(category_interner.value(2), Some("other"));
         assert_eq!(generated_category_id(b"c42"), Some(42));
         assert_eq!(generated_category_id(b"category42"), None);
     }
@@ -49791,6 +49932,21 @@ mod tests {
         assert_eq!(category_interner.intern("c2").expect("repeat c2"), 0);
         assert_eq!(category_interner.value(0), Some("c2"));
         assert_eq!(category_interner.value(1), Some("c0"));
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn cdc_metric_overlay_preserves_count_and_sum_incrementally() {
+        let mut overlay = TraditionalCdcMetricOverlay::with_capacity(4);
+        overlay.insert_base(3, 3.0).unwrap();
+        overlay.insert_base(1, 1.0).unwrap();
+        overlay.insert_base(2, 2.0).unwrap();
+        overlay.upsert(1, 10.0).unwrap();
+        overlay.delete(2);
+        overlay.upsert(4, 4.5).unwrap();
+
+        assert_eq!(overlay.row_count(), 3);
+        assert!((overlay.metric_sum() - 17.5).abs() < f64::EPSILON);
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -51072,6 +51228,69 @@ mod tests {
             &native_fields,
             "residual_operator_optimization_status",
             "applied_residual_interner_cardinality_distinct_count",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_dense_accumulator_used",
+            "false",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_sparse_rollover_used",
+            "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn high_cardinality_string_group_reports_generated_category_interner_fast_path() {
+        let root = traditional_analytics_test_root("high-card-generated-category");
+        std::fs::create_dir_all(&root).unwrap();
+        let fact_csv = root.join("fact.csv");
+        let dim_csv = root.join("dim.csv");
+        std::fs::write(
+            &fact_csv,
+            "id,group_key,dim_key,value,metric,flag,category,event_date,nullable_metric_00,raw_event_time,dirty_numeric,dirty_flag\n1,10,1,6000,2.5,1,c0,2024-03-01,1.25,2024-01-01T00:00:00Z,6000,Y\n2,11,2,1000,3.5,0,c1,2024-07-01,,not-a-timestamp,bad-number,N\n3,10,1,8000,4.0,1,c0,2024-05-01,3.75,2024-01-03T00:00:00Z,8000,Y\n",
+        )
+        .unwrap();
+        std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n2,two,2.0\n").unwrap();
+
+        let import_report = run_traditional_analytics_benchmark(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct,
+                fact_csv,
+                dim_csv,
+                root.join("workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv),
+        )
+        .unwrap();
+
+        let native_report =
+            run_traditional_analytics_vortex_benchmark(TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct,
+                import_report.fact_vortex_path.clone(),
+                import_report.dim_vortex_path.clone(),
+            ))
+            .unwrap();
+
+        assert_eq!(native_report.result_json, import_report.result_json);
+        assert_eq!(
+            native_report.result_json,
+            "{\"distinct_category_count\":2,\"groups\":[{\"category\":\"c0\",\"row_count\":2,\"metric_sum\":6.5},{\"category\":\"c1\",\"row_count\":1,\"metric_sum\":3.5}]}"
+        );
+        let native_fields = field_map(native_report.fields());
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_family",
+            "high_cardinality_string_group_distinct",
+        );
+        assert_field_eq(
+            &native_fields,
+            "residual_operator_optimization_status",
+            "applied_residual_generated_category_interner_hash_bypass",
         );
         assert_field_eq(
             &native_fields,
