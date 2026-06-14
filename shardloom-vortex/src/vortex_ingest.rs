@@ -6328,7 +6328,6 @@ fn columnar_column_families(
             let mut family = None;
             for batch in &source.batches {
                 let array = batch.column(projected_column.reader_index);
-                reject_columnar_nulls(&projected_column.column, array.as_ref())?;
                 let candidate = arrow_column_family(&projected_column.column, array.as_ref())?;
                 if candidate == "float64" {
                     reject_columnar_non_finite_floats(&projected_column.column, array.as_ref())?;
@@ -6374,26 +6373,19 @@ fn columnar_family_from_dtype_hint(
         Some(LogicalDType::Date32) => Ok("date32"),
         Some(LogicalDType::TimestampMicros) => Ok("timestamp_micros"),
         Some(dtype) => Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros only; no fallback execution was attempted",
+            "local vortex_ingest column '{column}' has unsupported dtype hint {}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros columns only; no fallback execution was attempted",
             dtype.as_str()
         ))),
     }
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn reject_columnar_nulls(column: &str, array: &dyn Array) -> Result<()> {
-    if array.null_count() > 0 {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest column '{column}' contains nulls; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros only; no fallback execution was attempted"
-        )));
-    }
-    Ok(())
-}
-
-#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn reject_columnar_non_finite_floats(column: &str, array: &dyn Array) -> Result<()> {
     if let Some(array) = array.as_any().downcast_ref::<Float32Array>() {
         for index in 0..array.len() {
+            if array.is_null(index) {
+                continue;
+            }
             if !array.value(index).is_finite() {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "local vortex_ingest column '{column}' contains non-finite float32; no fallback execution was attempted"
@@ -6402,6 +6394,9 @@ fn reject_columnar_non_finite_floats(column: &str, array: &dyn Array) -> Result<
         }
     } else if let Some(array) = array.as_any().downcast_ref::<Float64Array>() {
         for index in 0..array.len() {
+            if array.is_null(index) {
+                continue;
+            }
             if !array.value(index).is_finite() {
                 return Err(ShardLoomError::InvalidOperation(format!(
                     "local vortex_ingest column '{column}' contains non-finite float64; no fallback execution was attempted"
@@ -6453,7 +6448,7 @@ fn arrow_column_family(column: &str, array: &dyn Array) -> Result<&'static str> 
         return Ok("timestamp_micros");
     }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros only; no fallback execution was attempted",
+        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits flat nullable boolean, int64, uint64, float64, utf8, binary, date32, and timestamp_micros columns only; no fallback execution was attempted",
         array.data_type()
     )))
 }
@@ -8478,6 +8473,136 @@ mod tests {
         assert_eq!(payload.value(1), &[] as &[u8]);
         assert_eq!(payload.value(2), b"raw");
         assert_eq!(payload.null_count(), 0);
+
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_nullable_source_writes_reopens_validity() {
+        use std::sync::Arc;
+
+        use arrow_array::{
+            Array as _, BooleanArray, Float64Array, Int64Array, RecordBatch, StringArray,
+            StructArray,
+        };
+        use arrow_schema::{DataType, Field, Schema};
+        use shardloom_core::LogicalDType;
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-nullable-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec![
+            "id".to_string(),
+            "label".to_string(),
+            "metric".to_string(),
+            "active".to_string(),
+        ];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, true),
+            Field::new("label", DataType::Utf8, true),
+            Field::new("metric", DataType::Float64, true),
+            Field::new("active", DataType::Boolean, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(vec![Some(1), None, Some(3)])),
+                Arc::new(StringArray::from(vec![None::<&str>, None, None])),
+                Arc::new(Float64Array::from(vec![Some(1.5), None, Some(2.5)])),
+                Arc::new(BooleanArray::from(vec![Some(true), None, Some(false)])),
+            ],
+        )
+        .expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            column_dtypes: vec![
+                Some(LogicalDType::Int64),
+                Some(LogicalDType::Utf8),
+                Some(LogicalDType::Float64),
+                Some(LogicalDType::Boolean),
+            ],
+            column_arrow_dtypes: vec![
+                Some(DataType::Int64),
+                Some(DataType::Utf8),
+                Some(DataType::Float64),
+                Some(DataType::Boolean),
+            ],
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: vec![batch],
+            row_count: 3,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 3);
+        assert_eq!(report.reopen_row_count, 3);
+        assert_eq!(
+            report.column_family_summary(),
+            "id:int64,label:utf8,metric:float64,active:boolean"
+        );
+        assert_eq!(report.array_build_provider_kind, "vortex_array_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "ArrayRef::from_arrow(RecordBatch)"
+        );
+        assert_eq!(
+            report.preparation_spine.materialization_boundary_status,
+            "columnar_source_state_preserved_to_vortex_array_provider"
+        );
+        assert_eq!(
+            report.preparation_spine.decode_boundary_status,
+            "no_scalar_row_decode_for_non_empty_batches"
+        );
+        assert!(report.manual_scalar_copy_avoided);
+        assert!(!report.preparation_spine.fallback_attempted);
+        assert!(!report.preparation_spine.external_engine_invoked);
+
+        let arrow = reopen_vortex_artifact_as_arrow_struct(&path, schema.as_ref());
+        let struct_array = arrow
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .expect("arrow struct");
+        let id = struct_array
+            .column_by_name("id")
+            .expect("id column")
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .expect("id int64 column");
+        assert_eq!(id.value(0), 1);
+        assert!(id.is_null(1));
+        assert_eq!(id.value(2), 3);
+        let label = struct_array
+            .column_by_name("label")
+            .expect("label column")
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("label string column");
+        assert_eq!(label.null_count(), 3);
+        let metric = struct_array
+            .column_by_name("metric")
+            .expect("metric column")
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .expect("metric float64 column");
+        assert_eq!(metric.value(0), 1.5);
+        assert!(metric.is_null(1));
+        assert_eq!(metric.value(2), 2.5);
+        let active = struct_array
+            .column_by_name("active")
+            .expect("active column")
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .expect("active bool column");
+        assert!(active.value(0));
+        assert!(active.is_null(1));
+        assert!(!active.value(2));
 
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");

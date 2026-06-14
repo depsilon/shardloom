@@ -183,10 +183,13 @@ Executable evidence surface:
   dictionary/FSST, and layout-cache surfaces as provider candidates; `byte_length()` as wrapped by
   the existing ShardLoom binary byte-length kernel pending provider parity; and DataFusion 54
   integration as baseline/oracle-only.
-- The local-I/O rows classify layout-reader context/cache, JSON extension Arrow import/export,
-  WKB/geospatial extension preservation, Interleave encoding, binary zstd/compression metadata,
-  row-byte encoder, and validity/mask semantics as provider candidates pending adapter/fidelity
-  evidence; Arrow device/GPU/JNI/cuDF paths remain blocked for a future device-residency track.
+- The local-I/O disposition rows classify layout-reader context/cache, JSON extension Arrow
+  import/export, WKB/geospatial extension preservation, Interleave encoding, binary
+  zstd/compression metadata, row-byte encoder, and broad validity/mask semantics as report-only
+  provider candidates pending adapter/fidelity evidence; the narrower flat nullable columnar
+  Vortex prepared-state writer lane is admitted separately under
+  `shardloom.vortex_native_writer_schema_certification.v1` below. Arrow device/GPU/JNI/cuDF paths
+  remain blocked for a future device-residency track.
 
 Claim boundary:
 
@@ -1037,8 +1040,8 @@ fallback execution.
   traditional analytics benchmark feature bundle.
 - `vortex-api-inventory` now also emits
   `shardloom.vortex_native_writer_schema_certification.v1` under report id
-  `prod-ready-1a.vortex-native-writer-schema-certification`. The report separates three scoped
-  feature-gated local runtime rows, three provider-candidate schema families, and the still-blocked
+  `prod-ready-1a.vortex-native-writer-schema-certification`. The report separates four scoped
+  feature-gated local runtime rows, two provider-candidate schema families, and the still-blocked
   generalized writer:
   - `flat_scalar_rows_nullable_primitives` uses ShardLoom's scalar-row-to-Vortex struct writer for
     nullable primitive/scalar shapes with known DType hints.
@@ -1047,12 +1050,12 @@ fallback execution.
     rows when logical/Arrow DType hints are present.
   - `flat_columnar_source_state_arrow_provider` uses upstream Vortex
     `ArrayRef::from_arrow(RecordBatch)` for flat non-null columnar SourceState handoff.
+  - `nullable_columnar_validity_provider_gate` uses upstream Vortex
+    `ArrayRef::from_arrow(RecordBatch)` for flat nullable columnar SourceState handoff, with
+    all-valid, all-null, and mixed validity replay evidence and no scalar-row materialization.
   - `dictionary_encoded_primitives_provider_gate` records dictionary/interleave encoding as a
     Vortex-native provider candidate pending ordering, null-key, encoding-preservation, Native I/O,
     and replay evidence.
-  - `nullable_columnar_validity_provider_gate` records nullable columnar handoff as a provider
-    candidate pending all-true/all-false/sparse/mixed validity fixtures, decoded reference parity,
-    reopen certificates, and no-fallback evidence.
   - `extension_dtype_json_wkb_provider_gate` records JSON/WKB extension preservation as a wrapped
     Vortex concept pending extension fidelity reports and deterministic expression blockers.
   - `generalized_schema_encoding_writer` remains `blocked_pending_evidence` with diagnostic
@@ -1061,9 +1064,9 @@ fallback execution.
   DType scope, validity scope, encoding scope, metadata/statistics preservation posture,
   materialization boundary, replay evidence, claim boundary, and no-fallback/no-external-engine
   flags for each row.
-- The broad local schema/encoding writer remains blocked behind schema payload matrix, encoding
-  payload matrix, correctness fixture, materialization/decode certificate, Native I/O certificate,
-  and no-fallback evidence.
+- The broad local schema/encoding writer remains blocked behind dictionary/interleave provider
+  evidence, extension dtype fidelity, schema payload matrix, encoding payload matrix, correctness
+  fixture, materialization/decode certificate, Native I/O certificate, and no-fallback evidence.
 - Object-store Vortex I/O, table/catalog integration, manifest commit integration, broad payload
   shapes, SQL/DataFrame runtime, lakehouse output, performance claims, and fallback execution remain
   unsupported.

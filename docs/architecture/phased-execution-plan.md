@@ -313,6 +313,11 @@ with a recorded infeasibility reason, not merely because they are broad.
         flat scalar/columnar lanes by splitting dictionary-encoded primitive, nullable columnar
         validity, and JSON/WKB extension provider-candidate rows from the hard generalized writer
         blocker; broad runtime writes remain blocked until those row-specific evidence gates pass.
+      - [x] Promote nullable flat columnar validity from provider-candidate posture to scoped
+        feature-gated runtime evidence through `ArrayRef::from_arrow(RecordBatch)`, with
+        all-valid, all-null, and mixed-validity replay proof, Native I/O/reopen evidence, and
+        no-fallback certification while sparse/nested/extension/generalized writer claims remain
+        blocked.
     - [x] Add compatibility output `TranslationReport` coverage for preserved/lost metadata,
       materialization cost, unsupported schema diagnostics, and explicit non-execution-fallback
       boundaries.
