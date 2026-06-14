@@ -1,0 +1,162 @@
+{
+  "chunk_count": 20,
+  "chunk_size": 100,
+  "chunks": [
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-000.json.gz",
+      "row_count": 100,
+      "sha256": "8c015b42218917968cde6bcd67cc4e2af7851c00fa455e0d01cf92686a5a29af",
+      "uncompressed_sha256": "a442d5a04c89d4eb7736f3d226de6888322e0d880ac28b9e3dc64b7c90cb8673"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-001.json.gz",
+      "row_count": 100,
+      "sha256": "a159c018c666eabe5165f527635ee48ff94746b3eed39a1d2be9f73cf7be40fb",
+      "uncompressed_sha256": "c44af54b3bb1786e48fb769e6108415a39c0e49f8c963c3a642533f962ba1bd0"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-002.json.gz",
+      "row_count": 100,
+      "sha256": "d3d4eb1c2ff6dcdcb605891ea55fe14602ecc908648fcb26e916d319731e6e06",
+      "uncompressed_sha256": "a2fea2679fe3da0528853d14b4b4dec1fbbb730e11e7621a9794baa96611f776"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-003.json.gz",
+      "row_count": 100,
+      "sha256": "56e1eb18a4093eb297e912ab4b305416582d0cb1e616caee317c0389e44c0a19",
+      "uncompressed_sha256": "8f80ef76db114198e9af59c90c2f15761c4d82ab9a0b322b92503e6c1ab52f00"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-004.json.gz",
+      "row_count": 100,
+      "sha256": "9adbd88b574b70b23b1589b156c81aaeef6722f440e6f4ac7b80c8fa6ab993cb",
+      "uncompressed_sha256": "d429552aaf4cb3b7bd820e3cf619206309aac1ed94c2403fe40f5ed844837acd"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-005.json.gz",
+      "row_count": 100,
+      "sha256": "c38626ed88fedb03d5ae0a640e85c9ae069212d119ca644a270c5064ddd0d076",
+      "uncompressed_sha256": "183b9cf74d6fab0daf41c9c9ab25338f0d2249211958fd022c736234be98f813"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-006.json.gz",
+      "row_count": 100,
+      "sha256": "8e7b6cd6eae4db56b24812d77e2583602f69f8dbf54e003c778aacc06952731f",
+      "uncompressed_sha256": "92afecc1c029433c9b59f9e04f2895e88eb8261193641830654df2480c69686a"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-007.json.gz",
+      "row_count": 100,
+      "sha256": "a54d0a9b7d5838b24599b57a97660a71a92ca9658a619b9aa868045beb8b36cf",
+      "uncompressed_sha256": "74c908ea52649e6fc6a8ae792b16129913aa4f17b033d54129bc194191b5ae15"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-008.json.gz",
+      "row_count": 100,
+      "sha256": "9a1819a5d4aa399feb1aa19aec39b92d6ad0712a97ba23e131fc227a0e310de5",
+      "uncompressed_sha256": "d21c020814aebaad0a2e414b7e9fa231b9e547856e3c99c0a745be47c4ace5bd"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-009.json.gz",
+      "row_count": 100,
+      "sha256": "90f81669421c64efb47982b4bf393791179f73069a5242ce5dbed3c8f2682f73",
+      "uncompressed_sha256": "c37333c6814b4b454dec3cada42d8b5586366a4f146c41ab0d21000cbac29ca0"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-010.json.gz",
+      "row_count": 100,
+      "sha256": "c94b5dd4784700555a7f38487395e7c59cbd2b298f214a8fb3e1c12785b78d08",
+      "uncompressed_sha256": "5f59e8c71efd7d6c8de6161a71d68183074d3887814834795e2a5d658f6eb627"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-011.json.gz",
+      "row_count": 100,
+      "sha256": "567ed96b323ef289a4d5e171446ae739f676be13a684aba72e93c484777513b6",
+      "uncompressed_sha256": "7ae41cdbd58bdd2fbd1ae185e1c2561aba5c3e02fa2a2d16c9aef4dd2cd6fa2b"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-012.json.gz",
+      "row_count": 100,
+      "sha256": "37dcebda0b64333614cac7f43ee4cf5d08e2be077d9dd491e63b6f146897c061",
+      "uncompressed_sha256": "689e158f188cfa6051f9f8a0419b9c32bfb016d0e6f9d8c96bfd89f7b6863c88"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-013.json.gz",
+      "row_count": 100,
+      "sha256": "478d46b0227cf5f00d424c87bd3961550cd127f5aa1a0e034a5cb113041bea70",
+      "uncompressed_sha256": "5049c8b6610e2f2e6e118c3e08d7d7c717b2320bcdd51d33749c1e9b99cbb563"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-014.json.gz",
+      "row_count": 100,
+      "sha256": "167f1b9e84a40a81c7b5bec890757651ea49f8bb483ee8d05f89676ec849d444",
+      "uncompressed_sha256": "c81935c6989187cde7f5aa197f86ef9d41a5002d55622cc982f9d40142da9d2b"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-015.json.gz",
+      "row_count": 100,
+      "sha256": "204df01ea399dccfdea75e1ed66694f5d1fa9f1a6248de0fb8e641e60d20f93e",
+      "uncompressed_sha256": "0d03e9bff4041f888966921b1e75db3ec5dc42bf57f40990ac0e15c4c8c69473"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-016.json.gz",
+      "row_count": 100,
+      "sha256": "58f5b51d7eaa77335fddecc8381732f46feaa859bd5137b121babfd2b3dce364",
+      "uncompressed_sha256": "f27e7bc3dc9a43ea0349427ab5f7e3706c1b07f9154f194de1fa90fbb61e0759"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-017.json.gz",
+      "row_count": 100,
+      "sha256": "d79d2fd9021f36b7a3d4bf7558b8d73e87ffeb5f1974023f6680bf80fd1b62f6",
+      "uncompressed_sha256": "2b3d43f0458fa643bfccb27818e72e7f5c243bdbb25f8c5637c6af5ce335f52f"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-018.json.gz",
+      "row_count": 100,
+      "sha256": "d41d36562306280fcd71aa84941f40da8fabef3863fa1f8b13d92eb294110323",
+      "uncompressed_sha256": "6fa79418d9ace3bfbe55d0e46149f12e52f4eb6ca45abbe0c31fd25ecab0b000"
+    },
+    {
+      "content_encoding": "gzip",
+      "path": "website-public/assets/benchmarks/latest/published-row-runs/rows-33076b50e42b6df1/published-benchmark-rows-019.json.gz",
+      "row_count": 20,
+      "sha256": "6049a9df7cdad59068c9d809c6022c3a8249b7ad0ea52b909d2e077cee5118d5",
+      "uncompressed_sha256": "d67d696e73cfec55ca3a1287aa47f32f21753b1c9dcb326576ec31da043e074d"
+    }
+  ],
+  "claim_boundary": "benchmark row admission manifest only; not performance, production, or replacement evidence",
+  "duplicate_suffixed_artifacts_removed": [],
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "generated_at_utc": "2026-06-14T12:38:26.772316+00:00",
+  "legacy_top_level_chunk_files_removed": [],
+  "resume_status": "admitted_incremental_chunks",
+  "reused_chunk_count": 0,
+  "row_count": 1920,
+  "run_id": "rows-33076b50e42b6df1",
+  "schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
+  "stale_chunk_files_removed": [],
+  "stale_row_run_dirs_removed": [
+    "website-public/assets/benchmarks/latest/published-row-runs/rows-774ba41e18079e49"
+  ],
+  "written_chunk_count": 20
+}
