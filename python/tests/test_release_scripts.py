@@ -9623,6 +9623,238 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn("v1_api_schema_stability", blockers)
         self.assertIn("schema fixture drift", blockers)
 
+    def _write_production_certification_fixture(
+        self,
+        module: object,
+        root: Path,
+        *,
+        production_ready: bool = False,
+    ) -> Path:
+        def write_json(path: Path, payload: dict[str, object]) -> None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+        safety_false = {
+            "production_claim_allowed": False,
+            "performance_claim_allowed": False,
+            "public_release_claim_allowed": False,
+            "public_package_claim_allowed": False,
+            "publication_attempted": False,
+            "tag_created": False,
+            "secrets_required": False,
+            "package_upload_attempted": False,
+            "package_channel_submission_attempted": False,
+            "oci_push_attempted": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "fallback_engine_dependency_added": False,
+            "external_engine_runtime_dependency_added": False,
+        }
+        evidence_status = "passed" if production_ready else "blocked_missing_fixture_proof"
+        matrix_path = root / "docs" / "release" / "production-certification-workloads.json"
+        write_json(
+            matrix_path,
+            {
+                "schema_version": module.SCHEMA_VERSION,
+                "status": "ready" if production_ready else "blocked",
+                "claim_gate_status": "not_claim_grade",
+                "required_evidence_keys": list(module.REQUIRED_EVIDENCE_KEYS),
+                "technique_review_keys": list(module.TECHNIQUE_REVIEW_KEYS),
+                **safety_false,
+                "workloads": [
+                    {
+                        "workload_id": "fixture_local_workload",
+                        "workload_name": "Fixture local workload",
+                        "v1_scope_classification": "required_for_v1",
+                        "readiness_status": "production_ready"
+                        if production_ready
+                        else "blocked_not_production_ready",
+                        "production_ready": production_ready,
+                        "claim_gate_status": "claim_grade"
+                        if production_ready
+                        else "not_claim_grade",
+                        "production_claim_allowed": False,
+                        "performance_claim_allowed": False,
+                        "fallback_attempted": False,
+                        "external_engine_invoked": False,
+                        "environment": "fixture_local",
+                        "data_scale": "fixture",
+                        "input_formats": ["csv"],
+                        "output_formats": ["jsonl"],
+                        "statefulness": "stateless_batch",
+                        "effect_permissions": ["no_network", "no_secrets"],
+                        "security_posture": "fixture_no_effects",
+                        "unsupported_edge_boundary": "fixture unsupported paths stay blocked",
+                        "technique_review": {
+                            key: {"decision": "applied", "reason": "fixture"}
+                            for key in module.TECHNIQUE_REVIEW_KEYS
+                        },
+                        "evidence": {
+                            key: {
+                                "status": evidence_status,
+                                "evidence_refs": [f"target/{key}.json"],
+                            }
+                            for key in module.REQUIRED_EVIDENCE_KEYS
+                        },
+                        "unsupported_diagnostics": [
+                            {
+                                "operation": "fixture_object_store",
+                                "diagnostic_code": "SL_PROD_UNSUPPORTED_FIXTURE_OBJECT_STORE",
+                                "status": module.UNSUPPORTED_STATUS,
+                                "fallback_attempted": False,
+                                "external_engine_invoked": False,
+                            }
+                        ],
+                        "production_blockers": []
+                        if production_ready
+                        else ["fixture production proof missing"],
+                    }
+                ],
+            },
+        )
+
+        (root / "README.md").write_text(
+            "production_claim_allowed\n"
+            "Must remain false unless a later production gate authorizes the specific workload.\n",
+            encoding="utf-8",
+        )
+        (root / "docs" / "release").mkdir(parents=True, exist_ok=True)
+        (root / "docs" / "release" / "public-status-matrix.md").write_text(
+            "production_claim_allowed=false\nperformance_claim_allowed=false\n",
+            encoding="utf-8",
+        )
+        write_json(
+            root / "docs" / "status" / "runs-today-support-matrix.json",
+            {
+                "performance_claim_allowed": False,
+                "package_publication_allowed": False,
+                "row_order": ["claim_production_readiness"],
+            },
+        )
+        (root / "python").mkdir(parents=True, exist_ok=True)
+        (root / "python" / "pyproject.toml").write_text(
+            'name = "shardloom"\n'
+            'classifiers = ["Development Status :: 2 - Pre-Alpha"]\n',
+            encoding="utf-8",
+        )
+        write_json(
+            root / "website" / "assets" / "benchmarks" / "latest" / "manifest.json",
+            {
+                "performance_claim_allowed": False,
+                "benchmark_constitution_performance_claim_allowed": False,
+            },
+        )
+        for name, path, schema in [
+            (
+                "user_route_capability",
+                "target/user-route-capability-report.json",
+                "shardloom.user_route_capability_report.v1",
+            ),
+            (
+                "runtime_gap_family_burn_down",
+                "target/runtime-gap-family-burn-down.json",
+                "shardloom.runtime_gap_family_burn_down.v1",
+            ),
+            (
+                "benchmark_artifact_completeness",
+                "target/benchmark-artifact-completeness-report.json",
+                "shardloom.benchmark_artifact_completeness_report.v1",
+            ),
+            (
+                "v1_correctness_conformance",
+                "target/v1-correctness-conformance-report.json",
+                "shardloom.v1_correctness_conformance_report.v1",
+            ),
+            (
+                "v1_local_resource_safety",
+                "target/v1-local-resource-safety-report.json",
+                "shardloom.v1_local_resource_safety_report.v1",
+            ),
+            (
+                "v1_release_boundary",
+                "target/v1-release-boundary-report.json",
+                "shardloom.v1_release_boundary_report.v1",
+            ),
+        ]:
+            write_json(
+                root / path,
+                {
+                    "name": name,
+                    "schema_version": schema,
+                    "status": "passed",
+                    "fallback_attempted": False,
+                    "external_engine_invoked": False,
+                },
+            )
+        return matrix_path
+
+    def test_production_certification_gate_passes_with_blocked_workload(self) -> None:
+        module = self._load_script_module(
+            "check_production_certification_gate.py",
+            "check_production_certification_gate_blocked_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            matrix_path = self._write_production_certification_fixture(module, root)
+
+            report = module.build_report(root, matrix=matrix_path)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(
+            report["production_certification_status"],
+            "blocked_not_production_ready",
+        )
+        self.assertEqual(report["production_ready_workload_count"], 0)
+        self.assertFalse(report["production_claim_allowed"])
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
+        self.assertTrue(report["production_evidence_blockers"])
+
+    def test_production_certification_gate_strict_mode_requires_ready_workload(self) -> None:
+        module = self._load_script_module(
+            "check_production_certification_gate.py",
+            "check_production_certification_gate_strict_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            matrix_path = self._write_production_certification_fixture(module, root)
+
+            report = module.build_report(
+                root,
+                matrix=matrix_path,
+                require_production_ready_workload=True,
+            )
+
+        self.assertEqual(report["status"], "blocked")
+        self.assertIn(
+            "strict production mode requires a production-ready workload",
+            report["blockers"],
+        )
+
+    def test_production_certification_gate_accepts_ready_fixture(self) -> None:
+        module = self._load_script_module(
+            "check_production_certification_gate.py",
+            "check_production_certification_gate_ready_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            matrix_path = self._write_production_certification_fixture(
+                module,
+                root,
+                production_ready=True,
+            )
+
+            report = module.build_report(
+                root,
+                matrix=matrix_path,
+                require_production_ready_workload=True,
+            )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["production_certification_status"], "production_ready")
+        self.assertEqual(report["production_ready_workload_count"], 1)
+        self.assertTrue(report["production_claim_allowed"])
+
     def test_pre_5j_dependency_freshness_blocks_stale_vortex_provider_surfaces(self) -> None:
         module = self._load_script_module(
             "check_pre_5j_dependency_freshness.py",
@@ -9787,6 +10019,7 @@ jobs:
         self.assertIn("python scripts/check_release_readiness.py", release_lane.commands)
         self.assertIn("python scripts/check_v1_security_ci_hardening.py", release_lane.commands)
         self.assertIn("python scripts/check_v1_release_boundary.py", release_lane.commands)
+        self.assertIn("python scripts/check_production_certification_gate.py", release_lane.commands)
         self.assertIn("python scripts/check_finished_product_readiness.py", release_lane.commands)
         self.assertIn(
             "target/finished-product-readiness-report.json",
@@ -9794,6 +10027,10 @@ jobs:
         )
         self.assertIn(
             "target/v1-release-boundary-report.json",
+            release_lane.artifact_refs,
+        )
+        self.assertIn(
+            "target/production-certification-gate.json",
             release_lane.artifact_refs,
         )
         self.assertNotIn(

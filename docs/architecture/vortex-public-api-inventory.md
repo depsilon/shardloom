@@ -155,14 +155,18 @@ Dependency update:
 
 Runtime-relevant 0.75 API/opportunity map:
 
-- `wrap_vortex_concept`: grouped `sum`/`count` aggregate kernels, validity/mask execution-context
-  surfaces, layout reader context/cache, JSON and WKB/geospatial extension import/export,
-  Interleave array encoding, `byte_length()`, binary zstd schemes, and row-oriented byte encoding.
-- `blocked_until_vortex_or_shardloom_evidence`: GPU/device exports, JNI, cuDF C FFI, and
-  DataFusion 54 integration items remain blocked or baseline/oracle-only until ShardLoom adds
-  provider gates, device-residency evidence, residual policy, certificates, and no-fallback proof.
-- `baseline_or_oracle_only`: Vortex DataFusion integration updates may inform external baseline or
-  oracle rows only; they must not execute unsupported ShardLoom runtime work.
+| Upstream 0.75 surface | Classification | ShardLoom incorporation path | Claim boundary |
+| --- | --- | --- | --- |
+| Grouped `sum` / `count` aggregate kernels | `native_provider_candidate` | Feed `PERF-RUNTIME-7B` heavy residual operator promotion before inventing new ShardLoom aggregate kernels; admit only behind `shardloom-vortex`, decoded-reference parity, null/key ordering tests, provider-version evidence, and execution certificates. | No grouped aggregate runtime claim until rows prove ShardLoom used the admitted provider or a ShardLoom-native kernel with no external engine. |
+| Validity/mask execution context, `definitely_no_nulls`, `execute_no_nulls`, mask `AllTrue`/`AllFalse`, branchless zip, dictionary/FSST/layout-cache optimizations | `native_provider_candidate` | Feed `PERF-RUNTIME-7B` and `PROD-READY-1A` as no-null/null-heavy operator and adapter fast paths. Existing ShardLoom validity diagnostics remain authoritative until provider-gated tests prove equivalent null semantics. | No broad nullable execution or performance claim from dependency availability alone. |
+| Layout reader context/cache and child-layout cache work | `wrap_vortex_concept` | Feed `PROD-READY-1A` broad local Vortex read/write certification and `PERF-RUNTIME-7C` prepared/read-through attribution only when reader construction, cache scope, source fingerprints, and Native I/O certificates are explicit. | Layout-reader caching may be reported as diagnostic/planning evidence only until no-decode/no-materialization behavior is certified. |
+| JSON extension Arrow import/export | `native_provider_candidate` | Feed `PROD-READY-1A` JSON/NDJSON and Arrow-boundary adapter certification. It must preserve extension dtype metadata, fail closed on unsupported nested/variant shapes, and stay a translation/provider boundary rather than an execution fallback. | No broad JSON, semi-structured, or Arrow-default execution claim. |
+| WKB/geospatial extension import/export, Point, `GeoDistance` | `blocked_until_vortex_or_shardloom_evidence` | Record as future extension/geospatial adapter evidence. v1 local I/O can preserve or block extension metadata, but geospatial runtime needs its own semantics, correctness, and certificate item before support. | No geospatial execution claim. |
+| Interleave array encoding | `wrap_vortex_concept` | Feed `PROD-READY-1A` Vortex-native fidelity profiles and encoded-layout admission. ShardLoom must report whether interleave is preserved, blocked, or materialized with metadata loss. | No interleave-aware execution claim until encoded reader/operator evidence exists. |
+| `byte_length()` expression | `native_provider_candidate` | Compare against the existing ShardLoom `byte_length` expression semantics and use Vortex-first provider checks before adding more string/binary kernels under `PERF-RUNTIME-7B` or later kernel registry work. | No provider-backed byte-length claim until null/binary/string parity tests and certificates select the provider. |
+| Binary zstd schemes and row-oriented byte encoder surfaces | `native_provider_candidate` | Feed `PROD-READY-1A` Vortex-native/compatibility output fidelity, compression metadata preservation, row encoder write-path evaluation, and publication-proof sink attribution. | No compression or row-encoder performance claim until write/replay evidence and TranslationReports prove the selected path. |
+| Arrow device export, GPU/device paths, JNI, cuDF C FFI | `blocked_until_vortex_or_shardloom_evidence` | Future accelerator/device-residency track only. Keep blocked unless a phase adds device memory ownership, CPU fallback refusal, certificates, and package/build policy. | No GPU/device support claim. |
+| DataFusion 54 integration items | `baseline_or_oracle_only` | External comparison or differential oracle context only. Must never execute unsupported ShardLoom runtime work or residual evaluation. | No fallback execution, no ShardLoom runtime claim. |
 
 Claim boundary:
 

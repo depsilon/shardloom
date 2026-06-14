@@ -1,0 +1,230 @@
+{
+  "schema_version": "shardloom.production_workload_declarations.v1",
+  "status": "blocked",
+  "claim_gate_status": "not_claim_grade",
+  "production_claim_allowed": false,
+  "performance_claim_allowed": false,
+  "public_release_claim_allowed": false,
+  "public_package_claim_allowed": false,
+  "publication_attempted": false,
+  "tag_created": false,
+  "secrets_required": false,
+  "package_upload_attempted": false,
+  "package_channel_submission_attempted": false,
+  "oci_push_attempted": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "fallback_engine_dependency_added": false,
+  "external_engine_runtime_dependency_added": false,
+  "required_evidence_keys": [
+    "runtime_execution",
+    "correctness",
+    "native_io_certificate",
+    "execution_certificate",
+    "fault_tolerance",
+    "memory_backpressure",
+    "benchmark",
+    "security_governance",
+    "release_api_stability",
+    "unsupported_diagnostics"
+  ],
+  "technique_review_keys": [
+    "pulseweave",
+    "capillary_work_units",
+    "dynamic_admission_work_shaping",
+    "metadata_first_execution",
+    "timing_surface_separation",
+    "evidence_tier_controls"
+  ],
+  "claim_boundary": "A workload may be called production-ready only after every required evidence key is passed for that workload and every out-of-scope path in the same family has deterministic unsupported diagnostics. This matrix currently records blocked local v1 candidates and does not authorize production readiness.",
+  "fallback_boundary": "Production certification evidence cannot come from Spark, DataFusion, DuckDB, Polars, pandas, Dask, Ray, Velox, Trino, or another external query/runtime engine executing ShardLoom work.",
+  "workloads": [
+    {
+      "workload_id": "local_file_etl_v1_candidate",
+      "workload_name": "Local file ETL v1 candidate",
+      "v1_scope_classification": "required_for_v1",
+      "readiness_status": "blocked_not_production_ready",
+      "production_ready": false,
+      "claim_gate_status": "not_claim_grade",
+      "production_claim_allowed": false,
+      "performance_claim_allowed": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false,
+      "environment": "single_process_local_source_checkout",
+      "data_scale": "bounded local files and generated-source fixtures; no production scale claim",
+      "input_formats": [
+        "csv",
+        "jsonl",
+        "ndjson",
+        "local_vortex",
+        "generated_rows"
+      ],
+      "output_formats": [
+        "inline_jsonl",
+        "local_csv",
+        "local_jsonl",
+        "local_vortex"
+      ],
+      "statefulness": "stateless_batch_with_prepared_state_cache",
+      "effect_permissions": [
+        "local_file_read",
+        "explicit_local_file_write",
+        "no_network",
+        "no_secrets"
+      ],
+      "security_posture": "local_no_secrets_no_external_effects",
+      "unsupported_edge_boundary": "Object-store, lakehouse/table, distributed, live/hybrid, arbitrary plugin/effect, and real Foundry execution remain outside this workload until their own production items close.",
+      "technique_review": {
+        "pulseweave": {
+          "decision": "pending",
+          "reason": "Local single-process batch routes do not yet need scheduler-level production control, but repeated prepared-state and source work should be reviewed before certification."
+        },
+        "capillary_work_units": {
+          "decision": "applied_scoped",
+          "reason": "Local source, preparation, and output work already use bounded stage/evidence units in release and benchmark reports; production certification still needs fault and memory evidence."
+        },
+        "dynamic_admission_work_shaping": {
+          "decision": "applied_scoped",
+          "reason": "Current front-door routes admit scoped local inputs and block unsupported production families; broader shape-based production admission is not complete."
+        },
+        "metadata_first_execution": {
+          "decision": "applied_scoped",
+          "reason": "Local Vortex and prepared-state reports include metadata/source fingerprint evidence, but production certification still needs scale and failure-mode proof."
+        },
+        "timing_surface_separation": {
+          "decision": "applied",
+          "reason": "Benchmark artifacts separate hot_runtime from proof/publication timing surfaces."
+        },
+        "evidence_tier_controls": {
+          "decision": "applied",
+          "reason": "Benchmark and release evidence distinguish compact runtime evidence from publication-proof evidence."
+        }
+      },
+      "evidence": {
+        "runtime_execution": {
+          "status": "passed_scoped_local",
+          "evidence_refs": [
+            "target/release-dry-run-proof/transcript.json",
+            "target/python-user-surface-completion-gate.json",
+            "target/user-route-capability-report.json"
+          ]
+        },
+        "correctness": {
+          "status": "passed_scoped_local",
+          "evidence_refs": [
+            "target/golden-workflow-report.json",
+            "target/admitted-semantics-matrix-report.json",
+            "target/v1-correctness-conformance-report.json"
+          ]
+        },
+        "native_io_certificate": {
+          "status": "passed_scoped_local",
+          "evidence_refs": [
+            "target/v1-vortex-runtime-scope-report.json",
+            "target/v1-local-output-sink-scope-report.json"
+          ]
+        },
+        "execution_certificate": {
+          "status": "passed_scoped_local",
+          "evidence_refs": [
+            "target/runtime-gap-family-burn-down.json",
+            "target/user-route-capability-report.json"
+          ]
+        },
+        "fault_tolerance": {
+          "status": "blocked_missing_production_fault_injection",
+          "evidence_refs": [
+            "docs/architecture/phased-execution-completed-ledger.md#prod-ready-0a-common-production-certification-gate"
+          ]
+        },
+        "memory_backpressure": {
+          "status": "blocked_missing_production_memory_pressure_proof",
+          "evidence_refs": [
+            "target/v1-local-resource-safety-report.json"
+          ]
+        },
+        "benchmark": {
+          "status": "blocked_not_claim_grade",
+          "evidence_refs": [
+            "website/assets/benchmarks/latest/manifest.json",
+            "target/benchmark-artifact-completeness-report.json"
+          ]
+        },
+        "security_governance": {
+          "status": "passed_local_release_gate",
+          "evidence_refs": [
+            "target/security-posture-report.json",
+            "target/release-security-gate-report.json",
+            "target/contribution-governance-report.json"
+          ]
+        },
+        "release_api_stability": {
+          "status": "passed_local_gate_publication_blocked",
+          "evidence_refs": [
+            "target/v1-api-schema-stability-report.json",
+            "target/v1-release-boundary-report.json",
+            "target/finished-product-readiness-report.json"
+          ]
+        },
+        "unsupported_diagnostics": {
+          "status": "passed_scoped_local",
+          "evidence_refs": [
+            "target/user-surface-runtime-gap-inventory.json",
+            "target/runtime-gap-family-burn-down.json",
+            "docs/release/known-unsupported-paths.md"
+          ]
+        }
+      },
+      "unsupported_diagnostics": [
+        {
+          "operation": "object_store_cloud_runtime",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_OBJECT_STORE_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "lakehouse_table_runtime",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_TABLE_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "distributed_runtime",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_DISTRIBUTED_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "live_hybrid_runtime",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_LIVE_HYBRID_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "arbitrary_plugin_effect_runtime",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_PLUGIN_EFFECT_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "real_foundry_runtime",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_FOUNDRY_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        }
+      ],
+      "production_blockers": [
+        "fault_tolerance=blocked_missing_production_fault_injection",
+        "memory_backpressure=blocked_missing_production_memory_pressure_proof",
+        "benchmark=blocked_not_claim_grade",
+        "public package/release approval missing"
+      ]
+    }
+  ]
+}
