@@ -316,6 +316,8 @@ def main() -> int:
         "secrets_required": False,
         "external_runtime_dependencies_added": False,
         "fallback_engine_dependency_added": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
         "steps": steps,
     }
     write_json(provenance_path, provenance)

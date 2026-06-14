@@ -18,6 +18,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from release_report_utils import rust_toolchain_version
+
 
 DEFAULT_TRAINING_COMMAND = (
     "python benchmarks/traditional_analytics/run.py "
@@ -129,7 +131,10 @@ def main() -> int:
     profile_dir = resolve_under(root, args.profile_dir)
     merged_profile = resolve_under(root, args.merged_profile)
     base_env = os.environ.copy()
-    base_env["RUSTUP_TOOLCHAIN"] = base_env.get("RUSTUP_TOOLCHAIN", "1.91.1")
+    base_env["RUSTUP_TOOLCHAIN"] = base_env.get(
+        "RUSTUP_TOOLCHAIN",
+        rust_toolchain_version(root),
+    )
 
     generate_env = dict(base_env)
     generate_env["RUSTFLAGS"] = (

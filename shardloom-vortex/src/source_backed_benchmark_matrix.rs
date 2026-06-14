@@ -1739,7 +1739,10 @@ mod tests {
             reader_row.provider_api_surface,
             "VortexFile::scan.into_array_iter"
         );
-        assert_eq!(reader_row.provider_version, "0.73");
+        assert_eq!(
+            reader_row.provider_version,
+            crate::UPSTREAM_VORTEX_PROVIDER_VERSION
+        );
         assert_eq!(
             reader_row.split_refs,
             vec!["split-1".to_string(), "split-2".to_string()]

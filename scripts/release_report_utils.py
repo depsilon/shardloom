@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -59,3 +60,168 @@ def require_markers(label: str, text: str, markers: tuple[str, ...]) -> list[str
     if not text:
         return [f"{label}: missing file or empty text"]
     return [f"{label}: missing marker {marker!r}" for marker in markers if marker not in text]
+
+
+def _current_section_key(line: str) -> str | None:
+    stripped = line.strip()
+    if not stripped.startswith("[") or not stripped.endswith("]"):
+        return None
+    return stripped.strip("[]")
+
+
+def _quoted_value(raw: str) -> str | None:
+    match = re.search(r'"([^"\\]*(?:\\.[^"\\]*)*)"', raw)
+    if match is None:
+        return None
+    try:
+        return json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return match.group(1)
+
+
+def workspace_rust_version(repo_root: Path) -> str:
+    """Return `[workspace.package] rust-version` from the root Cargo manifest."""
+
+    text = read_text(repo_root / "Cargo.toml", missing_ok=False)
+    section: str | None = None
+    for line in text.splitlines():
+        section_key = _current_section_key(line)
+        if section_key is not None:
+            section = section_key
+            continue
+        if section != "workspace.package":
+            continue
+        stripped = line.split("#", 1)[0].strip()
+        if stripped.startswith("rust-version"):
+            value = _quoted_value(stripped)
+            if value:
+                return value
+    raise ValueError("root Cargo.toml is missing [workspace.package] rust-version")
+
+
+def rust_toolchain_version(repo_root: Path) -> str:
+    """Return the concrete rustup toolchain version for the workspace MSRV."""
+
+    version = workspace_rust_version(repo_root)
+    parts = version.split(".")
+    return f"{version}.0" if len(parts) == 2 else version
+
+
+def rust_msrv_lane_id(repo_root: Path) -> str:
+    return "rust_msrv_" + "_".join(workspace_rust_version(repo_root).split("."))
+
+
+def _manifest_dependency_raw(
+    text: str,
+    *,
+    section_name: str,
+    dependency: str,
+) -> str | None:
+    section: str | None = None
+    dependency_key = f"{dependency} ="
+    for line in text.splitlines():
+        section_key = _current_section_key(line)
+        if section_key is not None:
+            section = section_key
+            continue
+        if section != section_name:
+            continue
+        stripped = line.split("#", 1)[0].strip()
+        if not stripped.startswith(dependency_key):
+            continue
+        _, raw_value = stripped.split("=", 1)
+        return raw_value.strip()
+    return None
+
+
+def _dependency_version_from_raw(raw_value: str) -> str | None:
+    value = _quoted_value(raw_value)
+    if value:
+        return value
+    match = re.search(r'\bversion\s*=\s*"([^"\\]*(?:\\.[^"\\]*)*)"', raw_value)
+    if match is None:
+        return None
+    try:
+        return json.loads(f'"{match.group(1)}"')
+    except json.JSONDecodeError:
+        return match.group(1)
+
+
+def workspace_manifest_dependency_version(repo_root: Path, dependency: str) -> str:
+    text = read_text(repo_root / "Cargo.toml", missing_ok=False)
+    raw_value = _manifest_dependency_raw(
+        text,
+        section_name="workspace.dependencies",
+        dependency=dependency,
+    )
+    if raw_value is None:
+        raise ValueError(f"root Cargo.toml is missing workspace dependency {dependency!r}")
+    version = _dependency_version_from_raw(raw_value)
+    if version:
+        return version
+    raise ValueError(f"root Cargo.toml workspace dependency {dependency!r} is missing a version")
+
+
+def cargo_manifest_dependency_version(
+    repo_root: Path,
+    manifest: Path | str,
+    dependency: str,
+) -> str:
+    text = read_text(resolve_path(repo_root, manifest), missing_ok=False)
+    raw_value = _manifest_dependency_raw(
+        text,
+        section_name="dependencies",
+        dependency=dependency,
+    )
+    if raw_value is None:
+        raise ValueError(f"{manifest} is missing dependency {dependency!r}")
+    if "workspace = true" in raw_value:
+        return workspace_manifest_dependency_version(repo_root, dependency)
+    value = _dependency_version_from_raw(raw_value)
+    if value:
+        return value
+    raise ValueError(f"{manifest} is missing dependency {dependency!r}")
+
+
+def cargo_lock_package_version(repo_root: Path, package_name: str) -> str:
+    text = read_text(repo_root / "Cargo.lock", missing_ok=False)
+    name: str | None = None
+    version: str | None = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == "[[package]]":
+            if name == package_name and version is not None:
+                return version
+            name = None
+            version = None
+            continue
+        if stripped.startswith("name = "):
+            name = _quoted_value(stripped)
+        elif stripped.startswith("version = "):
+            version = _quoted_value(stripped)
+    if name == package_name and version is not None:
+        return version
+    raise ValueError(f"Cargo.lock is missing package {package_name!r}")
+
+
+def upstream_vortex_manifest_version(repo_root: Path) -> str:
+    return cargo_manifest_dependency_version(
+        repo_root,
+        Path("shardloom-vortex/Cargo.toml"),
+        "vortex",
+    )
+
+
+def upstream_vortex_lock_version(repo_root: Path) -> str:
+    return cargo_lock_package_version(repo_root, "vortex")
+
+
+def upstream_vortex_provider_version(repo_root: Path) -> str:
+    text = read_text(repo_root / "shardloom-vortex/src/lib.rs", missing_ok=False)
+    match = re.search(
+        r'pub\s+const\s+UPSTREAM_VORTEX_PROVIDER_VERSION\s*:\s*&str\s*=\s*"([^"]+)"',
+        text,
+    )
+    if match is None:
+        raise ValueError("missing UPSTREAM_VORTEX_PROVIDER_VERSION in shardloom-vortex/src/lib.rs")
+    return match.group(1)

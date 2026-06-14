@@ -1777,13 +1777,13 @@ fn native_vortex_primitive_runtime_args(
             required_native_vortex_payload(request.vortex_columns.as_ref(), "vortex columns")?,
         ],
     };
-    if primitive.allows_source_order_limit() {
-        if let Some(limit) = request.vortex_source_order_limit.as_ref() {
-            args.extend([
-                "--limit".to_string(),
-                positive_usize_arg("source-order limit", limit)?.to_string(),
-            ]);
-        }
+    if primitive.allows_source_order_limit()
+        && let Some(limit) = request.vortex_source_order_limit.as_ref()
+    {
+        args.extend([
+            "--limit".to_string(),
+            positive_usize_arg("source-order limit", limit)?.to_string(),
+        ]);
     }
     if !matches!(
         primitive,

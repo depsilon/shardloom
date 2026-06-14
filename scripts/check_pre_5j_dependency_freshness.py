@@ -31,6 +31,11 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback.
         tomllib = None  # type: ignore[assignment]
 
 from check_dependency_audit import check_runtime_dependency_scope
+from release_report_utils import (
+    upstream_vortex_lock_version,
+    upstream_vortex_manifest_version,
+    upstream_vortex_provider_version,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,17 +61,30 @@ ADMITTED_DEPENDABOT_PRS: dict[int, dict[str, Any]] = {
             "fallback execution",
         ],
     },
-    1150: {
+    1223: {
         "dependency": "vortex",
         "expected_manifest": "shardloom-vortex/Cargo.toml",
-        "expected_manifest_version": "0.74",
-        "expected_lock_versions": {"vortex": "0.74.0"},
+        "expected_manifest_version": "$CURRENT_VORTEX_MANIFEST_VERSION",
+        "expected_lock_versions": {"vortex": "$CURRENT_VORTEX_LOCK_VERSION"},
         "review_doc": "docs/dependencies/vortex-upstream-review.md",
         "review_markers": [
-            "Dependabot PR: <https://github.com/depsilon/shardloom/pull/1150>.",
-            "vortex = 0.74",
-            "`Cargo.lock` records the upstream Vortex crate family at `0.74.0`",
+            "Dependabot PR: <https://github.com/depsilon/shardloom/pull/1223>.",
+            "vortex = $CURRENT_VORTEX_MANIFEST_VERSION",
+            "`Cargo.lock` records the upstream Vortex crate family at `$CURRENT_VORTEX_LOCK_VERSION`",
             "Vortex query-engine integrations remain prohibited",
+        ],
+    },
+    1226: {
+        "dependency": "regex",
+        "expected_manifest": "shardloom-core/Cargo.toml",
+        "expected_manifest_version": "1.12.4",
+        "expected_lock_versions": {"regex": "1.12.4"},
+        "review_doc": "docs/dependencies/structured-format-dependency-review.md",
+        "review_markers": [
+            "Dependabot PR <https://github.com/depsilon/shardloom/pull/1226>",
+            "regex = 1.12.4",
+            "MIT OR Apache-2.0",
+            "fallback execution",
         ],
     },
     1151: {
@@ -118,11 +136,12 @@ VORTEX_PROVIDER_SURFACE_EXPECTATIONS: tuple[dict[str, Any], ...] = (
     {
         "path": "benchmarks/traditional_analytics/run.py",
         "required_markers": [
-            'UPSTREAM_VORTEX_PROVIDER_VERSION = "0.74"',
+            "UPSTREAM_VORTEX_PROVIDER_VERSION = _read_upstream_vortex_provider_version()",
             'SHARDLOOM_VORTEX_PROVIDER_VERSION = (',
         ],
         "forbidden_markers": [
             'UPSTREAM_VORTEX_PROVIDER_VERSION = "0.73"',
+            'UPSTREAM_VORTEX_PROVIDER_VERSION = "0.74"',
             '"0.72" if admitted',
             "vortex=0.72",
             "provider_version, \"0.72\"",
@@ -131,13 +150,17 @@ VORTEX_PROVIDER_SURFACE_EXPECTATIONS: tuple[dict[str, Any], ...] = (
     {
         "path": "python/tests/test_cli_client.py",
         "required_markers": [
-            '"provider_version", "value": "0.74"',
-            'provider_version, "0.74"',
+            "UPSTREAM_VORTEX_PROVIDER_VERSION = _current_upstream_vortex_provider_version()",
+            '"value": UPSTREAM_VORTEX_PROVIDER_VERSION',
+            "provider_version, UPSTREAM_VORTEX_PROVIDER_VERSION",
         ],
         "forbidden_markers": [
             '"provider_version", "value": "0.73"',
             'provider_version, "0.73"',
             '"evidence_slot_provider_version_refs", "value": "0.73"',
+            '"provider_version", "value": "0.74"',
+            'provider_version, "0.74"',
+            '"evidence_slot_provider_version_refs", "value": "0.74"',
             '"provider_version", "value": "0.72"',
             'provider_version, "0.72"',
             '"evidence_slot_provider_version_refs", "value": "0.72"',
@@ -172,6 +195,23 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--timeout-seconds", type=float, default=15.0)
     return parser.parse_args()
+
+
+def current_version_tokens(repo_root: Path) -> dict[str, str]:
+    return {
+        "$CURRENT_VORTEX_MANIFEST_VERSION": upstream_vortex_manifest_version(repo_root),
+        "$CURRENT_VORTEX_LOCK_VERSION": upstream_vortex_lock_version(repo_root),
+        "$CURRENT_VORTEX_PROVIDER_VERSION": upstream_vortex_provider_version(repo_root),
+    }
+
+
+def resolve_current_version_token(value: Any, tokens: dict[str, str]) -> Any:
+    if not isinstance(value, str):
+        return value
+    resolved = value
+    for token, replacement in tokens.items():
+        resolved = resolved.replace(token, replacement)
+    return resolved
 
 
 def resolve(repo_root: Path, path: Path) -> Path:
@@ -292,7 +332,12 @@ def cargo_lock_versions_from_text(text: str) -> dict[str, str]:
     return versions
 
 
-def manifest_dependency_from_text(text: str, dependency: str) -> dict[str, Any] | None:
+def manifest_dependency_from_text(
+    text: str,
+    dependency: str,
+    *,
+    section_name: str = "dependencies",
+) -> dict[str, Any] | None:
     in_dependencies = False
     dependency_key = f"{dependency} ="
     for line in text.splitlines():
@@ -300,7 +345,7 @@ def manifest_dependency_from_text(text: str, dependency: str) -> dict[str, Any] 
         if not stripped:
             continue
         if stripped.startswith("[") and stripped.endswith("]"):
-            in_dependencies = stripped == "[dependencies]"
+            in_dependencies = stripped == f"[{section_name}]"
             continue
         if not in_dependencies or not stripped.startswith(dependency_key):
             continue
@@ -326,18 +371,54 @@ def cargo_lock_versions(repo_root: Path) -> dict[str, str]:
     return versions
 
 
+def workspace_manifest_dependency(repo_root: Path, dependency: str) -> dict[str, Any] | None:
+    path = repo_root / "Cargo.toml"
+    data = load_toml(path)
+    workspace = data.get("workspace", {})
+    if isinstance(workspace, dict):
+        dependencies = workspace.get("dependencies", {})
+        if isinstance(dependencies, dict):
+            row = dependencies.get(dependency)
+            if isinstance(row, dict):
+                return row
+            if isinstance(row, str):
+                return {"version": row}
+    return manifest_dependency_from_text(
+        read_text(path),
+        dependency,
+        section_name="workspace.dependencies",
+    )
+
+
+def resolve_workspace_dependency(
+    repo_root: Path,
+    dependency: str,
+    row: dict[str, Any],
+) -> dict[str, Any]:
+    if row.get("workspace") is not True:
+        return row
+    workspace_row = workspace_manifest_dependency(repo_root, dependency)
+    if workspace_row is None:
+        return row
+    resolved = dict(workspace_row)
+    resolved.update({key: value for key, value in row.items() if key != "workspace"})
+    return resolved
+
+
 def manifest_dependency(repo_root: Path, manifest: str, dependency: str) -> dict[str, Any] | None:
     path = repo_root / manifest
     data = load_toml(path)
     dependencies = data.get("dependencies", {})
     if not isinstance(dependencies, dict):
-        return manifest_dependency_from_text(read_text(path), dependency)
+        row = manifest_dependency_from_text(read_text(path), dependency)
+        return resolve_workspace_dependency(repo_root, dependency, row) if row is not None else None
     row = dependencies.get(dependency)
     if isinstance(row, dict):
-        return row
+        return resolve_workspace_dependency(repo_root, dependency, row)
     if isinstance(row, str):
         return {"version": row}
-    return manifest_dependency_from_text(read_text(path), dependency)
+    row = manifest_dependency_from_text(read_text(path), dependency)
+    return resolve_workspace_dependency(repo_root, dependency, row) if row is not None else None
 
 
 def dependabot_prs(open_prs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -449,6 +530,7 @@ def load_open_prs(
 def validate_admitted_pr(repo_root: Path, pr_number: int, spec: dict[str, Any]) -> list[str]:
     blockers: list[str] = []
     kind = str(spec.get("kind", "cargo_dependency"))
+    tokens = current_version_tokens(repo_root)
     if kind == "github_action":
         workflow = str(spec["expected_workflow"])
         workflow_text = read_text(repo_root / workflow)
@@ -472,8 +554,11 @@ def validate_admitted_pr(repo_root: Path, pr_number: int, spec: dict[str, Any]) 
         if not review_text:
             blockers.append(f"PR #{pr_number}: missing dependency review doc {review_doc}")
         for marker in spec["review_markers"]:
-            if str(marker) not in review_text:
-                blockers.append(f"PR #{pr_number}: {review_doc} missing marker: {marker}")
+            expected_marker = str(resolve_current_version_token(marker, tokens))
+            if expected_marker not in review_text:
+                blockers.append(
+                    f"PR #{pr_number}: {review_doc} missing marker: {expected_marker}"
+                )
         return blockers
     if kind != "cargo_dependency":
         return [f"PR #{pr_number}: unknown admitted dependency spec kind {kind!r}"]
@@ -484,7 +569,10 @@ def validate_admitted_pr(repo_root: Path, pr_number: int, spec: dict[str, Any]) 
     if row is None:
         blockers.append(f"PR #{pr_number}: {manifest} missing dependency {dependency}")
     else:
-        if str(row.get("version")) != str(spec["expected_manifest_version"]):
+        expected_manifest_version = str(
+            resolve_current_version_token(spec["expected_manifest_version"], tokens)
+        )
+        if str(row.get("version")) != expected_manifest_version:
             blockers.append(
                 f"PR #{pr_number}: {dependency} manifest version={row.get('version')!r}"
             )
@@ -498,7 +586,8 @@ def validate_admitted_pr(repo_root: Path, pr_number: int, spec: dict[str, Any]) 
 
     lock_versions = cargo_lock_versions(repo_root)
     for package, expected in dict(spec["expected_lock_versions"]).items():
-        if lock_versions.get(package) != expected:
+        expected_version = str(resolve_current_version_token(expected, tokens))
+        if lock_versions.get(package) != expected_version:
             blockers.append(
                 f"PR #{pr_number}: Cargo.lock {package}={lock_versions.get(package)!r}"
             )
@@ -508,13 +597,15 @@ def validate_admitted_pr(repo_root: Path, pr_number: int, spec: dict[str, Any]) 
     if not review_text:
         blockers.append(f"PR #{pr_number}: missing dependency review doc {review_doc}")
     for marker in spec["review_markers"]:
-        if str(marker) not in review_text:
-            blockers.append(f"PR #{pr_number}: {review_doc} missing marker: {marker}")
+        expected_marker = str(resolve_current_version_token(marker, tokens))
+        if expected_marker not in review_text:
+            blockers.append(f"PR #{pr_number}: {review_doc} missing marker: {expected_marker}")
     return blockers
 
 
 def validate_vortex_provider_version_surfaces(repo_root: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    expected_provider_version = upstream_vortex_provider_version(repo_root)
     for spec in VORTEX_PROVIDER_SURFACE_EXPECTATIONS:
         path = Path(str(spec["path"]))
         text = read_text(repo_root / path)
@@ -531,7 +622,7 @@ def validate_vortex_provider_version_surfaces(repo_root: Path) -> list[dict[str,
             {
                 "path": path.as_posix(),
                 "status": "passed" if not blockers else "blocked",
-                "expected_provider_version": "0.74",
+                "expected_provider_version": expected_provider_version,
                 "blockers": blockers,
             }
         )

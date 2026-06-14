@@ -1272,12 +1272,10 @@ fn result_from_local_engine_report(
             }
             if let Some(fixture) =
                 local_primitive_correctness_fixture_for_request(query_request, local_primitive)
-            {
-                if let Ok(certificate) =
+                && let Ok(certificate) =
                     local_primitive_execution_certificate(&fixture, query_request, local_primitive)
-                {
-                    record_execution_certificate(&mut result, &certificate);
-                }
+            {
+                record_execution_certificate(&mut result, &certificate);
             }
         }
     }

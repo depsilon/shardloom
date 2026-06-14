@@ -677,16 +677,15 @@ fn find_schema_match_index(
     to: &SchemaDefinition,
     matched_to: &[bool],
 ) -> Option<usize> {
-    if let Some(from_id) = &from_field.id {
-        if let Some(index) = to
+    if let Some(from_id) = &from_field.id
+        && let Some(index) = to
             .fields
             .iter()
             .enumerate()
             .find(|(index, field)| !matched_to[*index] && field.id.as_ref() == Some(from_id))
             .map(|(index, _)| index)
-        {
-            return Some(index);
-        }
+    {
+        return Some(index);
     }
 
     to.fields

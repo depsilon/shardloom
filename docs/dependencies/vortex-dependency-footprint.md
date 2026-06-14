@@ -5,17 +5,62 @@ ShardLoom is auditing the upstream Vortex dependency graph before deeper integra
 builds stay lightweight while preserving a controlled path to upstream Vortex capability work.
 
 ## Current state
-- Current direct dependency in `shardloom-vortex`: optional umbrella `vortex = 0.74`.
-- Latest upstream intake note: `vortex = 0.74.0` was reviewed in
-  `docs/architecture/vortex-public-api-inventory.md`; the prior `0.73`, `0.72`, and detailed
-  `0.71` release-note intake sections remain historical background.
+- Current workspace-managed dependency: optional umbrella `vortex = 0.75`, inherited by
+  `shardloom-vortex` with `workspace = true` and kept optional at the crate boundary.
+- Latest upstream intake note: `vortex = 0.75.0` was reviewed in
+  `docs/architecture/vortex-public-api-inventory.md`; the prior `0.74`, `0.73`, `0.72`, and
+  detailed `0.71` release-note intake sections remain historical background.
 - Umbrella `vortex` crate is still used for upstream opt-in builds.
 - Default build (`default = []`) does not enable upstream Vortex.
 - Existing feature-gated Vortex file/local primitive/write paths remain explicitly scoped and
   claim-gated; the version bump does not broaden runtime support.
 - Fallback execution engines are not present.
 
+## Vortex 0.75 dependency bump proof
+
+`PROD-V1-3A` folds in Dependabot PR
+[#1223](https://github.com/depsilon/shardloom/pull/1223), updating the optional upstream Vortex
+dependency family from `0.74.0` to `0.75.0`.
+
+Compatibility posture:
+
+- Root `Cargo.toml` declares workspace dependency `vortex = "0.75"`; `shardloom-vortex/Cargo.toml`
+  inherits it as an optional dependency.
+- `Cargo.lock` resolves the upstream Vortex crate family to `0.75.0`.
+- `cargo info vortex@0.75.0` reports license `Apache-2.0`, Rust version `1.91.0`, documentation
+  <https://docs.rs/vortex/0.75.0>, repository <https://github.com/spiraldb/vortex>, and crates.io
+  version <https://crates.io/crates/vortex/0.75.0>.
+- ShardLoom provider-version evidence now reads from
+  `shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION`, keeping certificates, capability rows,
+  scan/source admission rows, and benchmark route evidence on the same provider-version line.
+- Default builds still keep upstream Vortex optional and disabled by default.
+- No `vortex-datafusion`, DuckDB, Spark, Polars, Velox, or other external query-engine fallback
+  dependency is introduced.
+
+Runtime-relevant upstream 0.75 opportunities recorded for later provider-gated work:
+
+- grouped aggregate kernels for `sum` and `count`
+- explicit validity/mask execution context changes and `definitely_no_nulls` / `execute_no_nulls`
+  surfaces
+- layout reader context and layout reader cache work
+- JSON extension Arrow import/export, WKB/geospatial extension import/export, and native Point /
+  `GeoDistance` extension surfaces
+- Interleave array encoding, `byte_length()` expression, binary zstd schemes, and row-oriented byte
+  encoder surfaces
+- branchless primitive/boolean zip kernels, mask `AllTrue`/`AllFalse` fast paths, dictionary
+  validation/slice optimization, FSST symbol-table sharing, and child-layout cache performance work
+
+Claim boundary:
+
+- The bump proves optional dependency compatibility and source-grounded opportunity mapping only.
+- It does not admit new Vortex runtime APIs, JSON/geospatial execution, GPU/device execution,
+  external engines, object-store/table support, SQL/DataFrame support, performance claims, package
+  claims, or production readiness.
+
 ## Vortex 0.74 dependency bump proof
+
+Historical note; superseded by the Vortex 0.75 dependency bump proof above for current dependency
+status.
 
 `GAR-DEPENDENCY-INTAKE-1` incorporates Dependabot PR
 [#1150](https://github.com/depsilon/shardloom/pull/1150), updating the optional upstream Vortex
@@ -43,7 +88,7 @@ Claim boundary:
 
 ## Vortex 0.73 dependency bump proof
 
-Historical note; superseded by the Vortex 0.74 dependency bump proof above for current dependency
+Historical note; superseded by the Vortex 0.75 dependency bump proof above for current dependency
 status.
 
 `GAR-DEPENDENCY-INTAKE-1` incorporates Dependabot PR

@@ -527,20 +527,20 @@ impl VortexBoundedExecutionReport {
                 "spill required but unavailable",
             ));
         }
-        if let Some(s) = &out.input.scheduler_report {
-            if matches!(
+        if let Some(s) = &out.input.scheduler_report
+            && matches!(
                 s.status,
                 VortexSchedulerBridgeStatus::BlockedByMemoryPolicy
                     | VortexSchedulerBridgeStatus::SpillRequiredButNotImplemented
                     | VortexSchedulerBridgeStatus::Unsupported
-            ) {
-                out.status = VortexBoundedExecutionStatus::BlockedByScheduler;
-                out.mode = VortexBoundedExecutionMode::Blocked;
-                out.add_decision(VortexBoundedExecutionDecision::hold_for_scheduler(
-                    None,
-                    "scheduler blocked queue execution",
-                ));
-            }
+            )
+        {
+            out.status = VortexBoundedExecutionStatus::BlockedByScheduler;
+            out.mode = VortexBoundedExecutionMode::Blocked;
+            out.add_decision(VortexBoundedExecutionDecision::hold_for_scheduler(
+                None,
+                "scheduler blocked queue execution",
+            ));
         }
         if !matches!(
             out.status,

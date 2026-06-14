@@ -15,6 +15,11 @@
 // for all other lints, and do not add broader lint exceptions.
 #![allow(clippy::similar_names)]
 
+/// Current optional upstream `vortex` provider version recorded in `ShardLoom`
+/// native-provider evidence. This is the Vortex crate line, not the
+/// `shardloom-vortex` crate version.
+pub const UPSTREAM_VORTEX_PROVIDER_VERSION: &str = "0.75";
+
 // Report-only adapter/API inventory and metadata posture.
 pub use adapter::{
     VortexAdapterCapability, VortexAdapterCapabilityReport, VortexAdapterCapabilityStatus,

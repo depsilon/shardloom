@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-3A v1 security/CI hardening closeout
+  - Date: 2026-06-14
+  - Source:
+    - `PROD-V1-3A` in `docs/architecture/phased-execution-plan.md`.
+    - RFC 0024 release engineering, API compatibility, packaging, and supply-chain readiness.
+    - `docs/architecture/v1-security-ci-hardening.md`.
+    - `docs/release/ci-gate-matrix.md`.
+    - `docs/release/hard-release-readiness-gate.md`.
+  - Branch: `codex/v1-security-ci-hardening`.
+  - Scope:
+    - Added `scripts/check_v1_security_ci_hardening.py` as a v1 control-plane closeout gate for
+      dependency audit, license/advisory status, forbidden-fallback dependency absence,
+      SBOM/checksum/provenance dry-run evidence, package artifact scan, security posture,
+      package-channel local evidence, CI matrix hardening, and no-publication safety fields.
+    - Added `docs/architecture/v1-security-ci-hardening.md` to define the no-signing rationale,
+      Trusted Publisher/OIDC policy, long-lived-token prohibition, CI shape, package-publication
+      approval boundary, and no-fallback claim boundary.
+    - Added `scripts/write_release_compatibility_lane_report.py` plus CI lanes for Python 3.10
+      through 3.13, `ubuntu-latest`/`macos-latest`/`windows-latest` smoke coverage, and Rust MSRV
+      1.96.0 `cargo check --workspace --no-default-features`.
+    - Wired `target/v1-security-ci-hardening-report.json` through GitHub Actions,
+      `scripts/check_ci_gate_matrix.py`, `scripts/run_release_validation_evidence.py`,
+      `scripts/check_release_readiness.py`, CI matrix docs, hard-release readiness docs, and the v1
+      inclusion-scope matrix.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/check_v1_security_ci_hardening.py scripts/write_release_compatibility_lane_report.py scripts/check_ci_gate_matrix.py scripts/check_release_readiness.py scripts/run_release_validation_evidence.py python/tests/test_release_scripts.py`.
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `python3 scripts/check_v1_security_ci_hardening.py`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+    - `python3 scripts/check_v1_inclusion_scope.py`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_release_validation_evidence_uses_configured_python_and_conda python.tests.test_release_scripts.ReleaseScriptTests.test_v1_security_ci_hardening_blocks_missing_pip_audit_and_requires_matrix_lanes python.tests.test_release_scripts.ReleaseScriptTests.test_ci_gate_matrix_requires_hard_release_without_allow_blocked python.tests.test_release_scripts.ReleaseScriptTests.test_benchmark_publish_doctor_accepts_current_static_artifact`.
+  - Generated report:
+    - `target/v1-security-ci-hardening-report.json`.
+    - Schema: `shardloom.v1_security_ci_hardening_report.v1`.
+    - Expected status after prerequisite dependency/security/package reports are current:
+      `passed`.
+    - Required false fields: `publication_attempted=false`, `tag_created=false`,
+      `secrets_required=false`, `package_upload_attempted=false`, `signing_key_used=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Claim boundary:
+    - May claim the declared local v1 security/CI hardening gate is represented by a
+      machine-readable report, CI contract, and release-readiness wiring.
+    - Does not approve package publication, release tags, signing keys, public attestations,
+      production readiness, benchmark/performance claims, Spark-displacement claims, or public API
+      compatibility claims.
+  - Fallback boundary:
+    - Dependency/security gates continue to require no forbidden fallback dependencies and
+      `fallback_attempted=false` / `external_engine_invoked=false`.
+  - Residual work:
+    - Public package publication, signing/attestation approval, release tags, registry uploads,
+      channel-specific install/uninstall/smoke transcripts, and production/public-claim approvals
+      remain blocked under later release/package items.
 - [x] Session label: PROD-V1-2D v1 observability/supportability closeout
   - Date: 2026-06-13
   - Source:

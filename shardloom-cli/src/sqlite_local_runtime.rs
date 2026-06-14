@@ -426,12 +426,12 @@ fn validate_sqlite_fixture_shape(
             column.name
         )));
     }
-    if let Some(order_by) = order_by {
-        if !columns.iter().any(|column| column.name == order_by) {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "SQLite order-by column {order_by:?} is not present in table {table:?}; no fallback execution was attempted"
-            )));
-        }
+    if let Some(order_by) = order_by
+        && !columns.iter().any(|column| column.name == order_by)
+    {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "SQLite order-by column {order_by:?} is not present in table {table:?}; no fallback execution was attempted"
+        )));
     }
     Ok(())
 }

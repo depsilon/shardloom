@@ -2697,18 +2697,18 @@ fn coalesced_object_store_ranges(
 
     let mut coalesced: Vec<ObjectStoreRangeRequest> = Vec::new();
     for request in requests {
-        if let Some(last) = coalesced.last_mut() {
-            if can_coalesce_ranges(last, &request, policy) {
-                let start = last.range.start.min(request.range.start);
-                let end = last
-                    .range
-                    .end_exclusive()
-                    .max(request.range.end_exclusive());
-                last.range = ByteRange::new(start, end.saturating_sub(start));
-                last.segment_ids.extend(request.segment_ids);
-                last.source_range_count += request.source_range_count;
-                continue;
-            }
+        if let Some(last) = coalesced.last_mut()
+            && can_coalesce_ranges(last, &request, policy)
+        {
+            let start = last.range.start.min(request.range.start);
+            let end = last
+                .range
+                .end_exclusive()
+                .max(request.range.end_exclusive());
+            last.range = ByteRange::new(start, end.saturating_sub(start));
+            last.segment_ids.extend(request.segment_ids);
+            last.source_range_count += request.source_range_count;
+            continue;
         }
         coalesced.push(request);
     }

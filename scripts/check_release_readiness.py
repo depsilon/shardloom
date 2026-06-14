@@ -167,6 +167,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/v1-correctness-conformance-report.json"),
     )
     parser.add_argument(
+        "--v1-security-ci-hardening-report",
+        type=Path,
+        default=Path("target/v1-security-ci-hardening-report.json"),
+    )
+    parser.add_argument(
         "--user-surface-runtime-gap-inventory-report",
         type=Path,
         default=Path("target/user-surface-runtime-gap-inventory.json"),
@@ -490,6 +495,10 @@ def main() -> int:
     v1_correctness_conformance_report_path = resolve(
         repo_root,
         args.v1_correctness_conformance_report,
+    )
+    v1_security_ci_hardening_report_path = resolve(
+        repo_root,
+        args.v1_security_ci_hardening_report,
     )
     user_surface_runtime_gap_inventory_path = resolve(
         repo_root,
@@ -2290,6 +2299,70 @@ def main() -> int:
         )
     )
 
+    v1_security_ci_hardening = load_json(v1_security_ci_hardening_report_path)
+    v1_security_ci_hardening_blockers: list[str] = []
+    if v1_security_ci_hardening is None:
+        v1_security_ci_hardening_blockers.append(
+            "missing v1 security/CI hardening report"
+        )
+    else:
+        if (
+            v1_security_ci_hardening.get("schema_version")
+            != "shardloom.v1_security_ci_hardening_report.v1"
+        ):
+            v1_security_ci_hardening_blockers.append(
+                "v1 security/CI hardening schema_version="
+                + str(v1_security_ci_hardening.get("schema_version", "missing"))
+            )
+        if v1_security_ci_hardening.get("status") != "passed":
+            v1_security_ci_hardening_blockers.extend(
+                v1_security_ci_hardening.get(
+                    "blockers",
+                    ["v1 security/CI hardening blocked"],
+                )
+            )
+        for field in [
+            "v1_scope_ready",
+            "security_ci_hardening_evidence_ready",
+            "trusted_publisher_oidc_required",
+            "package_publication_requires_human_approval",
+        ]:
+            if v1_security_ci_hardening.get(field) is not True:
+                v1_security_ci_hardening_blockers.append(
+                    f"v1 security/CI hardening {field} must be true"
+                )
+        for field in [
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "performance_claim_allowed",
+            "production_claim_allowed",
+            "spark_replacement_claim_allowed",
+            "publication_attempted",
+            "tag_created",
+            "secrets_required",
+            "package_upload_attempted",
+            "signing_key_used",
+            "fallback_attempted",
+            "external_engine_invoked",
+            "long_lived_package_upload_tokens_allowed",
+        ]:
+            if v1_security_ci_hardening.get(field) is not False:
+                v1_security_ci_hardening_blockers.append(
+                    f"v1 security/CI hardening {field} must be false"
+                )
+        if v1_security_ci_hardening.get("claim_gate_status") != "not_claim_grade":
+            v1_security_ci_hardening_blockers.append(
+                "v1 security/CI hardening claim_gate_status="
+                + str(v1_security_ci_hardening.get("claim_gate_status", "missing"))
+            )
+    checks.append(
+        check(
+            "v1_security_ci_hardening_gate",
+            str(args.v1_security_ci_hardening_report).replace("\\", "/"),
+            v1_security_ci_hardening_blockers,
+        )
+    )
+
     user_surface_runtime_gap_inventory = load_json(user_surface_runtime_gap_inventory_path)
     user_surface_runtime_gap_blockers: list[str] = []
     if user_surface_runtime_gap_inventory is None:
@@ -2671,6 +2744,7 @@ def main() -> int:
         "python scripts/check_v1_api_schema_stability.py",
         "python scripts/check_v1_example_replay.py",
         "python scripts/check_v1_correctness_conformance.py",
+        "python scripts/check_v1_security_ci_hardening.py",
         "python scripts/check_user_surface_runtime_gap_inventory.py",
         "python scripts/check_user_surface_graduation_matrix.py",
         "python scripts/check_runtime_gap_family_burn_down.py",
@@ -2752,6 +2826,9 @@ def main() -> int:
         ).replace("\\", "/"),
         "v1_correctness_conformance_report_ref": str(
             args.v1_correctness_conformance_report
+        ).replace("\\", "/"),
+        "v1_security_ci_hardening_report_ref": str(
+            args.v1_security_ci_hardening_report
         ).replace("\\", "/"),
         "user_surface_runtime_gap_inventory_ref": str(
             args.user_surface_runtime_gap_inventory_report

@@ -4755,15 +4755,17 @@ fn parse_sql_literal(raw: &str) -> Result<(GeneratedValueType, String), ShardLoo
             "SQL NULL literals are not admitted in the first source-free smoke; null semantics are tracked by the operator-semantics slice",
         ));
     }
-    if !text.contains('.') && !text.contains('e') && !text.contains('E') {
-        if let Ok(value) = text.parse::<i64>() {
-            return Ok((GeneratedValueType::Int64, value.to_string()));
-        }
+    if !text.contains('.')
+        && !text.contains('e')
+        && !text.contains('E')
+        && let Ok(value) = text.parse::<i64>()
+    {
+        return Ok((GeneratedValueType::Int64, value.to_string()));
     }
-    if let Ok(value) = text.parse::<f64>() {
-        if value.is_finite() {
-            return Ok((GeneratedValueType::Float64, value.to_string()));
-        }
+    if let Ok(value) = text.parse::<f64>()
+        && value.is_finite()
+    {
+        return Ok((GeneratedValueType::Float64, value.to_string()));
     }
     Err(unsupported_sql_error(
         "SQL source-free smoke admits only int64, finite float64, bool, and single-quoted utf8 literals",

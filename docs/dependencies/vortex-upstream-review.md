@@ -14,10 +14,13 @@ executable support from older PR-specific sections that say "this PR" or
 ## Current support snapshot
 
 - Upstream Vortex remains optional and isolated in `shardloom-vortex`.
-- The tracked direct dependency is `vortex = 0.74`.
-- Vortex `0.74.0` is the current optional dependency family after the dependency compatibility
+- The tracked workspace dependency is `vortex = 0.75`; `shardloom-vortex` inherits it while keeping
+  the dependency optional and feature-gated.
+- Vortex `0.75.0` is the current optional dependency family after the dependency compatibility
   update recorded in `docs/architecture/vortex-public-api-inventory.md` and
   `docs/dependencies/vortex-dependency-footprint.md`.
+- Vortex `0.74.0` remains historical intake material in this review and
+  `docs/architecture/vortex-public-api-inventory.md`.
 - Vortex `0.73.0` remains historical intake material in this review and
   `docs/architecture/vortex-public-api-inventory.md`.
 - Vortex `0.72.0` remains historical intake material in this review and
@@ -36,7 +39,37 @@ executable support from older PR-specific sections that say "this PR" or
   ShardLoom residual work.
 - Fallback execution remains disabled.
 
+## Vortex 0.75 compatibility update
+
+- Dependabot PR: <https://github.com/depsilon/shardloom/pull/1223>.
+- `cargo info vortex@0.75.0` reports license `Apache-2.0`, Rust version `1.91.0`, documentation
+  at <https://docs.rs/vortex/0.75.0>, repository <https://github.com/spiraldb/vortex>, and crates.io
+  version <https://crates.io/crates/vortex/0.75.0>.
+- Root `Cargo.toml` now records workspace dependency `vortex = 0.75`; `shardloom-vortex` inherits
+  it as optional through the `upstream-vortex` feature.
+- `Cargo.lock` records the upstream Vortex crate family at `0.75.0`.
+- ShardLoom provider-version evidence is centralized through
+  `shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION` so certificates, capability rows,
+  scan/source admission rows, capillary/preparation spine evidence, benchmark route evidence, and
+  compatibility reports do not claim a stale provider line.
+- Upstream runtime-relevant release-note items mapped for later ShardLoom provider-gated work:
+  grouped `sum`/`count` aggregate kernels, explicit validity/mask execution-context APIs, layout
+  reader context/caching, JSON and WKB/geospatial extension import/export, Interleave array
+  encoding, `byte_length()`, binary zstd schemes, row-oriented byte encoding, branchless zip
+  kernels, mask `AllTrue`/`AllFalse` fast paths, dictionary validation/slice optimization, FSST
+  state sharing, and layout child caches.
+- GPU/device, JNI, cuDF, and DataFusion 54 items remain blocked or baseline/oracle-only until a
+  separate ShardLoom provider gate adds device residency, external-boundary, certificate, and
+  no-fallback evidence.
+- The update is a dependency/build compatibility admission only. It does not by itself admit new
+  Vortex runtime behavior, object-store/table support, SQL/DataFrame production support,
+  performance claims, package publication, or fallback execution.
+- Vortex query-engine integrations remain prohibited as ShardLoom runtime helpers.
+
 ## Vortex 0.74 compatibility update
+
+Historical note; superseded by the Vortex 0.75 compatibility update above for current dependency
+status.
 
 - Dependabot PR: <https://github.com/depsilon/shardloom/pull/1150>.
 - `cargo info vortex@0.74.0` reports license `Apache-2.0`, Rust version `1.91.0`, documentation
@@ -56,7 +89,7 @@ executable support from older PR-specific sections that say "this PR" or
 
 ## Vortex 0.73 compatibility update
 
-Historical note; superseded by the Vortex 0.74 compatibility update above for current dependency
+Historical note; superseded by the Vortex 0.75 compatibility update above for current dependency
 status.
 
 - Dependabot PR: <https://github.com/depsilon/shardloom/pull/979>.
@@ -75,7 +108,7 @@ status.
 
 ## Vortex 0.72 compatibility update
 
-Historical note; superseded by the Vortex 0.74 compatibility update above for current dependency
+Historical note; superseded by the Vortex 0.75 compatibility update above for current dependency
 status.
 
 - `shardloom-vortex` now requests optional `vortex = 0.72`.
@@ -89,7 +122,7 @@ status.
 
 ## Vortex 0.71 bump update
 
-Historical note; superseded by the Vortex 0.74 compatibility update above for current dependency
+Historical note; superseded by the Vortex 0.75 compatibility update above for current dependency
 status.
 
 - `shardloom-vortex` now requests optional `vortex = 0.71`.
@@ -215,13 +248,16 @@ status.
   `vortex-traditional-analytics-benchmark` feature and by the scoped
   `shardloom-cli --features universal-format-io` local Parquet source/output smoke.
 - Rust crates added under that gate:
-  - `parquet 58.2.0` for local Parquet record-batch reads/writes.
+  - `parquet 58.3.0` for local Parquet record-batch reads/writes.
   - `arrow-ipc 58.3.0` for Arrow IPC reads/writes.
   - `arrow-avro 58.3.0` for Avro reads/writes.
   - `orc-rust 0.8.0` for ORC reads/writes.
   - `arrow-array 58.3.0` and `arrow-schema 58.3.0` for Arrow boundary arrays and schemas.
   - `arrow-json 58.2.0` is reserved under the same gate for JSON/NDJSON boundary work; the current
     deterministic JSONL fixture parser remains local and narrow.
+- Dependabot Arrow/Parquet 59 PRs #1224, #1225, #1227, #1228, and #1229 were reviewed and
+  deferred because Vortex 0.75 and `orc-rust 0.8.0` still expose Arrow 58-compatible provider
+  boundaries in the feature-complete structured-format lane.
 - License/provenance:
   - Apache Arrow Rust crates are Apache-2.0.
   - `orc-rust` is Apache-2.0.

@@ -73,7 +73,8 @@ pub const VORTEX_PREPARED_STATE_REUSE_SCHEMA_VERSION: &str =
 pub const VORTEX_PREPARED_STATE_REUSE_POLICY: &str =
     "artifact_adjacent_local_prepared_state_reuse.v1";
 /// Pinned upstream Vortex crate line used by the scoped local preparation spine.
-pub const VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION: &str = "0.73";
+pub const VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION: &str =
+    crate::UPSTREAM_VORTEX_PROVIDER_VERSION;
 
 /// Request used to decide whether an existing local Vortex prepared artifact can
 /// be reused without re-running compatibility preparation.
@@ -1547,10 +1548,10 @@ fn append_only_refinement_static_mismatch_reason(
             return Some(format!("{key}_changed"));
         }
     }
-    if let Some(schema_digest) = request.source_schema_digest.as_deref() {
-        if fields.get("source_schema_digest").map(String::as_str) != Some(schema_digest) {
-            return Some("source_schema_digest_changed".to_string());
-        }
+    if let Some(schema_digest) = request.source_schema_digest.as_deref()
+        && fields.get("source_schema_digest").map(String::as_str) != Some(schema_digest)
+    {
+        return Some("source_schema_digest_changed".to_string());
     }
     None
 }
@@ -1711,10 +1712,10 @@ fn reuse_manifest_request_mismatch_reason(
             return Some(format!("{key}_changed"));
         }
     }
-    if let Some(schema_digest) = request.source_schema_digest.as_deref() {
-        if fields.get("source_schema_digest").map(String::as_str) != Some(schema_digest) {
-            return Some("source_schema_digest_changed".to_string());
-        }
+    if let Some(schema_digest) = request.source_schema_digest.as_deref()
+        && fields.get("source_schema_digest").map(String::as_str) != Some(schema_digest)
+    {
+        return Some("source_schema_digest_changed".to_string());
     }
     None
 }

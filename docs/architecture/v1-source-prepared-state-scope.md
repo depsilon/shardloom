@@ -154,7 +154,7 @@ Vortex-first provider check:
   - `blocked_until_vortex_or_shardloom_evidence` for global hidden cache, external cache service,
     object-store prepared-state reuse, table/catalog prepared-state reuse, and broad non-local
     preparation.
-- Vortex API/provider surface: upstream Vortex `0.74` behind `shardloom-vortex` feature gates such
+- Vortex API/provider surface: upstream Vortex `0.75` behind `shardloom-vortex` feature gates such
   as `vortex-write`, `vortex-file-io`, `vortex-traditional-analytics-benchmark`, and
   `universal-format-io` where relevant.
 - ShardLoom provider/report/certificate surface: route capability reports, local-file benchmark
