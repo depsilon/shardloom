@@ -601,6 +601,8 @@ jobs:
         run: test -f target/v1-security-ci-hardening-report.json
       - name: V1 release boundary firewall
         run: python scripts/check_v1_release_boundary.py
+      - name: Production certification gate
+        run: python scripts/check_production_certification_gate.py
       - name: Hard release readiness gate
         continue-on-error: true
         run: python scripts/check_release_readiness.py
@@ -632,6 +634,7 @@ jobs:
             target/v1-correctness-conformance-report.json
             target/v1-security-ci-hardening-report.json
             target/v1-release-boundary-report.json
+            target/production-certification-gate.json
             target/python-user-surface-completion-gate.json
             target/sql-python-dataframe-parity-gate.json
             target/v1-front-door-runtime-scope-report.json

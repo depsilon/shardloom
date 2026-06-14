@@ -279,6 +279,9 @@ with a recorded infeasibility reason, not merely because they are broad.
     geomean `61.34 ms`, and prepared/native `join_aggregate` route geomeans around
     `4.93-7.68 ms` with operator compute around `3.34-4.43 ms`. Other prepared/native heavy
     grouping rows are near zero and look marginal unless future artifacts disagree.
+    `docs/architecture/vortex-public-api-inventory.md` records Vortex 0.75 grouped
+    `sum`/`count`, validity/mask, branchless zip, dictionary/FSST, `byte_length()`, and layout-cache
+    opportunities that must be evaluated before ShardLoom adds another owned kernel.
   - Current state: operator mode inventory still reports residual-native operator promotion
     blockers: `residual_native_operator_encoding_promotion`,
     `selective_filter_selection_vector_metric_aggregation`, and
@@ -287,9 +290,10 @@ with a recorded infeasibility reason, not merely because they are broad.
   - V1 scope classification: `required_for_v1`.
   - ShardLoom technique review: applicable, but operator semantics come first. Dynamic kernel
     admission should select by cardinality/domain/null shape; encoded/partially encoded kernels
-    should be preferred where decoded-reference parity exists. Capillary or PulseWeave controls
-    apply around source/preparation/result work, not as a substitute for native operator
-    correctness.
+    should be preferred where decoded-reference parity exists. Vortex-first provider selection
+    must check 0.75 grouped aggregate, validity/mask, zip, dictionary/FSST, and byte-length
+    surfaces before inventing new ShardLoom kernels. Capillary or PulseWeave controls apply around
+    source/preparation/result work, not as a substitute for native operator correctness.
   - Execution checklist:
     - [x] Reuse the packed dense group accumulator for `join_aggregate`, replacing the older
       dense-left/per-dimension `HashMap` category accumulator in the hot loop.
@@ -306,6 +310,10 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [x] Add generated dense-category interner admission for canonical `c0..cN` benchmark
       categories so distinct/multi-key/join residual operators avoid repeated string hashing when
       source shape proves dense ordered labels.
+    - [ ] Add a Vortex 0.75 provider disposition report for heavy operators: grouped `sum`/`count`,
+      validity/mask no-null fast paths, branchless zip, dictionary/FSST reuse, and `byte_length()`
+      must be classified as adopted, wrapped, blocked, or superseded by a ShardLoom-native kernel
+      with decoded-reference parity.
     - [ ] If refreshed rows still show multi-ms prepared/native operator spikes, add the next
       native kernel family with decoded-reference parity tests before claiming promotion.
   - Next outcome: promote a cohesive heavy-operator family rather than isolated scenario slivers:
@@ -347,7 +355,9 @@ with a recorded infeasibility reason, not merely because they are broad.
   - V1 scope classification: `required_for_v1`.
   - ShardLoom technique review: applicable. Use dynamic admission for cache-hit/miss policy,
     metadata-first manifest verification, and PulseWeave-style run-local coalescing for repeated
-    dependency-packet checks. Capillary work units apply only if manifest/artifact verification is
+    dependency-packet checks. If prepared lookup/create touches Vortex reader construction, evaluate
+    Vortex 0.75 layout-reader context/cache as a provider-gated read-through option before adding
+    a ShardLoom-local cache. Capillary work units apply only if manifest/artifact verification is
     split into bounded source/prepared-state units.
   - Execution checklist:
     - [x] Confirm `preparation_engine_millis` prefers narrow prepared-state/import fields and does
@@ -361,6 +371,9 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [ ] If lookup remains material, evaluate a manifest/index read-through cache that still
       verifies manifest digest, source fingerprints, artifact fingerprints, native I/O
       certificates, and no-fallback fields before reuse.
+    - [ ] If read-through caching uses Vortex reader state, classify the Vortex 0.75 layout-reader
+      context/cache surface as adopted, wrapped, or blocked, and record source-fingerprint,
+      cache-scope, Native I/O, and no-decode/no-materialization evidence before reuse.
   - Next outcome: split manifest lookup, cache-hit, cache-miss create, dependency-packet
     verification, artifact write, and register-update timings into additive and diagnostic fields;
     remove avoidable lookup/create work on cache hits; keep first-query and amortized formulas
@@ -494,61 +507,10 @@ with a recorded infeasibility reason, not merely because they are broad.
     introduced to make preview examples pass.
   - Ledger rule: close only after merge; ledger entry must list release envelope, validators,
     package dry-run artifacts, and unsupported families left open.
-- [ ] `PROD-READY-0A` Common production certification gate.
-  - Source: attached Common Production Gate, `docs/architecture/runtime-gap-family-burn-down.md`,
-    `docs/architecture/capability-certification-sequencing.md`, RFC 0012, RFC 0014, RFC 0015,
-    RFC 0017, RFC 0024, and release evidence gates.
-  - Current state: production readiness is mapped but not centrally executable. Many surfaces have
-    report-only schemas, planned capability rows, or local smoke evidence, but no shared gate that
-    certifies a declared workload/environment as production-ready.
-  - Intake review: accepted as required before any broad v1 production/support label can pass.
-    This gate is not a substitute for runtime implementation; it is the shared evidence contract
-    that broad families must satisfy when promoted into v1.
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: applicable as a gate contract. Workload declarations must record
-    whether dynamic admission/work shaping, capillary work units, PulseWeave runtime control,
-    metadata-first execution, and timing/evidence-tier separation were applied, rejected, or not
-    applicable, with evidence for the decision.
-  - Execution checklist:
-    - [ ] Define the production-ready workload declaration schema: workload name, environment,
-      data scale, input/output formats, statefulness, effect permissions, security posture, and
-      unsupported edge boundary.
-    - [ ] Add a shared production gate that requires real runtime execution, correctness evidence,
-      Native I/O certificates, execution certificates, fault tolerance, memory/backpressure,
-      benchmark evidence, security/governance policy, and release/API stability evidence.
-    - [ ] Require deterministic unsupported diagnostics for every out-of-scope path in the same
-      workload family.
-    - [ ] Add fail-closed validators for production labels in docs, website, package metadata,
-      CLI/Python capability reports, and benchmark artifacts.
-    - [ ] Add fixture workload declarations for at least one local production-candidate profile and
-      prove the gate blocks until all required evidence exists.
-    - [ ] Move completed gate contract and command evidence to the ledger after merge.
-  - Next outcome: every later production-family item can close against one shared gate instead of
-    inventing readiness criteria per PR.
-  - User-visible surface: release readiness reports, capability/certification commands, website
-    support tables, README status language, benchmark claim gates, and package metadata.
-  - Implementation scope: certification structs, release validators, Python/CLI capability
-    snapshots, docs/site labels, and contract tests.
-  - Evidence required: gate schema snapshots, negative tests for missing evidence, positive fixture
-    rows only when all required artifacts exist, and no-fallback proof.
-  - Acceptance: production labels cannot pass from report-only artifacts; a declared workload can
-    be evaluated deterministically; missing correctness, Native I/O, fault-tolerance, memory,
-    benchmark, security, or release evidence blocks production status.
-  - Verification: release-script shard, contract tests, CLI snapshot tests, website/docs
-    validation, release readiness reports, and full workspace tests if shared certification code
-    moves.
-  - Non-goals: no runtime family implementation inside this gate; no production claim by defining
-    the schema; no package publication.
-  - Claim boundary: may claim only that the production gate exists and fails closed until evidence
-    is present.
-  - Fallback boundary: gate logic must reject external fallback execution and external query-engine
-    providers as production evidence.
-  - Ledger rule: close only after the gate and validator evidence are merged and documented in the
-    completed ledger.
 - [ ] `PROD-READY-1A` Production format and local I/O adapter certification.
   - Source: attached Formats/I/O review, `docs/architecture/universal-input-contract.md`,
     `docs/skills/translation-layer.md`, `docs/architecture/vortex-adapter-integration-plan.md`,
-    and current traditional benchmark rows.
+    `docs/architecture/vortex-public-api-inventory.md`, and current traditional benchmark rows.
   - Current state: scoped local evidence exists for CSV, JSONL/NDJSON, Parquet, Arrow IPC, Avro,
     ORC, Vortex, and compatibility outputs, but production-certified adapters require full
     capability, pushdown, fidelity, error-policy, and certificate evidence per declared format
@@ -559,12 +521,19 @@ with a recorded infeasibility reason, not merely because they are broad.
   - ShardLoom technique review: applicable. Format work should consider dynamic parser/reader
     admission by shape, capillary source/preparation/write windows, PulseWeave coalescing for
     repeated local preparation, metadata-first pruning/fingerprint reuse, and evidence-tier
-    separation for hot read/write versus proof/publication paths.
+    separation for hot read/write versus proof/publication paths. Vortex 0.75 layout-reader
+    context/cache, JSON extension import/export, Interleave encoding, binary zstd, row-byte
+    encoder, and validity/mask semantics should be used or explicitly blocked through provider
+    gates before local I/O adapters duplicate those concepts.
   - Execution checklist:
     - [ ] Declare per-format production profiles: Vortex native input/output, CSV/JSONL text,
       Parquet/Arrow IPC columnar, Avro/ORC compatibility, and compatibility output/export targets.
     - [ ] Add parser/reader contracts for malformed rows, encoding/null/coercion rules,
       projection-aware typed builders, nested/complex dtype support, and deterministic blockers.
+    - [ ] Add a Vortex 0.75 local-I/O provider disposition report for layout-reader context/cache,
+      JSON extension Arrow import/export, WKB/geospatial extension preservation or deterministic
+      blockers, Interleave encoding preservation, binary zstd/compression metadata, row-byte
+      encoder write-path evaluation, and validity/mask semantics.
     - [ ] Add pushdown and fidelity reports for columnar formats: projection/filter/statistics
       support, metadata preservation, layout/statistics loss, and materialization cost.
     - [ ] Add Vortex-native broad read/write certification with metadata/statistics preservation,

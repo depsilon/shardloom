@@ -16,6 +16,109 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-READY-0A common production certification gate
+  - Date: 2026-06-14
+  - Source:
+    - `PROD-READY-0A` in `docs/architecture/phased-execution-plan.md`.
+    - Attached Common Production Gate review.
+    - `docs/architecture/runtime-gap-family-burn-down.md`.
+    - `docs/architecture/capability-certification-sequencing.md`.
+    - RFC 0012, RFC 0014, RFC 0015, RFC 0017, and RFC 0024.
+  - Branch: `codex/prod-ready-0a-certification-gate`.
+  - Scope:
+    - Added `docs/release/production-certification-workloads.json` as the shared
+      `shardloom.production_workload_declarations.v1` declaration matrix for production
+      workload certification.
+    - Added `scripts/check_production_certification_gate.py` producing
+      `shardloom.production_certification_gate.v1`; default mode validates the matrix and public
+      claim surfaces while preserving `production_certification_status=blocked_not_production_ready`
+      when required production evidence is missing.
+    - Added strict mode with `--require-production-ready-workload`, which fails unless at least
+      one declared workload has every required evidence key passed.
+    - Declared the first local v1 candidate workload with environment, scale, formats,
+      statefulness, effects, security posture, unsupported edge boundary, ShardLoom technique
+      review, evidence keys, and deterministic unsupported production-family diagnostics.
+    - Wired the gate into release-readiness CI, `scripts/run_release_validation_evidence.py`,
+      `scripts/check_ci_gate_matrix.py`, `scripts/check_finished_product_readiness.py`, and release
+      docs.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/check_production_certification_gate.py scripts/check_finished_product_readiness.py scripts/check_ci_gate_matrix.py scripts/run_release_validation_evidence.py`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_production_certification_gate_passes_with_blocked_workload python.tests.test_release_scripts.ReleaseScriptTests.test_production_certification_gate_strict_mode_requires_ready_workload python.tests.test_release_scripts.ReleaseScriptTests.test_production_certification_gate_accepts_ready_fixture`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_finished_product_readiness_allows_local_ready_publication_blocked python.tests.test_release_scripts.ReleaseScriptTests.test_finished_product_readiness_public_mode_requires_public_evidence python.tests.test_release_scripts.ReleaseScriptTests.test_finished_product_readiness_public_mode_passes_with_public_evidence python.tests.test_release_scripts.ReleaseScriptTests.test_finished_product_readiness_blocks_local_evidence_drift`.
+    - `python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_ci_gate_matrix_requires_hard_release_without_allow_blocked`.
+    - `python3 -m unittest python.tests.test_release_scripts`.
+    - `python3 scripts/check_production_certification_gate.py`.
+    - `python3 scripts/check_finished_product_readiness.py`.
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`.
+  - Generated reports and artifacts:
+    - `target/production-certification-gate.json`: status `passed`,
+      `production_certification_status=blocked_not_production_ready`,
+      `production_ready_workload_count=0`, `production_claim_allowed=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `target/finished-product-readiness-report.json`: status `passed` after consuming the new
+      production certification gate.
+    - `target/ci-gate-matrix-report.json`: release-readiness lane includes
+      `python scripts/check_production_certification_gate.py` and
+      `target/production-certification-gate.json`.
+  - Claim boundary:
+    - May claim the common production certification gate exists, is wired into release readiness,
+      validates declared workload profiles, and fails closed when production evidence is missing.
+    - May not claim ShardLoom is production-ready, performance claim-grade, package-publication
+      ready, Spark-displacing, object-store/lakehouse/Foundry production-ready, distributed-ready,
+      live/hybrid-ready, or arbitrary plugin/effect production-ready.
+  - Fallback boundary:
+    - The gate requires `fallback_attempted=false` and `external_engine_invoked=false`, rejects
+      external query/runtime engines as production evidence, and keeps external engines as
+      baselines or handles only.
+  - Residual work:
+    - The first local v1 workload remains blocked for production claims by missing production
+      fault-injection evidence, missing production memory/backpressure proof, benchmark
+      `claim_gate_status=not_claim_grade`, and public package/release approval.
+    - Later `PROD-READY-*` runtime families must close against this gate rather than inventing
+      independent production-readiness criteria.
+- [x] Session label: VORTEX-075 provider opportunity incorporation audit
+  - Date: 2026-06-14
+  - Source:
+    - User request to ensure Vortex 0.75 release-note surface area was incorporated.
+    - `docs/dependencies/vortex-upstream-review.md`.
+    - `docs/dependencies/vortex-dependency-footprint.md`.
+    - `docs/architecture/vortex-public-api-inventory.md`.
+    - Active `PERF-RUNTIME-7B`, `PERF-RUNTIME-7C`, and `PROD-READY-1A` phase-plan items.
+  - Branch: `codex/prod-ready-0a-certification-gate`.
+  - Scope:
+    - Confirmed the optional workspace Vortex dependency is already recorded as `vortex = 0.75`
+      with provider-version evidence centralized through
+      `shardloom_vortex::UPSTREAM_VORTEX_PROVIDER_VERSION`.
+    - Expanded the Vortex public API inventory from a single opportunity sentence into an explicit
+      provider-disposition map covering grouped `sum`/`count`, validity/mask semantics,
+      branchless zip, dictionary/FSST/layout-cache performance work, layout-reader context/cache,
+      JSON extension Arrow import/export, WKB/geospatial extension handling, Interleave encoding,
+      `byte_length()`, binary zstd/compression, row-oriented byte encoding, Arrow device/GPU, JNI,
+      cuDF, and DataFusion 54 integration updates.
+    - Wired the actionable 0.75 opportunities into open phase-plan checkboxes so heavy operator
+      promotion, prepared lookup/cache attribution, and production local I/O adapter certification
+      must run Vortex-first provider disposition before duplicating the concepts in ShardLoom.
+  - Evidence commands:
+    - `rg -n 'Vortex 0\\.75|vortex 0\\.75|0\\.75|grouped.*sum|grouped.*count|validity/mask|layout reader|JSON extension|WKB|geospatial|Interleave|byte_length|binary zstd|row-oriented|row encoder|Arrow device|DataFusion 54|Dependabot PR.*1223|PR #1223' docs/architecture/phased-execution-completed-ledger.md`.
+    - `rg -n "0\\.75|grouped|aggregate|sum|count|validity|mask|layout reader|layout.*cache|JSON|geo|WKB|Interleave|interleave|byte_length|zstd|compression|row.*encoder|Arrow device|GPU|device|DataFusion|cuDF|JNI" docs/architecture/vortex-public-api-inventory.md docs/architecture/phased-execution-plan.md docs/architecture/vortex-adapter-integration-plan.md docs/dependencies/vortex-upstream-review.md docs/dependencies/vortex-dependency-footprint.md`.
+  - Claim boundary:
+    - May claim Vortex 0.75 dependency compatibility and provider-opportunity mapping are recorded
+      and attached to active ShardLoom implementation items.
+    - May not claim the 0.75 grouped aggregate, JSON/geospatial, layout-cache, compression, row
+      encoder, GPU/device, or DataFusion integration surfaces are runtime-admitted.
+  - Fallback boundary:
+    - Vortex DataFusion, DuckDB, Spark, Polars, Velox, cuDF, JNI, and device/GPU paths remain
+      blocked or baseline/oracle-only until an explicit ShardLoom provider gate adds certificates,
+      no-fallback evidence, and runtime tests.
+  - Residual work:
+    - `PERF-RUNTIME-7B` must classify grouped aggregate, validity/mask, zip, dictionary/FSST, and
+      byte-length provider surfaces before adding another heavy-operator kernel.
+    - `PERF-RUNTIME-7C` must classify layout-reader context/cache before using Vortex reader state
+      in prepared lookup/read-through caching.
+    - `PROD-READY-1A` must classify layout-reader cache, JSON/WKB extension, Interleave, binary
+      zstd/compression, row-byte encoder, and validity/mask local-I/O behavior before production
+      adapter certification.
 - [x] Session label: PERF-RUNTIME-7A cold compatibility-to-certified route burn-down closeout
   - Date: 2026-06-14
   - Source:

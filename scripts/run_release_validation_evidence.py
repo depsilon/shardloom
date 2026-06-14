@@ -310,6 +310,10 @@ def required_validation_commands(
             "user_route_capability_report",
             [python_executable, "scripts/check_user_route_capability_report.py"],
         ),
+        (
+            "production_certification_gate",
+            [python_executable, "scripts/check_production_certification_gate.py"],
+        ),
     ]
 
 

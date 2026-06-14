@@ -13,7 +13,9 @@ It has two modes:
 
 Local product evidence includes `target/v1-release-boundary-report.json`, which keeps public docs,
 package metadata, generated support surfaces, package dry-run proof, and unsupported
-production-family boundaries fail-closed before this final aggregator can pass.
+production-family boundaries fail-closed before this final aggregator can pass. It also includes
+`target/production-certification-gate.json`, which proves declared production workload profiles are
+schema-valid and claim-safe while current production evidence blockers remain explicit.
 
 Default mode is allowed to pass with:
 
@@ -38,6 +40,7 @@ Run:
 
 ```powershell
 python scripts\check_v1_release_boundary.py
+python scripts\check_production_certification_gate.py
 python scripts\check_finished_product_readiness.py
 python scripts\check_finished_product_readiness.py --require-public-release-ready
 ```
