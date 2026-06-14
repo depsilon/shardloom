@@ -180,14 +180,240 @@ struct ObjectStoreReadSuccessInput<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct ObjectStoreDisabledEffectPolicy<'a> {
-    credential_policy_status: &'a str,
-    network_effect_status: &'a str,
-    listing_allowed: bool,
-    listing_status: &'a str,
-    listing_object_count: usize,
+enum ObjectStoreAdmissionOperation {
+    Read,
+    Write,
+    WriteRecovery,
+    PartitionDiscovery,
+}
+
+impl ObjectStoreAdmissionOperation {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Read => "read",
+            Self::Write => "write",
+            Self::WriteRecovery => "write_recovery",
+            Self::PartitionDiscovery => "partition_discovery",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ObjectStoreListingPolicy<'a> {
+    allowed: bool,
+    status: &'a str,
+    object_count: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ObjectStoreOperationOutcome {
+    Performed,
+    Blocked,
+}
+
+impl ObjectStoreOperationOutcome {
+    const fn from_errors(has_errors: bool) -> Self {
+        if has_errors {
+            Self::Blocked
+        } else {
+            Self::Performed
+        }
+    }
+
+    const fn has_errors(self) -> bool {
+        matches!(self, Self::Blocked)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ObjectStoreRemoteProviderRequest {
+    Requested,
+    NotRequested,
+}
+
+impl ObjectStoreRemoteProviderRequest {
+    const fn from_bool(requested: bool) -> Self {
+        if requested {
+            Self::Requested
+        } else {
+            Self::NotRequested
+        }
+    }
+
+    const fn requested(self) -> bool {
+        matches!(self, Self::Requested)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ObjectStoreUriRedactionRequirement {
+    Required,
+    NotRequired,
+}
+
+impl ObjectStoreUriRedactionRequirement {
+    const fn from_bool(required: bool) -> Self {
+        if required {
+            Self::Required
+        } else {
+            Self::NotRequired
+        }
+    }
+
+    const fn required(self) -> bool {
+        matches!(self, Self::Required)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ObjectStorePublicFixtureProfile {
+    Yes,
+    No,
+}
+
+impl ObjectStorePublicFixtureProfile {
+    const fn from_bool(enabled: bool) -> Self {
+        if enabled { Self::Yes } else { Self::No }
+    }
+
+    const fn enabled(self) -> bool {
+        matches!(self, Self::Yes)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ObjectStoreProviderAdmission<'a> {
+    operation: ObjectStoreAdmissionOperation,
+    provider_profile: &'a str,
+    operation_status: &'a str,
+    outcome: ObjectStoreOperationOutcome,
+    remote_provider_request: ObjectStoreRemoteProviderRequest,
+    uri_redaction_requirement: ObjectStoreUriRedactionRequirement,
+    listing_policy: ObjectStoreListingPolicy<'a>,
     local_cache_status: &'a str,
-    public_no_credential_fixture_profile: bool,
+    public_fixture_profile: ObjectStorePublicFixtureProfile,
+}
+
+impl ObjectStoreProviderAdmission<'_> {
+    fn provider_profile_status(&self) -> &'static str {
+        if self.provider_profile == LOCAL_EMULATOR_PROFILE {
+            "admitted_local_emulator_profile"
+        } else if self.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+            "admitted_public_no_credential_fixture_profile"
+        } else {
+            "blocked_unknown_provider_profile"
+        }
+    }
+
+    fn provider_admission_status(&self) -> &'static str {
+        if self.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+            if self.outcome.has_errors() {
+                "blocked_public_fixture_requirements"
+            } else {
+                "admitted_public_no_credential_fixture"
+            }
+        } else if self.provider_profile != LOCAL_EMULATOR_PROFILE {
+            "blocked_unsupported_profile"
+        } else if self.remote_provider_request.requested() {
+            "blocked_live_provider_no_probe"
+        } else if self.outcome.has_errors() {
+            "blocked_local_emulator_validation"
+        } else {
+            "admitted_local_emulator"
+        }
+    }
+
+    fn provider_admission_classification(&self) -> &'static str {
+        if self.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE
+            && !self.outcome.has_errors()
+        {
+            "wrap_public_no_credential_fixture"
+        } else if self.provider_profile == LOCAL_EMULATOR_PROFILE
+            && !self.remote_provider_request.requested()
+            && !self.outcome.has_errors()
+        {
+            "use_shardloom_local_emulator_provider"
+        } else {
+            "blocked_until_vortex_or_shardloom_evidence"
+        }
+    }
+
+    fn provider_admission_boundary(&self) -> &'static str {
+        if self.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE
+            && !self.outcome.has_errors()
+        {
+            "uri_shape_plus_explicit_local_fixture_only_no_live_provider"
+        } else if self.provider_profile == LOCAL_EMULATOR_PROFILE
+            && !self.remote_provider_request.requested()
+            && !self.outcome.has_errors()
+        {
+            "caller_owned_local_emulator_paths_only"
+        } else if self.remote_provider_request.requested() {
+            "blocked_before_credentials_signing_provider_or_network_probe"
+        } else {
+            "blocked_before_effects_or_provider_probe"
+        }
+    }
+
+    fn credential_policy_status(&self) -> &'static str {
+        if self.remote_provider_request.requested() {
+            "credential_policy_required_not_admitted"
+        } else if self.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE
+            && !self.outcome.has_errors()
+        {
+            "public_no_credential_fixture_admitted"
+        } else if self.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+            "public_no_credential_fixture_blocked"
+        } else if self.provider_profile == LOCAL_EMULATOR_PROFILE {
+            "not_required_local_emulator"
+        } else {
+            "credential_policy_blocked_unsupported_profile"
+        }
+    }
+
+    fn network_effect_status(&self) -> &'static str {
+        if self.remote_provider_request.requested() {
+            "network_effect_blocked_no_live_provider_policy"
+        } else if self.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+            "disabled_public_fixture"
+        } else if self.provider_profile == LOCAL_EMULATOR_PROFILE {
+            "not_required_local_emulator"
+        } else {
+            "network_effect_blocked_unsupported_profile"
+        }
+    }
+
+    fn request_signing_status(&self) -> &'static str {
+        if self.remote_provider_request.requested() {
+            "blocked_not_invoked"
+        } else if self.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+            "not_required_public_no_credential_fixture"
+        } else if self.provider_profile == LOCAL_EMULATOR_PROFILE {
+            "not_required_local_emulator"
+        } else {
+            "blocked_unsupported_profile"
+        }
+    }
+
+    fn request_signing_boundary(&self) -> &'static str {
+        if self.remote_provider_request.requested() {
+            "blocked_before_request_signing"
+        } else if self.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+            "no_remote_request_to_sign_public_fixture_reads_local_bytes"
+        } else if self.provider_profile == LOCAL_EMULATOR_PROFILE {
+            "no_remote_request_to_sign_local_emulator"
+        } else {
+            "profile_not_admitted_for_signing"
+        }
+    }
+
+    fn uri_redaction_policy_status(&self) -> &'static str {
+        if self.uri_redaction_requirement.required() {
+            "applied"
+        } else {
+            "not_required"
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2871,39 +3097,84 @@ fn push_object_store_policy_fields(
     fields: &mut Vec<(String, String)>,
     report: &ObjectStoreReadSmokeReport,
 ) {
-    push_object_store_disabled_effect_policy_fields(
+    let has_errors = report.has_errors();
+    push_object_store_provider_admission_fields(
         fields,
-        &ObjectStoreDisabledEffectPolicy {
-            credential_policy_status: credential_policy_status(
-                &report.provider_profile,
-                report.has_errors(),
+        &ObjectStoreProviderAdmission {
+            operation: ObjectStoreAdmissionOperation::Read,
+            provider_profile: &report.provider_profile,
+            operation_status: report.status.as_str(),
+            outcome: ObjectStoreOperationOutcome::from_errors(has_errors),
+            remote_provider_request: ObjectStoreRemoteProviderRequest::from_bool(
+                is_remote_object_store_uri(&report.requested_uri)
+                    && report.provider_profile != PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE,
             ),
-            network_effect_status: network_effect_status(&report.provider_profile),
-            listing_allowed: report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE
-                && report.fixture_listing_requested
-                && !report.has_errors(),
-            listing_status: listing_status(report),
-            listing_object_count: listing_object_count(report),
+            uri_redaction_requirement: ObjectStoreUriRedactionRequirement::from_bool(
+                redaction_required(&report.requested_uri),
+            ),
+            listing_policy: ObjectStoreListingPolicy {
+                allowed: report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE
+                    && report.fixture_listing_requested
+                    && !has_errors,
+                status: listing_status(report),
+                object_count: listing_object_count(report),
+            },
             local_cache_status: local_cache_status(report),
-            public_no_credential_fixture_profile: report.provider_profile
-                == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE,
+            public_fixture_profile: ObjectStorePublicFixtureProfile::from_bool(
+                report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE,
+            ),
         },
     );
 }
 
-fn push_object_store_disabled_effect_policy_fields(
+fn push_object_store_provider_admission_fields(
     fields: &mut Vec<(String, String)>,
-    policy: &ObjectStoreDisabledEffectPolicy<'_>,
+    admission: &ObjectStoreProviderAdmission<'_>,
 ) {
     push_field(
         fields,
+        "provider_admission_report_id",
+        "shardloom.object_store_provider_admission.v1",
+    );
+    push_field(
+        fields,
+        "provider_admission_operation",
+        admission.operation.as_str(),
+    );
+    push_field(
+        fields,
+        "provider_profile_status",
+        admission.provider_profile_status(),
+    );
+    push_field(
+        fields,
+        "provider_admission_status",
+        admission.provider_admission_status(),
+    );
+    push_field(
+        fields,
+        "provider_admission_classification",
+        admission.provider_admission_classification(),
+    );
+    push_field(
+        fields,
+        "provider_admission_boundary",
+        admission.provider_admission_boundary(),
+    );
+    push_field(
+        fields,
+        "provider_operation_status",
+        admission.operation_status,
+    );
+    push_field(
+        fields,
         "credential_policy_status",
-        policy.credential_policy_status,
+        admission.credential_policy_status(),
     );
     push_field(
         fields,
         "network_effect_status",
-        policy.network_effect_status,
+        admission.network_effect_status(),
     );
     push_bool_field(fields, "credential_resolution_allowed", false);
     push_bool_field(fields, "credential_resolution_performed", false);
@@ -2911,17 +3182,49 @@ fn push_object_store_disabled_effect_policy_fields(
     push_bool_field(fields, "network_probe_performed", false);
     push_bool_field(fields, "provider_probe_allowed", false);
     push_bool_field(fields, "provider_probe_performed", false);
-    push_bool_field(fields, "listing_allowed", policy.listing_allowed);
-    push_field(fields, "listing_status", policy.listing_status);
-    push_count_field(fields, "listing_object_count", policy.listing_object_count);
+    push_bool_field(fields, "request_signing_allowed", false);
+    push_bool_field(fields, "request_signing_performed", false);
+    push_field(
+        fields,
+        "request_signing_status",
+        admission.request_signing_status(),
+    );
+    push_field(
+        fields,
+        "request_signing_boundary",
+        admission.request_signing_boundary(),
+    );
+    push_field(
+        fields,
+        "uri_redaction_policy_status",
+        admission.uri_redaction_policy_status(),
+    );
+    push_field(
+        fields,
+        "explain_estimate_doctor_probe_policy",
+        "static_no_provider_probe_default",
+    );
+    push_field(
+        fields,
+        "capability_discovery_probe_policy",
+        "static_capability_report_no_provider_probe",
+    );
+    push_bool_field(fields, "listing_allowed", admission.listing_policy.allowed);
+    push_field(fields, "listing_status", admission.listing_policy.status);
+    push_count_field(
+        fields,
+        "listing_object_count",
+        admission.listing_policy.object_count,
+    );
     push_bool_field(fields, "cache_write_allowed", false);
-    push_field(fields, "local_cache_status", policy.local_cache_status);
+    push_field(fields, "local_cache_status", admission.local_cache_status);
     push_bool_field(
         fields,
         "public_no_credential_fixture_profile",
-        policy.public_no_credential_fixture_profile,
+        admission.public_fixture_profile.enabled(),
     );
     push_bool_field(fields, "live_provider_network_read_allowed", false);
+    push_bool_field(fields, "live_provider_network_write_allowed", false);
 }
 
 fn push_object_store_claim_fields(
@@ -3128,16 +3431,27 @@ fn push_object_store_write_policy_fields(
     report: &ObjectStoreWriteSmokeReport,
 ) {
     let has_errors = report.has_errors();
-    push_object_store_disabled_effect_policy_fields(
+    push_object_store_provider_admission_fields(
         fields,
-        &ObjectStoreDisabledEffectPolicy {
-            credential_policy_status: "not_required_local_emulator",
-            network_effect_status: "not_required_local_emulator",
-            listing_allowed: false,
-            listing_status: "not_performed_local_emulator_single_object",
-            listing_object_count: 0,
+        &ObjectStoreProviderAdmission {
+            operation: ObjectStoreAdmissionOperation::Write,
+            provider_profile: &report.provider_profile,
+            operation_status: report.status.as_str(),
+            outcome: ObjectStoreOperationOutcome::from_errors(has_errors),
+            remote_provider_request: ObjectStoreRemoteProviderRequest::from_bool(
+                is_remote_object_store_uri(&report.source_uri)
+                    || is_remote_object_store_uri(&report.target_uri),
+            ),
+            uri_redaction_requirement: ObjectStoreUriRedactionRequirement::from_bool(
+                redaction_required(&report.source_uri) || redaction_required(&report.target_uri),
+            ),
+            listing_policy: ObjectStoreListingPolicy {
+                allowed: false,
+                status: "not_performed_local_emulator_single_object",
+                object_count: 0,
+            },
             local_cache_status: "not_performed",
-            public_no_credential_fixture_profile: false,
+            public_fixture_profile: ObjectStorePublicFixtureProfile::No,
         },
     );
     push_bool_field(fields, "remote_write_allowed", false);
@@ -3348,16 +3662,26 @@ fn push_object_store_write_recovery_policy_fields(
     report: &ObjectStoreWriteRecoveryReport,
 ) {
     let has_errors = report.has_errors();
-    push_object_store_disabled_effect_policy_fields(
+    push_object_store_provider_admission_fields(
         fields,
-        &ObjectStoreDisabledEffectPolicy {
-            credential_policy_status: "not_required_local_emulator",
-            network_effect_status: "not_required_local_emulator",
-            listing_allowed: false,
-            listing_status: "not_performed_local_emulator_single_object_recovery",
-            listing_object_count: 0,
+        &ObjectStoreProviderAdmission {
+            operation: ObjectStoreAdmissionOperation::WriteRecovery,
+            provider_profile: &report.provider_profile,
+            operation_status: report.status.as_str(),
+            outcome: ObjectStoreOperationOutcome::from_errors(has_errors),
+            remote_provider_request: ObjectStoreRemoteProviderRequest::from_bool(
+                is_remote_object_store_uri(&report.target_uri),
+            ),
+            uri_redaction_requirement: ObjectStoreUriRedactionRequirement::from_bool(
+                redaction_required(&report.target_uri),
+            ),
+            listing_policy: ObjectStoreListingPolicy {
+                allowed: false,
+                status: "not_performed_local_emulator_single_object_recovery",
+                object_count: 0,
+            },
             local_cache_status: "not_performed",
-            public_no_credential_fixture_profile: false,
+            public_fixture_profile: ObjectStorePublicFixtureProfile::No,
         },
     );
     push_bool_field(fields, "remote_recovery_allowed", false);
@@ -3536,20 +3860,30 @@ fn push_partition_discovery_policy_fields(
     report: &ObjectStorePartitionDiscoveryReport,
 ) {
     let has_errors = report.has_errors();
-    push_object_store_disabled_effect_policy_fields(
+    push_object_store_provider_admission_fields(
         fields,
-        &ObjectStoreDisabledEffectPolicy {
-            credential_policy_status: "not_required_local_emulator",
-            network_effect_status: "not_required_local_emulator",
-            listing_allowed: !has_errors,
-            listing_status: if has_errors {
-                "blocked"
-            } else {
-                "performed_local_emulator_partition_listing"
+        &ObjectStoreProviderAdmission {
+            operation: ObjectStoreAdmissionOperation::PartitionDiscovery,
+            provider_profile: &report.provider_profile,
+            operation_status: report.status.as_str(),
+            outcome: ObjectStoreOperationOutcome::from_errors(has_errors),
+            remote_provider_request: ObjectStoreRemoteProviderRequest::from_bool(
+                is_remote_object_store_uri(&report.requested_uri),
+            ),
+            uri_redaction_requirement: ObjectStoreUriRedactionRequirement::from_bool(
+                redaction_required(&report.requested_uri),
+            ),
+            listing_policy: ObjectStoreListingPolicy {
+                allowed: !has_errors,
+                status: if has_errors {
+                    "blocked"
+                } else {
+                    "performed_local_emulator_partition_listing"
+                },
+                object_count: report.partition_directory_count,
             },
-            listing_object_count: report.partition_directory_count,
             local_cache_status: "not_performed",
-            public_no_credential_fixture_profile: false,
+            public_fixture_profile: ObjectStorePublicFixtureProfile::No,
         },
     );
     push_field(
@@ -3731,24 +4065,6 @@ fn object_store_uri_parse_status(report: &ObjectStoreReadSmokeReport) -> &'stati
         "blocked_public_no_credential_fixture_uri"
     } else {
         "not_requested_local_emulator"
-    }
-}
-
-fn credential_policy_status(profile: &str, has_errors: bool) -> &'static str {
-    if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE && !has_errors {
-        "public_no_credential_fixture_admitted"
-    } else if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
-        "public_no_credential_fixture_blocked"
-    } else {
-        "not_required_local_emulator"
-    }
-}
-
-fn network_effect_status(profile: &str) -> &'static str {
-    if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
-        "disabled_public_fixture"
-    } else {
-        "not_required_local_emulator"
     }
 }
 
@@ -4198,6 +4514,10 @@ fn requested_uri_redaction_status(source: &str) -> &'static str {
     } else {
         "not_required"
     }
+}
+
+fn redaction_required(source: &str) -> bool {
+    requested_uri_redaction_status(source) == "redacted"
 }
 
 fn object_store_uri_has_userinfo(scheme: &str, rest: &str) -> bool {

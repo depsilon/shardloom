@@ -9931,7 +9931,11 @@ class ReleaseScriptTests(unittest.TestCase):
             "evidence": {
                 key: {
                     "status": evidence_statuses[key],
-                    "evidence_refs": [f"target/object-store/{key}.json"],
+                    "evidence_refs": (
+                        sorted(module.OBJECT_STORE_REQUIRED_SECURITY_EVIDENCE_REFS)
+                        if key == "security_governance"
+                        else [f"target/object-store/{key}.json"]
+                    ),
                 }
                 for key in module.REQUIRED_EVIDENCE_KEYS
             },
