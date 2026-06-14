@@ -632,6 +632,50 @@ example replay gate. It does not approve broad
 SQL/DataFrame parity, production
 readiness, package publication, performance claims, or external-runtime fallback.
 
+`PROD-V1-2C` adds local v1 resource-safety, cancellation, and cleanup evidence under the same
+release boundary:
+
+```text
+python scripts/check_v1_local_resource_safety.py
+docs/architecture/v1-local-resource-safety.md
+target/v1-local-resource-safety-report.json
+shardloom.v1_local_resource_safety.v1
+shardloom.v1_local_resource_safety_report.v1
+runtime_command_count=5
+runtime_command_pass_count=5
+prerequisite_report_count=2
+memory_budget_config_status=passed
+pre_oom_guard_status=passed
+retry_gate_status=passed
+cancellation_cleanup_status=passed
+memory_runtime_hardening_status=passed
+fault_tolerance_gate_status=passed
+prepared_state_cleanup_status=passed
+local_output_cleanup_status=passed
+v1_scope_ready=true
+local_resource_safety_evidence_ready=true
+unsupported_paths_blocked_without_writes=true
+all_no_fallback_no_external_engine=true
+larger_than_memory_claim_allowed=false
+native_spill_runtime_claim_allowed=false
+distributed_resource_claim_allowed=false
+spill_io_performed=false
+object_store_io=false
+output_dataset_write_by_resource_gate=false
+public_release_claim_allowed=false
+public_package_claim_allowed=false
+performance_claim_allowed=false
+production_claim_allowed=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+This gate proves the local v1 resource-safety boundary: pre-OOM reservation denial and cleanup,
+side-effect-free retry/cancellation gate planning, prepared-state non-persistence/reuse evidence,
+and local output/sink write-policy evidence. It does not approve larger-than-memory execution,
+native spill runtime, distributed resource handling, object-store recovery, package publication, or
+production claims.
+
 `GAR-0041-A` adds the per-claim evidence attachment matrix with schema
 `shardloom.per_claim_evidence_attachment_matrix.v1`. The release gate consumes
 `docs/release/per-claim-evidence-attachment-matrix.md` and keeps public claims blocked while that

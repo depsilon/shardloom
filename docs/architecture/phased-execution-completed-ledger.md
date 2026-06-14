@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-V1-2C v1 local resource-safety closeout
+  - Date: 2026-06-13
+  - Source:
+    - `PROD-V1-2C` in `docs/architecture/phased-execution-plan.md`.
+    - RFC 0014 memory management/spill/OOM safety.
+    - RFC 0017 fault tolerance/cancellation/recovery.
+    - `docs/architecture/v1-local-resource-safety.md`.
+    - `target/v1-local-resource-safety-report.json`.
+  - Branch: `codex/v1-local-resource-safety-closeout`.
+  - Scope:
+    - Added `docs/architecture/v1-local-resource-safety.md` as the canonical v1 local
+      resource, cancellation, and cleanup boundary. The doc explicitly permits only bounded local
+      evidence and blocks larger-than-memory, native spill runtime, distributed recovery, object
+      store recovery, package/release, and production claims.
+    - Added `scripts/check_v1_local_resource_safety.py` to validate the real local CLI/resource
+      support surfaces: pre-OOM memory guard denial, retry gate planning, cancellation gate
+      planning, memory runtime hardening gate, fault-tolerance promotion gate, prepared-state reuse
+      cleanup, and local output/sink cleanup scope.
+    - Wired `target/v1-local-resource-safety-report.json` through GitHub Actions,
+      CI-gate-matrix drift validation, release validation evidence, hard release-readiness checks,
+      release docs, and release-script tests.
+    - Removed untracked duplicate generated website directories with `2`, `3`, and `4` suffixes
+      after verifying they were not tracked, clearing the website-readiness duplicate-artifact
+      blocker.
+    - Updated the v1 inclusion scope matrix so `PROD-V1-2C` is closed by explicit evidence rather
+      than remaining an open implementation row.
+  - Evidence commands:
+    - `python3 -m py_compile scripts/check_v1_local_resource_safety.py scripts/check_release_readiness.py scripts/run_release_validation_evidence.py scripts/check_ci_gate_matrix.py python/tests/test_release_scripts.py`.
+    - `python3 scripts/check_v1_local_resource_safety.py --skip-build`.
+    - `python3 scripts/check_website_readiness.py`.
+    - `python3 scripts/check_production_usability_gate.py` (expected broader blockers remain:
+      package-channel and release-security evidence).
+    - `python3 scripts/check_ci_gate_matrix.py`.
+    - `python3 scripts/check_release_readiness.py --allow-blocked`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_release_validation_evidence_uses_configured_python_and_conda python.tests.test_release_scripts.ReleaseScriptTests.test_ci_gate_matrix_requires_hard_release_without_allow_blocked python.tests.test_release_scripts.ReleaseScriptTests.test_release_readiness_accepts_configured_dry_run_command_evidence`.
+  - Generated report:
+    - `target/v1-local-resource-safety-report.json`.
+    - Schema: `shardloom.v1_local_resource_safety_report.v1`.
+    - Status: `passed`.
+    - Runtime commands: `5`.
+    - Runtime commands passed: `5`.
+    - Prerequisite reports: `2`.
+    - Memory budget config, pre-OOM guard, retry gate, cancellation cleanup, memory runtime
+      hardening, fault tolerance, prepared-state cleanup, and local output cleanup all report
+      `passed`.
+    - `v1_scope_ready=true`.
+    - `local_resource_safety_evidence_ready=true`.
+    - `unsupported_paths_blocked_without_writes=true`.
+    - `all_no_fallback_no_external_engine=true`.
+  - Claim boundary:
+    - May claim the declared local v1 resource-safety gate has deterministic evidence for budget
+      denial before OOM on the fixture, cleanup/release evidence, side-effect-free retry and
+      cancellation gate planning, prepared-state cleanup scope, and local output/sink cleanup
+      scope.
+    - Does not approve larger-than-memory execution, native spill write/read runtime, distributed
+      resource/OOM handling, object-store recovery, package publication, public release readiness,
+      production reliability, or performance claims.
+  - Fallback boundary:
+    - The resource-safety gate requires `fallback_attempted=false` and
+      `external_engine_invoked=false` across the runtime and prerequisite reports. Unsupported
+      resource pressure remains explicit and does not delegate to Spark, DataFusion, DuckDB, Polars,
+      Velox, or another external engine.
+  - Residual work:
+    - Broad spill, larger-than-memory, distributed resource control, and production observability
+      remain in later planned production/runtime items and must close with separate runtime
+      evidence before being claimed.
 - [x] Session label: PROD-V1-2B v1 example replay and correctness closeout
   - Date: 2026-06-13
   - Source:
