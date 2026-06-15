@@ -41,14 +41,20 @@ Source check date: 2026-06-15.
 
 ## V1 Candidate Decision
 
-The current v1-supported table path remains `local_manifest_table_runtime_v1_candidate` only.
-External Iceberg, Delta, Hudi, Nessie, Polaris, Gravitino, Glue-like, Hive-like, and object-store
-table profiles are source-reviewed candidates, not supported runtime.
+The current v1-supported table runtime path remains `local_manifest_table_runtime_v1_candidate`.
+The first source-reviewed external profile now has a scoped local Iceberg metadata JSON smoke through
+`iceberg-metadata-read-smoke`. It reads one local Iceberg table metadata JSON file, selects the
+current snapshot, an explicit snapshot id, or an as-of timestamp snapshot, and reports schema,
+partition, sort-order, snapshot, manifest-list-reference, and no-fallback boundary evidence.
+External Iceberg manifest-list reads, manifest parsing, data scans, object-store tables, catalog
+runtime, writes/commits, delete-file execution, Delta, Hudi, Nessie, Polaris, Gravitino, Glue-like,
+and Hive-like profiles remain source-reviewed or planned candidates, not production-supported
+runtime.
 
-The first external implementation candidate should be Iceberg metadata/snapshot read through a
-local metadata fixture or an approved no-credential REST-catalog fixture, because it best aligns
-with ShardLoom's metadata-first planning model. That still requires a separate implementation item
-before any support claim.
+The next Iceberg implementation step should extend the metadata JSON smoke into manifest-list reads,
+manifest parsing, manifest-summary pruning, schema/partition evolution semantics, delete-file
+admission, and ShardLoom-native split planning. An approved no-credential REST-catalog fixture
+remains a candidate after credential/object-store and effect policy are narrowed.
 
 Glue-like and Hive-like catalog profiles are intentionally not selected for the first external
 candidate. They need separate source/profile review before implementation because their credential,
@@ -72,8 +78,10 @@ catalog profiles reviewed here.
 
 ## Claim Boundary
 
-May claim: the protocol sources have been reviewed and mapped to ShardLoom admission gates.
+May claim: the protocol sources have been reviewed and mapped to ShardLoom admission gates, and the
+scoped local Iceberg metadata JSON smoke reads one local metadata file and selects snapshots without
+fallback or external engines.
 
-May not claim: Iceberg/Delta/Hudi runtime, catalog runtime, object-store table runtime, table scan,
-append/overwrite, merge/update/delete, rollback, production lakehouse support, Spark replacement,
-performance, or external engine execution.
+May not claim: Iceberg manifest-list/manifest/data-file runtime, Delta/Hudi runtime, catalog
+runtime, object-store table runtime, table scan, append/overwrite, merge/update/delete, rollback,
+production lakehouse support, Spark replacement, performance, or external engine execution.

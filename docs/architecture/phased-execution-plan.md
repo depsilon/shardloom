@@ -353,13 +353,17 @@ with a recorded infeasibility reason, not merely because they are broad.
     Scoped ShardLoom-owned `local-manifest` fixture evidence now covers in-memory metadata read,
     snapshot/manifest summary, local append commit rehearsal, rollback cleanup, sidecar recovery
     replay/mismatch diagnostics, request/byte/retry/boundedness evidence, and native
-    table-translation/no-loss posture. That does not imply Iceberg/Delta/Hudi, external catalog,
-    object-store table commit, data scan, overwrite, merge/update/delete, schema evolution,
-    distributed, production, or performance support. Current source-reviewed external candidates
-    are Iceberg table metadata, Iceberg REST, Delta transaction logs, Hudi timeline/metadata,
-    Nessie, Polaris, and Gravitino; Glue-like and Hive-like catalog profiles are not selected for
-    the first external candidate and still require separate source/profile review before
-    implementation.
+    table-translation/no-loss posture. The first source-reviewed external profile also has a
+    scoped local Iceberg table metadata JSON read smoke through `iceberg-metadata-read-smoke`: it
+    reads one local metadata JSON file, selects the current, explicit, or as-of timestamp snapshot,
+    reports schema/partition/sort/snapshot/manifest-list references, and blocks delete-file
+    semantics with deterministic no-fallback diagnostics. That does not imply Iceberg manifest-list
+    reads, manifest parsing, data scans, external catalog/runtime, object-store table commit, write
+    semantics, distributed, production, or performance support. Current source-reviewed external
+    candidates are Iceberg table metadata, Iceberg REST, Delta transaction logs, Hudi
+    timeline/metadata, Nessie, Polaris, and Gravitino; Glue-like and Hive-like catalog profiles are
+    not selected for the first external candidate and still require separate source/profile review
+    before implementation.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
     table protocol/workload in v1 if source-checked specs, scan semantics, write/commit scope,
     rollback/recovery, conflict handling, and no-fallback evidence can close; otherwise narrow or
@@ -382,9 +386,16 @@ with a recorded infeasibility reason, not merely because they are broad.
       Iceberg, Delta, Hudi, Iceberg REST, Nessie, Polaris, and Gravitino-style APIs. Glue-like and
       Hive-like catalog profiles are not selected for the first external candidate and require
       separate source/profile review before implementation.
-    - [ ] Implement metadata readers, snapshot/time-travel selection, manifest/log/timeline
-      parsing, schema evolution, partition evolution, and delete/tombstone/deletion-vector
-      semantics for an external selected profile.
+    - [x] Implement the first selected external profile as a scoped local Iceberg metadata JSON
+      reader with current snapshot, explicit snapshot-id, and as-of timestamp selection, metadata
+      summary digest, source-review refs, dependency boundary fields, and deterministic blockers for
+      catalog, object-store, manifest-list, manifest, data-file, delete-file, write/commit, broad
+      Iceberg, Delta/Hudi, production, performance, fallback, and external-engine paths.
+    - [ ] Extend the selected Iceberg profile beyond local metadata JSON into manifest-list reads,
+      manifest parsing, manifest-summary pruning, schema/partition evolution semantics,
+      delete/tombstone/deletion-vector admission, and ShardLoom-native split planning.
+    - [ ] Implement Delta log and Hudi timeline/metadata readers only after their source-profile
+      contracts are narrowed to fixture, credential, object-store, and no-fallback evidence.
     - [ ] Lower table scans into ShardLoom-native splits with Native I/O certificates and
       deterministic unsupported diagnostics for unadmitted table features.
     - [ ] Implement writes only for proven semantics: append/overwrite first; merge/update/delete
@@ -467,9 +478,18 @@ with a recorded infeasibility reason, not merely because they are broad.
 - [ ] `PROD-READY-1E` Streaming/live/hybrid runtime production path.
   - Source: attached Streaming / Live / Hybrid review, RFC 0034, RFC 0017, RFC 0014,
     optimizer/adaptive execution docs, and live/hybrid capability gates.
-  - Current state: CG-22 is a design target with fixture evidence, but there is no production
-    streaming runtime, state store, changelog, checkpoint/restore, watermarking, or continuous
-    materialized-view semantics.
+  - Current state: scoped CG-22 fixture runtime evidence exists for deterministic in-memory
+    live and hybrid workloads. `live-change-contract-plan` declares change records,
+    append/upsert/delete/retract/tombstone operations, fixture event-time watermarks, reject-late
+    policy, state TTL, in-memory checkpoint policy, and output changelog modes.
+    `live-fixture-run` executes filter/project/count/count-where/group-count over a bounded
+    in-memory change fixture and emits freshness, state, continuous-view, execution-certificate,
+    Native I/O, no-fallback, and no-external-engine evidence. `hybrid-overlay-run` emits scoped
+    delta-overlay, base/merged snapshot, hot changelog, flush, and certificate evidence.
+    `live-hybrid-state-transition-smoke` emits retry, cancellation, cleanup, partial-output,
+    state-transition, freshness, and state evidence. This is not production streaming: there is no
+    broker, unbounded scheduler, durable state/checkpoint store, object-store/catalog checkpoint,
+    exactly-once claim, external connector, or benchmark performance claim.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
     live/hybrid workload in v1 if state, checkpoint, recovery, freshness, output mode, and
     certificate evidence can close; otherwise narrow or defer with a concrete feasibility reason.
@@ -479,21 +499,28 @@ with a recorded infeasibility reason, not merely because they are broad.
     recovery semantics, metadata-first state/freshness checks, and separate timing/evidence
     surfaces for hot update paths versus checkpoint/proof work.
   - Execution checklist:
-    - [ ] Define `EngineMode` production semantics for batch/live/hybrid/auto and source
-      boundedness/update-mode classification.
-    - [ ] Implement change record model: insert/update/delete/retract, event time, processing
-      time, watermarks, late data policy, and deterministic unsupported diagnostics.
-    - [ ] Implement state store, changelog, checkpoint, restore, hot/warm/cold storage model,
-      Vortex micro-segments, cold Vortex segments, and delta overlay with tombstones/deletion
-      vectors where admitted.
-    - [ ] Define sink output modes: snapshot, append, changelog, materialized view, and freshness
-      guarantees.
-    - [ ] Emit freshness, state, checkpoint, delta-overlay, and execution certificates with
-      no-fallback evidence.
-    - [ ] Add recovery/fault tests for restart, late data, duplicate records, partial checkpoint,
-      cancellation, and cleanup.
+    - [x] Define scoped `EngineMode` semantics for batch/live/hybrid/auto and
+      boundedness/update-mode/output-mode classification in CG-22 planning surfaces.
+    - [x] Implement a scoped in-memory change record model covering append, upsert, delete,
+      retract, tombstone, event time, processing time, fixture watermarks, late-data policy, and
+      deterministic unsupported diagnostics for unadmitted fixture predicates/columns.
+    - [x] Implement scoped in-memory state, changelog, checkpoint-ref, live output, hybrid delta
+      overlay, base/merged snapshot, and tombstone/delete/retract handling for bounded fixture
+      workloads.
+    - [x] Define scoped fixture sink output modes and continuous-view/update evidence.
+    - [x] Emit freshness, state, checkpoint-ref, delta-overlay, execution-certificate,
+      Native I/O, and no-fallback evidence for the scoped live/hybrid fixture paths.
+    - [x] Add recovery/fault evidence for cooperative cancellation, retry, partial-output tracking,
+      cleanup completion, late-data counting, and unsupported predicate/column rejection.
+    - [ ] Implement production state store, durable changelog, durable checkpoint/restore,
+      hot/warm/cold storage model, Vortex micro-segment persistence, cold Vortex segment promotion,
+      and deletion-vector/tombstone persistence for an admitted live/hybrid workload.
+    - [ ] Add production recovery/fault tests for restart, duplicate records, partial durable
+      checkpoint, durable restore, broker replay, cancellation, cleanup, and idempotent output.
     - [ ] Add benchmark/profile evidence for declared live/hybrid workload before claims.
-    - [ ] Move closed live/hybrid workload evidence and unsupported modes to the ledger after
+    - [x] Move scoped live/hybrid fixture evidence and unsupported production modes to the ledger
+      while keeping production streaming/runtime gaps open.
+    - [ ] Move production live/hybrid workload evidence and unsupported production modes to the ledger after
       merge.
   - Next outcome: a scoped live/hybrid runtime can be certified without implying exactly-once or
     arbitrary streaming support.
@@ -520,9 +547,16 @@ with a recorded infeasibility reason, not merely because they are broad.
     `docs/architecture/scale-readiness-contract.md`, Foundry proof docs, and release/package
     readiness gates.
   - Current state: Foundry support is local/dev-stack proof and optional integration posture only.
-    There is no real Foundry Code Repository package/import proof, transform wrapper, dataset
-    source/sink certificate, Artifact Repository publication proof, Compute Module runtime, or
-    production Foundry evidence dataset output.
+    Existing scoped evidence includes the RFC 0036 maturity ladder, package/proof boundary matrix,
+    `scripts/foundry_proof_of_use.py`, `examples/foundry-lightweight-transform/`, the local
+    dev-stack starter kit, local Foundry-style result/evidence dataset output, the
+    `shardloom.foundry_generated_output_fanout_posture.v1` and
+    `shardloom.foundry_generated_output_boundary.v1` reports, and Python
+    `ctx.foundry_generated_output(...)` support for local dataset-shaped paths. Real
+    `foundry://...` targets still return deterministic unsupported diagnostics before staging rows.
+    There is no real Foundry Code Repository package/import proof, real platform transform wrapper,
+    dataset source/sink certificate, Artifact Repository publication proof, Compute Module runtime,
+    or production Foundry evidence dataset output.
   - Intake review: accepted as a v1 candidate if real Foundry environment proof is available.
     Include a scoped Foundry integration pack in v1 if package/import, transform, dataset
     source/sink, governance, and no-fallback evidence can close; otherwise defer only because the
@@ -533,6 +567,20 @@ with a recorded infeasibility reason, not merely because they are broad.
     transform/task coalescing only with real platform evidence, metadata-first lineage/governance
     checks, and strict separation of Foundry platform handles from ShardLoom execution.
   - Execution checklist:
+    - [x] Define the optional Foundry integration posture, RFC 0036 maturity ladder, and
+      package/proof boundary matrix without making Foundry a core runtime dependency.
+    - [x] Implement local Foundry-style proof-of-use evidence that resolves the ShardLoom CLI,
+      exercises source-free generated output plus a staged local CSV transform, writes local
+      certificate/metrics artifacts, and records local Foundry-style result/evidence dataset output
+      without invoking Foundry services.
+    - [x] Emit local proof boundaries for generated-output fanout, real Foundry output APIs,
+      scale-proof readiness, package-proof readiness, direct S3/object-store writes, Foundry Spark,
+      external compute, fallback execution, and public Foundry claims.
+    - [x] Expose Python `ctx.foundry_generated_output(...)` and generated-output capability rows as
+      local dataset-shaped smoke support while keeping real `foundry://...` platform targets
+      blocked with deterministic diagnostics.
+    - [x] Move scoped local/dev-stack Foundry proof evidence and unsupported real platform claims
+      to the ledger while keeping production Foundry gaps open.
     - [ ] Define `shardloom-foundry` package boundary, install/import/CLI resolution, and version
       compatibility inside real Foundry Code Repositories.
     - [ ] Implement transform wrapper that records Foundry execution context, build mode,
@@ -546,7 +594,7 @@ with a recorded infeasibility reason, not merely because they are broad.
       certificate-backed.
     - [ ] Test in real Foundry environment with evidence datasets and deterministic blocked
       diagnostics for unsupported transforms/connectors.
-    - [ ] Move closed Foundry workload evidence and deferred platform claims to the ledger after
+    - [ ] Move real Foundry workload evidence and deferred platform claims to the ledger after
       merge.
   - Next outcome: Foundry integration moves from local proof posture to a scoped platform
     integration pack with real package/runtime evidence.

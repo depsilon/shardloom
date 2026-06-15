@@ -27,6 +27,12 @@ The scoped local metadata smoke is `LocalTableMetadataReadSmokeReport`, exposed 
 shardloom local-table-metadata-read-smoke --format json
 ```
 
+The scoped source-reviewed Iceberg metadata JSON smoke is exposed through:
+
+```powershell
+shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] --format json
+```
+
 The scoped local delete/tombstone smoke is `LocalDeleteTombstoneReadSmokeReport`, exposed through:
 
 ```powershell
@@ -66,6 +72,10 @@ shardloom local-table-commit-recovery-smoke <local-committed-manifest-path> --pr
       `CatalogMetadataIntegrationGateReport` before enabling runtime metadata access.
 - [x] Support one in-memory local manifest-backed table metadata read smoke through
       `LocalTableMetadataReadSmokeReport`.
+- [x] Support one source-reviewed local Iceberg table metadata JSON read smoke with current,
+      explicit snapshot-id, and as-of timestamp snapshot selection while leaving catalog,
+      object-store, manifest-list, manifest, data-file, delete-file, write/commit, production, and
+      performance paths blocked.
 - [x] Support one in-memory local manifest-backed delete/tombstone read smoke through
       `LocalDeleteTombstoneReadSmokeReport`.
 - [x] Support one in-memory local append-only CDC overlay smoke through
@@ -80,7 +90,9 @@ shardloom local-table-commit-recovery-smoke <local-committed-manifest-path> --pr
 Out of scope until promoted GAR slices complete:
 
 - Broader catalog/table metadata reads are carried by later GAR slices after the completed
-  `GAR-0020-A` admission gate and `GAR-0020-C` local metadata smoke.
+  `GAR-0020-A` admission gate, `GAR-0020-C` local metadata smoke, and scoped `PROD-READY-1C`
+  Iceberg metadata JSON smoke. The Iceberg smoke reads one local metadata JSON file and does not
+  read manifest lists, manifests, data files, object stores, or catalogs.
 - Broad delete/tombstone runtime beyond the completed `GAR-0020-D` local fixture smoke, CDC
   execution beyond the completed `GAR-0020-E` append-only overlay smoke, broad compaction writes,
   broad table data I/O, object-store I/O, lakehouse/catalog commits, and table-format runtime
@@ -267,6 +279,40 @@ metadata, execute CDC/delete/tombstone behavior, certify lakehouse/object-store/
 support production SQL/DataFrame/table/catalog claims. The CG-9 metadata gate therefore continues to
 report `table_metadata_read_allowed=false` for broad runtime promotion while exposing the scoped
 smoke command and report refs.
+
+## Iceberg Metadata JSON Read Smoke
+
+`PROD-READY-1C` adds `shardloom.iceberg_metadata_read_smoke.v1` as the first source-reviewed
+external table-profile implementation. It reads one local Apache Iceberg table metadata JSON file,
+selects the current snapshot by default, supports explicit `--snapshot-id`, and supports
+`--as-of-timestamp-ms` selection by choosing the latest snapshot at or before the requested
+timestamp.
+
+The smoke reports:
+
+- `support_status=runtime_supported` when the metadata JSON uses admitted metadata-only semantics.
+- `claim_gate_status=scoped_iceberg_metadata_json_smoke_only`.
+- `source_protocol=apache_iceberg_table_metadata`.
+- `local_metadata_json_read_performed=true`.
+- `table_metadata_read_performed=true`.
+- `snapshot_selection_performed=true`.
+- `time_travel_selection_performed=true|false` depending on selector.
+- `manifest_list_ref_count`.
+- `metadata_summary_digest=fnv1a64:*`.
+- `fallback_attempted=false`.
+- `fallback_execution_allowed=false`.
+- `external_engine_invoked=false`.
+
+It also emits deterministic blockers for external catalog resolution, remote object-store metadata
+reads, manifest-list reads, manifest-file reads, data-file scans, delete-file semantics,
+table write/commit paths, broad Iceberg runtime, Delta/Hudi runtime, and production lakehouse
+claims. If the selected snapshot advertises delete-file summary counts, the command returns an
+unsupported envelope with `unsupported_feature_order=delete_files_present` instead of silently
+ignoring deletes.
+
+This smoke does not certify Iceberg table scans, manifest parsing, delete-file execution,
+object-store tables, external catalogs, writes/commits, production lakehouse support, or
+performance.
 
 ## Local Delete/Tombstone Read Smoke
 

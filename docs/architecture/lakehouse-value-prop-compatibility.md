@@ -40,7 +40,9 @@ This matrix provides a planning and diagnostics contract so contributors can rea
 
 ## Non-goals
 
-- Implementing Iceberg/Delta/Hudi readers or writers.
+- Implementing Iceberg/Delta/Hudi data readers or writers. The only current external table-profile
+  implementation is the scoped local Iceberg metadata JSON smoke documented in
+  `docs/architecture/table-intelligence-layer.md`.
 - Implementing object-store IO.
 - Implementing execution or planner/runtime behavior.
 - Implementing commit protocols or transaction coordinators.

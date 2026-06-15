@@ -1,17 +1,17 @@
 ---
 title: "Table/lakehouse boundary"
-description: "Iceberg, Delta, and Hudi table metadata/runtime/commit support are distinct gated claims."
+description: "ShardLoom can read local Iceberg metadata JSON for snapshot selection, but manifest lists, table scans, writes, and lakehouse runtime remain gated."
 sidebar: {"label":"Table/lakehouse boundary"}
 ---
 
 
-<span class="status-chip status-blocked">blocked</span>
+<span class="status-chip status-smoke-supported">smoke_supported</span>
 
-Iceberg, Delta, and Hudi table metadata/runtime/commit support are distinct gated claims.
+ShardLoom can read local Iceberg metadata JSON for snapshot selection, but manifest lists, table scans, writes, and lakehouse runtime remain gated.
 
 ## Plain-English Meaning
 
-Iceberg, Delta, and Hudi table metadata/runtime/commit support are distinct gated claims.
+ShardLoom can read local Iceberg metadata JSON for snapshot selection, but manifest lists, table scans, writes, and lakehouse runtime remain gated.
 
 ## Why It Matters
 
@@ -19,17 +19,21 @@ This concept helps users understand how ShardLoom separates source admission, Vo
 
 ## How ShardLoom Uses It
 
-- Route: `Future table route`
+- Route: `Scoped Iceberg metadata JSON smoke; future table route`
 - Category: Platform Boundaries
 
 ## Current Support
 
-Status: `blocked`
+Status: `smoke_supported`
 
 ## Evidence Fields
 
 - `table_format_involved`
 - `table_snapshot_id`
+- `iceberg_metadata_read_smoke_status`
+- `snapshot_selection_performed`
+- `manifest_list_read_performed=false`
+- `data_file_read_performed=false`
 - `output_commit_status`
 
 ## What It Does Not Claim

@@ -86,7 +86,7 @@ exact route and evidence terms.
 ## Platform Boundaries
 
 - [Object-store boundary](/field-guide/object-store-boundary/) - S3/GCS/ADLS now have a public no-credential fixture read smoke, while live provider runtime remains separately blocked.
-- [Table/lakehouse boundary](/field-guide/table-lakehouse-boundary/) - Iceberg, Delta, and Hudi table metadata/runtime/commit support are distinct gated claims.
+- [Table/lakehouse boundary](/field-guide/table-lakehouse-boundary/) - ShardLoom can read local Iceberg metadata JSON for snapshot selection, but manifest lists, table scans, writes, and lakehouse runtime remain gated.
 - [Foundry boundary](/field-guide/foundry-boundary/) - Local/dev-stack Foundry proof posture without production Foundry runtime or Spark substitution claims.
 
 ## Unsupported Diagnostics

@@ -670,12 +670,16 @@
     "slug": "table-lakehouse-boundary",
     "title": "Table/lakehouse boundary",
     "category": "Platform Boundaries",
-    "status": "blocked",
-    "summary": "Iceberg, Delta, and Hudi table metadata/runtime/commit support are distinct gated claims.",
-    "route": "Future table route",
+    "status": "smoke_supported",
+    "summary": "ShardLoom can read local Iceberg metadata JSON for snapshot selection, but manifest lists, table scans, writes, and lakehouse runtime remain gated.",
+    "route": "Scoped Iceberg metadata JSON smoke; future table route",
     "evidence_fields": [
       "table_format_involved",
       "table_snapshot_id",
+      "iceberg_metadata_read_smoke_status",
+      "snapshot_selection_performed",
+      "manifest_list_read_performed=false",
+      "data_file_read_performed=false",
       "output_commit_status"
     ],
     "related_use_cases": [
