@@ -83,6 +83,7 @@ BENCHMARK_PUBLICATION_CONTROL_PLANE_REFS = {
     "python/tests/test_release_scripts.py",
     "scripts/check_benchmark_publication_claim_gate.py",
     "scripts/promote_benchmark_artifact.py",
+    "website-src/scripts/sync-content.mjs",
 }
 DEFAULT_MAX_AGE_DAYS = 14
 FUTURE_CLOCK_SKEW = timedelta(minutes=5)

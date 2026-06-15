@@ -188,6 +188,18 @@ def locate_binary(repo_root: Path, explicit: Path | None) -> Path:
     return (target_root / "debug" / f"shardloom{suffix}").resolve()
 
 
+def ensure_binary_executable(binary: Path) -> tuple[bool, str | None]:
+    if os.name == "nt" or not binary.exists() or not binary.is_file():
+        return False, None
+    if os.access(binary, os.X_OK):
+        return False, None
+    try:
+        binary.chmod(binary.stat().st_mode | 0o111)
+    except OSError as error:
+        return False, f"failed to mark shardloom binary executable: {error}"
+    return True, None
+
+
 def ensure_binary(
     repo_root: Path,
     *,
@@ -197,12 +209,15 @@ def ensure_binary(
     explicit_binary: bool,
 ) -> tuple[dict[str, Any], list[str]]:
     if binary.exists() and (skip_build or explicit_binary):
+        normalized, executable_blocker = ensure_binary_executable(binary)
+        blockers = [executable_blocker] if executable_blocker else []
         return {
             "command": "reused explicit/existing shardloom binary",
-            "status": "passed",
+            "status": "passed" if not blockers else "failed",
             "binary_ref": rel(repo_root, binary),
-            "blockers": [],
-        }, []
+            "binary_executable_permission_normalized": normalized,
+            "blockers": blockers,
+        }, blockers
     if skip_build:
         blocker = f"binary missing and --skip-build was set: {rel(repo_root, binary)}"
         return {
@@ -226,10 +241,16 @@ def ensure_binary(
         blockers.append("failed to build shardloom CLI for v1 local resource safety")
     if not binary.exists():
         blockers.append(f"built binary missing: {rel(repo_root, binary)}")
+    normalized = False
+    if binary.exists():
+        normalized, executable_blocker = ensure_binary_executable(binary)
+        if executable_blocker:
+            blockers.append(executable_blocker)
     result.update(
         {
             "status": "passed" if not blockers else "failed",
             "binary_ref": rel(repo_root, binary),
+            "binary_executable_permission_normalized": normalized,
             "blockers": blockers,
         }
     )

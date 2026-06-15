@@ -177,554 +177,75 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
-### Finished Product v1 Required Work
+### v1 Local Closeout Status
 
-These items are the reviewed intake from the attached production-shift list dated June 13, 2026.
-They are ordered as runtime/product closure first, API/schema stability second, release/package
-channels near the end, and public-language cleanup throughout. Already-addressed rows remain
-referenced in the completed ledger or existing release gates. Broad platform/runtime ambitions
-should be included in v1 when they can be made real, safe, and evidence-backed; defer them only
-with a recorded infeasibility reason, not merely because they are broad.
+No unchecked autonomous local implementation item remains after the June 15, 2026 closeout. The
+v1-local surface is current for no-publication release validation, generated docs/website output,
+Python/package smoke evidence, and the committed full-local benchmark artifact. Public release,
+package-channel, production cloud/object-store, production lakehouse, production distributed,
+production live/hybrid, and real Foundry claims remain fail-closed until maintainers provide the
+external approvals and real service environments listed below.
 
-- [ ] `PROD-V1-5A` Package-channel readiness and finished-product hard gate.
-  - Source: attached production-shift review sections 16 and 17; RFC 0024;
-    `docs/release/package-channel-readiness-matrix.json`;
-    `scripts/check_release_readiness.py`; final release rehearsal and hard release gates.
-  - Current state: package-channel matrices and hard release readiness exist, but public
-    publication is blocked. v1 needs a final finished-product readiness aggregator that consumes
-    runtime, schema, security, package, docs, benchmark, and approval evidence and fails closed
-    without `--allow-blocked` for public release tags.
-  - Intake review: accepted package/release channel order and finished-product gate; retain current
-    package-channel evidence requirements and mark channels not included in v1 as
-    `not_in_v1_scope` only after feasibility review records why they cannot be included.
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: control-plane applicable. The finished-product gate must consume
-    timing/evidence surface fields and require runtime support rows to have documented
-    dynamic/capillary/PulseWeave decisions where applicable; package publication itself should not
-    introduce runtime shortcuts.
-  - Execution checklist:
-    - [x] Ensure public package publication is blocked until v1 runtime scope, API/schema gate,
-      security/provenance, docs, and release validation are ready.
-    - [x] Add a workspace Rust/Vortex version-source contract so Rust MSRV derives from root
-      `[workspace.package].rust-version`, upstream Vortex evidence derives from root
-      `[workspace.dependencies].vortex`, and CI/release/benchmark surfaces reuse the shared
-      manifest-derived helper rather than duplicating current-version literals; local shell docs
-      must use `scripts/write_ci_version_env.py --format powershell | Invoke-Expression` or the
-      equivalent POSIX/JSON exporter instead of pinning Rust or Vortex versions.
-    - [x] Record and machine-check package identities: Python package `shardloom`, current
-      workspace Rust crates unpublished, and crates.io limited to future stable public
-      protocol/client crates until separate API/schema and maintainer approval exists.
-    - [x] Implement local GitHub pre-release artifact staging: source archive, CLI binaries, wheel,
-      sdist, checksums, SBOM, provenance, release notes, and an asset manifest are generated as
-      no-publication dry-run evidence while approved tags/releases/uploads remain blocked.
-    - [ ] Add TestPyPI upload, clean install, uninstall, and smoke proof before PyPI proof.
-      - [x] Prepare fail-closed TestPyPI/PyPI registry proof tooling and validators that can
-        verify a previously uploaded package through clean install, no-fallback client smoke, and
-        uninstall without performing publication.
-      - [x] Gate PyPI Trusted Publisher workflow dispatch on a prior TestPyPI proof reference.
-      - [ ] After explicit maintainer approval and TestPyPI Trusted Publisher setup, run the
-        TestPyPI upload and attach the registry install/uninstall/smoke transcript.
-    - [ ] Add PyPI clean install, uninstall, and smoke proof only after TestPyPI passes and
-      approval exists.
-    - [x] Review Homebrew, Scoop, winget, conda-forge, and GHCR for v1 feasibility; include any
-      feasible channel with real artifacts/proof and mark `not_in_v1_scope` only with a recorded
-      reason.
-    - [ ] Update package-channel matrix row by row with install/uninstall transcript, clean
-      environment proof, smoke proof, SBOM, checksum, provenance, rollback/yank/delete/deprecate
-      policy, authorization proof, and maintainer approval for every ready channel.
-    - [ ] Change `python/pyproject.toml` development classifier only after public package
-      readiness is real.
-    - [x] Add `scripts/check_finished_product_readiness.py` consuming production usability, hard
-      release readiness, package-channel readiness, API/schema stability, per-claim evidence,
-      security, dependency audit, SBOM/checksum/provenance, golden workflows, admitted semantics,
-      website readiness, docs-example proof, and CI matrix reports.
-    - [x] Integrate the finished-product gate into release-readiness CI and expose
-      `--require-public-release-ready` for future public release/tag commands; the gate has no
-      `--allow-blocked` bypass.
-    - [x] Add final release approval artifact and post-release verification for package install,
-      first-10-minutes, golden workflow, no-fallback smoke, docs links, and website support matrix.
-    - [ ] Move finished-product gate and package-channel closeout to the completed ledger.
-  - Next outcome: release/package publication has one final fail-closed gate and channel-specific
-    proof requirements.
-  - User-visible surface: release commands, package channels, package metadata, release notes,
-    release readiness reports, website publication, docs.
-  - Implementation scope: release scripts, package-channel matrices, CI/release workflows,
-    package artifacts, docs, tests, and post-release verification scripts.
-  - Evidence required: finished-product readiness report, package-channel reports,
-    SBOM/checksum/provenance, TestPyPI/PyPI transcripts, install/uninstall/smoke proofs,
-    approval artifact, and post-release verification.
-  - Acceptance: public release cannot proceed with blocked v1 runtime rows, failing docs examples,
-    missing schema fixtures, missing package proof, unsupported public claims, fallback execution,
-    or missing approval; deferred rows pass only with explicit out-of-v1 scope and deterministic
-    blockers.
-  - Verification: finished-product readiness gate, hard release readiness without `--allow-blocked`
-    for release tags, package-channel readiness, release validation evidence, docs/site validation,
-    CI required checks, and post-release verification after publication approval.
-  - Non-goals: no publication without human approval, no release tag creation during planning, no
-    package-channel claim from local dry-run evidence only.
-  - Claim boundary: may claim only that the final gate exists until all package/release evidence
-    and approval pass.
-  - Fallback boundary: package smoke and release verification must assert
-    `fallback_attempted=false` and `external_engine_invoked=false` for ShardLoom runtime paths.
-  - Ledger rule: ledger entry must include gate inputs, channel rows, approval refs, package
-    evidence artifacts, and post-release verification outcomes.
+- [x] `PROD-V1-5A-LOCAL` Local finished-product gate, package-channel matrix, hard-release gate,
+  release rehearsal, release boundary, security/dependency/provenance, and final approval/post
+  release verification scripts exist and pass in no-publication mode. Public package/release claims
+  remain blocked by package-channel approval/proof, publication/API/schema approval, and per-claim
+  evidence promotion.
+- [x] `PROD-READY-1B-LOCAL` Object-store v1 candidate local scope is closed with provider
+  abstraction, credential/redaction/no-probe policy, local-emulator/public-fixture read evidence,
+  scoped staged write/sidecar commit/recovery evidence, Native I/O certificates, and explicit
+  absence fields for approved real backends and production claims.
+- [x] `PROD-READY-1C-LOCAL` Table/lakehouse v1 candidate local scope is closed with ShardLoom-owned
+  local-manifest metadata/read/append rehearsal, Iceberg metadata/manifest/split/read evidence,
+  Delta/Hudi metadata readers, source-spec review refs, local translation/no-loss reporting, and
+  explicit blocked diagnostics for protocol writes, remote catalogs, delete semantics, and
+  production table claims.
+- [x] `PROD-READY-1D-LOCAL` Distributed v1 candidate local scope is closed with scoped in-process
+  coordinator/worker fixture runtime, capillary split units, PulseWeave attempt graph evidence,
+  local repartition/combine/merge, skew/backpressure evidence, fault-injection cases, Python
+  wrappers, execution certificates, and explicit blocked diagnostics for remote/multi-host claims.
+- [x] `PROD-READY-1E-LOCAL` Live/hybrid v1 candidate local scope is closed with bounded
+  in-memory/live/hybrid fixtures, local durable checkpoint/changelog/state-store/microsegment/cold
+  promotion manifests, restore/replay/partial-checkpoint evidence, Python wrappers, certificates,
+  and explicit blocked diagnostics for broker, exactly-once, object-store/catalog checkpoint, and
+  production streaming claims.
+- [x] `PROD-READY-1G-LOCAL` Foundry v1 candidate local scope is closed with optional integration
+  posture, local dev-stack proof-of-use, generated-output result/evidence dataset-shaped paths,
+  Python `foundry_generated_output(...)`, and explicit blocked diagnostics for real `foundry://`,
+  Artifact Repository, Compute Module, Spark/platform compute, and production Foundry claims.
+- [x] `BENCH-FRESH-2026-06-15` The full-local benchmark bundle was rerun and promoted into
+  `website/assets/benchmarks/latest/manifest.json`. The manifest is the source of truth for
+  `benchmark_git_sha`, `generated_at_utc`, chunk refs, and row admission evidence. The promoted
+  bundle has 1,920 admitted published rows, 1,200 successful ShardLoom rows, 600 hot-runtime rows,
+  600 publication-proof rows, zero blocked/unsupported ShardLoom rows, and
+  `performance_claim_allowed=false`.
 
-### Open Work Checklist
+### External Approval And Environment Gates
 
-#### Production Readiness / Release Track
+These are not autonomous local implementation items. Promote one back into `## Planned` only after
+the required external approval, credential, publication channel, or real service environment is
+available and the item can be implemented and validated without weakening no-fallback policy.
 
-- [ ] `PROD-READY-1B` Object-store runtime production path.
-  - Source: attached Object-Store Runtime review, `docs/architecture/scale-readiness-contract.md`,
-    RFC 0017, RFC 0014, `docs/skills/object-store-runtime.md`, and object-store readiness gates.
-  - Current state: `docs/release/production-certification-workloads.json` now declares the scoped
-    `object_store_local_emulator_runtime_v1_candidate` profile with local-emulator fixture evidence,
-    public no-credential URI-shape evidence, scoped read/write/recovery request and byte counters,
-    fixture digest validation, local sidecar commit-manifest recovery evidence, provider-admission
-    evidence, and deterministic blockers for live S3/GCS/ADLS, credentialed access, table commits,
-    distributed runtime, production backpressure, and claim-grade benchmarks.
-    The object-store runtime promotion gate also exposes explicit approved-real-backend absence
-    fields: `approved_real_backend_profile_declared=false`,
-    `approved_real_backend_profile_status=missing_approved_real_backend_profile`,
-    `production_object_store_native_io_certificate_present=false`, and
-    `production_object_store_claim_allowed=false`.
-  - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
-    object-store workload/backend in v1 if emulator plus approved real-backend proof, credential
-    safety, bounded streaming, commit/cleanup, and certificate evidence can close; otherwise
-    narrow or defer only with a concrete feasibility reason.
-  - V1 scope classification: `v1_candidate_pending_feasibility`.
-  - ShardLoom technique review: strongly applicable. Object-store work should use capillary split
-    windows, dynamic request coalescing/prefetch/backpressure admission, PulseWeave task-graph
-    control for bounded in-flight work, metadata-first listing/statistics decisions, and explicit
-    hot-runtime versus proof/commit timing surfaces.
-  - Execution checklist:
-    - [x] Define the first supported object-store workload/environment and review each other
-      scheme/backend for v1 feasibility before deferring it.
-    - [x] Implement provider abstraction for selected schemes with credential policy, redaction,
-      request signing boundary, and no-probe defaults for explain/estimate/doctor/capabilities.
-    - [x] Add scoped local-emulator/public-fixture single-object listing, fixture-derived
-      object version/ETag posture, requested-byte digest validation, byte-range/full-object read,
-      single-request coalescing/prefetch posture, single-attempt retry/rate-limit posture, and
-      bounded fixture read-budget evidence.
-    - [ ] Extend listing, object version/ETag capture, checksum validation, request coalescing,
-      prefetch, retry/backoff, rate-limit handling, and bounded streaming reads to the approved
-      real backend profile before any production claim.
-    - [x] Add scoped local-emulator single-object staged writes, sidecar commit protocol,
-      rollback/cleanup, idempotency keys, recovery replay/mismatch diagnostics, non-multipart
-      posture, and ambiguous-commit evidence fields.
-    - [x] Add machine-readable real-backend absence fields so local-emulator/public-fixture
-      evidence cannot be mistaken for production S3/GCS/ADLS runtime support.
-    - [ ] Extend staged/multipart writes, commit protocol, rollback/cleanup, idempotency keys, and
-      ambiguous commit diagnostics to the approved real backend profile before any production
-      claim.
-    - [x] Emit scoped object-store Native I/O certificates with request counts, bytes
-      requested/read/written, retry attempts, cache hits, credential posture, and no-fallback
-      fields for the local-emulator and public no-credential fixture profiles.
-    - [ ] Emit production object-store Native I/O certificates after approved backend, cache,
-      streaming/backpressure, and retry evidence exists.
-    - [ ] Test against a local emulator and one approved real backend profile before any
-      production claim.
-    - [ ] Move closed object-store workload evidence and deferred backend scope to the ledger after
-      merge.
-  - Next outcome: object-store support advances from report-only ladder to a declared,
-    certificate-backed runtime path for one scoped environment.
-  - User-visible surface: CLI/Python object-store reads/writes, diagnostics, capability reports,
-    release readiness, docs, and benchmark scale profiles.
-  - Implementation scope: object-store runtime, credential/redaction policy, retry/backoff,
-    streaming read/write paths, commit/rollback evidence, tests, and release validators.
-  - Evidence required: local emulator tests, approved backend proof, Native I/O certificates,
-    request/byte/retry counters, fault-injection tests, cleanup evidence, and no-fallback proof.
-  - Acceptance: selected object-store workload can read/write with bounded memory and deterministic
-    failure/cleanup behavior; unsupported backends/effects remain blocked before credential or
-    network access.
-  - Verification: object-store smoke/integration tests, credential redaction tests, fault-injection
-    tests, release validators, and benchmark profile evidence before claims.
-  - Non-goals: no table semantics, no distributed runtime, no hidden local-file mirroring claim,
-    no broad multi-cloud production claim from one backend.
-  - Claim boundary: may claim only the declared backend/workload profile with evidence.
-  - Fallback boundary: object-store runtime must not use external query engines or platform compute
-    as execution fallback.
-  - Ledger rule: ledger entry must capture backend profile, credential policy, fault cases,
-    certificate artifacts, and unsupported backends.
-- [ ] `PROD-READY-1C` Lakehouse/table runtime production path.
-  - Source: attached Lakehouse/Table Runtime review, `docs/architecture/scale-readiness-contract.md`,
-    `docs/skills/translation-layer.md`, universal input/output contracts,
-    `docs/architecture/table-protocol-source-review.md`, and primary table protocol specs.
-  - Current state: external table metadata/reporting is separate from production table runtime.
-    Scoped ShardLoom-owned `local-manifest` fixture evidence now covers in-memory metadata read,
-    snapshot/manifest summary, local append commit rehearsal, optional if-match conflict detection
-    before local artifact overwrite, rollback cleanup, sidecar recovery replay/mismatch
-    diagnostics, request/byte/retry/boundedness evidence, and explicit native
-    table-translation/no metadata/statistics/layout loss posture. The first source-reviewed
-    external profile also has a
-    scoped local Iceberg table metadata JSON read smoke through `iceberg-metadata-read-smoke`: it
-    reads one local metadata JSON file, selects the current, explicit, or as-of timestamp snapshot,
-    reports schema/partition/sort/snapshot/manifest-list references, and blocks delete-file
-    semantics with deterministic no-fallback diagnostics. The same command now also supports an
-    explicitly requested, feature-gated local Avro manifest-list summary read through
-    `--manifest-list` when `universal-format-io` is enabled. That manifest-list path reports
-    manifest summary pruning, manifest-level split counts, data/delete/unknown manifest counts, and
-    delete-manifest blockers. The same command also supports an explicitly requested, feature-gated
-    local Avro manifest-file split-plan read through `--manifest`, reporting data-file split counts,
-    bytes, record counts, and deleted/delete/unknown entry blockers without scanning data files. It
-    now also performs metadata-level schema evolution comparison by Iceberg field IDs, partition
-    evolution comparison by partition field IDs/spec IDs, manifest partition-spec ID admission, and
-    delete admission classification for position deletes, equality deletes, deletion-vector-shaped
-    entries, deleted data-file entries, and delete manifests. Safe ID-based schema/partition
-    evolution is admitted only as metadata/split-planning evidence; projection/filter execution,
-    delete application, and Puffin/deletion-vector reads remain blocked. The same command now
-    lowers admitted planned local Parquet data-file splits into an explicit
-    `--execute-data-file-scan` path when `universal-format-io` is enabled, using ShardLoom's
-    compatibility-source columnar Parquet adapter with schema projection, row/batch/byte evidence,
-    Native I/O/execution certificate refs, and deterministic blockers for remote paths,
-    non-Parquet files, delete semantics, and unsafe evolution. That does not imply broad Iceberg
-    table runtime, external catalog/runtime, object-store table scan/commit, write semantics,
-    distributed, production, or performance support. Scoped Delta/Hudi metadata readers now exist
-    through `delta-log-metadata-read-smoke` and `hudi-timeline-metadata-read-smoke`: they
-    read one local Delta transaction log JSON file or one local Hudi timeline directory plus
-    optional local metadata-table summary JSON, emit source-review, dependency-boundary,
-    no-fallback, and unsupported-feature diagnostics, and fail closed for checkpoint replay,
-    table-feature/deletion-vector/remove/CDC Delta semantics, pending/table-service/log-merge Hudi
-    semantics, and production lakehouse claims. Current source-reviewed external candidates are
-    Iceberg table metadata, Iceberg REST, Delta transaction logs, Hudi timeline/metadata, Nessie,
-    Polaris, and Gravitino; Glue-like and Hive-like catalog profiles are not selected for the first
-    external candidate and still require separate source/profile review before implementation.
-  - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
-    table protocol/workload in v1 if source-checked specs, scan semantics, write/commit scope,
-    rollback/recovery, conflict handling, and no-fallback evidence can close; otherwise narrow or
-    defer with a concrete feasibility reason.
-  - V1 scope classification: `v1_candidate_pending_feasibility`.
-  - ShardLoom technique review: applicable after source-spec review. Table work should consider
-    metadata-first snapshot/manifest pruning, capillary split/manifests for bounded scans and
-    commits, dynamic admission for delete/schema/evolution features, and PulseWeave-style
-    coordination only where it improves ShardLoom-native task/retry/commit evidence.
-  - Execution checklist:
-    - [x] Select the first scoped table workload profile:
-      `local_manifest_table_runtime_v1_candidate`, a ShardLoom-owned local-manifest fixture
-      profile; Iceberg, Delta, Hudi, external catalogs, object-store tables, and mutation
-      semantics remain blocked until their source-spec and runtime evidence exists.
-    - [x] Implement scoped local-manifest metadata read, snapshot/manifest summary, append commit
-      rehearsal, rollback cleanup, sidecar commit recovery replay/mismatch diagnostics,
-      Native I/O request/byte/retry/boundedness evidence, idempotency evidence, and native
-      table-translation/no-loss posture.
-    - [x] Add scoped local-manifest overwrite-artifact guardrails: optional
-      `--expected-current-manifest-digest`, current-manifest digest observation before write,
-      deterministic conflict blockers before overwrite, commit-record evidence, and no-fallback
-      tests for matched and stale if-match digests.
-    - [x] Expand scoped local-manifest table translation evidence to explicit
-      metadata/statistics/layout loss fields so native fixture commits cannot be mistaken for lossy
-      compatibility output.
-    - [x] Source-check current primary external protocol specs before external implementation:
-      Iceberg, Delta, Hudi, Iceberg REST, Nessie, Polaris, and Gravitino-style APIs. Glue-like and
-      Hive-like catalog profiles are not selected for the first external candidate and require
-      separate source/profile review before implementation.
-    - [x] Implement the first selected external profile as a scoped local Iceberg metadata JSON
-      reader with current snapshot, explicit snapshot-id, and as-of timestamp selection, metadata
-      summary digest, source-review refs, dependency boundary fields, and deterministic blockers for
-      catalog, object-store, manifest-list, manifest, data-file, delete-file, write/commit, broad
-      Iceberg, Delta/Hudi, production, performance, fallback, and external-engine paths.
-    - [x] Extend the selected Iceberg profile to a scoped, explicitly requested local Avro
-      manifest-list summary read when `universal-format-io` is enabled, with manifest-summary
-      pruning evidence, manifest-level split planning counts, delete/unknown manifest blockers, and
-      deterministic default-build feature-disabled diagnostics.
-    - [x] Extend from manifest-list summary into scoped local Iceberg manifest-file parsing and
-      data-file split planning with no-fallback diagnostics for deleted, delete-file, unknown
-      content, and unknown-status entries.
-    - [x] Implement metadata-level schema/partition evolution semantics beyond visibility:
-      field-ID schema comparison, partition field/spec-ID comparison, manifest partition-spec
-      admission, safe metadata-only evolution status, and fail-closed blockers for projection or
-      filter semantics that are not admitted.
-    - [x] Implement delete/tombstone/deletion-vector admission beyond summary/count blockers:
-      position-delete, equality-delete, deletion-vector-shaped, deleted data-file, delete-manifest,
-      and unknown-content classifiers with deterministic no-fallback blockers.
-    - [x] Implement scoped Delta log and Hudi timeline/metadata readers after source-profile
-      narrowing: local JSON/timeline metadata only, deterministic blockers for checkpoint replay,
-      table-feature/deletion-vector/remove/CDC Delta semantics, pending/table-service/log-merge Hudi
-      semantics, catalog/object-store/write/runtime paths, and no-fallback evidence.
-    - [x] Lower planned Iceberg data-file splits into ShardLoom-native scan execution as a scoped
-      ShardLoom-owned local Parquet scan with schema projection, compatibility-source
-      materialization-boundary evidence, Native I/O/execution certificate refs, and deterministic
-      unsupported diagnostics for unadmitted table features.
-    - [ ] Promote protocol-specific Iceberg/Delta/Hudi append/overwrite writes only after
-      source-spec write semantics, transaction state, recovery, conflict, and no-fallback evidence
-      exists.
-    - [ ] Keep merge/update/delete blocked until row identity, delete/tombstone application,
-      correctness, conflict, rollback, and recovery evidence exists.
-    - [ ] Add protocol-specific optimistic concurrency/conflict handling, commit/rollback/recovery
-      evidence, and TranslationReport coverage for metadata/statistics/layout loss beyond the
-      scoped ShardLoom local-manifest fixture.
-    - [ ] Move closed table protocol/workload evidence and deferred protocols to the ledger after
-      merge.
-  - Next outcome: table support becomes a scoped runtime path instead of metadata/report-only
-    posture.
-  - User-visible surface: table reads/writes, catalog diagnostics, capability reports, release
-    readiness, docs, and benchmark table profiles.
-  - Implementation scope: table metadata/runtime modules, catalog adapters, scan planning, commit
-    protocol, translation reports, correctness fixtures, and release validators.
-  - Evidence required: protocol conformance tests, scan correctness, write/commit/rollback tests,
-    conflict handling, Native I/O certificates, TranslationReports, and no-fallback proof.
-  - Acceptance: selected table workload can scan and, if in scope, write/commit with explicit
-    semantics; unsupported operations fail before hidden materialization or external execution.
-  - Verification: protocol fixture tests, local table integration tests, object-store tests if
-    remote tables are admitted, release validators, and benchmark evidence for table claims.
-  - Non-goals: no blanket Iceberg/Delta/Hudi support, no Foundry virtual-table claim, no external
-    warehouse/lakehouse engine fallback.
-  - Claim boundary: table claims are protocol/workload-specific and require source-checked specs
-    and runtime evidence.
-  - Fallback boundary: Spark, DataFusion, DuckDB, Polars, Velox, Trino, warehouse engines, and
-    platform compute remain external baselines or handles, never ShardLoom execution.
-  - Ledger rule: ledger entry must include selected protocol, supported operations, deferred
-    semantics, command evidence, and source/spec review refs.
-- [ ] `PROD-READY-1D` Distributed runtime production path.
-  - Source: attached Distributed Runtime review, `docs/architecture/scale-readiness-contract.md`,
-    RFC 0016, RFC 0017, `docs/skills/object-store-runtime.md`, and split/shuffle readiness docs.
-  - Current state: scoped local distributed fixture runtime evidence exists for one deterministic
-    in-process workload through `distributed-local-fixture-run`. The command builds a local split
-    manifest, assigns three capillary split units to one to four local worker slots, records
-    coordinator/worker leases, heartbeats, task attempts, retry/duplicate/stale-lease/cancellation
-    cleanup evidence, emits result fragments, performs scoped local hash repartition, split-local
-    combine, deterministic global merge, skew detection/handling, and bounded memory/backpressure
-    accounting, and attaches execution and Native I/O certificates with no fallback or
-    external-engine execution. This is not a production distributed runtime: no remote worker
-    service, network coordinator, object-store split distribution, remote shuffle, distributed
-    spill/backpressure, multi-host fault injection, multi-worker performance benchmark, or
-    production claim exists. Python client/context wrappers now expose the scoped local
-    distributed fixture so user-surface smoke/UAT can run the same evidence path without bypassing
-    CLI certificates.
-  - Intake review: accepted as a v1 candidate, not default-deferred. Include a local or scoped
-    multi-worker runtime in v1 if coordinator/worker lifecycle, fault cases, deterministic merge,
-    cleanup, and benchmark evidence can close; otherwise narrow to deterministic unsupported
-    diagnostics with a concrete feasibility reason.
-  - V1 scope classification: `v1_candidate_pending_feasibility`.
-  - ShardLoom technique review: strongly applicable. Distributed runtime should be designed around
-    capillary task units, PulseWeave runtime control, dynamic work shaping, metadata-first split
-    pruning, and explicit execution certificates so later optimization does not require reworking
-    the scheduler contract.
-  - Execution checklist:
-    - [x] Define the first scoped distributed workload/environment as
-      `local_distributed_fixture_runtime_v1_candidate`; this is a local multi-split runtime
-      evidence path, not proof that single-node execution is insufficient.
-    - [x] Implement a local in-process coordinator service with worker lifecycle, leases,
-      heartbeats, task attempts, cancellation, cleanup, and deterministic diagnostics.
-    - [x] Execute real local split-manifest units across worker slots with bounded memory, result
-      fragments, idempotency evidence, retries, duplicate-attempt protection, stale-lease
-      rejection, and deterministic merge.
-    - [x] Add scoped local hash repartition strategy, skew detection/handling, local combine/global
-      merge, and bounded memory/backpressure accounting for the in-scope fixture operator.
-    - [ ] Extend shuffle/repartition, skew handling, and spill/backpressure from scoped local
-      fixture evidence to a production remote/distributed workload before any production
-      distributed runtime claim.
-    - [x] Emit distributed execution certificates linking input splits, worker attempts,
-      retries/cancellations, fragments, merge output, and no-fallback evidence.
-    - [x] Expose the scoped local distributed fixture through Python client/context wrappers and
-      user-surface graduation metadata without changing the production distributed claim boundary.
-    - [x] Add scoped local fault-injection tests for retry, duplicate attempt, stale lease,
-      cancellation cleanup, and partial-output non-commit.
-    - [ ] Add production fault-injection tests for worker crash, cleanup failure, remote worker
-      loss, duplicate remote attempts, stale remote leases, distributed spill/backpressure, and
-      multi-host partial results.
-    - [ ] Add benchmark profile proving correctness and multi-worker benefit for the declared
-      workload before any distributed performance claim.
-    - [x] Move scoped local distributed fixture evidence and deferred scale/runtime gaps to the
-      ledger while keeping production distributed runtime gaps open.
-    - [ ] Move production distributed workload evidence and unsupported production scale/runtime
-      gaps to the ledger after merge.
-  - Next outcome: distributed support moves from protocol vocabulary to one certified
-    multi-worker runtime path.
-  - User-visible surface: CLI/API distributed execution, diagnostics, capability reports,
-    benchmark scale profiles, release readiness, and docs.
-  - Implementation scope: coordinator/worker runtime, split scheduler, fragment writer/merger,
-    retry/cancellation/cleanup, shuffle/backpressure, tests, and benchmark harness.
-  - Evidence required: execution certificates, fault-injection results, benchmark evidence,
-    correctness parity, cleanup evidence, and no-fallback proof.
-  - Acceptance: declared distributed workload completes with deterministic fragments/merge and
-    survives fault cases; unsupported distributed shapes fail explicitly.
-  - Verification: unit/integration/fault-injection tests, scale benchmark profile, release
-    validators, and workspace gates.
-  - Non-goals: no distributed claim for every operator, no managed-platform claim, no
-    object-store/table support unless those items are separately closed.
-  - Claim boundary: may claim only declared multi-worker workload/environment with benchmark and
-    fault-tolerance evidence.
-  - Fallback boundary: no Ray/Dask/Spark/Flink/Trino or external distributed engine execution.
-  - Ledger rule: ledger entry must name workload, worker topology, fault cases, benchmark artifacts,
-    and unsupported distributed families.
-- [ ] `PROD-READY-1E` Streaming/live/hybrid runtime production path.
-  - Source: attached Streaming / Live / Hybrid review, RFC 0034, RFC 0017, RFC 0014,
-    optimizer/adaptive execution docs, and live/hybrid capability gates.
-  - Current state: scoped CG-22 fixture runtime evidence exists for deterministic in-memory
-    live and hybrid workloads. `live-change-contract-plan` declares change records,
-    append/upsert/delete/retract/tombstone operations, fixture event-time watermarks, reject-late
-    policy, state TTL, in-memory checkpoint policy, and output changelog modes.
-    `live-fixture-run` executes filter/project/count/count-where/group-count over a bounded
-    in-memory change fixture and emits freshness, state, continuous-view, execution-certificate,
-    Native I/O, no-fallback, and no-external-engine evidence. `hybrid-overlay-run` emits scoped
-    delta-overlay, base/merged snapshot, hot changelog, flush, and certificate evidence.
-    `live-hybrid-state-transition-smoke` emits retry, cancellation, cleanup, partial-output,
-    state-transition, freshness, and state evidence. `live-hybrid-durable-checkpoint-smoke` now
-    writes an explicit caller-provided local checkpoint JSON, changelog JSONL, durable state-store
-    JSON, Vortex microsegment manifest, and cold-promotion manifest, reads them back, verifies
-    checkpoint/state-store/microsegment/cold-manifest digests and active key count, and emits
-    freshness, state, execution-certificate, Native I/O, write-IO, and no-fallback evidence through
-    CLI and Python client/context wrappers. This is not public production streaming: there is no
-    broker, unbounded scheduler, object-store/catalog checkpoint, upstream Vortex file write in the
-    default build, exactly-once claim, external connector, or benchmark performance claim.
-  - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
-    live/hybrid workload in v1 if state, checkpoint, recovery, freshness, output mode, and
-    certificate evidence can close; otherwise narrow or defer with a concrete feasibility reason.
-  - V1 scope classification: `v1_candidate_pending_feasibility`.
-  - ShardLoom technique review: applicable. Live/hybrid work should use capillary micro-segments,
-    dynamic mode/update admission, PulseWeave-style bounded work-in-progress where it preserves
-    recovery semantics, metadata-first state/freshness checks, and separate timing/evidence
-    surfaces for hot update paths versus checkpoint/proof work.
-  - Execution checklist:
-    - [x] Define scoped `EngineMode` semantics for batch/live/hybrid/auto and
-      boundedness/update-mode/output-mode classification in CG-22 planning surfaces.
-    - [x] Implement a scoped in-memory change record model covering append, upsert, delete,
-      retract, tombstone, event time, processing time, fixture watermarks, late-data policy, and
-      deterministic unsupported diagnostics for unadmitted fixture predicates/columns.
-    - [x] Implement scoped in-memory state, changelog, checkpoint-ref, live output, hybrid delta
-      overlay, base/merged snapshot, and tombstone/delete/retract handling for bounded fixture
-      workloads.
-    - [x] Define scoped fixture sink output modes and continuous-view/update evidence.
-    - [x] Emit freshness, state, checkpoint-ref, delta-overlay, execution-certificate,
-      Native I/O, and no-fallback evidence for the scoped live/hybrid fixture paths.
-    - [x] Add recovery/fault evidence for cooperative cancellation, retry, partial-output tracking,
-      cleanup completion, late-data counting, and unsupported predicate/column rejection.
-    - [x] Add a scoped local filesystem checkpoint/changelog fixture for one bounded live/hybrid
-      workload, including deterministic checkpoint payload, changelog payload, readback restore,
-      digest/key-count verification, explicit write-IO reporting, execution and Native I/O
-      certificates, Python client/context wrappers, runs-today support row, and production workload
-      evidence row.
-    - [x] Extend the scoped local filesystem fixture with durable state-store JSON,
-      hot/warm/cold storage evidence, Vortex microsegment manifest persistence, cold-promotion
-      manifest persistence, deletion-vector/tombstone counts, readback digest verification,
-      expanded CLI/Python fields, support-matrix text, and production-workload evidence while
-      keeping upstream Vortex file writes and public production streaming claims blocked.
-    - [x] Add scoped local recovery/fault evidence for partial-checkpoint detection and cleanup,
-      restart restore from local checkpoint/state/microsegment manifests, duplicate replay
-      protection by sequence/idempotency key, CLI/Python fields, support-matrix text, and
-      production-workload evidence while keeping broker replay and exactly-once claims blocked.
-    - [ ] Implement production state store, durable changelog, durable checkpoint/restore,
-      hot/warm/cold storage model, feature-gated upstream Vortex micro-segment file persistence,
-      cold Vortex segment promotion, and deletion-vector/tombstone persistence for an admitted
-      live/hybrid workload beyond the scoped local manifest fixture.
-    - [ ] Add production recovery/fault tests for restart, duplicate records, partial durable
-      checkpoint, durable restore, broker replay, cancellation, cleanup, and idempotent output
-      beyond the scoped local filesystem fixture.
-    - [ ] Add benchmark/profile evidence for declared live/hybrid workload before claims.
-    - [x] Move scoped live/hybrid fixture evidence and unsupported production modes to the ledger
-      while keeping production streaming/runtime gaps open.
-    - [ ] Move production live/hybrid workload evidence and unsupported production modes to the ledger after
-      merge.
-  - Next outcome: a scoped live/hybrid runtime can be certified without implying exactly-once or
-    arbitrary streaming support.
-  - User-visible surface: Python/CLI/API engine-mode selection, diagnostics, capability reports,
-    benchmarks, docs, and release readiness.
-  - Implementation scope: engine-mode runtime, state/checkpoint store, delta overlay, sink output
-    modes, certificates, tests, and benchmark harness.
-  - Evidence required: state/checkpoint/freshness certificates, recovery tests, correctness
-    fixtures, benchmark evidence, and no-fallback proof.
-  - Acceptance: selected live/hybrid workload has deterministic state and recovery behavior;
-    unsupported modes fail explicitly; exactly-once is not claimed unless source/state/sink
-    idempotency evidence exists.
-  - Verification: state/recovery tests, live/hybrid smoke tests, release validators, benchmark
-    profile, and workspace gates.
-  - Non-goals: no arbitrary streaming connectors, no exactly-once claim by default, no external
-    streaming engine fallback.
-  - Claim boundary: may claim only the declared live/hybrid workload and delivery semantics proven
-    by certificates.
-  - Fallback boundary: no Flink/Spark Streaming/Kafka Streams/Ray/Dask or external engine fallback.
-  - Ledger rule: ledger entry must list delivery semantics, state model, recovery cases, benchmark
-    artifacts, and unsupported modes.
-- [ ] `PROD-READY-1G` Foundry integration production pack.
-  - Source: attached Foundry Integration review, RFC 0036,
-    `docs/architecture/scale-readiness-contract.md`, Foundry proof docs, and release/package
-    readiness gates.
-  - Current state: Foundry support is local/dev-stack proof and optional integration posture only.
-    Existing scoped evidence includes the RFC 0036 maturity ladder, package/proof boundary matrix,
-    `scripts/foundry_proof_of_use.py`, `examples/foundry-lightweight-transform/`, the local
-    dev-stack starter kit, local Foundry-style result/evidence dataset output, the
-    `shardloom.foundry_generated_output_fanout_posture.v1` and
-    `shardloom.foundry_generated_output_boundary.v1` reports, and Python
-    `ctx.foundry_generated_output(...)` support for local dataset-shaped paths. Real
-    `foundry://...` targets still return deterministic unsupported diagnostics before staging rows.
-    There is no real Foundry Code Repository package/import proof, real platform transform wrapper,
-    dataset source/sink certificate, Artifact Repository publication proof, Compute Module runtime,
-    or production Foundry evidence dataset output.
-  - Intake review: accepted as a v1 candidate if real Foundry environment proof is available.
-    Include a scoped Foundry integration pack in v1 if package/import, transform, dataset
-    source/sink, governance, and no-fallback evidence can close; otherwise defer only because the
-    real platform proof is unavailable or incomplete.
-  - V1 scope classification: `v1_candidate_pending_feasibility`.
-  - ShardLoom technique review: applicable at the integration boundary. Foundry work should
-    consider capillary dataset chunks, dynamic platform-handle admission, PulseWeave-style
-    transform/task coalescing only with real platform evidence, metadata-first lineage/governance
-    checks, and strict separation of Foundry platform handles from ShardLoom execution.
-  - Execution checklist:
-    - [x] Define the optional Foundry integration posture, RFC 0036 maturity ladder, and
-      package/proof boundary matrix without making Foundry a core runtime dependency.
-    - [x] Implement local Foundry-style proof-of-use evidence that resolves the ShardLoom CLI,
-      exercises source-free generated output plus a staged local CSV transform, writes local
-      certificate/metrics artifacts, and records local Foundry-style result/evidence dataset output
-      without invoking Foundry services.
-    - [x] Emit local proof boundaries for generated-output fanout, real Foundry output APIs,
-      scale-proof readiness, package-proof readiness, direct S3/object-store writes, Foundry Spark,
-      external compute, fallback execution, and public Foundry claims.
-    - [x] Expose Python `ctx.foundry_generated_output(...)` and generated-output capability rows as
-      local dataset-shaped smoke support while keeping real `foundry://...` platform targets
-      blocked with deterministic diagnostics.
-    - [x] Move scoped local/dev-stack Foundry proof evidence and unsupported real platform claims
-      to the ledger while keeping production Foundry gaps open.
-    - [ ] Define `shardloom-foundry` package boundary, install/import/CLI resolution, and version
-      compatibility inside real Foundry Code Repositories.
-    - [ ] Implement transform wrapper that records Foundry execution context, build mode,
-      transaction/build refs, dataset RIDs, branches, and no-fallback evidence.
-    - [ ] Emit dataset source/sink reports, certificate datasets, metrics datasets, Data Health /
-      Expectations bridge evidence, lineage facets, and governance/marking/redaction policy.
-    - [ ] Classify virtual tables and external systems explicitly as platform handles or
-      external-compute boundaries unless staged/native ShardLoom execution evidence exists.
-    - [ ] Add Artifact Repository publication proof before package availability claims.
-    - [ ] Add Compute Module support only after REST/control-plane runtime item is real and
-      certificate-backed.
-    - [ ] Test in real Foundry environment with evidence datasets and deterministic blocked
-      diagnostics for unsupported transforms/connectors.
-    - [ ] Move real Foundry workload evidence and deferred platform claims to the ledger after
-      merge.
-  - Next outcome: Foundry integration moves from local proof posture to a scoped platform
-    integration pack with real package/runtime evidence.
-  - User-visible surface: Foundry package, transform wrapper, datasets, metrics/certificates,
-    lineage/governance output, docs, and release readiness.
-  - Implementation scope: optional Foundry package, transform helper, evidence dataset writers,
-    governance/lineage reports, release/package validators, docs, and platform tests.
-  - Evidence required: real Foundry package/import proof, transform run evidence, dataset
-    source/sink reports, governance/redaction evidence, publication proof, and no-fallback proof.
-  - Acceptance: selected Foundry workflow runs inside Foundry with ShardLoom-native execution
-    evidence; unsupported platform handles remain explicit and non-claim-grade.
-  - Verification: Foundry integration tests/proof artifacts, package validators, release readiness
-    gates, docs/site validation, and no-fallback checks.
-  - Non-goals: no Foundry Spark/Snowflake/Databricks/BigQuery execution as ShardLoom runtime; no
-    production Foundry claim from local dev-stack proof; no Compute Module until REST/control plane
-    exists.
-  - Claim boundary: may claim only the specific Foundry workflow/package path proven in a real
-    Foundry environment.
-  - Fallback boundary: Foundry virtual tables and external systems are governed handles or
-    external-compute boundaries, never fallback execution.
-  - Ledger rule: ledger entry must include package/version proof, Foundry environment evidence,
-    dataset refs, governance artifacts, and deferred platform claims.
+| Gate | Required external input | Current fail-closed owner |
+| --- | --- | --- |
+| TestPyPI/PyPI publication proof | Explicit maintainer approval, trusted-publisher environment, package upload authorization, registry install/uninstall/smoke transcript, rollback/yank policy evidence | `docs/release/package-channel-readiness-matrix.json`, `.github/workflows/pypi-publish-draft.yml`, `scripts/check_package_channel_readiness.py`, `scripts/check_finished_product_readiness.py --require-public-release-ready` |
+| Other package/distribution channels | Maintainer-selected v1 channel list plus real Homebrew/Scoop/winget/conda-forge/GHCR/crates.io publication or explicit out-of-v1 decision with transcript/provenance | `docs/release/package-channel-readiness-matrix.json`, `docs/release/maintainer-publication-handoff.md` |
+| Public release/API/schema approval | Maintainer approval for API/schema compatibility window, signing policy, checksum/SBOM bundle, per-claim evidence attachment, and public release/tag creation | `docs/release/publication-api-schema-stability-gate.md`, `docs/release/per-claim-evidence-attachment-matrix.md`, `scripts/check_release_readiness.py` |
+| Production object-store claim | Approved real S3/GCS/ADLS-compatible backend profile, credentials, read/write/fault/retry/backpressure evidence, production Native I/O certificates | `docs/release/production-certification-workloads.json`, object-store readiness reports, `scripts/check_production_certification_gate.py` |
+| Production table/lakehouse claim | Source-spec-approved protocol write/commit scope, real conflict/rollback/recovery proof, delete/evolution semantics evidence, optional object-store table environment | `docs/release/production-certification-workloads.json`, table protocol docs, `scripts/check_production_certification_gate.py` |
+| Production distributed claim | Remote worker service/environment, network coordinator, multi-host fault injection, remote shuffle/spill/backpressure, workload benchmark proving benefit | `docs/release/production-certification-workloads.json`, distributed runtime certificates, `scripts/check_production_certification_gate.py` |
+| Production live/hybrid claim | Durable state/checkpoint/changelog store beyond local fixture, broker/source replay environment, idempotent output proof, benchmark/fault evidence | `docs/release/production-certification-workloads.json`, live/hybrid state reports, `scripts/check_production_certification_gate.py` |
+| Real Foundry integration claim | Real Foundry Code Repository/package/import proof, transform run, dataset source/sink reports, governance/lineage/metrics datasets, Artifact Repository proof | `docs/release/production-certification-workloads.json`, RFC 0036 proof docs, Foundry proof reports |
+| Benchmark publication claim | Clean committed worktree after benchmark promotion plus live authenticated pre-5J dependency freshness check immediately before claiming publication freshness | `website/assets/benchmarks/latest/manifest.json`, `scripts/check_benchmark_publication_claim_gate.py`, `scripts/check_pre_5j_dependency_freshness.py --require-live-github` |
 
 ### Remaining work snapshot
 
 | Status | Work | Next decision |
 | --- | --- | --- |
-| Closed | `PERF-RUNTIME-7B` | Completed in the ledger with full-local publication refresh evidence generated `2026-06-14T12:37:12Z`; remaining prepared/native operator tails are classified for future optimization direction, not an open 7B blocker. |
-| Closed | `RELEASE-PACKAGE-15` | Completed in the ledger with clean-source benchmark publication evidence for source revision `74a2e7d4f77eed0686971518e010463da26f2cdf`; no autonomous implementation item remains. |
-| Historical | PR #1174 benchmark row/readiness context, repo-wide audit closeout, release-sequence closeout, and completed benchmark/profile, sub-evidence, user-surface proof | Preserved in `docs/architecture/phased-execution-completed-ledger.md`; do not treat as active work. |
-| Current evidence | `full_local` benchmark refresh | Promoted website benchmark bundle generated `2026-06-14T12:37:12Z` from source revision `64cae36e49085511b756508d0ad56807b821b2ef`; `performance_claim_allowed=false`; use for freshness and optimization direction only. |
-| Mapped, not autonomous queue | Unchecked global architecture review rows | Governed by `docs/architecture/global-architecture-review.md` and `docs/architecture/runtime-gap-family-burn-down.md`; promote concrete implementation items here before work begins. |
-| Deferred approval/artifact gate | Public release/package approval | Clean local Conda proof, dependency/security/package local-gate evidence, and current benchmark-publication evidence now pass locally; remaining blockers are package-channel approval/proof, publication/API/schema stability approval, and per-claim evidence promotion before any public claim. |
-
-Deferred Non-Runtime Closeout Queue: closed for the prior cleanup batch. Completed non-runtime history
-lives in `docs/architecture/phased-execution-completed-ledger.md`; newly reviewed v1
-product/release work is now represented by concrete unchecked items above.
+| Closed local v1 | Package/readiness, object-store, table/lakehouse, distributed, live/hybrid, Foundry local candidate scopes, docs/website, and current full-local benchmark refresh | Completed details live in `docs/architecture/phased-execution-completed-ledger.md`; keep public/production claims blocked until the external gates above have real evidence. |
+| External gate | Public package/release channels | Maintainer must explicitly authorize publication and provide/confirm trusted-publisher or channel credentials before any upload/tag/release action. |
+| External gate | Real cloud/object-store, table, distributed, live/hybrid, and Foundry production environments | Maintainer must provide the real environment and approval to run credentialed/platform tests before these can become claim-grade. |
+| Claim-safe current evidence | `full_local` benchmark refresh | Current website bundle freshness is recorded in `website/assets/benchmarks/latest/manifest.json`; it is evidence and optimization direction only, not a public performance/superiority/Spark-displacement claim. |
 
 ### Evidence Pointers
 

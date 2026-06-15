@@ -13,13 +13,19 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
+import stat
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.release_evidence_artifact_merge.v1"
+KNOWN_EXECUTABLE_REFS = (
+    "target/debug/shardloom",
+    "target/release/shardloom",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -107,6 +113,37 @@ def copy_contents(repo_root: Path, source_dir: Path, destination_dir: Path) -> l
     return copied
 
 
+def normalize_known_executables(repo_root: Path) -> tuple[list[dict[str, Any]], list[str]]:
+    rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    if os.name == "nt":
+        return rows, blockers
+
+    for ref in KNOWN_EXECUTABLE_REFS:
+        path = repo_root / ref
+        if not path.is_file():
+            continue
+        before = stat.S_IMODE(path.stat().st_mode)
+        repair_attempted = not bool(before & stat.S_IXUSR)
+        try:
+            if repair_attempted:
+                path.chmod(path.stat().st_mode | stat.S_IXUSR)
+            after = stat.S_IMODE(path.stat().st_mode)
+        except OSError as error:
+            after = before
+            blockers.append(f"failed to restore executable permission for {ref}: {error}")
+        rows.append(
+            {
+                "path": ref,
+                "before_mode": oct(before),
+                "after_mode": oct(after),
+                "permission_repair_attempted": repair_attempted,
+                "owner_executable": bool(after & stat.S_IXUSR),
+            }
+        )
+    return rows, blockers
+
+
 def merge_artifact(repo_root: Path, artifact_dir: Path) -> dict[str, Any]:
     artifact_dir = artifact_dir.resolve()
     copied: list[str] = []
@@ -154,12 +191,16 @@ def merge_artifact(repo_root: Path, artifact_dir: Path) -> dict[str, Any]:
             copy_path(child, destination)
             copied.append(path_ref(repo_root, destination))
 
+    executable_rows, executable_blockers = normalize_known_executables(repo_root)
+    blockers.extend(executable_blockers)
+
     return {
         "artifact_dir": path_ref(repo_root, artifact_dir),
         **manifest,
         "downloaded_artifact_digest_bound": True,
         "status": "passed" if not blockers else "failed",
         "copied_paths": copied,
+        "normalized_executable_paths": executable_rows,
         "blockers": blockers,
     }
 

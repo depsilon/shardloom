@@ -5486,6 +5486,11 @@ class ReleaseScriptTests(unittest.TestCase):
                 "# release-script control-plane test update\n",
                 encoding="utf-8",
             )
+            (repo / "website-src" / "scripts").mkdir(parents=True)
+            (repo / "website-src" / "scripts" / "sync-content.mjs").write_text(
+                "// website benchmark publication mirror sync update\n",
+                encoding="utf-8",
+            )
             subprocess.run(["git", "add", "."], cwd=repo, check=True)
             subprocess.run(
                 ["git", "commit", "-m", "publication control-plane update"],
@@ -5528,6 +5533,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 "python/tests/test_release_scripts.py",
                 "scripts/check_benchmark_publication_claim_gate.py",
                 "scripts/promote_benchmark_artifact.py",
+                "website-src/scripts/sync-content.mjs",
             ],
         )
 
@@ -6131,10 +6137,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertEqual(
-            packet["next_implementation_slice"],
-            "`PROD-V1-5A` Package-channel readiness and finished-product hard gate.",
-        )
+        self.assertEqual(packet["next_implementation_slice"], "none")
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def _optimization_target_rows(self) -> list[dict[str, object]]:
@@ -12210,6 +12213,19 @@ jobs:
                 ).is_file()
             )
             self.assertTrue((repo_root / "target" / "debug" / "shardloom").is_file())
+            self.assertTrue(os.access(repo_root / "target" / "debug" / "shardloom", os.X_OK))
+            self.assertEqual(
+                report["normalized_executable_paths"],
+                [
+                    {
+                        "path": "target/debug/shardloom",
+                        "before_mode": "0o644",
+                        "after_mode": "0o744",
+                        "permission_repair_attempted": True,
+                        "owner_executable": True,
+                    }
+                ],
+            )
             self.assertTrue(
                 (
                     repo_root
@@ -12239,6 +12255,34 @@ jobs:
             self.assertFalse(report["downloaded_artifact_digest_bound"])
             self.assertEqual(report["copied_paths"], [])
             self.assertIn("artifact contains unsupported symlink", report["blockers"][0])
+
+    def test_v1_local_resource_safety_normalizes_downloaded_binary_permissions(
+        self,
+    ) -> None:
+        module = self._load_script_module(
+            "check_v1_local_resource_safety.py",
+            "check_v1_local_resource_safety_permissions_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            binary = repo_root / "target" / "debug" / "shardloom"
+            binary.parent.mkdir(parents=True)
+            binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            binary.chmod(0o644)
+
+            report, blockers = module.ensure_binary(
+                repo_root,
+                binary=binary,
+                features=module.DEFAULT_FEATURES,
+                skip_build=True,
+                explicit_binary=False,
+            )
+
+            self.assertEqual(blockers, [])
+            self.assertEqual(report["status"], "passed")
+            self.assertTrue(report["binary_executable_permission_normalized"])
+            self.assertTrue(os.access(binary, os.X_OK))
 
     def test_local_python_smoke_runs_user_surface_quickstart(self) -> None:
         module = self._load_module_from_path(
