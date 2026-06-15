@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
@@ -84,6 +85,45 @@ function canonicalizeDeployableBenchmarkPaths(directory) {
   }
 }
 
+function publicationProofSourceDigest(chunks) {
+  const digest = crypto.createHash("sha256");
+  for (const chunk of [...(Array.isArray(chunks) ? chunks : [])].sort((left, right) =>
+    String(left?.path ?? "").localeCompare(String(right?.path ?? "")),
+  )) {
+    digest.update(String(chunk?.path ?? ""));
+    digest.update("\0");
+    digest.update(String(chunk?.row_count ?? ""));
+    digest.update("\0");
+    digest.update(String(chunk?.sha256 ?? ""));
+    digest.update("\0");
+    digest.update(String(chunk?.uncompressed_sha256 ?? ""));
+    digest.update("\0");
+  }
+  return `sha256:${digest.digest("hex")}`;
+}
+
+function syncPublicationProofSidecarDigest(benchmarkRoot) {
+  const benchmarkResultsPath = path.join(benchmarkRoot, "benchmark-results.json");
+  const sidecarPath = path.join(benchmarkRoot, "publication-proof-sidecar.json");
+  if (!fs.existsSync(benchmarkResultsPath) || !fs.existsSync(sidecarPath)) return;
+
+  const benchmarkResults = JSON.parse(fs.readFileSync(benchmarkResultsPath, "utf8"));
+  const chunks = benchmarkResults.published_benchmark_row_chunks;
+  if (!Array.isArray(chunks)) return;
+
+  const sidecar = JSON.parse(fs.readFileSync(sidecarPath, "utf8"));
+  const expectedDigest = publicationProofSourceDigest(chunks);
+  const expectedCount = chunks.length;
+  if (
+    sidecar.source_row_chunks_digest !== expectedDigest ||
+    sidecar.source_row_chunk_count !== expectedCount
+  ) {
+    sidecar.source_row_chunks_digest = expectedDigest;
+    sidecar.source_row_chunk_count = expectedCount;
+    fs.writeFileSync(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`, "utf8");
+  }
+}
+
 function syncBenchmarkRowChunks() {
   fs.mkdirSync(legacyWebsiteBenchmarkRoot, { recursive: true });
   for (const entry of fs.readdirSync(legacyWebsiteBenchmarkRoot, { withFileTypes: true })) {
@@ -119,6 +159,8 @@ function syncBenchmarkRowChunks() {
   } else if (fs.existsSync(legacyRunDirectory)) {
     fs.rmSync(legacyRunDirectory, { recursive: true, force: true });
   }
+  syncPublicationProofSidecarDigest(publicBenchmarkRoot);
+  syncPublicationProofSidecarDigest(legacyWebsiteBenchmarkRoot);
 }
 
 function syncSourceOfTruthData() {

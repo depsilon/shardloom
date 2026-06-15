@@ -5486,6 +5486,11 @@ class ReleaseScriptTests(unittest.TestCase):
                 "# release-script control-plane test update\n",
                 encoding="utf-8",
             )
+            (repo / "website-src" / "scripts").mkdir(parents=True)
+            (repo / "website-src" / "scripts" / "sync-content.mjs").write_text(
+                "// website benchmark publication mirror sync update\n",
+                encoding="utf-8",
+            )
             subprocess.run(["git", "add", "."], cwd=repo, check=True)
             subprocess.run(
                 ["git", "commit", "-m", "publication control-plane update"],
@@ -5528,6 +5533,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 "python/tests/test_release_scripts.py",
                 "scripts/check_benchmark_publication_claim_gate.py",
                 "scripts/promote_benchmark_artifact.py",
+                "website-src/scripts/sync-content.mjs",
             ],
         )
 
@@ -6131,10 +6137,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertEqual(
-            packet["next_implementation_slice"],
-            "`PROD-V1-5A` Package-channel readiness and finished-product hard gate.",
-        )
+        self.assertEqual(packet["next_implementation_slice"], "none")
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def _optimization_target_rows(self) -> list[dict[str, object]]:
