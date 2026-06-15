@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -30,6 +31,17 @@ def load_graduation_module():
     return module
 
 
+def documented_cli_command_count() -> int:
+    status_path = REPO_ROOT / "docs" / "status" / "cli-command-registry.md"
+    match = re.search(
+        r"^Registered command count:\s*(\d+)\s*$",
+        status_path.read_text(encoding="utf-8"),
+        flags=re.MULTILINE,
+    )
+    assert match is not None, "missing registered command count in CLI registry status"
+    return int(match.group(1))
+
+
 class UserSurfaceGraduationMatrixTests(unittest.TestCase):
     def test_current_repo_graduation_matrix_covers_cli_and_python_surfaces(self) -> None:
         module = load_graduation_module()
@@ -40,7 +52,7 @@ class UserSurfaceGraduationMatrixTests(unittest.TestCase):
         self.assertGreaterEqual(report["matrix_row_count"], 10)
         self.assertEqual(report["context_method_count"], 95)
         self.assertEqual(report["client_method_count"], 114)
-        self.assertEqual(report["cli_command_count"], 211)
+        self.assertEqual(report["cli_command_count"], documented_cli_command_count())
         self.assertTrue(
             report["acceptance_summary"]["all_python_context_methods_classified"]
         )

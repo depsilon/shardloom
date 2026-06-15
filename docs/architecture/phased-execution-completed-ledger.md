@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CI-WORK-SHAPING-1 metadata-first CI/check overhaul
+  - Date: 2026-06-15
+  - Source:
+    - Maintainer request to significantly improve ShardLoom testing/CI/checks through Rust-backed
+      validators, metadata-first validation, capillary changed-file selection, pulseweave
+      incremental evidence, source-aware benchmark gates, and strict fast/hard/release lane
+      separation.
+    - `docs/release/ci-gate-matrix.md` and new `docs/release/ci-work-shaping.md`.
+  - Scope:
+    - Added Rust CLI command `ci-work-shaping-plan` as a side-effect-free typed-envelope evidence
+      surface.
+    - The planner classifies changed files into capillary families, emits pulseweave-style content
+      fingerprints, recommends PR fast-lane jobs, escalates hard/release lanes when source families
+      require them, and keeps no-fallback, unsupported-row, claim-grade, benchmark-publication,
+      CI-drift, and release-boundary metadata gates always on.
+    - Added GitHub Actions job `ci-work-shaping` that collects changed files, runs the Rust planner,
+      uploads `ci-work-shaping-evidence`, and feeds it into `release-readiness` artifact reuse.
+    - Updated `scripts/check_ci_gate_matrix.py` so the CI matrix contract fails closed if the new
+      job, artifact, docs markers, or release-readiness reuse path drift.
+    - Added CLI regression tests for docs-only, runtime, benchmark artifact, release/workflow, and
+      pulseweave/no-effect cases.
+  - Evidence:
+    - Focused local validation is recorded in the PR/session summary.
+    - Expected artifact refs: `target/ci-work-shaping-plan.json` and
+      `target/ci-work-shaping-changed-files.txt`.
+    - Expected CI evidence artifact: `ci-work-shaping-evidence`.
+  - Claim boundary:
+    - This closes CI planning and evidence reuse infrastructure only. The fast lane does not
+      authorize merge, the release lane does not authorize publication, and benchmark rerun
+      recommendations do not become performance claims.
+  - Fallback boundary:
+    - `runtime_execution=false`, `benchmark_run_performed=false`, `publication_attempted=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false` remain explicit in the
+      planner output.
+
 - [x] Session label: v1 local/source/package release-track preparation
   - Date: 2026-06-15
   - Source:

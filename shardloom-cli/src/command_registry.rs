@@ -53,6 +53,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "runs-today",
     "release-plan",
     "package-plan",
+    "ci-work-shaping-plan",
     "api-compat-plan",
     "rest-api-contract-plan",
     "rest-api-plan-preview",
@@ -967,6 +968,11 @@ fn command_usage_fragment(command: &str) -> String {
                 "{command} [balanced|memory-pressure|object-store-throttled|small-tasks|repeated-independent-shards]"
             )
         }
+        "ci-work-shaping-plan" => {
+            format!(
+                "{command} [--mode pull_request|merge|release] [--changed-path <path>...] [--changed-paths-file <file>]"
+            )
+        }
         "benchmark-constitution" | "benchmark-claim-evidence-plan" => {
             format!("{command} [foundation|traditional-analytics]")
         }
@@ -1191,6 +1197,9 @@ fn command_input_contract(command: &str) -> &'static str {
     if command == "session-cache-smoke" {
         return "scoped_cli_session_cache_lifecycle_smoke";
     }
+    if command == "ci-work-shaping-plan" {
+        return "newline_changed_path_manifest_or_repeated_changed_path_args";
+    }
     if command == "live-hybrid-durable-checkpoint-smoke" {
         return "explicit_local_filesystem_checkpoint_directory";
     }
@@ -1235,6 +1244,9 @@ fn command_output_contract(command: &str) -> &'static str {
     }
     if command == "session-cache-smoke" {
         return "typed_envelope_plus_session_cache_reuse_invalidation_and_cleanup_evidence";
+    }
+    if command == "ci-work-shaping-plan" {
+        return "typed_envelope_plus_metadata_first_ci_work_shaping_plan_and_no_fallback_evidence";
     }
     if command == "live-hybrid-durable-checkpoint-smoke" {
         return "typed_envelope_plus_local_checkpoint_changelog_restore_and_no_fallback_evidence";
@@ -1291,6 +1303,9 @@ fn command_owning_phase_item(command: &str) -> &'static str {
     }
     if command == "session-cache-smoke" {
         return "GAR-RUNTIME-IMPL-4L/GAR-RUNTIME-IMPL-5I";
+    }
+    if command == "ci-work-shaping-plan" {
+        return "CI-WORK-SHAPING-1";
     }
     if matches!(
         command,

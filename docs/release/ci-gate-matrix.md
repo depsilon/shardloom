@@ -3,9 +3,9 @@
 ## Purpose
 
 `shardloom.ci_gate_matrix_report.v1` records the release-grade CI gate matrix introduced for
-`REVIEW-P0-2`. The matrix makes GitHub Actions fail closed across Rust, feature-gated Rust,
-Python tests, package smoke, dependency/license/provenance, security, release-readiness,
-website/docs, and CI drift checks.
+`REVIEW-P0-2`. The matrix makes GitHub Actions fail closed across CI work shaping, Rust,
+feature-gated Rust, Python tests, package smoke, dependency/license/provenance, security,
+release-readiness, website/docs, and CI drift checks.
 
 This is a release and trust gate only. It does not publish packages, create a release tag, use
 signing keys, upload artifacts to package channels, expand runtime support, or authorize production,
@@ -39,6 +39,11 @@ package/release authority.
 The v1 security/CI hardening layer adds two lightweight compatibility producers without moving them
 into the serial release-readiness tail:
 
+- `ci_work_shaping_contract` runs the Rust-backed metadata-first changed-file planner before the
+  expensive release producers, writes `target/ci-work-shaping-plan.json`, and uploads
+  `ci-work-shaping-evidence`. The report carries capillary family selection, pulseweave evidence
+  fingerprints, source-aware benchmark rerun recommendations, and no-fallback/claim metadata gates
+  without executing runtime, benchmark, package publication, or external engine work.
 - `python_compatibility_matrix` checks Python 3.10 through 3.13 on `ubuntu-latest` and keeps
   `macos-latest` plus `windows-latest` smoke lanes for OS matrix coverage.
 - `rust_msrv_validation` derives the Rust MSRV toolchain from root `Cargo.toml` and checks it with
@@ -81,6 +86,26 @@ upstream_vortex_manifest_source=Cargo.toml#[workspace.dependencies].vortex
 upstream_vortex_provider_source=Cargo.toml#[workspace.dependencies].vortex via shardloom-vortex/build.rs
 ```
 
+CI work-shaping marker contract:
+
+```text
+fetch-depth: 0
+Collect changed files
+SHARDLOOM_CI_WORK_SHAPING_MODE=pull_request
+SHARDLOOM_CI_WORK_SHAPING_MODE=merge
+cargo run -q -p shardloom-cli -- ci-work-shaping-plan
+--changed-paths-file target/ci-work-shaping-changed-files.txt
+target/ci-work-shaping-plan.json
+target/ci-work-shaping-changed-files.txt
+ci-work-shaping-evidence
+target/downloads/ci-work-shaping-evidence
+metadata-first CI work shaping
+capillary changed-file selection
+pulseweave evidence fingerprint
+source-aware benchmark rerun recommendations
+retention-days: 14
+```
+
 Finished product readiness gate:
 
 ```text
@@ -94,6 +119,7 @@ target/production-certification-gate.json
 
 | Lane id | GitHub job | Commands | Artifacts | Release blocker refs |
 | --- | --- | --- | --- | --- |
+| `ci_work_shaping_contract` | `ci-work-shaping` | `cargo run -q -p shardloom-cli -- ci-work-shaping-plan` | `target/ci-work-shaping-plan.json`<br>`target/ci-work-shaping-changed-files.txt`<br>`ci-work-shaping-evidence` | metadata-first CI work shaping; capillary changed-file selection; pulseweave evidence fingerprint; source-aware benchmark rerun recommendations |
 | `rust_baseline` | `rust-baseline` | `cargo fmt --all -- --check`<br>`cargo clippy --workspace --all-targets -- -D warnings`<br>`cargo test --workspace --all-targets` | none | default Rust formatting, linting, and tests |
 | `rust_feature_matrix` | `rust-feature-matrix` | `cargo check --workspace`<br>`cargo check --workspace --all-features`<br>`cargo check --workspace --no-default-features`<br>`cargo check -p shardloom-vortex --features upstream-vortex`<br>`cargo check -p shardloom-vortex --features vortex-file-io`<br>`cargo check -p shardloom-vortex --features vortex-local-primitives`<br>`cargo check -p shardloom-vortex --features vortex-encoded-read-spike`<br>`cargo test -p shardloom-contract-tests --test conda_packaging_recipes`<br>`cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark` | none | workspace feature/build matrix |
 | `rust_msrv_validation` | `rust-msrv` | `cargo check --workspace --no-default-features`<br>`python scripts/write_release_compatibility_lane_report.py --lane "$SHARDLOOM_RUST_MSRV_LANE" --surface rust --rust-toolchain "$SHARDLOOM_RUST_MSRV_TOOLCHAIN" --os-name ubuntu-latest` | `target/release-compatibility/rust_msrv_*.json`<br>`release-compatibility-rust-msrv` | Rust MSRV derived from root Cargo.toml validation |
@@ -170,10 +196,14 @@ The release hard-gate stack is split into parallel producers and a short final a
   lane.
 - `website-docs` emits `website-docs-evidence` with
   `target/public-status-docs-report.json` and `target/website-readiness-report.json`.
-- `release-readiness` has `needs:` entries for `ci-gate-matrix`, `dependency-security`,
+- `ci-work-shaping` emits `ci-work-shaping-evidence` with the Rust CLI envelope and changed-file
+  manifest. The job is metadata-only and records `runtime_execution=false`,
+  `benchmark_run_performed=false`, `fallback_attempted=false`, and
+  `external_engine_invoked=false`. It does not make any check optional by itself.
+- `release-readiness` has `needs:` entries for `ci-work-shaping`, `ci-gate-matrix`, `dependency-security`,
   `python-tests`, `python-package`, `release-runtime-core`, `release-package-governance`,
   `release-user-surface`, `release-benchmark-claim`, and `website-docs`. It downloads
-  `ci-gate-matrix-report`, `dependency-security-evidence`, `release-local-smoke-evidence`,
+  `ci-work-shaping-evidence`, `ci-gate-matrix-report`, `dependency-security-evidence`, `release-local-smoke-evidence`,
   `python-test-evidence`, `release-runtime-core-evidence`, `release-package-governance-evidence`,
   `release-user-surface-evidence`, `release-benchmark-claim-evidence`, and
   `website-docs-evidence` with `actions/download-artifact@v8` under `target/downloads`, runs

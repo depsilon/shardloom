@@ -253,7 +253,11 @@ fn is_benchmark_command(command: &str) -> bool {
 fn is_packaging_deployment_command(command: &str) -> bool {
     matches!(
         command,
-        "release-plan" | "package-plan" | "python-wrapper-plan" | "agent-contract-pack"
+        "release-plan"
+            | "package-plan"
+            | "ci-work-shaping-plan"
+            | "python-wrapper-plan"
+            | "agent-contract-pack"
     )
 }
 
