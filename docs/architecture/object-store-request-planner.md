@@ -412,7 +412,7 @@ provider, fallback, or external-engine execution.
 `GAR-RUNTIME-IMPL-4O` now admits one fixture-scoped table operation profile:
 
 ```powershell
-shardloom local-table-append-commit-rehearsal-smoke <local-committed-manifest-path> --profile local-manifest [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit] --format json
+shardloom local-table-append-commit-rehearsal-smoke <local-committed-manifest-path> --profile local-manifest [--idempotency-key key] [--expected-current-manifest-digest digest] [--allow-overwrite] [--rollback-after-commit] --format json
 ```
 
 This is not an Iceberg, Delta, Hudi, catalog, object-store, or production lakehouse commit protocol.

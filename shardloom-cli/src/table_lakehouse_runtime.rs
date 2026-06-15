@@ -38,6 +38,7 @@ const RECOVERY_GAR_ID: &str = "GAR-RUNTIME-IMPL-6D";
 enum LocalTableAppendCommitStatus {
     Committed,
     RolledBack,
+    BlockedCommitConflict,
     BlockedUnsupportedProfile,
     BlockedRemoteProvider,
     BlockedInvalidTarget,
@@ -50,6 +51,7 @@ impl LocalTableAppendCommitStatus {
         match self {
             Self::Committed => "committed",
             Self::RolledBack => "rolled_back",
+            Self::BlockedCommitConflict => "blocked_commit_conflict",
             Self::BlockedUnsupportedProfile => "blocked_unsupported_profile",
             Self::BlockedRemoteProvider => "blocked_remote_provider",
             Self::BlockedInvalidTarget => "blocked_invalid_target",
@@ -74,6 +76,9 @@ struct LocalTableAppendCommitReport {
     commit_record_path: Option<PathBuf>,
     idempotency_key: String,
     idempotency_status: &'static str,
+    expected_current_manifest_digest: Option<String>,
+    observed_current_manifest_digest: String,
+    existing_manifest_present_before_commit: bool,
     allow_overwrite: bool,
     rollback_after_commit: bool,
     base_manifest_id: &'static str,
@@ -111,6 +116,13 @@ struct LocalTableAppendCommitOutcome {
     commit_record_bytes: usize,
     committed_manifest_digest: String,
     commit_record_digest: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LocalTableCommitConflictEvidence {
+    expected_current_manifest_digest: Option<String>,
+    observed_current_manifest_digest: String,
+    existing_manifest_present_before_commit: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -255,6 +267,9 @@ impl LocalTableAppendCommitReport {
             commit_record_path: None,
             idempotency_key: "not_emitted_blocked".to_string(),
             idempotency_status: "not_emitted_blocked",
+            expected_current_manifest_digest: None,
+            observed_current_manifest_digest: "not_observed_blocked".to_string(),
+            existing_manifest_present_before_commit: false,
             allow_overwrite,
             rollback_after_commit,
             base_manifest_id: "gar-runtime-4o-base-manifest-v1",
@@ -325,6 +340,7 @@ pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
 
     let mut profile = DEFAULT_PROFILE.to_string();
     let mut idempotency_key: Option<String> = None;
+    let mut expected_current_manifest_digest: Option<String> = None;
     let mut allow_overwrite = false;
     let mut rollback_after_commit = false;
     while let Some(arg) = args.next() {
@@ -366,6 +382,30 @@ pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
                 }
                 idempotency_key = Some(value);
             }
+            "--expected-current-manifest-digest" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        COMMAND,
+                        format,
+                        "local table append commit rehearsal failed",
+                        &ShardLoomError::InvalidOperation(
+                            "missing value for --expected-current-manifest-digest".to_string(),
+                        ),
+                    );
+                };
+                let value = value.trim().to_string();
+                if value.is_empty() {
+                    return emit_error(
+                        COMMAND,
+                        format,
+                        "local table append commit rehearsal failed",
+                        &ShardLoomError::InvalidOperation(
+                            "expected current manifest digest must not be empty".to_string(),
+                        ),
+                    );
+                }
+                expected_current_manifest_digest = Some(value);
+            }
             "--allow-overwrite" => allow_overwrite = true,
             "--rollback-after-commit" => rollback_after_commit = true,
             value => {
@@ -383,6 +423,7 @@ pub(crate) fn handle_local_table_append_commit_rehearsal_smoke(
         &target,
         &profile,
         idempotency_key.as_deref(),
+        expected_current_manifest_digest.as_deref(),
         allow_overwrite,
         rollback_after_commit,
     );
@@ -470,6 +511,7 @@ fn execute_local_table_append_commit_rehearsal(
     target: &str,
     profile: &str,
     idempotency_key: Option<&str>,
+    expected_current_manifest_digest: Option<&str>,
     allow_overwrite: bool,
     rollback_after_commit: bool,
 ) -> LocalTableAppendCommitReport {
@@ -533,6 +575,23 @@ fn execute_local_table_append_commit_rehearsal(
         );
     }
 
+    let conflict_evidence = match inspect_local_manifest_commit_conflict(
+        &target_path,
+        expected_current_manifest_digest,
+    ) {
+        Ok(evidence) => evidence,
+        Err((message, evidence)) => {
+            return commit_conflict_blocker(
+                target,
+                profile,
+                allow_overwrite,
+                rollback_after_commit,
+                message,
+                evidence,
+            );
+        }
+    };
+
     let manifest_payload = build_committed_manifest_payload();
     let manifest_payload_digest = fnv64_digest(&manifest_payload);
     let (resolved_key, idempotency_status) =
@@ -548,6 +607,7 @@ fn execute_local_table_append_commit_rehearsal(
         &manifest_payload,
         &manifest_payload_digest,
         &correctness_digest,
+        &conflict_evidence,
         allow_overwrite,
         rollback_after_commit,
     ) {
@@ -573,6 +633,10 @@ fn execute_local_table_append_commit_rehearsal(
         commit_record_path: Some(commit_record_path),
         idempotency_key: resolved_key,
         idempotency_status,
+        expected_current_manifest_digest: conflict_evidence.expected_current_manifest_digest,
+        observed_current_manifest_digest: conflict_evidence.observed_current_manifest_digest,
+        existing_manifest_present_before_commit: conflict_evidence
+            .existing_manifest_present_before_commit,
         allow_overwrite,
         rollback_after_commit,
         base_manifest_id: "gar-runtime-4o-base-manifest-v1",
@@ -1155,11 +1219,7 @@ fn push_table_recovery_native_io_evidence_fields(
         "table_translation_report_status",
         "not_required_shardloom_local_manifest_native_fixture",
     );
-    push_field(
-        fields,
-        "table_metadata_loss_status",
-        "not_applicable_native_local_manifest_fixture",
-    );
+    push_local_table_translation_report_fields(fields);
 }
 
 fn push_recovery_count_fields(
@@ -1378,6 +1438,16 @@ fn push_snapshot_manifest_fields(
 }
 
 fn push_commit_fields(fields: &mut Vec<(String, String)>, report: &LocalTableAppendCommitReport) {
+    push_commit_lifecycle_fields(fields, report);
+    push_commit_conflict_fields(fields, report);
+    push_commit_artifact_fields(fields, report);
+    push_table_append_native_io_evidence_fields(fields, report);
+}
+
+fn push_commit_lifecycle_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalTableAppendCommitReport,
+) {
     push_field(
         fields,
         "write_mode",
@@ -1423,6 +1493,54 @@ fn push_commit_fields(fields: &mut Vec<(String, String)>, report: &LocalTableApp
     push_field(fields, "idempotency_status", report.idempotency_status);
     push_bool_field(fields, "allow_overwrite", report.allow_overwrite);
     push_bool_field(fields, "rollback_requested", report.rollback_after_commit);
+}
+
+fn push_commit_conflict_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalTableAppendCommitReport,
+) {
+    push_bool_field(
+        fields,
+        "existing_manifest_present_before_commit",
+        report.existing_manifest_present_before_commit,
+    );
+    push_bool_field(
+        fields,
+        "optimistic_concurrency_check_performed",
+        report.expected_current_manifest_digest.is_some(),
+    );
+    push_field(
+        fields,
+        "expected_current_manifest_digest",
+        report
+            .expected_current_manifest_digest
+            .as_deref()
+            .unwrap_or("not_requested"),
+    );
+    push_field(
+        fields,
+        "observed_current_manifest_digest",
+        &report.observed_current_manifest_digest,
+    );
+    push_bool_field(
+        fields,
+        "commit_conflict_detected",
+        matches!(
+            report.status,
+            LocalTableAppendCommitStatus::BlockedCommitConflict
+        ),
+    );
+    push_field(
+        fields,
+        "conflict_detection_status",
+        conflict_detection_status(report),
+    );
+}
+
+fn push_commit_artifact_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalTableAppendCommitReport,
+) {
     push_field(
         fields,
         "staged_manifest_path",
@@ -1453,7 +1571,6 @@ fn push_commit_fields(fields: &mut Vec<(String, String)>, report: &LocalTableApp
     push_count_field(fields, "written_bytes", report.written_bytes);
     push_count_field(fields, "commit_record_bytes", report.commit_record_bytes);
     push_field(fields, "commit_record_digest", &report.commit_record_digest);
-    push_table_append_native_io_evidence_fields(fields, report);
 }
 
 fn push_table_append_native_io_evidence_fields(
@@ -1521,9 +1638,47 @@ fn push_table_append_native_io_evidence_fields(
         "table_translation_report_status",
         "not_required_shardloom_local_manifest_native_fixture",
     );
+    push_local_table_translation_report_fields(fields);
+}
+
+fn push_local_table_translation_report_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "table_translation_report_schema_version",
+        "shardloom.local_table_translation_report.v1",
+    );
+    push_field(
+        fields,
+        "table_translation_report_target",
+        "shardloom_local_manifest",
+    );
+    push_field(
+        fields,
+        "table_translation_report_fidelity",
+        "native_local_manifest_no_loss",
+    );
+    push_field(
+        fields,
+        "table_translation_report_materialization_boundary",
+        "local_manifest_json_plus_sidecar_commit_record",
+    );
+    push_bool_field(fields, "table_translation_report_metadata_loss", false);
+    push_bool_field(fields, "table_translation_report_statistics_loss", false);
+    push_bool_field(fields, "table_translation_report_layout_loss", false);
+    push_field(fields, "table_translation_report_loss_field_order", "none");
     push_field(
         fields,
         "table_metadata_loss_status",
+        "not_applicable_native_local_manifest_fixture",
+    );
+    push_field(
+        fields,
+        "table_statistics_loss_status",
+        "not_applicable_native_local_manifest_fixture",
+    );
+    push_field(
+        fields,
+        "table_layout_loss_status",
         "not_applicable_native_local_manifest_fixture",
     );
 }
@@ -1616,6 +1771,7 @@ fn perform_local_manifest_append_commit(
     manifest_payload: &str,
     manifest_payload_digest: &str,
     correctness_digest: &str,
+    conflict_evidence: &LocalTableCommitConflictEvidence,
     allow_overwrite: bool,
     rollback_after_commit: bool,
 ) -> std::io::Result<LocalTableAppendCommitOutcome> {
@@ -1646,6 +1802,7 @@ fn perform_local_manifest_append_commit(
         manifest_payload_digest,
         &committed_manifest_digest,
         correctness_digest,
+        conflict_evidence,
     );
     let commit_record_digest = fnv64_digest(&commit_record);
     let commit_record_bytes = commit_record.len();
@@ -1718,6 +1875,56 @@ fn validate_local_manifest_target(
     Ok(())
 }
 
+fn inspect_local_manifest_commit_conflict(
+    target_path: &Path,
+    expected_current_manifest_digest: Option<&str>,
+) -> Result<LocalTableCommitConflictEvidence, (String, LocalTableCommitConflictEvidence)> {
+    let existing_manifest = fs::read_to_string(target_path);
+    let (existing_manifest_present_before_commit, observed_current_manifest_digest) =
+        match existing_manifest {
+            Ok(content) => (true, fnv64_digest(&content)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                (false, "not_observed_no_existing_manifest".to_string())
+            }
+            Err(error) => {
+                let evidence = LocalTableCommitConflictEvidence {
+                    expected_current_manifest_digest: expected_current_manifest_digest
+                        .map(str::to_string),
+                    observed_current_manifest_digest: "not_observed_read_error".to_string(),
+                    existing_manifest_present_before_commit: false,
+                };
+                return Err((error.to_string(), evidence));
+            }
+        };
+
+    let evidence = LocalTableCommitConflictEvidence {
+        expected_current_manifest_digest: expected_current_manifest_digest.map(str::to_string),
+        observed_current_manifest_digest,
+        existing_manifest_present_before_commit,
+    };
+
+    if let Some(expected) = expected_current_manifest_digest {
+        if !existing_manifest_present_before_commit {
+            return Err((
+                "expected current manifest digest was supplied, but no current manifest exists"
+                    .to_string(),
+                evidence,
+            ));
+        }
+        if evidence.observed_current_manifest_digest != expected {
+            return Err((
+                format!(
+                    "current manifest digest mismatch: expected {expected}, observed {}",
+                    evidence.observed_current_manifest_digest
+                ),
+                evidence,
+            ));
+        }
+    }
+
+    Ok(evidence)
+}
+
 fn local_target_blocker(
     status: LocalTableAppendCommitStatus,
     target: &str,
@@ -1738,6 +1945,41 @@ fn local_target_blocker(
             "Use a local manifest target path whose parent directory exists; pass --allow-overwrite to replace an existing rehearsal artifact.",
         ),
     )
+}
+
+fn commit_conflict_blocker(
+    target: &str,
+    profile: &str,
+    allow_overwrite: bool,
+    rollback_after_commit: bool,
+    message: impl Into<String>,
+    evidence: LocalTableCommitConflictEvidence,
+) -> LocalTableAppendCommitReport {
+    let mut report = LocalTableAppendCommitReport::blocked(
+        LocalTableAppendCommitStatus::BlockedCommitConflict,
+        profile,
+        target,
+        allow_overwrite,
+        rollback_after_commit,
+        Diagnostic::new(
+            DiagnosticCode::CommitNotAtomic,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::Execution,
+            "Local table append commit conflict check failed.",
+            Some("local_table_append_commit_conflict_detection".to_string()),
+            Some(message.into()),
+            Some(
+                "Retry with the latest committed manifest digest or choose a fresh local manifest target."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    );
+    report.expected_current_manifest_digest = evidence.expected_current_manifest_digest;
+    report.observed_current_manifest_digest = evidence.observed_current_manifest_digest;
+    report.existing_manifest_present_before_commit =
+        evidence.existing_manifest_present_before_commit;
+    report
 }
 
 fn recovery_target_blocker(
@@ -1857,7 +2099,12 @@ fn build_commit_record(
     manifest_payload_digest: &str,
     committed_manifest_digest: &str,
     correctness_digest: &str,
+    conflict_evidence: &LocalTableCommitConflictEvidence,
 ) -> String {
+    let expected_current_manifest_digest = conflict_evidence
+        .expected_current_manifest_digest
+        .as_deref()
+        .unwrap_or("not_requested");
     format!(
         concat!(
             "{{\n",
@@ -1867,6 +2114,9 @@ fn build_commit_record(
             "  \"target_uri\": \"{}\",\n",
             "  \"local_manifest_path\": \"{}\",\n",
             "  \"idempotency_key\": \"{}\",\n",
+            "  \"expected_current_manifest_digest\": \"{}\",\n",
+            "  \"observed_current_manifest_digest\": \"{}\",\n",
+            "  \"existing_manifest_present_before_commit\": {},\n",
             "  \"manifest_bytes\": {},\n",
             "  \"manifest_payload_digest\": \"{}\",\n",
             "  \"committed_manifest_digest\": \"{}\",\n",
@@ -1880,6 +2130,9 @@ fn build_commit_record(
         escape_json(target_uri),
         escape_json(&target_path.to_string_lossy()),
         escape_json(idempotency_key),
+        escape_json(expected_current_manifest_digest),
+        escape_json(&conflict_evidence.observed_current_manifest_digest),
+        conflict_evidence.existing_manifest_present_before_commit,
         manifest_bytes,
         escape_json(manifest_payload_digest),
         escape_json(committed_manifest_digest),
@@ -2242,6 +2495,23 @@ fn local_table_commit_idempotency_scope(report: &LocalTableAppendCommitReport) -
         "not_emitted_blocked"
     } else {
         "local_manifest_target_manifest_digest"
+    }
+}
+
+fn conflict_detection_status(report: &LocalTableAppendCommitReport) -> &'static str {
+    if matches!(
+        report.status,
+        LocalTableAppendCommitStatus::BlockedCommitConflict
+    ) {
+        return "blocked_current_manifest_digest_mismatch";
+    }
+    if report.expected_current_manifest_digest.is_some() {
+        return "matched_current_manifest";
+    }
+    if report.existing_manifest_present_before_commit && report.allow_overwrite {
+        "not_requested_unconditional_local_manifest_overwrite"
+    } else {
+        "not_requested_no_existing_manifest"
     }
 }
 

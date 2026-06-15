@@ -98,7 +98,35 @@ fn assert_local_table_commit_native_io_fields(
                 "not_required_shardloom_local_manifest_native_fixture",
             ),
             (
+                "table_translation_report_schema_version",
+                "shardloom.local_table_translation_report.v1",
+            ),
+            (
+                "table_translation_report_target",
+                "shardloom_local_manifest",
+            ),
+            (
+                "table_translation_report_fidelity",
+                "native_local_manifest_no_loss",
+            ),
+            (
+                "table_translation_report_materialization_boundary",
+                "local_manifest_json_plus_sidecar_commit_record",
+            ),
+            ("table_translation_report_metadata_loss", "false"),
+            ("table_translation_report_statistics_loss", "false"),
+            ("table_translation_report_layout_loss", "false"),
+            ("table_translation_report_loss_field_order", "none"),
+            (
                 "table_metadata_loss_status",
+                "not_applicable_native_local_manifest_fixture",
+            ),
+            (
+                "table_statistics_loss_status",
+                "not_applicable_native_local_manifest_fixture",
+            ),
+            (
+                "table_layout_loss_status",
                 "not_applicable_native_local_manifest_fixture",
             ),
         ],
@@ -143,7 +171,35 @@ fn assert_local_table_recovery_native_io_fields(
                 "not_required_shardloom_local_manifest_native_fixture",
             ),
             (
+                "table_translation_report_schema_version",
+                "shardloom.local_table_translation_report.v1",
+            ),
+            (
+                "table_translation_report_target",
+                "shardloom_local_manifest",
+            ),
+            (
+                "table_translation_report_fidelity",
+                "native_local_manifest_no_loss",
+            ),
+            (
+                "table_translation_report_materialization_boundary",
+                "local_manifest_json_plus_sidecar_commit_record",
+            ),
+            ("table_translation_report_metadata_loss", "false"),
+            ("table_translation_report_statistics_loss", "false"),
+            ("table_translation_report_layout_loss", "false"),
+            ("table_translation_report_loss_field_order", "none"),
+            (
                 "table_metadata_loss_status",
+                "not_applicable_native_local_manifest_fixture",
+            ),
+            (
+                "table_statistics_loss_status",
+                "not_applicable_native_local_manifest_fixture",
+            ),
+            (
+                "table_layout_loss_status",
                 "not_applicable_native_local_manifest_fixture",
             ),
         ],
@@ -162,6 +218,15 @@ fn temp_case_dir(name: &str) -> PathBuf {
         "shardloom-local-table-append-commit-{name}-{}",
         std::process::id()
     ))
+}
+
+fn fnv64_digest(value: &str) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in value.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("fnv64:{hash:016x}")
 }
 
 #[test]
@@ -216,6 +281,18 @@ fn local_table_append_commit_rehearsal_writes_manifest_and_commit_record() {
     assert!(output.contains(&field("rollback_status", "not_requested")));
     assert!(output.contains(&field("idempotency_key", "orders-table-commit-001")));
     assert!(output.contains(&field("idempotency_status", "caller_supplied")));
+    assert!(output.contains(&field("expected_current_manifest_digest", "not_requested")));
+    assert!(output.contains(&field(
+        "observed_current_manifest_digest",
+        "not_observed_no_existing_manifest"
+    )));
+    assert!(output.contains(&field("existing_manifest_present_before_commit", "false")));
+    assert!(output.contains(&field("optimistic_concurrency_check_performed", "false")));
+    assert!(output.contains(&field("commit_conflict_detected", "false")));
+    assert!(output.contains(&field(
+        "conflict_detection_status",
+        "not_requested_no_existing_manifest"
+    )));
     assert!(output.contains(&field("manifest_written", "true")));
     assert!(output.contains(&field("committed_manifest_present", "true")));
     assert!(output.contains(&field("commit_record_present", "true")));
@@ -227,6 +304,127 @@ fn local_table_append_commit_rehearsal_writes_manifest_and_commit_record() {
     assert!(output.contains(&field("table_catalog_commit_performed", "false")));
     assert!(output.contains(&field("object_store_io", "false")));
     assert_local_table_commit_native_io_fields(&output, manifest.len(), commit_record.len());
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
+fn allow_overwrite_with_expected_manifest_digest_replaces_existing_manifest() {
+    let temp_dir = temp_case_dir("overwrite-if-match");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let target = temp_dir.join("committed-manifest.json");
+    let initial_args = vec![
+        "local-table-append-commit-rehearsal-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+        "--idempotency-key".to_string(),
+        "orders-table-overwrite-initial".to_string(),
+    ];
+    let (initial_success, initial_output, initial_stderr) =
+        run_local_table_append_commit_json(&initial_args);
+    assert!(
+        initial_success,
+        "stdout={initial_output} stderr={initial_stderr}"
+    );
+    let existing_manifest = fs::read_to_string(&target).expect("committed manifest");
+    let existing_digest = fnv64_digest(&existing_manifest);
+
+    let overwrite_args = vec![
+        "local-table-append-commit-rehearsal-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+        "--idempotency-key".to_string(),
+        "orders-table-overwrite-if-match".to_string(),
+        "--allow-overwrite".to_string(),
+        "--expected-current-manifest-digest".to_string(),
+        existing_digest.clone(),
+    ];
+    let (success, output, stderr) = run_local_table_append_commit_json(&overwrite_args);
+
+    assert!(success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert!(output.contains(&field("allow_overwrite", "true")));
+    assert!(output.contains(&field("existing_manifest_present_before_commit", "true")));
+    assert!(output.contains(&field("optimistic_concurrency_check_performed", "true")));
+    assert!(output.contains(&field("expected_current_manifest_digest", &existing_digest)));
+    assert!(output.contains(&field("observed_current_manifest_digest", &existing_digest)));
+    assert!(output.contains(&field("commit_conflict_detected", "false")));
+    assert!(output.contains(&field(
+        "conflict_detection_status",
+        "matched_current_manifest"
+    )));
+    assert!(output.contains(&field("commit_status", "committed_local_manifest")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
+fn allow_overwrite_with_stale_manifest_digest_blocks_before_write() {
+    let temp_dir = temp_case_dir("overwrite-conflict");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let target = temp_dir.join("committed-manifest.json");
+    let initial_args = vec![
+        "local-table-append-commit-rehearsal-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+        "--idempotency-key".to_string(),
+        "orders-table-conflict-initial".to_string(),
+    ];
+    let (initial_success, initial_output, initial_stderr) =
+        run_local_table_append_commit_json(&initial_args);
+    assert!(
+        initial_success,
+        "stdout={initial_output} stderr={initial_stderr}"
+    );
+    let existing_manifest = fs::read_to_string(&target).expect("committed manifest");
+    let existing_digest = fnv64_digest(&existing_manifest);
+    let stale_digest = "fnv64:0000000000000000";
+    assert_ne!(existing_digest, stale_digest);
+
+    let conflict_args = vec![
+        "local-table-append-commit-rehearsal-smoke".to_string(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-manifest".to_string(),
+        "--idempotency-key".to_string(),
+        "orders-table-conflict-stale".to_string(),
+        "--allow-overwrite".to_string(),
+        "--expected-current-manifest-digest".to_string(),
+        stale_digest.to_string(),
+    ];
+    let (success, output, stderr) = run_local_table_append_commit_json(&conflict_args);
+
+    assert!(!success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert_eq!(
+        fs::read_to_string(&target).expect("manifest after conflict"),
+        existing_manifest
+    );
+    assert!(output.contains("\"status\":\"unsupported\""));
+    assert!(output.contains("\"code\":\"SL_COMMIT_NOT_ATOMIC\""));
+    assert!(output.contains(&field(
+        "table_append_commit_status",
+        "blocked_commit_conflict"
+    )));
+    assert!(output.contains(&field("existing_manifest_present_before_commit", "true")));
+    assert!(output.contains(&field("optimistic_concurrency_check_performed", "true")));
+    assert!(output.contains(&field("expected_current_manifest_digest", stale_digest)));
+    assert!(output.contains(&field("observed_current_manifest_digest", &existing_digest)));
+    assert!(output.contains(&field("commit_conflict_detected", "true")));
+    assert!(output.contains(&field(
+        "conflict_detection_status",
+        "blocked_current_manifest_digest_mismatch"
+    )));
+    assert!(output.contains(&field("manifest_write_performed", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("external_engine_invoked", "false")));
 

@@ -339,6 +339,164 @@ fn write_manifest_file_fixture(path: &std::path::Path, include_deleted_data_file
 }
 
 #[cfg(feature = "universal-format-io")]
+fn write_manifest_file_scan_fixture(
+    path: &std::path::Path,
+    first_data_path: &std::path::Path,
+    second_data_path: &std::path::Path,
+) {
+    use std::{fs::File, sync::Arc};
+
+    use arrow_array::{ArrayRef, Int64Array, RecordBatch, StringArray, StructArray};
+    use arrow_avro::writer::AvroWriter;
+    use arrow_schema::{DataType, Field, Schema};
+
+    let first_size = i64::try_from(
+        fs::metadata(first_data_path)
+            .expect("first parquet metadata")
+            .len(),
+    )
+    .expect("first parquet size fits i64");
+    let second_size = i64::try_from(
+        fs::metadata(second_data_path)
+            .expect("second parquet metadata")
+            .len(),
+    )
+    .expect("second parquet size fits i64");
+    let data_file = Arc::new(StructArray::from(vec![
+        (
+            Arc::new(Field::new("content", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![0, 0])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_path", DataType::Utf8, false)),
+            Arc::new(StringArray::from(vec![
+                first_data_path.to_string_lossy().to_string(),
+                second_data_path.to_string_lossy().to_string(),
+            ])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_format", DataType::Utf8, false)),
+            Arc::new(StringArray::from(vec!["PARQUET", "PARQUET"])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("record_count", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![2, 3])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_size_in_bytes", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![first_size, second_size])) as ArrayRef,
+        ),
+    ])) as ArrayRef;
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("status", DataType::Int64, false),
+        Field::new("snapshot_id", DataType::Int64, false),
+        Field::new("data_file", data_file.data_type().clone(), false),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from(vec![1, 0])),
+            Arc::new(Int64Array::from(vec![2002, 2002])),
+            data_file,
+        ],
+    )
+    .expect("manifest-file scan record batch");
+    let file = File::create(path).expect("create manifest-file scan avro");
+    let mut writer = AvroWriter::new(file, schema.as_ref().clone()).expect("avro writer");
+    writer
+        .write(&batch)
+        .expect("write manifest-file scan batch");
+    writer.finish().expect("finish manifest-file scan writer");
+}
+
+#[cfg(feature = "universal-format-io")]
+fn write_manifest_file_remote_data_path_fixture(path: &std::path::Path) {
+    use std::{fs::File, sync::Arc};
+
+    use arrow_array::{ArrayRef, Int64Array, RecordBatch, StringArray, StructArray};
+    use arrow_avro::writer::AvroWriter;
+    use arrow_schema::{DataType, Field, Schema};
+
+    let data_file = Arc::new(StructArray::from(vec![
+        (
+            Arc::new(Field::new("content", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![0])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_path", DataType::Utf8, false)),
+            Arc::new(StringArray::from(vec![
+                "s3://warehouse/orders/data-a.parquet",
+            ])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_format", DataType::Utf8, false)),
+            Arc::new(StringArray::from(vec!["PARQUET"])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("record_count", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![10])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_size_in_bytes", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![1000])) as ArrayRef,
+        ),
+    ])) as ArrayRef;
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("status", DataType::Int64, false),
+        Field::new("snapshot_id", DataType::Int64, false),
+        Field::new("data_file", data_file.data_type().clone(), false),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from(vec![1])),
+            Arc::new(Int64Array::from(vec![2002])),
+            data_file,
+        ],
+    )
+    .expect("manifest-file remote record batch");
+    let file = File::create(path).expect("create manifest-file remote avro");
+    let mut writer = AvroWriter::new(file, schema.as_ref().clone()).expect("avro writer");
+    writer
+        .write(&batch)
+        .expect("write manifest-file remote batch");
+    writer.finish().expect("finish manifest-file remote writer");
+}
+
+#[cfg(feature = "universal-format-io")]
+fn write_iceberg_parquet_data_file(
+    path: &std::path::Path,
+    order_ids: Vec<i64>,
+    regions: Vec<&str>,
+    amounts: Vec<f64>,
+) {
+    use std::{fs::File, sync::Arc};
+
+    use arrow_array::{Float64Array, Int64Array, RecordBatch, StringArray};
+    use arrow_schema::{DataType, Field, Schema};
+    use parquet::arrow::ArrowWriter;
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("order_id", DataType::Int64, false),
+        Field::new("region", DataType::Utf8, true),
+        Field::new("amount", DataType::Float64, true),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from(order_ids)),
+            Arc::new(StringArray::from(regions)),
+            Arc::new(Float64Array::from(amounts)),
+        ],
+    )
+    .expect("iceberg data record batch");
+    let file = File::create(path).expect("create iceberg parquet data file");
+    let mut writer = ArrowWriter::try_new(file, schema, None).expect("parquet writer");
+    writer.write(&batch).expect("write iceberg parquet batch");
+    writer.close().expect("close iceberg parquet writer");
+}
+
+#[cfg(feature = "universal-format-io")]
 fn write_manifest_file_delete_semantics_fixture(path: &std::path::Path) {
     use std::{fs::File, sync::Arc};
 
@@ -718,6 +876,37 @@ fn iceberg_metadata_read_smoke_blocks_manifest_file_without_feature() {
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
+#[cfg(not(feature = "universal-format-io"))]
+#[test]
+fn iceberg_metadata_read_smoke_blocks_data_file_scan_without_feature() {
+    let path = write_metadata_fixture("data-file-scan-feature-disabled", 0);
+    let args = vec![
+        "iceberg-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--execute-data-file-scan".to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_iceberg_metadata_read_smoke_json(&args);
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("data_file_scan_requested", "true")));
+    assert!(stdout.contains(&field("data_file_scan_reader_feature_enabled", "false")));
+    assert!(stdout.contains(&field("data_file_scan_execution_performed", "false")));
+    assert!(stdout.contains(&field("data_file_read_performed", "false")));
+    assert!(stdout.contains("data_file_scan_reader_feature_disabled"));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
 #[cfg(feature = "universal-format-io")]
 #[test]
 fn iceberg_metadata_read_smoke_reads_manifest_list_summary_with_feature() {
@@ -839,6 +1028,135 @@ fn iceberg_metadata_read_smoke_reads_manifest_file_split_plan_with_feature() {
     assert!(stdout.contains(&field("planned_data_file_split_count", "2")));
     assert!(stdout.contains(&field("planned_data_file_split_bytes", "3000")));
     assert!(stdout.contains(&field("data_file_read_performed", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn iceberg_metadata_read_smoke_executes_declared_local_data_file_scan() {
+    let path = write_metadata_fixture("local-data-file-scan", 0);
+    let first_data_path = temp_iceberg_path("local-data-a", "parquet");
+    let second_data_path = temp_iceberg_path("local-data-b", "parquet");
+    write_iceberg_parquet_data_file(
+        &first_data_path,
+        vec![1, 2],
+        vec!["east", "west"],
+        vec![10.5, 20.25],
+    );
+    write_iceberg_parquet_data_file(
+        &second_data_path,
+        vec![3, 4, 5],
+        vec!["east", "north", "south"],
+        vec![30.0, 40.0, 50.0],
+    );
+    let manifest_file_path = temp_manifest_file_path("local-data-file-scan");
+    write_manifest_file_scan_fixture(&manifest_file_path, &first_data_path, &second_data_path);
+    let args = vec![
+        "iceberg-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--manifest".to_string(),
+        manifest_file_path.to_string_lossy().to_string(),
+        "--execute-data-file-scan".to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_iceberg_metadata_read_smoke_json(&args);
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "report_id",
+        "prod-ready-1c.iceberg_local_data_file_scan_smoke"
+    )));
+    assert!(stdout.contains(&field(
+        "claim_gate_status",
+        "scoped_iceberg_local_data_file_scan_smoke"
+    )));
+    assert!(stdout.contains(&field("data_file_scan_requested", "true")));
+    assert!(stdout.contains(&field("data_file_scan_reader_feature_enabled", "true")));
+    assert!(stdout.contains(&field("data_file_scan_execution_performed", "true")));
+    assert!(stdout.contains(&field("data_file_scan_support_status", "runtime_supported")));
+    assert!(stdout.contains(&field(
+        "data_file_scan_provider_decision",
+        "implement_shardloom_kernel"
+    )));
+    assert!(stdout.contains(&field(
+        "data_file_scan_provider_kind",
+        "compatibility_import"
+    )));
+    assert!(stdout.contains(&field(
+        "data_file_scan_native_io_certificate_status",
+        "certified_local_iceberg_parquet_data_file_scan"
+    )));
+    assert!(stdout.contains(&field("data_file_scan_split_count", "2")));
+    assert!(stdout.contains(&field("data_file_scan_files_read_count", "2")));
+    assert!(stdout.contains(&field("data_file_scan_manifest_record_count", "5")));
+    assert!(stdout.contains(&field("data_file_scan_actual_row_count", "5")));
+    assert!(stdout.contains(&field(
+        "data_file_scan_schema_projection_columns",
+        "order_id,region,amount"
+    )));
+    assert!(stdout.contains(&field("data_file_read_performed", "true")));
+    assert!(stdout.contains(&field("unsupported_feature_order", "none")));
+    assert!(stdout.contains(&field(
+        "side_effect_free_except_declared_local_table_reads",
+        "true"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(!stdout.contains("\"feature\":\"data_file_scan\""));
+
+    fs::remove_file(first_data_path).expect("remove first data file");
+    fs::remove_file(second_data_path).expect("remove second data file");
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn iceberg_metadata_read_smoke_blocks_remote_data_file_scan_without_fallback() {
+    let path = write_metadata_fixture("remote-data-file-scan", 0);
+    let manifest_file_path = temp_manifest_file_path("remote-data-file-scan");
+    write_manifest_file_remote_data_path_fixture(&manifest_file_path);
+    let args = vec![
+        "iceberg-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--manifest".to_string(),
+        manifest_file_path.to_string_lossy().to_string(),
+        "--execute-data-file-scan".to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_iceberg_metadata_read_smoke_json(&args);
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("planned_data_file_non_local_path_count", "1")));
+    assert!(stdout.contains(&field("data_file_scan_requested", "true")));
+    assert!(stdout.contains(&field("data_file_scan_execution_performed", "false")));
+    assert!(stdout.contains(&field("data_file_read_performed", "false")));
+    assert!(stdout.contains(&field(
+        "unsupported_feature_order",
+        "remote_data_file_paths_present"
+    )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }

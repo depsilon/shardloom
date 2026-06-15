@@ -33,6 +33,13 @@ The scoped source-reviewed Iceberg metadata JSON smoke is exposed through:
 shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro] --format json
 ```
 
+An explicit scoped local data-file scan can be requested only after an admitted local manifest-file
+split plan:
+
+```powershell
+shardloom iceberg-metadata-read-smoke <metadata-json-path> --manifest local.avro --execute-data-file-scan --format json
+```
+
 The scoped source-reviewed Delta log metadata smoke is exposed through:
 
 ```powershell
@@ -61,7 +68,7 @@ shardloom local-append-only-cdc-overlay-smoke --format json
 The scoped local table append commit rehearsal is exposed through:
 
 ```powershell
-shardloom local-table-append-commit-rehearsal-smoke <local-committed-manifest-path> --profile local-manifest [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit] --format json
+shardloom local-table-append-commit-rehearsal-smoke <local-committed-manifest-path> --profile local-manifest [--idempotency-key key] [--expected-current-manifest-digest digest] [--allow-overwrite] [--rollback-after-commit] --format json
 ```
 
 The scoped local table commit recovery replay is exposed through:
@@ -90,10 +97,15 @@ shardloom local-table-commit-recovery-smoke <local-committed-manifest-path> --pr
       paths blocked.
 - [x] Support one explicitly requested, feature-gated local Avro Iceberg manifest-list summary read
       with manifest-summary pruning evidence, manifest-level split counts, and delete/unknown
-      manifest blockers while leaving manifest-file and data-file runtime blocked.
+      manifest blockers while leaving default manifest-file and data-file execution blocked unless
+      explicitly requested and admitted.
 - [x] Support one explicitly requested, feature-gated local Avro Iceberg manifest-file split-plan
       read with data-file split counts, bytes, records, and deleted/delete/unknown entry blockers
-      while leaving data-file scan runtime blocked.
+      while leaving data-file scan execution blocked unless `--execute-data-file-scan` is also
+      supplied and the splits are admitted local Parquet files.
+- [x] Support one explicitly requested, feature-gated local Parquet Iceberg data-file scan over
+      admitted manifest-file splits with schema projection, row/batch/byte evidence, compatibility
+      source provider classification, certificate refs, and no-fallback fields.
 - [x] Support Iceberg metadata-level schema/partition evolution admission fields with field-ID,
       partition field-ID, partition spec-ID, manifest partition-spec, and fail-closed projection
       blockers while leaving data projection and partition-filter execution blocked.
@@ -114,7 +126,9 @@ shardloom local-table-commit-recovery-smoke <local-committed-manifest-path> --pr
 - [x] Support one in-memory local append-only CDC overlay smoke through
       `LocalAppendOnlyCdcOverlaySmokeReport`.
 - [x] Support one local-manifest append commit rehearsal with staged committed-manifest write,
-      sidecar commit record, idempotency, and optional rollback cleanup evidence.
+      sidecar commit record, idempotency, optional if-match conflict detection for existing local
+      manifest artifacts, native no-loss translation-report fields, and optional rollback cleanup
+      evidence.
 - [x] Support one local-manifest commit recovery replay smoke that verifies the committed manifest
       digest, sidecar commit record, correctness digest, and optional idempotency key without
       catalog/object-store effects.
@@ -328,9 +342,14 @@ timestamp. When `--manifest-list local.avro` is supplied and `shardloom-cli` is 
 `--features universal-format-io`, it also reads one explicit local Avro Iceberg manifest list for
 manifest-summary pruning and manifest-level split-count evidence only. When `--manifest local.avro`
 is supplied with the same feature, it reads one explicit local Avro Iceberg manifest file for
-data-file split-plan evidence only. The smoke also computes metadata-level schema/partition
-evolution admission and delete/deletion-vector admission; these are planning and blocker surfaces,
-not data projection, partition-filter, delete-application, or scan execution.
+data-file split-plan evidence. When `--execute-data-file-scan` is also supplied, the smoke lowers
+admitted local Parquet data-file splits into a scoped sequential columnar scan through ShardLoom's
+compatibility-source Parquet adapter, projecting current Iceberg schema fields and emitting
+row/batch/byte, provider, materialization-boundary, execution-certificate, and Native I/O evidence.
+The smoke also computes metadata-level schema/partition evolution admission and
+delete/deletion-vector admission; unsafe evolution, remote paths, non-Parquet files, delete
+application, Puffin/deletion-vector reads, object-store/catalog runtime, writes, and broad
+production claims remain blocked.
 
 The smoke reports:
 
@@ -340,6 +359,8 @@ The smoke reports:
   manifest-list summary mode.
 - `claim_gate_status=scoped_iceberg_manifest_file_split_plan_smoke` for the feature-enabled
   manifest-file split-plan mode.
+- `claim_gate_status=scoped_iceberg_local_data_file_scan_smoke` for the explicit feature-enabled
+  local Parquet data-file scan mode.
 - `source_protocol=apache_iceberg_table_metadata`.
 - `local_metadata_json_read_performed=true`.
 - `table_metadata_read_performed=true`.
@@ -540,7 +561,9 @@ therefore continues to block broad runtime promotion while exposing
 fixture-scoped table metadata write and append commit rehearsal. It uses a local-manifest profile,
 declares a base snapshot and append snapshot, writes a staged committed manifest JSON to a local
 target path, writes a sidecar table commit record, records idempotency evidence, and can immediately
-roll back the manifest and sidecar for cleanup proof.
+roll back the manifest and sidecar for cleanup proof. When replacing an existing local manifest
+artifact with `--allow-overwrite`, callers may supply `--expected-current-manifest-digest` to
+enforce an optimistic if-match check before any manifest or sidecar write occurs.
 
 The smoke reports:
 
@@ -561,10 +584,22 @@ The smoke reports:
   `rehearsed_then_rolled_back`
 - `rollback_status=not_requested` or `performed_local_manifest_cleanup`
 - `idempotency_status=caller_supplied` or `derived_from_manifest_digest`
+- `expected_current_manifest_digest=fnv64:*` or `not_requested`
+- `observed_current_manifest_digest=fnv64:*` or `not_observed_no_existing_manifest`
+- `optimistic_concurrency_check_performed=true|false`
+- `commit_conflict_detected=true|false`
+- `conflict_detection_status=matched_current_manifest`,
+  `not_requested_no_existing_manifest`, `not_requested_unconditional_local_manifest_overwrite`, or
+  `blocked_current_manifest_digest_mismatch`
 - `manifest_payload_digest=fnv64:*`
 - `committed_manifest_digest=fnv64:*`
 - `commit_record_digest=fnv64:*`
 - `correctness_digest=fnv64:*`
+- `table_translation_report_schema_version=shardloom.local_table_translation_report.v1`
+- `table_translation_report_fidelity=native_local_manifest_no_loss`
+- `table_translation_report_metadata_loss=false`
+- `table_translation_report_statistics_loss=false`
+- `table_translation_report_layout_loss=false`
 - `catalog_io_performed=false`
 - `object_store_io=false`
 - `table_catalog_commit_performed=false`

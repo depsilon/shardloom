@@ -1,8 +1,9 @@
 //! Workflow, table, manifest, and stateful planning CLI handlers.
 //!
-//! These handlers emit report-only workflow planning surfaces. They do not read
-//! datasets, probe catalogs, execute plans, write data, materialize outputs,
-//! invoke external engines, or provide fallback execution.
+//! Most handlers emit report-only workflow planning surfaces. Explicitly named
+//! local smokes may read declared local fixtures and emit certificate evidence;
+//! they do not probe catalogs, invoke external engines, or provide fallback
+//! execution.
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -5953,6 +5954,7 @@ struct IcebergMetadataReadSmokeRequest {
     selection: IcebergSnapshotSelectionRequest,
     manifest_list_path: Option<String>,
     manifest_file_path: Option<String>,
+    execute_data_file_scan: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -6700,7 +6702,54 @@ struct IcebergManifestFileSummary {
     total_file_size_bytes: u64,
     planned_data_file_count: u64,
     planned_data_file_bytes: u64,
+    planned_data_file_splits: Vec<IcebergPlannedDataFileSplit>,
+    non_local_data_file_path_count: usize,
+    non_parquet_data_file_count: usize,
     split_planning_rule: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergPlannedDataFileSplit {
+    file_path: String,
+    local_path: Option<String>,
+    file_format: String,
+    record_count: u64,
+    file_size_bytes: u64,
+}
+
+impl IcebergPlannedDataFileSplit {
+    #[cfg(feature = "universal-format-io")]
+    fn is_scannable_local_parquet(&self) -> bool {
+        self.local_path.is_some() && self.file_format.eq_ignore_ascii_case("PARQUET")
+    }
+}
+
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergDataFileScanSummary {
+    requested: bool,
+    reader_feature_enabled: bool,
+    provider_decision: &'static str,
+    provider_kind: &'static str,
+    provider_surface: &'static str,
+    support_status: &'static str,
+    native_io_certificate_status: &'static str,
+    native_io_certificate_ref: &'static str,
+    execution_certificate_ref: &'static str,
+    materialization_decode_boundary: &'static str,
+    residual_executor: &'static str,
+    fallback_attempted: bool,
+    external_engine_invoked: bool,
+    split_count: usize,
+    files_read_count: usize,
+    bytes_read: u64,
+    manifest_record_count: u64,
+    manifest_file_size_bytes: u64,
+    actual_row_count: usize,
+    record_batch_count: usize,
+    schema_projection_columns: Vec<String>,
+    file_path_order: Vec<String>,
+    local_path_order: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -6819,6 +6868,8 @@ struct IcebergMetadataReportBuildContext<'a> {
     manifest_list_summary: Option<IcebergManifestListSummary>,
     manifest_file_reader_feature_enabled: bool,
     manifest_file_summary: Option<IcebergManifestFileSummary>,
+    data_file_scan_reader_feature_enabled: bool,
+    data_file_scan_summary: Option<IcebergDataFileScanSummary>,
     schema_evolution_summary: IcebergSchemaEvolutionSummary,
     partition_evolution_summary: IcebergPartitionEvolutionSummary,
     delete_admission_summary: IcebergDeleteAdmissionSummary,
@@ -6867,6 +6918,9 @@ struct IcebergMetadataReadSmokeReport {
     manifest_file_path_requested: Option<String>,
     manifest_file_reader_feature_enabled: bool,
     manifest_file_summary: Option<IcebergManifestFileSummary>,
+    data_file_scan_requested: bool,
+    data_file_scan_reader_feature_enabled: bool,
+    data_file_scan_summary: Option<IcebergDataFileScanSummary>,
     delete_admission_summary: IcebergDeleteAdmissionSummary,
     branch_or_tag_ref_count: usize,
     last_sequence_number: String,
@@ -6915,6 +6969,7 @@ impl IcebergMetadataReadSmokeReport {
             "scoped_iceberg_metadata_json_smoke_only"
                 | "scoped_iceberg_metadata_manifest_list_summary_smoke"
                 | "scoped_iceberg_manifest_file_split_plan_smoke"
+                | "scoped_iceberg_local_data_file_scan_smoke"
         ) && !self.performance_claim_allowed
             && !self.production_table_catalog_claim_allowed
             && !self.lakehouse_claim_allowed
@@ -6943,7 +6998,7 @@ impl IcebergMetadataReadSmokeReport {
             && !self.object_store_io_performed
             && self.manifest_list_read_performed == self.manifest_list_summary.is_some()
             && self.manifest_file_read_performed == self.manifest_file_summary.is_some()
-            && !self.data_file_read_performed
+            && (!self.data_file_read_performed || self.data_file_scan_summary.is_some())
             && !self.write_io_performed
             && !self.credential_resolution_performed
             && !self.external_table_format_dependency_invoked
@@ -7003,7 +7058,7 @@ impl IcebergMetadataReadSmokeReport {
 
     fn to_human_text(&self) -> String {
         format!(
-            "schema_version: {}\nreport_id: {}\nphase_id: {}\nsupport_status: {}\nclaim_gate_status: {}\nsource_protocol: {}\nmetadata_path: {}\nformat_version: {}\ntable_uuid: {}\ncurrent_snapshot_id: {}\nselected_snapshot_id: {}\nsnapshot_selector_kind: {}\nmanifest_list_refs: {}\nmanifest_list_requested: {}\nmanifest_list_read_performed: {}\nmanifest_file_requested: {}\nmanifest_file_read_performed: {}\nunsupported_features: {}\nfallback_attempted: {}\nexternal_engine_invoked: {}\n",
+            "schema_version: {}\nreport_id: {}\nphase_id: {}\nsupport_status: {}\nclaim_gate_status: {}\nsource_protocol: {}\nmetadata_path: {}\nformat_version: {}\ntable_uuid: {}\ncurrent_snapshot_id: {}\nselected_snapshot_id: {}\nsnapshot_selector_kind: {}\nmanifest_list_refs: {}\nmanifest_list_requested: {}\nmanifest_list_read_performed: {}\nmanifest_file_requested: {}\nmanifest_file_read_performed: {}\ndata_file_scan_requested: {}\ndata_file_read_performed: {}\nunsupported_features: {}\nfallback_attempted: {}\nexternal_engine_invoked: {}\n",
             self.schema_version,
             self.report_id,
             self.phase_id,
@@ -7021,6 +7076,8 @@ impl IcebergMetadataReadSmokeReport {
             self.manifest_list_read_performed,
             self.manifest_file_requested(),
             self.manifest_file_read_performed,
+            self.data_file_scan_requested,
+            self.data_file_read_performed,
             self.unsupported_feature_order_text(),
             self.fallback_attempted,
             self.external_engine_invoked
@@ -7031,11 +7088,11 @@ impl IcebergMetadataReadSmokeReport {
 fn iceberg_metadata_blocked_paths(
     manifest_list_read_performed: bool,
     manifest_file_read_performed: bool,
+    data_file_read_performed: bool,
 ) -> Vec<IcebergMetadataBlockedPath> {
     let mut paths = vec![
         IcebergMetadataBlockedPath::ExternalCatalogResolution,
         IcebergMetadataBlockedPath::RemoteObjectStoreMetadataRead,
-        IcebergMetadataBlockedPath::DataFileScan,
         IcebergMetadataBlockedPath::DeleteFileSemantics,
         IcebergMetadataBlockedPath::TableWriteCommit,
         IcebergMetadataBlockedPath::BroadIcebergRuntime,
@@ -7049,13 +7106,34 @@ fn iceberg_metadata_blocked_paths(
         let insert_at = if manifest_list_read_performed { 2 } else { 3 };
         paths.insert(insert_at, IcebergMetadataBlockedPath::ManifestFileRead);
     }
+    if !data_file_read_performed {
+        let insert_at = if manifest_file_read_performed {
+            2
+        } else if manifest_list_read_performed {
+            3
+        } else {
+            4
+        };
+        paths.insert(insert_at, IcebergMetadataBlockedPath::DataFileScan);
+    }
     paths
 }
 
 fn iceberg_report_scope(
     manifest_list_read_performed: bool,
     manifest_file_read_performed: bool,
+    data_file_read_performed: bool,
 ) -> IcebergReportScope {
+    if data_file_read_performed {
+        return IcebergReportScope {
+            report_id: "prod-ready-1c.iceberg_local_data_file_scan_smoke",
+            claim_gate_status: "scoped_iceberg_local_data_file_scan_smoke",
+            claim_boundary: "one local Iceberg table metadata JSON read, explicit local Avro manifest-file read, and explicit local Parquet data-file scan; local compatibility-source execution only; no catalog service, object-store read, delete execution, write/commit, production lakehouse, broad Vortex-native table scan, or performance claim",
+            native_io_certificate_refs: "local_metadata_json_manifest_avro_and_local_parquet_data_file_scan_native_io_certificate",
+            materialization_decode_refs: "metadata_json_plus_manifest_avro_decode_then_local_parquet_decoded_columnar_no_scalar_row_materialization",
+            dependency_boundary_refs: "serde_json_plus_arrow_avro_plus_parquet_compat_adapters_no_iceberg_runtime_dependency_no_external_engine",
+        };
+    }
     if manifest_file_read_performed {
         return IcebergReportScope {
             report_id: "prod-ready-1c.iceberg_manifest_file_split_plan_smoke",
@@ -7094,6 +7172,7 @@ fn parse_iceberg_metadata_read_smoke_args(
     let mut as_of_timestamp_ms = None;
     let mut manifest_list_path = None;
     let mut manifest_file_path = None;
+    let mut execute_data_file_scan = false;
     let mut iter = args.peekable();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
@@ -7132,13 +7211,16 @@ fn parse_iceberg_metadata_read_smoke_args(
                 })?;
                 manifest_file_path = Some(value);
             }
+            "--execute-data-file-scan" => {
+                execute_data_file_scan = true;
+            }
             other if other.starts_with("--") => {
                 return Err(cli_unknown_arg_error("iceberg-metadata-read-smoke", other));
             }
             _ if metadata_path.is_none() => metadata_path = Some(arg),
             _ => {
                 return Err(ShardLoomError::InvalidOperation(
-                    "usage: shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro]"
+                    "usage: shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro] [--execute-data-file-scan]"
                         .to_string(),
                 ));
             }
@@ -7151,7 +7233,7 @@ fn parse_iceberg_metadata_read_smoke_args(
     }
     let metadata_path = metadata_path.ok_or_else(|| {
         ShardLoomError::InvalidOperation(
-            "usage: shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro]"
+            "usage: shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro] [--execute-data-file-scan]"
                 .to_string(),
         )
     })?;
@@ -7166,6 +7248,7 @@ fn parse_iceberg_metadata_read_smoke_args(
         selection,
         manifest_list_path,
         manifest_file_path,
+        execute_data_file_scan,
     })
 }
 
@@ -8119,6 +8202,7 @@ fn prepare_iceberg_metadata_report_context<'a>(
     let manifest_file_reader_feature_enabled = iceberg_manifest_file_reader_feature_enabled();
     let manifest_file_summary =
         maybe_read_iceberg_manifest_file_summary(request.manifest_file_path.as_deref())?;
+    let data_file_scan_reader_feature_enabled = iceberg_data_file_scan_reader_feature_enabled();
     let schema_evolution_summary = iceberg_schema_evolution_summary(root_parts.schemas);
     let partition_evolution_summary =
         iceberg_partition_evolution_summary(root, manifest_list_summary.as_ref());
@@ -8130,6 +8214,9 @@ fn prepare_iceberg_metadata_report_context<'a>(
     let unsupported_feature_order =
         iceberg_metadata_unsupported_feature_order(&IcebergMetadataUnsupportedFeatureContext {
             format_version: root_parts.format_version,
+            data_file_scan_requested: request.execute_data_file_scan,
+            data_file_scan_reader_feature_disabled: request.execute_data_file_scan
+                && !data_file_scan_reader_feature_enabled,
             selected_snapshot: &root_parts.selected_snapshot,
             schema_evolution_summary: &schema_evolution_summary,
             partition_evolution_summary: &partition_evolution_summary,
@@ -8141,12 +8228,19 @@ fn prepare_iceberg_metadata_report_context<'a>(
             manifest_list_summary: manifest_list_summary.as_ref(),
             manifest_file_summary: manifest_file_summary.as_ref(),
         });
+    let data_file_scan_summary = maybe_execute_iceberg_data_file_scan(
+        request,
+        root_parts.current_schema,
+        manifest_file_summary.as_ref(),
+        &unsupported_feature_order,
+    )?;
     let metadata_summary = iceberg_metadata_summary(&IcebergMetadataSummaryContext {
         table_uuid: &root_parts.table_uuid,
         current_snapshot_id: &root_parts.current_snapshot_id,
         selected_snapshot: &root_parts.selected_snapshot,
         manifest_list_summary: manifest_list_summary.as_ref(),
         manifest_file_summary: manifest_file_summary.as_ref(),
+        data_file_scan_summary: data_file_scan_summary.as_ref(),
         schema_evolution_summary: &schema_evolution_summary,
         partition_evolution_summary: &partition_evolution_summary,
         delete_admission_summary: &delete_admission_summary,
@@ -8156,9 +8250,17 @@ fn prepare_iceberg_metadata_report_context<'a>(
     });
     let manifest_list_read_performed = manifest_list_summary.is_some();
     let manifest_file_read_performed = manifest_file_summary.is_some();
-    let scope = iceberg_report_scope(manifest_list_read_performed, manifest_file_read_performed);
-    let blocked_paths =
-        iceberg_metadata_blocked_paths(manifest_list_read_performed, manifest_file_read_performed);
+    let data_file_read_performed = data_file_scan_summary.is_some();
+    let scope = iceberg_report_scope(
+        manifest_list_read_performed,
+        manifest_file_read_performed,
+        data_file_read_performed,
+    );
+    let blocked_paths = iceberg_metadata_blocked_paths(
+        manifest_list_read_performed,
+        manifest_file_read_performed,
+        data_file_read_performed,
+    );
     let diagnostics = iceberg_metadata_diagnostics(&blocked_paths, &unsupported_feature_order);
     Ok(IcebergMetadataReportBuildContext {
         root_parts,
@@ -8166,6 +8268,8 @@ fn prepare_iceberg_metadata_report_context<'a>(
         manifest_list_summary,
         manifest_file_reader_feature_enabled,
         manifest_file_summary,
+        data_file_scan_reader_feature_enabled,
+        data_file_scan_summary,
         schema_evolution_summary,
         partition_evolution_summary,
         delete_admission_summary,
@@ -8189,6 +8293,8 @@ fn assemble_iceberg_metadata_report(
         manifest_list_summary,
         manifest_file_reader_feature_enabled,
         manifest_file_summary,
+        data_file_scan_reader_feature_enabled,
+        data_file_scan_summary,
         schema_evolution_summary,
         partition_evolution_summary,
         delete_admission_summary,
@@ -8200,6 +8306,7 @@ fn assemble_iceberg_metadata_report(
     } = context;
     let manifest_list_read_performed = manifest_list_summary.is_some();
     let manifest_file_read_performed = manifest_file_summary.is_some();
+    let data_file_read_performed = data_file_scan_summary.is_some();
     IcebergMetadataReadSmokeReport {
         schema_version: "shardloom.iceberg_metadata_read_smoke.v1",
         report_id: scope.report_id,
@@ -8238,6 +8345,9 @@ fn assemble_iceberg_metadata_report(
         manifest_file_path_requested: request.manifest_file_path.clone(),
         manifest_file_reader_feature_enabled,
         manifest_file_summary,
+        data_file_scan_requested: request.execute_data_file_scan,
+        data_file_scan_reader_feature_enabled,
+        data_file_scan_summary,
         delete_admission_summary,
         branch_or_tag_ref_count: optional_object_len(root, "refs"),
         last_sequence_number: optional_i64_string(root, "last-sequence-number"),
@@ -8258,7 +8368,7 @@ fn assemble_iceberg_metadata_report(
         object_store_io_performed: false,
         manifest_list_read_performed,
         manifest_file_read_performed,
-        data_file_read_performed: false,
+        data_file_read_performed,
         write_io_performed: false,
         credential_resolution_performed: false,
         external_table_format_dependency_invoked: false,
@@ -8593,6 +8703,9 @@ fn read_iceberg_manifest_file_summary(
         total_file_size_bytes: 0,
         planned_data_file_count: 0,
         planned_data_file_bytes: 0,
+        planned_data_file_splits: Vec::new(),
+        non_local_data_file_path_count: 0,
+        non_parquet_data_file_count: 0,
         split_planning_rule: "added_and_existing_data_files_only_deleted_delete_and_unknown_entries_blocked",
     };
     for row in &table.rows {
@@ -8640,6 +8753,9 @@ fn observe_iceberg_manifest_file_row(
 
     let record_count = iceberg_struct_u64(data_file, "record_count").unwrap_or(0);
     let file_size = iceberg_struct_u64(data_file, "file_size_in_bytes").unwrap_or(0);
+    let file_format = iceberg_struct_string(data_file, "file_format")
+        .unwrap_or("unknown")
+        .to_string();
     summary.total_record_count = summary.total_record_count.saturating_add(record_count);
     summary.total_file_size_bytes = summary.total_file_size_bytes.saturating_add(file_size);
 
@@ -8649,12 +8765,26 @@ fn observe_iceberg_manifest_file_row(
             summary.planned_data_file_count = summary.planned_data_file_count.saturating_add(1);
             summary.planned_data_file_bytes =
                 summary.planned_data_file_bytes.saturating_add(file_size);
+            observe_iceberg_planned_data_file_split(
+                summary,
+                file_path,
+                &file_format,
+                record_count,
+                file_size,
+            );
         }
         Some(1) if content == 0 => {
             summary.added_data_file_count = summary.added_data_file_count.saturating_add(1);
             summary.planned_data_file_count = summary.planned_data_file_count.saturating_add(1);
             summary.planned_data_file_bytes =
                 summary.planned_data_file_bytes.saturating_add(file_size);
+            observe_iceberg_planned_data_file_split(
+                summary,
+                file_path,
+                &file_format,
+                record_count,
+                file_size,
+            );
         }
         Some(2) if content == 0 => {
             summary.deleted_data_file_count = summary.deleted_data_file_count.saturating_add(1);
@@ -8697,6 +8827,211 @@ fn observe_iceberg_manifest_file_content(
                 summary.unknown_content_file_count.saturating_add(1);
         }
     }
+}
+
+#[cfg(feature = "universal-format-io")]
+fn observe_iceberg_planned_data_file_split(
+    summary: &mut IcebergManifestFileSummary,
+    file_path: &str,
+    file_format: &str,
+    record_count: u64,
+    file_size_bytes: u64,
+) {
+    let local_path = iceberg_local_data_file_path(file_path);
+    if local_path.is_none() {
+        summary.non_local_data_file_path_count += 1;
+    }
+    if !file_format.eq_ignore_ascii_case("PARQUET") {
+        summary.non_parquet_data_file_count += 1;
+    }
+    summary
+        .planned_data_file_splits
+        .push(IcebergPlannedDataFileSplit {
+            file_path: file_path.to_string(),
+            local_path,
+            file_format: file_format.to_string(),
+            record_count,
+            file_size_bytes,
+        });
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_local_data_file_path(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if trimmed.contains("://") && !trimmed.starts_with("file://") {
+        return None;
+    }
+    if let Some(rest) = trimmed.strip_prefix("file://") {
+        return iceberg_local_path_from_file_uri(rest);
+    }
+    Some(trimmed.to_string())
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_local_path_from_file_uri(rest: &str) -> Option<String> {
+    if rest.is_empty() {
+        return None;
+    }
+    let local = if rest.starts_with('/') {
+        rest.to_string()
+    } else {
+        let (authority, path) = rest.split_once('/')?;
+        if !authority.is_empty() && !authority.eq_ignore_ascii_case("localhost") {
+            return None;
+        }
+        format!("/{path}")
+    };
+    Some(local)
+}
+
+fn iceberg_data_file_scan_reader_feature_enabled() -> bool {
+    cfg!(feature = "universal-format-io")
+}
+
+fn maybe_execute_iceberg_data_file_scan(
+    request: &IcebergMetadataReadSmokeRequest,
+    current_schema: &serde_json::Map<String, serde_json::Value>,
+    manifest_file_summary: Option<&IcebergManifestFileSummary>,
+    unsupported_feature_order: &[&'static str],
+) -> Result<Option<IcebergDataFileScanSummary>, ShardLoomError> {
+    if !request.execute_data_file_scan
+        || !iceberg_data_file_scan_reader_feature_enabled()
+        || !unsupported_feature_order.is_empty()
+    {
+        return Ok(None);
+    }
+    let Some(manifest_file_summary) = manifest_file_summary else {
+        return Ok(None);
+    };
+    execute_iceberg_data_file_scan(current_schema, manifest_file_summary).map(Some)
+}
+
+#[cfg(feature = "universal-format-io")]
+const ICEBERG_DATA_FILE_SCAN_MAX_ROWS_PER_FILE: usize = 1_000_000;
+
+#[cfg(feature = "universal-format-io")]
+fn execute_iceberg_data_file_scan(
+    current_schema: &serde_json::Map<String, serde_json::Value>,
+    manifest_file_summary: &IcebergManifestFileSummary,
+) -> Result<IcebergDataFileScanSummary, ShardLoomError> {
+    let projection_columns = iceberg_schema_projection_columns(current_schema);
+    if projection_columns.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "Iceberg data-file scan requires at least one current schema projection column"
+                .to_string(),
+        ));
+    }
+
+    let mut bytes_read = 0_u64;
+    let mut actual_row_count = 0_usize;
+    let mut record_batch_count = 0_usize;
+    let mut file_path_order = Vec::new();
+    let mut local_path_order = Vec::new();
+    let mut manifest_record_count = 0_u64;
+    let mut manifest_file_size_bytes = 0_u64;
+
+    for split in manifest_file_summary
+        .planned_data_file_splits
+        .iter()
+        .filter(|split| split.is_scannable_local_parquet())
+    {
+        let local_path = split
+            .local_path
+            .as_deref()
+            .expect("scannable local parquet split has local path");
+        let path = Path::new(local_path);
+        let metadata = fs::metadata(path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to stat Iceberg local Parquet data file '{}': {error}",
+                path.display()
+            ))
+        })?;
+        bytes_read = bytes_read.saturating_add(metadata.len());
+        manifest_record_count = manifest_record_count.saturating_add(split.record_count);
+        manifest_file_size_bytes = manifest_file_size_bytes.saturating_add(split.file_size_bytes);
+        let source = shardloom_vortex::read_flat_parquet_columnar_source_with_projection(
+            path,
+            ICEBERG_DATA_FILE_SCAN_MAX_ROWS_PER_FILE,
+            &projection_columns,
+        )?;
+        let missing_projection_columns =
+            missing_iceberg_projection_columns(&projection_columns, &source.materialized_columns);
+        if !missing_projection_columns.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "Iceberg local Parquet data file '{}' is missing projected columns: {}",
+                path.display(),
+                missing_projection_columns.join(",")
+            )));
+        }
+        actual_row_count = actual_row_count.saturating_add(source.row_count);
+        record_batch_count = record_batch_count.saturating_add(source.batches.len());
+        file_path_order.push(split.file_path.clone());
+        local_path_order.push(local_path.to_string());
+    }
+
+    Ok(IcebergDataFileScanSummary {
+        requested: true,
+        reader_feature_enabled: true,
+        provider_decision: "implement_shardloom_kernel",
+        provider_kind: "compatibility_import",
+        provider_surface: "shardloom_vortex::read_flat_parquet_columnar_source_with_projection",
+        support_status: "runtime_supported",
+        native_io_certificate_status: "certified_local_iceberg_parquet_data_file_scan",
+        native_io_certificate_ref: "iceberg.local-parquet-data-file-scan.native-io.v1",
+        execution_certificate_ref: "iceberg.local-parquet-data-file-scan.execution.v1",
+        materialization_decode_boundary: "foreign_encoded_parquet_to_decoded_columnar_no_scalar_row_materialization",
+        residual_executor: "none",
+        fallback_attempted: false,
+        external_engine_invoked: false,
+        split_count: file_path_order.len(),
+        files_read_count: local_path_order.len(),
+        bytes_read,
+        manifest_record_count,
+        manifest_file_size_bytes,
+        actual_row_count,
+        record_batch_count,
+        schema_projection_columns: projection_columns,
+        file_path_order,
+        local_path_order,
+    })
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn execute_iceberg_data_file_scan(
+    _current_schema: &serde_json::Map<String, serde_json::Value>,
+    _manifest_file_summary: &IcebergManifestFileSummary,
+) -> Result<IcebergDataFileScanSummary, ShardLoomError> {
+    Err(ShardLoomError::NotImplemented(
+        "Iceberg local data-file scan execution requires building shardloom-cli with --features universal-format-io"
+            .to_string(),
+    ))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_schema_projection_columns(
+    schema: &serde_json::Map<String, serde_json::Value>,
+) -> Vec<String> {
+    schema_fields(schema).map_or_else(Vec::new, |fields| {
+        fields
+            .iter()
+            .filter_map(serde_json::Value::as_object)
+            .filter_map(|field| field.get("name").and_then(serde_json::Value::as_str))
+            .map(ToString::to_string)
+            .collect()
+    })
+}
+
+#[cfg(feature = "universal-format-io")]
+fn missing_iceberg_projection_columns(required: &[String], actual: &[String]) -> Vec<String> {
+    let actual = actual.iter().map(String::as_str).collect::<BTreeSet<_>>();
+    required
+        .iter()
+        .filter(|column| !actual.contains(column.as_str()))
+        .cloned()
+        .collect()
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -9467,8 +9802,11 @@ fn manifest_list_ref_count(snapshots: &[serde_json::Value]) -> usize {
         .count()
 }
 
+#[allow(clippy::struct_excessive_bools)]
 struct IcebergMetadataUnsupportedFeatureContext<'a> {
     format_version: u64,
+    data_file_scan_requested: bool,
+    data_file_scan_reader_feature_disabled: bool,
     selected_snapshot: &'a IcebergMetadataSnapshotSummary,
     schema_evolution_summary: &'a IcebergSchemaEvolutionSummary,
     partition_evolution_summary: &'a IcebergPartitionEvolutionSummary,
@@ -9479,12 +9817,16 @@ struct IcebergMetadataUnsupportedFeatureContext<'a> {
     manifest_file_summary: Option<&'a IcebergManifestFileSummary>,
 }
 
+#[allow(clippy::too_many_lines)]
 fn iceberg_metadata_unsupported_feature_order(
     context: &IcebergMetadataUnsupportedFeatureContext<'_>,
 ) -> Vec<&'static str> {
     let mut features = Vec::new();
     if context.format_version > 2 {
         features.push("format_version_gt_2");
+    }
+    if context.data_file_scan_requested && context.data_file_scan_reader_feature_disabled {
+        features.push("data_file_scan_reader_feature_disabled");
     }
     if context.selected_snapshot.delete_file_count > 0 {
         features.push("delete_files_present");
@@ -9531,6 +9873,17 @@ fn iceberg_metadata_unsupported_feature_order(
         }
     }
     if let Some(summary) = context.manifest_file_summary {
+        if context.data_file_scan_requested {
+            if summary.planned_data_file_count == 0 {
+                features.push("data_file_scan_requires_planned_data_files");
+            }
+            if summary.non_local_data_file_path_count > 0 {
+                features.push("remote_data_file_paths_present");
+            }
+            if summary.non_parquet_data_file_count > 0 {
+                features.push("non_parquet_data_files_present");
+            }
+        }
         if context
             .delete_admission_summary
             .manifest_file_deletion_vector_count
@@ -9578,6 +9931,9 @@ fn iceberg_metadata_unsupported_feature_order(
             features.push("unknown_manifest_entry_status_present");
         }
     }
+    if context.data_file_scan_requested && context.manifest_file_summary.is_none() {
+        features.push("data_file_scan_requires_manifest_file");
+    }
     features
 }
 
@@ -9611,6 +9967,7 @@ struct IcebergMetadataSummaryContext<'a> {
     selected_snapshot: &'a IcebergMetadataSnapshotSummary,
     manifest_list_summary: Option<&'a IcebergManifestListSummary>,
     manifest_file_summary: Option<&'a IcebergManifestFileSummary>,
+    data_file_scan_summary: Option<&'a IcebergDataFileScanSummary>,
     schema_evolution_summary: &'a IcebergSchemaEvolutionSummary,
     partition_evolution_summary: &'a IcebergPartitionEvolutionSummary,
     delete_admission_summary: &'a IcebergDeleteAdmissionSummary,
@@ -9622,6 +9979,7 @@ struct IcebergMetadataSummaryContext<'a> {
 fn iceberg_metadata_summary(context: &IcebergMetadataSummaryContext<'_>) -> String {
     let manifest_list_read = context.manifest_list_summary.is_some();
     let manifest_file_read = context.manifest_file_summary.is_some();
+    let data_file_read = context.data_file_scan_summary.is_some();
     let planned_manifest_splits = context
         .manifest_list_summary
         .map_or(0, |summary| summary.planned_manifest_split_count);
@@ -9634,7 +9992,7 @@ fn iceberg_metadata_summary(context: &IcebergMetadataSummaryContext<'_>) -> Stri
         |summary| summary.planned_data_file_count,
     );
     format!(
-        "protocol=iceberg table_uuid={} format_version={} current_schema_id={} current_snapshot_id={} selected_snapshot_id={} schemas={} schema_evolution_status={} partition_specs={} partition_evolution_status={} sort_orders={} snapshots={} manifest_list_refs={} manifest_list_read={} manifest_file_read={} planned_manifest_splits={} planned_data_files={} delete_files={} delete_admission_status={} catalog_io=false object_store_io=false data_file_read=false fallback_attempted=false external_engine_invoked=false",
+        "protocol=iceberg table_uuid={} format_version={} current_schema_id={} current_snapshot_id={} selected_snapshot_id={} schemas={} schema_evolution_status={} partition_specs={} partition_evolution_status={} sort_orders={} snapshots={} manifest_list_refs={} manifest_list_read={} manifest_file_read={} planned_manifest_splits={} planned_data_files={} data_file_read={} data_file_rows_read={} delete_files={} delete_admission_status={} catalog_io=false object_store_io=false fallback_attempted=false external_engine_invoked=false",
         context.table_uuid,
         context
             .root
@@ -9659,6 +10017,10 @@ fn iceberg_metadata_summary(context: &IcebergMetadataSummaryContext<'_>) -> Stri
         manifest_file_read,
         planned_manifest_splits,
         planned_data_files,
+        data_file_read,
+        context
+            .data_file_scan_summary
+            .map_or(0, |summary| summary.actual_row_count),
         context.selected_snapshot.delete_file_count,
         context.delete_admission_summary.admission_status
     )
@@ -9681,6 +10043,7 @@ fn iceberg_metadata_read_smoke_fields(
     append_iceberg_metadata_summary_fields(&mut fields, report);
     append_iceberg_manifest_list_summary_fields(&mut fields, report);
     append_iceberg_manifest_file_summary_fields(&mut fields, report);
+    append_iceberg_data_file_scan_fields(&mut fields, report);
     append_iceberg_metadata_evidence_fields(&mut fields, report);
     append_iceberg_metadata_boundary_fields(&mut fields, report);
     append_iceberg_metadata_diagnostic_fields(&mut fields, report);
@@ -10268,6 +10631,7 @@ fn append_iceberg_manifest_file_request_fields(
     });
 }
 
+#[allow(clippy::too_many_lines)]
 fn append_iceberg_manifest_file_count_fields(
     fields: &mut Vec<(String, String)>,
     summary: Option<&IcebergManifestFileSummary>,
@@ -10359,6 +10723,175 @@ fn append_iceberg_manifest_file_count_fields(
         "planned_data_file_split_bytes",
         summary,
         |summary| summary.planned_data_file_bytes,
+    );
+    push_field(
+        fields,
+        "planned_data_file_split_path_order",
+        &summary.map_or_else(String::new, |summary| {
+            summary
+                .planned_data_file_splits
+                .iter()
+                .map(|split| split.file_path.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }),
+    );
+    push_count_field(
+        fields,
+        "planned_data_file_non_local_path_count",
+        summary.map_or(0, |summary| summary.non_local_data_file_path_count),
+    );
+    push_count_field(
+        fields,
+        "planned_data_file_non_parquet_count",
+        summary.map_or(0, |summary| summary.non_parquet_data_file_count),
+    );
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_iceberg_data_file_scan_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &IcebergMetadataReadSmokeReport,
+) {
+    let summary = report.data_file_scan_summary.as_ref();
+    push_bool_field(
+        fields,
+        "data_file_scan_requested",
+        summary.map_or(report.data_file_scan_requested, |summary| summary.requested),
+    );
+    push_bool_field(
+        fields,
+        "data_file_scan_reader_feature_enabled",
+        summary.map_or(report.data_file_scan_reader_feature_enabled, |summary| {
+            summary.reader_feature_enabled
+        }),
+    );
+    push_bool_field(
+        fields,
+        "data_file_scan_execution_performed",
+        summary.is_some(),
+    );
+    push_field(
+        fields,
+        "data_file_scan_support_status",
+        summary.map_or_else(
+            || {
+                if report.data_file_scan_requested {
+                    "unsupported"
+                } else {
+                    "not_requested"
+                }
+            },
+            |summary| summary.support_status,
+        ),
+    );
+    push_field(
+        fields,
+        "data_file_scan_provider_decision",
+        summary.map_or("not_applicable", |summary| summary.provider_decision),
+    );
+    push_field(
+        fields,
+        "data_file_scan_provider_kind",
+        summary.map_or("not_applicable", |summary| summary.provider_kind),
+    );
+    push_field(
+        fields,
+        "data_file_scan_provider_surface",
+        summary.map_or("not_applicable", |summary| summary.provider_surface),
+    );
+    push_field(
+        fields,
+        "data_file_scan_native_io_certificate_status",
+        summary.map_or("not_emitted", |summary| {
+            summary.native_io_certificate_status
+        }),
+    );
+    push_field(
+        fields,
+        "data_file_scan_native_io_certificate_ref",
+        summary.map_or("none", |summary| summary.native_io_certificate_ref),
+    );
+    push_field(
+        fields,
+        "data_file_scan_execution_certificate_ref",
+        summary.map_or("none", |summary| summary.execution_certificate_ref),
+    );
+    push_field(
+        fields,
+        "data_file_scan_materialization_decode_boundary",
+        summary.map_or("not_applicable", |summary| {
+            summary.materialization_decode_boundary
+        }),
+    );
+    push_field(
+        fields,
+        "data_file_scan_residual_executor",
+        summary.map_or("unsupported_blocked", |summary| summary.residual_executor),
+    );
+    push_bool_field(
+        fields,
+        "data_file_scan_fallback_attempted",
+        summary.is_some_and(|summary| summary.fallback_attempted),
+    );
+    push_bool_field(
+        fields,
+        "data_file_scan_external_engine_invoked",
+        summary.is_some_and(|summary| summary.external_engine_invoked),
+    );
+    push_count_field(
+        fields,
+        "data_file_scan_split_count",
+        summary.map_or(0, |s| s.split_count),
+    );
+    push_count_field(
+        fields,
+        "data_file_scan_files_read_count",
+        summary.map_or(0, |s| s.files_read_count),
+    );
+    push_field(
+        fields,
+        "data_file_scan_bytes_read",
+        &summary.map_or(0, |s| s.bytes_read).to_string(),
+    );
+    push_field(
+        fields,
+        "data_file_scan_manifest_record_count",
+        &summary.map_or(0, |s| s.manifest_record_count).to_string(),
+    );
+    push_field(
+        fields,
+        "data_file_scan_manifest_file_size_bytes",
+        &summary
+            .map_or(0, |s| s.manifest_file_size_bytes)
+            .to_string(),
+    );
+    push_count_field(
+        fields,
+        "data_file_scan_actual_row_count",
+        summary.map_or(0, |s| s.actual_row_count),
+    );
+    push_count_field(
+        fields,
+        "data_file_scan_record_batch_count",
+        summary.map_or(0, |s| s.record_batch_count),
+    );
+    push_field(
+        fields,
+        "data_file_scan_schema_projection_columns",
+        &summary.map_or_else(String::new, |summary| {
+            summary.schema_projection_columns.join(",")
+        }),
+    );
+    push_field(
+        fields,
+        "data_file_scan_file_path_order",
+        &summary.map_or_else(String::new, |summary| summary.file_path_order.join(",")),
+    );
+    push_field(
+        fields,
+        "data_file_scan_local_path_order",
+        &summary.map_or_else(String::new, |summary| summary.local_path_order.join(",")),
     );
 }
 
