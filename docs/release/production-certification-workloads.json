@@ -696,8 +696,8 @@
       "performance_claim_allowed": false,
       "fallback_attempted": false,
       "external_engine_invoked": false,
-      "environment": "single_process_local_manifest_inspection_and_registry_discovery",
-      "data_scale": "bounded local extension manifest JSON up to 256 KiB per file and approved local manifest directories up to 64 JSON manifests / 2 MiB aggregate; no dependency expansion, plugin runtime, production scale, or performance claim",
+      "environment": "single_process_local_manifest_inspection_registry_discovery_and_typed_udf_registry",
+      "data_scale": "bounded local extension manifest JSON up to 256 KiB per file, approved local manifest directories up to 64 JSON manifests / 2 MiB aggregate, and in-process typed UDF registry metadata rows; no dependency expansion, arbitrary UDF runtime, plugin runtime, production scale, or performance claim",
       "input_formats": [
         "shardloom.extension_manifest.v1",
         "approved_local_manifest_directory",
@@ -706,21 +706,24 @@
       "output_formats": [
         "shardloom.output.v2_json",
         "extension_manifest_inspection_fields",
-        "extension_registry_snapshot_fields"
+        "extension_registry_snapshot_fields",
+        "typed_udf_registry_fields"
       ],
-      "statefulness": "stateless_metadata_inspection_and_directory_inventory",
+      "statefulness": "stateless_metadata_inspection_directory_inventory_and_typed_registry_discovery",
       "effect_permissions": [
         "explicit_local_file_read",
         "bounded_manifest_file_read",
         "bounded_approved_manifest_directory_read",
+        "typed_udf_registry_metadata_read",
+        "builtin_deterministic_scalar_udf_fixture_only",
         "no_dynamic_loading",
-        "no_udf_execution",
+        "no_arbitrary_udf_execution",
         "no_network",
         "no_secrets",
         "no_dependency_expansion",
         "no_external_engine"
       ],
-      "security_posture": "metadata_only_local_manifest_no_code_loading_no_effects_no_network_no_secrets",
+      "security_posture": "metadata_only_local_manifest_and_typed_registry_no_code_loading_no_arbitrary_runtime_no_effects_no_network_no_secrets",
       "unsupported_edge_boundary": "Arbitrary UDF/plugin runtime, dynamic library loading, WASM/Python execution, dependency expansion, filesystem/network/secret effects, external API/LLM/model/vector operations, ambient plugin-path scanning, and production extension platform claims remain blocked until separate safety and runtime evidence closes.",
       "technique_review": {
         "pulseweave": {
@@ -750,15 +753,17 @@
       },
       "evidence": {
         "runtime_execution": {
-          "status": "passed_metadata_only_manifest_inspection",
+          "status": "passed_metadata_only_manifest_and_typed_udf_registry_inspection",
           "evidence_refs": [
             "shardloom-cli/tests/extension_manifest_effect_matrix_snapshots.rs",
             "extension-inspect --manifest <local-json> --format json",
-            "extension-registry --manifest-dir <local-dir> --format json"
+            "extension-registry --manifest-dir <local-dir> --format json",
+            "udf-registry --format json",
+            "udf-local-scalar-fixture-smoke <values> --format json"
           ]
         },
         "correctness": {
-          "status": "passed_scoped_manifest_parser",
+          "status": "passed_scoped_manifest_parser_and_typed_udf_registry_contract",
           "evidence_refs": [
             "extension_inspect_local_manifest_validates_metadata_without_loading_code",
             "extension_inspect_effectful_manifest_requires_review_without_effects",
@@ -766,7 +771,10 @@
             "extension_registry_manifest_directory_discovers_manifests_without_runtime",
             "extension_registry_manifest_directory_blocks_duplicate_ids",
             "extension_inspect_blocks_bad_manifest_schema_without_loading_code",
-            "extension_inspect_blocks_remote_manifest_without_probe"
+            "extension_inspect_blocks_remote_manifest_without_probe",
+            "typed_udf_registry_declares_scalar_aggregate_and_table_boundaries",
+            "typed_udf_registry_admits_only_builtin_scalar_fixture",
+            "udf_registry_json_exposes_typed_scalar_aggregate_table_contract"
           ]
         },
         "native_io_certificate": {
@@ -783,9 +791,16 @@
           ]
         },
         "execution_certificate": {
-          "status": "passed_metadata_only_no_runtime_execution",
+          "status": "passed_metadata_only_registry_no_arbitrary_runtime_execution",
           "evidence_refs": [
             "extension_manifest_inspection_schema_version=shardloom.extension_manifest_inspection.v1",
+            "typed_udf_registry_schema_version=shardloom.typed_udf_registry.v1",
+            "typed_udf_registry_admitted_local_fixture_count=1",
+            "typed_udf_registry_arbitrary_runtime_bridge_available=false",
+            "typed_udf_registry_network_access_allowed=false",
+            "typed_udf_registry_external_effect_executed=false",
+            "typed_udf_registry_fallback_attempted=false",
+            "typed_udf_registry_external_engine_invoked=false",
             "extension_manifest_inspection_only=true",
             "extension_manifest_dynamic_loading_performed=false",
             "extension_manifest_udf_execution_performed=false",
@@ -830,20 +845,27 @@
             "extension_manifest_credential_resolution_performed=false",
             "extension_manifest_network_probe_performed=false",
             "extension_manifest_dependency_expansion_allowed=false",
+            "typed_udf_registry_sandbox_policy_declared=true",
+            "typed_udf_registry_arbitrary_runtime_bridge_available=false",
+            "typed_udf_registry_network_access_allowed=false",
+            "typed_udf_registry_secret_access_allowed=false",
             "extension_manifest_review_required",
             "docs/architecture/extension-manifest-effect-capability-matrix.md"
           ]
         },
         "release_api_stability": {
-          "status": "passed_scoped_manifest_inspection_api",
+          "status": "passed_scoped_manifest_and_typed_udf_registry_api",
           "evidence_refs": [
             "shardloom.extension_manifest.v1",
             "shardloom.extension_manifest_inspection.v1",
             "shardloom.extension_registry_snapshot.v1",
+            "shardloom.typed_udf_registry.v1",
             "python/src/shardloom/client.py extension_inspect(manifest_path=...)",
             "python/src/shardloom/context.py extension_inspect(manifest_path=...)",
             "python/src/shardloom/client.py extension_registry(manifest_dir=...)",
-            "python/src/shardloom/context.py extension_registry(manifest_dir=...)"
+            "python/src/shardloom/context.py extension_registry(manifest_dir=...)",
+            "python/src/shardloom/client.py udf_registry()",
+            "python/src/shardloom/context.py udf_registry()"
           ]
         },
         "unsupported_diagnostics": {
@@ -852,6 +874,9 @@
             "SL_INVALID_INPUT",
             "extension_manifest_effect_all_runtime_blocked=true",
             "extension_manifest_effect_all_external_effects_blocked=true",
+            "typed_udf_registry_row_sl_native_sum_i64_support_status=blocked_missing_runtime_bridge",
+            "typed_udf_registry_row_sl_table_generate_series_i64_support_status=blocked_materialization_boundary",
+            "typed_udf_registry_row_external_python_scalar_boundary_support_status=blocked_sandbox_policy",
             "docs/architecture/extension-manifest-effect-capability-matrix.md"
           ]
         }
@@ -897,7 +922,8 @@
         "fault_tolerance=blocked_missing_runtime_retry_fault_matrix",
         "benchmark=blocked_no_runtime_performance_claim",
         "metadata-only manifest registry is not arbitrary plugin runtime support",
-        "typed UDF registry and runtime execution bridge remain blocked",
+        "typed UDF registry is metadata-only beyond the admitted built-in scalar fixture",
+        "arbitrary UDF runtime execution bridge remains blocked",
         "sandbox enforcement for dynamic plugin/runtime execution remains blocked",
         "arbitrary UDF/plugin/effect runtime remains blocked"
       ]

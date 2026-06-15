@@ -5,7 +5,11 @@
 //! typed-envelope field/ref classifier without changing command behavior,
 //! executing runtime work, probing datasets, or weakening no-fallback policy.
 
-use std::{process::ExitCode, time::Instant};
+use std::{
+    io::{self, ErrorKind, Write},
+    process::ExitCode,
+    time::Instant,
+};
 
 use shardloom_core::{CommandStatus, Diagnostic, OutputEnvelope, OutputFormat, ShardLoomError};
 
@@ -37,7 +41,7 @@ pub(crate) fn emit(
     fields: Vec<(String, String)>,
 ) {
     let envelope = envelope_from_fields(command, status, summary, text, diagnostics, fields);
-    println!("{}", envelope.render(format));
+    write_stdout_line(&envelope.render(format));
 }
 
 pub(crate) fn emit_timed(
@@ -66,7 +70,7 @@ pub(crate) fn emit_timed(
         "measured_by_probe_render_before_final_emit".to_string(),
     ));
     let envelope = envelope_from_fields(command, status, summary, text, diagnostics, fields);
-    println!("{}", envelope.render(format));
+    write_stdout_line(&envelope.render(format));
 }
 
 pub(crate) fn emit_error(
@@ -79,7 +83,18 @@ pub(crate) fn emit_error(
         .with_lifecycle_field("command_family", classify_command(command).as_str());
     match format {
         OutputFormat::Text => eprintln!("{}", envelope.to_text()),
-        OutputFormat::Json => println!("{}", envelope.to_json()),
+        OutputFormat::Json => write_stdout_line(&envelope.to_json()),
     }
     ExitCode::from(2)
+}
+
+fn write_stdout_line(rendered: &str) {
+    let mut stdout = io::stdout().lock();
+    if let Err(error) = writeln!(stdout, "{rendered}") {
+        if error.kind() == ErrorKind::BrokenPipe {
+            return;
+        }
+        eprintln!("failed writing ShardLoom CLI output: {error}");
+        std::process::exit(1);
+    }
 }

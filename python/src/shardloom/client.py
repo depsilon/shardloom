@@ -12498,6 +12498,11 @@ class ShardLoomClient:
 
         return self.run(["udf-runtime-plan", runtime], check=check)
 
+    def udf_registry(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the typed UDF registry without executing user UDF code."""
+
+        return self.run(["udf-registry"], check=check)
+
     def udf_local_scalar_fixture_smoke(
         self,
         values: Sequence[int | None] | str,

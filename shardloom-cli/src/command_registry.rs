@@ -87,6 +87,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "capabilities",
     "extension-registry",
     "extension-inspect",
+    "udf-registry",
     "udf-runtime-plan",
     "udf-local-scalar-fixture-smoke",
     "embedding-vector-local-fixture-smoke",
@@ -1241,6 +1242,7 @@ fn command_owning_phase_item(command: &str) -> &'static str {
     if matches!(
         command,
         "sqlite-local-import-export-smoke"
+            | "udf-registry"
             | "udf-local-scalar-fixture-smoke"
             | "embedding-vector-local-fixture-smoke"
     ) {

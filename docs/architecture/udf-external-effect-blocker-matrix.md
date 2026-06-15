@@ -4,10 +4,12 @@
 calls, embedding generation, vector search, plugin execution, media extraction, and network egress
 are visible as deterministic capability rows, but every effectful path is denied by default.
 
-`udf-local-scalar-fixture-smoke` is the only admitted UDF-like runtime fixture. It is built into
-ShardLoom, pure deterministic, nullable-int64 only, and recorded by
-`docs/architecture/effectful-operation-admission-matrix.md`; it is not a plugin, Python/WASM/Rust
-extension, SQL-defined UDF, table function, or external-service UDF.
+`udf-registry --format json` exposes the current typed UDF registry without executing user UDF
+code. The registry declares scalar, aggregate, and table-function rows with encoded capability vs
+materialization-required classification. `udf-local-scalar-fixture-smoke` is the only admitted
+UDF-like runtime fixture. It is built into ShardLoom, pure deterministic, nullable-int64 only, and
+recorded by `docs/architecture/effectful-operation-admission-matrix.md`; it is not a plugin,
+Python/WASM/Rust extension, SQL-defined UDF, table function, or external-service UDF.
 
 ## User Surfaces
 
@@ -17,6 +19,7 @@ extension, SQL-defined UDF, table function, or external-service UDF.
 - `capabilities unstructured-media --format json`
 - `capabilities extensions --format json`
 - `capabilities security-governance --format json`
+- `udf-registry --format json`
 - `udf-local-scalar-fixture-smoke <values> --format json`
 
 ## Contract Fields
@@ -56,6 +59,7 @@ The matrix summary preserves:
 ## Covered Families
 
 - SQL-defined, Rust-native, WASM, Python, and external-service UDFs
+- typed scalar, aggregate, and table-function UDF registry rows
 - API calls
 - LLM calls
 - embedding generation
@@ -66,10 +70,16 @@ The matrix summary preserves:
 
 ## Claim Boundary
 
-This is a diagnostic/report-only blocker matrix. It adds no UDF registry, SQL UDF parser, UDF
-runtime, plugin loader, WASM runtime, Python UDF execution, API client, LLM client, embedding model,
-vector index, media parser, credential resolution, network call, model invocation, external service
-call, data egress, external engine invocation, fallback execution, or hidden fallback execution.
+This matrix now pairs deterministic blockers with a typed UDF registry and one built-in scalar
+fixture. It adds no arbitrary UDF runtime, SQL UDF parser, plugin loader, WASM runtime, Python UDF
+execution, API client, LLM client, embedding model, vector index, media parser, credential
+resolution, network call, model invocation, external service call, data egress, external engine
+invocation, fallback execution, or hidden fallback execution.
+
+The typed registry claim is limited to metadata discovery and the admitted built-in
+`sl_fixture_double_i64` nullable-int64 fixture. Aggregate, table-function, Python, external-service,
+SQL-defined, WASM, Rust plugin, and effectful UDF execution remain blocked until explicit sandbox,
+materialization, resource, audit, certificate, and no-fallback evidence exists.
 
 In short: no fallback execution is available through UDF, API, LLM, embedding, vector, plugin,
 media, or network-effect rows.

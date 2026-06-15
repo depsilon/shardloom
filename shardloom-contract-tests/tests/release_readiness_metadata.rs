@@ -5147,7 +5147,9 @@ fn gar_0032_c_udf_external_effect_blockers_remain_denied_by_default() {
         "runtime_execution=false",
         "effect_executed=false",
         "external_effect_blocker_external_engine_invoked=false",
-        "no UDF registry",
+        "udf-registry --format json",
+        "The typed registry claim is limited to metadata discovery",
+        "no arbitrary UDF runtime",
         "no fallback execution",
     ] {
         assert!(

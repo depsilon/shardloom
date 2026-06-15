@@ -11909,6 +11909,18 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
+                elif args == ["udf-registry", "--format", "json"]:
+                    command = "udf-registry"
+                    fields = [
+                        {"key": "typed_udf_registry_schema_version", "value": "shardloom.typed_udf_registry.v1"},
+                        {"key": "typed_udf_registry_support_status", "value": "scoped_fixture_supported"},
+                        {"key": "typed_udf_registry_claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "typed_udf_registry_admitted_local_fixture_count", "value": "1"},
+                        {"key": "typed_udf_registry_arbitrary_runtime_bridge_available", "value": "false"},
+                        {"key": "typed_udf_registry_network_access_allowed", "value": "false"},
+                        {"key": "typed_udf_registry_fallback_attempted", "value": "false"},
+                        {"key": "typed_udf_registry_external_engine_invoked", "value": "false"},
+                    ]
                 elif args == [
                     "extension-registry",
                     "--manifest-dir",
@@ -12028,6 +12040,22 @@ class ShardLoomClientTests(unittest.TestCase):
         client = ShardLoomClient(binary=binary)
 
         self.assertEqual(client.extension_registry().command, "extension-registry")
+        udf_registry = client.udf_registry()
+        self.assertEqual(udf_registry.command, "udf-registry")
+        self.assertEqual(
+            udf_registry.field("typed_udf_registry_schema_version"),
+            "shardloom.typed_udf_registry.v1",
+        )
+        self.assertEqual(
+            udf_registry.field_int("typed_udf_registry_admitted_local_fixture_count"),
+            1,
+        )
+        self.assertFalse(
+            udf_registry.field_bool("typed_udf_registry_arbitrary_runtime_bridge_available")
+        )
+        self.assertFalse(udf_registry.field_bool("typed_udf_registry_network_access_allowed"))
+        self.assertFalse(udf_registry.field_bool("typed_udf_registry_fallback_attempted"))
+        self.assertFalse(udf_registry.field_bool("typed_udf_registry_external_engine_invoked"))
         registry_dir = client.extension_registry(manifest_dir="target/extensions")
         self.assertEqual(registry_dir.command, "extension-registry")
         self.assertEqual(
@@ -12085,6 +12113,11 @@ class ShardLoomClientTests(unittest.TestCase):
 
         ctx = ShardLoomContext(client=client)
         self.assertEqual(ctx.extension_registry().command, "extension-registry")
+        ctx_udf_registry = ctx.udf_registry()
+        self.assertEqual(ctx_udf_registry.command, "udf-registry")
+        self.assertFalse(
+            ctx_udf_registry.field_bool("typed_udf_registry_external_engine_invoked")
+        )
         ctx_registry_dir = ctx.extension_registry(manifest_dir="target/extensions")
         self.assertEqual(ctx_registry_dir.command, "extension-registry")
         self.assertFalse(

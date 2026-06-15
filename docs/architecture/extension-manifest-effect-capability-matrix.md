@@ -16,6 +16,13 @@ The current admitted runtime exception is not a plugin extension: it is the buil
 `docs/architecture/effectful-operation-admission-matrix.md`. Dynamic plugin loading, arbitrary UDFs,
 Python/WASM/Rust extension execution, and external-service UDFs remain blocked here.
 
+`udf-registry --format json` exposes a typed, side-effect-free UDF registry for scalar, aggregate,
+and table-function rows. The registry records encoded-native candidates and materialization-required
+boundaries, but only the built-in nullable-int64 scalar fixture is admitted. Aggregate,
+table-function, Python, WASM, Rust plugin, SQL-defined, and external-service UDF execution remain
+blocked until separate sandbox, runtime, resource, audit, certificate, and no-fallback evidence is
+available.
+
 `extension-inspect --manifest <local-json>` now performs bounded local JSON manifest inspection for
 `shardloom.extension_manifest.v1`. This is an agent-safe metadata path: it reads a caller-provided
 regular local file under a fixed byte limit, parses declared capability/permission/effect/sandbox/
@@ -34,6 +41,7 @@ The matrix is emitted by:
 - `shardloom extension-registry --manifest-dir <local-dir> --format json`
 - `shardloom extension-inspect <extension_id> --format json`
 - `shardloom extension-inspect --manifest <local-json> --format json`
+- `shardloom udf-registry --format json`
 - `shardloom udf-runtime-plan <runtime> --format json`
 - `shardloom udf-local-scalar-fixture-smoke <values> --format json`
 - `shardloom capabilities extensions --format json`
@@ -59,6 +67,38 @@ extension_manifest_effect_network_probe_performed=false
 extension_manifest_effect_dependency_expansion_allowed=false
 extension_manifest_effect_fallback_attempted=false
 extension_manifest_effect_external_engine_invoked=false
+```
+
+`udf-registry` additionally emits:
+
+```text
+typed_udf_registry_schema_version=shardloom.typed_udf_registry.v1
+typed_udf_registry_support_status=scoped_fixture_supported
+typed_udf_registry_claim_gate_status=fixture_smoke_only
+typed_udf_registry_row_order=<comma-separated udf ids>
+typed_udf_registry_admitted_local_fixture_count=1
+typed_udf_registry_blocked_count=<blocked row count>
+typed_udf_registry_scalar_count=<count>
+typed_udf_registry_aggregate_count=<count>
+typed_udf_registry_table_function_count=<count>
+typed_udf_registry_encoded_native_candidate_count=<count>
+typed_udf_registry_materialization_required_count=<count>
+typed_udf_registry_local_fixture_execution_bridge_available=true
+typed_udf_registry_arbitrary_runtime_bridge_available=false
+typed_udf_registry_sandbox_policy_declared=true
+typed_udf_registry_filesystem_access_allowed=false
+typed_udf_registry_network_access_allowed=false
+typed_udf_registry_secret_access_allowed=false
+typed_udf_registry_dynamic_loading_allowed=false
+typed_udf_registry_runtime_execution_performed=false
+typed_udf_registry_extension_code_executed=false
+typed_udf_registry_external_effect_executed=false
+typed_udf_registry_fallback_attempted=false
+typed_udf_registry_external_engine_invoked=false
+typed_udf_registry_row_<udf_id>_kind=scalar|aggregate|table_function
+typed_udf_registry_row_<udf_id>_encoded_capability=encoded_native_candidate|late_materialized_fixture|materialization_required|unsupported
+typed_udf_registry_row_<udf_id>_materialization_required=true|false
+typed_udf_registry_row_<udf_id>_support_status=admitted_local_fixture|blocked_missing_runtime_bridge|blocked_sandbox_policy|blocked_materialization_boundary
 ```
 
 `extension-registry --manifest-dir` additionally emits:
