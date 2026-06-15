@@ -1266,19 +1266,14 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     for required in [
-        "`docs/architecture/table-protocol-source-review.md`",
-        "- [x] Source-check current primary external protocol specs before external implementation:",
-        "Iceberg, Delta, Hudi, Iceberg REST, Nessie, Polaris, and Gravitino-style APIs",
-        "Glue-like and",
-        "Hive-like catalog profiles are not selected",
-        "external candidate and still require separate source/profile review",
-        "`iceberg-metadata-read-smoke`",
-        "Extend the selected Iceberg profile to a scoped, explicitly requested local Avro",
-        "Extend from manifest-list summary into scoped local Iceberg manifest-file parsing",
-        "Implement metadata-level schema/partition evolution semantics beyond visibility",
-        "Implement delete/tombstone/deletion-vector admission beyond summary/count blockers",
-        "Implement scoped Delta log and Hudi timeline/metadata readers after source-profile",
-        "Lower planned Iceberg data-file splits into ShardLoom-native scan execution",
+        "`PROD-READY-1C-LOCAL`",
+        "Table/lakehouse v1 candidate local scope is closed",
+        "Iceberg metadata/manifest/split/read evidence",
+        "Delta/Hudi metadata readers",
+        "explicit blocked diagnostics for protocol writes",
+        "production table claims",
+        "Production table/lakehouse claim",
+        "Source-spec-approved protocol write/commit scope",
     ] {
         assert!(
             plan.contains(required),
@@ -2237,13 +2232,14 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0043-B publication attestation and final release rehearsal"));
     assert!(plan.contains("Current autonomous execution order:"));
-    assert!(plan.contains("`GAR-RUNTIME-IMPL-6E` automatic dynamic preparation"));
-    assert!(plan.contains("`GAR-RUNTIME-IMPL-6F` output/fanout conversion"));
-    assert!(plan.contains("Deferred Non-Runtime Closeout Queue"));
+    assert!(plan.contains("### v1 Local Closeout Status"));
+    assert!(plan.contains("`PROD-V1-5A-LOCAL`"));
+    assert!(plan.contains("### External Approval And Environment Gates"));
+    assert!(plan.contains("Public release/API/schema approval"));
+    assert!(plan.contains("### Remaining work snapshot"));
     assert!(!plan.contains("- [ ] REVIEW-P0-1 generated current-support matrix"));
     assert!(!plan.contains("- [ ] REVIEW-P0-2 release-grade CI gate matrix"));
     assert!(!plan.contains("- [ ] REVIEW-P0-3 enforced workspace path safety"));
-    assert!(plan.contains("Completed non-runtime history"));
     assert!(plan.contains("docs/release/final-release-rehearsal.md"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
@@ -2445,7 +2441,8 @@ fn gar_runtime_4s_5q_production_usability_gate_is_local_and_claim_safe() {
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4S"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5Q"));
     assert!(plan.contains("Remaining work snapshot"));
-    assert!(plan.contains("completed benchmark/profile, sub-evidence, user-surface"));
+    assert!(plan.contains("Closed local v1"));
+    assert!(plan.contains("Package/readiness, object-store, table/lakehouse, distributed, live/hybrid, Foundry local candidate scopes, docs/website, and current full-local benchmark refresh"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-RUNTIME-IMPL-4S / GAR-RUNTIME-IMPL-5Q"));
@@ -3331,19 +3328,14 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
 
     let phase_plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     for required in [
-        "`PROD-READY-1G` Foundry integration production pack",
-        "Existing scoped evidence includes the RFC 0036 maturity ladder",
-        "`ctx.foundry_generated_output(...)` support for local dataset-shaped paths",
-        "`foundry://...` targets still return deterministic unsupported diagnostics",
-        "targets still return deterministic unsupported diagnostics before staging rows",
-        "There is no real Foundry Code Repository package/import proof",
-        "- [x] Define the optional Foundry integration posture",
-        "- [x] Implement local Foundry-style proof-of-use evidence",
-        "- [x] Emit local proof boundaries for generated-output fanout",
-        "- [x] Expose Python `ctx.foundry_generated_output(...)`",
-        "- [x] Move scoped local/dev-stack Foundry proof evidence",
-        "- [ ] Define `shardloom-foundry` package boundary",
-        "- [ ] Test in real Foundry environment with evidence datasets",
+        "`PROD-READY-1G-LOCAL`",
+        "Foundry v1 candidate local scope is closed",
+        "local dev-stack proof-of-use",
+        "Python `foundry_generated_output(...)`",
+        "explicit blocked diagnostics for real `foundry://`",
+        "production Foundry claims",
+        "Real Foundry integration claim",
+        "Real Foundry Code Repository/package/import proof",
     ] {
         assert!(
             phase_plan.contains(required),
@@ -6858,14 +6850,14 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(!plan.contains("- [ ] GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("Current autonomous execution order:"));
-    assert!(plan.contains("`GAR-RUNTIME-IMPL-6E` automatic dynamic preparation"));
-    assert!(plan.contains("`GAR-RUNTIME-IMPL-6F` output/fanout conversion"));
-    assert!(plan.contains("Deferred Non-Runtime Closeout Queue"));
+    assert!(plan.contains("### v1 Local Closeout Status"));
+    assert!(plan.contains("`PROD-V1-5A-LOCAL`"));
+    assert!(plan.contains("### External Approval And Environment Gates"));
+    assert!(plan.contains("Public release/API/schema approval"));
     assert!(!plan.contains("- [ ] REVIEW-P1-1 typed command registry"));
     assert!(!plan.contains("- [ ] REVIEW-P1-2 typed evidence schema registry"));
     assert!(!plan.contains("- [ ] REVIEW-P1-4 dependency, license, provenance"));
     assert!(!plan.contains("- [ ] REVIEW-RUNTIME-2 admitted-semantics fixture matrix"));
-    assert!(plan.contains("Completed non-runtime history"));
     let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(
         completed_ledger.contains("GAR-0024-A publication and API/schema stability gate"),
