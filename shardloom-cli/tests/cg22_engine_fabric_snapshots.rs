@@ -366,19 +366,61 @@ fn live_hybrid_durable_checkpoint_smoke_writes_and_restores_local_checkpoint() {
     assert!(output.contains(&field("active_state_key_count", "3")));
     assert!(output.contains(&field("checkpoint_record_count", "3")));
     assert!(output.contains(&field("restored_active_state_key_count", "3")));
+    assert!(output.contains(&field("micro_segment_record_count", "10")));
+    assert!(output.contains(&field("micro_segment_delete_vector_entry_count", "3")));
+    assert!(output.contains(&field("micro_segment_tombstone_count", "1")));
     assert!(output.contains(&field("durable_checkpoint_store_used", "true")));
     assert!(output.contains(&field("durable_checkpoint_write_performed", "true")));
     assert!(output.contains(&field("durable_checkpoint_restore_performed", "true")));
     assert!(output.contains(&field("durable_changelog_write_performed", "true")));
+    assert!(output.contains(&field("durable_state_store_used", "true")));
+    assert!(output.contains(&field("durable_state_store_write_performed", "true")));
+    assert!(output.contains(&field("durable_state_store_restore_performed", "true")));
+    assert!(output.contains(&field("micro_segment_persistence_performed", "true")));
+    assert!(output.contains(&field("micro_segment_restore_performed", "true")));
+    assert!(output.contains(&field("cold_vortex_segment_promotion_performed", "true")));
+    assert!(output.contains(&field(
+        "cold_vortex_segment_manifest_restore_performed",
+        "true"
+    )));
+    assert!(output.contains(&field("restart_restore_performed", "true")));
+    assert!(output.contains(&field("partial_checkpoint_detected", "true")));
+    assert!(output.contains(&field("partial_checkpoint_committed", "false")));
+    assert!(output.contains(&field("partial_checkpoint_cleanup_completed", "true")));
+    assert!(output.contains(&field("duplicate_replay_protection_performed", "true")));
     assert!(output.contains(&field(
         "state_restore_status",
-        "restored_local_checkpoint_digest_and_key_count_match"
+        "restored_local_checkpoint_state_store_microsegment_and_cold_manifest_match"
+    )));
+    assert!(output.contains(&field(
+        "restart_restore_status",
+        "local_restart_restore_replayed_checkpoint_state_store_and_microsegment_manifest"
+    )));
+    assert!(output.contains(&field(
+        "duplicate_replay_protection_status",
+        "duplicate_change_sequence_replayed_once_by_sequence_key"
+    )));
+    assert!(output.contains(&field(
+        "retry_idempotency_key",
+        "cg22-live-hybrid-local-seq-1-10-attempt-2"
     )));
     assert!(output.contains(&field("state_match", "true")));
+    assert!(output.contains(&field(
+        "vortex_micro_segment_persistence_status",
+        "certified_local_vortex_micro_segment_manifest_fixture"
+    )));
+    assert!(output.contains(&field(
+        "cold_vortex_segment_promotion_status",
+        "certified_local_cold_vortex_segment_manifest_fixture"
+    )));
+    assert!(output.contains(&field("upstream_vortex_file_write_performed", "false")));
+    assert!(output.contains(&field("vortex_micro_segment_manifest_only", "true")));
+    assert!(output.contains(&field("cold_vortex_promotion_manifest_only", "true")));
     assert!(output.contains(&field("broker_io", "false")));
     assert!(output.contains(&field("object_store_io", "false")));
     assert!(output.contains(&field("write_io", "true")));
     assert!(output.contains(&field("exactly_once_claim_allowed", "false")));
+    assert!(output.contains(&field("broker_replay_supported", "false")));
     assert!(output.contains(&field("production_claim_allowed", "false")));
     assert!(output.contains(&field("freshness_certificate_status", "certified")));
     assert!(output.contains(&field("state_certificate_status", "certified")));
@@ -399,6 +441,26 @@ fn live_hybrid_durable_checkpoint_smoke_writes_and_restores_local_checkpoint() {
     assert!(
         checkpoint_dir
             .join("cg22-live-hybrid-changelog.jsonl")
+            .exists()
+    );
+    assert!(
+        checkpoint_dir
+            .join("cg22-live-hybrid-state-store.json")
+            .exists()
+    );
+    assert!(
+        checkpoint_dir
+            .join("cg22-live-hybrid-vortex-micro-segment.json")
+            .exists()
+    );
+    assert!(
+        checkpoint_dir
+            .join("cg22-live-hybrid-cold-vortex-segment-manifest.json")
+            .exists()
+    );
+    assert!(
+        !checkpoint_dir
+            .join("cg22-live-hybrid-checkpoint.partial.json")
             .exists()
     );
 

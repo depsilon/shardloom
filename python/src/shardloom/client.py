@@ -10335,6 +10335,30 @@ class LiveHybridDurableCheckpointReport:
         return self.envelope.field("changelog_path")
 
     @property
+    def state_store_path(self) -> str | None:
+        """Return the durable local state-store file path."""
+
+        return self.envelope.field("state_store_path")
+
+    @property
+    def micro_segment_path(self) -> str | None:
+        """Return the local Vortex microsegment manifest path."""
+
+        return self.envelope.field("micro_segment_path")
+
+    @property
+    def cold_vortex_segment_manifest_path(self) -> str | None:
+        """Return the local cold-promotion manifest path."""
+
+        return self.envelope.field("cold_vortex_segment_manifest_path")
+
+    @property
+    def partial_checkpoint_path(self) -> str | None:
+        """Return the local partial-checkpoint recovery artifact path."""
+
+        return self.envelope.field("partial_checkpoint_path")
+
+    @property
     def input_change_record_count(self) -> int:
         """Return the number of fixture change records."""
 
@@ -10357,6 +10381,24 @@ class LiveHybridDurableCheckpointReport:
         """Return the restored active state key count."""
 
         return self.envelope.field_int("restored_active_state_key_count", 0) or 0
+
+    @property
+    def micro_segment_record_count(self) -> int:
+        """Return the local microsegment manifest record count."""
+
+        return self.envelope.field_int("micro_segment_record_count", 0) or 0
+
+    @property
+    def micro_segment_delete_vector_entry_count(self) -> int:
+        """Return the delete-vector-shaped entry count."""
+
+        return self.envelope.field_int("micro_segment_delete_vector_entry_count", 0) or 0
+
+    @property
+    def micro_segment_tombstone_count(self) -> int:
+        """Return the tombstone count recorded in the microsegment manifest."""
+
+        return self.envelope.field_int("micro_segment_tombstone_count", 0) or 0
 
     @property
     def state_match(self) -> bool:
@@ -10389,10 +10431,135 @@ class LiveHybridDurableCheckpointReport:
         return self.envelope.field_bool("durable_changelog_write_performed", False) is True
 
     @property
+    def durable_state_store_used(self) -> bool:
+        """Whether the local durable state store was used."""
+
+        return self.envelope.field_bool("durable_state_store_used", False) is True
+
+    @property
+    def durable_state_store_write_performed(self) -> bool:
+        """Whether the local durable state-store write was performed."""
+
+        return self.envelope.field_bool("durable_state_store_write_performed", False) is True
+
+    @property
+    def durable_state_store_restore_performed(self) -> bool:
+        """Whether the local durable state-store readback was performed."""
+
+        return self.envelope.field_bool("durable_state_store_restore_performed", False) is True
+
+    @property
+    def micro_segment_persistence_performed(self) -> bool:
+        """Whether the local microsegment manifest was persisted."""
+
+        return self.envelope.field_bool("micro_segment_persistence_performed", False) is True
+
+    @property
+    def micro_segment_restore_performed(self) -> bool:
+        """Whether the local microsegment manifest was read back."""
+
+        return self.envelope.field_bool("micro_segment_restore_performed", False) is True
+
+    @property
+    def cold_vortex_segment_promotion_performed(self) -> bool:
+        """Whether the cold-promotion manifest was persisted."""
+
+        return self.envelope.field_bool("cold_vortex_segment_promotion_performed", False) is True
+
+    @property
+    def cold_vortex_segment_manifest_restore_performed(self) -> bool:
+        """Whether the cold-promotion manifest was read back."""
+
+        return (
+            self.envelope.field_bool(
+                "cold_vortex_segment_manifest_restore_performed", False
+            )
+            is True
+        )
+
+    @property
+    def restart_restore_performed(self) -> bool:
+        """Whether local restart restore evidence was emitted."""
+
+        return self.envelope.field_bool("restart_restore_performed", False) is True
+
+    @property
+    def partial_checkpoint_detected(self) -> bool:
+        """Whether a partial checkpoint was detected."""
+
+        return self.envelope.field_bool("partial_checkpoint_detected", False) is True
+
+    @property
+    def partial_checkpoint_committed(self) -> bool:
+        """Whether the partial checkpoint was committed."""
+
+        return self.envelope.field_bool("partial_checkpoint_committed", False) is True
+
+    @property
+    def partial_checkpoint_cleanup_completed(self) -> bool:
+        """Whether partial checkpoint cleanup completed."""
+
+        return self.envelope.field_bool("partial_checkpoint_cleanup_completed", False) is True
+
+    @property
+    def duplicate_replay_protection_performed(self) -> bool:
+        """Whether duplicate replay protection evidence was emitted."""
+
+        return self.envelope.field_bool("duplicate_replay_protection_performed", False) is True
+
+    @property
     def state_restore_status(self) -> str | None:
         """Return the deterministic restore status."""
 
         return self.envelope.field("state_restore_status")
+
+    @property
+    def restart_restore_status(self) -> str | None:
+        """Return the deterministic restart-restore status."""
+
+        return self.envelope.field("restart_restore_status")
+
+    @property
+    def duplicate_replay_protection_status(self) -> str | None:
+        """Return the duplicate replay protection status."""
+
+        return self.envelope.field("duplicate_replay_protection_status")
+
+    @property
+    def retry_idempotency_key(self) -> str | None:
+        """Return the retry idempotency key."""
+
+        return self.envelope.field("retry_idempotency_key")
+
+    @property
+    def vortex_micro_segment_persistence_status(self) -> str | None:
+        """Return the local microsegment persistence status."""
+
+        return self.envelope.field("vortex_micro_segment_persistence_status")
+
+    @property
+    def cold_vortex_segment_promotion_status(self) -> str | None:
+        """Return the local cold-promotion status."""
+
+        return self.envelope.field("cold_vortex_segment_promotion_status")
+
+    @property
+    def upstream_vortex_file_write_performed(self) -> bool:
+        """Whether an upstream Vortex file write was performed."""
+
+        return self.envelope.field_bool("upstream_vortex_file_write_performed", False) is True
+
+    @property
+    def vortex_micro_segment_manifest_only(self) -> bool:
+        """Whether the microsegment artifact is a manifest-only fixture."""
+
+        return self.envelope.field_bool("vortex_micro_segment_manifest_only", False) is True
+
+    @property
+    def cold_vortex_promotion_manifest_only(self) -> bool:
+        """Whether the cold-promotion artifact is a manifest-only fixture."""
+
+        return self.envelope.field_bool("cold_vortex_promotion_manifest_only", False) is True
 
     @property
     def all_certified(self) -> bool:
@@ -10431,6 +10598,12 @@ class LiveHybridDurableCheckpointReport:
         """Whether the fixture authorizes an exactly-once claim."""
 
         return self.envelope.field_bool("exactly_once_claim_allowed", False) is True
+
+    @property
+    def broker_replay_supported(self) -> bool:
+        """Whether broker replay is supported by this fixture."""
+
+        return self.envelope.field_bool("broker_replay_supported", False) is True
 
     @property
     def production_claim_allowed(self) -> bool:

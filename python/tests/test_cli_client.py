@@ -5022,16 +5022,43 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "checkpoint_dir", "value": "target/live-checkpoint"},
                         {"key": "checkpoint_path", "value": "target/live-checkpoint/cg22-live-hybrid-checkpoint.json"},
                         {"key": "changelog_path", "value": "target/live-checkpoint/cg22-live-hybrid-changelog.jsonl"},
+                        {"key": "state_store_path", "value": "target/live-checkpoint/cg22-live-hybrid-state-store.json"},
+                        {"key": "micro_segment_path", "value": "target/live-checkpoint/cg22-live-hybrid-vortex-micro-segment.json"},
+                        {"key": "cold_vortex_segment_manifest_path", "value": "target/live-checkpoint/cg22-live-hybrid-cold-vortex-segment-manifest.json"},
+                        {"key": "partial_checkpoint_path", "value": "target/live-checkpoint/cg22-live-hybrid-checkpoint.partial.json"},
                         {"key": "input_change_record_count", "value": "10"},
                         {"key": "active_state_key_count", "value": "3"},
                         {"key": "checkpoint_record_count", "value": "3"},
+                        {"key": "micro_segment_record_count", "value": "10"},
+                        {"key": "micro_segment_delete_vector_entry_count", "value": "3"},
+                        {"key": "micro_segment_tombstone_count", "value": "1"},
                         {"key": "restored_active_state_key_count", "value": "3"},
                         {"key": "durable_checkpoint_store_used", "value": "true"},
                         {"key": "durable_checkpoint_write_performed", "value": "true"},
                         {"key": "durable_checkpoint_restore_performed", "value": "true"},
                         {"key": "durable_changelog_write_performed", "value": "true"},
-                        {"key": "state_restore_status", "value": "restored_local_checkpoint_digest_and_key_count_match"},
+                        {"key": "durable_state_store_used", "value": "true"},
+                        {"key": "durable_state_store_write_performed", "value": "true"},
+                        {"key": "durable_state_store_restore_performed", "value": "true"},
+                        {"key": "micro_segment_persistence_performed", "value": "true"},
+                        {"key": "micro_segment_restore_performed", "value": "true"},
+                        {"key": "cold_vortex_segment_promotion_performed", "value": "true"},
+                        {"key": "cold_vortex_segment_manifest_restore_performed", "value": "true"},
+                        {"key": "restart_restore_performed", "value": "true"},
+                        {"key": "partial_checkpoint_detected", "value": "true"},
+                        {"key": "partial_checkpoint_committed", "value": "false"},
+                        {"key": "partial_checkpoint_cleanup_completed", "value": "true"},
+                        {"key": "duplicate_replay_protection_performed", "value": "true"},
+                        {"key": "state_restore_status", "value": "restored_local_checkpoint_state_store_microsegment_and_cold_manifest_match"},
+                        {"key": "restart_restore_status", "value": "local_restart_restore_replayed_checkpoint_state_store_and_microsegment_manifest"},
+                        {"key": "duplicate_replay_protection_status", "value": "duplicate_change_sequence_replayed_once_by_sequence_key"},
+                        {"key": "retry_idempotency_key", "value": "cg22-live-hybrid-local-seq-1-10-attempt-2"},
                         {"key": "state_match", "value": "true"},
+                        {"key": "vortex_micro_segment_persistence_status", "value": "certified_local_vortex_micro_segment_manifest_fixture"},
+                        {"key": "cold_vortex_segment_promotion_status", "value": "certified_local_cold_vortex_segment_manifest_fixture"},
+                        {"key": "upstream_vortex_file_write_performed", "value": "false"},
+                        {"key": "vortex_micro_segment_manifest_only", "value": "true"},
+                        {"key": "cold_vortex_promotion_manifest_only", "value": "true"},
                         {"key": "freshness_certificate_status", "value": "certified"},
                         {"key": "state_certificate_status", "value": "certified"},
                         {"key": "execution_certificate_status", "value": "certified"},
@@ -5040,6 +5067,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "write_io", "value": "true"},
                         {"key": "object_store_io", "value": "false"},
                         {"key": "exactly_once_claim_allowed", "value": "false"},
+                        {"key": "broker_replay_supported", "value": "false"},
                         {"key": "production_claim_allowed", "value": "false"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
@@ -5145,24 +5173,79 @@ class ShardLoomClientTests(unittest.TestCase):
             checkpoint.changelog_path,
             "target/live-checkpoint/cg22-live-hybrid-changelog.jsonl",
         )
+        self.assertEqual(
+            checkpoint.state_store_path,
+            "target/live-checkpoint/cg22-live-hybrid-state-store.json",
+        )
+        self.assertEqual(
+            checkpoint.micro_segment_path,
+            "target/live-checkpoint/cg22-live-hybrid-vortex-micro-segment.json",
+        )
+        self.assertEqual(
+            checkpoint.cold_vortex_segment_manifest_path,
+            "target/live-checkpoint/cg22-live-hybrid-cold-vortex-segment-manifest.json",
+        )
+        self.assertEqual(
+            checkpoint.partial_checkpoint_path,
+            "target/live-checkpoint/cg22-live-hybrid-checkpoint.partial.json",
+        )
         self.assertEqual(checkpoint.input_change_record_count, 10)
         self.assertEqual(checkpoint.active_state_key_count, 3)
         self.assertEqual(checkpoint.checkpoint_record_count, 3)
         self.assertEqual(checkpoint.restored_active_state_key_count, 3)
+        self.assertEqual(checkpoint.micro_segment_record_count, 10)
+        self.assertEqual(checkpoint.micro_segment_delete_vector_entry_count, 3)
+        self.assertEqual(checkpoint.micro_segment_tombstone_count, 1)
         self.assertTrue(checkpoint.durable_checkpoint_store_used)
         self.assertTrue(checkpoint.durable_checkpoint_write_performed)
         self.assertTrue(checkpoint.durable_checkpoint_restore_performed)
         self.assertTrue(checkpoint.durable_changelog_write_performed)
+        self.assertTrue(checkpoint.durable_state_store_used)
+        self.assertTrue(checkpoint.durable_state_store_write_performed)
+        self.assertTrue(checkpoint.durable_state_store_restore_performed)
+        self.assertTrue(checkpoint.micro_segment_persistence_performed)
+        self.assertTrue(checkpoint.micro_segment_restore_performed)
+        self.assertTrue(checkpoint.cold_vortex_segment_promotion_performed)
+        self.assertTrue(checkpoint.cold_vortex_segment_manifest_restore_performed)
+        self.assertTrue(checkpoint.restart_restore_performed)
+        self.assertTrue(checkpoint.partial_checkpoint_detected)
+        self.assertFalse(checkpoint.partial_checkpoint_committed)
+        self.assertTrue(checkpoint.partial_checkpoint_cleanup_completed)
+        self.assertTrue(checkpoint.duplicate_replay_protection_performed)
         self.assertEqual(
             checkpoint.state_restore_status,
-            "restored_local_checkpoint_digest_and_key_count_match",
+            "restored_local_checkpoint_state_store_microsegment_and_cold_manifest_match",
+        )
+        self.assertEqual(
+            checkpoint.restart_restore_status,
+            "local_restart_restore_replayed_checkpoint_state_store_and_microsegment_manifest",
+        )
+        self.assertEqual(
+            checkpoint.duplicate_replay_protection_status,
+            "duplicate_change_sequence_replayed_once_by_sequence_key",
+        )
+        self.assertEqual(
+            checkpoint.retry_idempotency_key,
+            "cg22-live-hybrid-local-seq-1-10-attempt-2",
         )
         self.assertTrue(checkpoint.state_match)
+        self.assertEqual(
+            checkpoint.vortex_micro_segment_persistence_status,
+            "certified_local_vortex_micro_segment_manifest_fixture",
+        )
+        self.assertEqual(
+            checkpoint.cold_vortex_segment_promotion_status,
+            "certified_local_cold_vortex_segment_manifest_fixture",
+        )
+        self.assertFalse(checkpoint.upstream_vortex_file_write_performed)
+        self.assertTrue(checkpoint.vortex_micro_segment_manifest_only)
+        self.assertTrue(checkpoint.cold_vortex_promotion_manifest_only)
         self.assertTrue(checkpoint.all_certified)
         self.assertTrue(checkpoint.runtime_execution)
         self.assertTrue(checkpoint.write_io)
         self.assertFalse(checkpoint.object_store_io)
         self.assertFalse(checkpoint.exactly_once_claim_allowed)
+        self.assertFalse(checkpoint.broker_replay_supported)
         self.assertFalse(checkpoint.production_claim_allowed)
         self.assertFalse(checkpoint.fallback_attempted)
         self.assertFalse(checkpoint.external_engine_invoked)

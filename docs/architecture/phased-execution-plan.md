@@ -560,13 +560,13 @@ with a recorded infeasibility reason, not merely because they are broad.
     delta-overlay, base/merged snapshot, hot changelog, flush, and certificate evidence.
     `live-hybrid-state-transition-smoke` emits retry, cancellation, cleanup, partial-output,
     state-transition, freshness, and state evidence. `live-hybrid-durable-checkpoint-smoke` now
-    writes an explicit caller-provided local checkpoint JSON and changelog JSONL, reads the
-    checkpoint back, verifies checkpoint/restored digests and active key count, and emits
+    writes an explicit caller-provided local checkpoint JSON, changelog JSONL, durable state-store
+    JSON, Vortex microsegment manifest, and cold-promotion manifest, reads them back, verifies
+    checkpoint/state-store/microsegment/cold-manifest digests and active key count, and emits
     freshness, state, execution-certificate, Native I/O, write-IO, and no-fallback evidence through
-    CLI and Python client/context wrappers. This is not production streaming: there is no broker,
-    unbounded scheduler, production durable state/checkpoint store, object-store/catalog
-    checkpoint, exactly-once claim, external connector, Vortex micro-segment persistence, cold
-    Vortex promotion, or benchmark performance claim.
+    CLI and Python client/context wrappers. This is not public production streaming: there is no
+    broker, unbounded scheduler, object-store/catalog checkpoint, upstream Vortex file write in the
+    default build, exactly-once claim, external connector, or benchmark performance claim.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
     live/hybrid workload in v1 if state, checkpoint, recovery, freshness, output mode, and
     certificate evidence can close; otherwise narrow or defer with a concrete feasibility reason.
@@ -594,11 +594,22 @@ with a recorded infeasibility reason, not merely because they are broad.
       digest/key-count verification, explicit write-IO reporting, execution and Native I/O
       certificates, Python client/context wrappers, runs-today support row, and production workload
       evidence row.
+    - [x] Extend the scoped local filesystem fixture with durable state-store JSON,
+      hot/warm/cold storage evidence, Vortex microsegment manifest persistence, cold-promotion
+      manifest persistence, deletion-vector/tombstone counts, readback digest verification,
+      expanded CLI/Python fields, support-matrix text, and production-workload evidence while
+      keeping upstream Vortex file writes and public production streaming claims blocked.
+    - [x] Add scoped local recovery/fault evidence for partial-checkpoint detection and cleanup,
+      restart restore from local checkpoint/state/microsegment manifests, duplicate replay
+      protection by sequence/idempotency key, CLI/Python fields, support-matrix text, and
+      production-workload evidence while keeping broker replay and exactly-once claims blocked.
     - [ ] Implement production state store, durable changelog, durable checkpoint/restore,
-      hot/warm/cold storage model, Vortex micro-segment persistence, cold Vortex segment promotion,
-      and deletion-vector/tombstone persistence for an admitted live/hybrid workload.
+      hot/warm/cold storage model, feature-gated upstream Vortex micro-segment file persistence,
+      cold Vortex segment promotion, and deletion-vector/tombstone persistence for an admitted
+      live/hybrid workload beyond the scoped local manifest fixture.
     - [ ] Add production recovery/fault tests for restart, duplicate records, partial durable
-      checkpoint, durable restore, broker replay, cancellation, cleanup, and idempotent output.
+      checkpoint, durable restore, broker replay, cancellation, cleanup, and idempotent output
+      beyond the scoped local filesystem fixture.
     - [ ] Add benchmark/profile evidence for declared live/hybrid workload before claims.
     - [x] Move scoped live/hybrid fixture evidence and unsupported production modes to the ledger
       while keeping production streaming/runtime gaps open.
