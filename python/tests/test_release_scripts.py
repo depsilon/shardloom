@@ -9499,6 +9499,30 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
 
+    def test_v1_local_source_package_release_rejects_public_package_claim_drift(self) -> None:
+        module = self._load_script_module(
+            "check_v1_local_source_package_release.py",
+            "check_v1_local_source_package_release_claim_drift_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            temp_root = Path(tempdir)
+            contract_path = temp_root / "v1-local-source-package-release.json"
+            contract = json.loads(
+                (REPO_ROOT / "docs/release/v1-local-source-package-release.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            contract["public_package_release_claim_allowed"] = True
+            contract_path.write_text(json.dumps(contract), encoding="utf-8")
+
+            blockers = module.validate_contract(json.loads(contract_path.read_text(encoding="utf-8")))
+
+        self.assertIn(
+            "contract public_package_release_claim_allowed must be False",
+            blockers,
+        )
+
     def test_release_readiness_accepts_configured_dry_run_command_evidence(self) -> None:
         module = self._load_script_module(
             "check_release_readiness.py",

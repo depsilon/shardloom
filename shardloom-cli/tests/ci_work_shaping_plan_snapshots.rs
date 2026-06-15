@@ -62,7 +62,7 @@ fn runtime_change_requires_hard_lane_and_source_aware_benchmark_rerun() {
     assert!(output.contains(&field("benchmark_artifact_scan_required", "true")));
     assert!(output.contains(&field(
         "recommended_job_order",
-        "ci-work-shaping,ci-gate-matrix,rust-baseline,rust-feature-matrix,release-benchmark-claim"
+        "ci-work-shaping,ci-gate-matrix,rust-baseline,rust-feature-matrix,release-benchmark-claim,rust-msrv,python-test-shards,python-tests,python-compatibility-matrix,python-package,dependency-security,release-runtime-core,website-docs,release-package-governance,release-user-surface,release-readiness"
     )));
     assert!(output.contains(&field("runtime_execution", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
@@ -113,11 +113,62 @@ fn workflow_and_release_change_escalates_to_release_proof_lane() {
     assert!(output.contains(&field("hard_gate_preserved", "true")));
     assert!(output.contains(&field(
         "recommended_job_order",
-        "ci-work-shaping,ci-gate-matrix,rust-baseline,rust-feature-matrix,dependency-security,release-package-governance,release-readiness"
+        "ci-work-shaping,ci-gate-matrix,rust-baseline,rust-feature-matrix,rust-msrv,python-test-shards,python-tests,python-compatibility-matrix,python-package,dependency-security,release-runtime-core,release-benchmark-claim,website-docs,release-package-governance,release-user-surface,release-readiness"
     )));
     assert!(output.contains(&field("publication_attempted", "false")));
     assert!(output.contains(&field("tag_created", "false")));
     assert!(output.contains(&field("package_upload_attempted", "false")));
+}
+
+#[test]
+fn unknown_paths_fail_closed_into_hard_lane() {
+    let output = run_ci_work_shaping(&["--changed-path", "tools/local-helper.sh"]);
+
+    assert!(output.contains(&field("capillary_family_order", "other")));
+    assert!(output.contains(&field("docs_only_candidate", "false")));
+    assert!(output.contains(&field("unknown_path_hard_gate_required", "true")));
+    assert!(output.contains(&field("merge_hard_lane_required", "true")));
+    assert!(output.contains(&field(
+        "recommended_job_order",
+        "ci-work-shaping,ci-gate-matrix,rust-baseline,rust-feature-matrix,rust-msrv,python-test-shards,python-tests,python-compatibility-matrix,python-package,dependency-security,release-runtime-core,release-benchmark-claim,website-docs,release-package-governance,release-user-surface,release-readiness"
+    )));
+}
+
+#[test]
+fn merge_mode_docs_change_recommends_hard_lane_producers() {
+    let output = run_ci_work_shaping(&[
+        "--mode",
+        "merge",
+        "--changed-path",
+        "docs/getting-started/install.md",
+    ]);
+
+    assert!(output.contains(&field("ci_mode", "merge")));
+    assert!(output.contains(&field("capillary_family_order", "website_docs,docs_only")));
+    assert!(output.contains(&field("docs_only_candidate", "true")));
+    assert!(output.contains(&field("merge_hard_lane_required", "true")));
+    assert!(output.contains(&field(
+        "recommended_job_order",
+        "ci-work-shaping,ci-gate-matrix,website-docs,rust-baseline,rust-feature-matrix,rust-msrv,python-test-shards,python-tests,python-compatibility-matrix,python-package,dependency-security,release-runtime-core,release-benchmark-claim,release-package-governance,release-user-surface,release-readiness"
+    )));
+}
+
+#[test]
+fn release_packaging_change_recommends_release_proof_producers_before_readiness() {
+    let output = run_ci_work_shaping(&[
+        "--mode",
+        "pull_request",
+        "--changed-path",
+        "python/pyproject.toml",
+    ]);
+
+    assert!(output.contains(&field("capillary_family_order", "release_packaging")));
+    assert!(output.contains(&field("merge_hard_lane_required", "true")));
+    assert!(output.contains(&field("release_proof_lane_required", "true")));
+    assert!(output.contains(&field(
+        "recommended_job_order",
+        "ci-work-shaping,ci-gate-matrix,rust-baseline,rust-feature-matrix,rust-msrv,python-test-shards,python-tests,python-compatibility-matrix,python-package,dependency-security,release-runtime-core,release-benchmark-claim,website-docs,release-package-governance,release-user-surface,release-readiness"
+    )));
 }
 
 #[test]
