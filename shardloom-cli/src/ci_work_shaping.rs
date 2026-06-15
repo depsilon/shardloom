@@ -75,6 +75,24 @@ const RELEASE_PROOF_LANE_JOB_ORDER: &[&str] = &[
     "release-user-surface",
     "release-readiness",
 ];
+const RECOMMENDED_JOB_TOPOLOGICAL_ORDER: &[&str] = &[
+    "ci-work-shaping",
+    "ci-gate-matrix",
+    "rust-baseline",
+    "rust-feature-matrix",
+    "rust-msrv",
+    "python-test-shards",
+    "python-tests",
+    "python-compatibility-matrix",
+    "python-package",
+    "dependency-security",
+    "release-runtime-core",
+    "release-benchmark-claim",
+    "website-docs",
+    "release-package-governance",
+    "release-user-surface",
+    "release-readiness",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CiMode {
@@ -478,6 +496,7 @@ fn selected_jobs(
     if requirements.release_proof_lane_required {
         push_unique_strs(&mut jobs, RELEASE_PROOF_LANE_JOB_ORDER);
     }
+    sort_recommended_jobs(&mut jobs);
     jobs
 }
 
@@ -742,4 +761,13 @@ fn push_unique_strs(values: &mut Vec<&'static str>, candidates: &[&'static str])
     for candidate in candidates {
         push_unique_str(values, candidate);
     }
+}
+
+fn sort_recommended_jobs(values: &mut [&'static str]) {
+    values.sort_by_key(|job| {
+        RECOMMENDED_JOB_TOPOLOGICAL_ORDER
+            .iter()
+            .position(|candidate| candidate == job)
+            .unwrap_or(usize::MAX)
+    });
 }

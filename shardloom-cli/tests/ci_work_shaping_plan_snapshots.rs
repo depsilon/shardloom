@@ -62,11 +62,23 @@ fn runtime_change_requires_hard_lane_and_source_aware_benchmark_rerun() {
     assert!(output.contains(&field("benchmark_artifact_scan_required", "true")));
     assert!(output.contains(&field(
         "recommended_job_order",
-        "ci-work-shaping,ci-gate-matrix,rust-baseline,rust-feature-matrix,release-benchmark-claim,rust-msrv,python-test-shards,python-tests,python-compatibility-matrix,python-package,dependency-security,release-runtime-core,website-docs,release-package-governance,release-user-surface,release-readiness"
+        "ci-work-shaping,ci-gate-matrix,rust-baseline,rust-feature-matrix,rust-msrv,python-test-shards,python-tests,python-compatibility-matrix,python-package,dependency-security,release-runtime-core,release-benchmark-claim,website-docs,release-package-governance,release-user-surface,release-readiness"
     )));
     assert!(output.contains(&field("runtime_execution", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn python_surface_hard_lane_preserves_python_shard_before_aggregate_order() {
+    let output = run_ci_work_shaping(&["--changed-path", "python/src/shardloom/__init__.py"]);
+
+    assert!(output.contains(&field("capillary_family_order", "python_surface")));
+    assert!(output.contains(&field("merge_hard_lane_required", "true")));
+    assert!(output.contains(&field(
+        "recommended_job_order",
+        "ci-work-shaping,ci-gate-matrix,rust-baseline,rust-feature-matrix,rust-msrv,python-test-shards,python-tests,python-compatibility-matrix,python-package,dependency-security,release-runtime-core,release-benchmark-claim,website-docs,release-package-governance,release-user-surface,release-readiness"
+    )));
 }
 
 #[test]
@@ -85,7 +97,7 @@ fn benchmark_artifact_change_scans_public_artifacts_without_declaring_rerun() {
     assert!(output.contains(&field("benchmark_metadata_gate_required", "true")));
     assert!(output.contains(&field(
         "recommended_job_order",
-        "ci-work-shaping,ci-gate-matrix,website-docs,release-benchmark-claim"
+        "ci-work-shaping,ci-gate-matrix,release-benchmark-claim,website-docs"
     )));
 }
 
@@ -149,7 +161,7 @@ fn merge_mode_docs_change_recommends_hard_lane_producers() {
     assert!(output.contains(&field("merge_hard_lane_required", "true")));
     assert!(output.contains(&field(
         "recommended_job_order",
-        "ci-work-shaping,ci-gate-matrix,website-docs,rust-baseline,rust-feature-matrix,rust-msrv,python-test-shards,python-tests,python-compatibility-matrix,python-package,dependency-security,release-runtime-core,release-benchmark-claim,release-package-governance,release-user-surface,release-readiness"
+        "ci-work-shaping,ci-gate-matrix,rust-baseline,rust-feature-matrix,rust-msrv,python-test-shards,python-tests,python-compatibility-matrix,python-package,dependency-security,release-runtime-core,release-benchmark-claim,website-docs,release-package-governance,release-user-surface,release-readiness"
     )));
 }
 
