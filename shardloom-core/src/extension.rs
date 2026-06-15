@@ -340,6 +340,492 @@ impl UdfRuntimeKind {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TypedUdfKind {
+    Scalar,
+    Aggregate,
+    TableFunction,
+}
+
+impl TypedUdfKind {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Scalar => "scalar",
+            Self::Aggregate => "aggregate",
+            Self::TableFunction => "table_function",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TypedUdfRegistryStatus {
+    AdmittedLocalFixture,
+    BlockedMissingRuntimeBridge,
+    BlockedSandboxPolicy,
+    BlockedMaterializationBoundary,
+}
+
+impl TypedUdfRegistryStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::AdmittedLocalFixture => "admitted_local_fixture",
+            Self::BlockedMissingRuntimeBridge => "blocked_missing_runtime_bridge",
+            Self::BlockedSandboxPolicy => "blocked_sandbox_policy",
+            Self::BlockedMaterializationBoundary => "blocked_materialization_boundary",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_admitted(&self) -> bool {
+        matches!(self, Self::AdmittedLocalFixture)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TypedUdfEncodedCapability {
+    EncodedNativeCandidate,
+    LateMaterializedFixture,
+    MaterializationRequired,
+    Unsupported,
+}
+
+impl TypedUdfEncodedCapability {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::EncodedNativeCandidate => "encoded_native_candidate",
+            Self::LateMaterializedFixture => "late_materialized_fixture",
+            Self::MaterializationRequired => "materialization_required",
+            Self::Unsupported => "unsupported",
+        }
+    }
+
+    #[must_use]
+    pub const fn requires_materialization(&self) -> bool {
+        matches!(self, Self::MaterializationRequired)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypedUdfRegistryEntry {
+    pub udf_id: &'static str,
+    pub display_name: &'static str,
+    pub udf_version: &'static str,
+    pub kind: TypedUdfKind,
+    pub runtime_kind: UdfRuntimeKind,
+    pub support_status: TypedUdfRegistryStatus,
+    pub encoded_capability: TypedUdfEncodedCapability,
+    pub determinism: ExtensionDeterminismContract,
+    pub null_behavior: ExtensionNullBehaviorContract,
+    pub materialization: ExtensionMaterializationContract,
+    pub input_dtypes: &'static [&'static str],
+    pub output_dtype: &'static str,
+    pub sandbox_policy: SandboxPolicyKind,
+    pub permission_contract: &'static str,
+    pub effect_level: EffectLevel,
+    pub runtime_fixture_command: Option<&'static str>,
+    pub blocker_id: &'static str,
+    pub diagnostic_code: &'static str,
+    pub required_evidence: &'static str,
+    pub registry_execution_allowed: bool,
+    pub runtime_fixture_available: bool,
+    pub sandbox_required: bool,
+    pub filesystem_access_allowed: bool,
+    pub network_access_allowed: bool,
+    pub secret_access_allowed: bool,
+    pub credential_resolution_required: bool,
+    pub dynamic_loading_allowed: bool,
+    pub runtime_execution_performed: bool,
+    pub extension_code_executed: bool,
+    pub external_effect_executed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_boundary: &'static str,
+}
+
+impl TypedUdfRegistryEntry {
+    #[allow(clippy::too_many_arguments)]
+    const fn new(
+        udf_id: &'static str,
+        display_name: &'static str,
+        udf_version: &'static str,
+        kind: TypedUdfKind,
+        runtime_kind: UdfRuntimeKind,
+        support_status: TypedUdfRegistryStatus,
+        encoded_capability: TypedUdfEncodedCapability,
+        determinism: ExtensionDeterminismContract,
+        null_behavior: ExtensionNullBehaviorContract,
+        materialization: ExtensionMaterializationContract,
+        input_dtypes: &'static [&'static str],
+        output_dtype: &'static str,
+        sandbox_policy: SandboxPolicyKind,
+        permission_contract: &'static str,
+        effect_level: EffectLevel,
+        runtime_fixture_command: Option<&'static str>,
+        blocker_id: &'static str,
+        diagnostic_code: &'static str,
+        required_evidence: &'static str,
+        registry_execution_allowed: bool,
+        runtime_fixture_available: bool,
+        sandbox_required: bool,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            udf_id,
+            display_name,
+            udf_version,
+            kind,
+            runtime_kind,
+            support_status,
+            encoded_capability,
+            determinism,
+            null_behavior,
+            materialization,
+            input_dtypes,
+            output_dtype,
+            sandbox_policy,
+            permission_contract,
+            effect_level,
+            runtime_fixture_command,
+            blocker_id,
+            diagnostic_code,
+            required_evidence,
+            registry_execution_allowed,
+            runtime_fixture_available,
+            sandbox_required,
+            filesystem_access_allowed: false,
+            network_access_allowed: false,
+            secret_access_allowed: false,
+            credential_resolution_required: false,
+            dynamic_loading_allowed: false,
+            runtime_execution_performed: false,
+            extension_code_executed: false,
+            external_effect_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary,
+        }
+    }
+
+    #[must_use]
+    pub fn input_dtype_summary(&self) -> String {
+        if self.input_dtypes.is_empty() {
+            return "none".to_string();
+        }
+        self.input_dtypes.join(",")
+    }
+
+    #[must_use]
+    pub const fn materialization_required(&self) -> bool {
+        self.encoded_capability.requires_materialization()
+            || self.materialization.requires_materialization()
+    }
+
+    #[must_use]
+    pub const fn is_admitted(&self) -> bool {
+        self.support_status.is_admitted()
+    }
+
+    #[must_use]
+    pub const fn no_fallback_invariant_holds(&self) -> bool {
+        !self.filesystem_access_allowed
+            && !self.network_access_allowed
+            && !self.secret_access_allowed
+            && !self.credential_resolution_required
+            && !self.dynamic_loading_allowed
+            && !self.runtime_execution_performed
+            && !self.extension_code_executed
+            && !self.external_effect_executed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypedUdfRegistryReport {
+    pub schema_version: &'static str,
+    pub registry_id: &'static str,
+    pub docs_ref: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub entries: Vec<TypedUdfRegistryEntry>,
+    pub local_fixture_execution_bridge_available: bool,
+    pub arbitrary_runtime_bridge_available: bool,
+    pub sandbox_policy_declared: bool,
+    pub filesystem_access_allowed: bool,
+    pub network_access_allowed: bool,
+    pub secret_access_allowed: bool,
+    pub dynamic_loading_allowed: bool,
+    pub runtime_execution_performed: bool,
+    pub extension_code_executed: bool,
+    pub external_effect_executed: bool,
+    pub credential_resolution_performed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+fn typed_udf_registry_entries() -> Vec<TypedUdfRegistryEntry> {
+    vec![
+        typed_udf_fixture_entry(),
+        typed_udf_native_aggregate_candidate_entry(),
+        typed_udf_table_function_boundary_entry(),
+        typed_udf_python_boundary_entry(),
+    ]
+}
+
+const fn typed_udf_fixture_entry() -> TypedUdfRegistryEntry {
+    TypedUdfRegistryEntry::new(
+        "sl_fixture_double_i64",
+        "Built-in nullable int64 double fixture",
+        "0.1.0",
+        TypedUdfKind::Scalar,
+        UdfRuntimeKind::BuiltinDeterministicFixture,
+        TypedUdfRegistryStatus::AdmittedLocalFixture,
+        TypedUdfEncodedCapability::LateMaterializedFixture,
+        ExtensionDeterminismContract::PureDeterministic,
+        ExtensionNullBehaviorContract::NullPropagating,
+        ExtensionMaterializationContract::LateMaterialized,
+        &["int64_nullable"],
+        "int64_nullable",
+        SandboxPolicyKind::None,
+        "none_builtin_pure_fixture",
+        EffectLevel::PureDeterministic,
+        Some("udf-local-scalar-fixture-smoke"),
+        "none_builtin_fixture",
+        "SL_UDF_FIXTURE_ADMITTED",
+        "typed_registry_entry,nullable_int64_contract,overflow_check,no_fallback_evidence",
+        true,
+        true,
+        false,
+        "Only this built-in deterministic scalar fixture is admitted. It does not load extension code, access files, access secrets, use the network, or invoke a fallback engine.",
+    )
+}
+
+const fn typed_udf_native_aggregate_candidate_entry() -> TypedUdfRegistryEntry {
+    TypedUdfRegistryEntry::new(
+        "sl_native_sum_i64",
+        "Scoped native aggregate UDF candidate",
+        "0.0.0",
+        TypedUdfKind::Aggregate,
+        UdfRuntimeKind::RustNative,
+        TypedUdfRegistryStatus::BlockedMissingRuntimeBridge,
+        TypedUdfEncodedCapability::EncodedNativeCandidate,
+        ExtensionDeterminismContract::PureDeterministic,
+        ExtensionNullBehaviorContract::NullSkipping,
+        ExtensionMaterializationContract::EncodedNative,
+        &["int64_nullable"],
+        "int64_nullable",
+        SandboxPolicyKind::FullSandboxRequired,
+        "execute_udf_required_before_runtime",
+        EffectLevel::PureDeterministic,
+        None,
+        "prod-ready-1f.aggregate_udf_runtime_bridge_blocked",
+        "SL_UDF_RUNTIME_BLOCKED",
+        "aggregate_state_contract,encoded_kernel,spill_policy,sandbox_policy,execution_certificate,no_fallback_evidence",
+        false,
+        false,
+        true,
+        "Aggregate UDF registry metadata is declared, but execution is blocked until aggregate state, encoded kernels, spill, sandbox, and certificate evidence exist.",
+    )
+}
+
+const fn typed_udf_table_function_boundary_entry() -> TypedUdfRegistryEntry {
+    TypedUdfRegistryEntry::new(
+        "sl_table_generate_series_i64",
+        "Scoped table-function UDF candidate",
+        "0.0.0",
+        TypedUdfKind::TableFunction,
+        UdfRuntimeKind::SqlDefined,
+        TypedUdfRegistryStatus::BlockedMaterializationBoundary,
+        TypedUdfEncodedCapability::MaterializationRequired,
+        ExtensionDeterminismContract::PureDeterministic,
+        ExtensionNullBehaviorContract::NullError,
+        ExtensionMaterializationContract::MaterializationRequired,
+        &["int64", "int64"],
+        "table<int64>",
+        SandboxPolicyKind::FullSandboxRequired,
+        "table_function_source_sink_policy_required",
+        EffectLevel::PureDeterministic,
+        None,
+        "prod-ready-1f.table_function_materialization_blocked",
+        "SL_UDF_MATERIALIZATION_BLOCKED",
+        "table_function_contract,source_sink_policy,materialization_boundary,execution_certificate,no_fallback_evidence",
+        false,
+        false,
+        true,
+        "Table-function UDF metadata is declared, but execution is blocked until source/sink and materialization boundaries are certified.",
+    )
+}
+
+const fn typed_udf_python_boundary_entry() -> TypedUdfRegistryEntry {
+    TypedUdfRegistryEntry::new(
+        "external_python_scalar_boundary",
+        "Python scalar UDF boundary",
+        "0.0.0",
+        TypedUdfKind::Scalar,
+        UdfRuntimeKind::Python,
+        TypedUdfRegistryStatus::BlockedSandboxPolicy,
+        TypedUdfEncodedCapability::MaterializationRequired,
+        ExtensionDeterminismContract::Unknown,
+        ExtensionNullBehaviorContract::Unknown,
+        ExtensionMaterializationContract::MaterializationRequired,
+        &["declared_by_manifest"],
+        "declared_by_manifest",
+        SandboxPolicyKind::FullSandboxRequired,
+        "python_materialization_effect_policy_required",
+        EffectLevel::Unknown,
+        None,
+        "prod-ready-1f.python_udf_sandbox_blocked",
+        "SL_UDF_SANDBOX_BLOCKED",
+        "python_boundary,materialization_policy,redaction_policy,sandbox_policy,timeout_memory_cpu_policy,execution_certificate,no_fallback_evidence",
+        false,
+        false,
+        true,
+        "Python UDFs remain blocked and must be explicit materialization/effect boundaries; no interpreter bridge, callable execution, network, credentials, or fallback execution is enabled.",
+    )
+}
+
+impl TypedUdfRegistryReport {
+    #[must_use]
+    pub fn current() -> Self {
+        Self {
+            schema_version: "shardloom.typed_udf_registry.v1",
+            registry_id: "prod-ready-1f.typed_udf_registry",
+            docs_ref: "docs/architecture/udf-external-effect-blocker-matrix.md",
+            support_status: "scoped_fixture_supported",
+            claim_gate_status: "fixture_smoke_only",
+            entries: typed_udf_registry_entries(),
+            local_fixture_execution_bridge_available: true,
+            arbitrary_runtime_bridge_available: false,
+            sandbox_policy_declared: true,
+            filesystem_access_allowed: false,
+            network_access_allowed: false,
+            secret_access_allowed: false,
+            dynamic_loading_allowed: false,
+            runtime_execution_performed: false,
+            extension_code_executed: false,
+            external_effect_executed: false,
+            credential_resolution_performed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.entries.iter().map(|entry| entry.udf_id).collect()
+    }
+
+    #[must_use]
+    pub fn blocker_ids(&self) -> Vec<&'static str> {
+        self.entries.iter().map(|entry| entry.blocker_id).collect()
+    }
+
+    #[must_use]
+    pub fn required_evidence(&self) -> Vec<&'static str> {
+        self.entries
+            .iter()
+            .map(|entry| entry.required_evidence)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn admitted_local_fixture_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.is_admitted())
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocked_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| !entry.is_admitted())
+            .count()
+    }
+
+    #[must_use]
+    pub fn scalar_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.kind == TypedUdfKind::Scalar)
+            .count()
+    }
+
+    #[must_use]
+    pub fn aggregate_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.kind == TypedUdfKind::Aggregate)
+            .count()
+    }
+
+    #[must_use]
+    pub fn table_function_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.kind == TypedUdfKind::TableFunction)
+            .count()
+    }
+
+    #[must_use]
+    pub fn encoded_native_candidate_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| {
+                entry.encoded_capability == TypedUdfEncodedCapability::EncodedNativeCandidate
+            })
+            .count()
+    }
+
+    #[must_use]
+    pub fn materialization_required_count(&self) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.materialization_required())
+            .count()
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.filesystem_access_allowed
+            && !self.network_access_allowed
+            && !self.secret_access_allowed
+            && !self.dynamic_loading_allowed
+            && !self.runtime_execution_performed
+            && !self.extension_code_executed
+            && !self.external_effect_executed
+            && !self.credential_resolution_performed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self
+                .entries
+                .iter()
+                .all(TypedUdfRegistryEntry::no_fallback_invariant_holds)
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "typed UDF registry entries={} admitted_fixtures={} blocked={} scalar={} aggregate={} table_function={} fallback_execution=disabled",
+            self.entries.len(),
+            self.admitted_local_fixture_count(),
+            self.blocked_count(),
+            self.scalar_count(),
+            self.aggregate_count(),
+            self.table_function_count()
+        )
+    }
+}
+
+#[must_use]
+pub fn typed_udf_registry_report() -> TypedUdfRegistryReport {
+    TypedUdfRegistryReport::current()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeterministicScalarUdfFixtureReport {
     pub schema_version: &'static str,
@@ -2352,6 +2838,64 @@ mod tests {
     fn builtin_fixture_udf_available_without_sandbox() {
         assert!(UdfRuntimeKind::BuiltinDeterministicFixture.is_available_initially());
         assert!(!UdfRuntimeKind::BuiltinDeterministicFixture.requires_sandboxing());
+    }
+    #[test]
+    fn typed_udf_registry_declares_scalar_aggregate_and_table_boundaries() {
+        let report = typed_udf_registry_report();
+        assert_eq!(report.schema_version, "shardloom.typed_udf_registry.v1");
+        assert_eq!(report.claim_gate_status, "fixture_smoke_only");
+        assert_eq!(report.admitted_local_fixture_count(), 1);
+        assert_eq!(report.scalar_count(), 2);
+        assert_eq!(report.aggregate_count(), 1);
+        assert_eq!(report.table_function_count(), 1);
+        assert_eq!(report.encoded_native_candidate_count(), 1);
+        assert_eq!(report.materialization_required_count(), 2);
+        assert!(report.local_fixture_execution_bridge_available);
+        assert!(!report.arbitrary_runtime_bridge_available);
+        assert!(report.sandbox_policy_declared);
+        assert!(report.side_effect_free());
+        for row_id in [
+            "sl_fixture_double_i64",
+            "sl_native_sum_i64",
+            "sl_table_generate_series_i64",
+            "external_python_scalar_boundary",
+        ] {
+            assert!(report.row_order().contains(&row_id), "missing {row_id}");
+        }
+    }
+    #[test]
+    fn typed_udf_registry_admits_only_builtin_scalar_fixture() {
+        let report = typed_udf_registry_report();
+        let admitted = report
+            .entries
+            .iter()
+            .filter(|entry| entry.is_admitted())
+            .collect::<Vec<_>>();
+        assert_eq!(admitted.len(), 1);
+        let fixture = admitted[0];
+        assert_eq!(fixture.udf_id, "sl_fixture_double_i64");
+        assert_eq!(fixture.kind, TypedUdfKind::Scalar);
+        assert_eq!(
+            fixture.runtime_kind,
+            UdfRuntimeKind::BuiltinDeterministicFixture
+        );
+        assert_eq!(
+            fixture.runtime_fixture_command,
+            Some("udf-local-scalar-fixture-smoke")
+        );
+        assert_eq!(
+            fixture.encoded_capability,
+            TypedUdfEncodedCapability::LateMaterializedFixture
+        );
+        assert!(!fixture.materialization_required());
+        assert!(fixture.no_fallback_invariant_holds());
+        assert!(
+            report
+                .entries
+                .iter()
+                .filter(|entry| !entry.is_admitted())
+                .all(|entry| !entry.registry_execution_allowed)
+        );
     }
     #[test]
     fn metadata_policy_safe() {

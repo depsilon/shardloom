@@ -395,6 +395,7 @@ fn is_extension_planning_command(command: &str) -> bool {
         command,
         "extension-registry"
             | "extension-inspect"
+            | "udf-registry"
             | "udf-runtime-plan"
             | "udf-local-scalar-fixture-smoke"
             | "embedding-vector-local-fixture-smoke"

@@ -512,10 +512,12 @@ with a recorded infeasibility reason, not merely because they are broad.
     capability, permission, effect, sandbox, license, provenance, ABI, lifecycle, runtime,
     determinism, materialization, null behavior, dtype, timeout, memory, CPU, retry, idempotency,
     and audit metadata without loading code. Approved local manifest-directory discovery now
-    inventories bounded `.json` manifests with duplicate-ID rejection through the same parser.
-    Built-in deterministic scalar UDF and embedding/vector fixtures remain fixture-smoke only.
-    UDF/API/LLM/model/vector execution, network/filesystem/secret effects, dynamic plugin loading,
-    dependency expansion, and plugin runtime are not production supported.
+    inventories bounded `.json` manifests with duplicate-ID rejection through the same parser. A
+    typed UDF registry now exposes scalar, aggregate, and table-function rows with encoded
+    capability vs materialization-required classification; only the built-in nullable-int64 scalar
+    fixture is admitted. Built-in deterministic scalar UDF and embedding/vector fixtures remain
+    fixture-smoke only. UDF/API/LLM/model/vector execution, network/filesystem/secret effects,
+    dynamic plugin loading, dependency expansion, and plugin runtime are not production supported.
   - Intake review: accepted as a v1 candidate for safe scoped subsets. Include manifest
     inspection and typed deterministic UDF/plugin/effect classes in v1 where sandboxing, denial,
     audit, timeout/resource, and no-fallback evidence can close; defer dangerous effect classes
@@ -538,7 +540,7 @@ with a recorded infeasibility reason, not merely because they are broad.
       arbitrary UDF or plugin runtime support.
     - [x] Implement capability discovery over an approved manifest directory/registry without
       executing extension code.
-    - [ ] Implement typed UDF registry for scoped scalar/aggregate/table functions with encoded
+    - [x] Implement typed UDF registry for scoped scalar/aggregate/table functions with encoded
       capability vs materialization-required classification.
     - [ ] Add sandboxing policy: Rust-native first where possible, WASM later only after ABI
       review, Python only as an explicit materialization/effect boundary.

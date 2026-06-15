@@ -214,6 +214,96 @@ fn extension_registry_json_exposes_manifest_effect_matrix() {
     )));
 }
 
+#[test]
+fn udf_registry_json_exposes_typed_scalar_aggregate_table_contract() {
+    let output = run_json(&["udf-registry", "--format", "json"]);
+    assert!(output.contains("\"command\":\"udf-registry\""));
+    assert!(output.contains(&field(
+        "typed_udf_registry_schema_version",
+        "shardloom.typed_udf_registry.v1"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_support_status",
+        "scoped_fixture_supported"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_claim_gate_status",
+        "fixture_smoke_only"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_admitted_local_fixture_count",
+        "1"
+    )));
+    assert!(output.contains(&field("typed_udf_registry_scalar_count", "2")));
+    assert!(output.contains(&field("typed_udf_registry_aggregate_count", "1")));
+    assert!(output.contains(&field("typed_udf_registry_table_function_count", "1")));
+    assert!(output.contains(&field(
+        "typed_udf_registry_encoded_native_candidate_count",
+        "1"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_materialization_required_count",
+        "2"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_local_fixture_execution_bridge_available",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_arbitrary_runtime_bridge_available",
+        "false"
+    )));
+    assert!(output.contains(&field("typed_udf_registry_sandbox_policy_declared", "true")));
+    for key in [
+        "typed_udf_registry_filesystem_access_allowed",
+        "typed_udf_registry_network_access_allowed",
+        "typed_udf_registry_secret_access_allowed",
+        "typed_udf_registry_dynamic_loading_allowed",
+        "typed_udf_registry_runtime_execution_performed",
+        "typed_udf_registry_extension_code_executed",
+        "typed_udf_registry_external_effect_executed",
+        "typed_udf_registry_fallback_attempted",
+        "typed_udf_registry_external_engine_invoked",
+    ] {
+        assert!(
+            output.contains(&field(key, "false")),
+            "missing false field {key}"
+        );
+    }
+    assert!(output.contains(&field(
+        "typed_udf_registry_row_sl_fixture_double_i64_kind",
+        "scalar"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_row_sl_fixture_double_i64_support_status",
+        "admitted_local_fixture"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_row_sl_fixture_double_i64_runtime_fixture_command",
+        "udf-local-scalar-fixture-smoke"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_row_sl_native_sum_i64_kind",
+        "aggregate"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_row_sl_native_sum_i64_encoded_capability",
+        "encoded_native_candidate"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_row_sl_table_generate_series_i64_kind",
+        "table_function"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_row_sl_table_generate_series_i64_materialization_required",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "typed_udf_registry_row_external_python_scalar_boundary_support_status",
+        "blocked_sandbox_policy"
+    )));
+}
+
 fn write_registry_directory_manifests(temp_dir: &Path) {
     fs::write(temp_dir.join("notes.txt"), "ignored").expect("notes write");
     fs::write(

@@ -5298,8 +5298,24 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "Extension inspection and effect/UDF policy diagnostics",
         "diagnostic_only",
         "side_effect_free_metadata_or_report",
-        context_methods=("extension_registry", "extension_inspect", "udf_runtime_plan"),
-        client_methods=("extension_registry", "extension_inspect", "udf_runtime_plan"),
+        cli_commands=(
+            "extension-registry",
+            "extension-inspect",
+            "udf-registry",
+            "udf-runtime-plan",
+        ),
+        context_methods=(
+            "extension_registry",
+            "extension_inspect",
+            "udf_registry",
+            "udf_runtime_plan",
+        ),
+        client_methods=(
+            "extension_registry",
+            "extension_inspect",
+            "udf_registry",
+            "udf_runtime_plan",
+        ),
         runtime_route="side_effect_free_extension_or_effect_policy_report",
         promotion_criteria="inspection reports never load extension code or authorize arbitrary effects",
         evidence_refs=("extension_manifest_effect_capability_matrix", "effect_budget_plan"),
@@ -10819,6 +10835,11 @@ class ShardLoomContext:
         """Return UDF runtime posture, including the admitted built-in fixture."""
 
         return self.client.udf_runtime_plan(runtime, check=check)
+
+    def udf_registry(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the typed UDF registry without executing user UDF code."""
+
+        return self.client.udf_registry(check=check)
 
     def udf_local_scalar_fixture_smoke(
         self,

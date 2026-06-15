@@ -951,6 +951,7 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("capabilities") => status_capabilities::handle_capabilities(args, format),
         Some("extension-registry") => extension_planning::handle_extension_registry(args, format),
         Some("extension-inspect") => extension_planning::handle_extension_inspect(args, format),
+        Some("udf-registry") => extension_planning::handle_udf_registry(args, format),
         Some("udf-runtime-plan") => extension_planning::handle_udf_runtime_plan(args, format),
         Some("udf-local-scalar-fixture-smoke") => {
             extension_planning::handle_udf_local_scalar_fixture_smoke(args, format)

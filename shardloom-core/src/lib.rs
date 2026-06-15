@@ -169,9 +169,11 @@ pub use extension::{
     ExtensionMaterializationContract, ExtensionNullBehaviorContract, ExtensionPermission,
     ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionRetryContract, ExtensionVersion,
     PluginAbiRequirement, PluginAbiStatus, PluginAbiUdfSandboxBlockerReport,
-    PluginAbiUdfSandboxBlockerRow, SandboxPolicy, SandboxPolicyKind, UdfRuntimeKind,
-    plan_plugin_abi_udf_sandbox_blocker, run_deterministic_embedding_vector_fixture,
-    run_deterministic_scalar_udf_fixture,
+    PluginAbiUdfSandboxBlockerRow, SandboxPolicy, SandboxPolicyKind, TypedUdfEncodedCapability,
+    TypedUdfKind, TypedUdfRegistryEntry, TypedUdfRegistryReport, TypedUdfRegistryStatus,
+    UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
+    run_deterministic_embedding_vector_fixture, run_deterministic_scalar_udf_fixture,
+    typed_udf_registry_report,
 };
 
 pub use feature_footprint::{

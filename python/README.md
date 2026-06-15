@@ -2721,6 +2721,11 @@ blocking, and effect policy for one built-in fixture only. It is not Python,
 WASM, Rust plugin, SQL-defined, table-function, or external-service UDF support.
 
 ```python
+registry = client.udf_registry()
+print(registry.field("typed_udf_registry_support_status"))
+print(registry.field_int("typed_udf_registry_admitted_local_fixture_count"))
+print(registry.field_bool("typed_udf_registry_arbitrary_runtime_bridge_available"))
+
 udf = client.udf_local_scalar_fixture_smoke([1, None, 3])
 print(udf.field("udf_id"))
 print(udf.field("output_values"))
@@ -2738,6 +2743,7 @@ enable plugin runtime support. The same helpers are available on
 extensions = client.extension_registry()
 extension_dir = client.extension_registry(manifest_dir="target/extensions")
 manifest = client.extension_inspect(manifest_path="target/extension.json")
+typed_udfs = client.udf_registry()
 fixture_plan = client.udf_runtime_plan("fixture")
 python_plan = client.udf_runtime_plan("python")
 print(extensions.field("extension_manifest_effect_all_runtime_blocked"))
@@ -2746,16 +2752,20 @@ print(extension_dir.field_bool("extension_registry_extension_code_executed"))
 print(manifest.field("extension_manifest_inspection_status"))
 print(manifest.field_bool("extension_manifest_execution_contract_complete"))
 print(manifest.field_bool("extension_manifest_extension_code_executed"))
+print(typed_udfs.field("typed_udf_registry_row_order"))
+print(typed_udfs.field_bool("typed_udf_registry_external_engine_invoked"))
 print(fixture_plan.field("udf_runtime_kind"))
-print(python_plan.field("udf_runtime_support_status"))
+print(python_plan.field_bool("udf_runtime_sandboxing_required"))
 
 ctx_extensions = ctx.extension_registry()
 ctx_extension_dir = ctx.extension_registry(manifest_dir="target/extensions")
 ctx_manifest = ctx.extension_inspect(manifest_path="target/extension.json")
+ctx_typed_udfs = ctx.udf_registry()
 ctx_udf = ctx.udf_local_scalar_fixture_smoke([1, None, 3])
 print(ctx_extensions.field_bool("extension_code_executed"))
 print(ctx_extension_dir.field_bool("extension_registry_runtime_execution"))
 print(ctx_manifest.field_bool("extension_manifest_external_effect_executed"))
+print(ctx_typed_udfs.field_bool("typed_udf_registry_fallback_attempted"))
 print(ctx_udf.field_bool("fallback_attempted"))
 ```
 

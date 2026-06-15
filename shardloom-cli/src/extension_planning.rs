@@ -24,8 +24,10 @@ use shardloom_core::{
     ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionRetryContract, ExtensionVersion,
     ExternalEffectKind, OutputFormat, PermissionKind, PluginAbiRequirement, PluginAbiStatus,
     PluginAbiUdfSandboxBlockerReport, PluginAbiUdfSandboxBlockerRow, SandboxPolicy,
-    SandboxPolicyKind, ShardLoomError, UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
+    SandboxPolicyKind, ShardLoomError, TypedUdfRegistryEntry, TypedUdfRegistryReport,
+    UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
     run_deterministic_embedding_vector_fixture, run_deterministic_scalar_udf_fixture,
+    typed_udf_registry_report,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -1010,6 +1012,31 @@ fn json_string_vec(value: &Value, label: &str) -> Result<Vec<String>, ShardLoomE
         .collect()
 }
 
+pub(crate) fn handle_udf_registry(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "udf-registry",
+            format,
+            "typed UDF registry failed",
+            &ShardLoomError::InvalidOperation(format!("unknown udf-registry argument: {extra}")),
+        );
+    }
+    let report = typed_udf_registry_report();
+    emit(
+        "udf-registry",
+        format,
+        CommandStatus::Success,
+        "typed UDF registry".to_string(),
+        report.to_human_text(),
+        vec![],
+        udf_registry_fields(&report),
+    );
+    ExitCode::SUCCESS
+}
+
 pub(crate) fn handle_udf_runtime_plan(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
@@ -1234,6 +1261,7 @@ fn udf_runtime_plan_fields(runtime: UdfRuntimeKind) -> Vec<(String, String)> {
             .to_string(),
         ),
     ]);
+    append_typed_udf_registry_fields(&mut fields);
     fields
 }
 
@@ -1331,7 +1359,217 @@ fn udf_local_scalar_fixture_fields(
     append_effectful_operation_admission_matrix_fields(&mut fields);
     append_extension_manifest_effect_capability_matrix_fields(&mut fields);
     append_plugin_abi_udf_sandbox_blocker_fields(&mut fields);
+    append_typed_udf_registry_fields(&mut fields);
     fields
+}
+
+fn udf_registry_fields(report: &TypedUdfRegistryReport) -> Vec<(String, String)> {
+    let mut fields = extension_report_only_fields("typed_udf_registry");
+    append_typed_udf_registry_fields_from_report(&mut fields, report);
+    fields
+}
+
+fn append_typed_udf_registry_fields(fields: &mut Vec<(String, String)>) {
+    let report = typed_udf_registry_report();
+    append_typed_udf_registry_fields_from_report(fields, &report);
+}
+
+fn append_typed_udf_registry_fields_from_report(
+    fields: &mut Vec<(String, String)>,
+    report: &TypedUdfRegistryReport,
+) {
+    let row_order = report.row_order().join(",");
+    let blocker_ids = report.blocker_ids().join(",");
+    let required_evidence = report.required_evidence().join("|");
+    for (key, value) in [
+        ("typed_udf_registry_schema_version", report.schema_version),
+        ("typed_udf_registry_id", report.registry_id),
+        ("typed_udf_registry_docs_ref", report.docs_ref),
+        ("typed_udf_registry_support_status", report.support_status),
+        (
+            "typed_udf_registry_claim_gate_status",
+            report.claim_gate_status,
+        ),
+        ("typed_udf_registry_row_order", row_order.as_str()),
+        ("typed_udf_registry_blocker_ids", blocker_ids.as_str()),
+        (
+            "typed_udf_registry_required_evidence",
+            required_evidence.as_str(),
+        ),
+    ] {
+        push_field(fields, key, value);
+    }
+    push_count_field(fields, "typed_udf_registry_row_count", report.entries.len());
+    push_count_field(
+        fields,
+        "typed_udf_registry_admitted_local_fixture_count",
+        report.admitted_local_fixture_count(),
+    );
+    push_count_field(
+        fields,
+        "typed_udf_registry_blocked_count",
+        report.blocked_count(),
+    );
+    push_count_field(
+        fields,
+        "typed_udf_registry_scalar_count",
+        report.scalar_count(),
+    );
+    push_count_field(
+        fields,
+        "typed_udf_registry_aggregate_count",
+        report.aggregate_count(),
+    );
+    push_count_field(
+        fields,
+        "typed_udf_registry_table_function_count",
+        report.table_function_count(),
+    );
+    push_count_field(
+        fields,
+        "typed_udf_registry_encoded_native_candidate_count",
+        report.encoded_native_candidate_count(),
+    );
+    push_count_field(
+        fields,
+        "typed_udf_registry_materialization_required_count",
+        report.materialization_required_count(),
+    );
+    append_typed_udf_registry_bool_fields(fields, report);
+    for entry in &report.entries {
+        append_typed_udf_registry_entry_fields(fields, entry);
+    }
+}
+
+fn append_typed_udf_registry_bool_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &TypedUdfRegistryReport,
+) {
+    for (key, value) in [
+        (
+            "typed_udf_registry_side_effect_free",
+            report.side_effect_free(),
+        ),
+        (
+            "typed_udf_registry_local_fixture_execution_bridge_available",
+            report.local_fixture_execution_bridge_available,
+        ),
+        (
+            "typed_udf_registry_arbitrary_runtime_bridge_available",
+            report.arbitrary_runtime_bridge_available,
+        ),
+        (
+            "typed_udf_registry_sandbox_policy_declared",
+            report.sandbox_policy_declared,
+        ),
+        (
+            "typed_udf_registry_filesystem_access_allowed",
+            report.filesystem_access_allowed,
+        ),
+        (
+            "typed_udf_registry_network_access_allowed",
+            report.network_access_allowed,
+        ),
+        (
+            "typed_udf_registry_secret_access_allowed",
+            report.secret_access_allowed,
+        ),
+        (
+            "typed_udf_registry_dynamic_loading_allowed",
+            report.dynamic_loading_allowed,
+        ),
+        (
+            "typed_udf_registry_runtime_execution_performed",
+            report.runtime_execution_performed,
+        ),
+        (
+            "typed_udf_registry_extension_code_executed",
+            report.extension_code_executed,
+        ),
+        (
+            "typed_udf_registry_external_effect_executed",
+            report.external_effect_executed,
+        ),
+        (
+            "typed_udf_registry_credential_resolution_performed",
+            report.credential_resolution_performed,
+        ),
+        (
+            "typed_udf_registry_fallback_attempted",
+            report.fallback_attempted,
+        ),
+        (
+            "typed_udf_registry_external_engine_invoked",
+            report.external_engine_invoked,
+        ),
+    ] {
+        push_bool_field(fields, key, value);
+    }
+}
+
+fn append_typed_udf_registry_entry_fields(
+    fields: &mut Vec<(String, String)>,
+    entry: &TypedUdfRegistryEntry,
+) {
+    let prefix = format!("typed_udf_registry_row_{}", entry.udf_id);
+    let input_dtypes = entry.input_dtype_summary();
+    for (suffix, value) in [
+        ("display_name", entry.display_name),
+        ("udf_version", entry.udf_version),
+        ("kind", entry.kind.as_str()),
+        ("runtime_kind", entry.runtime_kind.as_str()),
+        ("support_status", entry.support_status.as_str()),
+        ("encoded_capability", entry.encoded_capability.as_str()),
+        ("determinism", entry.determinism.as_str()),
+        ("null_behavior", entry.null_behavior.as_str()),
+        ("materialization", entry.materialization.as_str()),
+        ("input_dtypes", input_dtypes.as_str()),
+        ("output_dtype", entry.output_dtype),
+        ("sandbox_policy", entry.sandbox_policy.as_str()),
+        ("permission_contract", entry.permission_contract),
+        ("effect_level", entry.effect_level.as_str()),
+        (
+            "runtime_fixture_command",
+            entry.runtime_fixture_command.unwrap_or("none"),
+        ),
+        ("blocker_id", entry.blocker_id),
+        ("diagnostic_code", entry.diagnostic_code),
+        ("required_evidence", entry.required_evidence),
+        ("claim_boundary", entry.claim_boundary),
+    ] {
+        push_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+    for (suffix, value) in [
+        (
+            "registry_execution_allowed",
+            entry.registry_execution_allowed,
+        ),
+        ("runtime_fixture_available", entry.runtime_fixture_available),
+        ("materialization_required", entry.materialization_required()),
+        ("sandbox_required", entry.sandbox_required),
+        ("filesystem_access_allowed", entry.filesystem_access_allowed),
+        ("network_access_allowed", entry.network_access_allowed),
+        ("secret_access_allowed", entry.secret_access_allowed),
+        (
+            "credential_resolution_required",
+            entry.credential_resolution_required,
+        ),
+        ("dynamic_loading_allowed", entry.dynamic_loading_allowed),
+        (
+            "runtime_execution_performed",
+            entry.runtime_execution_performed,
+        ),
+        ("extension_code_executed", entry.extension_code_executed),
+        ("external_effect_executed", entry.external_effect_executed),
+        ("fallback_attempted", entry.fallback_attempted),
+        ("external_engine_invoked", entry.external_engine_invoked),
+        (
+            "no_fallback_invariant_holds",
+            entry.no_fallback_invariant_holds(),
+        ),
+    ] {
+        push_bool_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
 }
 
 #[allow(clippy::too_many_lines)]
