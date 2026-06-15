@@ -13,6 +13,8 @@ use std::{
 };
 
 #[cfg(feature = "universal-format-io")]
+use arrow_array::Array as _;
+#[cfg(feature = "universal-format-io")]
 use shardloom_core::ScalarValue;
 use shardloom_core::{
     ByteRange, CapabilityCertificationReport, CatalogKind, CatalogMetadataIntegrationGateEntry,
@@ -6649,6 +6651,7 @@ struct IcebergMetadataSnapshotSummary {
     manifest_list: String,
     operation: String,
     delete_file_count: u64,
+    delete_file_count_known: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -6659,6 +6662,7 @@ struct IcebergManifestListSummary {
     projected_column_count: usize,
     entry_count: usize,
     partition_spec_id_order: Vec<String>,
+    missing_partition_spec_id_count: usize,
     data_manifest_count: usize,
     delete_manifest_count: usize,
     unknown_content_manifest_count: usize,
@@ -7134,6 +7138,16 @@ fn iceberg_report_scope(
             dependency_boundary_refs: "serde_json_plus_arrow_avro_plus_parquet_compat_adapters_no_iceberg_runtime_dependency_no_external_engine",
         };
     }
+    if manifest_list_read_performed && manifest_file_read_performed {
+        return IcebergReportScope {
+            report_id: "prod-ready-1c.iceberg_manifest_file_split_plan_smoke",
+            claim_gate_status: "scoped_iceberg_manifest_file_split_plan_smoke",
+            claim_boundary: "one local Iceberg table metadata JSON read plus explicit local Avro manifest-list summary and manifest-file split-plan reads; data-file split planning only; no catalog service, object-store read, data-file scan, delete execution, write/commit, production lakehouse, or performance claim",
+            native_io_certificate_refs: "local_metadata_json_manifest_list_avro_summary_and_manifest_file_avro_split_plan_read_no_object_store_native_io_certificate",
+            materialization_decode_refs: "metadata_json_plus_manifest_list_summary_and_manifest_file_metadata_decode_no_data_file_decode_no_row_materialization",
+            dependency_boundary_refs: "serde_json_plus_arrow_avro_manifest_list_and_manifest_file_compat_adapters_no_iceberg_runtime_dependency_no_external_engine",
+        };
+    }
     if manifest_file_read_performed {
         return IcebergReportScope {
             report_id: "prod-ready-1c.iceberg_manifest_file_split_plan_smoke",
@@ -7599,6 +7613,12 @@ fn delta_log_unsupported_feature_order(
     if protocol.protocol_action_count == 0 {
         features.push("missing_protocol_action");
     }
+    if protocol.protocol_action_count > 0 && protocol.min_reader_version.is_none() {
+        features.push("missing_delta_min_reader_version");
+    }
+    if protocol.protocol_action_count > 0 && protocol.min_writer_version.is_none() {
+        features.push("missing_delta_min_writer_version");
+    }
     if metadata.metadata_action_count == 0 {
         features.push("missing_metadata_action");
     }
@@ -7773,10 +7793,7 @@ fn run_hudi_timeline_metadata_read_smoke(
     let diagnostics =
         hudi_timeline_metadata_diagnostics(&blocked_paths, &unsupported_feature_order);
     let metadata_summary = hudi_timeline_metadata_summary(&action_summary, &metadata_table_summary);
-    let timeline_bytes_read = timeline_files
-        .iter()
-        .map(|entry| entry.file_len)
-        .sum::<usize>();
+    let timeline_bytes_read = 0;
     Ok(HudiTimelineMetadataReadSmokeReport {
         schema_version: "shardloom.hudi_timeline_metadata_read_smoke.v1",
         report_id: "prod-ready-1c.hudi_timeline_metadata_smoke",
@@ -8425,7 +8442,8 @@ fn parse_iceberg_metadata_root_parts<'a>(
     let schemas = required_array(root, "schemas")?;
     let snapshots = required_array(root, "snapshots")?;
     let current_schema = current_iceberg_schema(schemas, &current_schema_id)?;
-    let selected_snapshot = select_iceberg_snapshot(snapshots, &current_snapshot_id, selection)?;
+    let selected_snapshot =
+        select_iceberg_snapshot(root, snapshots, &current_snapshot_id, selection)?;
     Ok(IcebergMetadataRootParts {
         format_version,
         table_uuid,
@@ -8512,6 +8530,7 @@ fn read_iceberg_manifest_list_summary(
         projected_column_count: table.reader_projection_columns.len(),
         entry_count: table.rows.len(),
         partition_spec_id_order: Vec::new(),
+        missing_partition_spec_id_count: 0,
         data_manifest_count: 0,
         delete_manifest_count: 0,
         unknown_content_manifest_count: 0,
@@ -8573,6 +8592,8 @@ fn observe_iceberg_manifest_list_row(
             &mut summary.partition_spec_id_order,
             &partition_spec_id.to_string(),
         );
+    } else {
+        summary.missing_partition_spec_id_count += 1;
     }
     summary.added_data_file_count = summary
         .added_data_file_count
@@ -8679,7 +8700,7 @@ fn read_iceberg_manifest_file_summary(
             manifest_file_path.display()
         ))
     })?;
-    let table = shardloom_vortex::read_flat_avro_source_with_projection(
+    let source = shardloom_vortex::read_flat_avro_columnar_source_with_projection(
         manifest_file_path,
         ICEBERG_MANIFEST_FILE_MAX_ROWS,
         &projection_columns,
@@ -8687,9 +8708,9 @@ fn read_iceberg_manifest_file_summary(
     let mut summary = IcebergManifestFileSummary {
         path: path.to_string(),
         bytes_read,
-        schema_column_count: table.header.len(),
-        projected_column_count: table.reader_projection_columns.len(),
-        entry_count: table.rows.len(),
+        schema_column_count: source.header.len(),
+        projected_column_count: source.reader_projection_columns.len(),
+        entry_count: source.row_count,
         added_data_file_count: 0,
         existing_data_file_count: 0,
         deleted_data_file_count: 0,
@@ -8708,8 +8729,8 @@ fn read_iceberg_manifest_file_summary(
         non_parquet_data_file_count: 0,
         split_planning_rule: "added_and_existing_data_files_only_deleted_delete_and_unknown_entries_blocked",
     };
-    for row in &table.rows {
-        observe_iceberg_manifest_file_row(&mut summary, row, manifest_file_path)?;
+    for batch in &source.batches {
+        observe_iceberg_manifest_file_batch(&mut summary, batch, manifest_file_path)?;
     }
     Ok(summary)
 }
@@ -8725,25 +8746,68 @@ fn read_iceberg_manifest_file_summary(
 }
 
 #[cfg(feature = "universal-format-io")]
-fn observe_iceberg_manifest_file_row(
+fn observe_iceberg_manifest_file_batch(
     summary: &mut IcebergManifestFileSummary,
-    row: &BTreeMap<String, ScalarValue>,
+    batch: &arrow_array::RecordBatch,
     manifest_file_path: &Path,
 ) -> Result<(), ShardLoomError> {
-    let status = iceberg_manifest_row_i64(row, "status");
-    let data_file = iceberg_manifest_row_struct(row, "data_file").ok_or_else(|| {
+    let status = batch.column_by_name("status").ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!(
-            "Iceberg manifest Avro '{}' row is missing data_file struct",
+            "Iceberg manifest Avro '{}' row batch is missing status column",
             manifest_file_path.display()
         ))
     })?;
-    let content = iceberg_struct_i64(data_file, "content").unwrap_or(0);
-    let file_path = iceberg_struct_string(data_file, "file_path").ok_or_else(|| {
+    let data_file_array = batch.column_by_name("data_file").ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!(
-            "Iceberg manifest Avro '{}' data_file entry is missing file_path",
+            "Iceberg manifest Avro '{}' row batch is missing data_file struct",
             manifest_file_path.display()
         ))
     })?;
+    let data_file = data_file_array
+        .as_any()
+        .downcast_ref::<arrow_array::StructArray>()
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "Iceberg manifest Avro '{}' data_file column has unsupported Arrow type {:?}; expected struct",
+                manifest_file_path.display(),
+                data_file_array.data_type()
+            ))
+        })?;
+    for row_index in 0..batch.num_rows() {
+        observe_iceberg_manifest_file_arrow_row(
+            summary,
+            status.as_ref(),
+            data_file,
+            row_index,
+            manifest_file_path,
+        )?;
+    }
+    Ok(())
+}
+
+#[cfg(feature = "universal-format-io")]
+fn observe_iceberg_manifest_file_arrow_row(
+    summary: &mut IcebergManifestFileSummary,
+    status: &dyn arrow_array::Array,
+    data_file: &arrow_array::StructArray,
+    row_index: usize,
+    manifest_file_path: &Path,
+) -> Result<(), ShardLoomError> {
+    if data_file.is_null(row_index) {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "Iceberg manifest Avro '{}' row has null data_file struct",
+            manifest_file_path.display()
+        )));
+    }
+    let status = iceberg_arrow_i64(status, row_index);
+    let content = iceberg_arrow_struct_i64(data_file, row_index, "content").unwrap_or(0);
+    let file_path =
+        iceberg_arrow_struct_string(data_file, row_index, "file_path").ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "Iceberg manifest Avro '{}' data_file entry is missing file_path",
+                manifest_file_path.display()
+            ))
+        })?;
     if file_path.trim().is_empty() {
         return Err(ShardLoomError::InvalidOperation(format!(
             "Iceberg manifest Avro '{}' contains an empty data_file.file_path",
@@ -8751,9 +8815,10 @@ fn observe_iceberg_manifest_file_row(
         )));
     }
 
-    let record_count = iceberg_struct_u64(data_file, "record_count").unwrap_or(0);
-    let file_size = iceberg_struct_u64(data_file, "file_size_in_bytes").unwrap_or(0);
-    let file_format = iceberg_struct_string(data_file, "file_format")
+    let record_count = iceberg_arrow_struct_u64(data_file, row_index, "record_count").unwrap_or(0);
+    let file_size =
+        iceberg_arrow_struct_u64(data_file, row_index, "file_size_in_bytes").unwrap_or(0);
+    let file_format = iceberg_arrow_struct_string(data_file, row_index, "file_format")
         .unwrap_or("unknown")
         .to_string();
     summary.total_record_count = summary.total_record_count.saturating_add(record_count);
@@ -8789,13 +8854,13 @@ fn observe_iceberg_manifest_file_row(
         Some(2) if content == 0 => {
             summary.deleted_data_file_count = summary.deleted_data_file_count.saturating_add(1);
         }
-        Some(0 | 1 | 2) => {}
+        Some(0..=2) => {}
         _ => {
             summary.unknown_status_entry_count =
                 summary.unknown_status_entry_count.saturating_add(1);
         }
     }
-    observe_iceberg_manifest_file_content(summary, content, data_file);
+    observe_iceberg_manifest_file_content(summary, content, data_file, row_index);
     Ok(())
 }
 
@@ -8803,13 +8868,14 @@ fn observe_iceberg_manifest_file_row(
 fn observe_iceberg_manifest_file_content(
     summary: &mut IcebergManifestFileSummary,
     content: i64,
-    data_file: &[(String, ScalarValue)],
+    data_file: &arrow_array::StructArray,
+    row_index: usize,
 ) {
     match content {
         0 => {}
         1 => {
             summary.delete_file_entry_count = summary.delete_file_entry_count.saturating_add(1);
-            if iceberg_data_file_has_deletion_vector_metadata(data_file) {
+            if iceberg_data_file_has_deletion_vector_metadata(data_file, row_index) {
                 summary.deletion_vector_entry_count =
                     summary.deletion_vector_entry_count.saturating_add(1);
             } else {
@@ -8866,6 +8932,9 @@ fn iceberg_local_data_file_path(value: &str) -> Option<String> {
     }
     if let Some(rest) = trimmed.strip_prefix("file://") {
         return iceberg_local_path_from_file_uri(rest);
+    }
+    if let Some(rest) = trimmed.strip_prefix("file:/") {
+        return Some(format!("/{rest}"));
     }
     Some(trimmed.to_string())
 }
@@ -9035,57 +9104,128 @@ fn missing_iceberg_projection_columns(required: &[String], actual: &[String]) ->
 }
 
 #[cfg(feature = "universal-format-io")]
-fn iceberg_data_file_has_deletion_vector_metadata(fields: &[(String, ScalarValue)]) -> bool {
-    iceberg_struct_string(fields, "referenced_data_file").is_some_and(|value| !value.is_empty())
-        && iceberg_struct_u64(fields, "content_offset").is_some()
-        && iceberg_struct_u64(fields, "content_size_in_bytes").is_some()
+fn iceberg_data_file_has_deletion_vector_metadata(
+    data_file: &arrow_array::StructArray,
+    row_index: usize,
+) -> bool {
+    iceberg_arrow_struct_string(data_file, row_index, "referenced_data_file")
+        .is_some_and(|value| !value.is_empty())
+        && iceberg_arrow_struct_u64(data_file, row_index, "content_offset").is_some()
+        && iceberg_arrow_struct_u64(data_file, row_index, "content_size_in_bytes").is_some()
 }
 
 #[cfg(feature = "universal-format-io")]
-fn iceberg_manifest_row_struct<'a>(
-    row: &'a BTreeMap<String, ScalarValue>,
+fn iceberg_struct_child_array<'a>(
+    data_file: &'a arrow_array::StructArray,
     key: &str,
-) -> Option<&'a [(String, ScalarValue)]> {
-    match row.get(key)? {
-        ScalarValue::Struct(fields) => Some(fields.as_slice()),
-        _ => None,
+) -> Option<&'a dyn arrow_array::Array> {
+    data_file
+        .fields()
+        .iter()
+        .zip(data_file.columns())
+        .find_map(|(field, child)| (field.name() == key).then_some(child.as_ref()))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_arrow_struct_string<'a>(
+    data_file: &'a arrow_array::StructArray,
+    row_index: usize,
+    key: &str,
+) -> Option<&'a str> {
+    iceberg_arrow_string(iceberg_struct_child_array(data_file, key)?, row_index)
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_arrow_string(array: &dyn arrow_array::Array, row_index: usize) -> Option<&str> {
+    if array.is_null(row_index) {
+        return None;
     }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::StringArray>() {
+        return Some(values.value(row_index));
+    }
+    if let Some(values) = array
+        .as_any()
+        .downcast_ref::<arrow_array::LargeStringArray>()
+    {
+        return Some(values.value(row_index));
+    }
+    if let Some(values) = array
+        .as_any()
+        .downcast_ref::<arrow_array::StringViewArray>()
+    {
+        return Some(values.value(row_index));
+    }
+    None
 }
 
 #[cfg(feature = "universal-format-io")]
-fn iceberg_struct_string<'a>(fields: &'a [(String, ScalarValue)], key: &str) -> Option<&'a str> {
-    fields.iter().find_map(|(field, value)| {
-        (field == key).then(|| match value {
-            ScalarValue::Utf8(value) => Some(value.as_str()),
-            _ => None,
-        })?
-    })
+fn iceberg_arrow_struct_u64(
+    data_file: &arrow_array::StructArray,
+    row_index: usize,
+    key: &str,
+) -> Option<u64> {
+    iceberg_arrow_u64(iceberg_struct_child_array(data_file, key)?, row_index)
 }
 
 #[cfg(feature = "universal-format-io")]
-fn iceberg_struct_u64(fields: &[(String, ScalarValue)], key: &str) -> Option<u64> {
-    fields
-        .iter()
-        .find_map(|(field, value)| (field == key).then_some(value))
-        .and_then(|value| match value {
-            ScalarValue::UInt64(value) => Some(*value),
-            ScalarValue::Int64(value) => u64::try_from(*value).ok(),
-            ScalarValue::Utf8(value) => value.parse::<u64>().ok(),
-            _ => None,
-        })
+fn iceberg_arrow_u64(array: &dyn arrow_array::Array, row_index: usize) -> Option<u64> {
+    if array.is_null(row_index) {
+        return None;
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt8Array>() {
+        return Some(u64::from(values.value(row_index)));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt16Array>() {
+        return Some(u64::from(values.value(row_index)));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt32Array>() {
+        return Some(u64::from(values.value(row_index)));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt64Array>() {
+        return Some(values.value(row_index));
+    }
+    iceberg_arrow_i64(array, row_index).and_then(|value| u64::try_from(value).ok())
 }
 
 #[cfg(feature = "universal-format-io")]
-fn iceberg_struct_i64(fields: &[(String, ScalarValue)], key: &str) -> Option<i64> {
-    fields
-        .iter()
-        .find_map(|(field, value)| (field == key).then_some(value))
-        .and_then(|value| match value {
-            ScalarValue::Int64(value) => Some(*value),
-            ScalarValue::UInt64(value) => i64::try_from(*value).ok(),
-            ScalarValue::Utf8(value) => value.parse::<i64>().ok(),
-            _ => None,
-        })
+fn iceberg_arrow_struct_i64(
+    data_file: &arrow_array::StructArray,
+    row_index: usize,
+    key: &str,
+) -> Option<i64> {
+    iceberg_arrow_i64(iceberg_struct_child_array(data_file, key)?, row_index)
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_arrow_i64(array: &dyn arrow_array::Array, row_index: usize) -> Option<i64> {
+    if array.is_null(row_index) {
+        return None;
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int8Array>() {
+        return Some(i64::from(values.value(row_index)));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int16Array>() {
+        return Some(i64::from(values.value(row_index)));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int32Array>() {
+        return Some(i64::from(values.value(row_index)));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int64Array>() {
+        return Some(values.value(row_index));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt8Array>() {
+        return Some(i64::from(values.value(row_index)));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt16Array>() {
+        return Some(i64::from(values.value(row_index)));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt32Array>() {
+        return Some(i64::from(values.value(row_index)));
+    }
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt64Array>() {
+        return i64::try_from(values.value(row_index)).ok();
+    }
+    iceberg_arrow_string(array, row_index).and_then(|value| value.parse::<i64>().ok())
 }
 
 fn required_array<'a>(
@@ -9185,6 +9325,7 @@ fn current_iceberg_schema<'a>(
 }
 
 fn select_iceberg_snapshot(
+    root: &serde_json::Map<String, serde_json::Value>,
     snapshots: &[serde_json::Value],
     current_snapshot_id: &str,
     selection: &IcebergSnapshotSelectionRequest,
@@ -9197,7 +9338,7 @@ fn select_iceberg_snapshot(
             snapshot_by_id(snapshots, snapshot_id, "--snapshot-id")
         }
         IcebergSnapshotSelectionRequest::AsOfTimestampMillis(timestamp) => {
-            snapshot_as_of_timestamp(snapshots, *timestamp)
+            snapshot_as_of_timestamp(root, snapshots, *timestamp)
         }
     }
 }
@@ -9221,26 +9362,37 @@ fn snapshot_by_id(
 }
 
 fn snapshot_as_of_timestamp(
+    root: &serde_json::Map<String, serde_json::Value>,
     snapshots: &[serde_json::Value],
     timestamp_ms: i64,
 ) -> Result<IcebergMetadataSnapshotSummary, ShardLoomError> {
-    snapshots
+    let snapshot_log = root
+        .get("snapshot-log")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "Iceberg --as-of-timestamp-ms requires snapshot-log current-snapshot history"
+                    .to_string(),
+            )
+        })?;
+    let snapshot_id = snapshot_log
         .iter()
         .filter_map(serde_json::Value::as_object)
-        .filter_map(|snapshot| {
-            let snapshot_ts = snapshot
+        .filter_map(|entry| {
+            let log_ts = entry
                 .get("timestamp-ms")
                 .and_then(serde_json::Value::as_i64)?;
-            (snapshot_ts <= timestamp_ms).then_some((snapshot_ts, snapshot))
+            let snapshot_id = entry.get("snapshot-id").and_then(json_i64_string)?;
+            (log_ts <= timestamp_ms).then_some((log_ts, snapshot_id))
         })
-        .max_by_key(|(snapshot_ts, _)| *snapshot_ts)
-        .map(|(_, snapshot)| snapshot_summary(snapshot))
-        .transpose()?
+        .max_by_key(|(log_ts, _)| *log_ts)
+        .map(|(_, snapshot_id)| snapshot_id)
         .ok_or_else(|| {
             ShardLoomError::InvalidOperation(format!(
-                "no Iceberg snapshot exists at or before timestamp {timestamp_ms}"
+                "no Iceberg snapshot-log entry exists at or before timestamp {timestamp_ms}"
             ))
-        })
+        })?;
+    snapshot_by_id(snapshots, &snapshot_id, "snapshot-log")
 }
 
 fn snapshot_summary(
@@ -9249,6 +9401,7 @@ fn snapshot_summary(
     let snapshot_id = snapshot_id_for(snapshot).ok_or_else(|| {
         ShardLoomError::InvalidOperation("Iceberg snapshot missing snapshot-id".to_string())
     })?;
+    let delete_file_count = snapshot_delete_file_count(snapshot);
     Ok(IcebergMetadataSnapshotSummary {
         snapshot_id,
         sequence_number: snapshot
@@ -9269,7 +9422,8 @@ fn snapshot_summary(
             .and_then(serde_json::Value::as_str)
             .unwrap_or("unknown")
             .to_string(),
-        delete_file_count: snapshot_delete_file_count(snapshot),
+        delete_file_count: delete_file_count.unwrap_or(0),
+        delete_file_count_known: delete_file_count.is_some(),
     })
 }
 
@@ -9277,20 +9431,27 @@ fn snapshot_id_for(snapshot: &serde_json::Map<String, serde_json::Value>) -> Opt
     snapshot.get("snapshot-id").and_then(json_i64_string)
 }
 
-fn snapshot_delete_file_count(snapshot: &serde_json::Map<String, serde_json::Value>) -> u64 {
+fn snapshot_delete_file_count(
+    snapshot: &serde_json::Map<String, serde_json::Value>,
+) -> Option<u64> {
     snapshot
         .get("summary")
         .and_then(serde_json::Value::as_object)
-        .map_or(0, |summary| {
-            [
+        .and_then(|summary| {
+            let mut saw_delete_metric = false;
+            let count = [
                 "total-delete-files",
                 "added-delete-files",
                 "removed-delete-files",
             ]
             .iter()
-            .filter_map(|key| summary.get(*key))
-            .filter_map(json_count_value)
-            .sum()
+            .filter_map(|key| {
+                let value = summary.get(*key).and_then(json_count_value);
+                saw_delete_metric |= value.is_some();
+                value
+            })
+            .sum();
+            saw_delete_metric.then_some(count)
         })
 }
 
@@ -9577,7 +9738,8 @@ fn iceberg_partition_evolution_summary(
         observe_iceberg_partition_evolution_pair(&mut summary, &pair[0].fields, &pair[1].fields);
     }
     summary.manifest_unknown_partition_spec_id_count =
-        iceberg_unknown_manifest_partition_spec_count(&partition_spec_id_order, &summary);
+        iceberg_unknown_manifest_partition_spec_count(&partition_spec_id_order, &summary)
+            + manifest_list_summary.map_or(0, |summary| summary.missing_partition_spec_id_count);
     summary.admission_status = iceberg_partition_evolution_admission_status(&summary);
     summary
 }
@@ -9615,7 +9777,11 @@ fn iceberg_partition_field_identity_map(
             duplicate_field_id_count += 1;
             continue;
         }
-        let identity = iceberg_partition_field_identity(field);
+        let Some(source_id) = field.get("source-id").and_then(json_i64_string) else {
+            missing_field_id_count += 1;
+            continue;
+        };
+        let identity = iceberg_partition_field_identity(field, source_id);
         if !iceberg_partition_transform_known(&identity.transform) {
             unknown_transform_count += 1;
         }
@@ -9631,12 +9797,10 @@ fn iceberg_partition_field_identity_map(
 
 fn iceberg_partition_field_identity(
     field: &serde_json::Map<String, serde_json::Value>,
+    source_id: String,
 ) -> IcebergPartitionFieldIdentity {
     IcebergPartitionFieldIdentity {
-        source_id: field
-            .get("source-id")
-            .and_then(json_i64_string)
-            .unwrap_or_else(|| "none".to_string()),
+        source_id,
         name: field
             .get("name")
             .and_then(serde_json::Value::as_str)
@@ -9828,8 +9992,14 @@ fn iceberg_metadata_unsupported_feature_order(
     if context.data_file_scan_requested && context.data_file_scan_reader_feature_disabled {
         features.push("data_file_scan_reader_feature_disabled");
     }
+    if context.data_file_scan_requested && context.schema_evolution_summary.schema_evolution_present
+    {
+        features.push("data_file_scan_requires_single_schema_no_evolution");
+    }
     if context.selected_snapshot.delete_file_count > 0 {
         features.push("delete_files_present");
+    } else if !context.selected_snapshot.delete_file_count_known {
+        features.push("delete_file_count_unknown");
     }
     if context.schema_evolution_summary.missing_field_id_count > 0
         || context.schema_evolution_summary.duplicate_field_id_count > 0
@@ -10139,6 +10309,11 @@ fn append_iceberg_metadata_summary_fields(
         "selected_snapshot_delete_file_count",
         &report.selected_snapshot.delete_file_count.to_string(),
     );
+    push_bool_field(
+        fields,
+        "selected_snapshot_delete_file_count_known",
+        report.selected_snapshot.delete_file_count_known,
+    );
     push_field(
         fields,
         "snapshot_selector_kind",
@@ -10400,6 +10575,11 @@ fn append_iceberg_manifest_list_request_fields(
         &summary.map_or_else(String::new, |summary| {
             summary.partition_spec_id_order.join(",")
         }),
+    );
+    push_count_field(
+        fields,
+        "manifest_list_missing_partition_spec_id_count",
+        summary.map_or(0, |summary| summary.missing_partition_spec_id_count),
     );
 }
 

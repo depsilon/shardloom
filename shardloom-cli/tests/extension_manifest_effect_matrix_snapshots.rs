@@ -748,6 +748,81 @@ fn extension_inspect_effectful_manifest_requires_review_without_effects() {
 }
 
 #[test]
+fn extension_inspect_filesystem_permission_requires_review_without_effects() {
+    let temp_dir = temp_case_dir("filesystem-permission");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let manifest_path = temp_dir.join("filesystem-permission-extension.json");
+    fs::write(
+        &manifest_path,
+        r#"{
+  "schema_version": "shardloom.extension_manifest.v1",
+  "extension_id": "example.filesystem_permission",
+  "name": "Filesystem Permission Manifest",
+  "version": "0.1.0",
+  "category": "observability_exporter",
+  "license": "Apache-2.0",
+  "capabilities": [
+    {"name": "metrics_manifest", "status": "planned"}
+  ],
+  "permissions": [
+    {"permission": "access_filesystem", "required": true, "reason": "inspect local manifest directory"}
+  ],
+  "effects": [
+    {"effect": "none", "level": "pure_deterministic"}
+  ],
+  "sandbox": {
+    "kind": "metadata_only",
+    "allow_filesystem": false,
+    "allow_network": false,
+    "allow_environment": false,
+    "allow_secret_access": false
+  },
+  "execution_contract": {
+    "determinism": "pure_deterministic",
+    "materialization": "metadata_only",
+    "null_behavior": "null_aware",
+    "input_dtypes": ["metadata"],
+    "output_dtype": "metadata",
+    "timeout_millis": 1000,
+    "max_memory_bytes": 16777216,
+    "max_cpu_millis": 1000,
+    "retry": "none",
+    "idempotency": "not_required",
+    "audit": "manifest_only"
+  }
+}"#,
+    )
+    .expect("manifest write");
+
+    let manifest_arg = manifest_path.to_string_lossy().to_string();
+    let output = run_json(&[
+        "extension-inspect",
+        "--manifest",
+        &manifest_arg,
+        "--format",
+        "json",
+    ]);
+    assert!(output.contains(&field(
+        "extension_manifest_inspection_status",
+        "requires_review"
+    )));
+    assert!(output.contains(&field("extension_manifest_review_required", "true")));
+    assert!(output.contains(&field(
+        "extension_manifest_permission_names",
+        "access_filesystem"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_effect_execution_admission_status",
+        "denied_by_default_permission_review_required"
+    )));
+    assert!(output.contains(&field("extension_manifest_requested_host_access", "none")));
+    assert!(output.contains(&field("extension_manifest_fallback_attempted", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
 fn extension_inspect_security_manifest_exposes_resource_audit_review_and_no_fallback() {
     let temp_dir = temp_case_dir("security-review");
     let _ = fs::remove_dir_all(&temp_dir);
@@ -951,6 +1026,134 @@ fn extension_inspect_missing_contract_requires_review_without_runtime() {
         "extension_manifest_external_engine_invoked",
         "false"
     )));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
+fn extension_inspect_missing_materialization_requires_review_without_runtime() {
+    let temp_dir = temp_case_dir("missing-materialization");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let manifest_path = temp_dir.join("missing-materialization-extension.json");
+    fs::write(
+        &manifest_path,
+        r#"{
+  "schema_version": "shardloom.extension_manifest.v1",
+  "extension_id": "example.missing_materialization",
+  "name": "Missing Materialization",
+  "version": "0.1.0",
+  "category": "observability_exporter",
+  "license": "Apache-2.0",
+  "capabilities": [
+    {"name": "metrics_manifest", "status": "planned"}
+  ],
+  "permissions": [
+    {"permission": "read_metadata", "required": false, "reason": "metadata-only inspection"}
+  ],
+  "effects": [
+    {"effect": "none", "level": "pure_deterministic"}
+  ],
+  "execution_contract": {
+    "determinism": "pure_deterministic",
+    "null_behavior": "null_aware",
+    "input_dtypes": ["metadata"],
+    "output_dtype": "metadata",
+    "timeout_millis": 1000,
+    "max_memory_bytes": 16777216,
+    "max_cpu_millis": 1000,
+    "retry": "none",
+    "idempotency": "not_required",
+    "audit": "manifest_only"
+  }
+}"#,
+    )
+    .expect("manifest write");
+
+    let manifest_arg = manifest_path.to_string_lossy().to_string();
+    let output = run_json(&[
+        "extension-inspect",
+        "--manifest",
+        &manifest_arg,
+        "--format",
+        "json",
+    ]);
+    assert!(output.contains(&field(
+        "extension_manifest_inspection_status",
+        "requires_review"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_execution_contract_complete",
+        "false"
+    )));
+    assert!(output.contains(&field("extension_manifest_materialization", "unsupported")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
+fn extension_inspect_rejects_mistyped_optional_manifest_fields() {
+    let temp_dir = temp_case_dir("mistyped-optional");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let manifest_path = temp_dir.join("mistyped-extension.json");
+    fs::write(
+        &manifest_path,
+        r#"{
+  "schema_version": "shardloom.extension_manifest.v1",
+  "extension_id": "example.mistyped",
+  "name": "Mistyped Manifest",
+  "version": "0.1.0",
+  "category": "observability_exporter",
+  "license": "Apache-2.0",
+  "capabilities": [
+    {"name": "metrics_manifest", "status": "planned"}
+  ],
+  "permissions": [
+    {"permission": "read_metadata", "required": false, "reason": "metadata-only inspection"}
+  ],
+  "effects": [
+    {"effect": "none", "level": "pure_deterministic"}
+  ],
+  "sandbox": {
+    "kind": "metadata_only",
+    "allow_network": "true"
+  },
+  "execution_contract": {
+    "determinism": "pure_deterministic",
+    "materialization": "metadata_only",
+    "null_behavior": "null_aware",
+    "input_dtypes": ["metadata"],
+    "output_dtype": "metadata",
+    "timeout_millis": 1000,
+    "max_memory_bytes": "16777216",
+    "max_cpu_millis": 1000,
+    "retry": "none",
+    "idempotency": "not_required",
+    "audit": "manifest_only"
+  }
+}"#,
+    )
+    .expect("manifest write");
+
+    let manifest_arg = manifest_path.to_string_lossy().to_string();
+    let output = run_raw(&[
+        "extension-inspect",
+        "--manifest",
+        &manifest_arg,
+        "--format",
+        "json",
+    ]);
+    assert!(!output.status.success());
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout utf8");
+    assert!(stdout.contains("\"command\":\"extension-inspect\""));
+    assert!(stdout.contains("must be a boolean when present"));
+    assert!(stdout.contains("\"fallback\":{\"attempted\":false"));
 
     fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
 }

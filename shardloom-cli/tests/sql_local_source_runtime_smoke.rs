@@ -5934,47 +5934,11 @@ fn sql_local_source_smoke_blocks_vortex_fanout_without_partial_writes() {
 }
 
 #[cfg(feature = "universal-format-io")]
-#[test]
-fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
-    let source_path = unique_path("sql-local-source-structured-fanout", "csv");
-    let parquet_output_path = unique_path("sql-local-source-structured-fanout", "parquet");
-    let arrow_output_path = unique_path("sql-local-source-structured-fanout", "arrow");
-    fs::write(
-        &source_path,
-        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
-    )
-    .expect("write source csv");
-
-    let statement = format!(
-        "SELECT id,label,amount FROM '{}' WHERE amount >= 10 LIMIT 2",
-        source_path.display()
-    );
-    let parquet_target = format!("parquet={}", parquet_output_path.display());
-    let arrow_target = format!("arrow-ipc={}", arrow_output_path.display());
-    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args([
-            "sql-local-source-smoke",
-            &statement,
-            "--fanout-output",
-            &parquet_target,
-            "--fanout-output",
-            &arrow_target,
-            "--format",
-            "json",
-        ])
-        .output()
-        .expect("sql-local-source-smoke command runs");
-
-    assert!(
-        output.status.success(),
-        "stdout={} stderr={}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+fn assert_structured_fanout_tables(parquet_output_path: &Path, arrow_output_path: &Path) {
     let parquet =
-        shardloom_vortex::read_flat_parquet_source(&parquet_output_path, 10).expect("read parquet");
+        shardloom_vortex::read_flat_parquet_source(parquet_output_path, 10).expect("read parquet");
     let arrow =
-        shardloom_vortex::read_flat_arrow_ipc_source(&arrow_output_path, 10).expect("read arrow");
+        shardloom_vortex::read_flat_arrow_ipc_source(arrow_output_path, 10).expect("read arrow");
     for table in [&parquet, &arrow] {
         assert_eq!(table.header, vec!["id", "label", "amount"]);
         assert_eq!(table.rows.len(), 2);
@@ -5987,8 +5951,10 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
             Some(&shardloom_core::ScalarValue::Utf8("gamma".to_string()))
         );
     }
+}
 
-    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+#[cfg(feature = "universal-format-io")]
+fn assert_structured_fanout_stdout(stdout: &str) {
     assert!(stdout.contains(&field("output_route", "local_fanout")));
     assert!(stdout.contains(&field(
         "result_batch_state_status",
@@ -6037,6 +6003,50 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
     );
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
+    let source_path = unique_path("sql-local-source-structured-fanout", "csv");
+    let parquet_output_path = unique_path("sql-local-source-structured-fanout", "parquet");
+    let arrow_output_path = unique_path("sql-local-source-structured-fanout", "arrow");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label,amount FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let parquet_target = format!("parquet={}", parquet_output_path.display());
+    let arrow_target = format!("arrow-ipc={}", arrow_output_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--fanout-output",
+            &parquet_target,
+            "--fanout-output",
+            &arrow_target,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_structured_fanout_tables(&parquet_output_path, &arrow_output_path);
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert_structured_fanout_stdout(&stdout);
 
     fs::remove_file(source_path).expect("remove source csv");
     fs::remove_file(parquet_output_path).expect("remove parquet fanout");

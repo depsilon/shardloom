@@ -496,13 +496,13 @@ fn parse_extension_manifest_json(value: &Value) -> Result<ExtensionManifest, Sha
     let category = parse_extension_category(json_string(value, "category")?)?;
     let mut provenance =
         ExtensionProvenance::new(parse_extension_license(json_string(value, "license")?)?);
-    if let Some(source) = optional_json_string(value, "source") {
+    if let Some(source) = optional_json_string(value, "source")? {
         provenance = provenance.with_source(source);
     }
-    if let Some(homepage) = optional_json_string(value, "homepage") {
+    if let Some(homepage) = optional_json_string(value, "homepage")? {
         provenance = provenance.with_homepage(homepage);
     }
-    if let Some(notes) = optional_json_string(value, "provenance_notes") {
+    if let Some(notes) = optional_json_string(value, "provenance_notes")? {
         provenance = provenance.with_notes(notes);
     }
     let mut manifest = ExtensionManifest::new(
@@ -512,13 +512,13 @@ fn parse_extension_manifest_json(value: &Value) -> Result<ExtensionManifest, Sha
         category,
         provenance,
     )?;
-    if let Some(provider) = optional_json_string(value, "provider") {
+    if let Some(provider) = optional_json_string(value, "provider")? {
         manifest = manifest.with_provider(provider);
     }
-    if let Some(lifecycle) = optional_json_string(value, "lifecycle") {
+    if let Some(lifecycle) = optional_json_string(value, "lifecycle")? {
         manifest = manifest.with_lifecycle(parse_extension_lifecycle(&lifecycle)?);
     }
-    if let Some(runtime) = optional_json_string(value, "runtime") {
+    if let Some(runtime) = optional_json_string(value, "runtime")? {
         manifest = manifest.with_runtime(parse_udf_runtime_kind(&runtime)?);
     }
     if let Some(abi) = value.get("abi") {
@@ -552,7 +552,7 @@ fn parse_extension_capability(value: &Value) -> Result<ExtensionCapability, Shar
     let name = json_string(value, "name")?;
     let status = parse_extension_capability_status(json_string(value, "status")?)?;
     let capability = ExtensionCapability::new(name.to_string(), status)?;
-    Ok(if let Some(notes) = optional_json_string(value, "notes") {
+    Ok(if let Some(notes) = optional_json_string(value, "notes")? {
         capability.with_notes(notes)
     } else {
         capability
@@ -562,7 +562,7 @@ fn parse_extension_capability(value: &Value) -> Result<ExtensionCapability, Shar
 fn parse_extension_permission(value: &Value) -> Result<ExtensionPermission, ShardLoomError> {
     let permission = parse_permission_kind(json_string(value, "permission")?)?;
     let reason = json_string(value, "reason")?.to_string();
-    let required = optional_json_bool(value, "required").unwrap_or(true);
+    let required = optional_json_bool(value, "required")?.unwrap_or(true);
     Ok(if required {
         ExtensionPermission::required(permission, reason)
     } else {
@@ -574,13 +574,13 @@ fn parse_extension_effect(value: &Value) -> Result<ExtensionEffectDeclaration, S
     let effect = parse_external_effect_kind(json_string(value, "effect")?)?;
     let level = parse_effect_level(json_string(value, "level")?)?;
     let mut declaration = ExtensionEffectDeclaration::new(effect, level);
-    if let Some(requires_approval) = optional_json_bool(value, "requires_approval") {
+    if let Some(requires_approval) = optional_json_bool(value, "requires_approval")? {
         declaration = declaration.requires_approval(requires_approval);
     }
-    if let Some(dry_run_safe) = optional_json_bool(value, "dry_run_safe") {
+    if let Some(dry_run_safe) = optional_json_bool(value, "dry_run_safe")? {
         declaration = declaration.dry_run_safe(dry_run_safe);
     }
-    if let Some(idempotency_required) = optional_json_bool(value, "idempotency_required") {
+    if let Some(idempotency_required) = optional_json_bool(value, "idempotency_required")? {
         declaration = declaration.idempotency_required(idempotency_required);
     }
     Ok(declaration)
@@ -590,40 +590,40 @@ fn parse_extension_execution_contract(
     value: &Value,
 ) -> Result<ExtensionExecutionContract, ShardLoomError> {
     let mut contract = ExtensionExecutionContract::undeclared();
-    if let Some(determinism) = optional_json_string(value, "determinism") {
+    if let Some(determinism) = optional_json_string(value, "determinism")? {
         contract = contract.with_determinism(parse_extension_determinism_contract(&determinism)?);
     }
-    if let Some(materialization) = optional_json_string(value, "materialization") {
+    if let Some(materialization) = optional_json_string(value, "materialization")? {
         contract = contract
             .with_materialization(parse_extension_materialization_contract(&materialization)?);
     }
-    if let Some(null_behavior) = optional_json_string(value, "null_behavior") {
+    if let Some(null_behavior) = optional_json_string(value, "null_behavior")? {
         contract =
             contract.with_null_behavior(parse_extension_null_behavior_contract(&null_behavior)?);
     }
     if let Some(input_dtypes) = value.get("input_dtypes") {
         let dtypes = json_string_vec(input_dtypes, "input_dtypes")?;
-        let output_dtype = optional_json_string(value, "output_dtype").unwrap_or_default();
+        let output_dtype = optional_json_string(value, "output_dtype")?.unwrap_or_default();
         contract = contract.with_dtypes(dtypes, output_dtype)?;
-    } else if let Some(output_dtype) = optional_json_string(value, "output_dtype") {
+    } else if let Some(output_dtype) = optional_json_string(value, "output_dtype")? {
         contract = contract.with_dtypes(Vec::new(), output_dtype)?;
     }
-    if let Some(timeout_millis) = optional_json_u64(value, "timeout_millis") {
+    if let Some(timeout_millis) = optional_json_u64(value, "timeout_millis")? {
         contract = contract.with_timeout_millis(timeout_millis);
     }
-    if let Some(max_memory_bytes) = optional_json_u64(value, "max_memory_bytes") {
+    if let Some(max_memory_bytes) = optional_json_u64(value, "max_memory_bytes")? {
         contract = contract.with_max_memory_bytes(max_memory_bytes);
     }
-    if let Some(max_cpu_millis) = optional_json_u64(value, "max_cpu_millis") {
+    if let Some(max_cpu_millis) = optional_json_u64(value, "max_cpu_millis")? {
         contract = contract.with_max_cpu_millis(max_cpu_millis);
     }
-    if let Some(retry) = optional_json_string(value, "retry") {
+    if let Some(retry) = optional_json_string(value, "retry")? {
         contract = contract.with_retry(parse_extension_retry_contract(&retry)?);
     }
-    if let Some(idempotency) = optional_json_string(value, "idempotency") {
+    if let Some(idempotency) = optional_json_string(value, "idempotency")? {
         contract = contract.with_idempotency(parse_extension_idempotency_contract(&idempotency)?);
     }
-    if let Some(audit) = optional_json_string(value, "audit") {
+    if let Some(audit) = optional_json_string(value, "audit")? {
         contract = contract.with_audit(parse_extension_audit_contract(&audit)?);
     }
     Ok(contract)
@@ -632,7 +632,7 @@ fn parse_extension_execution_contract(
 fn parse_plugin_abi_requirement(value: &Value) -> Result<PluginAbiRequirement, ShardLoomError> {
     let api_name = json_string(value, "api_name")?;
     let required_version = parse_extension_version(json_string(value, "required_version")?)?;
-    let status = optional_json_string(value, "status")
+    let status = optional_json_string(value, "status")?
         .map_or(Ok(PluginAbiStatus::NotChecked), |value| {
             parse_plugin_abi_status(&value)
         })?;
@@ -640,7 +640,7 @@ fn parse_plugin_abi_requirement(value: &Value) -> Result<PluginAbiRequirement, S
 }
 
 fn parse_sandbox_policy(value: &Value) -> Result<SandboxPolicy, ShardLoomError> {
-    let kind = optional_json_string(value, "kind")
+    let kind = optional_json_string(value, "kind")?
         .map_or(Ok(SandboxPolicyKind::MetadataOnly), |value| {
             parse_sandbox_policy_kind(&value)
         })?;
@@ -651,22 +651,22 @@ fn parse_sandbox_policy(value: &Value) -> Result<SandboxPolicy, ShardLoomError> 
         sandbox.kind = kind;
         sandbox
     };
-    if let Some(allow_filesystem) = optional_json_bool(value, "allow_filesystem") {
+    if let Some(allow_filesystem) = optional_json_bool(value, "allow_filesystem")? {
         sandbox = sandbox.allow_filesystem(allow_filesystem);
     }
-    if let Some(allow_network) = optional_json_bool(value, "allow_network") {
+    if let Some(allow_network) = optional_json_bool(value, "allow_network")? {
         sandbox = sandbox.allow_network(allow_network);
     }
-    if let Some(allow_environment) = optional_json_bool(value, "allow_environment") {
+    if let Some(allow_environment) = optional_json_bool(value, "allow_environment")? {
         sandbox = sandbox.allow_environment(allow_environment);
     }
-    if let Some(allow_secret_access) = optional_json_bool(value, "allow_secret_access") {
+    if let Some(allow_secret_access) = optional_json_bool(value, "allow_secret_access")? {
         sandbox = sandbox.allow_secret_access(allow_secret_access);
     }
-    if let Some(max_memory_bytes) = optional_json_u64(value, "max_memory_bytes") {
+    if let Some(max_memory_bytes) = optional_json_u64(value, "max_memory_bytes")? {
         sandbox = sandbox.with_max_memory_bytes(max_memory_bytes);
     }
-    if let Some(max_runtime_millis) = optional_json_u64(value, "max_runtime_millis") {
+    if let Some(max_runtime_millis) = optional_json_u64(value, "max_runtime_millis")? {
         sandbox = sandbox.with_max_runtime_millis(max_runtime_millis);
     }
     Ok(sandbox)
@@ -948,19 +948,40 @@ fn json_string<'a>(value: &'a Value, key: &str) -> Result<&'a str, ShardLoomErro
     })
 }
 
-fn optional_json_string(value: &Value, key: &str) -> Option<String> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .map(ToString::to_string)
+fn optional_json_string(value: &Value, key: &str) -> Result<Option<String>, ShardLoomError> {
+    match value.get(key) {
+        None => Ok(None),
+        Some(raw) => raw
+            .as_str()
+            .map(|value| Some(value.to_string()))
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(format!(
+                    "extension manifest field {key:?} must be a string when present"
+                ))
+            }),
+    }
 }
 
-fn optional_json_bool(value: &Value, key: &str) -> Option<bool> {
-    value.get(key).and_then(Value::as_bool)
+fn optional_json_bool(value: &Value, key: &str) -> Result<Option<bool>, ShardLoomError> {
+    match value.get(key) {
+        None => Ok(None),
+        Some(raw) => raw.as_bool().map(Some).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "extension manifest field {key:?} must be a boolean when present"
+            ))
+        }),
+    }
 }
 
-fn optional_json_u64(value: &Value, key: &str) -> Option<u64> {
-    value.get(key).and_then(Value::as_u64)
+fn optional_json_u64(value: &Value, key: &str) -> Result<Option<u64>, ShardLoomError> {
+    match value.get(key) {
+        None => Ok(None),
+        Some(raw) => raw.as_u64().map(Some).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "extension manifest field {key:?} must be an unsigned integer when present"
+            ))
+        }),
+    }
 }
 
 fn json_array<'a>(value: &'a Value, label: &str) -> Result<&'a Vec<Value>, ShardLoomError> {

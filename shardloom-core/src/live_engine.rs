@@ -16,7 +16,7 @@
 )]
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
     fs,
     path::{Path, PathBuf},
@@ -1091,6 +1091,14 @@ pub fn run_live_hybrid_durable_checkpoint_fixture(
 
     let input_change_records = cg22_live_fixture_records();
     let active_state = apply_change_records(&input_change_records);
+    let mut duplicate_replay_records = input_change_records.clone();
+    if let Some(first_record) = input_change_records.first() {
+        duplicate_replay_records.push(first_record.clone());
+    }
+    let (duplicate_replay_state, duplicate_replay_rejected_count) =
+        apply_change_records_deduplicating_replay(&duplicate_replay_records);
+    let duplicate_replay_protection_performed =
+        duplicate_replay_rejected_count == 1 && duplicate_replay_state == active_state;
     let output_rows = active_state
         .values()
         .map(LiveOutputRow::from_record)
@@ -1254,7 +1262,7 @@ pub fn run_live_hybrid_durable_checkpoint_fixture(
         partial_checkpoint_detected,
         partial_checkpoint_committed,
         partial_checkpoint_cleanup_completed,
-        duplicate_replay_protection_performed: true,
+        duplicate_replay_protection_performed,
         state_restore_status: if state_match {
             "restored_local_checkpoint_state_store_microsegment_and_cold_manifest_match"
         } else {
@@ -1265,7 +1273,11 @@ pub fn run_live_hybrid_durable_checkpoint_fixture(
         } else {
             "blocked_local_restart_restore_mismatch"
         },
-        duplicate_replay_protection_status: "duplicate_change_sequence_replayed_once_by_sequence_key",
+        duplicate_replay_protection_status: if duplicate_replay_protection_performed {
+            "duplicate_change_sequence_replayed_once_by_sequence_key"
+        } else {
+            "blocked_duplicate_change_sequence_replay_not_proven"
+        },
         retry_idempotency_key: "cg22-live-hybrid-local-seq-1-10-attempt-2".to_string(),
         state_match,
         hot_warm_cold_storage_model: "hot_in_memory_changes_to_warm_local_state_store_checkpoint_changelog_to_cold_vortex_micro_segment_manifest_fixture",
@@ -1316,6 +1328,27 @@ fn apply_change_records(records: &[ChangeRecord]) -> BTreeMap<String, ChangeReco
         }
     }
     state
+}
+
+fn apply_change_records_deduplicating_replay(
+    records: &[ChangeRecord],
+) -> (BTreeMap<String, ChangeRecord>, usize) {
+    let mut state = BTreeMap::new();
+    let mut seen_change_sequences = BTreeSet::new();
+    let mut rejected_duplicate_count = 0_usize;
+    for record in records {
+        let sequence_key = (record.source_offset.as_str(), record.sequence);
+        if !seen_change_sequences.insert(sequence_key) {
+            rejected_duplicate_count += 1;
+            continue;
+        }
+        if record.operation.removes_state() {
+            state.remove(&record.key);
+        } else {
+            state.insert(record.key.clone(), record.clone());
+        }
+    }
+    (state, rejected_duplicate_count)
 }
 
 fn late_record_count_under_reject_past_watermark(records: &[ChangeRecord]) -> usize {
@@ -2262,6 +2295,27 @@ mod tests {
         assert!(!report.has_errors());
 
         fs::remove_dir_all(&checkpoint_dir).expect("cleanup checkpoint fixture directory");
+    }
+
+    #[test]
+    fn live_hybrid_duplicate_replay_guard_rejects_replayed_sequence() {
+        let input_records = cg22_live_fixture_records();
+        let expected_state = apply_change_records(&input_records);
+        let mut replay_records = input_records.clone();
+        let replayed_append = input_records
+            .iter()
+            .find(|record| record.key == "f" && record.sequence == 9)
+            .expect("fixture has deleted append candidate");
+        replay_records.push(replayed_append.clone());
+
+        let unguarded_replay_state = apply_change_records(&replay_records);
+        let (guarded_replay_state, rejected_duplicate_count) =
+            apply_change_records_deduplicating_replay(&replay_records);
+
+        assert!(unguarded_replay_state.contains_key("f"));
+        assert_ne!(unguarded_replay_state, expected_state);
+        assert_eq!(rejected_duplicate_count, 1);
+        assert_eq!(guarded_replay_state, expected_state);
     }
 
     #[test]

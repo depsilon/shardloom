@@ -7713,6 +7713,44 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertFalse(report["publication_attempted_by_this_tool"])
         self.assertFalse(report["package_channel_submission_attempted_by_this_tool"])
 
+    def test_python_registry_package_proof_fails_when_smoke_flags_fire(self) -> None:
+        module = self._load_script_module(
+            "python_registry_package_proof.py",
+            "python_registry_package_proof_smoke_flags_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            output = repo_root / "target" / "registry-proof.json"
+            status = module.write_transcript(
+                repo_root=repo_root,
+                output=output,
+                channel=module.REGISTRY_CHANNELS["testpypi"],
+                version="0.1.0",
+                venv_dir=repo_root / "target" / "proof-venv",
+                steps=[
+                    {"name": "install_registry_package", "returncode": 0},
+                    {
+                        "name": "registry_package_client_smoke",
+                        "returncode": 0,
+                        "stdout": (
+                            "fallback_attempted=True\n"
+                            "external_engine_invoked=True\n"
+                        ),
+                    },
+                    {"name": "uninstall_registry_package", "returncode": 0},
+                ],
+                testpypi_proof_ref=None,
+            )
+            report = json.loads(output.read_text(encoding="utf-8"))
+
+        self.assertEqual(status, 1)
+        self.assertEqual(report["proof_status"], "failed")
+        self.assertTrue(report["fallback_attempted"])
+        self.assertTrue(report["external_engine_invoked"])
+        self.assertIn("fallback_attempted=True", "\n".join(report["blockers"]))
+        self.assertIn("external_engine_invoked=True", "\n".join(report["blockers"]))
+
     def test_package_channel_registry_proofs_are_optional_until_channel_ready(self) -> None:
         module = self._load_script_module(
             "check_package_channel_readiness.py",
@@ -7785,6 +7823,48 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertTrue(report["pypi_requires_prior_testpypi"])
         self.assertFalse(report["publication_attempted"])
+
+    def test_package_channel_readiness_excludes_not_in_v1_rows_from_ready_claim(self) -> None:
+        module = self._load_script_module(
+            "check_package_channel_readiness.py",
+            "check_package_channel_readiness_v1_scope_ready_for_test",
+        )
+        matrix = json.loads(
+            (REPO_ROOT / "docs/release/package-channel-readiness-matrix.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        matrix["status"] = "ready"
+        matrix["public_package_release_claim_allowed"] = True
+        for row in matrix["channels"]:
+            if row["v1_feasibility_status"] == "not_in_v1_scope_recorded":
+                row["ready"] = False
+                row["status"] = "not_in_v1_scope_recorded"
+                row["current_blockers"] = ["not in v1 scope"]
+                continue
+            row["ready"] = True
+            row["status"] = "ready"
+            row["current_blockers"] = []
+            for field in module.READY_PROOF_FIELDS:
+                row[field] = "passed"
+            for field in module.READY_REFERENCE_FIELDS:
+                row[field] = f"target/package-channel-readiness/{row['channel_id']}/{field}.json"
+
+        blockers = module.validate_matrix(matrix)
+
+        self.assertNotIn(
+            "public_package_release_claim_allowed=true requires every channel ready",
+            blockers,
+        )
+        self.assertNotIn("top-level status=ready requires every channel ready", blockers)
+        self.assertFalse(
+            [
+                blocker
+                for blocker in blockers
+                if "requires every v1-scope channel ready" in blocker
+            ],
+            blockers,
+        )
 
     def test_dependency_audit_resolves_configured_pip_audit_python(self) -> None:
         module = self._load_script_module(
@@ -7986,6 +8066,45 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn("approved_release_tag missing", public_report["blockers"])
         self.assertFalse(public_report["fallback_attempted"])
         self.assertFalse(public_report["external_engine_invoked"])
+
+    def test_final_release_approval_contract_accepts_approved_verified_contract(self) -> None:
+        module = self._load_script_module(
+            "check_final_release_approval.py",
+            "check_final_release_approval_approved_for_test",
+        )
+        contract = json.loads(
+            (REPO_ROOT / module.DEFAULT_CONTRACT).read_text(encoding="utf-8")
+        )
+        contract.update(
+            {
+                "status": "approved",
+                "publication_authorization_state": "approved",
+                "public_release_ready": True,
+                "post_release_verification_ready": True,
+                "approved_release_tag": "v0.1.0",
+                "approved_release_commit": "abc123",
+                "approved_package_channels": ["github_prerelease", "testpypi", "pypi"],
+            }
+        )
+        for row in contract["verification_rows"]:
+            row["verification_status"] = "passed"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            contract_path = repo_root / "approved-contract.json"
+            output_path = repo_root / "report.json"
+            contract_path.write_text(json.dumps(contract), encoding="utf-8")
+            report = module.build_report(
+                repo_root,
+                contract_path=contract_path,
+                output_path=output_path,
+                require_public_release_ready=True,
+            )
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(report["contract_validation_status"], "passed")
+        self.assertTrue(report["public_release_ready"])
+        self.assertTrue(report["post_release_verification_ready"])
 
     def _write_v1_correctness_conformance_fixture_reports(
         self,
@@ -9315,6 +9434,12 @@ class ReleaseScriptTests(unittest.TestCase):
             "publish job must require prior TestPyPI proof ref",
             check["missing"],
         )
+        current_workflow = (
+            REPO_ROOT / ".github" / "workflows" / "pypi-publish-draft.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("validate-pypi-prior-proof", current_workflow)
+        self.assertIn("Validate prior TestPyPI proof transcript", current_workflow)
+        self.assertIn('"proof_status": "passed"', current_workflow)
 
     def test_release_readiness_accepts_configured_dry_run_command_evidence(self) -> None:
         module = self._load_script_module(

@@ -93,15 +93,22 @@ def validate_contract(contract: dict[str, Any] | None) -> tuple[list[dict[str, A
     ):
         if not _non_empty_string(contract.get(field)):
             blockers.append(f"contract missing {field}")
+    authorization_state = contract.get("publication_authorization_state")
     for field in FALSE_SAFETY_FIELDS:
         if contract.get(field) is not False:
             blockers.append(f"contract {field} must be false")
-    if contract.get("public_release_ready") is not False:
-        blockers.append("contract public_release_ready must be false until approval evidence exists")
-    if contract.get("post_release_verification_ready") is not False:
-        blockers.append(
-            "contract post_release_verification_ready must be false until public verification passes"
-        )
+    for field in ("public_release_ready", "post_release_verification_ready"):
+        if not isinstance(contract.get(field), bool):
+            blockers.append(f"contract {field} must be boolean")
+    if authorization_state != "approved":
+        if contract.get("public_release_ready") is not False:
+            blockers.append(
+                "contract public_release_ready must be false until approval evidence exists"
+            )
+        if contract.get("post_release_verification_ready") is not False:
+            blockers.append(
+                "contract post_release_verification_ready must be false until public verification passes"
+            )
 
     rows = [row for row in _as_list(contract.get("verification_rows")) if isinstance(row, dict)]
     by_id = {str(row.get("row_id")): row for row in rows if row.get("row_id")}

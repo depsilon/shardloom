@@ -56,6 +56,15 @@ fn write_blocked_delta_log_fixture() -> PathBuf {
     path
 }
 
+fn write_malformed_delta_protocol_fixture() -> PathBuf {
+    let path = temp_path("delta-malformed-protocol-log", "json");
+    let log = r#"{"protocol":{"minReaderVersion":1}}
+{"metaData":{"id":"delta-malformed-protocol-fixture","name":"orders","schemaString":"{}","partitionColumns":[],"configuration":{}}}
+"#;
+    fs::write(&path, log).expect("write malformed delta fixture");
+    path
+}
+
 fn write_hudi_safe_timeline_fixture() -> (PathBuf, PathBuf) {
     let timeline = temp_dir("hudi-safe-timeline");
     write_empty_file(&timeline.join("20260101010101000.commit"));
@@ -95,6 +104,10 @@ fn write_hudi_blocked_timeline_fixture() -> (PathBuf, PathBuf) {
 
 fn write_empty_file(path: &Path) {
     fs::write(path, "").expect("write empty timeline file");
+}
+
+fn write_non_empty_file(path: &Path) {
+    fs::write(path, "marker-body-not-read").expect("write non-empty timeline marker");
 }
 
 #[test]
@@ -196,6 +209,36 @@ fn delta_log_metadata_read_smoke_blocks_unadmitted_runtime_features() {
 }
 
 #[test]
+fn delta_log_metadata_read_smoke_blocks_protocol_actions_missing_versions() {
+    let path = write_malformed_delta_protocol_fixture();
+    let args = vec![
+        "delta-log-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_shardloom_json(&args);
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("min_reader_version", "1")));
+    assert!(stdout.contains(&field("min_writer_version", "none")));
+    assert!(stdout.contains(&field(
+        "unsupported_feature_order",
+        "missing_delta_min_writer_version"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn hudi_timeline_metadata_read_smoke_exposes_safe_local_metadata_summary() {
     let (timeline, metadata) = write_hudi_safe_timeline_fixture();
     let timeline_arg = timeline.to_string_lossy().to_string();
@@ -260,10 +303,38 @@ fn hudi_timeline_metadata_read_smoke_exposes_safe_local_metadata_summary() {
     assert!(stdout.contains(&field("metadata_files_count", "4")));
     assert!(stdout.contains(&field("metadata_column_stats_file_count", "2")));
     assert!(stdout.contains(&field("metadata_record_index_file_count", "1")));
+    assert!(stdout.contains(&field("timeline_bytes_read", "0")));
     assert!(stdout.contains(&field("unsupported_feature_order", "none")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(stdout.contains(&field("lakehouse_claim_allowed", "false")));
+}
+
+#[test]
+fn hudi_timeline_metadata_read_smoke_does_not_count_marker_sizes_as_bytes_read() {
+    let timeline = temp_dir("hudi-non-empty-marker-timeline");
+    write_non_empty_file(&timeline.join("20260101010101000.commit"));
+    let args = vec![
+        "hudi-timeline-metadata-read-smoke".to_string(),
+        timeline.to_string_lossy().to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_shardloom_json(&args);
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("timeline_entry_count", "1")));
+    assert!(stdout.contains(&field("timeline_bytes_read", "0")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
 #[test]
