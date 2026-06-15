@@ -13,6 +13,8 @@ not execution fallback engines.
 
 Active phase status and CG closeout decisions live in `docs/architecture/phased-execution-plan.md`.
 This matrix is a reference contract for future CG-9, CG-10, CG-18, CG-19, and CG-20 work.
+The current source-checked external protocol intake for `PROD-READY-1C` lives in
+`docs/architecture/table-protocol-source-review.md`.
 
 ## Context
 

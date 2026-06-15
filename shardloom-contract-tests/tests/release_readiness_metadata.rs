@@ -1219,6 +1219,80 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
 }
 
 #[test]
+fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
+    let source_review = read_repo_file("docs/architecture/table-protocol-source-review.md");
+    for required in [
+        "# Table Protocol Source Review",
+        "Source check date: 2026-06-15",
+        "https://iceberg.apache.org/spec/",
+        "https://iceberg.apache.org/rest-catalog-spec/",
+        "https://github.com/apache/iceberg/blob/main/open-api/rest-catalog-open-api.yaml",
+        "https://github.com/delta-io/delta/blob/master/PROTOCOL.md",
+        "https://hudi.apache.org/docs/timeline/",
+        "https://hudi.apache.org/docs/metadata/",
+        "https://projectnessie.org/develop/rest/",
+        "https://projectnessie.org/develop/spec/",
+        "https://polaris.apache.org/",
+        "https://raw.githubusercontent.com/apache/polaris/main/spec/polaris-catalog-service.yaml",
+        "https://gravitino.apache.org/docs/next/api/rest/gravitino-rest-api/",
+        "metadata-first",
+        "Capillary work units",
+        "Dynamic admission",
+        "PulseWeave coordination",
+        "The current v1-supported table path remains `local_manifest_table_runtime_v1_candidate` only.",
+        "External Iceberg, Delta, Hudi, Nessie, Polaris, Gravitino, Glue-like, Hive-like, and object-store",
+        "are source-reviewed candidates, not supported runtime.",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "May not claim: Iceberg/Delta/Hudi runtime",
+        "Glue-like and Hive-like catalog profiles are intentionally not selected",
+    ] {
+        assert!(
+            source_review.contains(required),
+            "missing PROD-READY-1C source-review marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    for required in [
+        "`docs/architecture/table-protocol-source-review.md`",
+        "- [x] Source-check current primary external protocol specs before external implementation:",
+        "Iceberg, Delta, Hudi, Iceberg REST, Nessie, Polaris, and Gravitino-style APIs",
+        "Glue-like and Hive-like catalog profiles are not selected",
+        "the first external candidate and still require separate source/profile review",
+    ] {
+        assert!(
+            plan.contains(required),
+            "missing PROD-READY-1C phase-plan marker {required}"
+        );
+    }
+
+    let table_intelligence = read_repo_file("docs/architecture/table-intelligence-layer.md");
+    assert!(table_intelligence.contains("docs/architecture/table-protocol-source-review.md"));
+    assert!(table_intelligence.contains("does not"));
+    assert!(table_intelligence.contains("promote external protocols by source review alone"));
+
+    let lakehouse_matrix =
+        read_repo_file("docs/architecture/lakehouse-value-prop-compatibility.md");
+    assert!(lakehouse_matrix.contains("docs/architecture/table-protocol-source-review.md"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for required in [
+        "PROD-READY-1B/1C production evidence hardening",
+        "Table protocol source review exists before external implementation.",
+        "approved_real_backend_profile_declared=false",
+        "production_object_store_claim_allowed=false",
+        "May not claim production S3/GCS/ADLS runtime",
+        "Iceberg/Delta/Hudi runtime",
+    ] {
+        assert!(
+            completed.contains(required),
+            "missing PROD-READY-1B/1C ledger marker {required}"
+        );
+    }
+}
+
+#[test]
 fn enterprise_evidence_export_pack_remains_report_only_and_local_first() {
     let doc = read_repo_file("docs/release/enterprise-evidence-export-pack.md");
     for required in [
@@ -5238,6 +5312,13 @@ fn gar_0011_a_extension_manifest_effect_matrix_remains_report_only() {
         "extension_manifest_effect_external_effect_executed=false",
         "extension_manifest_effect_fallback_attempted=false",
         "extension_manifest_effect_external_engine_invoked=false",
+        "supported capability claims, external-effect permissions/effects, non-built-in runtimes",
+        "timeout, memory, CPU, retry, idempotency, and audit contracts are emitted as evidence fields",
+        "extension_manifest_effect_execution_allowed=false",
+        "extension_manifest_runtime_execution=false",
+        "extension_manifest_external_effect_executed=false",
+        "extension_manifest_fallback_attempted=false",
+        "extension_manifest_external_engine_invoked=false",
         "no extension execution claim",
         "no fallback or external-engine execution claim",
     ] {
@@ -5249,11 +5330,14 @@ fn gar_0011_a_extension_manifest_effect_matrix_remains_report_only() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0011-A extension manifest"));
+    assert!(!plan.contains("- [ ] `PROD-READY-1F`"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(
         completed.contains("GAR-0011-A extension manifest and external-effect capability matrix")
     );
+    assert!(completed.contains("PROD-READY-1F UDF/plugin/effect production gate closeout"));
+    assert!(completed.contains("Security tests for permission denial, timeout, memory/CPU"));
     assert!(completed.contains("shardloom.extension_manifest_effect_capability_matrix.v1"));
     assert!(completed.contains("extension_manifest_effect_runtime_execution=false"));
     assert!(completed.contains("extension_manifest_effect_external_engine_invoked=false"));
@@ -6768,6 +6852,27 @@ fn security_rfc_and_p80_completion_are_traceable() {
     );
     assert!(completed_ledger.contains("GAR-0008-A object-store byte-range provider gate"));
     assert!(completed_ledger.contains("GAR-0008-B object-store runtime blocker matrix"));
+    assert!(completed_ledger.contains("PROD-READY-1B/1C production evidence hardening"));
+    let object_store_doc = read_repo_file("docs/architecture/object-store-request-planner.md");
+    for required in [
+        "approved_real_backend_profile_declared=false",
+        "approved_real_backend_profile_id=not_declared",
+        "approved_real_backend_profile_status=missing_approved_real_backend_profile",
+        "approved_real_backend_profile_required=true",
+        "approved_real_backend_network_access_allowed=false",
+        "approved_real_backend_credential_resolution_allowed=false",
+        "approved_real_backend_read_allowed=false",
+        "approved_real_backend_write_allowed=false",
+        "production_object_store_native_io_certificate_present=false",
+        "production_object_store_claim_allowed=false",
+        "production_object_store_claim_gate_status=not_claim_grade",
+        "prod-ready-1b.approved_real_backend_profile_missing",
+    ] {
+        assert!(
+            object_store_doc.contains(required),
+            "missing object-store real-backend gate marker {required}"
+        );
+    }
     assert!(completed_ledger.contains("GAR-0012-A diagnostic category and helper normalization"));
     assert!(completed_ledger.contains(
         "GAR-0012-B envelope status and distributed/object-store diagnostic propagation"

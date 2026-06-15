@@ -1354,6 +1354,19 @@ pub struct ObjectStoreRuntimePromotionGateReport {
     pub existing_distributed_scheduling_evidence_present: bool,
     pub existing_checkpoint_retry_evidence_present: bool,
     pub existing_commit_protocol_evidence_present: bool,
+    pub approved_real_backend_profile_declared: bool,
+    pub approved_real_backend_profile_id: &'static str,
+    pub approved_real_backend_profile_status: &'static str,
+    pub approved_real_backend_required_evidence: &'static str,
+    pub approved_real_backend_profile_required: bool,
+    pub approved_real_backend_network_access_allowed: bool,
+    pub approved_real_backend_credential_resolution_allowed: bool,
+    pub approved_real_backend_read_allowed: bool,
+    pub approved_real_backend_write_allowed: bool,
+    pub production_object_store_native_io_certificate_present: bool,
+    pub production_object_store_claim_allowed: bool,
+    pub production_object_store_claim_gate_status: &'static str,
+    pub production_object_store_blocker_id: &'static str,
     pub range_read_execution_allowed: bool,
     pub full_file_read_allowed: bool,
     pub request_coalescing_runtime_allowed: bool,
@@ -1411,6 +1424,19 @@ impl ObjectStoreRuntimePromotionGateReport {
             existing_distributed_scheduling_evidence_present: true,
             existing_checkpoint_retry_evidence_present: true,
             existing_commit_protocol_evidence_present: true,
+            approved_real_backend_profile_declared: false,
+            approved_real_backend_profile_id: "not_declared",
+            approved_real_backend_profile_status: "missing_approved_real_backend_profile",
+            approved_real_backend_required_evidence: "approved_backend_id,credential_policy,redaction_policy,network_probe_policy,byte_range_read_certificate,write_commit_recovery_certificate,retry_backoff_policy,rate_limit_policy,bounded_streaming_evidence,benchmark_profile",
+            approved_real_backend_profile_required: true,
+            approved_real_backend_network_access_allowed: false,
+            approved_real_backend_credential_resolution_allowed: false,
+            approved_real_backend_read_allowed: false,
+            approved_real_backend_write_allowed: false,
+            production_object_store_native_io_certificate_present: false,
+            production_object_store_claim_allowed: false,
+            production_object_store_claim_gate_status: "not_claim_grade",
+            production_object_store_blocker_id: "prod-ready-1b.approved_real_backend_profile_missing",
             range_read_execution_allowed: false,
             full_file_read_allowed: false,
             request_coalescing_runtime_allowed: false,
@@ -1495,6 +1521,10 @@ impl ObjectStoreRuntimePromotionGateReport {
             && !self.cleanup_execution_allowed
             && !self.commit_execution_allowed
             && !self.credential_resolution_allowed
+            && !self.approved_real_backend_network_access_allowed
+            && !self.approved_real_backend_credential_resolution_allowed
+            && !self.approved_real_backend_read_allowed
+            && !self.approved_real_backend_write_allowed
             && !self.object_store_io_allowed
             && !self.data_read_allowed
             && !self.write_io_allowed
@@ -1511,7 +1541,11 @@ impl ObjectStoreRuntimePromotionGateReport {
 
     #[must_use]
     pub fn claim_blocked(&self) -> bool {
-        !self.object_store_runtime_claim_allowed && !self.distributed_runtime_claim_allowed
+        !self.object_store_runtime_claim_allowed
+            && !self.distributed_runtime_claim_allowed
+            && !self.production_object_store_claim_allowed
+            && !self.production_object_store_native_io_certificate_present
+            && !self.approved_real_backend_profile_declared
     }
 
     #[must_use]
@@ -3326,6 +3360,26 @@ mod tests {
         assert!(report.side_effect_free());
     }
 
+    fn assert_real_backend_absence_fields(report: &ObjectStoreRuntimePromotionGateReport) {
+        assert!(!report.approved_real_backend_profile_declared);
+        assert_eq!(report.approved_real_backend_profile_id, "not_declared");
+        assert_eq!(
+            report.approved_real_backend_profile_status,
+            "missing_approved_real_backend_profile"
+        );
+        assert!(report.approved_real_backend_profile_required);
+        assert!(!report.approved_real_backend_network_access_allowed);
+        assert!(!report.approved_real_backend_credential_resolution_allowed);
+        assert!(!report.approved_real_backend_read_allowed);
+        assert!(!report.approved_real_backend_write_allowed);
+        assert!(!report.production_object_store_native_io_certificate_present);
+        assert!(!report.production_object_store_claim_allowed);
+        assert_eq!(
+            report.production_object_store_claim_gate_status,
+            "not_claim_grade"
+        );
+    }
+
     #[test]
     fn object_store_runtime_gate_keeps_execution_surfaces_blocked() {
         let report = plan_object_store_runtime_promotion_gate();
@@ -3365,6 +3419,7 @@ mod tests {
         assert!(report.existing_distributed_scheduling_evidence_present);
         assert!(report.existing_checkpoint_retry_evidence_present);
         assert!(report.existing_commit_protocol_evidence_present);
+        assert_real_backend_absence_fields(&report);
         assert_eq!(
             report.byte_range_provider_gate.report_id,
             "gar0008a.object_store_byte_range_provider_gate"

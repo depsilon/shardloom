@@ -491,6 +491,7 @@ fn object_store_runtime_promotion_gate_fields(
         &report.existing_report_refs.join(","),
     );
     append_object_store_runtime_existing_fields(&mut fields, report);
+    append_object_store_runtime_real_backend_fields(&mut fields, report);
     append_byte_range_provider_gate_fields(&mut fields, &report.byte_range_provider_gate);
     append_object_store_runtime_blocker_matrix_fields(&mut fields, report);
     append_object_store_runtime_allowed_fields(&mut fields, report);
@@ -942,6 +943,77 @@ fn append_object_store_runtime_existing_fields(
         fields,
         "live_provider_write_recovery_runtime_supported",
         false,
+    );
+}
+
+fn append_object_store_runtime_real_backend_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreRuntimePromotionGateReport,
+) {
+    push_bool_field(
+        fields,
+        "approved_real_backend_profile_declared",
+        report.approved_real_backend_profile_declared,
+    );
+    push_field(
+        fields,
+        "approved_real_backend_profile_id",
+        report.approved_real_backend_profile_id,
+    );
+    push_field(
+        fields,
+        "approved_real_backend_profile_status",
+        report.approved_real_backend_profile_status,
+    );
+    push_field(
+        fields,
+        "approved_real_backend_required_evidence",
+        report.approved_real_backend_required_evidence,
+    );
+    push_bool_field(
+        fields,
+        "approved_real_backend_profile_required",
+        report.approved_real_backend_profile_required,
+    );
+    push_bool_field(
+        fields,
+        "approved_real_backend_network_access_allowed",
+        report.approved_real_backend_network_access_allowed,
+    );
+    push_bool_field(
+        fields,
+        "approved_real_backend_credential_resolution_allowed",
+        report.approved_real_backend_credential_resolution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "approved_real_backend_read_allowed",
+        report.approved_real_backend_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        "approved_real_backend_write_allowed",
+        report.approved_real_backend_write_allowed,
+    );
+    push_bool_field(
+        fields,
+        "production_object_store_native_io_certificate_present",
+        report.production_object_store_native_io_certificate_present,
+    );
+    push_bool_field(
+        fields,
+        "production_object_store_claim_allowed",
+        report.production_object_store_claim_allowed,
+    );
+    push_field(
+        fields,
+        "production_object_store_claim_gate_status",
+        report.production_object_store_claim_gate_status,
+    );
+    push_field(
+        fields,
+        "production_object_store_blocker_id",
+        report.production_object_store_blocker_id,
     );
 }
 

@@ -61,6 +61,13 @@ fn assert_runtime_gate_false_fields(output: &str) {
             "object_store_io_allowed",
             "data_read_allowed",
             "write_io_allowed",
+            "approved_real_backend_profile_declared",
+            "approved_real_backend_network_access_allowed",
+            "approved_real_backend_credential_resolution_allowed",
+            "approved_real_backend_read_allowed",
+            "approved_real_backend_write_allowed",
+            "production_object_store_native_io_certificate_present",
+            "production_object_store_claim_allowed",
             "object_store_runtime_claim_allowed",
             "distributed_runtime_claim_allowed",
             "fallback_attempted",
@@ -88,6 +95,7 @@ fn assert_runtime_gate_true_fields(output: &str) {
             "execution_certificate_required",
             "native_io_certificate_required",
             "benchmark_evidence_required",
+            "approved_real_backend_profile_required",
             "runtime_promotions_blocked",
             "claim_blocked",
             "side_effect_free",
@@ -351,6 +359,23 @@ fn cg10_object_store_runtime_gate_exposes_surface_order_and_existing_evidence() 
     assert!(output.contains(&field(
         "live_provider_write_recovery_runtime_supported",
         "false"
+    )));
+    assert!(output.contains(&field("approved_real_backend_profile_id", "not_declared")));
+    assert!(output.contains(&field(
+        "approved_real_backend_profile_status",
+        "missing_approved_real_backend_profile"
+    )));
+    assert!(output.contains(&field(
+        "approved_real_backend_required_evidence",
+        "approved_backend_id,credential_policy,redaction_policy,network_probe_policy,byte_range_read_certificate,write_commit_recovery_certificate,retry_backoff_policy,rate_limit_policy,bounded_streaming_evidence,benchmark_profile"
+    )));
+    assert!(output.contains(&field(
+        "production_object_store_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "production_object_store_blocker_id",
+        "prod-ready-1b.approved_real_backend_profile_missing"
     )));
 }
 

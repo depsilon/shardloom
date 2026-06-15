@@ -189,6 +189,19 @@ extension_manifest_fallback_attempted=false
 extension_manifest_external_engine_invoked=false
 ```
 
+Security closeout notes:
+
+- local manifest inspection is bounded and code-free
+- supported capability claims, external-effect permissions/effects, non-built-in runtimes, unsafe
+  sandbox declarations, missing contracts, unsupported sandbox policies, and host access requests
+  are deterministic `requires_review` blockers
+- timeout, memory, CPU, retry, idempotency, and audit contracts are emitted as evidence fields
+  instead of authorizing runtime execution
+- review blockers preserve `extension_manifest_effect_execution_allowed=false`,
+  `extension_manifest_runtime_execution=false`, `extension_manifest_external_effect_executed=false`,
+  `extension_manifest_fallback_attempted=false`, and
+  `extension_manifest_external_engine_invoked=false`
+
 ## Rows
 
 | Row | Status | Meaning |
