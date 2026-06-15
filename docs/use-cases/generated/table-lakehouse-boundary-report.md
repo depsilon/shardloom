@@ -6,9 +6,9 @@
 
 - **Audience:** user asking whether Iceberg metadata, table scans, Delta, Hudi, or catalog commits are supported
 - **Status:** `smoke_supported`
-- **Execution mode:** `iceberg_metadata_json_smoke_plus_blocked_runtime`
+- **Execution mode:** `iceberg_metadata_json_manifest_list_and_manifest_file_split_plan_smoke_plus_blocked_runtime`
 - **Engine mode:** `batch`
-- **Claim boundary:** ShardLoom has scoped local-manifest metadata/read and append-commit rehearsal evidence plus a scoped local Iceberg metadata JSON smoke with snapshot selection. That does not promote Iceberg manifest-list/manifest/data-file runtime, Delta/Hudi runtime, external catalogs, object-store table runtime, table scans, table writes/commits, production lakehouse support, Foundry support, or performance claims.
+- **Claim boundary:** ShardLoom has scoped local-manifest metadata/read and append-commit rehearsal evidence, a scoped local Iceberg metadata JSON smoke with snapshot selection, an explicitly requested feature-gated local Avro manifest-list summary smoke, and an explicitly requested feature-gated local Avro manifest-file split-plan smoke. That does not promote Iceberg data-file runtime, Delta/Hudi runtime, external catalogs, object-store table runtime, table scans, table writes/commits, production lakehouse support, Foundry support, or performance claims.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Table and lakehouse boundary has a scoped local path. Treat it as technical-prev
 
 ## Claim Boundary
 
-ShardLoom has scoped local-manifest metadata/read and append-commit rehearsal evidence plus a scoped local Iceberg metadata JSON smoke with snapshot selection. That does not promote Iceberg manifest-list/manifest/data-file runtime, Delta/Hudi runtime, external catalogs, object-store table runtime, table scans, table writes/commits, production lakehouse support, Foundry support, or performance claims.
+ShardLoom has scoped local-manifest metadata/read and append-commit rehearsal evidence, a scoped local Iceberg metadata JSON smoke with snapshot selection, an explicitly requested feature-gated local Avro manifest-list summary smoke, and an explicitly requested feature-gated local Avro manifest-file split-plan smoke. That does not promote Iceberg data-file runtime, Delta/Hudi runtime, external catalogs, object-store table runtime, table scans, table writes/commits, production lakehouse support, Foundry support, or performance claims.
 
 ## How To Try It
 
@@ -26,11 +26,11 @@ target\debug\shardloom iceberg-metadata-read-smoke target\iceberg\metadata.json 
 
 ## Blocker
 
-Table-format runtime still needs manifest-list reads, manifest parsing, data-file scan planning, delete/tombstone semantics, write/commit/rollback, object-store, catalog, and certificate evidence before production support can be claimed.
+Table-format runtime still needs data-file scan execution, delete/tombstone semantics, write/commit/rollback, object-store, catalog, and certificate evidence before production support can be claimed.
 
 ## Internal Flow
 
-`local_iceberg_metadata_json, iceberg_table, delta_table, hudi_table, catalog_metadata -> iceberg_metadata_json_smoke_plus_blocked_runtime -> batch -> iceberg_metadata_summary, snapshot_selection_evidence, table_compatibility_matrix, deterministic_blocker -> evidence -> claim gate`
+`local_iceberg_metadata_json, optional_local_iceberg_manifest_list_avro, optional_local_iceberg_manifest_avro, iceberg_table, delta_table, hudi_table, catalog_metadata -> iceberg_metadata_json_manifest_list_and_manifest_file_split_plan_smoke_plus_blocked_runtime -> batch -> iceberg_metadata_summary, snapshot_selection_evidence, optional_manifest_list_summary, optional_manifest_file_split_plan, table_compatibility_matrix, deterministic_blocker -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -40,8 +40,18 @@ Table-format runtime still needs manifest-list reads, manifest parsing, data-fil
 - `local_metadata_json_read_performed=true`
 - `snapshot_selection_performed`
 - `time_travel_selection_performed`
-- `manifest_list_read_performed=false`
-- `manifest_file_read_performed=false`
+- `manifest_list_requested`
+- `manifest_list_reader_feature_enabled`
+- `manifest_list_read_performed`
+- `manifest_summary_pruning_performed`
+- `planned_manifest_split_count`
+- `planned_data_file_count`
+- `manifest_file_requested`
+- `manifest_file_reader_feature_enabled`
+- `manifest_file_read_performed`
+- `data_file_split_planning_performed`
+- `planned_data_file_split_count`
+- `planned_data_file_split_bytes`
 - `data_file_read_performed=false`
 - `delete_file_semantics`
 - `table_scan_status`
@@ -57,14 +67,18 @@ Table-format runtime still needs manifest-list reads, manifest parsing, data-fil
 - `fallback_attempted=false`
 - `external_engine_invoked=false`
 - `claim_gate_status=scoped_iceberg_metadata_json_smoke_only`
+- `claim_gate_status=scoped_iceberg_metadata_manifest_list_summary_smoke`
+- `claim_gate_status=scoped_iceberg_manifest_file_split_plan_smoke`
 
 ## Expected Output Or Evidence
 
-A scoped Iceberg metadata JSON smoke report with table metadata fields, current/explicit/as-of snapshot selection evidence, manifest-list references reported but not read, deterministic blockers for delete files and broader table runtime, fallback_attempted=false, and external_engine_invoked=false.
+A scoped Iceberg metadata JSON smoke report with table metadata fields, current/explicit/as-of snapshot selection evidence, optional feature-gated manifest-list summary/split-count evidence, optional feature-gated manifest-file split-plan evidence, deterministic blockers for delete files and broader table runtime, fallback_attempted=false, and external_engine_invoked=false.
 
 ## Common Mistakes
 
 - `mistaking_metadata_json_smoke_for_table_runtime`
+- `mistaking_manifest_list_summary_for_data_scan_runtime`
+- `mistaking_manifest_file_split_plan_for_data_scan_runtime`
 - `treating_local_commit_rehearsal_as_iceberg_commit`
 - `expecting_catalog_commit`
 - `expecting_s3_table_commit`

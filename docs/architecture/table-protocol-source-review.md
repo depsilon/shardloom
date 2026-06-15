@@ -46,15 +46,20 @@ The first source-reviewed external profile now has a scoped local Iceberg metada
 `iceberg-metadata-read-smoke`. It reads one local Iceberg table metadata JSON file, selects the
 current snapshot, an explicit snapshot id, or an as-of timestamp snapshot, and reports schema,
 partition, sort-order, snapshot, manifest-list-reference, and no-fallback boundary evidence.
-External Iceberg manifest-list reads, manifest parsing, data scans, object-store tables, catalog
-runtime, writes/commits, delete-file execution, Delta, Hudi, Nessie, Polaris, Gravitino, Glue-like,
-and Hive-like profiles remain source-reviewed or planned candidates, not production-supported
-runtime.
+With `--manifest-list` and `universal-format-io`, the same command can read one explicitly supplied
+local Avro manifest list, summarize manifest entries, report manifest-summary pruning and
+manifest-level split counts, and block delete/unknown manifest content without fallback. With
+`--manifest` and `universal-format-io`, it can also read one explicit local Avro manifest file,
+parse manifest entries, report data-file split counts/bytes/records, and block deleted, delete-file,
+or unknown entries without scanning data files. External Iceberg data scans, object-store tables,
+catalog runtime, writes/commits, delete-file execution, Delta, Hudi, Nessie, Polaris, Gravitino,
+Glue-like, and Hive-like profiles remain source-reviewed or planned candidates, not
+production-supported runtime.
 
-The next Iceberg implementation step should extend the metadata JSON smoke into manifest-list reads,
-manifest parsing, manifest-summary pruning, schema/partition evolution semantics, delete-file
-admission, and ShardLoom-native split planning. An approved no-credential REST-catalog fixture
-remains a candidate after credential/object-store and effect policy are narrowed.
+The next Iceberg implementation step should lower planned data-file splits into ShardLoom-native
+scan execution, schema/partition evolution semantics, and delete/tombstone/deletion-vector
+admission. An approved no-credential REST-catalog fixture remains a candidate after
+credential/object-store and effect policy are narrowed.
 
 Glue-like and Hive-like catalog profiles are intentionally not selected for the first external
 candidate. They need separate source/profile review before implementation because their credential,
@@ -78,10 +83,13 @@ catalog profiles reviewed here.
 
 ## Claim Boundary
 
-May claim: the protocol sources have been reviewed and mapped to ShardLoom admission gates, and the
+May claim: the protocol sources have been reviewed and mapped to ShardLoom admission gates; the
 scoped local Iceberg metadata JSON smoke reads one local metadata file and selects snapshots without
-fallback or external engines.
+fallback or external engines; and the feature-gated manifest-list summary smoke reads one explicit
+local Avro manifest list for manifest-summary pruning/split-count evidence only; and the
+feature-gated manifest-file smoke reads one explicit local Avro manifest file for data-file
+split-plan evidence only.
 
-May not claim: Iceberg manifest-list/manifest/data-file runtime, Delta/Hudi runtime, catalog
-runtime, object-store table runtime, table scan, append/overwrite, merge/update/delete, rollback,
-production lakehouse support, Spark replacement, performance, or external engine execution.
+May not claim: Iceberg data-file scan/runtime, Delta/Hudi runtime, catalog runtime, object-store
+table runtime, table scan, append/overwrite, merge/update/delete, rollback, production lakehouse
+support, Spark replacement, performance, or external engine execution.

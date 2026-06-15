@@ -4,8 +4,12 @@
 //! datasets, probe catalogs, execute plans, write data, materialize outputs,
 //! invoke external engines, or provide fallback execution.
 
+#[cfg(feature = "universal-format-io")]
+use std::collections::BTreeMap;
 use std::{fs, path::Path, process::ExitCode};
 
+#[cfg(feature = "universal-format-io")]
+use shardloom_core::ScalarValue;
 use shardloom_core::{
     ByteRange, CapabilityCertificationReport, CatalogKind, CatalogMetadataIntegrationGateEntry,
     CatalogMetadataIntegrationGateReport, CatalogRef, CdcEventKind, CdcEventSummary,
@@ -5850,6 +5854,8 @@ fn append_local_table_metadata_diagnostic_fields(
 struct IcebergMetadataReadSmokeRequest {
     metadata_path: String,
     selection: IcebergSnapshotSelectionRequest,
+    manifest_list_path: Option<String>,
+    manifest_file_path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5942,11 +5948,11 @@ impl IcebergMetadataBlockedPath {
             ),
             Some(self.as_str().to_string()),
             Some(
-                "The smoke only reads one local Iceberg table metadata JSON file and selects a snapshot."
+                "The smoke only reads one local Iceberg table metadata JSON file and, when explicitly requested with the feature enabled, one local manifest-list Avro summary."
                     .to_string(),
             ),
             Some(
-                "Keep catalog, manifest-list, manifest, data-file, delete, write, and production lakehouse paths blocked until dedicated runtime evidence lands."
+                "Keep catalog, manifest-file, data-file, delete, write, and production lakehouse paths blocked until dedicated runtime evidence lands."
                     .to_string(),
             ),
             FallbackStatus::disabled_by_policy(),
@@ -5962,6 +5968,78 @@ struct IcebergMetadataSnapshotSummary {
     manifest_list: String,
     operation: String,
     delete_file_count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergManifestListSummary {
+    path: String,
+    bytes_read: usize,
+    schema_column_count: usize,
+    projected_column_count: usize,
+    entry_count: usize,
+    data_manifest_count: usize,
+    delete_manifest_count: usize,
+    unknown_content_manifest_count: usize,
+    total_manifest_bytes: u64,
+    added_data_file_count: u64,
+    existing_data_file_count: u64,
+    deleted_data_file_count: u64,
+    added_delete_file_count: u64,
+    existing_delete_file_count: u64,
+    deleted_delete_file_count: u64,
+    planned_manifest_split_count: usize,
+    planned_data_file_count: u64,
+    manifest_summary_pruning_rule: &'static str,
+}
+
+impl IcebergManifestListSummary {
+    fn total_delete_file_count(&self) -> u64 {
+        self.added_delete_file_count
+            .saturating_add(self.existing_delete_file_count)
+            .saturating_add(self.deleted_delete_file_count)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergManifestFileSummary {
+    path: String,
+    bytes_read: usize,
+    schema_column_count: usize,
+    projected_column_count: usize,
+    entry_count: usize,
+    added_data_file_count: u64,
+    existing_data_file_count: u64,
+    deleted_data_file_count: u64,
+    delete_file_entry_count: u64,
+    unknown_content_file_count: u64,
+    unknown_status_entry_count: u64,
+    total_record_count: u64,
+    total_file_size_bytes: u64,
+    planned_data_file_count: u64,
+    planned_data_file_bytes: u64,
+    split_planning_rule: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct IcebergReportScope {
+    report_id: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+    native_io_certificate_refs: &'static str,
+    materialization_decode_refs: &'static str,
+    dependency_boundary_refs: &'static str,
+}
+
+struct IcebergMetadataRootParts<'a> {
+    format_version: u64,
+    table_uuid: String,
+    table_location: String,
+    current_schema_id: String,
+    current_snapshot_id: String,
+    schemas: &'a [serde_json::Value],
+    snapshots: &'a [serde_json::Value],
+    current_schema: &'a serde_json::Map<String, serde_json::Value>,
+    selected_snapshot: IcebergMetadataSnapshotSummary,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5994,6 +6072,12 @@ struct IcebergMetadataReadSmokeReport {
     selected_snapshot: IcebergMetadataSnapshotSummary,
     snapshot_selector_kind: &'static str,
     manifest_list_ref_count: usize,
+    manifest_list_path_requested: Option<String>,
+    manifest_list_reader_feature_enabled: bool,
+    manifest_list_summary: Option<IcebergManifestListSummary>,
+    manifest_file_path_requested: Option<String>,
+    manifest_file_reader_feature_enabled: bool,
+    manifest_file_summary: Option<IcebergManifestFileSummary>,
     branch_or_tag_ref_count: usize,
     last_sequence_number: String,
     metadata_summary: String,
@@ -6036,19 +6120,39 @@ impl IcebergMetadataReadSmokeReport {
     }
 
     fn claim_scoped(&self) -> bool {
-        self.claim_gate_status == "scoped_iceberg_metadata_json_smoke_only"
-            && !self.performance_claim_allowed
+        matches!(
+            self.claim_gate_status,
+            "scoped_iceberg_metadata_json_smoke_only"
+                | "scoped_iceberg_metadata_manifest_list_summary_smoke"
+                | "scoped_iceberg_manifest_file_split_plan_smoke"
+        ) && !self.performance_claim_allowed
             && !self.production_table_catalog_claim_allowed
             && !self.lakehouse_claim_allowed
     }
 
+    fn manifest_list_requested(&self) -> bool {
+        self.manifest_list_path_requested.is_some()
+    }
+
+    fn manifest_file_requested(&self) -> bool {
+        self.manifest_file_path_requested.is_some()
+    }
+
     fn side_effect_free_except_local_metadata_read(&self) -> bool {
+        self.side_effect_free_except_declared_local_table_reads()
+            && !self.manifest_list_read_performed
+            && self.manifest_list_summary.is_none()
+            && !self.manifest_file_read_performed
+            && self.manifest_file_summary.is_none()
+    }
+
+    fn side_effect_free_except_declared_local_table_reads(&self) -> bool {
         self.local_metadata_json_read_performed
             && self.table_metadata_read_performed
             && !self.catalog_io_performed
             && !self.object_store_io_performed
-            && !self.manifest_list_read_performed
-            && !self.manifest_file_read_performed
+            && self.manifest_list_read_performed == self.manifest_list_summary.is_some()
+            && self.manifest_file_read_performed == self.manifest_file_summary.is_some()
             && !self.data_file_read_performed
             && !self.write_io_performed
             && !self.credential_resolution_performed
@@ -6097,7 +6201,7 @@ impl IcebergMetadataReadSmokeReport {
     fn has_errors(&self) -> bool {
         !self.runtime_supported()
             || !self.claim_scoped()
-            || !self.side_effect_free_except_local_metadata_read()
+            || !self.side_effect_free_except_declared_local_table_reads()
             || !self.deterministic_unsupported_diagnostics_ready()
             || self.diagnostics.iter().any(|diagnostic| {
                 matches!(
@@ -6109,7 +6213,7 @@ impl IcebergMetadataReadSmokeReport {
 
     fn to_human_text(&self) -> String {
         format!(
-            "schema_version: {}\nreport_id: {}\nphase_id: {}\nsupport_status: {}\nclaim_gate_status: {}\nsource_protocol: {}\nmetadata_path: {}\nformat_version: {}\ntable_uuid: {}\ncurrent_snapshot_id: {}\nselected_snapshot_id: {}\nsnapshot_selector_kind: {}\nmanifest_list_refs: {}\nunsupported_features: {}\nfallback_attempted: {}\nexternal_engine_invoked: {}\n",
+            "schema_version: {}\nreport_id: {}\nphase_id: {}\nsupport_status: {}\nclaim_gate_status: {}\nsource_protocol: {}\nmetadata_path: {}\nformat_version: {}\ntable_uuid: {}\ncurrent_snapshot_id: {}\nselected_snapshot_id: {}\nsnapshot_selector_kind: {}\nmanifest_list_refs: {}\nmanifest_list_requested: {}\nmanifest_list_read_performed: {}\nmanifest_file_requested: {}\nmanifest_file_read_performed: {}\nunsupported_features: {}\nfallback_attempted: {}\nexternal_engine_invoked: {}\n",
             self.schema_version,
             self.report_id,
             self.phase_id,
@@ -6123,6 +6227,10 @@ impl IcebergMetadataReadSmokeReport {
             self.selected_snapshot.snapshot_id,
             self.snapshot_selector_kind,
             self.manifest_list_ref_count,
+            self.manifest_list_requested(),
+            self.manifest_list_read_performed,
+            self.manifest_file_requested(),
+            self.manifest_file_read_performed,
             self.unsupported_feature_order_text(),
             self.fallback_attempted,
             self.external_engine_invoked
@@ -6130,19 +6238,62 @@ impl IcebergMetadataReadSmokeReport {
     }
 }
 
-fn iceberg_metadata_blocked_paths() -> Vec<IcebergMetadataBlockedPath> {
-    vec![
+fn iceberg_metadata_blocked_paths(
+    manifest_list_read_performed: bool,
+    manifest_file_read_performed: bool,
+) -> Vec<IcebergMetadataBlockedPath> {
+    let mut paths = vec![
         IcebergMetadataBlockedPath::ExternalCatalogResolution,
         IcebergMetadataBlockedPath::RemoteObjectStoreMetadataRead,
-        IcebergMetadataBlockedPath::ManifestListRead,
-        IcebergMetadataBlockedPath::ManifestFileRead,
         IcebergMetadataBlockedPath::DataFileScan,
         IcebergMetadataBlockedPath::DeleteFileSemantics,
         IcebergMetadataBlockedPath::TableWriteCommit,
         IcebergMetadataBlockedPath::BroadIcebergRuntime,
         IcebergMetadataBlockedPath::DeltaHudiRuntime,
         IcebergMetadataBlockedPath::LakehouseProductionClaim,
-    ]
+    ];
+    if !manifest_list_read_performed {
+        paths.insert(2, IcebergMetadataBlockedPath::ManifestListRead);
+    }
+    if !manifest_file_read_performed {
+        let insert_at = if manifest_list_read_performed { 2 } else { 3 };
+        paths.insert(insert_at, IcebergMetadataBlockedPath::ManifestFileRead);
+    }
+    paths
+}
+
+fn iceberg_report_scope(
+    manifest_list_read_performed: bool,
+    manifest_file_read_performed: bool,
+) -> IcebergReportScope {
+    if manifest_file_read_performed {
+        return IcebergReportScope {
+            report_id: "prod-ready-1c.iceberg_manifest_file_split_plan_smoke",
+            claim_gate_status: "scoped_iceberg_manifest_file_split_plan_smoke",
+            claim_boundary: "one local Iceberg table metadata JSON read plus one explicit local Avro manifest-file read; data-file split planning only; no catalog service, object-store read, data-file scan, delete execution, write/commit, production lakehouse, or performance claim",
+            native_io_certificate_refs: "local_metadata_json_and_local_manifest_file_avro_split_plan_read_no_object_store_native_io_certificate",
+            materialization_decode_refs: "metadata_json_plus_manifest_file_metadata_decode_no_data_file_decode_no_row_materialization",
+            dependency_boundary_refs: "serde_json_plus_arrow_avro_manifest_file_compat_adapter_no_iceberg_runtime_dependency_no_external_engine",
+        };
+    }
+    if manifest_list_read_performed {
+        return IcebergReportScope {
+            report_id: "prod-ready-1c.iceberg_manifest_list_summary_smoke",
+            claim_gate_status: "scoped_iceberg_metadata_manifest_list_summary_smoke",
+            claim_boundary: "one local Iceberg table metadata JSON read plus one explicit local Avro manifest-list summary read; manifest-level summary pruning and split counting only; no catalog service, object-store read, manifest-file/data-file scan, delete execution, write/commit, production lakehouse, or performance claim",
+            native_io_certificate_refs: "local_metadata_json_and_local_manifest_list_avro_summary_read_no_object_store_native_io_certificate",
+            materialization_decode_refs: "metadata_json_plus_manifest_list_summary_decode_no_manifest_file_decode_no_data_file_decode_no_row_materialization",
+            dependency_boundary_refs: "serde_json_plus_arrow_avro_manifest_list_compat_adapter_no_iceberg_runtime_dependency_no_external_engine",
+        };
+    }
+    IcebergReportScope {
+        report_id: "prod-ready-1c.iceberg_metadata_json_read_smoke",
+        claim_gate_status: "scoped_iceberg_metadata_json_smoke_only",
+        claim_boundary: "one local Iceberg table metadata JSON read and snapshot selection only; no catalog service, object-store read, manifest-list read, manifest/data-file scan, delete execution, write/commit, production lakehouse, or performance claim",
+        native_io_certificate_refs: "local_metadata_json_read_only_no_object_store_native_io_certificate",
+        materialization_decode_refs: "metadata_json_only_no_data_file_decode_no_row_materialization",
+        dependency_boundary_refs: "serde_json_only_no_iceberg_runtime_dependency_no_external_engine",
+    }
 }
 
 fn parse_iceberg_metadata_read_smoke_args(
@@ -6151,6 +6302,8 @@ fn parse_iceberg_metadata_read_smoke_args(
     let mut metadata_path = None;
     let mut snapshot_id = None;
     let mut as_of_timestamp_ms = None;
+    let mut manifest_list_path = None;
+    let mut manifest_file_path = None;
     let mut iter = args.peekable();
     while let Some(arg) = iter.next() {
         match arg.as_str() {
@@ -6175,13 +6328,27 @@ fn parse_iceberg_metadata_read_smoke_args(
                 })?;
                 as_of_timestamp_ms = Some(parsed);
             }
+            "--manifest-list" => {
+                let value = iter.next().ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "missing value after --manifest-list".to_string(),
+                    )
+                })?;
+                manifest_list_path = Some(value);
+            }
+            "--manifest" => {
+                let value = iter.next().ok_or_else(|| {
+                    ShardLoomError::InvalidOperation("missing value after --manifest".to_string())
+                })?;
+                manifest_file_path = Some(value);
+            }
             other if other.starts_with("--") => {
                 return Err(cli_unknown_arg_error("iceberg-metadata-read-smoke", other));
             }
             _ if metadata_path.is_none() => metadata_path = Some(arg),
             _ => {
                 return Err(ShardLoomError::InvalidOperation(
-                    "usage: shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms]"
+                    "usage: shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro]"
                         .to_string(),
                 ));
             }
@@ -6194,7 +6361,7 @@ fn parse_iceberg_metadata_read_smoke_args(
     }
     let metadata_path = metadata_path.ok_or_else(|| {
         ShardLoomError::InvalidOperation(
-            "usage: shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms]"
+            "usage: shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro]"
                 .to_string(),
         )
     })?;
@@ -6207,6 +6374,8 @@ fn parse_iceberg_metadata_read_smoke_args(
     Ok(IcebergMetadataReadSmokeRequest {
         metadata_path,
         selection,
+        manifest_list_path,
+        manifest_file_path,
     })
 }
 
@@ -6249,86 +6418,92 @@ fn build_iceberg_metadata_report(
     metadata: &str,
     root: &serde_json::Map<String, serde_json::Value>,
 ) -> Result<IcebergMetadataReadSmokeReport, ShardLoomError> {
-    let format_version = required_u64(root, "format-version")?;
-    let table_uuid = required_string(root, "table-uuid")?;
-    let table_location = required_string(root, "location")?;
-    let current_schema_id = required_i64_string(root, "current-schema-id")?;
-    let current_snapshot_id = required_i64_string(root, "current-snapshot-id")?;
-    let schemas = required_array(root, "schemas")?;
-    let snapshots = required_array(root, "snapshots")?;
-    let current_schema = current_iceberg_schema(schemas, &current_schema_id)?;
-    let selected_snapshot =
-        select_iceberg_snapshot(snapshots, &current_snapshot_id, &request.selection)?;
-    let unsupported_feature_order =
-        iceberg_metadata_unsupported_feature_order(format_version, &selected_snapshot);
-    let metadata_summary = iceberg_metadata_summary(
-        &table_uuid,
-        &current_snapshot_id,
-        &selected_snapshot,
-        root,
-        schemas,
-        snapshots,
+    let root_parts = parse_iceberg_metadata_root_parts(root, &request.selection)?;
+    let manifest_list_reader_feature_enabled = iceberg_manifest_list_reader_feature_enabled();
+    let manifest_list_summary =
+        maybe_read_iceberg_manifest_list_summary(request.manifest_list_path.as_deref())?;
+    let manifest_file_reader_feature_enabled = iceberg_manifest_file_reader_feature_enabled();
+    let manifest_file_summary =
+        maybe_read_iceberg_manifest_file_summary(request.manifest_file_path.as_deref())?;
+    let unsupported_feature_order = iceberg_metadata_unsupported_feature_order(
+        root_parts.format_version,
+        &root_parts.selected_snapshot,
+        request.manifest_list_path.is_some() && !manifest_list_reader_feature_enabled,
+        request.manifest_file_path.is_some() && !manifest_file_reader_feature_enabled,
+        manifest_list_summary.as_ref(),
+        manifest_file_summary.as_ref(),
     );
-    let blocked_paths = iceberg_metadata_blocked_paths();
-    let mut diagnostics: Vec<Diagnostic> = blocked_paths
-        .iter()
-        .map(|path| path.to_diagnostic())
-        .collect();
-    diagnostics.extend(iceberg_unsupported_feature_diagnostics(
-        &unsupported_feature_order,
-    ));
+    let metadata_summary = iceberg_metadata_summary(&IcebergMetadataSummaryContext {
+        table_uuid: &root_parts.table_uuid,
+        current_snapshot_id: &root_parts.current_snapshot_id,
+        selected_snapshot: &root_parts.selected_snapshot,
+        manifest_list_summary: manifest_list_summary.as_ref(),
+        manifest_file_summary: manifest_file_summary.as_ref(),
+        root,
+        schemas: root_parts.schemas,
+        snapshots: root_parts.snapshots,
+    });
+    let manifest_list_read_performed = manifest_list_summary.is_some();
+    let manifest_file_read_performed = manifest_file_summary.is_some();
+    let scope = iceberg_report_scope(manifest_list_read_performed, manifest_file_read_performed);
+    let blocked_paths =
+        iceberg_metadata_blocked_paths(manifest_list_read_performed, manifest_file_read_performed);
+    let diagnostics = iceberg_metadata_diagnostics(&blocked_paths, &unsupported_feature_order);
     Ok(IcebergMetadataReadSmokeReport {
         schema_version: "shardloom.iceberg_metadata_read_smoke.v1",
-        report_id: "prod-ready-1c.iceberg_metadata_json_read_smoke",
+        report_id: scope.report_id,
         phase_id: "PROD-READY-1C",
-        support_status: if unsupported_feature_order.is_empty() {
-            "runtime_supported"
-        } else {
-            "unsupported_metadata_features"
-        },
-        claim_gate_status: "scoped_iceberg_metadata_json_smoke_only",
-        claim_boundary: "one local Iceberg table metadata JSON read and snapshot selection only; no catalog service, object-store read, manifest-list read, manifest/data-file scan, delete execution, write/commit, production lakehouse, or performance claim",
+        support_status: iceberg_report_support_status(&unsupported_feature_order),
+        claim_gate_status: scope.claim_gate_status,
+        claim_boundary: scope.claim_boundary,
         source_protocol: "apache_iceberg_table_metadata",
         source_review_ref: "docs/architecture/table-protocol-source-review.md",
         metadata_path: request.metadata_path.clone(),
         metadata_bytes_read: metadata.len(),
-        format_version,
-        table_uuid,
-        table_location,
-        current_schema_id,
-        schema_count: schemas.len(),
-        current_schema_field_count: schema_field_count(current_schema),
-        schema_field_ids_present: schema_field_ids_present(current_schema),
-        complex_or_nested_schema_field_count: complex_or_nested_schema_field_count(current_schema),
+        format_version: root_parts.format_version,
+        table_uuid: root_parts.table_uuid,
+        table_location: root_parts.table_location,
+        current_schema_id: root_parts.current_schema_id,
+        schema_count: root_parts.schemas.len(),
+        current_schema_field_count: schema_field_count(root_parts.current_schema),
+        schema_field_ids_present: schema_field_ids_present(root_parts.current_schema),
+        complex_or_nested_schema_field_count: complex_or_nested_schema_field_count(
+            root_parts.current_schema,
+        ),
         partition_spec_count: optional_array_len(root, "partition-specs"),
         default_partition_spec_id: optional_i64_string(root, "default-spec-id"),
         sort_order_count: optional_array_len(root, "sort-orders"),
         default_sort_order_id: optional_i64_string(root, "default-sort-order-id"),
-        snapshot_count: snapshots.len(),
-        current_snapshot_id,
-        selected_snapshot,
+        snapshot_count: root_parts.snapshots.len(),
+        current_snapshot_id: root_parts.current_snapshot_id,
+        selected_snapshot: root_parts.selected_snapshot,
         snapshot_selector_kind: request.selection.selector_kind(),
-        manifest_list_ref_count: manifest_list_ref_count(snapshots),
+        manifest_list_ref_count: manifest_list_ref_count(root_parts.snapshots),
+        manifest_list_path_requested: request.manifest_list_path.clone(),
+        manifest_list_reader_feature_enabled,
+        manifest_list_summary,
+        manifest_file_path_requested: request.manifest_file_path.clone(),
+        manifest_file_reader_feature_enabled,
+        manifest_file_summary,
         branch_or_tag_ref_count: optional_object_len(root, "refs"),
         last_sequence_number: optional_i64_string(root, "last-sequence-number"),
         metadata_summary_digest: iceberg_metadata_digest(&metadata_summary),
         metadata_summary,
         correctness_refs: "shardloom-cli::workflow_planning::iceberg_metadata_read_smoke",
         execution_certificate_refs: "shardloom-cli/tests/iceberg_metadata_read_smoke.rs",
-        native_io_certificate_refs: "local_metadata_json_read_only_no_object_store_native_io_certificate",
-        materialization_decode_refs: "metadata_json_only_no_data_file_decode_no_row_materialization",
-        dependency_boundary_refs: "serde_json_only_no_iceberg_runtime_dependency_no_external_engine",
+        native_io_certificate_refs: scope.native_io_certificate_refs,
+        materialization_decode_refs: scope.materialization_decode_refs,
+        dependency_boundary_refs: scope.dependency_boundary_refs,
         local_metadata_json_read_performed: true,
         table_metadata_read_performed: true,
         snapshot_selection_performed: true,
-        time_travel_selection_performed: matches!(
-            request.selection,
-            IcebergSnapshotSelectionRequest::AsOfTimestampMillis(_)
+        time_travel_selection_performed: iceberg_time_travel_selection_performed(
+            &request.selection,
         ),
         catalog_io_performed: false,
         object_store_io_performed: false,
-        manifest_list_read_performed: false,
-        manifest_file_read_performed: false,
+        manifest_list_read_performed,
+        manifest_file_read_performed,
         data_file_read_performed: false,
         write_io_performed: false,
         credential_resolution_performed: false,
@@ -6343,6 +6518,443 @@ fn build_iceberg_metadata_report(
         blocked_paths,
         diagnostics,
     })
+}
+
+fn iceberg_metadata_diagnostics(
+    blocked_paths: &[IcebergMetadataBlockedPath],
+    unsupported_feature_order: &[&'static str],
+) -> Vec<Diagnostic> {
+    let mut diagnostics: Vec<Diagnostic> = blocked_paths
+        .iter()
+        .map(|path| path.to_diagnostic())
+        .collect();
+    diagnostics.extend(iceberg_unsupported_feature_diagnostics(
+        unsupported_feature_order,
+    ));
+    diagnostics
+}
+
+fn iceberg_report_support_status(unsupported_feature_order: &[&'static str]) -> &'static str {
+    if unsupported_feature_order.is_empty() {
+        "runtime_supported"
+    } else {
+        "unsupported_metadata_features"
+    }
+}
+
+fn iceberg_time_travel_selection_performed(selection: &IcebergSnapshotSelectionRequest) -> bool {
+    matches!(
+        selection,
+        IcebergSnapshotSelectionRequest::AsOfTimestampMillis(_)
+    )
+}
+
+fn parse_iceberg_metadata_root_parts<'a>(
+    root: &'a serde_json::Map<String, serde_json::Value>,
+    selection: &IcebergSnapshotSelectionRequest,
+) -> Result<IcebergMetadataRootParts<'a>, ShardLoomError> {
+    let format_version = required_u64(root, "format-version")?;
+    let table_uuid = required_string(root, "table-uuid")?;
+    let table_location = required_string(root, "location")?;
+    let current_schema_id = required_i64_string(root, "current-schema-id")?;
+    let current_snapshot_id = required_i64_string(root, "current-snapshot-id")?;
+    let schemas = required_array(root, "schemas")?;
+    let snapshots = required_array(root, "snapshots")?;
+    let current_schema = current_iceberg_schema(schemas, &current_schema_id)?;
+    let selected_snapshot = select_iceberg_snapshot(snapshots, &current_snapshot_id, selection)?;
+    Ok(IcebergMetadataRootParts {
+        format_version,
+        table_uuid,
+        table_location,
+        current_schema_id,
+        current_snapshot_id,
+        schemas,
+        snapshots,
+        current_schema,
+        selected_snapshot,
+    })
+}
+
+#[cfg(feature = "universal-format-io")]
+const ICEBERG_MANIFEST_LIST_MAX_ROWS: usize = 16_384;
+#[cfg(feature = "universal-format-io")]
+const ICEBERG_MANIFEST_LIST_PROJECTION_COLUMNS: &[&str] = &[
+    "manifest_path",
+    "manifest_length",
+    "partition_spec_id",
+    "content",
+    "sequence_number",
+    "min_sequence_number",
+    "added_snapshot_id",
+    "added_data_files_count",
+    "existing_data_files_count",
+    "deleted_data_files_count",
+    "added_delete_files_count",
+    "existing_delete_files_count",
+    "deleted_delete_files_count",
+];
+
+fn iceberg_manifest_list_reader_feature_enabled() -> bool {
+    cfg!(feature = "universal-format-io")
+}
+
+fn maybe_read_iceberg_manifest_list_summary(
+    manifest_list_path: Option<&str>,
+) -> Result<Option<IcebergManifestListSummary>, ShardLoomError> {
+    let Some(path) = manifest_list_path else {
+        return Ok(None);
+    };
+    reject_non_local_metadata_path(path)?;
+    if !iceberg_manifest_list_reader_feature_enabled() {
+        return Ok(None);
+    }
+    read_iceberg_manifest_list_summary(path).map(Some)
+}
+
+#[cfg(feature = "universal-format-io")]
+fn read_iceberg_manifest_list_summary(
+    path: &str,
+) -> Result<IcebergManifestListSummary, ShardLoomError> {
+    let projection_columns: Vec<String> = ICEBERG_MANIFEST_LIST_PROJECTION_COLUMNS
+        .iter()
+        .map(|column| (*column).to_string())
+        .collect();
+    let manifest_list_path = Path::new(path);
+    let bytes_read = usize::try_from(
+        fs::metadata(manifest_list_path)
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to stat Iceberg manifest-list Avro '{}': {error}",
+                    manifest_list_path.display()
+                ))
+            })?
+            .len(),
+    )
+    .map_err(|_| {
+        ShardLoomError::InvalidOperation(format!(
+            "Iceberg manifest-list Avro '{}' is too large for this platform",
+            manifest_list_path.display()
+        ))
+    })?;
+    let table = shardloom_vortex::read_flat_avro_source_with_projection(
+        manifest_list_path,
+        ICEBERG_MANIFEST_LIST_MAX_ROWS,
+        &projection_columns,
+    )?;
+    let mut summary = IcebergManifestListSummary {
+        path: path.to_string(),
+        bytes_read,
+        schema_column_count: table.header.len(),
+        projected_column_count: table.reader_projection_columns.len(),
+        entry_count: table.rows.len(),
+        data_manifest_count: 0,
+        delete_manifest_count: 0,
+        unknown_content_manifest_count: 0,
+        total_manifest_bytes: 0,
+        added_data_file_count: 0,
+        existing_data_file_count: 0,
+        deleted_data_file_count: 0,
+        added_delete_file_count: 0,
+        existing_delete_file_count: 0,
+        deleted_delete_file_count: 0,
+        planned_manifest_split_count: 0,
+        planned_data_file_count: 0,
+        manifest_summary_pruning_rule: "data_manifests_only_delete_and_unknown_content_blocked",
+    };
+    for row in &table.rows {
+        observe_iceberg_manifest_list_row(&mut summary, row, manifest_list_path)?;
+    }
+    summary.planned_manifest_split_count = summary.data_manifest_count;
+    summary.planned_data_file_count = summary
+        .added_data_file_count
+        .saturating_add(summary.existing_data_file_count);
+    Ok(summary)
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn read_iceberg_manifest_list_summary(
+    _path: &str,
+) -> Result<IcebergManifestListSummary, ShardLoomError> {
+    Err(ShardLoomError::NotImplemented(
+        "Iceberg manifest-list Avro summary reads require building shardloom-cli with --features universal-format-io"
+            .to_string(),
+    ))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn observe_iceberg_manifest_list_row(
+    summary: &mut IcebergManifestListSummary,
+    row: &BTreeMap<String, ScalarValue>,
+    manifest_list_path: &Path,
+) -> Result<(), ShardLoomError> {
+    let manifest_path = iceberg_manifest_row_string(row, "manifest_path").ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "Iceberg manifest-list Avro '{}' row is missing manifest_path",
+            manifest_list_path.display()
+        ))
+    })?;
+    if manifest_path.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "Iceberg manifest-list Avro '{}' contains an empty manifest_path",
+            manifest_list_path.display()
+        )));
+    }
+
+    summary.total_manifest_bytes = summary
+        .total_manifest_bytes
+        .saturating_add(iceberg_manifest_row_u64(row, "manifest_length").unwrap_or(0));
+    summary.added_data_file_count = summary
+        .added_data_file_count
+        .saturating_add(iceberg_manifest_row_u64(row, "added_data_files_count").unwrap_or(0));
+    summary.existing_data_file_count = summary
+        .existing_data_file_count
+        .saturating_add(iceberg_manifest_row_u64(row, "existing_data_files_count").unwrap_or(0));
+    summary.deleted_data_file_count = summary
+        .deleted_data_file_count
+        .saturating_add(iceberg_manifest_row_u64(row, "deleted_data_files_count").unwrap_or(0));
+    summary.added_delete_file_count = summary
+        .added_delete_file_count
+        .saturating_add(iceberg_manifest_row_u64(row, "added_delete_files_count").unwrap_or(0));
+    summary.existing_delete_file_count = summary
+        .existing_delete_file_count
+        .saturating_add(iceberg_manifest_row_u64(row, "existing_delete_files_count").unwrap_or(0));
+    summary.deleted_delete_file_count = summary
+        .deleted_delete_file_count
+        .saturating_add(iceberg_manifest_row_u64(row, "deleted_delete_files_count").unwrap_or(0));
+
+    match iceberg_manifest_row_i64(row, "content") {
+        Some(0) => summary.data_manifest_count += 1,
+        Some(1) => summary.delete_manifest_count += 1,
+        _ => summary.unknown_content_manifest_count += 1,
+    }
+    Ok(())
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_manifest_row_string<'a>(
+    row: &'a BTreeMap<String, ScalarValue>,
+    key: &str,
+) -> Option<&'a str> {
+    match row.get(key)? {
+        ScalarValue::Utf8(value) => Some(value.as_str()),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_manifest_row_u64(row: &BTreeMap<String, ScalarValue>, key: &str) -> Option<u64> {
+    match row.get(key)? {
+        ScalarValue::UInt64(value) => Some(*value),
+        ScalarValue::Int64(value) => u64::try_from(*value).ok(),
+        ScalarValue::Utf8(value) => value.parse::<u64>().ok(),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_manifest_row_i64(row: &BTreeMap<String, ScalarValue>, key: &str) -> Option<i64> {
+    match row.get(key)? {
+        ScalarValue::Int64(value) => Some(*value),
+        ScalarValue::UInt64(value) => i64::try_from(*value).ok(),
+        ScalarValue::Utf8(value) => value.parse::<i64>().ok(),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
+const ICEBERG_MANIFEST_FILE_MAX_ROWS: usize = 65_536;
+#[cfg(feature = "universal-format-io")]
+const ICEBERG_MANIFEST_FILE_PROJECTION_COLUMNS: &[&str] = &["status", "snapshot_id", "data_file"];
+
+fn iceberg_manifest_file_reader_feature_enabled() -> bool {
+    cfg!(feature = "universal-format-io")
+}
+
+fn maybe_read_iceberg_manifest_file_summary(
+    manifest_file_path: Option<&str>,
+) -> Result<Option<IcebergManifestFileSummary>, ShardLoomError> {
+    let Some(path) = manifest_file_path else {
+        return Ok(None);
+    };
+    reject_non_local_metadata_path(path)?;
+    if !iceberg_manifest_file_reader_feature_enabled() {
+        return Ok(None);
+    }
+    read_iceberg_manifest_file_summary(path).map(Some)
+}
+
+#[cfg(feature = "universal-format-io")]
+fn read_iceberg_manifest_file_summary(
+    path: &str,
+) -> Result<IcebergManifestFileSummary, ShardLoomError> {
+    let projection_columns: Vec<String> = ICEBERG_MANIFEST_FILE_PROJECTION_COLUMNS
+        .iter()
+        .map(|column| (*column).to_string())
+        .collect();
+    let manifest_file_path = Path::new(path);
+    let bytes_read = usize::try_from(
+        fs::metadata(manifest_file_path)
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to stat Iceberg manifest Avro '{}': {error}",
+                    manifest_file_path.display()
+                ))
+            })?
+            .len(),
+    )
+    .map_err(|_| {
+        ShardLoomError::InvalidOperation(format!(
+            "Iceberg manifest Avro '{}' is too large for this platform",
+            manifest_file_path.display()
+        ))
+    })?;
+    let table = shardloom_vortex::read_flat_avro_source_with_projection(
+        manifest_file_path,
+        ICEBERG_MANIFEST_FILE_MAX_ROWS,
+        &projection_columns,
+    )?;
+    let mut summary = IcebergManifestFileSummary {
+        path: path.to_string(),
+        bytes_read,
+        schema_column_count: table.header.len(),
+        projected_column_count: table.reader_projection_columns.len(),
+        entry_count: table.rows.len(),
+        added_data_file_count: 0,
+        existing_data_file_count: 0,
+        deleted_data_file_count: 0,
+        delete_file_entry_count: 0,
+        unknown_content_file_count: 0,
+        unknown_status_entry_count: 0,
+        total_record_count: 0,
+        total_file_size_bytes: 0,
+        planned_data_file_count: 0,
+        planned_data_file_bytes: 0,
+        split_planning_rule: "added_and_existing_data_files_only_deleted_delete_and_unknown_entries_blocked",
+    };
+    for row in &table.rows {
+        observe_iceberg_manifest_file_row(&mut summary, row, manifest_file_path)?;
+    }
+    Ok(summary)
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn read_iceberg_manifest_file_summary(
+    _path: &str,
+) -> Result<IcebergManifestFileSummary, ShardLoomError> {
+    Err(ShardLoomError::NotImplemented(
+        "Iceberg manifest Avro split planning requires building shardloom-cli with --features universal-format-io"
+            .to_string(),
+    ))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn observe_iceberg_manifest_file_row(
+    summary: &mut IcebergManifestFileSummary,
+    row: &BTreeMap<String, ScalarValue>,
+    manifest_file_path: &Path,
+) -> Result<(), ShardLoomError> {
+    let status = iceberg_manifest_row_i64(row, "status");
+    let data_file = iceberg_manifest_row_struct(row, "data_file").ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "Iceberg manifest Avro '{}' row is missing data_file struct",
+            manifest_file_path.display()
+        ))
+    })?;
+    let content = iceberg_struct_i64(data_file, "content").unwrap_or(0);
+    let file_path = iceberg_struct_string(data_file, "file_path").ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "Iceberg manifest Avro '{}' data_file entry is missing file_path",
+            manifest_file_path.display()
+        ))
+    })?;
+    if file_path.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "Iceberg manifest Avro '{}' contains an empty data_file.file_path",
+            manifest_file_path.display()
+        )));
+    }
+
+    if content == 1 {
+        summary.delete_file_entry_count = summary.delete_file_entry_count.saturating_add(1);
+    } else if content != 0 {
+        summary.unknown_content_file_count = summary.unknown_content_file_count.saturating_add(1);
+    }
+
+    let record_count = iceberg_struct_u64(data_file, "record_count").unwrap_or(0);
+    let file_size = iceberg_struct_u64(data_file, "file_size_in_bytes").unwrap_or(0);
+    summary.total_record_count = summary.total_record_count.saturating_add(record_count);
+    summary.total_file_size_bytes = summary.total_file_size_bytes.saturating_add(file_size);
+
+    match status {
+        Some(0) if content == 0 => {
+            summary.existing_data_file_count = summary.existing_data_file_count.saturating_add(1);
+            summary.planned_data_file_count = summary.planned_data_file_count.saturating_add(1);
+            summary.planned_data_file_bytes =
+                summary.planned_data_file_bytes.saturating_add(file_size);
+        }
+        Some(1) if content == 0 => {
+            summary.added_data_file_count = summary.added_data_file_count.saturating_add(1);
+            summary.planned_data_file_count = summary.planned_data_file_count.saturating_add(1);
+            summary.planned_data_file_bytes =
+                summary.planned_data_file_bytes.saturating_add(file_size);
+        }
+        Some(2) if content == 0 => {
+            summary.deleted_data_file_count = summary.deleted_data_file_count.saturating_add(1);
+        }
+        Some(0 | 1 | 2) => {}
+        _ => {
+            summary.unknown_status_entry_count =
+                summary.unknown_status_entry_count.saturating_add(1);
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_manifest_row_struct<'a>(
+    row: &'a BTreeMap<String, ScalarValue>,
+    key: &str,
+) -> Option<&'a [(String, ScalarValue)]> {
+    match row.get(key)? {
+        ScalarValue::Struct(fields) => Some(fields.as_slice()),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_struct_string<'a>(fields: &'a [(String, ScalarValue)], key: &str) -> Option<&'a str> {
+    fields.iter().find_map(|(field, value)| {
+        (field == key).then(|| match value {
+            ScalarValue::Utf8(value) => Some(value.as_str()),
+            _ => None,
+        })?
+    })
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_struct_u64(fields: &[(String, ScalarValue)], key: &str) -> Option<u64> {
+    fields
+        .iter()
+        .find_map(|(field, value)| (field == key).then_some(value))
+        .and_then(|value| match value {
+            ScalarValue::UInt64(value) => Some(*value),
+            ScalarValue::Int64(value) => u64::try_from(*value).ok(),
+            ScalarValue::Utf8(value) => value.parse::<u64>().ok(),
+            _ => None,
+        })
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_struct_i64(fields: &[(String, ScalarValue)], key: &str) -> Option<i64> {
+    fields
+        .iter()
+        .find_map(|(field, value)| (field == key).then_some(value))
+        .and_then(|value| match value {
+            ScalarValue::Int64(value) => Some(*value),
+            ScalarValue::UInt64(value) => i64::try_from(*value).ok(),
+            ScalarValue::Utf8(value) => value.parse::<i64>().ok(),
+            _ => None,
+        })
 }
 
 fn required_array<'a>(
@@ -6609,6 +7221,10 @@ fn manifest_list_ref_count(snapshots: &[serde_json::Value]) -> usize {
 fn iceberg_metadata_unsupported_feature_order(
     format_version: u64,
     selected_snapshot: &IcebergMetadataSnapshotSummary,
+    manifest_list_reader_feature_disabled: bool,
+    manifest_file_reader_feature_disabled: bool,
+    manifest_list_summary: Option<&IcebergManifestListSummary>,
+    manifest_file_summary: Option<&IcebergManifestFileSummary>,
 ) -> Vec<&'static str> {
     let mut features = Vec::new();
     if format_version > 2 {
@@ -6616,6 +7232,34 @@ fn iceberg_metadata_unsupported_feature_order(
     }
     if selected_snapshot.delete_file_count > 0 {
         features.push("delete_files_present");
+    }
+    if manifest_list_reader_feature_disabled {
+        features.push("manifest_list_reader_feature_disabled");
+    }
+    if manifest_file_reader_feature_disabled {
+        features.push("manifest_file_reader_feature_disabled");
+    }
+    if let Some(summary) = manifest_list_summary {
+        if summary.delete_manifest_count > 0 || summary.total_delete_file_count() > 0 {
+            features.push("delete_manifests_present");
+        }
+        if summary.unknown_content_manifest_count > 0 {
+            features.push("unknown_manifest_content_present");
+        }
+    }
+    if let Some(summary) = manifest_file_summary {
+        if summary.delete_file_entry_count > 0 {
+            features.push("delete_file_entries_present");
+        }
+        if summary.deleted_data_file_count > 0 {
+            features.push("deleted_data_file_entries_present");
+        }
+        if summary.unknown_content_file_count > 0 {
+            features.push("unknown_data_file_content_present");
+        }
+        if summary.unknown_status_entry_count > 0 {
+            features.push("unknown_manifest_entry_status_present");
+        }
     }
     features
 }
@@ -6644,31 +7288,56 @@ fn iceberg_unsupported_feature_diagnostics(features: &[&'static str]) -> Vec<Dia
         .collect()
 }
 
-fn iceberg_metadata_summary(
-    table_uuid: &str,
-    current_snapshot_id: &str,
-    selected_snapshot: &IcebergMetadataSnapshotSummary,
-    root: &serde_json::Map<String, serde_json::Value>,
-    schemas: &[serde_json::Value],
-    snapshots: &[serde_json::Value],
-) -> String {
+struct IcebergMetadataSummaryContext<'a> {
+    table_uuid: &'a str,
+    current_snapshot_id: &'a str,
+    selected_snapshot: &'a IcebergMetadataSnapshotSummary,
+    manifest_list_summary: Option<&'a IcebergManifestListSummary>,
+    manifest_file_summary: Option<&'a IcebergManifestFileSummary>,
+    root: &'a serde_json::Map<String, serde_json::Value>,
+    schemas: &'a [serde_json::Value],
+    snapshots: &'a [serde_json::Value],
+}
+
+fn iceberg_metadata_summary(context: &IcebergMetadataSummaryContext<'_>) -> String {
+    let manifest_list_read = context.manifest_list_summary.is_some();
+    let manifest_file_read = context.manifest_file_summary.is_some();
+    let planned_manifest_splits = context
+        .manifest_list_summary
+        .map_or(0, |summary| summary.planned_manifest_split_count);
+    let planned_data_files = context.manifest_file_summary.map_or_else(
+        || {
+            context
+                .manifest_list_summary
+                .map_or(0, |summary| summary.planned_data_file_count)
+        },
+        |summary| summary.planned_data_file_count,
+    );
     format!(
-        "protocol=iceberg table_uuid={} format_version={} current_schema_id={} current_snapshot_id={} selected_snapshot_id={} schemas={} partition_specs={} sort_orders={} snapshots={} manifest_list_refs={} delete_files={} catalog_io=false object_store_io=false data_file_read=false fallback_attempted=false external_engine_invoked=false",
-        table_uuid,
-        root.get("format-version")
+        "protocol=iceberg table_uuid={} format_version={} current_schema_id={} current_snapshot_id={} selected_snapshot_id={} schemas={} partition_specs={} sort_orders={} snapshots={} manifest_list_refs={} manifest_list_read={} manifest_file_read={} planned_manifest_splits={} planned_data_files={} delete_files={} catalog_io=false object_store_io=false data_file_read=false fallback_attempted=false external_engine_invoked=false",
+        context.table_uuid,
+        context
+            .root
+            .get("format-version")
             .and_then(serde_json::Value::as_u64)
             .unwrap_or(0),
-        root.get("current-schema-id")
+        context
+            .root
+            .get("current-schema-id")
             .and_then(json_i64_string)
             .unwrap_or_else(|| "none".to_string()),
-        current_snapshot_id,
-        selected_snapshot.snapshot_id,
-        schemas.len(),
-        optional_array_len(root, "partition-specs"),
-        optional_array_len(root, "sort-orders"),
-        snapshots.len(),
-        manifest_list_ref_count(snapshots),
-        selected_snapshot.delete_file_count
+        context.current_snapshot_id,
+        context.selected_snapshot.snapshot_id,
+        context.schemas.len(),
+        optional_array_len(context.root, "partition-specs"),
+        optional_array_len(context.root, "sort-orders"),
+        context.snapshots.len(),
+        manifest_list_ref_count(context.snapshots),
+        manifest_list_read,
+        manifest_file_read,
+        planned_manifest_splits,
+        planned_data_files,
+        context.selected_snapshot.delete_file_count
     )
 }
 
@@ -6687,6 +7356,8 @@ fn iceberg_metadata_read_smoke_fields(
     let mut fields = vec![];
     append_iceberg_metadata_identity_fields(&mut fields, report);
     append_iceberg_metadata_summary_fields(&mut fields, report);
+    append_iceberg_manifest_list_summary_fields(&mut fields, report);
+    append_iceberg_manifest_file_summary_fields(&mut fields, report);
     append_iceberg_metadata_evidence_fields(&mut fields, report);
     append_iceberg_metadata_boundary_fields(&mut fields, report);
     append_iceberg_metadata_diagnostic_fields(&mut fields, report);
@@ -6801,6 +7472,328 @@ fn append_iceberg_metadata_summary_fields(
         fields,
         "metadata_summary_digest",
         &report.metadata_summary_digest,
+    );
+}
+
+fn push_optional_count_field<T>(
+    fields: &mut Vec<(String, String)>,
+    key: &str,
+    value: Option<&T>,
+    extract: impl FnOnce(&T) -> usize,
+) {
+    push_count_field(fields, key, value.map_or(0, extract));
+}
+
+fn push_optional_u64_field<T>(
+    fields: &mut Vec<(String, String)>,
+    key: &str,
+    value: Option<&T>,
+    extract: impl FnOnce(&T) -> u64,
+) {
+    push_field(fields, key, &value.map_or(0, extract).to_string());
+}
+
+fn append_iceberg_manifest_list_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &IcebergMetadataReadSmokeReport,
+) {
+    let summary = report.manifest_list_summary.as_ref();
+    append_iceberg_manifest_list_request_fields(fields, report, summary);
+    append_iceberg_manifest_list_count_fields(fields, summary);
+    append_iceberg_manifest_admission_fields(fields, report, summary);
+}
+
+fn append_iceberg_manifest_list_request_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &IcebergMetadataReadSmokeReport,
+    summary: Option<&IcebergManifestListSummary>,
+) {
+    push_bool_field(
+        fields,
+        "manifest_list_requested",
+        report.manifest_list_requested(),
+    );
+    push_bool_field(
+        fields,
+        "manifest_list_reader_feature_enabled",
+        report.manifest_list_reader_feature_enabled,
+    );
+    push_field(
+        fields,
+        "manifest_list_path",
+        report
+            .manifest_list_path_requested
+            .as_deref()
+            .unwrap_or("none"),
+    );
+    push_optional_count_field(fields, "manifest_list_bytes_read", summary, |summary| {
+        summary.bytes_read
+    });
+    push_optional_count_field(
+        fields,
+        "manifest_list_schema_column_count",
+        summary,
+        |summary| summary.schema_column_count,
+    );
+    push_optional_count_field(
+        fields,
+        "manifest_list_projected_column_count",
+        summary,
+        |summary| summary.projected_column_count,
+    );
+    push_optional_count_field(fields, "manifest_list_entry_count", summary, |summary| {
+        summary.entry_count
+    });
+}
+
+fn append_iceberg_manifest_list_count_fields(
+    fields: &mut Vec<(String, String)>,
+    summary: Option<&IcebergManifestListSummary>,
+) {
+    push_optional_count_field(
+        fields,
+        "manifest_list_data_manifest_count",
+        summary,
+        |summary| summary.data_manifest_count,
+    );
+    push_optional_count_field(
+        fields,
+        "manifest_list_delete_manifest_count",
+        summary,
+        |summary| summary.delete_manifest_count,
+    );
+    push_optional_count_field(
+        fields,
+        "manifest_list_unknown_content_manifest_count",
+        summary,
+        |summary| summary.unknown_content_manifest_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_list_total_manifest_bytes",
+        summary,
+        |summary| summary.total_manifest_bytes,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_list_added_data_file_count",
+        summary,
+        |summary| summary.added_data_file_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_list_existing_data_file_count",
+        summary,
+        |summary| summary.existing_data_file_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_list_deleted_data_file_count",
+        summary,
+        |summary| summary.deleted_data_file_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_list_added_delete_file_count",
+        summary,
+        |summary| summary.added_delete_file_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_list_existing_delete_file_count",
+        summary,
+        |summary| summary.existing_delete_file_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_list_deleted_delete_file_count",
+        summary,
+        |summary| summary.deleted_delete_file_count,
+    );
+    push_bool_field(
+        fields,
+        "manifest_summary_pruning_performed",
+        summary.is_some(),
+    );
+    push_field(
+        fields,
+        "manifest_summary_pruning_rule",
+        summary.map_or("none", |summary| summary.manifest_summary_pruning_rule),
+    );
+    push_bool_field(
+        fields,
+        "manifest_split_planning_performed",
+        summary.is_some(),
+    );
+    push_optional_count_field(fields, "planned_manifest_split_count", summary, |summary| {
+        summary.planned_manifest_split_count
+    });
+    push_optional_u64_field(fields, "planned_data_file_count", summary, |summary| {
+        summary.planned_data_file_count
+    });
+}
+
+fn append_iceberg_manifest_admission_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &IcebergMetadataReadSmokeReport,
+    summary: Option<&IcebergManifestListSummary>,
+) {
+    push_field(
+        fields,
+        "schema_partition_evolution_admission_status",
+        if report.manifest_file_summary.is_some() {
+            "metadata_ids_manifest_partition_spec_ids_and_data_file_partition_struct_visible_no_evolution_execution"
+        } else if summary.is_some() {
+            "metadata_ids_and_manifest_partition_spec_ids_visible_no_evolution_execution"
+        } else {
+            "metadata_ids_visible_no_manifest_summary"
+        },
+    );
+    push_field(
+        fields,
+        "delete_tombstone_deletion_vector_admission_status",
+        if report
+            .manifest_file_summary
+            .as_ref()
+            .is_some_and(|summary| {
+                summary.delete_file_entry_count > 0 || summary.deleted_data_file_count > 0
+            })
+            || summary.is_some_and(|summary| {
+                summary.delete_manifest_count > 0 || summary.total_delete_file_count() > 0
+            })
+        {
+            "delete_manifests_or_delete_files_blocked"
+        } else {
+            "delete_execution_blocked_no_delete_manifest_summary_present"
+        },
+    );
+}
+
+fn append_iceberg_manifest_file_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &IcebergMetadataReadSmokeReport,
+) {
+    let summary = report.manifest_file_summary.as_ref();
+    append_iceberg_manifest_file_request_fields(fields, report, summary);
+    append_iceberg_manifest_file_count_fields(fields, summary);
+}
+
+fn append_iceberg_manifest_file_request_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &IcebergMetadataReadSmokeReport,
+    summary: Option<&IcebergManifestFileSummary>,
+) {
+    push_bool_field(
+        fields,
+        "manifest_file_requested",
+        report.manifest_file_requested(),
+    );
+    push_bool_field(
+        fields,
+        "manifest_file_reader_feature_enabled",
+        report.manifest_file_reader_feature_enabled,
+    );
+    push_field(
+        fields,
+        "manifest_file_path",
+        report
+            .manifest_file_path_requested
+            .as_deref()
+            .unwrap_or("none"),
+    );
+    push_optional_count_field(fields, "manifest_file_bytes_read", summary, |summary| {
+        summary.bytes_read
+    });
+    push_optional_count_field(
+        fields,
+        "manifest_file_schema_column_count",
+        summary,
+        |summary| summary.schema_column_count,
+    );
+    push_optional_count_field(
+        fields,
+        "manifest_file_projected_column_count",
+        summary,
+        |summary| summary.projected_column_count,
+    );
+    push_optional_count_field(fields, "manifest_file_entry_count", summary, |summary| {
+        summary.entry_count
+    });
+}
+
+fn append_iceberg_manifest_file_count_fields(
+    fields: &mut Vec<(String, String)>,
+    summary: Option<&IcebergManifestFileSummary>,
+) {
+    push_optional_u64_field(
+        fields,
+        "manifest_file_added_data_file_count",
+        summary,
+        |summary| summary.added_data_file_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_file_existing_data_file_count",
+        summary,
+        |summary| summary.existing_data_file_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_file_deleted_data_file_count",
+        summary,
+        |summary| summary.deleted_data_file_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_file_delete_file_entry_count",
+        summary,
+        |summary| summary.delete_file_entry_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_file_unknown_content_file_count",
+        summary,
+        |summary| summary.unknown_content_file_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_file_unknown_status_entry_count",
+        summary,
+        |summary| summary.unknown_status_entry_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_file_total_record_count",
+        summary,
+        |summary| summary.total_record_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_file_total_file_size_bytes",
+        summary,
+        |summary| summary.total_file_size_bytes,
+    );
+    push_bool_field(
+        fields,
+        "data_file_split_planning_performed",
+        summary.is_some(),
+    );
+    push_field(
+        fields,
+        "data_file_split_planning_rule",
+        summary.map_or("none", |summary| summary.split_planning_rule),
+    );
+    push_optional_u64_field(
+        fields,
+        "planned_data_file_split_count",
+        summary,
+        |summary| summary.planned_data_file_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "planned_data_file_split_bytes",
+        summary,
+        |summary| summary.planned_data_file_bytes,
     );
 }
 
@@ -6925,6 +7918,11 @@ fn append_iceberg_metadata_diagnostic_fields(
         fields,
         "side_effect_free_except_local_metadata_read",
         report.side_effect_free_except_local_metadata_read(),
+    );
+    push_bool_field(
+        fields,
+        "side_effect_free_except_declared_local_table_reads",
+        report.side_effect_free_except_declared_local_table_reads(),
     );
     push_count_field(
         fields,

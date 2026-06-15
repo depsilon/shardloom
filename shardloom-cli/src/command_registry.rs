@@ -934,7 +934,9 @@ fn command_usage_fragment(command: &str) -> String {
             )
         }
         "iceberg-metadata-read-smoke" => {
-            format!("{command} <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms]")
+            format!(
+                "{command} <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro]"
+            )
         }
         "engine-selection-plan" => {
             format!(

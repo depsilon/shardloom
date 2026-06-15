@@ -1242,10 +1242,14 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
         "The current v1-supported table runtime path remains `local_manifest_table_runtime_v1_candidate`.",
         "`iceberg-metadata-read-smoke`",
         "reads one local Iceberg table metadata JSON file",
-        "External Iceberg manifest-list reads, manifest parsing, data scans, object-store tables, catalog",
+        "With `--manifest-list` and `universal-format-io`",
+        "manifest-level split counts",
+        "`--manifest` and `universal-format-io`",
+        "data-file split counts/bytes/records",
+        "Iceberg data scans, object-store tables",
         "fallback_attempted=false",
         "external_engine_invoked=false",
-        "May not claim: Iceberg manifest-list/manifest/data-file runtime",
+        "May not claim: Iceberg data-file scan/runtime",
         "Glue-like and Hive-like catalog profiles are intentionally not selected",
     ] {
         assert!(
@@ -1263,7 +1267,9 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
         "Hive-like catalog profiles are not selected",
         "the first external candidate and still require separate source/profile review",
         "`iceberg-metadata-read-smoke`",
-        "Extend the selected Iceberg profile beyond local metadata JSON",
+        "Extend the selected Iceberg profile to a scoped, explicitly requested local Avro",
+        "Extend from manifest-list summary into scoped local Iceberg manifest-file parsing",
+        "Lower planned Iceberg data-file splits into ShardLoom-native scan execution",
     ] {
         assert!(
             plan.contains(required),
@@ -1277,6 +1283,10 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
     assert!(table_intelligence.contains("promote external protocols by source review alone"));
     assert!(table_intelligence.contains("shardloom.iceberg_metadata_read_smoke.v1"));
     assert!(table_intelligence.contains("scoped_iceberg_metadata_json_smoke_only"));
+    assert!(table_intelligence.contains("scoped_iceberg_metadata_manifest_list_summary_smoke"));
+    assert!(table_intelligence.contains("scoped_iceberg_manifest_file_split_plan_smoke"));
+    assert!(table_intelligence.contains("planned_manifest_split_count"));
+    assert!(table_intelligence.contains("planned_data_file_split_count"));
     assert!(table_intelligence.contains("unsupported_feature_order=delete_files_present"));
 
     let lakehouse_matrix =
@@ -1287,8 +1297,14 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
     for required in [
         "PROD-READY-1B/1C production evidence hardening",
         "PROD-READY-1C scoped Iceberg metadata JSON smoke",
+        "PROD-READY-1C scoped Iceberg manifest-list summary smoke",
+        "PROD-READY-1C scoped Iceberg manifest-file split-plan smoke",
         "schema_version=shardloom.iceberg_metadata_read_smoke.v1",
         "claim_gate_status=scoped_iceberg_metadata_json_smoke_only",
+        "claim_gate_status=scoped_iceberg_metadata_manifest_list_summary_smoke",
+        "claim_gate_status=scoped_iceberg_manifest_file_split_plan_smoke",
+        "report_id=prod-ready-1c.iceberg_manifest_list_summary_smoke",
+        "report_id=prod-ready-1c.iceberg_manifest_file_split_plan_smoke",
         "Table protocol source review exists before external implementation.",
         "approved_real_backend_profile_declared=false",
         "production_object_store_claim_allowed=false",
