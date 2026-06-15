@@ -366,6 +366,7 @@ fn is_engine_runtime_planning_command(command: &str) -> bool {
             | "live-fixture-run"
             | "hybrid-overlay-run"
             | "live-hybrid-state-transition-smoke"
+            | "live-hybrid-durable-checkpoint-smoke"
             | "distributed-local-fixture-run"
             | "session-cache-smoke"
             | "streaming-plan"
@@ -610,6 +611,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("live-hybrid-state-transition-smoke"),
+            CommandFamily::EngineRuntimePlanning
+        );
+        assert_eq!(
+            classify_command("live-hybrid-durable-checkpoint-smoke"),
             CommandFamily::EngineRuntimePlanning
         );
         assert_eq!(

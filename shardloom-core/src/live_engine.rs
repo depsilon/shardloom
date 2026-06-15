@@ -1,9 +1,10 @@
 //! CG-22 live change contracts, fixture execution, and certification surfaces.
 //!
 //! This module is intentionally narrow: it executes only a deterministic
-//! in-memory fixture when explicitly requested. It does not read brokers,
-//! poll files, touch object stores, write checkpoints, invoke external engines,
-//! or provide fallback execution.
+//! in-memory fixture when explicitly requested, plus one scoped local
+//! filesystem checkpoint/changelog fixture. It does not read brokers, poll
+//! files, touch object stores, invoke external engines, or provide fallback
+//! execution.
 
 #![allow(
     clippy::missing_errors_doc,
@@ -14,7 +15,12 @@
     clippy::too_many_lines
 )]
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    fmt::Write as _,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     ExecutionCertificate, ExecutionCertificateInput, ExpectedOutcome, FallbackStatus,
@@ -100,12 +106,14 @@ impl StateTtlPolicy {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CheckpointPolicy {
     InMemoryDeterministicFixture,
+    LocalFilesystemDeterministicFixture,
 }
 
 impl CheckpointPolicy {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::InMemoryDeterministicFixture => "in_memory_deterministic_fixture",
+            Self::LocalFilesystemDeterministicFixture => "local_filesystem_deterministic_fixture",
         }
     }
 }
@@ -658,6 +666,52 @@ pub struct LiveHybridStateTransitionFixtureReport {
     pub external_engine_invoked: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct LiveHybridDurableCheckpointFixtureReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub fixture_id: &'static str,
+    pub selected_engine_mode: &'static str,
+    pub checkpoint_store_kind: &'static str,
+    pub checkpoint_dir: PathBuf,
+    pub checkpoint_ref: String,
+    pub checkpoint_path: PathBuf,
+    pub changelog_path: PathBuf,
+    pub input_change_record_count: usize,
+    pub active_state_key_count: usize,
+    pub checkpoint_record_count: usize,
+    pub restored_active_state_key_count: usize,
+    pub checkpoint_payload_digest: String,
+    pub restored_checkpoint_payload_digest: String,
+    pub changelog_payload_digest: String,
+    pub checkpoint_bytes_written: u64,
+    pub checkpoint_bytes_read: u64,
+    pub changelog_bytes_written: u64,
+    pub durable_checkpoint_store_used: bool,
+    pub durable_checkpoint_write_performed: bool,
+    pub durable_checkpoint_restore_performed: bool,
+    pub durable_changelog_write_performed: bool,
+    pub state_restore_status: &'static str,
+    pub state_match: bool,
+    pub hot_warm_cold_storage_model: &'static str,
+    pub vortex_micro_segment_persistence_status: &'static str,
+    pub cold_vortex_segment_promotion_status: &'static str,
+    pub broker_io: bool,
+    pub object_store_io: bool,
+    pub write_io: bool,
+    pub runtime_execution: bool,
+    pub fixture_in_memory_source: bool,
+    pub exactly_once_claim_allowed: bool,
+    pub production_claim_allowed: bool,
+    pub fallback: FallbackStatus,
+    pub external_engine_invoked: bool,
+    pub freshness_certificate: FreshnessCertificate,
+    pub state_certificate: StateCertificate,
+    pub execution_certificate: ExecutionCertificate,
+    pub native_io_certificate: NativeIoCertificate,
+}
+
 impl LiveHybridStateTransitionFixtureReport {
     pub fn has_errors(&self) -> bool {
         self.fallback.attempted
@@ -698,6 +752,47 @@ impl LiveHybridStateTransitionFixtureReport {
             self.cancellation_cleanup_completed,
             self.freshness_certificate.status.as_str(),
             self.state_certificate.status.as_str(),
+        )
+    }
+}
+
+impl LiveHybridDurableCheckpointFixtureReport {
+    pub fn has_errors(&self) -> bool {
+        self.fallback.attempted
+            || self.external_engine_invoked
+            || self.broker_io
+            || self.object_store_io
+            || !self.write_io
+            || !self.durable_checkpoint_store_used
+            || !self.durable_checkpoint_write_performed
+            || !self.durable_checkpoint_restore_performed
+            || !self.durable_changelog_write_performed
+            || !self.state_match
+            || self.checkpoint_payload_digest != self.restored_checkpoint_payload_digest
+            || !self.execution_certificate.is_certified()
+            || !self.native_io_certificate.is_certified()
+            || self.freshness_certificate.status != LiveCertificateStatus::Certified
+            || self.state_certificate.status != LiveCertificateStatus::Certified
+    }
+
+    pub const fn fallback_attempted(&self) -> bool {
+        self.fallback.attempted
+    }
+
+    pub fn no_fallback_no_external_engine(&self) -> bool {
+        !self.fallback_attempted() && !self.external_engine_invoked
+    }
+
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "live/hybrid durable checkpoint fixture\nschema_version: {}\nreport: {}\ncheckpoint: {}\nchangelog: {}\nrecords: {}\nstate restore: {}\ncheckpoint digest: {}\nfallback execution: disabled\nexternal engine invoked: false",
+            self.schema_version,
+            self.report_id,
+            self.checkpoint_path.display(),
+            self.changelog_path.display(),
+            self.checkpoint_record_count,
+            self.state_restore_status,
+            self.checkpoint_payload_digest,
         )
     }
 }
@@ -917,6 +1012,122 @@ pub fn run_live_hybrid_state_transition_fixture() -> Result<LiveHybridStateTrans
     })
 }
 
+pub fn run_live_hybrid_durable_checkpoint_fixture(
+    checkpoint_dir: impl AsRef<Path>,
+) -> Result<LiveHybridDurableCheckpointFixtureReport> {
+    let checkpoint_dir = checkpoint_dir.as_ref();
+    if checkpoint_dir.as_os_str().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "checkpoint directory must not be empty".to_string(),
+        ));
+    }
+    if is_remote_path(checkpoint_dir) {
+        return Err(ShardLoomError::InvalidOperation(
+            "live/hybrid durable checkpoint fixture supports local filesystem paths only; broker, object-store, and remote checkpoint stores remain blocked".to_string(),
+        ));
+    }
+
+    let input_change_records = cg22_live_fixture_records();
+    let active_state = apply_change_records(&input_change_records);
+    let output_rows = active_state
+        .values()
+        .map(LiveOutputRow::from_record)
+        .collect::<Vec<_>>();
+    let freshness_certificate = FreshnessCertificate::from_records(&input_change_records);
+    let mut state_certificate =
+        StateCertificate::from_records(&input_change_records, active_state.len());
+    state_certificate.checkpoint_policy = CheckpointPolicy::LocalFilesystemDeterministicFixture;
+    state_certificate.checkpoint_ref =
+        "checkpoint://cg22/live-hybrid/durable-local/seq-10".to_string();
+    state_certificate.checkpoint_write_performed = true;
+
+    fs::create_dir_all(checkpoint_dir).map_err(|error| {
+        ShardLoomError::Message(format!(
+            "failed to create local checkpoint fixture directory '{}': {error}",
+            checkpoint_dir.display()
+        ))
+    })?;
+    let checkpoint_path = checkpoint_dir.join("cg22-live-hybrid-checkpoint.json");
+    let changelog_path = checkpoint_dir.join("cg22-live-hybrid-changelog.jsonl");
+    let checkpoint_payload = durable_checkpoint_payload(&input_change_records, &active_state);
+    let changelog_payload = durable_changelog_payload(&input_change_records);
+
+    fs::write(&checkpoint_path, checkpoint_payload.as_bytes()).map_err(|error| {
+        ShardLoomError::Message(format!(
+            "failed to write local checkpoint fixture '{}': {error}",
+            checkpoint_path.display()
+        ))
+    })?;
+    fs::write(&changelog_path, changelog_payload.as_bytes()).map_err(|error| {
+        ShardLoomError::Message(format!(
+            "failed to write local changelog fixture '{}': {error}",
+            changelog_path.display()
+        ))
+    })?;
+
+    let restored_checkpoint_payload = fs::read_to_string(&checkpoint_path).map_err(|error| {
+        ShardLoomError::Message(format!(
+            "failed to read local checkpoint fixture '{}': {error}",
+            checkpoint_path.display()
+        ))
+    })?;
+    let checkpoint_payload_digest = stable_digest(&checkpoint_payload);
+    let restored_checkpoint_payload_digest = stable_digest(&restored_checkpoint_payload);
+    let changelog_payload_digest = stable_digest(&changelog_payload);
+    let restored_active_state_key_count =
+        restored_active_state_key_count(&restored_checkpoint_payload);
+    let state_match = checkpoint_payload_digest == restored_checkpoint_payload_digest
+        && restored_active_state_key_count == active_state.len();
+
+    Ok(LiveHybridDurableCheckpointFixtureReport {
+        schema_version: "shardloom.live_hybrid_durable_checkpoint_fixture.v1",
+        report_id: "cg22.live_hybrid.fixture.durable_checkpoint".to_string(),
+        fixture_id: "cg22.live_hybrid.durable_checkpoint.fixture.v1",
+        selected_engine_mode: "hybrid",
+        checkpoint_store_kind: "local_filesystem_fixture_store",
+        checkpoint_dir: checkpoint_dir.to_path_buf(),
+        checkpoint_ref: "checkpoint://cg22/live-hybrid/durable-local/seq-10".to_string(),
+        checkpoint_path,
+        changelog_path,
+        input_change_record_count: input_change_records.len(),
+        active_state_key_count: active_state.len(),
+        checkpoint_record_count: active_state.len(),
+        restored_active_state_key_count,
+        checkpoint_payload_digest,
+        restored_checkpoint_payload_digest,
+        changelog_payload_digest,
+        checkpoint_bytes_written: usize_to_u64(checkpoint_payload.len()),
+        checkpoint_bytes_read: usize_to_u64(restored_checkpoint_payload.len()),
+        changelog_bytes_written: usize_to_u64(changelog_payload.len()),
+        durable_checkpoint_store_used: true,
+        durable_checkpoint_write_performed: true,
+        durable_checkpoint_restore_performed: true,
+        durable_changelog_write_performed: true,
+        state_restore_status: if state_match {
+            "restored_local_checkpoint_digest_and_key_count_match"
+        } else {
+            "blocked_local_checkpoint_restore_mismatch"
+        },
+        state_match,
+        hot_warm_cold_storage_model: "hot_in_memory_changes_to_local_checkpoint_and_changelog_fixture",
+        vortex_micro_segment_persistence_status: "blocked_not_in_scope_local_checkpoint_fixture",
+        cold_vortex_segment_promotion_status: "blocked_not_in_scope_local_checkpoint_fixture",
+        broker_io: false,
+        object_store_io: false,
+        write_io: true,
+        runtime_execution: true,
+        fixture_in_memory_source: true,
+        exactly_once_claim_allowed: false,
+        production_claim_allowed: false,
+        fallback: FallbackStatus::disabled_by_policy(),
+        external_engine_invoked: false,
+        freshness_certificate,
+        state_certificate,
+        execution_certificate: durable_checkpoint_execution_certificate(output_rows.len())?,
+        native_io_certificate: durable_checkpoint_native_io_certificate()?,
+    })
+}
+
 fn cg22_live_fixture_records() -> Vec<ChangeRecord> {
     vec![
         ChangeRecord::fixture("a", ChangeOperation::Append, 1, 1_000, "east", 2),
@@ -1065,6 +1276,120 @@ fn output_changelog_for(
         .collect()
 }
 
+fn durable_checkpoint_payload(
+    input_change_records: &[ChangeRecord],
+    active_state: &BTreeMap<String, ChangeRecord>,
+) -> String {
+    let mut active_rows = Vec::new();
+    for (key, record) in active_state {
+        active_rows.push(format!(
+            "{{\"active_key\":\"{}\",\"operation\":\"{}\",\"sequence\":{},\"event_time_ms\":{},\"processing_time_ms\":{},\"source_offset\":{},\"schema_digest\":\"{}\",\"metric\":\"{}\",\"value\":{},\"payload_ref\":\"{}\"}}",
+            escape_json(key),
+            record.operation.as_str(),
+            record.sequence,
+            record.event_time_ms,
+            record.processing_time_ms,
+            record.source_offset,
+            escape_json(&record.schema_digest),
+            escape_json(&record.metric),
+            record.value,
+            escape_json(&record.payload_ref),
+        ));
+    }
+
+    let sequence_order = input_change_records
+        .iter()
+        .map(|record| record.sequence.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    let operation_order = input_change_records
+        .iter()
+        .map(|record| format!("\"{}\"", record.operation.as_str()))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    format!(
+        "{{\"schema_version\":\"shardloom.live_hybrid_local_checkpoint.v1\",\"checkpoint_ref\":\"checkpoint://cg22/live-hybrid/durable-local/seq-10\",\"checkpoint_policy\":\"{}\",\"input_change_record_count\":{},\"active_state_key_count\":{},\"input_sequence_order\":[{}],\"input_operation_order\":[{}],\"active_state\":[{}]}}\n",
+        CheckpointPolicy::LocalFilesystemDeterministicFixture.as_str(),
+        input_change_records.len(),
+        active_state.len(),
+        sequence_order,
+        operation_order,
+        active_rows.join(","),
+    )
+}
+
+fn durable_changelog_payload(input_change_records: &[ChangeRecord]) -> String {
+    input_change_records
+        .iter()
+        .map(|record| {
+            format!(
+                "{{\"schema_version\":\"shardloom.live_hybrid_local_changelog.v1\",\"key\":\"{}\",\"operation\":\"{}\",\"sequence\":{},\"event_time_ms\":{},\"processing_time_ms\":{},\"source_offset\":{},\"schema_digest\":\"{}\",\"metric\":\"{}\",\"value\":{},\"payload_ref\":\"{}\"}}",
+                escape_json(&record.key),
+                record.operation.as_str(),
+                record.sequence,
+                record.event_time_ms,
+                record.processing_time_ms,
+                record.source_offset,
+                escape_json(&record.schema_digest),
+                escape_json(&record.metric),
+                record.value,
+                escape_json(&record.payload_ref),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n"
+}
+
+fn restored_active_state_key_count(checkpoint_payload: &str) -> usize {
+    checkpoint_payload.matches("\"active_key\":").count()
+}
+
+fn is_remote_path(path: &Path) -> bool {
+    let raw = path.to_string_lossy();
+    let normalized = raw.trim().to_ascii_lowercase();
+    normalized.contains("://")
+        || normalized.starts_with("s3:")
+        || normalized.starts_with("gs:")
+        || normalized.starts_with("abfs:")
+        || normalized.starts_with("abfss:")
+        || normalized.starts_with("az:")
+        || normalized.starts_with("http:")
+        || normalized.starts_with("https:")
+}
+
+fn escape_json(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            c if c.is_control() => {
+                let _ = write!(&mut escaped, "\\u{:04x}", c as u32);
+            }
+            c => escaped.push(c),
+        }
+    }
+    escaped
+}
+
+fn stable_digest(input: &str) -> String {
+    format!("fnv64:{:016x}", stable_hash_u64(input))
+}
+
+fn stable_hash_u64(input: &str) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in input.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
+}
+
 fn execution_certificate_for(
     input: &LiveFixtureRunInput,
     output_row_count: usize,
@@ -1083,6 +1408,33 @@ fn execution_certificate_for(
         input.operator.as_str()
     ));
     certificate_input.correctness_fixture_id = Some("cg22.live.fixture.v1".to_string());
+    let outcome = ExpectedOutcome::Rows {
+        row_count: Some(usize_to_u64(output_row_count)),
+    };
+    certificate_input.expected_outcome = Some(outcome.clone());
+    certificate_input.actual_outcome = Some(outcome);
+    certificate_input.correctness_passed = true;
+    Ok(ExecutionCertificate::evaluate(certificate_input))
+}
+
+fn durable_checkpoint_execution_certificate(
+    output_row_count: usize,
+) -> Result<ExecutionCertificate> {
+    let mut certificate_input = ExecutionCertificateInput::new(
+        "cg22.live_hybrid.fixture.durable_checkpoint.execution",
+        "live_hybrid_local_checkpoint_fixture",
+    )?;
+    certificate_input.provider_crate = Some("shardloom-core".to_string());
+    certificate_input.provider_api_surface =
+        Some("run_live_hybrid_durable_checkpoint_fixture".to_string());
+    certificate_input.shardloom_admission_policy =
+        Some("cg22_live_hybrid_local_checkpoint_fixture_only".to_string());
+    certificate_input.plan_ref = Some("plan://cg22/live-hybrid/durable-checkpoint".to_string());
+    certificate_input.input_ref = Some("fixture://cg22/live/change-records".to_string());
+    certificate_input.output_ref =
+        Some("checkpoint://cg22/live-hybrid/durable-local/seq-10".to_string());
+    certificate_input.correctness_fixture_id =
+        Some("cg22.live_hybrid.durable_checkpoint.fixture.v1".to_string());
     let outcome = ExpectedOutcome::Rows {
         row_count: Some(usize_to_u64(output_row_count)),
     };
@@ -1157,6 +1509,85 @@ fn native_io_certificate_for(input: &LiveFixtureRunInput) -> Result<NativeIoCert
             arrow_converted: false,
             object_store_io: false,
             write_io: false,
+            spill_io_performed: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+        },
+        Vec::new(),
+    )
+}
+
+fn durable_checkpoint_native_io_certificate() -> Result<NativeIoCertificate> {
+    NativeIoCertificate::new(
+        "cg22.live_hybrid.fixture.durable_checkpoint.native_io",
+        "in_memory_change_fixture_to_local_checkpoint_changelog",
+        NativeIoSourceCapabilityReport {
+            source_kind: "in_memory_change_fixture".to_string(),
+            adapter_id: "cg22.live_hybrid.local_checkpoint_fixture".to_string(),
+            schema_discovery_status: "declared_change_record_schema_digest".to_string(),
+            statistics_availability: "fixture_cardinality_known".to_string(),
+            pushdown_capabilities: "append,upsert,delete,retract,tombstone".to_string(),
+            encoded_representation_preserved: false,
+            range_read_capability: false,
+            streaming_capability: true,
+            object_store_capability: false,
+            fallback_attempted: false,
+        },
+        NativeIoSourcePushdownReport {
+            accepted_operations: vec![
+                "checkpoint_write".to_string(),
+                "checkpoint_restore".to_string(),
+                "changelog_write".to_string(),
+            ],
+            rejected_operations: vec![
+                "broker_read".to_string(),
+                "object_store_checkpoint".to_string(),
+                "remote_checkpoint_store".to_string(),
+                "external_engine_execution".to_string(),
+            ],
+            guarantee: "local_filesystem_fixture_only_deterministic".to_string(),
+            proof_basis: "checkpoint_payload_digest_and_restore_key_count".to_string(),
+            residual_expression: None,
+            conservative_false_positive_policy: true,
+            unsafe_rejected_reason: None,
+            fallback_attempted: false,
+        },
+        Vec::new(),
+        NativeIoSinkRequirementReport {
+            target_format: "local_checkpoint_json_and_changelog_jsonl".to_string(),
+            accepts_encoded: false,
+            requires_decoded_columnar: false,
+            requires_rows: true,
+            preserves_metadata: true,
+            requires_ordering: true,
+            requires_partitioning: false,
+            requires_commit: false,
+            supports_streaming: true,
+            max_chunk_size: Some(10),
+            backpressure_policy: "bounded_fixture_single_checkpoint_write".to_string(),
+        },
+        NativeIoAdapterFidelityReport {
+            adapter_id: "cg22.live_hybrid.local_checkpoint_fixture".to_string(),
+            source_kind: "in_memory_change_fixture".to_string(),
+            sink_kind: "local_filesystem_checkpoint_changelog".to_string(),
+            metadata_preserved: true,
+            statistics_preserved: true,
+            encoded_representation_preserved: false,
+            materialization_required: true,
+            fidelity_loss: "none_for_fixture_checkpoint_contract".to_string(),
+            metadata_loss: "none".to_string(),
+            fallback_attempted: false,
+        },
+        Vec::new(),
+        NativeIoSideEffectReport {
+            data_read: false,
+            data_decoded: false,
+            data_materialized: true,
+            row_read: false,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: true,
             spill_io_performed: false,
             external_effects_executed: false,
             fallback_attempted: false,
@@ -1391,5 +1822,72 @@ mod tests {
         );
         assert!(report.no_fallback_no_external_engine());
         assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn live_hybrid_durable_checkpoint_fixture_writes_and_restores_local_checkpoint() {
+        let checkpoint_dir = std::env::temp_dir().join(format!(
+            "shardloom-live-hybrid-checkpoint-{}-{}",
+            std::process::id(),
+            stable_hash_u64("live_hybrid_durable_checkpoint_fixture")
+        ));
+        let _ = fs::remove_dir_all(&checkpoint_dir);
+
+        let report = run_live_hybrid_durable_checkpoint_fixture(&checkpoint_dir)
+            .expect("durable checkpoint fixture");
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.live_hybrid_durable_checkpoint_fixture.v1"
+        );
+        assert_eq!(report.selected_engine_mode, "hybrid");
+        assert_eq!(
+            report.checkpoint_store_kind,
+            "local_filesystem_fixture_store"
+        );
+        assert_eq!(report.input_change_record_count, 10);
+        assert_eq!(report.active_state_key_count, 3);
+        assert_eq!(report.checkpoint_record_count, 3);
+        assert_eq!(report.restored_active_state_key_count, 3);
+        assert_eq!(
+            report.checkpoint_payload_digest,
+            report.restored_checkpoint_payload_digest
+        );
+        assert!(report.checkpoint_bytes_written > 0);
+        assert_eq!(
+            report.checkpoint_bytes_written,
+            report.checkpoint_bytes_read
+        );
+        assert!(report.changelog_bytes_written > report.checkpoint_bytes_written);
+        assert!(report.durable_checkpoint_store_used);
+        assert!(report.durable_checkpoint_write_performed);
+        assert!(report.durable_checkpoint_restore_performed);
+        assert!(report.durable_changelog_write_performed);
+        assert!(report.state_match);
+        assert_eq!(
+            report.state_certificate.checkpoint_policy,
+            CheckpointPolicy::LocalFilesystemDeterministicFixture
+        );
+        assert!(report.write_io);
+        assert!(!report.broker_io);
+        assert!(!report.object_store_io);
+        assert!(!report.exactly_once_claim_allowed);
+        assert!(!report.production_claim_allowed);
+        assert!(report.execution_certificate.is_certified());
+        assert!(report.native_io_certificate.is_certified());
+        assert!(report.checkpoint_path.exists());
+        assert!(report.changelog_path.exists());
+        assert!(report.no_fallback_no_external_engine());
+        assert!(!report.has_errors());
+
+        fs::remove_dir_all(&checkpoint_dir).expect("cleanup checkpoint fixture directory");
+    }
+
+    #[test]
+    fn live_hybrid_durable_checkpoint_fixture_rejects_remote_checkpoint_paths() {
+        let error = run_live_hybrid_durable_checkpoint_fixture("s3://bucket/checkpoint")
+            .expect_err("remote checkpoint path is rejected");
+
+        assert!(error.message().contains("local filesystem paths only"));
     }
 }

@@ -487,7 +487,9 @@ with a recorded infeasibility reason, not merely because they are broad.
     external-engine execution. This is not a production distributed runtime: no remote worker
     service, network coordinator, object-store split distribution, remote shuffle, distributed
     spill/backpressure, multi-host fault injection, multi-worker performance benchmark, or
-    production claim exists.
+    production claim exists. Python client/context wrappers now expose the scoped local
+    distributed fixture so user-surface smoke/UAT can run the same evidence path without bypassing
+    CLI certificates.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include a local or scoped
     multi-worker runtime in v1 if coordinator/worker lifecycle, fault cases, deterministic merge,
     cleanup, and benchmark evidence can close; otherwise narrow to deterministic unsupported
@@ -513,6 +515,8 @@ with a recorded infeasibility reason, not merely because they are broad.
       distributed runtime claim.
     - [x] Emit distributed execution certificates linking input splits, worker attempts,
       retries/cancellations, fragments, merge output, and no-fallback evidence.
+    - [x] Expose the scoped local distributed fixture through Python client/context wrappers and
+      user-surface graduation metadata without changing the production distributed claim boundary.
     - [x] Add scoped local fault-injection tests for retry, duplicate attempt, stale lease,
       cancellation cleanup, and partial-output non-commit.
     - [ ] Add production fault-injection tests for worker crash, cleanup failure, remote worker
@@ -555,9 +559,14 @@ with a recorded infeasibility reason, not merely because they are broad.
     Native I/O, no-fallback, and no-external-engine evidence. `hybrid-overlay-run` emits scoped
     delta-overlay, base/merged snapshot, hot changelog, flush, and certificate evidence.
     `live-hybrid-state-transition-smoke` emits retry, cancellation, cleanup, partial-output,
-    state-transition, freshness, and state evidence. This is not production streaming: there is no
-    broker, unbounded scheduler, durable state/checkpoint store, object-store/catalog checkpoint,
-    exactly-once claim, external connector, or benchmark performance claim.
+    state-transition, freshness, and state evidence. `live-hybrid-durable-checkpoint-smoke` now
+    writes an explicit caller-provided local checkpoint JSON and changelog JSONL, reads the
+    checkpoint back, verifies checkpoint/restored digests and active key count, and emits
+    freshness, state, execution-certificate, Native I/O, write-IO, and no-fallback evidence through
+    CLI and Python client/context wrappers. This is not production streaming: there is no broker,
+    unbounded scheduler, production durable state/checkpoint store, object-store/catalog
+    checkpoint, exactly-once claim, external connector, Vortex micro-segment persistence, cold
+    Vortex promotion, or benchmark performance claim.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
     live/hybrid workload in v1 if state, checkpoint, recovery, freshness, output mode, and
     certificate evidence can close; otherwise narrow or defer with a concrete feasibility reason.
@@ -580,6 +589,11 @@ with a recorded infeasibility reason, not merely because they are broad.
       Native I/O, and no-fallback evidence for the scoped live/hybrid fixture paths.
     - [x] Add recovery/fault evidence for cooperative cancellation, retry, partial-output tracking,
       cleanup completion, late-data counting, and unsupported predicate/column rejection.
+    - [x] Add a scoped local filesystem checkpoint/changelog fixture for one bounded live/hybrid
+      workload, including deterministic checkpoint payload, changelog payload, readback restore,
+      digest/key-count verification, explicit write-IO reporting, execution and Native I/O
+      certificates, Python client/context wrappers, runs-today support row, and production workload
+      evidence row.
     - [ ] Implement production state store, durable changelog, durable checkpoint/restore,
       hot/warm/cold storage model, Vortex micro-segment persistence, cold Vortex segment promotion,
       and deletion-vector/tombstone persistence for an admitted live/hybrid workload.

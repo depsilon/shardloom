@@ -184,6 +184,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "live-fixture-run",
     "hybrid-overlay-run",
     "live-hybrid-state-transition-smoke",
+    "live-hybrid-durable-checkpoint-smoke",
     "distributed-local-fixture-run",
     "session-cache-smoke",
     "streaming-plan",
@@ -955,6 +956,9 @@ fn command_usage_fragment(command: &str) -> String {
                 "{command} [filter|project|count|count-where|group-count] [predicate|columns|group-column]"
             )
         }
+        "live-hybrid-durable-checkpoint-smoke" => {
+            format!("{command} <checkpoint-dir>")
+        }
         "distributed-local-fixture-run" => {
             format!("{command} [worker-count] [none|fault-injection]")
         }
@@ -1187,6 +1191,9 @@ fn command_input_contract(command: &str) -> &'static str {
     if command == "session-cache-smoke" {
         return "scoped_cli_session_cache_lifecycle_smoke";
     }
+    if command == "live-hybrid-durable-checkpoint-smoke" {
+        return "explicit_local_filesystem_checkpoint_directory";
+    }
     if command == "route" {
         return "declared_public_workflow_route_request";
     }
@@ -1228,6 +1235,9 @@ fn command_output_contract(command: &str) -> &'static str {
     }
     if command == "session-cache-smoke" {
         return "typed_envelope_plus_session_cache_reuse_invalidation_and_cleanup_evidence";
+    }
+    if command == "live-hybrid-durable-checkpoint-smoke" {
+        return "typed_envelope_plus_local_checkpoint_changelog_restore_and_no_fallback_evidence";
     }
     if command == "route" {
         return "typed_public_workflow_route_envelope_no_execution";

@@ -6,7 +6,7 @@ Source: `shardloom-cli/src/command_registry.rs`
 
 Report id: `review-p1-1.command_registry`
 
-Registered command count: 210
+Registered command count: 211
 
 Support-state vocabulary: executable, feature_gated, diagnostic_only, report_only, blocked, future
 
@@ -23,12 +23,13 @@ Public workflow facade commands: `shardloom route <sql|python|dataframe|cli> --f
 
 Scoped public helper coverage: Python lazy DataFrame bounded `collect()`, general `write(...)`,
 `write_jsonl(...)`, `write_csv(...)`, structured write aliases, generated-source direct writes,
-source-free SQL writes, admitted local/generated fanout helpers, and explicit native Vortex
-primitive collect/local-execution helpers route through `shardloom run` and preserve typed report
-views. Lower smoke/runtime/primitive commands remain executable `client_only` diagnostics and
-benchmark/evidence surfaces, while `route`, `run`, and `prepare` are the high-level CLI context
-commands. Future helper families and any future native Vortex write-helper payloads are deferred
-until their owning runtime items define explicit facade payload contracts.
+source-free SQL writes, admitted local/generated fanout helpers, explicit native Vortex
+primitive collect/local-execution helpers, scoped local distributed fixture execution, and scoped
+live/hybrid local checkpoint/changelog fixture execution route through typed envelopes and
+preserve report views. Lower smoke/runtime/primitive commands remain executable `client_only`
+diagnostics and benchmark/evidence surfaces, while `route`, `run`, and `prepare` are the
+high-level CLI context commands. Future helper families and any future native Vortex write-helper
+payloads are deferred until their owning runtime items define explicit facade payload contracts.
 
 Help aliases: shardloom --help; shardloom -h; shardloom <command> --help
 

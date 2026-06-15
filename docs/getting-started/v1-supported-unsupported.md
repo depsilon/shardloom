@@ -11,7 +11,7 @@ This page is generated from `docs/status/runs-today-support-matrix.json` and `do
 
 ```text
 runs_today_schema_version=shardloom.runs_today_support_matrix.v1
-runs_today_row_count=38
+runs_today_row_count=39
 production_unsupported_diagnostic_schema_version=shardloom.production_unsupported_diagnostics.v1
 production_unsupported_diagnostic_row_count=10
 package_channel_schema_version=shardloom.package_channel_readiness_matrix.v1
@@ -76,6 +76,7 @@ Use this page to decide what can be run locally today and what must return a det
 | compatibility_import_certified | executable | default | true | true | fixture_smoke_only | certified local cold-route fixture evidence only |
 | direct_compatibility_transient | executable | default | true | false | fixture_smoke_only | scoped local source-backed execution only |
 | distributed-local-fixture-run, local coordinator, local workers, split fragments, deterministic merge | executable | default | true | false | not_claim_grade | scoped in-process local distributed fixture with local hash repartition/local combine/global merge only; no remote worker, object-store, remote shuffle, spill IO, production, performance, or Spark-displacement claim |
+| live-hybrid-durable-checkpoint-smoke, local checkpoint JSON, local changelog JSONL, restore digest | executable | default | true | true | not_claim_grade | scoped local filesystem checkpoint/changelog fixture only; no broker, object-store checkpoint, Vortex micro-segment persistence, cold Vortex promotion, exactly-once, production streaming, performance, or Spark-displacement claim |
 | live, hybrid, remote, distributed | future | not_enabled | false | false | not_claim_grade | future execution fabric; no remote/distributed runtime claim |
 | native_vortex | executable | default | true | false | fixture_smoke_only | scoped local count/filter/project primitive coverage only |
 | prepared_vortex | executable | default | true | false | not_claim_grade | prepared local Vortex reuse route only; not broad Vortex-native operator completeness |

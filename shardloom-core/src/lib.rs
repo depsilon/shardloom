@@ -225,9 +225,10 @@ pub use live_engine::{
     ChangeOperation, ChangeRecord, CheckpointPolicy, ContinuousViewCertificate,
     FreshnessCertificate, LateDataPolicy, LiveCertificateStatus, LiveChangeContractReport,
     LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport,
-    LiveHybridStateTransitionFixtureReport, LiveOutputRow, OutputChangelogEntry,
-    OutputChangelogMode, StateCertificate, StateTtlPolicy, WatermarkPolicy,
-    plan_live_change_contract, run_live_fixture, run_live_hybrid_state_transition_fixture,
+    LiveHybridDurableCheckpointFixtureReport, LiveHybridStateTransitionFixtureReport,
+    LiveOutputRow, OutputChangelogEntry, OutputChangelogMode, StateCertificate, StateTtlPolicy,
+    WatermarkPolicy, plan_live_change_contract, run_live_fixture,
+    run_live_hybrid_durable_checkpoint_fixture, run_live_hybrid_state_transition_fixture,
 };
 
 pub use manifest::{

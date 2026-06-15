@@ -22,7 +22,9 @@ from .client import (
     HybridOverlayRunReport,
     LiveChangeContractPlan,
     LiveFixtureRunReport,
+    LiveHybridDurableCheckpointReport,
     LiveHybridStateTransitionReport,
+    LocalDistributedFixtureRunReport,
     PublicWorkflowExecution,
     PublicWorkflowRoute,
     PythonClientSmokeReport,
@@ -5370,28 +5372,50 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "live-fixture-run",
             "hybrid-overlay-run",
             "live-hybrid-state-transition-smoke",
+            "live-hybrid-durable-checkpoint-smoke",
         ),
         context_methods=(
             "live_fixture_run",
             "hybrid_overlay_run",
             "live_hybrid_state_transition_smoke",
+            "live_hybrid_durable_checkpoint_smoke",
         ),
         client_methods=(
             "live_fixture_run",
             "hybrid_overlay_run",
             "live_hybrid_state_transition_smoke",
+            "live_hybrid_durable_checkpoint_smoke",
             "live_etl_smoke",
             "live_etl_csv_to_vortex_replay",
         ),
-        runtime_route="live-fixture-run|hybrid-overlay-run|live-hybrid-state-transition-smoke",
-        promotion_criteria="only in-memory local fixture live/hybrid operators are promoted",
+        runtime_route="live-fixture-run|hybrid-overlay-run|live-hybrid-state-transition-smoke|live-hybrid-durable-checkpoint-smoke",
+        promotion_criteria="only in-memory local fixture live/hybrid operators and explicit local checkpoint/changelog fixture writes are promoted",
         evidence_refs=(
             "live_hybrid_fixture_evidence",
             "live_hybrid_state_transition_fixture",
+            "live_hybrid_local_checkpoint_fixture",
             "engine_selection_report",
             "no_fallback_evidence",
         ),
-        claim_boundary="Local fixture scope only; no production streaming, remote state, exactly-once, broker, object-store, or platform live/hybrid claim.",
+        claim_boundary="Local fixture scope only; local checkpoint/changelog smoke is explicit caller-provided filesystem output; no production streaming, remote state, exactly-once, broker, object-store, Vortex micro-segment, cold promotion, or platform live/hybrid claim.",
+    ),
+    _graduation_row(
+        "distributed_local_fixture_runtime",
+        "python_context",
+        "Local distributed fixture execution",
+        "high_level_context",
+        "fixture_smoke_supported",
+        cli_commands=("distributed-local-fixture-run",),
+        context_methods=("distributed_local_fixture_run",),
+        client_methods=("distributed_local_fixture_run",),
+        runtime_route="distributed-local-fixture-run",
+        promotion_criteria="only the in-process local coordinator/worker fixture is promoted",
+        evidence_refs=(
+            "local_distributed_fixture_runtime",
+            "distributed_execution_certificate",
+            "no_fallback_evidence",
+        ),
+        claim_boundary="Local in-process distributed fixture scope only; no remote workers, object-store split distribution, remote shuffle, spill IO, production distributed, or performance claim.",
     ),
     _graduation_row(
         "materialized_python_interop_boundaries",
@@ -11554,6 +11578,34 @@ class ShardLoomContext:
         """Run the bounded CG-22 state-transition retry/cancel/cleanup fixture."""
 
         return self.client.live_hybrid_state_transition_smoke(check=check)
+
+    def live_hybrid_durable_checkpoint_smoke(
+        self,
+        checkpoint_dir: str | os.PathLike[str],
+        *,
+        check: bool = True,
+    ) -> LiveHybridDurableCheckpointReport:
+        """Run the bounded CG-22 local checkpoint/changelog fixture."""
+
+        return self.client.live_hybrid_durable_checkpoint_smoke(
+            checkpoint_dir,
+            check=check,
+        )
+
+    def distributed_local_fixture_run(
+        self,
+        worker_count: int = 2,
+        fault_mode: str = "none",
+        *,
+        check: bool = True,
+    ) -> LocalDistributedFixtureRunReport:
+        """Run the scoped local distributed coordinator/worker fixture."""
+
+        return self.client.distributed_local_fixture_run(
+            worker_count,
+            fault_mode,
+            check=check,
+        )
 
     def read_vortex(self, uri: str | os.PathLike[str]) -> LazyFrame:
         """Declare a lazy native Vortex source using this context's client."""
