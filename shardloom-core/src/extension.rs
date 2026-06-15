@@ -1256,6 +1256,54 @@ impl SandboxPolicy {
             && !self.allow_secret_access
     }
     #[must_use]
+    pub const fn host_access_requested(&self) -> bool {
+        self.allow_filesystem
+            || self.allow_network
+            || self.allow_environment
+            || self.allow_secret_access
+    }
+    #[must_use]
+    pub const fn requires_review(&self) -> bool {
+        self.host_access_requested()
+            || matches!(
+                self.kind,
+                SandboxPolicyKind::None | SandboxPolicyKind::Unsupported
+            )
+    }
+    #[must_use]
+    pub const fn admission_status(&self) -> &'static str {
+        if self.host_access_requested() {
+            "review_required_host_access_requested"
+        } else {
+            match self.kind {
+                SandboxPolicyKind::None => "review_required_no_sandbox_declared",
+                SandboxPolicyKind::Unsupported => "unsupported_sandbox_policy",
+                _ => "deny_by_default_no_host_access",
+            }
+        }
+    }
+    #[must_use]
+    pub fn requested_host_access_summary(&self) -> String {
+        let mut access = Vec::new();
+        if self.allow_filesystem {
+            access.push("filesystem");
+        }
+        if self.allow_network {
+            access.push("network");
+        }
+        if self.allow_environment {
+            access.push("environment");
+        }
+        if self.allow_secret_access {
+            access.push("secret_access");
+        }
+        if access.is_empty() {
+            "none".to_string()
+        } else {
+            access.join(",")
+        }
+    }
+    #[must_use]
     pub fn summary(&self) -> String {
         format!(
             "sandbox(kind={},safe_default={})",
@@ -1907,7 +1955,10 @@ impl ExtensionManifest {
     #[must_use]
     pub fn requires_review(&self) -> bool {
         self.provenance.requires_review()
+            || self.sandbox.requires_review()
+            || self.runtime_requires_review()
             || !self.execution_contract.production_contract_complete()
+            || self.capabilities.iter().any(ExtensionCapability::is_usable)
             || self
                 .permissions
                 .iter()
@@ -1916,6 +1967,94 @@ impl ExtensionManifest {
                 .effects
                 .iter()
                 .any(ExtensionEffectDeclaration::is_effectful)
+    }
+    #[must_use]
+    pub const fn runtime_requires_review(&self) -> bool {
+        match self.runtime {
+            Some(runtime) => !runtime.is_available_initially(),
+            None => false,
+        }
+    }
+    #[must_use]
+    pub const fn runtime_admission_status(&self) -> &'static str {
+        match self.runtime {
+            None => "not_declared_metadata_only",
+            Some(UdfRuntimeKind::BuiltinDeterministicFixture) => "builtin_fixture_only",
+            Some(UdfRuntimeKind::RustNative) => {
+                "blocked_rust_native_requires_abi_sandbox_certificate"
+            }
+            Some(UdfRuntimeKind::Wasm) => {
+                "blocked_wasm_requires_runtime_fuel_memory_timeout_sandbox"
+            }
+            Some(UdfRuntimeKind::Python) => {
+                "blocked_python_requires_materialization_sandbox_policy"
+            }
+            Some(UdfRuntimeKind::SqlDefined) => {
+                "blocked_sql_defined_requires_planner_function_registry"
+            }
+            Some(UdfRuntimeKind::ExternalService) => "blocked_external_service_denied_by_default",
+            Some(UdfRuntimeKind::Unknown) => "blocked_unknown_runtime",
+        }
+    }
+    #[must_use]
+    pub fn effect_execution_admission_status(&self) -> &'static str {
+        if self
+            .permissions
+            .iter()
+            .any(ExtensionPermission::is_effectful)
+            || self
+                .effects
+                .iter()
+                .any(ExtensionEffectDeclaration::is_effectful)
+        {
+            "denied_by_default_external_effect"
+        } else if self.sandbox.host_access_requested() {
+            "denied_by_default_host_access"
+        } else if self.runtime_requires_review() {
+            "denied_by_default_runtime"
+        } else {
+            "metadata_only_non_executing"
+        }
+    }
+    #[must_use]
+    pub fn review_reason_codes(&self) -> Vec<&'static str> {
+        let mut reasons = Vec::new();
+        if self.provenance.requires_review() {
+            reasons.push("license_or_provenance_review_required");
+        }
+        if self
+            .permissions
+            .iter()
+            .any(ExtensionPermission::is_effectful)
+        {
+            reasons.push("effectful_permission_declared");
+        }
+        if self
+            .effects
+            .iter()
+            .any(ExtensionEffectDeclaration::is_effectful)
+        {
+            reasons.push("effectful_operation_declared");
+        }
+        if self.capabilities.iter().any(ExtensionCapability::is_usable) {
+            reasons.push("supported_capability_claim_declared");
+        }
+        if self.sandbox.host_access_requested() {
+            reasons.push("sandbox_host_access_requested");
+        }
+        if matches!(self.sandbox.kind, SandboxPolicyKind::None) {
+            reasons.push("sandbox_policy_none_declared");
+        }
+        if matches!(self.sandbox.kind, SandboxPolicyKind::Unsupported) {
+            reasons.push("unsupported_sandbox_policy_declared");
+        }
+        if self.runtime_requires_review() {
+            reasons.push("runtime_requires_sandbox_or_bridge_review");
+        }
+        if !self.execution_contract.production_contract_complete() {
+            reasons.push("execution_contract_incomplete");
+        }
+        reasons
     }
     #[must_use]
     pub fn has_effects(&self) -> bool {
@@ -2928,6 +3067,23 @@ mod tests {
         )
     }
     #[test]
+    fn host_access_policy_requires_review() {
+        let policy = SandboxPolicy::metadata_only()
+            .allow_filesystem(true)
+            .allow_network(true)
+            .allow_secret_access(true);
+        assert!(policy.host_access_requested());
+        assert!(policy.requires_review());
+        assert_eq!(
+            policy.admission_status(),
+            "review_required_host_access_requested"
+        );
+        assert_eq!(
+            policy.requested_host_access_summary(),
+            "filesystem,network,secret_access"
+        );
+    }
+    #[test]
     fn call_api_permission_effectful() {
         assert!(ExtensionPermission::required(PermissionKind::CallApi, "x").is_effectful())
     }
@@ -3011,6 +3167,51 @@ mod tests {
         .expect("manifest")
         .with_execution_contract(ExtensionExecutionContract::metadata_only());
         assert!(!m.requires_review())
+    }
+    #[test]
+    fn manifest_with_host_access_requires_review_without_effects() {
+        let m = ExtensionManifest::new(
+            ExtensionId::new("x").expect("id"),
+            "x",
+            ExtensionVersion::new(0, 1, 0),
+            ExtensionCategory::Unknown,
+            ExtensionProvenance::new(ExtensionLicenseKind::Apache2),
+        )
+        .expect("manifest")
+        .with_execution_contract(ExtensionExecutionContract::metadata_only())
+        .with_sandbox(SandboxPolicy::metadata_only().allow_network(true));
+        assert!(m.requires_review());
+        assert_eq!(
+            m.effect_execution_admission_status(),
+            "denied_by_default_host_access"
+        );
+        assert_eq!(
+            m.review_reason_codes(),
+            vec!["sandbox_host_access_requested"]
+        );
+    }
+    #[test]
+    fn manifest_runtime_review_classifies_non_builtin_runtimes() {
+        let m = ExtensionManifest::new(
+            ExtensionId::new("runtime.rust").expect("id"),
+            "runtime",
+            ExtensionVersion::new(0, 1, 0),
+            ExtensionCategory::ScalarUdf,
+            ExtensionProvenance::new(ExtensionLicenseKind::Apache2),
+        )
+        .expect("manifest")
+        .with_execution_contract(ExtensionExecutionContract::metadata_only())
+        .with_runtime(UdfRuntimeKind::RustNative);
+        assert!(m.requires_review());
+        assert!(m.runtime_requires_review());
+        assert_eq!(
+            m.runtime_admission_status(),
+            "blocked_rust_native_requires_abi_sandbox_certificate"
+        );
+        assert_eq!(
+            m.effect_execution_admission_status(),
+            "denied_by_default_runtime"
+        );
     }
     #[test]
     fn manifest_with_effect_requires_review() {
