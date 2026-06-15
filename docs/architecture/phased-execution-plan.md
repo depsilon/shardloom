@@ -357,10 +357,16 @@ with a recorded infeasibility reason, not merely because they are broad.
     scoped local Iceberg table metadata JSON read smoke through `iceberg-metadata-read-smoke`: it
     reads one local metadata JSON file, selects the current, explicit, or as-of timestamp snapshot,
     reports schema/partition/sort/snapshot/manifest-list references, and blocks delete-file
-    semantics with deterministic no-fallback diagnostics. That does not imply Iceberg manifest-list
-    reads, manifest parsing, data scans, external catalog/runtime, object-store table commit, write
-    semantics, distributed, production, or performance support. Current source-reviewed external
-    candidates are Iceberg table metadata, Iceberg REST, Delta transaction logs, Hudi
+    semantics with deterministic no-fallback diagnostics. The same command now also supports an
+    explicitly requested, feature-gated local Avro manifest-list summary read through
+    `--manifest-list` when `universal-format-io` is enabled. That manifest-list path reports
+    manifest summary pruning, manifest-level split counts, data/delete/unknown manifest counts, and
+    delete-manifest blockers. The same command also supports an explicitly requested, feature-gated
+    local Avro manifest-file split-plan read through `--manifest`, reporting data-file split counts,
+    bytes, record counts, and deleted/delete/unknown entry blockers without scanning data files.
+    That does not imply Iceberg data scans, external catalog/runtime, object-store table commit,
+    write semantics, distributed, production, or performance support. Current source-reviewed
+    external candidates are Iceberg table metadata, Iceberg REST, Delta transaction logs, Hudi
     timeline/metadata, Nessie, Polaris, and Gravitino; Glue-like and Hive-like catalog profiles are
     not selected for the first external candidate and still require separate source/profile review
     before implementation.
@@ -391,13 +397,19 @@ with a recorded infeasibility reason, not merely because they are broad.
       summary digest, source-review refs, dependency boundary fields, and deterministic blockers for
       catalog, object-store, manifest-list, manifest, data-file, delete-file, write/commit, broad
       Iceberg, Delta/Hudi, production, performance, fallback, and external-engine paths.
-    - [ ] Extend the selected Iceberg profile beyond local metadata JSON into manifest-list reads,
-      manifest parsing, manifest-summary pruning, schema/partition evolution semantics,
-      delete/tombstone/deletion-vector admission, and ShardLoom-native split planning.
+    - [x] Extend the selected Iceberg profile to a scoped, explicitly requested local Avro
+      manifest-list summary read when `universal-format-io` is enabled, with manifest-summary
+      pruning evidence, manifest-level split planning counts, delete/unknown manifest blockers, and
+      deterministic default-build feature-disabled diagnostics.
+    - [x] Extend from manifest-list summary into scoped local Iceberg manifest-file parsing and
+      data-file split planning with no-fallback diagnostics for deleted, delete-file, unknown
+      content, and unknown-status entries.
+    - [ ] Implement schema/partition evolution semantics beyond metadata/manifest-list visibility.
+    - [ ] Implement delete/tombstone/deletion-vector admission beyond summary/count blockers.
     - [ ] Implement Delta log and Hudi timeline/metadata readers only after their source-profile
       contracts are narrowed to fixture, credential, object-store, and no-fallback evidence.
-    - [ ] Lower table scans into ShardLoom-native splits with Native I/O certificates and
-      deterministic unsupported diagnostics for unadmitted table features.
+    - [ ] Lower planned Iceberg data-file splits into ShardLoom-native scan execution with Native
+      I/O certificates and deterministic unsupported diagnostics for unadmitted table features.
     - [ ] Implement writes only for proven semantics: append/overwrite first; merge/update/delete
       only after correctness, conflict, rollback, and recovery evidence exists.
     - [ ] Add optimistic concurrency/conflict handling, commit/rollback/recovery evidence, and

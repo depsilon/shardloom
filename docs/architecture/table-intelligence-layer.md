@@ -30,7 +30,7 @@ shardloom local-table-metadata-read-smoke --format json
 The scoped source-reviewed Iceberg metadata JSON smoke is exposed through:
 
 ```powershell
-shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] --format json
+shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro] --format json
 ```
 
 The scoped local delete/tombstone smoke is `LocalDeleteTombstoneReadSmokeReport`, exposed through:
@@ -74,8 +74,14 @@ shardloom local-table-commit-recovery-smoke <local-committed-manifest-path> --pr
       `LocalTableMetadataReadSmokeReport`.
 - [x] Support one source-reviewed local Iceberg table metadata JSON read smoke with current,
       explicit snapshot-id, and as-of timestamp snapshot selection while leaving catalog,
-      object-store, manifest-list, manifest, data-file, delete-file, write/commit, production, and
-      performance paths blocked.
+      object-store, manifest, data-file, delete-file, write/commit, production, and performance
+      paths blocked.
+- [x] Support one explicitly requested, feature-gated local Avro Iceberg manifest-list summary read
+      with manifest-summary pruning evidence, manifest-level split counts, and delete/unknown
+      manifest blockers while leaving manifest-file and data-file runtime blocked.
+- [x] Support one explicitly requested, feature-gated local Avro Iceberg manifest-file split-plan
+      read with data-file split counts, bytes, records, and deleted/delete/unknown entry blockers
+      while leaving data-file scan runtime blocked.
 - [x] Support one in-memory local manifest-backed delete/tombstone read smoke through
       `LocalDeleteTombstoneReadSmokeReport`.
 - [x] Support one in-memory local append-only CDC overlay smoke through
@@ -91,8 +97,10 @@ Out of scope until promoted GAR slices complete:
 
 - Broader catalog/table metadata reads are carried by later GAR slices after the completed
   `GAR-0020-A` admission gate, `GAR-0020-C` local metadata smoke, and scoped `PROD-READY-1C`
-  Iceberg metadata JSON smoke. The Iceberg smoke reads one local metadata JSON file and does not
-  read manifest lists, manifests, data files, object stores, or catalogs.
+  Iceberg metadata JSON/manifest-list summary smoke. The Iceberg smoke reads one local metadata JSON
+  file and, only when `--manifest-list` is supplied with `universal-format-io`, one local Avro
+  manifest-list summary. It can also read one local Avro manifest file when `--manifest` is supplied
+  with `universal-format-io`. It still does not read data files, object stores, or catalogs.
 - Broad delete/tombstone runtime beyond the completed `GAR-0020-D` local fixture smoke, CDC
   execution beyond the completed `GAR-0020-E` append-only overlay smoke, broad compaction writes,
   broad table data I/O, object-store I/O, lakehouse/catalog commits, and table-format runtime
@@ -280,37 +288,64 @@ support production SQL/DataFrame/table/catalog claims. The CG-9 metadata gate th
 report `table_metadata_read_allowed=false` for broad runtime promotion while exposing the scoped
 smoke command and report refs.
 
-## Iceberg Metadata JSON Read Smoke
+## Iceberg Metadata JSON And Manifest-List Summary Smoke
 
 `PROD-READY-1C` adds `shardloom.iceberg_metadata_read_smoke.v1` as the first source-reviewed
 external table-profile implementation. It reads one local Apache Iceberg table metadata JSON file,
 selects the current snapshot by default, supports explicit `--snapshot-id`, and supports
 `--as-of-timestamp-ms` selection by choosing the latest snapshot at or before the requested
-timestamp.
+timestamp. When `--manifest-list local.avro` is supplied and `shardloom-cli` is built with
+`--features universal-format-io`, it also reads one explicit local Avro Iceberg manifest list for
+manifest-summary pruning and manifest-level split-count evidence only. When `--manifest local.avro`
+is supplied with the same feature, it reads one explicit local Avro Iceberg manifest file for
+data-file split-plan evidence only.
 
 The smoke reports:
 
 - `support_status=runtime_supported` when the metadata JSON uses admitted metadata-only semantics.
-- `claim_gate_status=scoped_iceberg_metadata_json_smoke_only`.
+- `claim_gate_status=scoped_iceberg_metadata_json_smoke_only` for metadata-only mode.
+- `claim_gate_status=scoped_iceberg_metadata_manifest_list_summary_smoke` for the feature-enabled
+  manifest-list summary mode.
+- `claim_gate_status=scoped_iceberg_manifest_file_split_plan_smoke` for the feature-enabled
+  manifest-file split-plan mode.
 - `source_protocol=apache_iceberg_table_metadata`.
 - `local_metadata_json_read_performed=true`.
 - `table_metadata_read_performed=true`.
 - `snapshot_selection_performed=true`.
 - `time_travel_selection_performed=true|false` depending on selector.
 - `manifest_list_ref_count`.
+- `manifest_list_requested=true|false`.
+- `manifest_list_reader_feature_enabled=true|false`.
+- `manifest_list_read_performed=true|false`.
+- `manifest_list_entry_count`, `manifest_list_data_manifest_count`,
+  `manifest_list_delete_manifest_count`, and `manifest_list_unknown_content_manifest_count`.
+- `manifest_summary_pruning_performed=true|false`.
+- `planned_manifest_split_count` and `planned_data_file_count`.
+- `manifest_file_requested=true|false`.
+- `manifest_file_reader_feature_enabled=true|false`.
+- `manifest_file_read_performed=true|false`.
+- `manifest_file_entry_count`, `manifest_file_added_data_file_count`,
+  `manifest_file_existing_data_file_count`, and `manifest_file_deleted_data_file_count`.
+- `data_file_split_planning_performed=true|false`.
+- `planned_data_file_split_count` and `planned_data_file_split_bytes`.
 - `metadata_summary_digest=fnv1a64:*`.
 - `fallback_attempted=false`.
 - `fallback_execution_allowed=false`.
 - `external_engine_invoked=false`.
 
 It also emits deterministic blockers for external catalog resolution, remote object-store metadata
-reads, manifest-list reads, manifest-file reads, data-file scans, delete-file semantics,
-table write/commit paths, broad Iceberg runtime, Delta/Hudi runtime, and production lakehouse
-claims. If the selected snapshot advertises delete-file summary counts, the command returns an
+reads, manifest-list reads when the feature is unavailable or absent, manifest-file reads when the
+feature is unavailable or absent, data-file scans, delete-file semantics, table write/commit paths,
+broad Iceberg runtime, Delta/Hudi runtime, and production lakehouse claims. If the selected snapshot
+advertises delete-file summary counts, the command returns an
 unsupported envelope with `unsupported_feature_order=delete_files_present` instead of silently
-ignoring deletes.
+ignoring deletes. If a parsed manifest list contains delete manifests, delete-file counts, or
+unknown manifest content, the command returns an unsupported envelope instead of planning those
+entries. If a parsed manifest file contains deleted data-file entries, delete-file entries, unknown
+content, or unknown entry statuses, the command returns an unsupported envelope instead of silently
+planning those entries.
 
-This smoke does not certify Iceberg table scans, manifest parsing, delete-file execution,
+This smoke does not certify Iceberg table scans, data-file split execution, delete-file execution,
 object-store tables, external catalogs, writes/commits, production lakehouse support, or
 performance.
 

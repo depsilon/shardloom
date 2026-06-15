@@ -144,6 +144,114 @@ phase plan first.
       Foundry Spark, managed SQL systems, and platform compute remain external baselines or handles,
       never ShardLoom execution.
 
+- [x] Session label: PROD-READY-1C scoped Iceberg manifest-file split-plan smoke
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1C` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/table-protocol-source-review.md`.
+    - `docs/architecture/table-intelligence-layer.md`.
+    - Existing `iceberg-metadata-read-smoke` metadata/manifest-list command.
+  - Scope:
+    - Extended `iceberg-metadata-read-smoke` with optional `--manifest local.avro`.
+    - Default builds fail closed when a manifest file is requested without `universal-format-io`,
+      emitting `unsupported_feature_order=manifest_file_reader_feature_disabled` with
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+    - Feature-enabled builds read one explicit local Avro Iceberg manifest file through the existing
+      local Avro compatibility adapter, project manifest entry metadata, parse the `data_file`
+      struct, and emit data-file split-count/byte/record evidence.
+    - Deleted data-file entries, delete-file entries, unknown file content, and unknown manifest
+      entry statuses remain unsupported with deterministic no-fallback diagnostics.
+    - Data-file scans, object-store/catalog runtime, write/commit runtime, production lakehouse
+      claims, and performance claims remain blocked.
+  - Closed checklist:
+    - [x] Manifest-file request, feature-enabled, and feature-disabled fields added.
+    - [x] Scoped local Avro manifest-file parser added behind `universal-format-io`.
+    - [x] Data-file split-plan counts, bytes, and record fields emitted.
+    - [x] Deleted/delete/unknown entry blockers added with no-fallback evidence.
+    - [x] Table source-review, table-intelligence, use-case, and phase-plan docs updated.
+  - Evidence fields:
+    - `schema_version=shardloom.iceberg_metadata_read_smoke.v1`.
+    - `report_id=prod-ready-1c.iceberg_manifest_file_split_plan_smoke`.
+    - `claim_gate_status=scoped_iceberg_manifest_file_split_plan_smoke`.
+    - `manifest_file_requested=true`.
+    - `manifest_file_reader_feature_enabled=true|false`.
+    - `manifest_file_read_performed=true|false`.
+    - `data_file_split_planning_performed=true|false`.
+    - `planned_data_file_split_count`.
+    - `planned_data_file_split_bytes`.
+    - `data_file_read_performed=false`.
+    - `fallback_attempted=false`.
+    - `external_engine_invoked=false`.
+  - Evidence commands:
+    - `cargo test -p shardloom-cli --test iceberg_metadata_read_smoke`.
+    - `cargo test -p shardloom-cli --features universal-format-io --test iceberg_metadata_read_smoke`.
+    - `cargo clippy -p shardloom-cli --test iceberg_metadata_read_smoke -- -D warnings`.
+    - `cargo clippy -p shardloom-cli --features universal-format-io --test iceberg_metadata_read_smoke -- -D warnings`.
+  - Claim boundary:
+    - May claim one scoped local Iceberg manifest-file split-plan smoke when explicitly requested
+      and feature-enabled.
+    - May not claim Iceberg data-file runtime, Delta/Hudi runtime, catalog runtime, object-store
+      table runtime, table scan/write/commit runtime, production lakehouse support, or table
+      performance.
+  - Fallback boundary:
+    - Spark, DataFusion, DuckDB, Polars, Velox, Trino, warehouse engines, Vortex query-engine
+      integrations, catalog engines, and platform compute remain external baselines or handles,
+      never ShardLoom execution.
+
+- [x] Session label: PROD-READY-1C scoped Iceberg manifest-list summary smoke
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1C` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/table-protocol-source-review.md`.
+    - `docs/architecture/table-intelligence-layer.md`.
+    - Existing `iceberg-metadata-read-smoke` local metadata JSON command.
+  - Scope:
+    - Extended `iceberg-metadata-read-smoke` with optional `--manifest-list local.avro`.
+    - Default builds fail closed when a manifest list is requested without `universal-format-io`,
+      emitting `unsupported_feature_order=manifest_list_reader_feature_disabled` with
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+    - Feature-enabled builds read one explicit local Avro Iceberg manifest list through the existing
+      local Avro compatibility adapter, project only manifest-list metadata columns, and report
+      manifest-summary pruning and manifest-level split-count evidence.
+    - Delete manifests, delete-file counts, and unknown manifest content remain unsupported with
+      deterministic no-fallback diagnostics.
+    - Manifest-file reads, data-file scans, object-store/catalog runtime, write/commit runtime,
+      production lakehouse claims, and performance claims remain blocked.
+  - Closed checklist:
+    - [x] Manifest-list request, feature-enabled, and feature-disabled fields added.
+    - [x] Scoped local Avro manifest-list summary reader added behind `universal-format-io`.
+    - [x] Manifest-summary pruning and manifest-level split-count fields emitted.
+    - [x] Delete/unknown manifest blockers added with no-fallback evidence.
+    - [x] Table source-review, table-intelligence, and phase-plan docs updated.
+  - Evidence fields:
+    - `schema_version=shardloom.iceberg_metadata_read_smoke.v1`.
+    - `report_id=prod-ready-1c.iceberg_manifest_list_summary_smoke`.
+    - `claim_gate_status=scoped_iceberg_metadata_manifest_list_summary_smoke`.
+    - `manifest_list_requested=true`.
+    - `manifest_list_reader_feature_enabled=true|false`.
+    - `manifest_list_read_performed=true|false`.
+    - `manifest_summary_pruning_performed=true|false`.
+    - `planned_manifest_split_count`.
+    - `planned_data_file_count`.
+    - `manifest_file_read_performed=false`.
+    - `data_file_read_performed=false`.
+    - `fallback_attempted=false`.
+    - `external_engine_invoked=false`.
+  - Evidence commands:
+    - `cargo test -p shardloom-cli --test iceberg_metadata_read_smoke`.
+    - `cargo test -p shardloom-cli --features universal-format-io --test iceberg_metadata_read_smoke`.
+    - `cargo clippy -p shardloom-cli --features universal-format-io --test iceberg_metadata_read_smoke -- -D warnings`.
+  - Claim boundary:
+    - May claim one scoped local Iceberg manifest-list summary smoke when explicitly requested and
+      feature-enabled, with manifest-summary pruning and split-count evidence.
+    - May not claim Iceberg manifest-file/data-file runtime, Delta/Hudi runtime, catalog runtime,
+      object-store table runtime, table scan/write/commit runtime, production lakehouse support, or
+      table performance.
+  - Fallback boundary:
+    - Spark, DataFusion, DuckDB, Polars, Velox, Trino, warehouse engines, Vortex query-engine
+      integrations, catalog engines, and platform compute remain external baselines or handles,
+      never ShardLoom execution.
+
 - [x] Session label: PROD-READY-1C scoped Iceberg metadata JSON smoke
   - Date: 2026-06-15
   - Source:
