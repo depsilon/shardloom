@@ -177,6 +177,64 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
+- [x] `RELEASE-V1-LOCAL-SOURCE-PACKAGE-1` Public-source/package release track without production
+  environments.
+  - Source: maintainer decision on June 15, 2026 to proceed with the feasible release workstreams
+    after real production object-store/table/distributed/live/Foundry environments were ruled out
+    for v1 certification.
+  - Current state: local v1 runtime, docs/website, Python/package dry-run, and full-local benchmark
+    evidence exist; actual package uploads, release tags, GitHub Release object/assets, registry
+    install/uninstall smoke transcripts, signing/attestation, and production/platform claims remain
+    blocked until the selected final publication event.
+  - V1 scope classification: `required_for_v1_publication_prep`.
+  - ShardLoom technique review: timing-surface separation and evidence-tier controls apply to the
+    local benchmark publication wording; dynamic admission applies to selected package channels;
+    PulseWeave/capillary runtime work does not apply because this item is release orchestration,
+    local proof, docs/site, and package-channel gating rather than engine operator execution.
+  - Execution checklist:
+    - [x] Add a machine-readable selected-track contract for source checkout, GitHub pre-release,
+      TestPyPI, PyPI, local API/schema stability, Python scenario proof, local benchmark evidence,
+      and docs/website/readme cleanup.
+    - [x] Fix package-publication workflow validation so dynamic Python package versioning is read
+      from `python/src/shardloom/_version.py`, not a nonexistent static `project.version`.
+    - [x] Update README, package install docs, public-status docs, handoff docs, and website source
+      to state the selected path and final-event boundary without exposing live package commands
+      early.
+    - [x] Add validator and regression tests for the selected-track contract and dynamic-version
+      workflow guard.
+    - [x] Run local/source install proof, Python user-surface proof, local benchmark scenario
+      proof, timing review, package-channel/local release validators, and website/static checks.
+    - [x] Move completed summary to the ledger after validation and publication-prep PR handling.
+  - Next outcome: a merged release-prep PR that makes the feasible v1 source/package path explicit
+    and locally validated while keeping publication and production claims fail-closed.
+  - User-visible surface: README, getting-started docs, release docs, website start/home/about
+    pages, package workflow, local proof transcripts, and validator reports.
+  - Implementation scope: `.github/workflows/pypi-publish-draft.yml`, `scripts/*release*`,
+    `docs/release/*`, `docs/getting-started/*`, `README.md`, `website-src/*`, tests, generated
+    website output.
+  - Evidence required: no-fallback fields, selected-channel readiness report, stable API/schema
+    report, local package dry-run, Python scenario proof, timing review, benchmark manifest
+    freshness, website build/static validation, and CI.
+  - Acceptance: selected channels are GitHub pre-release/TestPyPI/PyPI; production environment gates
+    remain blocked; package commands remain withheld until the final event; dynamic Python version
+    is used by the publication workflow; local validators pass.
+  - Verification: `python scripts/check_v1_local_source_package_release.py`,
+    `python scripts/release_dry_run_proof.py --rows 64 --iterations 1`,
+    `python examples/local-python-smoke/run.py --repo-root .`,
+    `python examples/local-python-benchmark-scenarios/run.py --repo-root .`,
+    `python examples/local-python-benchmark-scenarios/timing_review.py --repo-root .`,
+    website build/readiness checks, focused Python release-script tests, and broad CI-equivalent
+    checks as risk warrants.
+  - Non-goals: no package upload, no release tag, no GitHub Release object/assets, no signing key,
+    no production object-store/table/distributed/live/Foundry claim, no Spark/DataFusion fallback.
+  - Claim boundary: local/source/package release preparation only; publication, production,
+    performance, superiority, and Spark-displacement claims remain false until a later approved
+    final event supplies proof.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false` must remain
+    visible in local proof and validator reports.
+  - Ledger rule: completed details move to
+    `docs/architecture/phased-execution-completed-ledger.md`.
+
 ### v1 Local Closeout Status
 
 No unchecked autonomous local implementation item remains after the June 15, 2026 closeout. The

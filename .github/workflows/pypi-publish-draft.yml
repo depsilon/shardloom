@@ -84,7 +84,20 @@ jobs:
           import json
           import os
           import pathlib
-          import tomllib
+          import re
+
+          def resolve_python_package_version() -> str:
+              version_text = pathlib.Path("python/src/shardloom/_version.py").read_text(
+                  encoding="utf-8"
+              )
+              match = re.search(
+                  r'^\s*__version__\s*=\s*"([^"]+)"\s*$',
+                  version_text,
+                  flags=re.MULTILINE,
+              )
+              if match is None:
+                  raise SystemExit("python/src/shardloom/_version.py missing __version__")
+              return match.group(1)
 
           proof_ref = pathlib.PurePosixPath(
               pathlib.Path(os.environ["TESTPYPI_PROOF_REF"]).as_posix()
@@ -93,8 +106,7 @@ jobs:
               raise SystemExit("testpypi_proof_ref must be a repository-relative path")
           proof_path = pathlib.Path(proof_ref)
           proof = json.loads(proof_path.read_text(encoding="utf-8"))
-          pyproject = tomllib.loads(pathlib.Path("python/pyproject.toml").read_text(encoding="utf-8"))
-          expected_version = pyproject["project"]["version"]
+          expected_version = resolve_python_package_version()
           required = {
               "schema_version": "shardloom.python_registry_package_proof.v1",
               "proof_status": "passed",

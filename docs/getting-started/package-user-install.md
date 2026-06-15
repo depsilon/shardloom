@@ -2,10 +2,14 @@
 
 # Package User Install Status
 
-ShardLoom package channels are not public install channels yet.
+ShardLoom package channels are not public install channels yet, but the v1 path is now selected:
+source checkout first, then GitHub pre-release, TestPyPI, and PyPI after the final publication
+event.
 
 ```text
 package_channel_status=blocked
+selected_publication_channels=github_prerelease,testpypi,pypi
+final_publication_event_required=true
 package_install_commands_visible=false
 public_package_claim_allowed=false
 publication_attempted=false
@@ -15,8 +19,8 @@ fallback_attempted=false
 external_engine_invoked=false
 ```
 
-No package-user install command is active. The source checkout path remains the supported local
-proof path until a package-channel gate is explicitly closed and a tagged release updates this page.
+No package-user install command is active yet. The source checkout path remains the supported local
+proof path until the selected channel gates close and a tagged release updates this page.
 
 ## What Exists Today
 
@@ -26,6 +30,8 @@ proof path until a package-channel gate is explicitly closed and a tagged releas
   [`docs/release/package-channel-readiness-matrix.md`](../release/package-channel-readiness-matrix.md).
 - Package names and metadata checks in
   [`docs/release/package-name-readiness.md`](../release/package-name-readiness.md).
+- The selected release track in
+  [`docs/release/v1-local-source-package-release.md`](../release/v1-local-source-package-release.md).
 
 ## Uninstall And Upgrade While Local
 
@@ -53,6 +59,6 @@ python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 
 ## Future Package Page Rule
 
-When a package channel becomes live, this page must show the exact channel, version, install,
+When the final publication event completes, this page must show the exact channel, version, install,
 upgrade, uninstall, smoke-check, rollback/yank, checksum/SBOM, and support-bundle instructions for
-that channel. Until then, package commands stay withheld.
+GitHub pre-release, TestPyPI, and PyPI as applicable. Until then, package commands stay withheld.

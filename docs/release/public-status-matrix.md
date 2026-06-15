@@ -17,6 +17,8 @@ Finished-product v1 scope is defined in
 from supported ShardLoom surfaces, not from broad external-engine replacement framing.
 The active v1 queue and feasibility firewall is tracked in
 [`docs/release/v1-inclusion-scope-matrix.md`](v1-inclusion-scope-matrix.md).
+The selected local/source/package v1 release track is tracked in
+[`docs/release/v1-local-source-package-release.md`](v1-local-source-package-release.md).
 The scoped local SQL/Python/DataFrame front-door runtime boundary is defined in
 [`docs/architecture/v1-front-door-runtime-scope.md`](../architecture/v1-front-door-runtime-scope.md).
 The scoped local/prepared v1 Vortex runtime boundary is defined in
@@ -66,7 +68,7 @@ external_engine_invoked=false
 | Benchmarks | Promoted artifacts separate route lanes, timing surfaces, evidence tiers, and claim gates. | Evidence interpretation for hot runtime, replay proof, publication proof, and external baselines. | Public performance superiority, Spark displacement, stale-artifact claims, timing-surface substitution. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked for broader platform routes. | Capability posture, local fixture proof where explicitly named, blocked diagnostics. | Production platform/runtime claims and managed-service integrations. |
 | Website | Static public interpretation layer over checked-in source/evidence. | Claim-safe docs, use-case, benchmark, status, and architecture views. | Runtime expansion, package publication, public benchmark freshness beyond promoted artifacts. |
-| Package/release channels | Local no-publication rehearsals and package-channel posture reports exist. | Local wheel/sdist build and install smoke evidence. | PyPI, Conda, Homebrew, crates.io, GitHub release, GHCR, signing, tags, uploads. |
+| Package/release channels | Selected local/source/package v1 release track exists for source checkout, GitHub pre-release, TestPyPI, and PyPI. Public channel rows remain blocked until the final publication event and channel proof. | Local wheel/sdist build and install smoke evidence; GitHub pre-release asset bundle prep; TestPyPI/PyPI workflow and registry-proof tooling. | Actual uploads, tags, GitHub release object/assets, registry install/uninstall smoke transcripts, signing/attestation, and any non-selected channels; real production environment gates remain blocked. |
 
 ## Public Docs Ownership
 

@@ -75,7 +75,7 @@ REQUIRED_DOC_MARKERS = {
         "docs/getting-started/install.md",
         "docs/getting-started/first-10-minutes.md",
         "scripts\\release_dry_run_proof.py",
-        "package-channel evidence is still gated",
+        "selected local/source/package v1 release track",
     ],
     "docs/getting-started/install.md": [
         "python scripts\\release_dry_run_proof.py --rows 64 --iterations 1",

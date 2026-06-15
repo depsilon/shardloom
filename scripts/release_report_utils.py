@@ -204,6 +204,22 @@ def cargo_lock_package_version(repo_root: Path, package_name: str) -> str:
     raise ValueError(f"Cargo.lock is missing package {package_name!r}")
 
 
+def python_package_version(repo_root: Path) -> str:
+    """Return the Python package version from the dynamic setuptools source."""
+
+    text = read_text(
+        repo_root / "python" / "src" / "shardloom" / "_version.py",
+        missing_ok=False,
+    )
+    match = re.search(r'^\s*__version__\s*=\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*$', text, re.MULTILINE)
+    if match is None:
+        raise ValueError("python/src/shardloom/_version.py is missing __version__")
+    try:
+        return json.loads(f'"{match.group(1)}"')
+    except json.JSONDecodeError:
+        return match.group(1)
+
+
 def upstream_vortex_manifest_version(repo_root: Path) -> str:
     return cargo_manifest_dependency_version(
         repo_root,
