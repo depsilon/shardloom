@@ -1033,6 +1033,12 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("iceberg-metadata-read-smoke") => {
             workflow_planning::handle_iceberg_metadata_read_smoke(args, format)
         }
+        Some("delta-log-metadata-read-smoke") => {
+            workflow_planning::handle_delta_log_metadata_read_smoke(args, format)
+        }
+        Some("hudi-timeline-metadata-read-smoke") => {
+            workflow_planning::handle_hudi_timeline_metadata_read_smoke(args, format)
+        }
         Some("local-delete-tombstone-read-smoke") => {
             workflow_planning::handle_local_delete_tombstone_read_smoke(args, format)
         }
@@ -3321,6 +3327,14 @@ mod tests {
     #[test]
     fn usage_includes_iceberg_metadata_read_smoke() {
         assert!(cli_usage_line().contains("iceberg-metadata-read-smoke"));
+    }
+    #[test]
+    fn usage_includes_delta_log_metadata_read_smoke() {
+        assert!(cli_usage_line().contains("delta-log-metadata-read-smoke"));
+    }
+    #[test]
+    fn usage_includes_hudi_timeline_metadata_read_smoke() {
+        assert!(cli_usage_line().contains("hudi-timeline-metadata-read-smoke"));
     }
     #[test]
     fn usage_includes_local_delete_tombstone_read_smoke() {

@@ -53,11 +53,26 @@ manifest-level split counts, and block delete/unknown manifest content without f
 parse manifest entries, report data-file split counts/bytes/records, and block deleted, delete-file,
 or unknown entries without scanning data files. It now compares metadata schemas by Iceberg field
 IDs, partition specs by partition field/spec IDs, manifest partition-spec IDs, and delete entries by
-data/position-delete/equality-delete/deletion-vector-shaped content. These are metadata admission
-and blocker surfaces only. External Iceberg data scans, object-store tables, catalog runtime,
-writes/commits, schema projection execution, partition-filter execution, delete-file execution,
-Puffin/deletion-vector reads, Delta, Hudi, Nessie, Polaris, Gravitino, Glue-like, and Hive-like
-profiles remain source-reviewed or planned candidates, not production-supported runtime.
+data/position-delete/equality-delete/deletion-vector-shaped content.
+
+Delta and Hudi now have scoped metadata-only smokes, not runtime support.
+`delta-log-metadata-read-smoke` reads one local Delta transaction log JSON file, summarizes
+protocol/table metadata, add/remove/txn/commitInfo/CDC actions, table feature arrays, deletion
+vector evidence, and no-fallback boundary fields. It fails closed for missing protocol/metadata,
+unsupported protocol versions, table features, remove actions, CDC, deletion vectors, unknown
+actions, checkpoint replay, data-file scans, writes/commits, and production lakehouse claims.
+`hudi-timeline-metadata-read-smoke` reads one local Hudi timeline directory and optionally one local
+metadata-table summary JSON fixture. It summarizes requested/inflight/completed instants, action
+families, metadata-table partitions, and no-fallback boundary fields. It fails closed for pending
+instants, delta commits/log-merge requirements, replace commits, table-service actions,
+rollback/savepoint/restore semantics, unknown actions/states, metadata-table storage reads,
+base/log-file scans, writes/commits, and production lakehouse claims.
+
+These are metadata admission and blocker surfaces only. External Iceberg data scans, object-store
+tables, catalog runtime, writes/commits, schema projection execution, partition-filter execution,
+delete-file execution, Puffin/deletion-vector reads, Delta runtime, Hudi runtime, Nessie, Polaris,
+Gravitino, Glue-like, and Hive-like profiles remain source-reviewed or planned candidates, not
+production-supported runtime.
 
 The next Iceberg implementation step should lower planned data-file splits into ShardLoom-native
 scan execution with schema projection, partition-filter, and delete-application semantics where
@@ -93,9 +108,13 @@ fallback or external engines; and the feature-gated manifest-list summary smoke 
 local Avro manifest list for manifest-summary pruning/split-count evidence only; and the
 feature-gated manifest-file smoke reads one explicit local Avro manifest file for data-file
 split-plan evidence only; and the same smoke emits metadata-level schema/partition evolution and
-delete/deletion-vector admission evidence with deterministic fail-closed blockers.
+delete/deletion-vector admission evidence with deterministic fail-closed blockers; and scoped local
+Delta/Hudi metadata smokes read one local transaction log JSON file or one local Hudi timeline
+directory plus optional local metadata-table summary JSON fixture with deterministic no-fallback
+blockers.
 
-May not claim: Iceberg data-file scan/runtime, Delta/Hudi runtime, catalog runtime, object-store
-table runtime, table scan, schema projection execution, partition-filter execution, delete
-application, Puffin/deletion-vector reads, append/overwrite, merge/update/delete, rollback,
+May not claim: Iceberg data-file scan/runtime, Delta checkpoint replay/runtime, Delta deletion-vector
+application, Hudi base-file scan, Hudi log merge, Hudi table-service execution, catalog runtime,
+object-store table runtime, table scan, schema projection execution, partition-filter execution,
+delete application, Puffin/deletion-vector reads, append/overwrite, merge/update/delete, rollback,
 production lakehouse support, Spark replacement, performance, or external engine execution.

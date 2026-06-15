@@ -1248,7 +1248,11 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
         "data-file split counts/bytes/records",
         "metadata schemas by Iceberg field",
         "deletion-vector-shaped content",
-        "Iceberg data scans, object-store tables",
+        "`delta-log-metadata-read-smoke`",
+        "`hudi-timeline-metadata-read-smoke`",
+        "Delta and Hudi now have scoped metadata-only smokes, not runtime support.",
+        "metadata-table summary JSON fixture",
+        "External Iceberg data scans, object-store",
         "fallback_attempted=false",
         "external_engine_invoked=false",
         "May not claim: Iceberg data-file scan/runtime",
@@ -1267,12 +1271,13 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
         "Iceberg, Delta, Hudi, Iceberg REST, Nessie, Polaris, and Gravitino-style APIs",
         "Glue-like and",
         "Hive-like catalog profiles are not selected",
-        "the first external candidate and still require separate source/profile review",
+        "external candidate and still require separate source/profile review",
         "`iceberg-metadata-read-smoke`",
         "Extend the selected Iceberg profile to a scoped, explicitly requested local Avro",
         "Extend from manifest-list summary into scoped local Iceberg manifest-file parsing",
         "Implement metadata-level schema/partition evolution semantics beyond visibility",
         "Implement delete/tombstone/deletion-vector admission beyond summary/count blockers",
+        "Implement scoped Delta log and Hudi timeline/metadata readers after source-profile",
         "Lower planned Iceberg data-file splits into ShardLoom-native scan execution",
     ] {
         assert!(
@@ -1295,6 +1300,12 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
     assert!(table_intelligence.contains("partition_evolution_admission_status"));
     assert!(table_intelligence.contains("manifest_file_deletion_vector_entry_count"));
     assert!(table_intelligence.contains("unsupported_feature_order=delete_files_present"));
+    assert!(table_intelligence.contains("shardloom.delta_log_metadata_read_smoke.v1"));
+    assert!(table_intelligence.contains("shardloom.hudi_timeline_metadata_read_smoke.v1"));
+    assert!(table_intelligence.contains("scoped_delta_transaction_log_metadata_smoke_only"));
+    assert!(table_intelligence.contains("scoped_hudi_timeline_metadata_smoke_only"));
+    assert!(table_intelligence.contains("delta_checkpoint_read"));
+    assert!(table_intelligence.contains("hudi_table_service_execution"));
 
     let lakehouse_matrix =
         read_repo_file("docs/architecture/lakehouse-value-prop-compatibility.md");
@@ -1307,10 +1318,15 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
         "PROD-READY-1C scoped Iceberg manifest-list summary smoke",
         "PROD-READY-1C scoped Iceberg manifest-file split-plan smoke",
         "PROD-READY-1C scoped Iceberg evolution and delete admission semantics",
+        "PROD-READY-1C scoped Delta/Hudi metadata smokes",
         "schema_version=shardloom.iceberg_metadata_read_smoke.v1",
+        "schema_version=shardloom.delta_log_metadata_read_smoke.v1",
+        "schema_version=shardloom.hudi_timeline_metadata_read_smoke.v1",
         "claim_gate_status=scoped_iceberg_metadata_json_smoke_only",
         "claim_gate_status=scoped_iceberg_metadata_manifest_list_summary_smoke",
         "claim_gate_status=scoped_iceberg_manifest_file_split_plan_smoke",
+        "claim_gate_status=scoped_delta_transaction_log_metadata_smoke_only",
+        "claim_gate_status=scoped_hudi_timeline_metadata_smoke_only",
         "report_id=prod-ready-1c.iceberg_manifest_list_summary_smoke",
         "report_id=prod-ready-1c.iceberg_manifest_file_split_plan_smoke",
         "schema_evolution_admission_status",
