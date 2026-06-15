@@ -132,6 +132,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "table-intelligence-plan",
     "cg9-catalog-metadata-gate",
     "local-table-metadata-read-smoke",
+    "iceberg-metadata-read-smoke",
     "local-delete-tombstone-read-smoke",
     "local-append-only-cdc-overlay-smoke",
     "local-table-append-commit-rehearsal-smoke",
@@ -932,6 +933,9 @@ fn command_usage_fragment(command: &str) -> String {
                 "{command} <local-committed-manifest-path> [--profile local-manifest] [--idempotency-key key]"
             )
         }
+        "iceberg-metadata-read-smoke" => {
+            format!("{command} <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms]")
+        }
         "engine-selection-plan" => {
             format!(
                 "{command} [auto|batch|live|hybrid] [bounded|unbounded|snapshot|unknown] [snapshot|append-only|upsert|delete|retract|tombstone|changelog] [snapshot|append|update|complete|changelog|continuous-view]"
@@ -1159,6 +1163,9 @@ fn command_feature_gate_status(command: &str) -> &'static str {
 }
 
 fn command_input_contract(command: &str) -> &'static str {
+    if command == "iceberg-metadata-read-smoke" {
+        return "local_iceberg_table_metadata_json_path_with_optional_snapshot_selector";
+    }
     if command == "session-cache-smoke" {
         return "scoped_cli_session_cache_lifecycle_smoke";
     }
@@ -1192,6 +1199,9 @@ fn command_input_contract(command: &str) -> &'static str {
 }
 
 fn command_output_contract(command: &str) -> &'static str {
+    if command == "iceberg-metadata-read-smoke" {
+        return "typed_envelope_plus_scoped_iceberg_metadata_snapshot_selection_and_no_fallback_evidence";
+    }
     if command == "session-cache-smoke" {
         return "typed_envelope_plus_session_cache_reuse_invalidation_and_cleanup_evidence";
     }
@@ -1227,6 +1237,9 @@ fn command_output_contract(command: &str) -> &'static str {
 }
 
 fn command_owning_phase_item(command: &str) -> &'static str {
+    if command == "iceberg-metadata-read-smoke" {
+        return "PROD-READY-1C";
+    }
     if command == "evidence-schema" {
         return "REVIEW-P1-2";
     }

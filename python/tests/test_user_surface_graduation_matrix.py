@@ -40,7 +40,7 @@ class UserSurfaceGraduationMatrixTests(unittest.TestCase):
         self.assertGreaterEqual(report["matrix_row_count"], 10)
         self.assertEqual(report["context_method_count"], 93)
         self.assertEqual(report["client_method_count"], 112)
-        self.assertEqual(report["cli_command_count"], 206)
+        self.assertEqual(report["cli_command_count"], 207)
         self.assertTrue(
             report["acceptance_summary"]["all_python_context_methods_classified"]
         )

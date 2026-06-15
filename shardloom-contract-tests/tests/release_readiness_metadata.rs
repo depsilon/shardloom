@@ -1239,12 +1239,13 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
         "Capillary work units",
         "Dynamic admission",
         "PulseWeave coordination",
-        "The current v1-supported table path remains `local_manifest_table_runtime_v1_candidate` only.",
-        "External Iceberg, Delta, Hudi, Nessie, Polaris, Gravitino, Glue-like, Hive-like, and object-store",
-        "are source-reviewed candidates, not supported runtime.",
+        "The current v1-supported table runtime path remains `local_manifest_table_runtime_v1_candidate`.",
+        "`iceberg-metadata-read-smoke`",
+        "reads one local Iceberg table metadata JSON file",
+        "External Iceberg manifest-list reads, manifest parsing, data scans, object-store tables, catalog",
         "fallback_attempted=false",
         "external_engine_invoked=false",
-        "May not claim: Iceberg/Delta/Hudi runtime",
+        "May not claim: Iceberg manifest-list/manifest/data-file runtime",
         "Glue-like and Hive-like catalog profiles are intentionally not selected",
     ] {
         assert!(
@@ -1258,8 +1259,11 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
         "`docs/architecture/table-protocol-source-review.md`",
         "- [x] Source-check current primary external protocol specs before external implementation:",
         "Iceberg, Delta, Hudi, Iceberg REST, Nessie, Polaris, and Gravitino-style APIs",
-        "Glue-like and Hive-like catalog profiles are not selected",
+        "Glue-like and",
+        "Hive-like catalog profiles are not selected",
         "the first external candidate and still require separate source/profile review",
+        "`iceberg-metadata-read-smoke`",
+        "Extend the selected Iceberg profile beyond local metadata JSON",
     ] {
         assert!(
             plan.contains(required),
@@ -1271,6 +1275,9 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
     assert!(table_intelligence.contains("docs/architecture/table-protocol-source-review.md"));
     assert!(table_intelligence.contains("does not"));
     assert!(table_intelligence.contains("promote external protocols by source review alone"));
+    assert!(table_intelligence.contains("shardloom.iceberg_metadata_read_smoke.v1"));
+    assert!(table_intelligence.contains("scoped_iceberg_metadata_json_smoke_only"));
+    assert!(table_intelligence.contains("unsupported_feature_order=delete_files_present"));
 
     let lakehouse_matrix =
         read_repo_file("docs/architecture/lakehouse-value-prop-compatibility.md");
@@ -1279,6 +1286,9 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
         "PROD-READY-1B/1C production evidence hardening",
+        "PROD-READY-1C scoped Iceberg metadata JSON smoke",
+        "schema_version=shardloom.iceberg_metadata_read_smoke.v1",
+        "claim_gate_status=scoped_iceberg_metadata_json_smoke_only",
         "Table protocol source review exists before external implementation.",
         "approved_real_backend_profile_declared=false",
         "production_object_store_claim_allowed=false",
@@ -3274,6 +3284,28 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         assert!(
             proof.contains(required),
             "missing Foundry proof doc field {required}"
+        );
+    }
+
+    let phase_plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    for required in [
+        "`PROD-READY-1G` Foundry integration production pack",
+        "Existing scoped evidence includes the RFC 0036 maturity ladder",
+        "`ctx.foundry_generated_output(...)` support for local dataset-shaped paths",
+        "`foundry://...` targets still return deterministic unsupported diagnostics",
+        "targets still return deterministic unsupported diagnostics before staging rows",
+        "There is no real Foundry Code Repository package/import proof",
+        "- [x] Define the optional Foundry integration posture",
+        "- [x] Implement local Foundry-style proof-of-use evidence",
+        "- [x] Emit local proof boundaries for generated-output fanout",
+        "- [x] Expose Python `ctx.foundry_generated_output(...)`",
+        "- [x] Move scoped local/dev-stack Foundry proof evidence",
+        "- [ ] Define `shardloom-foundry` package boundary",
+        "- [ ] Test in real Foundry environment with evidence datasets",
+    ] {
+        assert!(
+            phase_plan.contains(required),
+            "missing Foundry phase-plan field {required}"
         );
     }
 

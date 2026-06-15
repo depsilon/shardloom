@@ -4,7 +4,7 @@
 //! datasets, probe catalogs, execute plans, write data, materialize outputs,
 //! invoke external engines, or provide fallback execution.
 
-use std::process::ExitCode;
+use std::{fs, path::Path, process::ExitCode};
 
 use shardloom_core::{
     ByteRange, CapabilityCertificationReport, CatalogKind, CatalogMetadataIntegrationGateEntry,
@@ -13,19 +13,19 @@ use shardloom_core::{
     CdcManifestTransactionGateReport, ChangeSet, ColumnRef, CommandStatus,
     CompactionPlanningPolicy, CompactionPlanningReport, DatasetFormat, DatasetManifest, DatasetRef,
     DatasetUri, DeleteModel, DeleteTombstoneCompatibilityReport, Diagnostic, DiagnosticCategory,
-    DiagnosticCode, EncodedSegment, EncodingKind, FieldId, FieldName, FieldPath, FileDescriptor,
-    FileRole, IncrementalPlanSkeleton, LayoutHealthPolicy, LayoutHealthReport, LayoutKind,
-    LocalAppendOnlyCdcOverlaySmokeReport, LocalDeleteTombstoneReadSmokeReport,
-    LocalTableMetadataReadSmokeReport, LogicalDType, ManifestId, ManifestSegment, Nullability,
-    OutputFormat, OutputTarget, PartitionEvolutionCompatibilityReport, PartitionField,
-    PartitionSpec, PartitionTransform, SchemaDefinition, SchemaEvolutionCompatibilityReport,
-    SchemaEvolutionPolicy, SchemaField, SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind,
-    SegmentId, SegmentLayout, SegmentStats, ShardLoomError, SnapshotId, SnapshotRef,
-    StatefulReusePromotionGateReport, StatefulReuseReport, TableCompatibilityPlan,
-    TableCompatibilityReport, TableFormatKind, TableIntelligenceReport,
-    TableMaintenanceExecutionMatrixReport, TableMaintenanceExecutionMatrixRow, WriteIntent,
-    evaluate_cdc_incremental_planning, evaluate_compaction_planning,
-    evaluate_delete_tombstone_compatibility, evaluate_layout_health,
+    DiagnosticCode, DiagnosticSeverity, EncodedSegment, EncodingKind, FallbackStatus, FieldId,
+    FieldName, FieldPath, FileDescriptor, FileRole, IncrementalPlanSkeleton, LayoutHealthPolicy,
+    LayoutHealthReport, LayoutKind, LocalAppendOnlyCdcOverlaySmokeReport,
+    LocalDeleteTombstoneReadSmokeReport, LocalTableMetadataReadSmokeReport, LogicalDType,
+    ManifestId, ManifestSegment, Nullability, OutputFormat, OutputTarget,
+    PartitionEvolutionCompatibilityReport, PartitionField, PartitionSpec, PartitionTransform,
+    SchemaDefinition, SchemaEvolutionCompatibilityReport, SchemaEvolutionPolicy, SchemaField,
+    SchemaId, SchemaVersion, SegmentChange, SegmentChangeKind, SegmentId, SegmentLayout,
+    SegmentStats, ShardLoomError, SnapshotId, SnapshotRef, StatefulReusePromotionGateReport,
+    StatefulReuseReport, TableCompatibilityPlan, TableCompatibilityReport, TableFormatKind,
+    TableIntelligenceReport, TableMaintenanceExecutionMatrixReport,
+    TableMaintenanceExecutionMatrixRow, WriteIntent, evaluate_cdc_incremental_planning,
+    evaluate_compaction_planning, evaluate_delete_tombstone_compatibility, evaluate_layout_health,
     evaluate_partition_evolution_compatibility, evaluate_schema_evolution_compatibility,
     plan_catalog_metadata_integration_gate, plan_cdc_manifest_transaction_gate,
     plan_stateful_reuse, plan_stateful_reuse_promotion_gate,
@@ -500,6 +500,53 @@ pub(crate) fn handle_local_table_metadata_read_smoke(
         report.to_human_text(),
         report.diagnostics.clone(),
         local_table_metadata_read_smoke_fields(&report),
+    );
+    if has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn handle_iceberg_metadata_read_smoke(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let request = match parse_iceberg_metadata_read_smoke_args(args) {
+        Ok(request) => request,
+        Err(error) => {
+            return emit_error(
+                "iceberg-metadata-read-smoke",
+                format,
+                "Iceberg metadata read smoke failed",
+                &error,
+            );
+        }
+    };
+    let report = match run_iceberg_metadata_read_smoke(&request) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "iceberg-metadata-read-smoke",
+                format,
+                "Iceberg metadata read smoke failed",
+                &error,
+            );
+        }
+    };
+    let has_errors = report.has_errors();
+    emit(
+        "iceberg-metadata-read-smoke",
+        format,
+        if has_errors {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "source-reviewed Iceberg metadata JSON read smoke".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        iceberg_metadata_read_smoke_fields(&report),
     );
     if has_errors {
         ExitCode::from(1)
@@ -5797,6 +5844,1119 @@ fn append_local_table_metadata_diagnostic_fields(
         &report.unsupported_diagnostic_code_order().join(","),
     );
     push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergMetadataReadSmokeRequest {
+    metadata_path: String,
+    selection: IcebergSnapshotSelectionRequest,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum IcebergSnapshotSelectionRequest {
+    Current,
+    SnapshotId(String),
+    AsOfTimestampMillis(i64),
+}
+
+impl IcebergSnapshotSelectionRequest {
+    fn selector_kind(&self) -> &'static str {
+        match self {
+            Self::Current => "current_snapshot",
+            Self::SnapshotId(_) => "snapshot_id",
+            Self::AsOfTimestampMillis(_) => "as_of_timestamp_ms",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IcebergMetadataBlockedPath {
+    ExternalCatalogResolution,
+    RemoteObjectStoreMetadataRead,
+    ManifestListRead,
+    ManifestFileRead,
+    DataFileScan,
+    DeleteFileSemantics,
+    TableWriteCommit,
+    BroadIcebergRuntime,
+    DeltaHudiRuntime,
+    LakehouseProductionClaim,
+}
+
+impl IcebergMetadataBlockedPath {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::ExternalCatalogResolution => "external_catalog_resolution",
+            Self::RemoteObjectStoreMetadataRead => "remote_object_store_metadata_read",
+            Self::ManifestListRead => "manifest_list_read",
+            Self::ManifestFileRead => "manifest_file_read",
+            Self::DataFileScan => "data_file_scan",
+            Self::DeleteFileSemantics => "delete_file_semantics",
+            Self::TableWriteCommit => "table_write_commit",
+            Self::BroadIcebergRuntime => "broad_iceberg_runtime",
+            Self::DeltaHudiRuntime => "delta_hudi_runtime",
+            Self::LakehouseProductionClaim => "lakehouse_production_claim",
+        }
+    }
+
+    const fn diagnostic_code(self) -> DiagnosticCode {
+        match self {
+            Self::RemoteObjectStoreMetadataRead => DiagnosticCode::ObjectStoreUnsupported,
+            Self::BroadIcebergRuntime | Self::DeltaHudiRuntime => {
+                DiagnosticCode::ExternalEffectDisabled
+            }
+            Self::ExternalCatalogResolution
+            | Self::ManifestListRead
+            | Self::ManifestFileRead
+            | Self::DataFileScan
+            | Self::DeleteFileSemantics
+            | Self::TableWriteCommit
+            | Self::LakehouseProductionClaim => DiagnosticCode::NotImplemented,
+        }
+    }
+
+    const fn diagnostic_category(self) -> DiagnosticCategory {
+        match self {
+            Self::RemoteObjectStoreMetadataRead => DiagnosticCategory::ObjectStore,
+            Self::BroadIcebergRuntime | Self::DeltaHudiRuntime => {
+                DiagnosticCategory::ExternalEffect
+            }
+            Self::DataFileScan | Self::DeleteFileSemantics | Self::TableWriteCommit => {
+                DiagnosticCategory::Execution
+            }
+            Self::ExternalCatalogResolution
+            | Self::ManifestListRead
+            | Self::ManifestFileRead
+            | Self::LakehouseProductionClaim => DiagnosticCategory::Planning,
+        }
+    }
+
+    fn to_diagnostic(self) -> Diagnostic {
+        Diagnostic::new(
+            self.diagnostic_code(),
+            DiagnosticSeverity::Info,
+            self.diagnostic_category(),
+            format!(
+                "{} remains blocked outside the Iceberg metadata JSON smoke scope",
+                self.as_str()
+            ),
+            Some(self.as_str().to_string()),
+            Some(
+                "The smoke only reads one local Iceberg table metadata JSON file and selects a snapshot."
+                    .to_string(),
+            ),
+            Some(
+                "Keep catalog, manifest-list, manifest, data-file, delete, write, and production lakehouse paths blocked until dedicated runtime evidence lands."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergMetadataSnapshotSummary {
+    snapshot_id: String,
+    sequence_number: Option<i64>,
+    timestamp_ms: Option<i64>,
+    manifest_list: String,
+    operation: String,
+    delete_file_count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+struct IcebergMetadataReadSmokeReport {
+    schema_version: &'static str,
+    report_id: &'static str,
+    phase_id: &'static str,
+    support_status: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+    source_protocol: &'static str,
+    source_review_ref: &'static str,
+    metadata_path: String,
+    metadata_bytes_read: usize,
+    format_version: u64,
+    table_uuid: String,
+    table_location: String,
+    current_schema_id: String,
+    schema_count: usize,
+    current_schema_field_count: usize,
+    schema_field_ids_present: bool,
+    complex_or_nested_schema_field_count: usize,
+    partition_spec_count: usize,
+    default_partition_spec_id: String,
+    sort_order_count: usize,
+    default_sort_order_id: String,
+    snapshot_count: usize,
+    current_snapshot_id: String,
+    selected_snapshot: IcebergMetadataSnapshotSummary,
+    snapshot_selector_kind: &'static str,
+    manifest_list_ref_count: usize,
+    branch_or_tag_ref_count: usize,
+    last_sequence_number: String,
+    metadata_summary: String,
+    metadata_summary_digest: String,
+    correctness_refs: &'static str,
+    execution_certificate_refs: &'static str,
+    native_io_certificate_refs: &'static str,
+    materialization_decode_refs: &'static str,
+    dependency_boundary_refs: &'static str,
+    local_metadata_json_read_performed: bool,
+    table_metadata_read_performed: bool,
+    snapshot_selection_performed: bool,
+    time_travel_selection_performed: bool,
+    catalog_io_performed: bool,
+    object_store_io_performed: bool,
+    manifest_list_read_performed: bool,
+    manifest_file_read_performed: bool,
+    data_file_read_performed: bool,
+    write_io_performed: bool,
+    credential_resolution_performed: bool,
+    external_table_format_dependency_invoked: bool,
+    fallback_attempted: bool,
+    fallback_execution_allowed: bool,
+    external_engine_invoked: bool,
+    performance_claim_allowed: bool,
+    production_table_catalog_claim_allowed: bool,
+    lakehouse_claim_allowed: bool,
+    unsupported_feature_order: Vec<&'static str>,
+    blocked_paths: Vec<IcebergMetadataBlockedPath>,
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl IcebergMetadataReadSmokeReport {
+    fn runtime_supported(&self) -> bool {
+        self.support_status == "runtime_supported"
+            && self.local_metadata_json_read_performed
+            && self.table_metadata_read_performed
+            && self.snapshot_selection_performed
+            && self.unsupported_feature_order.is_empty()
+    }
+
+    fn claim_scoped(&self) -> bool {
+        self.claim_gate_status == "scoped_iceberg_metadata_json_smoke_only"
+            && !self.performance_claim_allowed
+            && !self.production_table_catalog_claim_allowed
+            && !self.lakehouse_claim_allowed
+    }
+
+    fn side_effect_free_except_local_metadata_read(&self) -> bool {
+        self.local_metadata_json_read_performed
+            && self.table_metadata_read_performed
+            && !self.catalog_io_performed
+            && !self.object_store_io_performed
+            && !self.manifest_list_read_performed
+            && !self.manifest_file_read_performed
+            && !self.data_file_read_performed
+            && !self.write_io_performed
+            && !self.credential_resolution_performed
+            && !self.external_table_format_dependency_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    fn unsupported_diagnostic_count(&self) -> usize {
+        self.blocked_paths
+            .iter()
+            .filter(|path| {
+                self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == path.diagnostic_code()
+                        && diagnostic.category == path.diagnostic_category()
+                        && diagnostic.severity == DiagnosticSeverity::Info
+                        && diagnostic.feature.as_deref() == Some(path.as_str())
+                        && !diagnostic.fallback.attempted
+                        && !diagnostic.fallback.allowed
+                })
+            })
+            .count()
+    }
+
+    fn deterministic_unsupported_diagnostics_ready(&self) -> bool {
+        !self.blocked_paths.is_empty()
+            && self.unsupported_diagnostic_count() == self.blocked_paths.len()
+    }
+
+    fn blocked_path_order(&self) -> Vec<&'static str> {
+        self.blocked_paths
+            .iter()
+            .map(|path| path.as_str())
+            .collect()
+    }
+
+    fn unsupported_feature_order_text(&self) -> String {
+        if self.unsupported_feature_order.is_empty() {
+            "none".to_string()
+        } else {
+            self.unsupported_feature_order.join(",")
+        }
+    }
+
+    fn has_errors(&self) -> bool {
+        !self.runtime_supported()
+            || !self.claim_scoped()
+            || !self.side_effect_free_except_local_metadata_read()
+            || !self.deterministic_unsupported_diagnostics_ready()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    fn to_human_text(&self) -> String {
+        format!(
+            "schema_version: {}\nreport_id: {}\nphase_id: {}\nsupport_status: {}\nclaim_gate_status: {}\nsource_protocol: {}\nmetadata_path: {}\nformat_version: {}\ntable_uuid: {}\ncurrent_snapshot_id: {}\nselected_snapshot_id: {}\nsnapshot_selector_kind: {}\nmanifest_list_refs: {}\nunsupported_features: {}\nfallback_attempted: {}\nexternal_engine_invoked: {}\n",
+            self.schema_version,
+            self.report_id,
+            self.phase_id,
+            self.support_status,
+            self.claim_gate_status,
+            self.source_protocol,
+            self.metadata_path,
+            self.format_version,
+            self.table_uuid,
+            self.current_snapshot_id,
+            self.selected_snapshot.snapshot_id,
+            self.snapshot_selector_kind,
+            self.manifest_list_ref_count,
+            self.unsupported_feature_order_text(),
+            self.fallback_attempted,
+            self.external_engine_invoked
+        )
+    }
+}
+
+fn iceberg_metadata_blocked_paths() -> Vec<IcebergMetadataBlockedPath> {
+    vec![
+        IcebergMetadataBlockedPath::ExternalCatalogResolution,
+        IcebergMetadataBlockedPath::RemoteObjectStoreMetadataRead,
+        IcebergMetadataBlockedPath::ManifestListRead,
+        IcebergMetadataBlockedPath::ManifestFileRead,
+        IcebergMetadataBlockedPath::DataFileScan,
+        IcebergMetadataBlockedPath::DeleteFileSemantics,
+        IcebergMetadataBlockedPath::TableWriteCommit,
+        IcebergMetadataBlockedPath::BroadIcebergRuntime,
+        IcebergMetadataBlockedPath::DeltaHudiRuntime,
+        IcebergMetadataBlockedPath::LakehouseProductionClaim,
+    ]
+}
+
+fn parse_iceberg_metadata_read_smoke_args(
+    args: impl Iterator<Item = String>,
+) -> Result<IcebergMetadataReadSmokeRequest, ShardLoomError> {
+    let mut metadata_path = None;
+    let mut snapshot_id = None;
+    let mut as_of_timestamp_ms = None;
+    let mut iter = args.peekable();
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "--snapshot-id" => {
+                let value = iter.next().ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "missing value after --snapshot-id".to_string(),
+                    )
+                })?;
+                snapshot_id = Some(value);
+            }
+            "--as-of-timestamp-ms" => {
+                let value = iter.next().ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "missing value after --as-of-timestamp-ms".to_string(),
+                    )
+                })?;
+                let parsed = value.parse::<i64>().map_err(|_| {
+                    ShardLoomError::InvalidOperation(
+                        "--as-of-timestamp-ms must be an integer".to_string(),
+                    )
+                })?;
+                as_of_timestamp_ms = Some(parsed);
+            }
+            other if other.starts_with("--") => {
+                return Err(cli_unknown_arg_error("iceberg-metadata-read-smoke", other));
+            }
+            _ if metadata_path.is_none() => metadata_path = Some(arg),
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(
+                    "usage: shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms]"
+                        .to_string(),
+                ));
+            }
+        }
+    }
+    if snapshot_id.is_some() && as_of_timestamp_ms.is_some() {
+        return Err(ShardLoomError::InvalidOperation(
+            "--snapshot-id and --as-of-timestamp-ms are mutually exclusive".to_string(),
+        ));
+    }
+    let metadata_path = metadata_path.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "usage: shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms]"
+                .to_string(),
+        )
+    })?;
+    let selection = match (snapshot_id, as_of_timestamp_ms) {
+        (Some(id), None) => IcebergSnapshotSelectionRequest::SnapshotId(id),
+        (None, Some(timestamp)) => IcebergSnapshotSelectionRequest::AsOfTimestampMillis(timestamp),
+        (None, None) => IcebergSnapshotSelectionRequest::Current,
+        (Some(_), Some(_)) => unreachable!("mutual exclusion checked above"),
+    };
+    Ok(IcebergMetadataReadSmokeRequest {
+        metadata_path,
+        selection,
+    })
+}
+
+fn run_iceberg_metadata_read_smoke(
+    request: &IcebergMetadataReadSmokeRequest,
+) -> Result<IcebergMetadataReadSmokeReport, ShardLoomError> {
+    reject_non_local_metadata_path(&request.metadata_path)?;
+    let metadata = fs::read_to_string(Path::new(&request.metadata_path)).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read Iceberg metadata JSON {}: {error}",
+            request.metadata_path
+        ))
+    })?;
+    let root = parse_iceberg_metadata_json(&metadata)?;
+    build_iceberg_metadata_report(request, &metadata, &root)
+}
+
+fn reject_non_local_metadata_path(path: &str) -> Result<(), ShardLoomError> {
+    if path.contains("://") && !path.starts_with("file://") {
+        return Err(ShardLoomError::InvalidOperation(
+            "iceberg-metadata-read-smoke only accepts local metadata JSON paths".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn parse_iceberg_metadata_json(
+    metadata: &str,
+) -> Result<serde_json::Map<String, serde_json::Value>, ShardLoomError> {
+    let value: serde_json::Value = serde_json::from_str(metadata).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!("invalid Iceberg metadata JSON: {error}"))
+    })?;
+    value.as_object().cloned().ok_or_else(|| {
+        ShardLoomError::InvalidOperation("Iceberg metadata JSON must be an object".to_string())
+    })
+}
+
+fn build_iceberg_metadata_report(
+    request: &IcebergMetadataReadSmokeRequest,
+    metadata: &str,
+    root: &serde_json::Map<String, serde_json::Value>,
+) -> Result<IcebergMetadataReadSmokeReport, ShardLoomError> {
+    let format_version = required_u64(root, "format-version")?;
+    let table_uuid = required_string(root, "table-uuid")?;
+    let table_location = required_string(root, "location")?;
+    let current_schema_id = required_i64_string(root, "current-schema-id")?;
+    let current_snapshot_id = required_i64_string(root, "current-snapshot-id")?;
+    let schemas = required_array(root, "schemas")?;
+    let snapshots = required_array(root, "snapshots")?;
+    let current_schema = current_iceberg_schema(schemas, &current_schema_id)?;
+    let selected_snapshot =
+        select_iceberg_snapshot(snapshots, &current_snapshot_id, &request.selection)?;
+    let unsupported_feature_order =
+        iceberg_metadata_unsupported_feature_order(format_version, &selected_snapshot);
+    let metadata_summary = iceberg_metadata_summary(
+        &table_uuid,
+        &current_snapshot_id,
+        &selected_snapshot,
+        root,
+        schemas,
+        snapshots,
+    );
+    let blocked_paths = iceberg_metadata_blocked_paths();
+    let mut diagnostics: Vec<Diagnostic> = blocked_paths
+        .iter()
+        .map(|path| path.to_diagnostic())
+        .collect();
+    diagnostics.extend(iceberg_unsupported_feature_diagnostics(
+        &unsupported_feature_order,
+    ));
+    Ok(IcebergMetadataReadSmokeReport {
+        schema_version: "shardloom.iceberg_metadata_read_smoke.v1",
+        report_id: "prod-ready-1c.iceberg_metadata_json_read_smoke",
+        phase_id: "PROD-READY-1C",
+        support_status: if unsupported_feature_order.is_empty() {
+            "runtime_supported"
+        } else {
+            "unsupported_metadata_features"
+        },
+        claim_gate_status: "scoped_iceberg_metadata_json_smoke_only",
+        claim_boundary: "one local Iceberg table metadata JSON read and snapshot selection only; no catalog service, object-store read, manifest-list read, manifest/data-file scan, delete execution, write/commit, production lakehouse, or performance claim",
+        source_protocol: "apache_iceberg_table_metadata",
+        source_review_ref: "docs/architecture/table-protocol-source-review.md",
+        metadata_path: request.metadata_path.clone(),
+        metadata_bytes_read: metadata.len(),
+        format_version,
+        table_uuid,
+        table_location,
+        current_schema_id,
+        schema_count: schemas.len(),
+        current_schema_field_count: schema_field_count(current_schema),
+        schema_field_ids_present: schema_field_ids_present(current_schema),
+        complex_or_nested_schema_field_count: complex_or_nested_schema_field_count(current_schema),
+        partition_spec_count: optional_array_len(root, "partition-specs"),
+        default_partition_spec_id: optional_i64_string(root, "default-spec-id"),
+        sort_order_count: optional_array_len(root, "sort-orders"),
+        default_sort_order_id: optional_i64_string(root, "default-sort-order-id"),
+        snapshot_count: snapshots.len(),
+        current_snapshot_id,
+        selected_snapshot,
+        snapshot_selector_kind: request.selection.selector_kind(),
+        manifest_list_ref_count: manifest_list_ref_count(snapshots),
+        branch_or_tag_ref_count: optional_object_len(root, "refs"),
+        last_sequence_number: optional_i64_string(root, "last-sequence-number"),
+        metadata_summary_digest: iceberg_metadata_digest(&metadata_summary),
+        metadata_summary,
+        correctness_refs: "shardloom-cli::workflow_planning::iceberg_metadata_read_smoke",
+        execution_certificate_refs: "shardloom-cli/tests/iceberg_metadata_read_smoke.rs",
+        native_io_certificate_refs: "local_metadata_json_read_only_no_object_store_native_io_certificate",
+        materialization_decode_refs: "metadata_json_only_no_data_file_decode_no_row_materialization",
+        dependency_boundary_refs: "serde_json_only_no_iceberg_runtime_dependency_no_external_engine",
+        local_metadata_json_read_performed: true,
+        table_metadata_read_performed: true,
+        snapshot_selection_performed: true,
+        time_travel_selection_performed: matches!(
+            request.selection,
+            IcebergSnapshotSelectionRequest::AsOfTimestampMillis(_)
+        ),
+        catalog_io_performed: false,
+        object_store_io_performed: false,
+        manifest_list_read_performed: false,
+        manifest_file_read_performed: false,
+        data_file_read_performed: false,
+        write_io_performed: false,
+        credential_resolution_performed: false,
+        external_table_format_dependency_invoked: false,
+        fallback_attempted: false,
+        fallback_execution_allowed: false,
+        external_engine_invoked: false,
+        performance_claim_allowed: false,
+        production_table_catalog_claim_allowed: false,
+        lakehouse_claim_allowed: false,
+        unsupported_feature_order,
+        blocked_paths,
+        diagnostics,
+    })
+}
+
+fn required_array<'a>(
+    root: &'a serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<&'a Vec<serde_json::Value>, ShardLoomError> {
+    root.get(key)
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "Iceberg metadata JSON missing array field {key}"
+            ))
+        })
+}
+
+fn required_string(
+    root: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<String, ShardLoomError> {
+    root.get(key)
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "Iceberg metadata JSON missing string field {key}"
+            ))
+        })
+}
+
+fn required_u64(
+    root: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<u64, ShardLoomError> {
+    root.get(key)
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "Iceberg metadata JSON missing unsigned integer field {key}"
+            ))
+        })
+}
+
+fn required_i64_string(
+    root: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<String, ShardLoomError> {
+    root.get(key).and_then(json_i64_string).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "Iceberg metadata JSON missing integer field {key}"
+        ))
+    })
+}
+
+fn optional_i64_string(root: &serde_json::Map<String, serde_json::Value>, key: &str) -> String {
+    root.get(key)
+        .and_then(json_i64_string)
+        .unwrap_or_else(|| "none".to_string())
+}
+
+fn json_i64_string(value: &serde_json::Value) -> Option<String> {
+    value.as_i64().map(|number| number.to_string()).or_else(|| {
+        value
+            .as_u64()
+            .and_then(|number| i64::try_from(number).ok())
+            .map(|number| number.to_string())
+    })
+}
+
+fn optional_array_len(root: &serde_json::Map<String, serde_json::Value>, key: &str) -> usize {
+    root.get(key)
+        .and_then(serde_json::Value::as_array)
+        .map_or(0, Vec::len)
+}
+
+fn optional_object_len(root: &serde_json::Map<String, serde_json::Value>, key: &str) -> usize {
+    root.get(key)
+        .and_then(serde_json::Value::as_object)
+        .map_or(0, serde_json::Map::len)
+}
+
+fn current_iceberg_schema<'a>(
+    schemas: &'a [serde_json::Value],
+    current_schema_id: &str,
+) -> Result<&'a serde_json::Map<String, serde_json::Value>, ShardLoomError> {
+    schemas
+        .iter()
+        .filter_map(serde_json::Value::as_object)
+        .find(|schema| {
+            schema.get("schema-id").and_then(json_i64_string).as_deref() == Some(current_schema_id)
+        })
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "Iceberg current schema id {current_schema_id} was not found in schemas"
+            ))
+        })
+}
+
+fn select_iceberg_snapshot(
+    snapshots: &[serde_json::Value],
+    current_snapshot_id: &str,
+    selection: &IcebergSnapshotSelectionRequest,
+) -> Result<IcebergMetadataSnapshotSummary, ShardLoomError> {
+    match selection {
+        IcebergSnapshotSelectionRequest::Current => {
+            snapshot_by_id(snapshots, current_snapshot_id, "current-snapshot-id")
+        }
+        IcebergSnapshotSelectionRequest::SnapshotId(snapshot_id) => {
+            snapshot_by_id(snapshots, snapshot_id, "--snapshot-id")
+        }
+        IcebergSnapshotSelectionRequest::AsOfTimestampMillis(timestamp) => {
+            snapshot_as_of_timestamp(snapshots, *timestamp)
+        }
+    }
+}
+
+fn snapshot_by_id(
+    snapshots: &[serde_json::Value],
+    snapshot_id: &str,
+    selector_label: &str,
+) -> Result<IcebergMetadataSnapshotSummary, ShardLoomError> {
+    snapshots
+        .iter()
+        .filter_map(serde_json::Value::as_object)
+        .find(|snapshot| snapshot_id_for(snapshot).as_deref() == Some(snapshot_id))
+        .map(snapshot_summary)
+        .transpose()?
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "Iceberg {selector_label} {snapshot_id} was not found in snapshots"
+            ))
+        })
+}
+
+fn snapshot_as_of_timestamp(
+    snapshots: &[serde_json::Value],
+    timestamp_ms: i64,
+) -> Result<IcebergMetadataSnapshotSummary, ShardLoomError> {
+    snapshots
+        .iter()
+        .filter_map(serde_json::Value::as_object)
+        .filter_map(|snapshot| {
+            let snapshot_ts = snapshot
+                .get("timestamp-ms")
+                .and_then(serde_json::Value::as_i64)?;
+            (snapshot_ts <= timestamp_ms).then_some((snapshot_ts, snapshot))
+        })
+        .max_by_key(|(snapshot_ts, _)| *snapshot_ts)
+        .map(|(_, snapshot)| snapshot_summary(snapshot))
+        .transpose()?
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "no Iceberg snapshot exists at or before timestamp {timestamp_ms}"
+            ))
+        })
+}
+
+fn snapshot_summary(
+    snapshot: &serde_json::Map<String, serde_json::Value>,
+) -> Result<IcebergMetadataSnapshotSummary, ShardLoomError> {
+    let snapshot_id = snapshot_id_for(snapshot).ok_or_else(|| {
+        ShardLoomError::InvalidOperation("Iceberg snapshot missing snapshot-id".to_string())
+    })?;
+    Ok(IcebergMetadataSnapshotSummary {
+        snapshot_id,
+        sequence_number: snapshot
+            .get("sequence-number")
+            .and_then(serde_json::Value::as_i64),
+        timestamp_ms: snapshot
+            .get("timestamp-ms")
+            .and_then(serde_json::Value::as_i64),
+        manifest_list: snapshot
+            .get("manifest-list")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("none")
+            .to_string(),
+        operation: snapshot
+            .get("summary")
+            .and_then(serde_json::Value::as_object)
+            .and_then(|summary| summary.get("operation"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown")
+            .to_string(),
+        delete_file_count: snapshot_delete_file_count(snapshot),
+    })
+}
+
+fn snapshot_id_for(snapshot: &serde_json::Map<String, serde_json::Value>) -> Option<String> {
+    snapshot.get("snapshot-id").and_then(json_i64_string)
+}
+
+fn snapshot_delete_file_count(snapshot: &serde_json::Map<String, serde_json::Value>) -> u64 {
+    snapshot
+        .get("summary")
+        .and_then(serde_json::Value::as_object)
+        .map_or(0, |summary| {
+            [
+                "total-delete-files",
+                "added-delete-files",
+                "removed-delete-files",
+            ]
+            .iter()
+            .filter_map(|key| summary.get(*key))
+            .filter_map(json_count_value)
+            .sum()
+        })
+}
+
+fn json_count_value(value: &serde_json::Value) -> Option<u64> {
+    value
+        .as_u64()
+        .or_else(|| value.as_str().and_then(|raw| raw.parse::<u64>().ok()))
+}
+
+fn schema_fields(
+    schema: &serde_json::Map<String, serde_json::Value>,
+) -> Option<&Vec<serde_json::Value>> {
+    schema.get("fields").and_then(serde_json::Value::as_array)
+}
+
+fn schema_field_count(schema: &serde_json::Map<String, serde_json::Value>) -> usize {
+    schema_fields(schema).map_or(0, Vec::len)
+}
+
+fn schema_field_ids_present(schema: &serde_json::Map<String, serde_json::Value>) -> bool {
+    schema_fields(schema).is_some_and(|fields| {
+        !fields.is_empty()
+            && fields
+                .iter()
+                .filter_map(serde_json::Value::as_object)
+                .all(|field| field.get("id").and_then(json_i64_string).is_some())
+    })
+}
+
+fn complex_or_nested_schema_field_count(
+    schema: &serde_json::Map<String, serde_json::Value>,
+) -> usize {
+    schema_fields(schema).map_or(0, |fields| {
+        fields
+            .iter()
+            .filter_map(serde_json::Value::as_object)
+            .filter(|field| {
+                field
+                    .get("type")
+                    .is_some_and(|field_type| !field_type.is_string())
+            })
+            .count()
+    })
+}
+
+fn manifest_list_ref_count(snapshots: &[serde_json::Value]) -> usize {
+    snapshots
+        .iter()
+        .filter_map(serde_json::Value::as_object)
+        .filter(|snapshot| {
+            snapshot
+                .get("manifest-list")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|value| !value.trim().is_empty())
+        })
+        .count()
+}
+
+fn iceberg_metadata_unsupported_feature_order(
+    format_version: u64,
+    selected_snapshot: &IcebergMetadataSnapshotSummary,
+) -> Vec<&'static str> {
+    let mut features = Vec::new();
+    if format_version > 2 {
+        features.push("format_version_gt_2");
+    }
+    if selected_snapshot.delete_file_count > 0 {
+        features.push("delete_files_present");
+    }
+    features
+}
+
+fn iceberg_unsupported_feature_diagnostics(features: &[&'static str]) -> Vec<Diagnostic> {
+    features
+        .iter()
+        .map(|feature| {
+            Diagnostic::new(
+                DiagnosticCode::NotImplemented,
+                DiagnosticSeverity::Error,
+                DiagnosticCategory::UnsupportedFeature,
+                format!("Iceberg metadata feature {feature} is not admitted for runtime support"),
+                Some((*feature).to_string()),
+                Some(
+                    "The local metadata smoke parsed the table metadata but found an unadmitted Iceberg feature."
+                        .to_string(),
+                ),
+                Some(
+                    "Keep the request blocked until the phased table runtime item adds correctness and no-fallback evidence for this feature."
+                        .to_string(),
+                ),
+                FallbackStatus::disabled_by_policy(),
+            )
+        })
+        .collect()
+}
+
+fn iceberg_metadata_summary(
+    table_uuid: &str,
+    current_snapshot_id: &str,
+    selected_snapshot: &IcebergMetadataSnapshotSummary,
+    root: &serde_json::Map<String, serde_json::Value>,
+    schemas: &[serde_json::Value],
+    snapshots: &[serde_json::Value],
+) -> String {
+    format!(
+        "protocol=iceberg table_uuid={} format_version={} current_schema_id={} current_snapshot_id={} selected_snapshot_id={} schemas={} partition_specs={} sort_orders={} snapshots={} manifest_list_refs={} delete_files={} catalog_io=false object_store_io=false data_file_read=false fallback_attempted=false external_engine_invoked=false",
+        table_uuid,
+        root.get("format-version")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0),
+        root.get("current-schema-id")
+            .and_then(json_i64_string)
+            .unwrap_or_else(|| "none".to_string()),
+        current_snapshot_id,
+        selected_snapshot.snapshot_id,
+        schemas.len(),
+        optional_array_len(root, "partition-specs"),
+        optional_array_len(root, "sort-orders"),
+        snapshots.len(),
+        manifest_list_ref_count(snapshots),
+        selected_snapshot.delete_file_count
+    )
+}
+
+fn iceberg_metadata_digest(input: &str) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in input.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("fnv1a64:{hash:016x}")
+}
+
+fn iceberg_metadata_read_smoke_fields(
+    report: &IcebergMetadataReadSmokeReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_iceberg_metadata_identity_fields(&mut fields, report);
+    append_iceberg_metadata_summary_fields(&mut fields, report);
+    append_iceberg_metadata_evidence_fields(&mut fields, report);
+    append_iceberg_metadata_boundary_fields(&mut fields, report);
+    append_iceberg_metadata_diagnostic_fields(&mut fields, report);
+    push_field(&mut fields, "execution", "performed");
+    push_bool_field(&mut fields, "plan_only", false);
+    fields
+}
+
+fn append_iceberg_metadata_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &IcebergMetadataReadSmokeReport,
+) {
+    push_field(fields, "mode", "iceberg_metadata_read_smoke");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_field(fields, "phase_id", report.phase_id);
+    push_field(fields, "support_status", report.support_status);
+    push_field(fields, "claim_gate_status", report.claim_gate_status);
+    push_field(fields, "claim_boundary", report.claim_boundary);
+    push_field(fields, "source_protocol", report.source_protocol);
+    push_field(fields, "source_review_ref", report.source_review_ref);
+    push_field(fields, "metadata_path", &report.metadata_path);
+}
+
+fn append_iceberg_metadata_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &IcebergMetadataReadSmokeReport,
+) {
+    push_count_field(fields, "metadata_bytes_read", report.metadata_bytes_read);
+    push_field(fields, "format_version", &report.format_version.to_string());
+    push_field(fields, "table_uuid", &report.table_uuid);
+    push_field(fields, "table_location", &report.table_location);
+    push_field(fields, "current_schema_id", &report.current_schema_id);
+    push_count_field(fields, "schema_count", report.schema_count);
+    push_count_field(
+        fields,
+        "current_schema_field_count",
+        report.current_schema_field_count,
+    );
+    push_bool_field(
+        fields,
+        "schema_field_ids_present",
+        report.schema_field_ids_present,
+    );
+    push_count_field(
+        fields,
+        "complex_or_nested_schema_field_count",
+        report.complex_or_nested_schema_field_count,
+    );
+    push_count_field(fields, "partition_spec_count", report.partition_spec_count);
+    push_field(
+        fields,
+        "default_partition_spec_id",
+        &report.default_partition_spec_id,
+    );
+    push_count_field(fields, "sort_order_count", report.sort_order_count);
+    push_field(
+        fields,
+        "default_sort_order_id",
+        &report.default_sort_order_id,
+    );
+    push_count_field(fields, "snapshot_count", report.snapshot_count);
+    push_field(fields, "current_snapshot_id", &report.current_snapshot_id);
+    push_field(
+        fields,
+        "selected_snapshot_id",
+        &report.selected_snapshot.snapshot_id,
+    );
+    push_field(
+        fields,
+        "selected_snapshot_sequence_number",
+        &optional_i64_text(report.selected_snapshot.sequence_number),
+    );
+    push_field(
+        fields,
+        "selected_snapshot_timestamp_ms",
+        &optional_i64_text(report.selected_snapshot.timestamp_ms),
+    );
+    push_field(
+        fields,
+        "selected_snapshot_manifest_list",
+        &report.selected_snapshot.manifest_list,
+    );
+    push_field(
+        fields,
+        "selected_snapshot_operation",
+        &report.selected_snapshot.operation,
+    );
+    push_field(
+        fields,
+        "selected_snapshot_delete_file_count",
+        &report.selected_snapshot.delete_file_count.to_string(),
+    );
+    push_field(
+        fields,
+        "snapshot_selector_kind",
+        report.snapshot_selector_kind,
+    );
+    push_count_field(
+        fields,
+        "manifest_list_ref_count",
+        report.manifest_list_ref_count,
+    );
+    push_count_field(
+        fields,
+        "branch_or_tag_ref_count",
+        report.branch_or_tag_ref_count,
+    );
+    push_field(fields, "last_sequence_number", &report.last_sequence_number);
+    push_field(fields, "metadata_summary", &report.metadata_summary);
+    push_field(
+        fields,
+        "metadata_summary_digest",
+        &report.metadata_summary_digest,
+    );
+}
+
+fn append_iceberg_metadata_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &IcebergMetadataReadSmokeReport,
+) {
+    push_field(fields, "correctness_refs", report.correctness_refs);
+    push_field(
+        fields,
+        "execution_certificate_refs",
+        report.execution_certificate_refs,
+    );
+    push_field(
+        fields,
+        "native_io_certificate_refs",
+        report.native_io_certificate_refs,
+    );
+    push_field(
+        fields,
+        "materialization_decode_refs",
+        report.materialization_decode_refs,
+    );
+    push_field(
+        fields,
+        "dependency_boundary_refs",
+        report.dependency_boundary_refs,
+    );
+}
+
+fn append_iceberg_metadata_boundary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &IcebergMetadataReadSmokeReport,
+) {
+    push_bool_field(
+        fields,
+        "local_metadata_json_read_performed",
+        report.local_metadata_json_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "table_metadata_read_performed",
+        report.table_metadata_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "snapshot_selection_performed",
+        report.snapshot_selection_performed,
+    );
+    push_bool_field(
+        fields,
+        "time_travel_selection_performed",
+        report.time_travel_selection_performed,
+    );
+    push_bool_field(fields, "catalog_io_performed", report.catalog_io_performed);
+    push_bool_field(
+        fields,
+        "object_store_io_performed",
+        report.object_store_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "manifest_list_read_performed",
+        report.manifest_list_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "manifest_file_read_performed",
+        report.manifest_file_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "data_file_read_performed",
+        report.data_file_read_performed,
+    );
+    push_bool_field(fields, "write_io_performed", report.write_io_performed);
+    push_bool_field(
+        fields,
+        "credential_resolution_performed",
+        report.credential_resolution_performed,
+    );
+    push_bool_field(
+        fields,
+        "external_table_format_dependency_invoked",
+        report.external_table_format_dependency_invoked,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "production_table_catalog_claim_allowed",
+        report.production_table_catalog_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "lakehouse_claim_allowed",
+        report.lakehouse_claim_allowed,
+    );
+}
+
+fn append_iceberg_metadata_diagnostic_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &IcebergMetadataReadSmokeReport,
+) {
+    push_bool_field(fields, "runtime_supported", report.runtime_supported());
+    push_bool_field(fields, "claim_scoped", report.claim_scoped());
+    push_bool_field(
+        fields,
+        "side_effect_free_except_local_metadata_read",
+        report.side_effect_free_except_local_metadata_read(),
+    );
+    push_count_field(
+        fields,
+        "unsupported_feature_count",
+        report.unsupported_feature_order.len(),
+    );
+    push_field(
+        fields,
+        "unsupported_feature_order",
+        &report.unsupported_feature_order_text(),
+    );
+    push_count_field(fields, "blocked_path_count", report.blocked_paths.len());
+    push_field(
+        fields,
+        "blocked_path_order",
+        &report.blocked_path_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "unsupported_diagnostic_count",
+        report.unsupported_diagnostic_count(),
+    );
+    push_bool_field(
+        fields,
+        "deterministic_unsupported_diagnostics_ready",
+        report.deterministic_unsupported_diagnostics_ready(),
+    );
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn optional_i64_text(value: Option<i64>) -> String {
+    value.map_or_else(|| "none".to_string(), |number| number.to_string())
 }
 
 fn local_delete_tombstone_read_smoke_fields(

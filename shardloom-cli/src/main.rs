@@ -1030,6 +1030,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("local-table-metadata-read-smoke") => {
             workflow_planning::handle_local_table_metadata_read_smoke(args, format)
         }
+        Some("iceberg-metadata-read-smoke") => {
+            workflow_planning::handle_iceberg_metadata_read_smoke(args, format)
+        }
         Some("local-delete-tombstone-read-smoke") => {
             workflow_planning::handle_local_delete_tombstone_read_smoke(args, format)
         }
@@ -3314,6 +3317,10 @@ mod tests {
     #[test]
     fn usage_includes_local_table_metadata_read_smoke() {
         assert!(cli_usage_line().contains("local-table-metadata-read-smoke"));
+    }
+    #[test]
+    fn usage_includes_iceberg_metadata_read_smoke() {
+        assert!(cli_usage_line().contains("iceberg-metadata-read-smoke"));
     }
     #[test]
     fn usage_includes_local_delete_tombstone_read_smoke() {

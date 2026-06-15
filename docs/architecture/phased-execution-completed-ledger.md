@@ -16,6 +16,190 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-READY-1G scoped local Foundry-style proof reconciliation
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1G` in `docs/architecture/phased-execution-plan.md`.
+    - RFC 0036 Foundry integration pack and availability surface.
+    - `docs/foundry/integration-pack-readiness.md`.
+    - `docs/foundry/proof-of-use-certification.md`.
+    - `docs/foundry/dev-stack-starter-kit.md`.
+    - `scripts/foundry_proof_of_use.py`.
+    - `examples/foundry-lightweight-transform/run.py`.
+    - Python `ctx.foundry_generated_output(...)` local dataset-shaped output path.
+  - Scope:
+    - Reconciled existing local/dev-stack Foundry-style proof into the open production-readiness
+      phase plan without promoting it to real Foundry support.
+    - The local proof resolves the ShardLoom CLI, exercises source-free generated output, runs a
+      staged local CSV transform, writes local certificate and metrics artifacts, and writes local
+      Foundry-style result/evidence dataset-shaped directories.
+    - Python exposes local `ctx.foundry_generated_output(...)` smoke support for filesystem-backed
+      dataset-shaped paths, while real `foundry://...` targets remain deterministic unsupported
+      diagnostics before staging rows.
+  - Closed checklist:
+    - [x] Optional Foundry integration posture and RFC 0036 maturity ladder are documented.
+    - [x] Local proof-of-use report emits Foundry-style generated-output, fanout, scale-boundary,
+      package-boundary, and dev-stack starter evidence.
+    - [x] Local Foundry-style result/evidence dataset output is supported only as a fixture smoke.
+    - [x] Real Foundry package/import, transform, output API, Artifact Repository, Compute Module,
+      virtual-table, direct object-store, Foundry Spark, external compute, and production claims
+      remain blocked.
+  - Evidence fields:
+    - `schema_version=shardloom.foundry_proof_of_use_report.v1`.
+    - `schema_version=shardloom.foundry_generated_output_fanout_posture.v1`.
+    - `schema_version=shardloom.foundry_generated_output_boundary.v1`.
+    - `schema_version=shardloom.foundry_scale_proof_boundary.v1`.
+    - `schema_version=shardloom.foundry_package_proof_boundary_matrix.v1`.
+    - `schema_version=shardloom.foundry_dev_stack_starter_kit.v1`.
+    - `shardloom_execution_mode=local_foundry_style_generated_and_staged_transform_smoke`.
+    - `foundry_style_output_api_invoked=true`.
+    - `foundry_style_result_dataset_written=true`.
+    - `foundry_style_evidence_dataset_written=true`.
+    - `foundry_output_api_invoked=false`.
+    - `foundry_runtime_invoked=false`.
+    - `foundry_compute_invoked=false`.
+    - `foundry_spark_invoked=false`.
+    - `direct_s3_read_invoked=false`.
+    - `direct_s3_write_invoked=false`.
+    - `object_store_read_invoked=false`.
+    - `object_store_write_invoked=false`.
+    - `object_store_commit_invoked=false`.
+    - `fallback_attempted=false`.
+    - `external_engine_invoked=false`.
+    - `public_foundry_claim_allowed=false`.
+    - `local_foundry_style_proof_claim_allowed=true` when the local proof passes.
+  - Evidence commands:
+    - `python -m py_compile scripts/foundry_proof_of_use.py`.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata foundry`.
+  - Claim boundary:
+    - May claim scoped local/dev-stack Foundry-style proof-of-use and local dataset-shaped
+      generated-output smoke only.
+    - May not claim `shardloom-foundry` package availability, real Foundry Code Repository
+      package/import, real Foundry transform execution, real Foundry output APIs, Artifact
+      Repository publication, Compute Module support, virtual-table native execution, Foundry
+      production support, Foundry benchmark performance, or Foundry-managed external compute as
+      ShardLoom execution.
+  - Fallback boundary:
+    - Foundry Spark, Snowflake, Databricks, BigQuery, virtual tables, managed SQL systems, Spark,
+      DataFusion, DuckDB, Polars, Velox, Trino, Ray, Dask, and platform compute remain external
+      baselines, governed handles, or explicit blockers, never ShardLoom execution.
+
+- [x] Session label: PROD-READY-1E scoped live/hybrid fixture evidence reconciliation
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1E` in `docs/architecture/phased-execution-plan.md`.
+    - RFC 0034 three-engine certified data execution fabric.
+    - RFC 0017 fault tolerance, cancellation, and recovery.
+    - `shardloom-core/src/live_engine.rs`.
+    - `shardloom-cli/src/engine_fabric_planning.rs`.
+    - `shardloom-cli/tests/cg22_engine_fabric_snapshots.rs`.
+  - Scope:
+    - Reconciled existing scoped live/hybrid fixture runtime evidence into the open phase plan.
+    - `live-change-contract-plan` declares change records, append/upsert/delete/retract/tombstone
+      operations, event-time watermark policy, late-data policy, state TTL, in-memory checkpoint
+      policy, and output changelog modes.
+    - `live-fixture-run` executes bounded in-memory filter, project, count, count-where, and
+      group-count workloads and emits freshness, state, continuous-view, execution-certificate,
+      Native I/O, no-fallback, and no-external-engine evidence.
+    - `hybrid-overlay-run` emits scoped base snapshot, hot changelog, delta overlay, flush,
+      merged snapshot, and certificate evidence.
+    - `live-hybrid-state-transition-smoke` emits retry, cancellation, cleanup, partial-output,
+      state-transition, freshness, and state evidence.
+  - Closed checklist:
+    - [x] Scoped EngineMode, boundedness, update-mode, and output-mode classification evidence.
+    - [x] Scoped in-memory change-record model with append/upsert/delete/retract/tombstone.
+    - [x] Scoped state, changelog, checkpoint-ref, live output, hybrid overlay, and
+      base/merged-snapshot evidence.
+    - [x] Freshness, state, continuous-view, delta-overlay, execution-certificate, Native I/O, and
+      no-fallback fields are emitted for fixture paths.
+    - [x] Cooperative cancellation, retry, partial-output tracking, cleanup, late-data counting,
+      and unsupported predicate/column rejection evidence exists.
+  - Evidence fields:
+    - `schema_version=shardloom.live_change_contract.v1`.
+    - `schema_version=shardloom.live_fixture_run.v1`.
+    - `schema_version=shardloom.live_hybrid_state_transition_fixture.v1`.
+    - `freshness_certificate_status=certified`.
+    - `state_certificate_status=certified`.
+    - `continuous_view_certificate_status=certified`.
+    - `execution_certificate_status=certified`.
+    - `native_io_certificate_status=certified`.
+    - `delta_overlay_certificate_status=certified`.
+    - `state_transition_certificate_status=certified`.
+    - `broker_io=false`.
+    - `object_store_io=false`.
+    - `write_io=false`.
+    - `fallback_attempted=false`.
+    - `external_engine_invoked=false`.
+  - Evidence commands:
+    - `cargo test -p shardloom-core live_engine --lib`.
+    - `cargo test -p shardloom-cli --test cg22_engine_fabric_snapshots`.
+  - Claim boundary:
+    - May claim scoped deterministic in-memory live/hybrid fixture execution and certificate
+      evidence exactly as exposed by the commands above.
+    - May not claim production streaming, unbounded live runtime, broker connectors, durable state
+      store, durable checkpoint/restore, object-store/catalog checkpoint, exactly-once delivery,
+      arbitrary streaming connectors, live/hybrid performance, or external engine execution.
+  - Fallback boundary:
+    - Flink, Spark Streaming, Kafka Streams, Ray, Dask, DataFusion, DuckDB, Polars, Velox, Trino,
+      Foundry Spark, managed SQL systems, and platform compute remain external baselines or handles,
+      never ShardLoom execution.
+
+- [x] Session label: PROD-READY-1C scoped Iceberg metadata JSON smoke
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1C` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/table-protocol-source-review.md`.
+    - `docs/architecture/table-intelligence-layer.md`.
+    - Apache Iceberg table metadata source review.
+  - Scope:
+    - Added `iceberg-metadata-read-smoke <metadata-json-path>` as the first source-reviewed
+      external table-profile implementation.
+    - Reads one local Iceberg table metadata JSON file with `serde_json`; no Iceberg runtime crate,
+      external catalog, object-store, manifest-list, manifest, data-file, write/commit, fallback,
+      or external-engine execution is admitted.
+    - Supports default current-snapshot selection, explicit `--snapshot-id`, and
+      `--as-of-timestamp-ms` selection by choosing the latest snapshot at or before the requested
+      timestamp.
+    - Emits schema, partition-spec, sort-order, snapshot, manifest-list-reference,
+      metadata-summary digest, source-review, dependency-boundary, materialization/decode, and
+      no-fallback evidence fields.
+    - Blocks selected snapshots with delete-file summary counts through an unsupported envelope
+      rather than silently ignoring deletes.
+  - Closed checklist:
+    - [x] Local Iceberg metadata JSON read smoke implemented.
+    - [x] Snapshot selection and time-travel selector coverage added.
+    - [x] Delete-file metadata blocker added with no-fallback evidence.
+    - [x] Command registry metadata, phase plan, and table architecture docs updated.
+  - Evidence fields:
+    - `schema_version=shardloom.iceberg_metadata_read_smoke.v1`.
+    - `report_id=prod-ready-1c.iceberg_metadata_json_read_smoke`.
+    - `claim_gate_status=scoped_iceberg_metadata_json_smoke_only`.
+    - `source_protocol=apache_iceberg_table_metadata`.
+    - `local_metadata_json_read_performed=true`.
+    - `snapshot_selection_performed=true`.
+    - `catalog_io_performed=false`.
+    - `object_store_io_performed=false`.
+    - `manifest_list_read_performed=false`.
+    - `manifest_file_read_performed=false`.
+    - `data_file_read_performed=false`.
+    - `write_io_performed=false`.
+    - `fallback_attempted=false`.
+    - `external_engine_invoked=false`.
+  - Evidence commands:
+    - `cargo test -p shardloom-cli --test iceberg_metadata_read_smoke`.
+    - `cargo test -p shardloom-cli usage_includes_iceberg_metadata_read_smoke --bin shardloom`.
+    - `cargo clippy -p shardloom-cli --test iceberg_metadata_read_smoke -- -D warnings`.
+  - Claim boundary:
+    - May claim one scoped local Iceberg metadata JSON smoke with snapshot selection and explicit
+      no-fallback evidence.
+    - May not claim Iceberg manifest-list/manifest/data-file runtime, Delta/Hudi runtime, catalog
+      runtime, object-store table runtime, table scan/write/commit runtime, production lakehouse
+      support, or table performance.
+  - Fallback boundary:
+    - Spark, DataFusion, DuckDB, Polars, Velox, Trino, warehouse engines, Vortex query-engine
+      integrations, catalog engines, and platform compute remain external baselines or handles,
+      never ShardLoom execution.
+
 - [x] Session label: PROD-READY-1B/1C production evidence hardening
   - Date: 2026-06-15
   - Source:
