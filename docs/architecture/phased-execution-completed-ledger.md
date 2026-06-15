@@ -16,6 +16,90 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-READY-1D scoped local distributed fixture runtime
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1D` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/scale-readiness-contract.md`.
+    - `docs/skills/object-store-runtime.md`.
+    - `docs/skills/fault-tolerance-recovery.md`.
+  - Scope:
+    - Added `shardloom-core::distributed_engine` with a deterministic in-process local
+      coordinator/worker fixture.
+    - Added `distributed-local-fixture-run [worker-count] [none|fault-injection]` to the CLI,
+      command registry, command family classifier, and typed-envelope compatibility surface.
+    - The fixture builds a `shardloom.local_distributed_split_manifest.v1` split manifest with
+      three capillary split units, assigns them to one to four local worker slots, records
+      PulseWeave-style coordinator/worker attempt graph evidence, emits result fragments, performs
+      scoped local hash repartition, split-local combine, deterministic global merge, skew
+      detection/handling, and bounded memory/backpressure accounting, and attaches execution plus
+      Native I/O certificates.
+    - The fault-injection path records retry, cancelled-attempt cleanup, duplicate-attempt
+      rejection, stale-lease rejection, partial-output tracking, and partial-output non-commit
+      evidence.
+    - Added a scoped local distributed workload row to
+      `docs/release/production-certification-workloads.json` and a runs-today support row to
+      `docs/status/runs-today-support-matrix.json`.
+    - Remote worker services, network coordinators, object-store split distribution, remote
+      shuffle, distributed spill/backpressure, multi-host fault injection, distributed benchmark
+      claims, production readiness, and Spark-displacement claims remain blocked.
+  - Closed checklist:
+    - [x] First scoped distributed workload/environment defined as
+      `local_distributed_fixture_runtime_v1_candidate`.
+    - [x] Local in-process coordinator/worker lifecycle evidence implemented.
+    - [x] Split-manifest unit execution, result fragments, deterministic merge, retry,
+      duplicate-attempt, stale-lease, cancellation, and cleanup evidence implemented.
+    - [x] Scoped local hash repartition, split-local combine, global merge, skew, and bounded
+      memory/backpressure evidence implemented.
+    - [x] Execution and Native I/O certificates emitted with no-fallback/external-engine fields.
+    - [x] Focused core, CLI snapshot, and typed-envelope regression coverage added.
+  - Evidence fields:
+    - `schema_version=shardloom.local_distributed_fixture_run.v1`.
+    - `split_manifest_schema_version=shardloom.local_distributed_split_manifest.v1`.
+    - `distributed_runtime_status=scoped_local_fixture_supported`.
+    - `distributed_claim_gate_status=not_distributed_runtime_grade`.
+    - `coordinator_invoked=true`.
+    - `local_worker_runtime_invoked=true`.
+    - `remote_worker_invoked=false`.
+    - `split_execution_performed=true`.
+    - `shuffle_repartition_performed=true`.
+    - `shuffle_repartition_schema_version=shardloom.local_distributed_shuffle_repartition.v1`.
+    - `local_combine_performed=true`.
+    - `global_merge_performed=true`.
+    - `skew_schema_version=shardloom.local_distributed_skew.v1`.
+    - `skew_detected=true`.
+    - `skew_handling_applied=true`.
+    - `memory_backpressure_schema_version=shardloom.local_distributed_memory_backpressure.v1`.
+    - `memory_budget_enforced=true`.
+    - `spill_required=false`.
+    - `deterministic_merge_performed=true`.
+    - `capillary_split_window=bounded_three_split_fixture`.
+    - `pulseweave_control_surface=in_process_coordinator_worker_attempt_graph`.
+    - `dynamic_admission_policy=local_fixture_only_no_remote_workers`.
+    - `retry_performed=true`.
+    - `duplicate_attempt_rejected=true`.
+    - `stale_lease_rejected=true`.
+    - `cancellation_cleanup_completed=true`.
+    - `partial_output_committed=false`.
+    - `execution_certificate_status=certified`.
+    - `native_io_certificate_status=certified`.
+    - `production_claim_allowed=false`.
+    - `distributed_performance_claim_allowed=false`.
+    - `fallback_attempted=false`.
+    - `external_engine_invoked=false`.
+  - Evidence commands:
+    - `cargo test -p shardloom-core distributed_engine --lib`.
+    - `cargo test -p shardloom-cli --test cg22_engine_fabric_snapshots distributed_local_fixture_run_emits_worker_attempt_fragment_and_merge_evidence`.
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock representative_cli_json_paths_keep_typed_envelope_contract`.
+  - Claim boundary:
+    - May claim scoped in-process local distributed fixture runtime evidence only.
+    - May not claim remote workers, networked distributed runtime, object-store distributed
+      runtime, remote shuffle, distributed spill/backpressure, production scale,
+      performance benefit, or Spark replacement.
+  - Ledger note:
+    - `PROD-READY-1D` remains open for production distributed runtime: remote worker service,
+      network coordinator, remote shuffle/skew/spill/backpressure, multi-host fault injection, and
+      distributed benchmark evidence.
 - [x] Session label: PROD-READY-1C scoped local-manifest commit conflict and translation evidence
   - Date: 2026-06-15
   - Source:

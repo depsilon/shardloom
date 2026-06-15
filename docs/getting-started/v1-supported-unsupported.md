@@ -11,7 +11,7 @@ This page is generated from `docs/status/runs-today-support-matrix.json` and `do
 
 ```text
 runs_today_schema_version=shardloom.runs_today_support_matrix.v1
-runs_today_row_count=37
+runs_today_row_count=38
 production_unsupported_diagnostic_schema_version=shardloom.production_unsupported_diagnostics.v1
 production_unsupported_diagnostic_row_count=10
 package_channel_schema_version=shardloom.package_channel_readiness_matrix.v1
@@ -30,7 +30,7 @@ Use this page to decide what can be run locally today and what must return a det
 | traditional-analytics-run --execution-mode direct_compatibility_transient | feature_gated | vortex-traditional-analytics-benchmark | true | false | fixture_smoke_only | scoped local adapter direct-transient benchmark smokes only; not Vortex-native, broad SQL/DataFrame, object-store/table, or performance evidence |
 | embedding-vector-local-fixture-smoke | executable | default | true | false | fixture_smoke_only | built-in deterministic UTF-8 hash embedding/vector fixture only; real model calls, vector databases, ANN indexes, external APIs, credentials, network effects, plugins, and fallback remain blocked |
 | generated-source-user-rows-smoke, generated-source-range-smoke, generated-source-sequence-smoke, generated-source-sql-smoke | executable | default | true | true | fixture_smoke_only | source-free/generated local output smokes only; not a broad SQL generator or platform sink |
-| local-table-append-commit-rehearsal-smoke, local-table-commit-recovery-smoke | executable | default | true | true | fixture_smoke_only | scoped local-manifest append commit rehearsal plus optional if-match conflict evidence and sidecar recovery replay only; no object-store/table catalog/lakehouse production commit, exactly-once recovery, distributed, performance, or fallback claim |
+| local-table-append-commit-rehearsal-smoke, local-table-commit-recovery-smoke | executable | default | true | true | fixture_smoke_only | scoped local-manifest append commit rehearsal plus sidecar recovery replay only; no object-store/table catalog/lakehouse production commit, exactly-once recovery, distributed, performance, or fallback claim |
 | object-store-write-smoke, object-store-write-recovery-smoke | executable | default | true | true | fixture_smoke_only | scoped local-emulator object write plus sidecar recovery replay only; no live S3/GCS/ADLS, remote delivery, table/lakehouse production commit, exactly-once recovery, distributed, performance, or fallback claim |
 | pre-oom-memory-guard-smoke | executable | default | true | false | fixture_smoke_only | bounded local reservation-denial fixture only; no real query-data spill, native spill IO, distributed runtime, larger-than-memory, production, or performance claim |
 | traditional-analytics-vortex-batch-run, traditional-analytics-vortex-run, traditional-analytics-prepare-batch-run | executable | default | true | false | not_claim_grade | local prepared-route evidence and benchmark rows only; no performance-superiority claim |
@@ -75,6 +75,7 @@ Use this page to decide what can be run locally today and what must return a det
 | --- | --- | --- | --- | --- | --- | --- |
 | compatibility_import_certified | executable | default | true | true | fixture_smoke_only | certified local cold-route fixture evidence only |
 | direct_compatibility_transient | executable | default | true | false | fixture_smoke_only | scoped local source-backed execution only |
+| distributed-local-fixture-run, local coordinator, local workers, split fragments, deterministic merge | executable | default | true | false | not_claim_grade | scoped in-process local distributed fixture with local hash repartition/local combine/global merge only; no remote worker, object-store, remote shuffle, spill IO, production, performance, or Spark-displacement claim |
 | live, hybrid, remote, distributed | future | not_enabled | false | false | not_claim_grade | future execution fabric; no remote/distributed runtime claim |
 | native_vortex | executable | default | true | false | fixture_smoke_only | scoped local count/filter/project primitive coverage only |
 | prepared_vortex | executable | default | true | false | not_claim_grade | prepared local Vortex reuse route only; not broad Vortex-native operator completeness |

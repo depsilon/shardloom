@@ -310,6 +310,134 @@ fn live_hybrid_state_transition_smoke_emits_retry_cancellation_cleanup_evidence(
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
+fn distributed_local_fixture_run_emits_worker_attempt_fragment_and_merge_evidence() {
+    let output = run_json(
+        &["distributed-local-fixture-run", "2", "fault-injection"],
+        true,
+    );
+
+    assert!(output.contains("\"command\":\"distributed-local-fixture-run\""));
+    assert!(output.contains(&field("mode", "distributed_local_fixture_run")));
+    assert!(output.contains(&field(
+        "schema_version",
+        "shardloom.local_distributed_fixture_run.v1"
+    )));
+    assert!(output.contains(&field(
+        "distributed_runtime_status",
+        "scoped_local_fixture_supported"
+    )));
+    assert!(output.contains(&field(
+        "distributed_claim_gate_status",
+        "not_distributed_runtime_grade"
+    )));
+    assert!(output.contains(&field("worker_count", "2")));
+    assert!(output.contains(&field("local_worker_count", "2")));
+    assert!(output.contains(&field("remote_worker_invoked", "false")));
+    assert!(output.contains(&field("coordinator_invoked", "true")));
+    assert!(output.contains(&field("local_worker_runtime_invoked", "true")));
+    assert!(output.contains(&field("split_execution_performed", "true")));
+    assert!(output.contains(&field("shuffle_repartition_performed", "true")));
+    assert!(output.contains(&field("local_combine_performed", "true")));
+    assert!(output.contains(&field("global_merge_performed", "true")));
+    assert!(output.contains(&field("deterministic_merge_performed", "true")));
+    assert!(output.contains(&field(
+        "split_manifest_schema_version",
+        "shardloom.local_distributed_split_manifest.v1"
+    )));
+    assert!(output.contains(&field("split_unit_count", "3")));
+    assert!(output.contains(&field("split_id_order", "split-000,split-001,split-002")));
+    assert!(output.contains(&field(
+        "worker_assignment_order",
+        "split-000:worker-00,split-001:worker-01,split-002:worker-00"
+    )));
+    assert!(output.contains(&field(
+        "capillary_split_window",
+        "bounded_three_split_fixture"
+    )));
+    assert!(output.contains(&field(
+        "pulseweave_control_surface",
+        "in_process_coordinator_worker_attempt_graph"
+    )));
+    assert!(output.contains(&field(
+        "dynamic_admission_policy",
+        "local_fixture_only_no_remote_workers"
+    )));
+    assert!(output.contains(&field(
+        "shuffle_repartition_schema_version",
+        "shardloom.local_distributed_shuffle_repartition.v1"
+    )));
+    assert!(output.contains(&field(
+        "shuffle_repartition_strategy",
+        "local_hash_group_key_to_reduce_worker"
+    )));
+    assert!(output.contains(&field(
+        "local_combine_strategy",
+        "split_local_group_count_sum_before_exchange"
+    )));
+    assert!(output.contains(&field(
+        "global_merge_strategy",
+        "partition_ordered_reduce_merge"
+    )));
+    assert!(output.contains(&field("reduce_partition_key", "group_key")));
+    assert!(output.contains(&field("reduce_partition_count", "2")));
+    assert!(output.contains(&field("repartition_performed", "true")));
+    assert!(output.contains(&field("remote_shuffle_performed", "false")));
+    assert!(output.contains(&field("raw_input_row_count", "7")));
+    assert!(output.contains(&field("local_combined_row_count", "7")));
+    assert!(output.contains(&field("global_merge_input_row_count", "7")));
+    assert!(output.contains(&field(
+        "skew_schema_version",
+        "shardloom.local_distributed_skew.v1"
+    )));
+    assert!(output.contains(&field(
+        "skew_detection_strategy",
+        "group_count_threshold_after_local_combine"
+    )));
+    assert!(output.contains(&field("skew_detection_performed", "true")));
+    assert!(output.contains(&field("skew_detected", "true")));
+    assert!(output.contains(&field("skew_handling_applied", "true")));
+    assert!(output.contains(&field("skew_threshold_rows", "3")));
+    assert!(output.contains(&field("max_group_rows", "3")));
+    assert!(output.contains(&field("skewed_group_key_order", "east")));
+    assert!(output.contains(&field(
+        "memory_backpressure_schema_version",
+        "shardloom.local_distributed_memory_backpressure.v1"
+    )));
+    assert!(output.contains(&field("memory_budget_enforced", "true")));
+    assert!(output.contains(&field("memory_budget_exceeded", "false")));
+    assert!(output.contains(&field(
+        "backpressure_policy",
+        "bounded_worker_slots_and_reduce_partition_budget"
+    )));
+    assert!(output.contains(&field("backpressure_signal_emitted", "false")));
+    assert!(output.contains(&field("spill_policy", "fail_closed_no_spill_for_fixture")));
+    assert!(output.contains(&field("spill_required", "false")));
+    assert!(output.contains(&field("production_spill_claim_allowed", "false")));
+    assert!(output.contains(&field("task_attempt_count", "6")));
+    assert!(output.contains("split-001:attempt-split-001-1:cancelled_cleanup_completed"));
+    assert!(output.contains("split-002:attempt-split-002-2:duplicate_rejected"));
+    assert!(output.contains("split-000:attempt-split-000-2:stale_lease_rejected"));
+    assert!(output.contains(&field("result_fragment_count", "3")));
+    assert!(output.contains(&field("merged_row_count", "3")));
+    assert!(output.contains(&field("merged_rows", "east:3:13|north:2:10|west:2:9")));
+    assert!(output.contains(&field("retry_performed", "true")));
+    assert!(output.contains(&field("duplicate_attempt_rejected", "true")));
+    assert!(output.contains(&field("stale_lease_rejected", "true")));
+    assert!(output.contains(&field("cancellation_cleanup_completed", "true")));
+    assert!(output.contains(&field("partial_output_committed", "false")));
+    assert!(output.contains(&field("execution_certificate_status", "certified")));
+    assert!(output.contains(&field("native_io_certificate_status", "certified")));
+    assert!(output.contains(&field("object_store_io", "false")));
+    assert!(output.contains(&field("spill_io_performed", "false")));
+    assert!(output.contains(&field("production_claim_allowed", "false")));
+    assert!(output.contains(&field("distributed_performance_claim_allowed", "false")));
+    assert!(output.contains(&field("no_fallback_no_external_engine", "true")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn hybrid_overlay_run_group_count_emits_overlay_flush_layout_and_certificate_evidence() {
     let output = run_json(&["hybrid-overlay-run", "group-count", "metric"], true);
 

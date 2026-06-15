@@ -3028,8 +3028,8 @@ fn assert_runs_today_summary_fields(output: &str) {
             "runs_today_family_order",
             "cli_command,python_api,input_format,output_format,execution_mode,claim_state",
         ),
-        ("runs_today_row_count", "37"),
-        ("runs_today_executable_row_count", "22"),
+        ("runs_today_row_count", "38"),
+        ("runs_today_executable_row_count", "23"),
         ("runs_today_feature_gated_row_count", "5"),
         ("runs_today_diagnostic_only_row_count", "3"),
         ("runs_today_report_only_row_count", "1"),
@@ -3039,7 +3039,7 @@ fn assert_runs_today_summary_fields(output: &str) {
         ("runs_today_python_api_row_count", "5"),
         ("runs_today_input_format_row_count", "6"),
         ("runs_today_output_format_row_count", "3"),
-        ("runs_today_execution_mode_row_count", "6"),
+        ("runs_today_execution_mode_row_count", "7"),
         ("runs_today_claim_state_row_count", "5"),
     ] {
         assert!(

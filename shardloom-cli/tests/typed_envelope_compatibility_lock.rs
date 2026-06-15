@@ -622,6 +622,44 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             ],
         },
         EnvelopeCase {
+            name: "distributed local fixture runtime success",
+            args: &[
+                "distributed-local-fixture-run",
+                "2",
+                "fault-injection",
+                "--format",
+                "json",
+            ],
+            command: "distributed-local-fixture-run",
+            status: "success",
+            family: "engine_runtime_planning",
+            success: true,
+            allow_stderr: false,
+            fields: &[
+                (
+                    "distributed_runtime_status",
+                    "scoped_local_fixture_supported",
+                ),
+                (
+                    "distributed_claim_gate_status",
+                    "not_distributed_runtime_grade",
+                ),
+                ("coordinator_invoked", "true"),
+                ("remote_worker_invoked", "false"),
+                ("split_execution_performed", "true"),
+                ("deterministic_merge_performed", "true"),
+                ("merged_rows", "east:3:13|north:2:10|west:2:9"),
+                ("retry_performed", "true"),
+                ("partial_output_committed", "false"),
+                ("runtime_execution", "true"),
+                ("fallback_attempted", "false"),
+            ],
+            fragments: &[
+                "\"id\":\"prod-ready-1d.local_distributed_fixture.retry_duplicate_stale_lease.execution\",\"kind\":\"execution_certificate\"",
+                "\"id\":\"prod-ready-1d.local_distributed_fixture.retry_duplicate_stale_lease.native_io\",\"kind\":\"native_io_certificate\"",
+            ],
+        },
+        EnvelopeCase {
             name: "vortex runtime success",
             args: &[
                 "vortex-memory-plan",

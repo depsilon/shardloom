@@ -477,9 +477,17 @@ with a recorded infeasibility reason, not merely because they are broad.
 - [ ] `PROD-READY-1D` Distributed runtime production path.
   - Source: attached Distributed Runtime review, `docs/architecture/scale-readiness-contract.md`,
     RFC 0016, RFC 0017, `docs/skills/object-store-runtime.md`, and split/shuffle readiness docs.
-  - Current state: distributed runtime is report-only. No real coordinator/worker service,
-    leases, heartbeats, task attempts, remote result fragments, deterministic merge, or
-    multi-worker benchmark proof exists.
+  - Current state: scoped local distributed fixture runtime evidence exists for one deterministic
+    in-process workload through `distributed-local-fixture-run`. The command builds a local split
+    manifest, assigns three capillary split units to one to four local worker slots, records
+    coordinator/worker leases, heartbeats, task attempts, retry/duplicate/stale-lease/cancellation
+    cleanup evidence, emits result fragments, performs scoped local hash repartition, split-local
+    combine, deterministic global merge, skew detection/handling, and bounded memory/backpressure
+    accounting, and attaches execution and Native I/O certificates with no fallback or
+    external-engine execution. This is not a production distributed runtime: no remote worker
+    service, network coordinator, object-store split distribution, remote shuffle, distributed
+    spill/backpressure, multi-host fault injection, multi-worker performance benchmark, or
+    production claim exists.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include a local or scoped
     multi-worker runtime in v1 if coordinator/worker lifecycle, fault cases, deterministic merge,
     cleanup, and benchmark evidence can close; otherwise narrow to deterministic unsupported
@@ -490,22 +498,32 @@ with a recorded infeasibility reason, not merely because they are broad.
     pruning, and explicit execution certificates so later optimization does not require reworking
     the scheduler contract.
   - Execution checklist:
-    - [ ] Define the first distributed workload/environment and minimum scale where single-node is
-      insufficient.
-    - [ ] Implement a local coordinator process/service with worker lifecycle, leases, heartbeats,
-      task attempts, cancellation, cleanup, and deterministic diagnostics.
-    - [ ] Execute real `SplitManifest` units across workers with bounded memory, result fragments,
-      idempotency keys, retries, duplicate-attempt protection, and deterministic merge.
-    - [ ] Add shuffle/repartition strategy, skew detection/handling, local combine/global merge,
-      and spill/backpressure integration for stateful operators in scope.
-    - [ ] Emit distributed execution certificates linking input splits, worker attempts,
+    - [x] Define the first scoped distributed workload/environment as
+      `local_distributed_fixture_runtime_v1_candidate`; this is a local multi-split runtime
+      evidence path, not proof that single-node execution is insufficient.
+    - [x] Implement a local in-process coordinator service with worker lifecycle, leases,
+      heartbeats, task attempts, cancellation, cleanup, and deterministic diagnostics.
+    - [x] Execute real local split-manifest units across worker slots with bounded memory, result
+      fragments, idempotency evidence, retries, duplicate-attempt protection, stale-lease
+      rejection, and deterministic merge.
+    - [x] Add scoped local hash repartition strategy, skew detection/handling, local combine/global
+      merge, and bounded memory/backpressure accounting for the in-scope fixture operator.
+    - [ ] Extend shuffle/repartition, skew handling, and spill/backpressure from scoped local
+      fixture evidence to a production remote/distributed workload before any production
+      distributed runtime claim.
+    - [x] Emit distributed execution certificates linking input splits, worker attempts,
       retries/cancellations, fragments, merge output, and no-fallback evidence.
-    - [ ] Add fault-injection tests for worker crash, retry, duplicate attempt, partial result,
-      cancelled query, stale lease, and cleanup failure.
+    - [x] Add scoped local fault-injection tests for retry, duplicate attempt, stale lease,
+      cancellation cleanup, and partial-output non-commit.
+    - [ ] Add production fault-injection tests for worker crash, cleanup failure, remote worker
+      loss, duplicate remote attempts, stale remote leases, distributed spill/backpressure, and
+      multi-host partial results.
     - [ ] Add benchmark profile proving correctness and multi-worker benefit for the declared
       workload before any distributed performance claim.
-    - [ ] Move completed distributed workload evidence and deferred scale/runtime gaps to the
-      ledger after merge.
+    - [x] Move scoped local distributed fixture evidence and deferred scale/runtime gaps to the
+      ledger while keeping production distributed runtime gaps open.
+    - [ ] Move production distributed workload evidence and unsupported production scale/runtime
+      gaps to the ledger after merge.
   - Next outcome: distributed support moves from protocol vocabulary to one certified
     multi-worker runtime path.
   - User-visible surface: CLI/API distributed execution, diagnostics, capability reports,
