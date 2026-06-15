@@ -366,6 +366,7 @@ fn is_engine_runtime_planning_command(command: &str) -> bool {
             | "live-fixture-run"
             | "hybrid-overlay-run"
             | "live-hybrid-state-transition-smoke"
+            | "distributed-local-fixture-run"
             | "session-cache-smoke"
             | "streaming-plan"
             | "streaming-batch-plan"

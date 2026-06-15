@@ -7,14 +7,16 @@
 use std::{process::ExitCode, vec::IntoIter};
 
 use shardloom_core::{
-    Boundedness, CommandStatus, ContinuousViewCertificate, EngineCapabilityMatrixReport,
-    EngineCapabilityRow, EngineMode, EngineSelectionReport, EngineSelectionRequest,
-    FreshnessCertificate, HybridFixtureRunInput, HybridFixtureRunReport, LiveChangeContractReport,
-    LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport,
-    LiveHybridFabricFreshnessGateReport, LiveHybridStateTransitionFixtureReport, OutputFormat,
-    OutputMode, ShardLoomError, StateCertificate, UpdateMode, boundedness_vocabulary,
-    engine_mode_vocabulary, output_mode_vocabulary, plan_live_change_contract, run_hybrid_fixture,
-    run_live_fixture, run_live_hybrid_state_transition_fixture, update_mode_vocabulary,
+    Boundedness, CommandStatus, ContinuousViewCertificate, DistributedFixtureFaultMode,
+    EngineCapabilityMatrixReport, EngineCapabilityRow, EngineMode, EngineSelectionReport,
+    EngineSelectionRequest, FreshnessCertificate, HybridFixtureRunInput, HybridFixtureRunReport,
+    LiveChangeContractReport, LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport,
+    LiveHybridFabricFreshnessGateReport, LiveHybridStateTransitionFixtureReport,
+    LocalDistributedFixtureRunInput, LocalDistributedFixtureRunReport, OutputFormat, OutputMode,
+    ShardLoomError, StateCertificate, UpdateMode, boundedness_vocabulary, engine_mode_vocabulary,
+    output_mode_vocabulary, plan_live_change_contract, run_hybrid_fixture, run_live_fixture,
+    run_live_hybrid_state_transition_fixture, run_local_distributed_fixture,
+    update_mode_vocabulary,
 };
 use shardloom_exec::StreamingCapabilityMatrixReport;
 
@@ -37,6 +39,10 @@ const HYBRID_FIXTURE_RUN_COMMAND: &str = "hybrid-overlay-run";
 const HYBRID_FIXTURE_RUN_SUMMARY: &str = "hybrid overlay run failed";
 const HYBRID_FIXTURE_RUN_USAGE: &str = "usage: shardloom hybrid-overlay-run [filter|project|count|count-where|group-count] [predicate|columns|group-column]";
 const LIVE_HYBRID_STATE_TRANSITION_COMMAND: &str = "live-hybrid-state-transition-smoke";
+const DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND: &str = "distributed-local-fixture-run";
+const DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY: &str = "distributed local fixture run failed";
+const DISTRIBUTED_LOCAL_FIXTURE_RUN_USAGE: &str =
+    "usage: shardloom distributed-local-fixture-run [worker-count] [none|fault-injection]";
 
 pub(crate) fn handle_engine_selection_plan(
     args: IntoIter<String>,
@@ -232,6 +238,45 @@ pub(crate) fn handle_live_hybrid_state_transition_smoke(
     }
 }
 
+pub(crate) fn handle_distributed_local_fixture_run(
+    args: IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let input = match parse_distributed_local_fixture_run_args(args, format) {
+        Ok(input) => input,
+        Err(exit_code) => return exit_code,
+    };
+    let report = match run_local_distributed_fixture(input) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
+                format,
+                DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY,
+                &error,
+            );
+        }
+    };
+    emit(
+        DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "distributed local fixture run".to_string(),
+        report.to_human_text(),
+        vec![],
+        distributed_local_fixture_run_fields(&report),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
 fn parse_engine_selection_args(
     mut args: IntoIter<String>,
     format: OutputFormat,
@@ -354,6 +399,58 @@ fn parse_hybrid_fixture_run_args(
                 )),
             )
         })
+}
+
+fn parse_distributed_local_fixture_run_args(
+    mut args: IntoIter<String>,
+    format: OutputFormat,
+) -> Result<LocalDistributedFixtureRunInput, ExitCode> {
+    let worker_count = match args.next() {
+        Some(value) => value.parse::<usize>().map_err(|_| {
+            emit_error(
+                DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
+                format,
+                DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY,
+                &ShardLoomError::InvalidOperation(format!(
+                    "worker count must be a positive integer; {DISTRIBUTED_LOCAL_FIXTURE_RUN_USAGE}"
+                )),
+            )
+        })?,
+        None => 2,
+    };
+    let fault_mode = match args.next() {
+        Some(value) => DistributedFixtureFaultMode::parse(&value).map_err(|error| {
+            emit_error(
+                DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
+                format,
+                DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY,
+                &ShardLoomError::InvalidOperation(format!(
+                    "{}; {DISTRIBUTED_LOCAL_FIXTURE_RUN_USAGE}",
+                    error.message()
+                )),
+            )
+        })?,
+        None => DistributedFixtureFaultMode::None,
+    };
+    if let Some(extra) = args.next() {
+        return Err(emit_error(
+            DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
+            format,
+            DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY,
+            &cli_unknown_arg_error(DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND, &extra),
+        ));
+    }
+    LocalDistributedFixtureRunInput::new(worker_count, fault_mode).map_err(|error| {
+        emit_error(
+            DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND,
+            format,
+            DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY,
+            &ShardLoomError::InvalidOperation(format!(
+                "{}; {DISTRIBUTED_LOCAL_FIXTURE_RUN_USAGE}",
+                error.message()
+            )),
+        )
+    })
 }
 
 fn parse_live_fixture_operator(
@@ -954,6 +1051,436 @@ fn live_hybrid_state_transition_fields(
         report.no_fallback_no_external_engine(),
     );
     fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn distributed_local_fixture_run_fields(
+    report: &LocalDistributedFixtureRunReport,
+) -> Vec<(String, String)> {
+    let mut fields = common_engine_contract_fields(
+        report.schema_version,
+        &report.report_id,
+        report.fallback_attempted(),
+        report.external_engine_invoked,
+        report.runtime_execution,
+        report.data_read,
+        report.write_io,
+    );
+    push_field(&mut fields, "mode", "distributed_local_fixture_run");
+    push_field(&mut fields, "fixture_id", report.fixture_id);
+    push_field(
+        &mut fields,
+        "distributed_runtime_status",
+        "scoped_local_fixture_supported",
+    );
+    push_field(
+        &mut fields,
+        "distributed_claim_gate_status",
+        "not_distributed_runtime_grade",
+    );
+    push_field(
+        &mut fields,
+        "distributed_claim_boundary",
+        "in-process local distributed fixture with local hash repartition/local combine/global merge only; no remote workers, object-store, table/lakehouse, remote shuffle, spill IO, production, performance, Spark-displacement, or external-engine claim",
+    );
+    push_count_field(&mut fields, "worker_count", report.input.worker_count);
+    push_count_field(&mut fields, "local_worker_count", report.input.worker_count);
+    push_field(
+        &mut fields,
+        "distributed_fault_mode",
+        report.input.fault_mode.as_str(),
+    );
+    push_bool_field(
+        &mut fields,
+        "coordinator_invoked",
+        report.coordinator_invoked,
+    );
+    push_bool_field(
+        &mut fields,
+        "local_worker_runtime_invoked",
+        report.local_worker_runtime_invoked,
+    );
+    push_bool_field(
+        &mut fields,
+        "remote_worker_invoked",
+        report.remote_worker_invoked,
+    );
+    push_bool_field(
+        &mut fields,
+        "split_execution_performed",
+        report.split_execution_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "shuffle_repartition_performed",
+        report.shuffle_repartition_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "local_combine_performed",
+        report.local_combine_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "global_merge_performed",
+        report.global_merge_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "deterministic_merge_performed",
+        report.deterministic_merge_performed,
+    );
+    push_field(
+        &mut fields,
+        "split_manifest_schema_version",
+        report.split_manifest.schema_version,
+    );
+    push_field(
+        &mut fields,
+        "split_manifest_id",
+        &report.split_manifest.manifest_id,
+    );
+    push_count_field(
+        &mut fields,
+        "split_unit_count",
+        report.split_manifest.split_units.len(),
+    );
+    push_field(
+        &mut fields,
+        "split_id_order",
+        &report.split_manifest.split_id_order(),
+    );
+    push_field(
+        &mut fields,
+        "worker_assignment_order",
+        &report.split_manifest.worker_assignment_order(),
+    );
+    push_u64_field(
+        &mut fields,
+        "split_manifest_estimated_bytes",
+        report.split_manifest.total_estimated_bytes(),
+    );
+    push_field(
+        &mut fields,
+        "capillary_split_window",
+        report.split_manifest.capillary_split_window,
+    );
+    push_field(
+        &mut fields,
+        "pulseweave_control_surface",
+        report.split_manifest.pulseweave_control_surface,
+    );
+    push_field(
+        &mut fields,
+        "dynamic_admission_policy",
+        report.split_manifest.dynamic_admission_policy,
+    );
+    push_field(
+        &mut fields,
+        "shuffle_repartition_schema_version",
+        report.shuffle_repartition.schema_version,
+    );
+    push_field(
+        &mut fields,
+        "shuffle_repartition_strategy_id",
+        report.shuffle_repartition.strategy_id,
+    );
+    push_field(
+        &mut fields,
+        "shuffle_repartition_strategy",
+        report.shuffle_repartition.repartition_strategy,
+    );
+    push_field(
+        &mut fields,
+        "local_combine_strategy",
+        report.shuffle_repartition.local_combine_strategy,
+    );
+    push_field(
+        &mut fields,
+        "global_merge_strategy",
+        report.shuffle_repartition.global_merge_strategy,
+    );
+    push_field(
+        &mut fields,
+        "reduce_partition_key",
+        report.shuffle_repartition.partition_key,
+    );
+    push_count_field(
+        &mut fields,
+        "reduce_partition_count",
+        report.shuffle_repartition.partition_count,
+    );
+    push_bool_field(
+        &mut fields,
+        "repartition_performed",
+        report.shuffle_repartition.repartition_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "remote_shuffle_performed",
+        report.shuffle_repartition.remote_shuffle_performed,
+    );
+    push_count_field(
+        &mut fields,
+        "raw_input_row_count",
+        report.shuffle_repartition.raw_input_row_count,
+    );
+    push_count_field(
+        &mut fields,
+        "local_combined_row_count",
+        report.shuffle_repartition.local_combined_row_count,
+    );
+    push_count_field(
+        &mut fields,
+        "global_merge_input_row_count",
+        report.shuffle_repartition.global_merge_input_row_count,
+    );
+    push_field(
+        &mut fields,
+        "partition_assignment_order",
+        &report.shuffle_repartition.partition_assignment_order(),
+    );
+    push_field(
+        &mut fields,
+        "skew_schema_version",
+        report.skew.schema_version,
+    );
+    push_field(
+        &mut fields,
+        "skew_detection_strategy",
+        report.skew.detection_strategy,
+    );
+    push_field(
+        &mut fields,
+        "skew_handling_strategy",
+        report.skew.handling_strategy,
+    );
+    push_bool_field(
+        &mut fields,
+        "skew_detection_performed",
+        report.skew_detection_performed,
+    );
+    push_bool_field(&mut fields, "skew_detected", report.skew.skew_detected);
+    push_bool_field(
+        &mut fields,
+        "skew_handling_applied",
+        report.skew_handling_applied,
+    );
+    push_count_field(
+        &mut fields,
+        "skew_threshold_rows",
+        report.skew.skew_threshold_rows,
+    );
+    push_count_field(&mut fields, "max_group_rows", report.skew.max_group_rows);
+    push_field(
+        &mut fields,
+        "skewed_group_key_order",
+        &report.skew.skewed_group_key_order(),
+    );
+    push_field(
+        &mut fields,
+        "memory_backpressure_schema_version",
+        report.memory_backpressure.schema_version,
+    );
+    push_bool_field(
+        &mut fields,
+        "memory_budget_enforced",
+        report.memory_budget_enforced,
+    );
+    push_u64_field(
+        &mut fields,
+        "memory_budget_bytes",
+        report.memory_backpressure.memory_budget_bytes,
+    );
+    push_u64_field(
+        &mut fields,
+        "peak_reserved_bytes",
+        report.memory_backpressure.peak_reserved_bytes,
+    );
+    push_u64_field(
+        &mut fields,
+        "local_combine_buffer_bytes",
+        report.memory_backpressure.local_combine_buffer_bytes,
+    );
+    push_u64_field(
+        &mut fields,
+        "global_merge_buffer_bytes",
+        report.memory_backpressure.global_merge_buffer_bytes,
+    );
+    push_bool_field(
+        &mut fields,
+        "memory_budget_exceeded",
+        report.memory_backpressure.memory_budget_exceeded,
+    );
+    push_field(
+        &mut fields,
+        "backpressure_policy",
+        report.memory_backpressure.backpressure_policy,
+    );
+    push_bool_field(
+        &mut fields,
+        "backpressure_signal_emitted",
+        report.memory_backpressure.backpressure_signal_emitted,
+    );
+    push_field(
+        &mut fields,
+        "spill_policy",
+        report.memory_backpressure.spill_policy,
+    );
+    push_bool_field(
+        &mut fields,
+        "spill_required",
+        report.memory_backpressure.spill_required,
+    );
+    push_bool_field(
+        &mut fields,
+        "production_spill_claim_allowed",
+        report.memory_backpressure.production_spill_claim_allowed,
+    );
+    push_count_field(
+        &mut fields,
+        "worker_lease_count",
+        report.worker_leases.len(),
+    );
+    push_count_field(
+        &mut fields,
+        "task_attempt_count",
+        report.task_attempts.len(),
+    );
+    push_field(
+        &mut fields,
+        "task_attempt_outcome_order",
+        &report.task_attempt_outcome_order(),
+    );
+    push_count_field(
+        &mut fields,
+        "result_fragment_count",
+        report.result_fragments.len(),
+    );
+    push_field(
+        &mut fields,
+        "result_fragment_digest_order",
+        &report.result_fragment_digest_order(),
+    );
+    push_count_field(&mut fields, "merged_row_count", report.merged_rows.len());
+    push_field(&mut fields, "merged_rows", &report.merged_rows_text());
+    push_field(&mut fields, "merge_digest", &report.merge_digest());
+    push_bool_field(&mut fields, "retry_performed", report.retry_performed);
+    push_bool_field(
+        &mut fields,
+        "duplicate_attempt_rejected",
+        report.duplicate_attempt_rejected,
+    );
+    push_bool_field(
+        &mut fields,
+        "stale_lease_rejected",
+        report.stale_lease_rejected,
+    );
+    push_bool_field(
+        &mut fields,
+        "cancellation_cleanup_completed",
+        report.cancellation_cleanup_completed,
+    );
+    push_bool_field(
+        &mut fields,
+        "partial_output_committed",
+        report.partial_output_committed,
+    );
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(&mut fields, "spill_io_performed", report.spill_io_performed);
+    push_bool_field(
+        &mut fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "distributed_performance_claim_allowed",
+        report.distributed_performance_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "no_fallback_no_external_engine",
+        report.no_fallback_no_external_engine(),
+    );
+    append_distributed_execution_certificate_fields(&mut fields, report);
+    append_distributed_native_io_certificate_fields(&mut fields, report);
+    fields
+}
+
+fn append_distributed_execution_certificate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalDistributedFixtureRunReport,
+) {
+    let certificate = &report.execution_certificate;
+    push_bool_field(fields, "execution_certificate_emitted", true);
+    push_field(
+        fields,
+        "execution_certificate_id",
+        &certificate.certificate_id,
+    );
+    push_field(
+        fields,
+        "execution_certificate_status",
+        certificate.status.as_str(),
+    );
+    push_field(
+        fields,
+        "execution_certificate_fixture_id",
+        certificate
+            .correctness_fixture_id
+            .as_deref()
+            .unwrap_or("none"),
+    );
+}
+
+fn append_distributed_native_io_certificate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LocalDistributedFixtureRunReport,
+) {
+    let certificate = &report.native_io_certificate;
+    push_bool_field(fields, "native_io_certificate_emitted", true);
+    push_field(
+        fields,
+        "native_io_certificate_id",
+        &certificate.certificate_id,
+    );
+    push_field(fields, "native_io_certificate_status", certificate.status());
+    push_field(fields, "native_io_path_id", &certificate.path_id);
+    push_field(
+        fields,
+        "native_io_source_kind",
+        &certificate.source_capability_report.source_kind,
+    );
+    push_field(
+        fields,
+        "native_io_accepted_operations",
+        &certificate
+            .source_pushdown_report
+            .accepted_operation_order(),
+    );
+    push_field(
+        fields,
+        "native_io_rejected_operations",
+        &certificate
+            .source_pushdown_report
+            .rejected_operation_order(),
+    );
+    push_field(
+        fields,
+        "native_io_representation_transition_order",
+        &certificate.representation_transition_order(),
+    );
+    push_field(
+        fields,
+        "native_io_sink_target_format",
+        &certificate.sink_requirement_report.target_format,
+    );
+    push_bool_field(
+        fields,
+        "native_io_fallback_attempted",
+        certificate.fallback_attempted,
+    );
 }
 
 fn append_delta_overlay_fields(

@@ -23,6 +23,7 @@ pub mod correctness;
 pub mod cpu_specialization;
 pub mod dataset;
 pub mod diagnostics;
+pub mod distributed_engine;
 pub mod effect_budget;
 pub mod encoded;
 pub mod engine_modes;
@@ -131,6 +132,12 @@ pub use dataset::{
 };
 pub use diagnostics::{
     Diagnostic, DiagnosticCategory, DiagnosticCode, DiagnosticSeverity, FallbackStatus,
+};
+pub use distributed_engine::{
+    DistributedFixtureFaultMode, DistributedFixtureRow, DistributedMergedRow,
+    DistributedResultFragment, DistributedSplitUnit, DistributedTaskAttempt,
+    DistributedTaskAttemptOutcome, DistributedWorkerLease, LocalDistributedFixtureRunInput,
+    LocalDistributedFixtureRunReport, LocalDistributedSplitManifest, run_local_distributed_fixture,
 };
 pub use effect_budget::{
     EffectBudgetEntry, EffectBudgetReport, EffectBudgetScope, EffectBudgetStatus,

@@ -184,6 +184,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "live-fixture-run",
     "hybrid-overlay-run",
     "live-hybrid-state-transition-smoke",
+    "distributed-local-fixture-run",
     "session-cache-smoke",
     "streaming-plan",
     "streaming-batch-plan",
@@ -953,6 +954,9 @@ fn command_usage_fragment(command: &str) -> String {
             format!(
                 "{command} [filter|project|count|count-where|group-count] [predicate|columns|group-column]"
             )
+        }
+        "distributed-local-fixture-run" => {
+            format!("{command} [worker-count] [none|fault-injection]")
         }
         "dynamic-work-shaping-plan" => {
             format!(

@@ -52,6 +52,7 @@
     "execution_prepared_vortex",
     "execution_native_vortex_scoped",
     "execution_report_only_surfaces",
+    "execution_distributed_local_fixture",
     "execution_live_hybrid_remote_distributed",
     "claim_current_state_discoverability",
     "claim_production_readiness",
@@ -59,9 +60,9 @@
     "claim_package_publication",
     "claim_object_store_lakehouse_foundry_production"
   ],
-  "row_count": 37,
+  "row_count": 38,
   "support_state_counts": {
-    "executable": 22,
+    "executable": 23,
     "feature_gated": 5,
     "diagnostic_only": 3,
     "report_only": 1,
@@ -73,7 +74,7 @@
     "python_api": 5,
     "input_format": 6,
     "output_format": 3,
-    "execution_mode": 6,
+    "execution_mode": 7,
     "claim_state": 5
   },
   "blocker_ids": [
@@ -81,6 +82,7 @@
     "feature.universal_format_io_required_for_default_build",
     "review-p0-3.object_store_runtime_and_path_safety_required",
     "runtime.evidence_required_before_execution_admission",
+    "prod-ready-1d.remote_worker_remote_shuffle_spill_benchmark_blocked",
     "cg22.cg23.object_store_runtime_evidence_required",
     "release.production_readiness_gate_required",
     "cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required",
@@ -141,6 +143,9 @@
     "traditional_analytics_vortex_batch_run",
     "python_prepared_batch_tests",
     "vortex_query_trace_tests",
+    "distributed-local-fixture-run 2 fault-injection",
+    "shardloom.local_distributed_fixture_run.v1",
+    "shardloom.local_distributed_split_manifest.v1",
     "engine_capability_matrix",
     "rest_api_contract_plan",
     "object_store_runtime_gate",
@@ -717,7 +722,7 @@
       ],
       "blocker_id": "none",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "scoped local-manifest append commit rehearsal plus optional if-match conflict evidence and sidecar recovery replay only; no object-store/table catalog/lakehouse production commit, exactly-once recovery, distributed, performance, or fallback claim",
+      "claim_boundary": "scoped local-manifest append commit rehearsal plus sidecar recovery replay only; no object-store/table catalog/lakehouse production commit, exactly-once recovery, distributed, performance, or fallback claim",
       "runtime_execution": true,
       "data_read": false,
       "write_io": true,
@@ -1222,6 +1227,32 @@
       "claim_gate_status": "not_claim_grade",
       "claim_boundary": "architecture/planning reports only; these commands do not execute workloads",
       "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "execution_distributed_local_fixture",
+      "family": "execution_mode",
+      "surface": [
+        "distributed-local-fixture-run",
+        "local coordinator",
+        "local workers",
+        "split fragments",
+        "deterministic merge"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "distributed-local-fixture-run 2 fault-injection",
+        "shardloom.local_distributed_fixture_run.v1",
+        "shardloom.local_distributed_split_manifest.v1"
+      ],
+      "blocker_id": "prod-ready-1d.remote_worker_remote_shuffle_spill_benchmark_blocked",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "scoped in-process local distributed fixture with local hash repartition/local combine/global merge only; no remote worker, object-store, remote shuffle, spill IO, production, performance, or Spark-displacement claim",
+      "runtime_execution": true,
       "data_read": false,
       "write_io": false,
       "fallback_attempted": false,

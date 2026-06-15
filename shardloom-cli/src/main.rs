@@ -1177,6 +1177,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("live-hybrid-state-transition-smoke") => {
             engine_fabric_planning::handle_live_hybrid_state_transition_smoke(args, format)
         }
+        Some("distributed-local-fixture-run") => {
+            engine_fabric_planning::handle_distributed_local_fixture_run(args, format)
+        }
         Some("streaming-plan") => engine_runtime_planning::handle_streaming_plan(args, format),
         Some("streaming-batch-plan") => {
             engine_runtime_planning::handle_streaming_batch_plan(args, format)
@@ -3220,6 +3223,7 @@ mod tests {
         assert!(cli_usage_line().contains("live-fixture-run"));
         assert!(cli_usage_line().contains("hybrid-overlay-run"));
         assert!(cli_usage_line().contains("live-hybrid-state-transition-smoke"));
+        assert!(cli_usage_line().contains("distributed-local-fixture-run"));
         assert!(cli_usage_line().contains("workload-certification-dossier"));
         assert!(cli_usage_line().contains("claim-gate-closeout"));
         assert!(cli_usage_line().contains("global-architecture-gate"));
@@ -3290,6 +3294,15 @@ mod tests {
     #[test]
     fn live_hybrid_state_transition_smoke_returns_success() {
         let code = run(vec!["live-hybrid-state-transition-smoke".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn distributed_local_fixture_run_returns_success() {
+        let code = run(vec![
+            "distributed-local-fixture-run".to_string(),
+            "2".to_string(),
+            "fault-injection".to_string(),
+        ]);
         assert_eq!(code, ExitCode::SUCCESS);
     }
     #[test]

@@ -425,17 +425,24 @@ Object-store read, object-store write, table runtime, and table commit remain se
 A table metadata read or snapshot listing posture cannot imply table runtime, and table runtime
 cannot imply append, merge/update/delete, commit, or rollback support.
 
-## Distributed Execution Report-Only Protocol
+## Distributed Execution Protocol And Scoped Local Fixture
 
 `GAR-SCALE-1F` adds
 `distributed_protocol_schema_version=shardloom.traditional_analytics.distributed_protocol.v1` and a
 report-only distributed protocol contract to benchmark rows.
 
-Current rows expose coordinator, worker, task lease, task attempt, split execution, retry,
-result-fragment, and merge vocabulary only. They do not invoke a coordinator, remote worker,
+Benchmark protocol rows expose coordinator, worker, task lease, task attempt, split execution,
+retry, result-fragment, and merge vocabulary only. They do not invoke a coordinator, remote worker,
 network API, daemon, service, cluster scheduler, managed platform, or external fallback engine.
 
-ShardLoom distributed protocol rows carry:
+`PROD-READY-1D` now also exposes a separate scoped local runtime command,
+`distributed-local-fixture-run`, for deterministic in-process coordinator/worker fixture evidence.
+That command is executable and emits `shardloom.local_distributed_fixture_run.v1` plus
+`shardloom.local_distributed_split_manifest.v1`; it does not make the legacy benchmark protocol
+rows executable and does not authorize remote-worker, remote shuffle, spill IO, object-store,
+production, or performance claims.
+
+Legacy benchmark distributed protocol rows carry:
 
 ```text
 distributed_protocol_schema_version
@@ -460,6 +467,46 @@ distributed_fallback_attempted=false
 distributed_external_engine_invoked=false
 distributed_claim_gate_status=not_distributed_runtime_grade
 distributed_claim_boundary
+```
+
+The scoped local distributed fixture carries:
+
+```text
+schema_version=shardloom.local_distributed_fixture_run.v1
+split_manifest_schema_version=shardloom.local_distributed_split_manifest.v1
+distributed_runtime_status=scoped_local_fixture_supported
+coordinator_invoked=true
+worker_count=1..4
+local_worker_runtime_invoked=true
+remote_worker_invoked=false
+split_execution_performed=true
+shuffle_repartition_schema_version=shardloom.local_distributed_shuffle_repartition.v1
+shuffle_repartition_performed=true
+shuffle_repartition_strategy=local_hash_group_key_to_reduce_worker
+local_combine_performed=true
+local_combine_strategy=split_local_group_count_sum_before_exchange
+global_merge_performed=true
+global_merge_strategy=partition_ordered_reduce_merge
+remote_shuffle_performed=false
+skew_schema_version=shardloom.local_distributed_skew.v1
+skew_detection_performed=true
+skew_detected
+skew_handling_applied
+memory_backpressure_schema_version=shardloom.local_distributed_memory_backpressure.v1
+memory_budget_enforced=true
+spill_required=false
+spill_io_performed=false
+deterministic_merge_performed=true
+retry_performed
+duplicate_attempt_rejected
+stale_lease_rejected
+cancellation_cleanup_completed
+partial_output_committed=false
+execution_certificate_status=certified
+native_io_certificate_status=certified
+distributed_claim_gate_status=not_distributed_runtime_grade
+fallback_attempted=false
+external_engine_invoked=false
 ```
 
 Remote-worker report fields must not be satisfied by Spark, Dask, Ray, DataFusion, DuckDB, Polars,
