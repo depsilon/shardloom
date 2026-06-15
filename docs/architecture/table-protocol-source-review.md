@@ -51,14 +51,17 @@ local Avro manifest list, summarize manifest entries, report manifest-summary pr
 manifest-level split counts, and block delete/unknown manifest content without fallback. With
 `--manifest` and `universal-format-io`, it can also read one explicit local Avro manifest file,
 parse manifest entries, report data-file split counts/bytes/records, and block deleted, delete-file,
-or unknown entries without scanning data files. External Iceberg data scans, object-store tables,
-catalog runtime, writes/commits, delete-file execution, Delta, Hudi, Nessie, Polaris, Gravitino,
-Glue-like, and Hive-like profiles remain source-reviewed or planned candidates, not
-production-supported runtime.
+or unknown entries without scanning data files. It now compares metadata schemas by Iceberg field
+IDs, partition specs by partition field/spec IDs, manifest partition-spec IDs, and delete entries by
+data/position-delete/equality-delete/deletion-vector-shaped content. These are metadata admission
+and blocker surfaces only. External Iceberg data scans, object-store tables, catalog runtime,
+writes/commits, schema projection execution, partition-filter execution, delete-file execution,
+Puffin/deletion-vector reads, Delta, Hudi, Nessie, Polaris, Gravitino, Glue-like, and Hive-like
+profiles remain source-reviewed or planned candidates, not production-supported runtime.
 
 The next Iceberg implementation step should lower planned data-file splits into ShardLoom-native
-scan execution, schema/partition evolution semantics, and delete/tombstone/deletion-vector
-admission. An approved no-credential REST-catalog fixture remains a candidate after
+scan execution with schema projection, partition-filter, and delete-application semantics where
+admitted. An approved no-credential REST-catalog fixture remains a candidate after
 credential/object-store and effect policy are narrowed.
 
 Glue-like and Hive-like catalog profiles are intentionally not selected for the first external
@@ -72,8 +75,9 @@ catalog profiles reviewed here.
 - Table metadata parser with deterministic unsupported diagnostics.
 - Snapshot/time-travel selection contract.
 - Manifest/log/timeline split planner.
-- Schema and partition evolution semantics.
-- Delete/tombstone/deletion-vector admission policy.
+- Schema and partition projection/filter execution semantics for admitted scans.
+- Delete/tombstone/deletion-vector execution and Puffin/vector application policy for admitted
+  scans.
 - Object-store credential, byte-range, retry, and bounded streaming evidence when remote files are
   involved.
 - Commit/rollback/recovery contract before writes.
@@ -88,8 +92,10 @@ scoped local Iceberg metadata JSON smoke reads one local metadata file and selec
 fallback or external engines; and the feature-gated manifest-list summary smoke reads one explicit
 local Avro manifest list for manifest-summary pruning/split-count evidence only; and the
 feature-gated manifest-file smoke reads one explicit local Avro manifest file for data-file
-split-plan evidence only.
+split-plan evidence only; and the same smoke emits metadata-level schema/partition evolution and
+delete/deletion-vector admission evidence with deterministic fail-closed blockers.
 
 May not claim: Iceberg data-file scan/runtime, Delta/Hudi runtime, catalog runtime, object-store
-table runtime, table scan, append/overwrite, merge/update/delete, rollback, production lakehouse
-support, Spark replacement, performance, or external engine execution.
+table runtime, table scan, schema projection execution, partition-filter execution, delete
+application, Puffin/deletion-vector reads, append/overwrite, merge/update/delete, rollback,
+production lakehouse support, Spark replacement, performance, or external engine execution.

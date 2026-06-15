@@ -363,10 +363,16 @@ with a recorded infeasibility reason, not merely because they are broad.
     manifest summary pruning, manifest-level split counts, data/delete/unknown manifest counts, and
     delete-manifest blockers. The same command also supports an explicitly requested, feature-gated
     local Avro manifest-file split-plan read through `--manifest`, reporting data-file split counts,
-    bytes, record counts, and deleted/delete/unknown entry blockers without scanning data files.
-    That does not imply Iceberg data scans, external catalog/runtime, object-store table commit,
-    write semantics, distributed, production, or performance support. Current source-reviewed
-    external candidates are Iceberg table metadata, Iceberg REST, Delta transaction logs, Hudi
+    bytes, record counts, and deleted/delete/unknown entry blockers without scanning data files. It
+    now also performs metadata-level schema evolution comparison by Iceberg field IDs, partition
+    evolution comparison by partition field IDs/spec IDs, manifest partition-spec ID admission, and
+    delete admission classification for position deletes, equality deletes, deletion-vector-shaped
+    entries, deleted data-file entries, and delete manifests. Safe ID-based schema/partition
+    evolution is admitted only as metadata/split-planning evidence; projection/filter execution,
+    delete application, Puffin/deletion-vector reads, and data-file scans remain blocked. That does
+    not imply Iceberg data scans, external catalog/runtime, object-store table commit, write
+    semantics, distributed, production, or performance support. Current source-reviewed external
+    candidates are Iceberg table metadata, Iceberg REST, Delta transaction logs, Hudi
     timeline/metadata, Nessie, Polaris, and Gravitino; Glue-like and Hive-like catalog profiles are
     not selected for the first external candidate and still require separate source/profile review
     before implementation.
@@ -404,8 +410,13 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [x] Extend from manifest-list summary into scoped local Iceberg manifest-file parsing and
       data-file split planning with no-fallback diagnostics for deleted, delete-file, unknown
       content, and unknown-status entries.
-    - [ ] Implement schema/partition evolution semantics beyond metadata/manifest-list visibility.
-    - [ ] Implement delete/tombstone/deletion-vector admission beyond summary/count blockers.
+    - [x] Implement metadata-level schema/partition evolution semantics beyond visibility:
+      field-ID schema comparison, partition field/spec-ID comparison, manifest partition-spec
+      admission, safe metadata-only evolution status, and fail-closed blockers for projection or
+      filter semantics that are not admitted.
+    - [x] Implement delete/tombstone/deletion-vector admission beyond summary/count blockers:
+      position-delete, equality-delete, deletion-vector-shaped, deleted data-file, delete-manifest,
+      and unknown-content classifiers with deterministic no-fallback blockers.
     - [ ] Implement Delta log and Hudi timeline/metadata readers only after their source-profile
       contracts are narrowed to fixture, credential, object-store, and no-fallback evidence.
     - [ ] Lower planned Iceberg data-file splits into ShardLoom-native scan execution with Native

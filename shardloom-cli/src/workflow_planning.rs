@@ -4,9 +4,12 @@
 //! datasets, probe catalogs, execute plans, write data, materialize outputs,
 //! invoke external engines, or provide fallback execution.
 
-#[cfg(feature = "universal-format-io")]
-use std::collections::BTreeMap;
-use std::{fs, path::Path, process::ExitCode};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::Path,
+    process::ExitCode,
+};
 
 #[cfg(feature = "universal-format-io")]
 use shardloom_core::ScalarValue;
@@ -5977,6 +5980,7 @@ struct IcebergManifestListSummary {
     schema_column_count: usize,
     projected_column_count: usize,
     entry_count: usize,
+    partition_spec_id_order: Vec<String>,
     data_manifest_count: usize,
     delete_manifest_count: usize,
     unknown_content_manifest_count: usize,
@@ -6011,6 +6015,9 @@ struct IcebergManifestFileSummary {
     existing_data_file_count: u64,
     deleted_data_file_count: u64,
     delete_file_entry_count: u64,
+    position_delete_file_entry_count: u64,
+    equality_delete_file_entry_count: u64,
+    deletion_vector_entry_count: u64,
     unknown_content_file_count: u64,
     unknown_status_entry_count: u64,
     total_record_count: u64,
@@ -6018,6 +6025,94 @@ struct IcebergManifestFileSummary {
     planned_data_file_count: u64,
     planned_data_file_bytes: u64,
     split_planning_rule: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergSchemaEvolutionSummary {
+    schema_id_order: Vec<String>,
+    schema_evolution_present: bool,
+    added_field_id_count: usize,
+    dropped_field_id_count: usize,
+    renamed_field_id_count: usize,
+    type_changed_field_id_count: usize,
+    requiredness_changed_field_id_count: usize,
+    required_field_added_count: usize,
+    missing_field_id_count: usize,
+    duplicate_field_id_count: usize,
+    complex_or_nested_evolution_field_count: usize,
+    admission_status: &'static str,
+    admission_rule: &'static str,
+}
+
+impl IcebergSchemaEvolutionSummary {
+    fn blocks_runtime_projection(&self) -> bool {
+        self.missing_field_id_count > 0
+            || self.duplicate_field_id_count > 0
+            || self.type_changed_field_id_count > 0
+            || self.requiredness_changed_field_id_count > 0
+            || self.required_field_added_count > 0
+            || self.complex_or_nested_evolution_field_count > 0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergPartitionEvolutionSummary {
+    partition_spec_id_order: Vec<String>,
+    partition_evolution_present: bool,
+    default_partition_spec_id: String,
+    last_partition_id: String,
+    added_partition_field_count: usize,
+    removed_partition_field_count: usize,
+    renamed_partition_field_count: usize,
+    source_changed_partition_field_count: usize,
+    transform_changed_partition_field_count: usize,
+    missing_partition_field_id_count: usize,
+    duplicate_partition_field_id_count: usize,
+    field_id_reuse_mismatch_count: usize,
+    unknown_transform_count: usize,
+    manifest_partition_spec_id_order: Vec<String>,
+    manifest_unknown_partition_spec_id_count: usize,
+    admission_status: &'static str,
+    admission_rule: &'static str,
+}
+
+impl IcebergPartitionEvolutionSummary {
+    fn blocks_runtime_projection(&self) -> bool {
+        self.missing_partition_field_id_count > 0
+            || self.duplicate_partition_field_id_count > 0
+            || self.field_id_reuse_mismatch_count > 0
+            || self.source_changed_partition_field_count > 0
+            || self.transform_changed_partition_field_count > 0
+            || self.unknown_transform_count > 0
+            || self.manifest_unknown_partition_spec_id_count > 0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergDeleteAdmissionSummary {
+    selected_snapshot_delete_file_count: u64,
+    manifest_list_delete_manifest_count: usize,
+    manifest_list_delete_file_count: u64,
+    manifest_file_deleted_data_file_count: u64,
+    manifest_file_position_delete_file_count: u64,
+    manifest_file_equality_delete_file_count: u64,
+    manifest_file_deletion_vector_count: u64,
+    manifest_file_unknown_delete_content_count: u64,
+    admission_status: &'static str,
+    admission_rule: &'static str,
+}
+
+impl IcebergDeleteAdmissionSummary {
+    fn blocks_runtime_delete_execution(&self) -> bool {
+        self.selected_snapshot_delete_file_count > 0
+            || self.manifest_list_delete_manifest_count > 0
+            || self.manifest_list_delete_file_count > 0
+            || self.manifest_file_deleted_data_file_count > 0
+            || self.manifest_file_position_delete_file_count > 0
+            || self.manifest_file_equality_delete_file_count > 0
+            || self.manifest_file_deletion_vector_count > 0
+            || self.manifest_file_unknown_delete_content_count > 0
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -6042,6 +6137,22 @@ struct IcebergMetadataRootParts<'a> {
     selected_snapshot: IcebergMetadataSnapshotSummary,
 }
 
+struct IcebergMetadataReportBuildContext<'a> {
+    root_parts: IcebergMetadataRootParts<'a>,
+    manifest_list_reader_feature_enabled: bool,
+    manifest_list_summary: Option<IcebergManifestListSummary>,
+    manifest_file_reader_feature_enabled: bool,
+    manifest_file_summary: Option<IcebergManifestFileSummary>,
+    schema_evolution_summary: IcebergSchemaEvolutionSummary,
+    partition_evolution_summary: IcebergPartitionEvolutionSummary,
+    delete_admission_summary: IcebergDeleteAdmissionSummary,
+    unsupported_feature_order: Vec<&'static str>,
+    metadata_summary: String,
+    scope: IcebergReportScope,
+    blocked_paths: Vec<IcebergMetadataBlockedPath>,
+    diagnostics: Vec<Diagnostic>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 struct IcebergMetadataReadSmokeReport {
@@ -6063,8 +6174,10 @@ struct IcebergMetadataReadSmokeReport {
     current_schema_field_count: usize,
     schema_field_ids_present: bool,
     complex_or_nested_schema_field_count: usize,
+    schema_evolution_summary: IcebergSchemaEvolutionSummary,
     partition_spec_count: usize,
     default_partition_spec_id: String,
+    partition_evolution_summary: IcebergPartitionEvolutionSummary,
     sort_order_count: usize,
     default_sort_order_id: String,
     snapshot_count: usize,
@@ -6078,6 +6191,7 @@ struct IcebergMetadataReadSmokeReport {
     manifest_file_path_requested: Option<String>,
     manifest_file_reader_feature_enabled: bool,
     manifest_file_summary: Option<IcebergManifestFileSummary>,
+    delete_admission_summary: IcebergDeleteAdmissionSummary,
     branch_or_tag_ref_count: usize,
     last_sequence_number: String,
     metadata_summary: String,
@@ -6418,6 +6532,19 @@ fn build_iceberg_metadata_report(
     metadata: &str,
     root: &serde_json::Map<String, serde_json::Value>,
 ) -> Result<IcebergMetadataReadSmokeReport, ShardLoomError> {
+    let context = prepare_iceberg_metadata_report_context(request, root)?;
+    Ok(assemble_iceberg_metadata_report(
+        request,
+        metadata.len(),
+        root,
+        context,
+    ))
+}
+
+fn prepare_iceberg_metadata_report_context<'a>(
+    request: &IcebergMetadataReadSmokeRequest,
+    root: &'a serde_json::Map<String, serde_json::Value>,
+) -> Result<IcebergMetadataReportBuildContext<'a>, ShardLoomError> {
     let root_parts = parse_iceberg_metadata_root_parts(root, &request.selection)?;
     let manifest_list_reader_feature_enabled = iceberg_manifest_list_reader_feature_enabled();
     let manifest_list_summary =
@@ -6425,20 +6552,37 @@ fn build_iceberg_metadata_report(
     let manifest_file_reader_feature_enabled = iceberg_manifest_file_reader_feature_enabled();
     let manifest_file_summary =
         maybe_read_iceberg_manifest_file_summary(request.manifest_file_path.as_deref())?;
-    let unsupported_feature_order = iceberg_metadata_unsupported_feature_order(
-        root_parts.format_version,
+    let schema_evolution_summary = iceberg_schema_evolution_summary(root_parts.schemas);
+    let partition_evolution_summary =
+        iceberg_partition_evolution_summary(root, manifest_list_summary.as_ref());
+    let delete_admission_summary = iceberg_delete_admission_summary(
         &root_parts.selected_snapshot,
-        request.manifest_list_path.is_some() && !manifest_list_reader_feature_enabled,
-        request.manifest_file_path.is_some() && !manifest_file_reader_feature_enabled,
         manifest_list_summary.as_ref(),
         manifest_file_summary.as_ref(),
     );
+    let unsupported_feature_order =
+        iceberg_metadata_unsupported_feature_order(&IcebergMetadataUnsupportedFeatureContext {
+            format_version: root_parts.format_version,
+            selected_snapshot: &root_parts.selected_snapshot,
+            schema_evolution_summary: &schema_evolution_summary,
+            partition_evolution_summary: &partition_evolution_summary,
+            delete_admission_summary: &delete_admission_summary,
+            manifest_list_reader_feature_disabled: request.manifest_list_path.is_some()
+                && !manifest_list_reader_feature_enabled,
+            manifest_file_reader_feature_disabled: request.manifest_file_path.is_some()
+                && !manifest_file_reader_feature_enabled,
+            manifest_list_summary: manifest_list_summary.as_ref(),
+            manifest_file_summary: manifest_file_summary.as_ref(),
+        });
     let metadata_summary = iceberg_metadata_summary(&IcebergMetadataSummaryContext {
         table_uuid: &root_parts.table_uuid,
         current_snapshot_id: &root_parts.current_snapshot_id,
         selected_snapshot: &root_parts.selected_snapshot,
         manifest_list_summary: manifest_list_summary.as_ref(),
         manifest_file_summary: manifest_file_summary.as_ref(),
+        schema_evolution_summary: &schema_evolution_summary,
+        partition_evolution_summary: &partition_evolution_summary,
+        delete_admission_summary: &delete_admission_summary,
         root,
         schemas: root_parts.schemas,
         snapshots: root_parts.snapshots,
@@ -6449,7 +6593,47 @@ fn build_iceberg_metadata_report(
     let blocked_paths =
         iceberg_metadata_blocked_paths(manifest_list_read_performed, manifest_file_read_performed);
     let diagnostics = iceberg_metadata_diagnostics(&blocked_paths, &unsupported_feature_order);
-    Ok(IcebergMetadataReadSmokeReport {
+    Ok(IcebergMetadataReportBuildContext {
+        root_parts,
+        manifest_list_reader_feature_enabled,
+        manifest_list_summary,
+        manifest_file_reader_feature_enabled,
+        manifest_file_summary,
+        schema_evolution_summary,
+        partition_evolution_summary,
+        delete_admission_summary,
+        unsupported_feature_order,
+        metadata_summary,
+        scope,
+        blocked_paths,
+        diagnostics,
+    })
+}
+
+fn assemble_iceberg_metadata_report(
+    request: &IcebergMetadataReadSmokeRequest,
+    metadata_bytes_read: usize,
+    root: &serde_json::Map<String, serde_json::Value>,
+    context: IcebergMetadataReportBuildContext<'_>,
+) -> IcebergMetadataReadSmokeReport {
+    let IcebergMetadataReportBuildContext {
+        root_parts,
+        manifest_list_reader_feature_enabled,
+        manifest_list_summary,
+        manifest_file_reader_feature_enabled,
+        manifest_file_summary,
+        schema_evolution_summary,
+        partition_evolution_summary,
+        delete_admission_summary,
+        unsupported_feature_order,
+        metadata_summary,
+        scope,
+        blocked_paths,
+        diagnostics,
+    } = context;
+    let manifest_list_read_performed = manifest_list_summary.is_some();
+    let manifest_file_read_performed = manifest_file_summary.is_some();
+    IcebergMetadataReadSmokeReport {
         schema_version: "shardloom.iceberg_metadata_read_smoke.v1",
         report_id: scope.report_id,
         phase_id: "PROD-READY-1C",
@@ -6459,7 +6643,7 @@ fn build_iceberg_metadata_report(
         source_protocol: "apache_iceberg_table_metadata",
         source_review_ref: "docs/architecture/table-protocol-source-review.md",
         metadata_path: request.metadata_path.clone(),
-        metadata_bytes_read: metadata.len(),
+        metadata_bytes_read,
         format_version: root_parts.format_version,
         table_uuid: root_parts.table_uuid,
         table_location: root_parts.table_location,
@@ -6470,8 +6654,10 @@ fn build_iceberg_metadata_report(
         complex_or_nested_schema_field_count: complex_or_nested_schema_field_count(
             root_parts.current_schema,
         ),
+        schema_evolution_summary,
         partition_spec_count: optional_array_len(root, "partition-specs"),
         default_partition_spec_id: optional_i64_string(root, "default-spec-id"),
+        partition_evolution_summary,
         sort_order_count: optional_array_len(root, "sort-orders"),
         default_sort_order_id: optional_i64_string(root, "default-sort-order-id"),
         snapshot_count: root_parts.snapshots.len(),
@@ -6485,6 +6671,7 @@ fn build_iceberg_metadata_report(
         manifest_file_path_requested: request.manifest_file_path.clone(),
         manifest_file_reader_feature_enabled,
         manifest_file_summary,
+        delete_admission_summary,
         branch_or_tag_ref_count: optional_object_len(root, "refs"),
         last_sequence_number: optional_i64_string(root, "last-sequence-number"),
         metadata_summary_digest: iceberg_metadata_digest(&metadata_summary),
@@ -6517,7 +6704,7 @@ fn build_iceberg_metadata_report(
         unsupported_feature_order,
         blocked_paths,
         diagnostics,
-    })
+    }
 }
 
 fn iceberg_metadata_diagnostics(
@@ -6647,6 +6834,7 @@ fn read_iceberg_manifest_list_summary(
         schema_column_count: table.header.len(),
         projected_column_count: table.reader_projection_columns.len(),
         entry_count: table.rows.len(),
+        partition_spec_id_order: Vec::new(),
         data_manifest_count: 0,
         delete_manifest_count: 0,
         unknown_content_manifest_count: 0,
@@ -6703,6 +6891,12 @@ fn observe_iceberg_manifest_list_row(
     summary.total_manifest_bytes = summary
         .total_manifest_bytes
         .saturating_add(iceberg_manifest_row_u64(row, "manifest_length").unwrap_or(0));
+    if let Some(partition_spec_id) = iceberg_manifest_row_i64(row, "partition_spec_id") {
+        push_unique_string(
+            &mut summary.partition_spec_id_order,
+            &partition_spec_id.to_string(),
+        );
+    }
     summary.added_data_file_count = summary
         .added_data_file_count
         .saturating_add(iceberg_manifest_row_u64(row, "added_data_files_count").unwrap_or(0));
@@ -6823,6 +7017,9 @@ fn read_iceberg_manifest_file_summary(
         existing_data_file_count: 0,
         deleted_data_file_count: 0,
         delete_file_entry_count: 0,
+        position_delete_file_entry_count: 0,
+        equality_delete_file_entry_count: 0,
+        deletion_vector_entry_count: 0,
         unknown_content_file_count: 0,
         unknown_status_entry_count: 0,
         total_record_count: 0,
@@ -6874,12 +7071,6 @@ fn observe_iceberg_manifest_file_row(
         )));
     }
 
-    if content == 1 {
-        summary.delete_file_entry_count = summary.delete_file_entry_count.saturating_add(1);
-    } else if content != 0 {
-        summary.unknown_content_file_count = summary.unknown_content_file_count.saturating_add(1);
-    }
-
     let record_count = iceberg_struct_u64(data_file, "record_count").unwrap_or(0);
     let file_size = iceberg_struct_u64(data_file, "file_size_in_bytes").unwrap_or(0);
     summary.total_record_count = summary.total_record_count.saturating_add(record_count);
@@ -6907,7 +7098,45 @@ fn observe_iceberg_manifest_file_row(
                 summary.unknown_status_entry_count.saturating_add(1);
         }
     }
+    observe_iceberg_manifest_file_content(summary, content, data_file);
     Ok(())
+}
+
+#[cfg(feature = "universal-format-io")]
+fn observe_iceberg_manifest_file_content(
+    summary: &mut IcebergManifestFileSummary,
+    content: i64,
+    data_file: &[(String, ScalarValue)],
+) {
+    match content {
+        0 => {}
+        1 => {
+            summary.delete_file_entry_count = summary.delete_file_entry_count.saturating_add(1);
+            if iceberg_data_file_has_deletion_vector_metadata(data_file) {
+                summary.deletion_vector_entry_count =
+                    summary.deletion_vector_entry_count.saturating_add(1);
+            } else {
+                summary.position_delete_file_entry_count =
+                    summary.position_delete_file_entry_count.saturating_add(1);
+            }
+        }
+        2 => {
+            summary.delete_file_entry_count = summary.delete_file_entry_count.saturating_add(1);
+            summary.equality_delete_file_entry_count =
+                summary.equality_delete_file_entry_count.saturating_add(1);
+        }
+        _ => {
+            summary.unknown_content_file_count =
+                summary.unknown_content_file_count.saturating_add(1);
+        }
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
+fn iceberg_data_file_has_deletion_vector_metadata(fields: &[(String, ScalarValue)]) -> bool {
+    iceberg_struct_string(fields, "referenced_data_file").is_some_and(|value| !value.is_empty())
+        && iceberg_struct_u64(fields, "content_offset").is_some()
+        && iceberg_struct_u64(fields, "content_size_in_bytes").is_some()
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -7205,6 +7434,460 @@ fn complex_or_nested_schema_field_count(
     })
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergSchemaFieldIdentity {
+    name: String,
+    required: bool,
+    type_fingerprint: String,
+    complex_or_nested: bool,
+}
+
+fn iceberg_schema_evolution_summary(
+    schemas: &[serde_json::Value],
+) -> IcebergSchemaEvolutionSummary {
+    let schema_id_order = schemas
+        .iter()
+        .filter_map(serde_json::Value::as_object)
+        .filter_map(|schema| schema.get("schema-id").and_then(json_i64_string))
+        .collect::<Vec<_>>();
+    let schema_maps = schemas
+        .iter()
+        .filter_map(serde_json::Value::as_object)
+        .map(iceberg_schema_field_identity_map)
+        .collect::<Vec<_>>();
+    let missing_field_id_count = schema_maps
+        .iter()
+        .map(|schema| schema.missing_field_id_count)
+        .sum();
+    let duplicate_field_id_count = schema_maps
+        .iter()
+        .map(|schema| schema.duplicate_field_id_count)
+        .sum();
+    let mut summary = IcebergSchemaEvolutionSummary {
+        schema_id_order,
+        schema_evolution_present: schemas.len() > 1,
+        added_field_id_count: 0,
+        dropped_field_id_count: 0,
+        renamed_field_id_count: 0,
+        type_changed_field_id_count: 0,
+        requiredness_changed_field_id_count: 0,
+        required_field_added_count: 0,
+        missing_field_id_count,
+        duplicate_field_id_count,
+        complex_or_nested_evolution_field_count: 0,
+        admission_status: "single_schema_no_evolution",
+        admission_rule: "field_ids_required_safe_add_drop_rename_reorder_metadata_only_no_data_projection",
+    };
+    for pair in schema_maps.windows(2) {
+        observe_iceberg_schema_evolution_pair(&mut summary, &pair[0].fields, &pair[1].fields);
+    }
+    summary.admission_status = iceberg_schema_evolution_admission_status(&summary);
+    summary
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergSchemaFieldIdentityMap {
+    fields: BTreeMap<i64, IcebergSchemaFieldIdentity>,
+    missing_field_id_count: usize,
+    duplicate_field_id_count: usize,
+}
+
+fn iceberg_schema_field_identity_map(
+    schema: &serde_json::Map<String, serde_json::Value>,
+) -> IcebergSchemaFieldIdentityMap {
+    let mut fields = BTreeMap::new();
+    let mut seen = BTreeSet::new();
+    let mut missing_field_id_count = 0;
+    let mut duplicate_field_id_count = 0;
+    for field in schema_fields(schema).into_iter().flatten() {
+        let Some(field) = field.as_object() else {
+            missing_field_id_count += 1;
+            continue;
+        };
+        let Some(field_id) = field.get("id").and_then(json_i64) else {
+            missing_field_id_count += 1;
+            continue;
+        };
+        if !seen.insert(field_id) {
+            duplicate_field_id_count += 1;
+            continue;
+        }
+        fields.insert(field_id, iceberg_schema_field_identity(field));
+    }
+    IcebergSchemaFieldIdentityMap {
+        fields,
+        missing_field_id_count,
+        duplicate_field_id_count,
+    }
+}
+
+fn iceberg_schema_field_identity(
+    field: &serde_json::Map<String, serde_json::Value>,
+) -> IcebergSchemaFieldIdentity {
+    let field_type = field
+        .get("type")
+        .cloned()
+        .unwrap_or(serde_json::Value::String("unknown".to_string()));
+    IcebergSchemaFieldIdentity {
+        name: field
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown")
+            .to_string(),
+        required: field
+            .get("required")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+        type_fingerprint: iceberg_json_type_fingerprint(&field_type),
+        complex_or_nested: !field_type.is_string(),
+    }
+}
+
+fn observe_iceberg_schema_evolution_pair(
+    summary: &mut IcebergSchemaEvolutionSummary,
+    from: &BTreeMap<i64, IcebergSchemaFieldIdentity>,
+    to: &BTreeMap<i64, IcebergSchemaFieldIdentity>,
+) {
+    for (field_id, to_field) in to {
+        match from.get(field_id) {
+            None => {
+                summary.added_field_id_count += 1;
+                if to_field.required {
+                    summary.required_field_added_count += 1;
+                }
+                if to_field.complex_or_nested {
+                    summary.complex_or_nested_evolution_field_count += 1;
+                }
+            }
+            Some(from_field) => {
+                observe_iceberg_schema_field_change(summary, from_field, to_field);
+            }
+        }
+    }
+    for (field_id, from_field) in from {
+        if !to.contains_key(field_id) {
+            summary.dropped_field_id_count += 1;
+            if from_field.complex_or_nested {
+                summary.complex_or_nested_evolution_field_count += 1;
+            }
+        }
+    }
+}
+
+fn observe_iceberg_schema_field_change(
+    summary: &mut IcebergSchemaEvolutionSummary,
+    from_field: &IcebergSchemaFieldIdentity,
+    to_field: &IcebergSchemaFieldIdentity,
+) {
+    if from_field.name != to_field.name {
+        summary.renamed_field_id_count += 1;
+    }
+    if from_field.type_fingerprint != to_field.type_fingerprint {
+        summary.type_changed_field_id_count += 1;
+    }
+    if from_field.required != to_field.required {
+        summary.requiredness_changed_field_id_count += 1;
+    }
+    if (from_field.type_fingerprint != to_field.type_fingerprint
+        || from_field.name != to_field.name
+        || from_field.required != to_field.required)
+        && (from_field.complex_or_nested || to_field.complex_or_nested)
+    {
+        summary.complex_or_nested_evolution_field_count += 1;
+    }
+}
+
+fn iceberg_schema_evolution_admission_status(
+    summary: &IcebergSchemaEvolutionSummary,
+) -> &'static str {
+    if summary.missing_field_id_count > 0 || summary.duplicate_field_id_count > 0 {
+        "blocked_schema_field_id_integrity"
+    } else if summary.blocks_runtime_projection() {
+        "blocked_requires_schema_projection_semantics"
+    } else if summary.schema_evolution_present {
+        "metadata_only_id_based_schema_evolution_admitted_no_data_projection"
+    } else {
+        "single_schema_no_evolution"
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergPartitionFieldIdentity {
+    source_id: String,
+    name: String,
+    transform: String,
+}
+
+impl IcebergPartitionFieldIdentity {
+    fn signature(&self) -> String {
+        format!("{}|{}|{}", self.source_id, self.transform, self.name)
+    }
+}
+
+fn iceberg_partition_evolution_summary(
+    root: &serde_json::Map<String, serde_json::Value>,
+    manifest_list_summary: Option<&IcebergManifestListSummary>,
+) -> IcebergPartitionEvolutionSummary {
+    let partition_specs = root
+        .get("partition-specs")
+        .and_then(serde_json::Value::as_array)
+        .map_or(&[][..], Vec::as_slice);
+    let spec_maps = partition_specs
+        .iter()
+        .filter_map(serde_json::Value::as_object)
+        .map(iceberg_partition_field_identity_map)
+        .collect::<Vec<_>>();
+    let partition_spec_id_order = partition_specs
+        .iter()
+        .filter_map(serde_json::Value::as_object)
+        .filter_map(|spec| spec.get("spec-id").and_then(json_i64_string))
+        .collect::<Vec<_>>();
+    let mut summary = IcebergPartitionEvolutionSummary {
+        partition_spec_id_order: partition_spec_id_order.clone(),
+        partition_evolution_present: partition_specs.len() > 1,
+        default_partition_spec_id: optional_i64_string(root, "default-spec-id"),
+        last_partition_id: optional_i64_string(root, "last-partition-id"),
+        added_partition_field_count: 0,
+        removed_partition_field_count: 0,
+        renamed_partition_field_count: 0,
+        source_changed_partition_field_count: 0,
+        transform_changed_partition_field_count: 0,
+        missing_partition_field_id_count: spec_maps
+            .iter()
+            .map(|spec| spec.missing_field_id_count)
+            .sum(),
+        duplicate_partition_field_id_count: spec_maps
+            .iter()
+            .map(|spec| spec.duplicate_field_id_count)
+            .sum(),
+        field_id_reuse_mismatch_count: 0,
+        unknown_transform_count: spec_maps
+            .iter()
+            .map(|spec| spec.unknown_transform_count)
+            .sum(),
+        manifest_partition_spec_id_order: manifest_list_summary
+            .map_or_else(Vec::new, |summary| summary.partition_spec_id_order.clone()),
+        manifest_unknown_partition_spec_id_count: 0,
+        admission_status: "single_partition_spec_no_evolution",
+        admission_rule: "partition_field_ids_and_manifest_spec_ids_required_metadata_only_no_filter_execution",
+    };
+    for pair in spec_maps.windows(2) {
+        observe_iceberg_partition_evolution_pair(&mut summary, &pair[0].fields, &pair[1].fields);
+    }
+    summary.manifest_unknown_partition_spec_id_count =
+        iceberg_unknown_manifest_partition_spec_count(&partition_spec_id_order, &summary);
+    summary.admission_status = iceberg_partition_evolution_admission_status(&summary);
+    summary
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IcebergPartitionFieldIdentityMap {
+    fields: BTreeMap<i64, IcebergPartitionFieldIdentity>,
+    missing_field_id_count: usize,
+    duplicate_field_id_count: usize,
+    unknown_transform_count: usize,
+}
+
+fn iceberg_partition_field_identity_map(
+    spec: &serde_json::Map<String, serde_json::Value>,
+) -> IcebergPartitionFieldIdentityMap {
+    let mut fields = BTreeMap::new();
+    let mut seen = BTreeSet::new();
+    let mut missing_field_id_count = 0;
+    let mut duplicate_field_id_count = 0;
+    let mut unknown_transform_count = 0;
+    let spec_fields = spec
+        .get("fields")
+        .and_then(serde_json::Value::as_array)
+        .map_or(&[][..], Vec::as_slice);
+    for field in spec_fields {
+        let Some(field) = field.as_object() else {
+            missing_field_id_count += 1;
+            continue;
+        };
+        let Some(field_id) = field.get("field-id").and_then(json_i64) else {
+            missing_field_id_count += 1;
+            continue;
+        };
+        if !seen.insert(field_id) {
+            duplicate_field_id_count += 1;
+            continue;
+        }
+        let identity = iceberg_partition_field_identity(field);
+        if !iceberg_partition_transform_known(&identity.transform) {
+            unknown_transform_count += 1;
+        }
+        fields.insert(field_id, identity);
+    }
+    IcebergPartitionFieldIdentityMap {
+        fields,
+        missing_field_id_count,
+        duplicate_field_id_count,
+        unknown_transform_count,
+    }
+}
+
+fn iceberg_partition_field_identity(
+    field: &serde_json::Map<String, serde_json::Value>,
+) -> IcebergPartitionFieldIdentity {
+    IcebergPartitionFieldIdentity {
+        source_id: field
+            .get("source-id")
+            .and_then(json_i64_string)
+            .unwrap_or_else(|| "none".to_string()),
+        name: field
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown")
+            .to_string(),
+        transform: field
+            .get("transform")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown")
+            .to_string(),
+    }
+}
+
+fn observe_iceberg_partition_evolution_pair(
+    summary: &mut IcebergPartitionEvolutionSummary,
+    from: &BTreeMap<i64, IcebergPartitionFieldIdentity>,
+    to: &BTreeMap<i64, IcebergPartitionFieldIdentity>,
+) {
+    let from_signatures = from
+        .values()
+        .map(IcebergPartitionFieldIdentity::signature)
+        .collect::<BTreeSet<_>>();
+    let to_signatures = to
+        .values()
+        .map(IcebergPartitionFieldIdentity::signature)
+        .collect::<BTreeSet<_>>();
+    summary.added_partition_field_count += to_signatures.difference(&from_signatures).count();
+    summary.removed_partition_field_count += from_signatures.difference(&to_signatures).count();
+    for (field_id, to_field) in to {
+        if let Some(from_field) = from.get(field_id) {
+            if from_field.signature() != to_field.signature() {
+                summary.field_id_reuse_mismatch_count += 1;
+            }
+            if from_field.name != to_field.name {
+                summary.renamed_partition_field_count += 1;
+            }
+            if from_field.source_id != to_field.source_id {
+                summary.source_changed_partition_field_count += 1;
+            }
+            if from_field.transform != to_field.transform {
+                summary.transform_changed_partition_field_count += 1;
+            }
+        }
+    }
+}
+
+fn iceberg_partition_evolution_admission_status(
+    summary: &IcebergPartitionEvolutionSummary,
+) -> &'static str {
+    if summary.missing_partition_field_id_count > 0
+        || summary.duplicate_partition_field_id_count > 0
+        || summary.manifest_unknown_partition_spec_id_count > 0
+    {
+        "blocked_partition_field_or_manifest_spec_integrity"
+    } else if summary.blocks_runtime_projection() {
+        "blocked_requires_partition_projection_semantics"
+    } else if summary.partition_evolution_present {
+        "metadata_only_partition_evolution_admitted_no_filter_execution"
+    } else {
+        "single_partition_spec_no_evolution"
+    }
+}
+
+fn iceberg_unknown_manifest_partition_spec_count(
+    known_spec_ids: &[String],
+    summary: &IcebergPartitionEvolutionSummary,
+) -> usize {
+    let known = known_spec_ids.iter().collect::<BTreeSet<_>>();
+    summary
+        .manifest_partition_spec_id_order
+        .iter()
+        .filter(|spec_id| !known.contains(spec_id))
+        .count()
+}
+
+fn iceberg_partition_transform_known(transform: &str) -> bool {
+    matches!(
+        transform,
+        "identity" | "year" | "month" | "day" | "hour" | "void"
+    ) || transform.starts_with("bucket[")
+        || transform.starts_with("truncate[")
+}
+
+fn iceberg_delete_admission_summary(
+    selected_snapshot: &IcebergMetadataSnapshotSummary,
+    manifest_list_summary: Option<&IcebergManifestListSummary>,
+    manifest_file_summary: Option<&IcebergManifestFileSummary>,
+) -> IcebergDeleteAdmissionSummary {
+    let mut summary = IcebergDeleteAdmissionSummary {
+        selected_snapshot_delete_file_count: selected_snapshot.delete_file_count,
+        manifest_list_delete_manifest_count: manifest_list_summary
+            .map_or(0, |summary| summary.delete_manifest_count),
+        manifest_list_delete_file_count: manifest_list_summary
+            .map_or(0, IcebergManifestListSummary::total_delete_file_count),
+        manifest_file_deleted_data_file_count: manifest_file_summary
+            .map_or(0, |summary| summary.deleted_data_file_count),
+        manifest_file_position_delete_file_count: manifest_file_summary
+            .map_or(0, |summary| summary.position_delete_file_entry_count),
+        manifest_file_equality_delete_file_count: manifest_file_summary
+            .map_or(0, |summary| summary.equality_delete_file_entry_count),
+        manifest_file_deletion_vector_count: manifest_file_summary
+            .map_or(0, |summary| summary.deletion_vector_entry_count),
+        manifest_file_unknown_delete_content_count: manifest_file_summary
+            .map_or(0, |summary| summary.unknown_content_file_count),
+        admission_status: "delete_execution_blocked_no_delete_evidence_present",
+        admission_rule: "metadata_detects_delete_manifests_position_deletes_equality_deletes_and_deletion_vectors_fail_closed",
+    };
+    summary.admission_status = iceberg_delete_admission_status(&summary);
+    summary
+}
+
+fn iceberg_delete_admission_status(summary: &IcebergDeleteAdmissionSummary) -> &'static str {
+    if !summary.blocks_runtime_delete_execution() {
+        "delete_execution_blocked_no_delete_evidence_present"
+    } else if summary.manifest_file_deletion_vector_count > 0 {
+        "deletion_vectors_blocked_requires_puffin_vector_application"
+    } else if summary.manifest_file_equality_delete_file_count > 0 {
+        "equality_delete_files_blocked_requires_field_id_predicate_application"
+    } else if summary.manifest_file_position_delete_file_count > 0 {
+        "position_delete_files_blocked_requires_row_position_filtering"
+    } else if summary.manifest_list_delete_manifest_count > 0
+        || summary.manifest_list_delete_file_count > 0
+        || summary.selected_snapshot_delete_file_count > 0
+    {
+        "delete_manifests_or_delete_files_blocked"
+    } else if summary.manifest_file_deleted_data_file_count > 0 {
+        "deleted_data_file_entries_blocked"
+    } else if summary.manifest_file_unknown_delete_content_count > 0 {
+        "unknown_delete_content_blocked"
+    } else {
+        "delete_execution_blocked_unclassified_delete_evidence_present"
+    }
+}
+
+fn json_i64(value: &serde_json::Value) -> Option<i64> {
+    value
+        .as_i64()
+        .or_else(|| value.as_u64().and_then(|number| i64::try_from(number).ok()))
+}
+
+fn iceberg_json_type_fingerprint(value: &serde_json::Value) -> String {
+    value
+        .as_str()
+        .map_or_else(|| value.to_string(), ToOwned::to_owned)
+}
+
+#[cfg(feature = "universal-format-io")]
+fn push_unique_string(values: &mut Vec<String>, value: &str) {
+    if !values.iter().any(|existing| existing == value) {
+        values.push(value.to_string());
+    }
+}
+
 fn manifest_list_ref_count(snapshots: &[serde_json::Value]) -> usize {
     snapshots
         .iter()
@@ -7218,28 +7901,62 @@ fn manifest_list_ref_count(snapshots: &[serde_json::Value]) -> usize {
         .count()
 }
 
-fn iceberg_metadata_unsupported_feature_order(
+struct IcebergMetadataUnsupportedFeatureContext<'a> {
     format_version: u64,
-    selected_snapshot: &IcebergMetadataSnapshotSummary,
+    selected_snapshot: &'a IcebergMetadataSnapshotSummary,
+    schema_evolution_summary: &'a IcebergSchemaEvolutionSummary,
+    partition_evolution_summary: &'a IcebergPartitionEvolutionSummary,
+    delete_admission_summary: &'a IcebergDeleteAdmissionSummary,
     manifest_list_reader_feature_disabled: bool,
     manifest_file_reader_feature_disabled: bool,
-    manifest_list_summary: Option<&IcebergManifestListSummary>,
-    manifest_file_summary: Option<&IcebergManifestFileSummary>,
+    manifest_list_summary: Option<&'a IcebergManifestListSummary>,
+    manifest_file_summary: Option<&'a IcebergManifestFileSummary>,
+}
+
+fn iceberg_metadata_unsupported_feature_order(
+    context: &IcebergMetadataUnsupportedFeatureContext<'_>,
 ) -> Vec<&'static str> {
     let mut features = Vec::new();
-    if format_version > 2 {
+    if context.format_version > 2 {
         features.push("format_version_gt_2");
     }
-    if selected_snapshot.delete_file_count > 0 {
+    if context.selected_snapshot.delete_file_count > 0 {
         features.push("delete_files_present");
     }
-    if manifest_list_reader_feature_disabled {
+    if context.schema_evolution_summary.missing_field_id_count > 0
+        || context.schema_evolution_summary.duplicate_field_id_count > 0
+    {
+        features.push("schema_field_id_integrity_blocked");
+    } else if context.schema_evolution_summary.blocks_runtime_projection() {
+        features.push("schema_evolution_projection_required");
+    }
+    if context
+        .partition_evolution_summary
+        .missing_partition_field_id_count
+        > 0
+        || context
+            .partition_evolution_summary
+            .duplicate_partition_field_id_count
+            > 0
+        || context
+            .partition_evolution_summary
+            .manifest_unknown_partition_spec_id_count
+            > 0
+    {
+        features.push("partition_field_or_manifest_spec_integrity_blocked");
+    } else if context
+        .partition_evolution_summary
+        .blocks_runtime_projection()
+    {
+        features.push("partition_evolution_projection_required");
+    }
+    if context.manifest_list_reader_feature_disabled {
         features.push("manifest_list_reader_feature_disabled");
     }
-    if manifest_file_reader_feature_disabled {
+    if context.manifest_file_reader_feature_disabled {
         features.push("manifest_file_reader_feature_disabled");
     }
-    if let Some(summary) = manifest_list_summary {
+    if let Some(summary) = context.manifest_list_summary {
         if summary.delete_manifest_count > 0 || summary.total_delete_file_count() > 0 {
             features.push("delete_manifests_present");
         }
@@ -7247,8 +7964,42 @@ fn iceberg_metadata_unsupported_feature_order(
             features.push("unknown_manifest_content_present");
         }
     }
-    if let Some(summary) = manifest_file_summary {
-        if summary.delete_file_entry_count > 0 {
+    if let Some(summary) = context.manifest_file_summary {
+        if context
+            .delete_admission_summary
+            .manifest_file_deletion_vector_count
+            > 0
+        {
+            features.push("deletion_vector_entries_present");
+        }
+        if context
+            .delete_admission_summary
+            .manifest_file_position_delete_file_count
+            > 0
+        {
+            features.push("position_delete_file_entries_present");
+        }
+        if context
+            .delete_admission_summary
+            .manifest_file_equality_delete_file_count
+            > 0
+        {
+            features.push("equality_delete_file_entries_present");
+        }
+        if summary.delete_file_entry_count > 0
+            && context
+                .delete_admission_summary
+                .manifest_file_position_delete_file_count
+                == 0
+            && context
+                .delete_admission_summary
+                .manifest_file_equality_delete_file_count
+                == 0
+            && context
+                .delete_admission_summary
+                .manifest_file_deletion_vector_count
+                == 0
+        {
             features.push("delete_file_entries_present");
         }
         if summary.deleted_data_file_count > 0 {
@@ -7294,6 +8045,9 @@ struct IcebergMetadataSummaryContext<'a> {
     selected_snapshot: &'a IcebergMetadataSnapshotSummary,
     manifest_list_summary: Option<&'a IcebergManifestListSummary>,
     manifest_file_summary: Option<&'a IcebergManifestFileSummary>,
+    schema_evolution_summary: &'a IcebergSchemaEvolutionSummary,
+    partition_evolution_summary: &'a IcebergPartitionEvolutionSummary,
+    delete_admission_summary: &'a IcebergDeleteAdmissionSummary,
     root: &'a serde_json::Map<String, serde_json::Value>,
     schemas: &'a [serde_json::Value],
     snapshots: &'a [serde_json::Value],
@@ -7314,7 +8068,7 @@ fn iceberg_metadata_summary(context: &IcebergMetadataSummaryContext<'_>) -> Stri
         |summary| summary.planned_data_file_count,
     );
     format!(
-        "protocol=iceberg table_uuid={} format_version={} current_schema_id={} current_snapshot_id={} selected_snapshot_id={} schemas={} partition_specs={} sort_orders={} snapshots={} manifest_list_refs={} manifest_list_read={} manifest_file_read={} planned_manifest_splits={} planned_data_files={} delete_files={} catalog_io=false object_store_io=false data_file_read=false fallback_attempted=false external_engine_invoked=false",
+        "protocol=iceberg table_uuid={} format_version={} current_schema_id={} current_snapshot_id={} selected_snapshot_id={} schemas={} schema_evolution_status={} partition_specs={} partition_evolution_status={} sort_orders={} snapshots={} manifest_list_refs={} manifest_list_read={} manifest_file_read={} planned_manifest_splits={} planned_data_files={} delete_files={} delete_admission_status={} catalog_io=false object_store_io=false data_file_read=false fallback_attempted=false external_engine_invoked=false",
         context.table_uuid,
         context
             .root
@@ -7329,7 +8083,9 @@ fn iceberg_metadata_summary(context: &IcebergMetadataSummaryContext<'_>) -> Stri
         context.current_snapshot_id,
         context.selected_snapshot.snapshot_id,
         context.schemas.len(),
+        context.schema_evolution_summary.admission_status,
         optional_array_len(context.root, "partition-specs"),
+        context.partition_evolution_summary.admission_status,
         optional_array_len(context.root, "sort-orders"),
         context.snapshots.len(),
         manifest_list_ref_count(context.snapshots),
@@ -7337,7 +8093,8 @@ fn iceberg_metadata_summary(context: &IcebergMetadataSummaryContext<'_>) -> Stri
         manifest_file_read,
         planned_manifest_splits,
         planned_data_files,
-        context.selected_snapshot.delete_file_count
+        context.selected_snapshot.delete_file_count,
+        context.delete_admission_summary.admission_status
     )
 }
 
@@ -7407,12 +8164,14 @@ fn append_iceberg_metadata_summary_fields(
         "complex_or_nested_schema_field_count",
         report.complex_or_nested_schema_field_count,
     );
+    append_iceberg_schema_evolution_fields(fields, &report.schema_evolution_summary);
     push_count_field(fields, "partition_spec_count", report.partition_spec_count);
     push_field(
         fields,
         "default_partition_spec_id",
         &report.default_partition_spec_id,
     );
+    append_iceberg_partition_evolution_fields(fields, &report.partition_evolution_summary);
     push_count_field(fields, "sort_order_count", report.sort_order_count);
     push_field(
         fields,
@@ -7472,6 +8231,168 @@ fn append_iceberg_metadata_summary_fields(
         fields,
         "metadata_summary_digest",
         &report.metadata_summary_digest,
+    );
+}
+
+fn append_iceberg_schema_evolution_fields(
+    fields: &mut Vec<(String, String)>,
+    summary: &IcebergSchemaEvolutionSummary,
+) {
+    push_bool_field(
+        fields,
+        "schema_evolution_present",
+        summary.schema_evolution_present,
+    );
+    push_field(
+        fields,
+        "schema_id_order",
+        &summary.schema_id_order.join(","),
+    );
+    push_count_field(
+        fields,
+        "schema_added_field_id_count",
+        summary.added_field_id_count,
+    );
+    push_count_field(
+        fields,
+        "schema_dropped_field_id_count",
+        summary.dropped_field_id_count,
+    );
+    push_count_field(
+        fields,
+        "schema_renamed_field_id_count",
+        summary.renamed_field_id_count,
+    );
+    push_count_field(
+        fields,
+        "schema_type_changed_field_id_count",
+        summary.type_changed_field_id_count,
+    );
+    push_count_field(
+        fields,
+        "schema_requiredness_changed_field_id_count",
+        summary.requiredness_changed_field_id_count,
+    );
+    push_count_field(
+        fields,
+        "schema_required_field_added_count",
+        summary.required_field_added_count,
+    );
+    push_count_field(
+        fields,
+        "schema_missing_field_id_count",
+        summary.missing_field_id_count,
+    );
+    push_count_field(
+        fields,
+        "schema_duplicate_field_id_count",
+        summary.duplicate_field_id_count,
+    );
+    push_count_field(
+        fields,
+        "schema_complex_or_nested_evolution_field_count",
+        summary.complex_or_nested_evolution_field_count,
+    );
+    push_field(
+        fields,
+        "schema_evolution_admission_status",
+        summary.admission_status,
+    );
+    push_field(
+        fields,
+        "schema_evolution_admission_rule",
+        summary.admission_rule,
+    );
+}
+
+fn append_iceberg_partition_evolution_fields(
+    fields: &mut Vec<(String, String)>,
+    summary: &IcebergPartitionEvolutionSummary,
+) {
+    push_bool_field(
+        fields,
+        "partition_evolution_present",
+        summary.partition_evolution_present,
+    );
+    push_field(
+        fields,
+        "partition_spec_id_order",
+        &summary.partition_spec_id_order.join(","),
+    );
+    push_field(
+        fields,
+        "partition_default_spec_id",
+        &summary.default_partition_spec_id,
+    );
+    push_field(
+        fields,
+        "partition_last_partition_id",
+        &summary.last_partition_id,
+    );
+    push_count_field(
+        fields,
+        "partition_added_field_count",
+        summary.added_partition_field_count,
+    );
+    push_count_field(
+        fields,
+        "partition_removed_field_count",
+        summary.removed_partition_field_count,
+    );
+    push_count_field(
+        fields,
+        "partition_renamed_field_count",
+        summary.renamed_partition_field_count,
+    );
+    push_count_field(
+        fields,
+        "partition_source_changed_field_count",
+        summary.source_changed_partition_field_count,
+    );
+    push_count_field(
+        fields,
+        "partition_transform_changed_field_count",
+        summary.transform_changed_partition_field_count,
+    );
+    push_count_field(
+        fields,
+        "partition_missing_field_id_count",
+        summary.missing_partition_field_id_count,
+    );
+    push_count_field(
+        fields,
+        "partition_duplicate_field_id_count",
+        summary.duplicate_partition_field_id_count,
+    );
+    push_count_field(
+        fields,
+        "partition_field_id_reuse_mismatch_count",
+        summary.field_id_reuse_mismatch_count,
+    );
+    push_count_field(
+        fields,
+        "partition_unknown_transform_count",
+        summary.unknown_transform_count,
+    );
+    push_field(
+        fields,
+        "manifest_partition_spec_id_order",
+        &summary.manifest_partition_spec_id_order.join(","),
+    );
+    push_count_field(
+        fields,
+        "manifest_unknown_partition_spec_id_count",
+        summary.manifest_unknown_partition_spec_id_count,
+    );
+    push_field(
+        fields,
+        "partition_evolution_admission_status",
+        summary.admission_status,
+    );
+    push_field(
+        fields,
+        "partition_evolution_admission_rule",
+        summary.admission_rule,
     );
 }
 
@@ -7544,6 +8465,13 @@ fn append_iceberg_manifest_list_request_fields(
     push_optional_count_field(fields, "manifest_list_entry_count", summary, |summary| {
         summary.entry_count
     });
+    push_field(
+        fields,
+        "manifest_list_partition_spec_id_order",
+        &summary.map_or_else(String::new, |summary| {
+            summary.partition_spec_id_order.join(",")
+        }),
+    );
 }
 
 fn append_iceberg_manifest_list_count_fields(
@@ -7641,32 +8569,85 @@ fn append_iceberg_manifest_admission_fields(
     push_field(
         fields,
         "schema_partition_evolution_admission_status",
-        if report.manifest_file_summary.is_some() {
-            "metadata_ids_manifest_partition_spec_ids_and_data_file_partition_struct_visible_no_evolution_execution"
-        } else if summary.is_some() {
-            "metadata_ids_and_manifest_partition_spec_ids_visible_no_evolution_execution"
-        } else {
-            "metadata_ids_visible_no_manifest_summary"
-        },
+        iceberg_schema_partition_combined_admission_status(report, summary),
     );
     push_field(
         fields,
         "delete_tombstone_deletion_vector_admission_status",
-        if report
-            .manifest_file_summary
-            .as_ref()
-            .is_some_and(|summary| {
-                summary.delete_file_entry_count > 0 || summary.deleted_data_file_count > 0
-            })
-            || summary.is_some_and(|summary| {
-                summary.delete_manifest_count > 0 || summary.total_delete_file_count() > 0
-            })
-        {
-            "delete_manifests_or_delete_files_blocked"
-        } else {
-            "delete_execution_blocked_no_delete_manifest_summary_present"
-        },
+        report.delete_admission_summary.admission_status,
     );
+    append_iceberg_delete_admission_fields(fields, &report.delete_admission_summary);
+}
+
+fn iceberg_schema_partition_combined_admission_status(
+    report: &IcebergMetadataReadSmokeReport,
+    summary: Option<&IcebergManifestListSummary>,
+) -> &'static str {
+    if report.schema_evolution_summary.blocks_runtime_projection()
+        || report
+            .partition_evolution_summary
+            .blocks_runtime_projection()
+    {
+        "schema_or_partition_evolution_blocked_requires_projection_semantics"
+    } else if report.manifest_file_summary.is_some() {
+        "metadata_ids_manifest_partition_spec_ids_and_data_file_partition_struct_visible_no_evolution_execution"
+    } else if summary.is_some() {
+        "metadata_ids_and_manifest_partition_spec_ids_visible_no_evolution_execution"
+    } else {
+        "metadata_ids_visible_no_manifest_summary"
+    }
+}
+
+fn append_iceberg_delete_admission_fields(
+    fields: &mut Vec<(String, String)>,
+    summary: &IcebergDeleteAdmissionSummary,
+) {
+    push_field(fields, "delete_admission_status", summary.admission_status);
+    push_field(fields, "delete_admission_rule", summary.admission_rule);
+    push_optional_u64_value_field(
+        fields,
+        "delete_selected_snapshot_delete_file_count",
+        summary.selected_snapshot_delete_file_count,
+    );
+    push_count_field(
+        fields,
+        "delete_manifest_list_delete_manifest_count",
+        summary.manifest_list_delete_manifest_count,
+    );
+    push_optional_u64_value_field(
+        fields,
+        "delete_manifest_list_delete_file_count",
+        summary.manifest_list_delete_file_count,
+    );
+    push_optional_u64_value_field(
+        fields,
+        "delete_manifest_file_deleted_data_file_count",
+        summary.manifest_file_deleted_data_file_count,
+    );
+    push_optional_u64_value_field(
+        fields,
+        "delete_manifest_file_position_delete_file_count",
+        summary.manifest_file_position_delete_file_count,
+    );
+    push_optional_u64_value_field(
+        fields,
+        "delete_manifest_file_equality_delete_file_count",
+        summary.manifest_file_equality_delete_file_count,
+    );
+    push_optional_u64_value_field(
+        fields,
+        "delete_manifest_file_deletion_vector_count",
+        summary.manifest_file_deletion_vector_count,
+    );
+    push_optional_u64_value_field(
+        fields,
+        "delete_manifest_file_unknown_delete_content_count",
+        summary.manifest_file_unknown_delete_content_count,
+    );
+}
+
+fn push_optional_u64_value_field(fields: &mut Vec<(String, String)>, key: &str, value: u64) {
+    push_field(fields, key, &value.to_string());
 }
 
 fn append_iceberg_manifest_file_summary_fields(
@@ -7748,6 +8729,24 @@ fn append_iceberg_manifest_file_count_fields(
         "manifest_file_delete_file_entry_count",
         summary,
         |summary| summary.delete_file_entry_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_file_position_delete_file_entry_count",
+        summary,
+        |summary| summary.position_delete_file_entry_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_file_equality_delete_file_entry_count",
+        summary,
+        |summary| summary.equality_delete_file_entry_count,
+    );
+    push_optional_u64_field(
+        fields,
+        "manifest_file_deletion_vector_entry_count",
+        summary,
+        |summary| summary.deletion_vector_entry_count,
     );
     push_optional_u64_field(
         fields,

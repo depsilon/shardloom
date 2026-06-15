@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `iceberg_metadata_json_manifest_list_and_manifest_file_split_plan_smoke_plus_blocked_runtime`
 - **Engine mode:** `batch`
-- **Claim boundary:** ShardLoom has scoped local-manifest metadata/read and append-commit rehearsal evidence, a scoped local Iceberg metadata JSON smoke with snapshot selection, an explicitly requested feature-gated local Avro manifest-list summary smoke, and an explicitly requested feature-gated local Avro manifest-file split-plan smoke. That does not promote Iceberg data-file runtime, Delta/Hudi runtime, external catalogs, object-store table runtime, table scans, table writes/commits, production lakehouse support, Foundry support, or performance claims.
+- **Claim boundary:** ShardLoom has scoped local-manifest metadata/read and append-commit rehearsal evidence, a scoped local Iceberg metadata JSON smoke with snapshot selection, an explicitly requested feature-gated local Avro manifest-list summary smoke, an explicitly requested feature-gated local Avro manifest-file split-plan smoke, and metadata-level schema/partition/delete/deletion-vector admission evidence. That does not promote Iceberg data-file runtime, schema projection execution, partition-filter execution, delete application, Delta/Hudi runtime, external catalogs, object-store table runtime, table scans, table writes/commits, production lakehouse support, Foundry support, or performance claims.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Table and lakehouse boundary has a scoped local path. Treat it as technical-prev
 
 ## Claim Boundary
 
-ShardLoom has scoped local-manifest metadata/read and append-commit rehearsal evidence, a scoped local Iceberg metadata JSON smoke with snapshot selection, an explicitly requested feature-gated local Avro manifest-list summary smoke, and an explicitly requested feature-gated local Avro manifest-file split-plan smoke. That does not promote Iceberg data-file runtime, Delta/Hudi runtime, external catalogs, object-store table runtime, table scans, table writes/commits, production lakehouse support, Foundry support, or performance claims.
+ShardLoom has scoped local-manifest metadata/read and append-commit rehearsal evidence, a scoped local Iceberg metadata JSON smoke with snapshot selection, an explicitly requested feature-gated local Avro manifest-list summary smoke, an explicitly requested feature-gated local Avro manifest-file split-plan smoke, and metadata-level schema/partition/delete/deletion-vector admission evidence. That does not promote Iceberg data-file runtime, schema projection execution, partition-filter execution, delete application, Delta/Hudi runtime, external catalogs, object-store table runtime, table scans, table writes/commits, production lakehouse support, Foundry support, or performance claims.
 
 ## How To Try It
 
@@ -26,11 +26,11 @@ target\debug\shardloom iceberg-metadata-read-smoke target\iceberg\metadata.json 
 
 ## Blocker
 
-Table-format runtime still needs data-file scan execution, delete/tombstone semantics, write/commit/rollback, object-store, catalog, and certificate evidence before production support can be claimed.
+Table-format runtime still needs data-file scan execution, schema projection execution, partition-filter execution, delete application, write/commit/rollback, object-store, catalog, and certificate evidence before production support can be claimed.
 
 ## Internal Flow
 
-`local_iceberg_metadata_json, optional_local_iceberg_manifest_list_avro, optional_local_iceberg_manifest_avro, iceberg_table, delta_table, hudi_table, catalog_metadata -> iceberg_metadata_json_manifest_list_and_manifest_file_split_plan_smoke_plus_blocked_runtime -> batch -> iceberg_metadata_summary, snapshot_selection_evidence, optional_manifest_list_summary, optional_manifest_file_split_plan, table_compatibility_matrix, deterministic_blocker -> evidence -> claim gate`
+`local_iceberg_metadata_json, optional_local_iceberg_manifest_list_avro, optional_local_iceberg_manifest_avro, iceberg_table, delta_table, hudi_table, catalog_metadata -> iceberg_metadata_json_manifest_list_and_manifest_file_split_plan_smoke_plus_blocked_runtime -> batch -> iceberg_metadata_summary, snapshot_selection_evidence, optional_manifest_list_summary, optional_manifest_file_split_plan, schema_partition_evolution_admission, delete_deletion_vector_admission, table_compatibility_matrix, deterministic_blocker -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -52,6 +52,17 @@ Table-format runtime still needs data-file scan execution, delete/tombstone sema
 - `data_file_split_planning_performed`
 - `planned_data_file_split_count`
 - `planned_data_file_split_bytes`
+- `schema_evolution_present`
+- `schema_id_order`
+- `schema_evolution_admission_status`
+- `partition_evolution_present`
+- `partition_spec_id_order`
+- `manifest_partition_spec_id_order`
+- `partition_evolution_admission_status`
+- `manifest_file_position_delete_file_entry_count`
+- `manifest_file_equality_delete_file_entry_count`
+- `manifest_file_deletion_vector_entry_count`
+- `delete_tombstone_deletion_vector_admission_status`
 - `data_file_read_performed=false`
 - `delete_file_semantics`
 - `table_scan_status`
@@ -72,7 +83,7 @@ Table-format runtime still needs data-file scan execution, delete/tombstone sema
 
 ## Expected Output Or Evidence
 
-A scoped Iceberg metadata JSON smoke report with table metadata fields, current/explicit/as-of snapshot selection evidence, optional feature-gated manifest-list summary/split-count evidence, optional feature-gated manifest-file split-plan evidence, deterministic blockers for delete files and broader table runtime, fallback_attempted=false, and external_engine_invoked=false.
+A scoped Iceberg metadata JSON smoke report with table metadata fields, current/explicit/as-of snapshot selection evidence, optional feature-gated manifest-list summary/split-count evidence, optional feature-gated manifest-file split-plan evidence, schema/partition evolution admission fields, delete/deletion-vector admission fields, deterministic blockers for delete files and broader table runtime, fallback_attempted=false, and external_engine_invoked=false.
 
 ## Common Mistakes
 

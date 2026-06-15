@@ -101,6 +101,124 @@ fn write_metadata_fixture(name: &str, delete_files: u64) -> PathBuf {
     path
 }
 
+fn write_metadata_evolution_fixture(name: &str) -> PathBuf {
+    let path = temp_metadata_path(name);
+    let metadata = r#"{
+  "format-version": 2,
+  "table-uuid": "iceberg-orders-evolution-fixture",
+  "location": "file:///warehouse/orders",
+  "last-sequence-number": 2,
+  "current-schema-id": 2,
+  "schemas": [
+    {
+      "type": "struct",
+      "schema-id": 1,
+      "fields": [
+        {"id": 1, "name": "order_id", "required": true, "type": "long"},
+        {"id": 2, "name": "region", "required": false, "type": "string"}
+      ]
+    },
+    {
+      "type": "struct",
+      "schema-id": 2,
+      "fields": [
+        {"id": 1, "name": "order_id", "required": true, "type": "long"},
+        {"id": 2, "name": "market", "required": false, "type": "string"},
+        {"id": 3, "name": "amount", "required": false, "type": "double"}
+      ]
+    }
+  ],
+  "default-spec-id": 1,
+  "partition-specs": [
+    {
+      "spec-id": 0,
+      "fields": [
+        {"source-id": 2, "field-id": 1000, "name": "region", "transform": "identity"}
+      ]
+    },
+    {
+      "spec-id": 1,
+      "fields": [
+        {"source-id": 2, "field-id": 1000, "name": "region", "transform": "identity"},
+        {"source-id": 1, "field-id": 1001, "name": "order_bucket", "transform": "bucket[16]"}
+      ]
+    }
+  ],
+  "last-partition-id": 1001,
+  "default-sort-order-id": 0,
+  "sort-orders": [
+    {"order-id": 0, "fields": []}
+  ],
+  "current-snapshot-id": 2002,
+  "snapshots": [
+    {
+      "snapshot-id": 2002,
+      "sequence-number": 2,
+      "timestamp-ms": 1770000001000,
+      "manifest-list": "file:///warehouse/orders/metadata/snap-2002.avro",
+      "summary": {"operation": "append", "total-records": "20", "total-data-files": "2"}
+    }
+  ]
+}"#;
+    fs::write(&path, metadata).expect("metadata evolution fixture write");
+    path
+}
+
+fn write_metadata_unsafe_schema_fixture(name: &str) -> PathBuf {
+    let path = temp_metadata_path(name);
+    let metadata = r#"{
+  "format-version": 2,
+  "table-uuid": "iceberg-orders-unsafe-schema-fixture",
+  "location": "file:///warehouse/orders",
+  "last-sequence-number": 2,
+  "current-schema-id": 2,
+  "schemas": [
+    {
+      "type": "struct",
+      "schema-id": 1,
+      "fields": [
+        {"id": 1, "name": "order_id", "required": true, "type": "long"},
+        {"id": 2, "name": "amount", "required": false, "type": "double"}
+      ]
+    },
+    {
+      "type": "struct",
+      "schema-id": 2,
+      "fields": [
+        {"id": 1, "name": "order_id", "required": true, "type": "long"},
+        {"id": 2, "name": "amount", "required": false, "type": "string"}
+      ]
+    }
+  ],
+  "default-spec-id": 0,
+  "partition-specs": [
+    {
+      "spec-id": 0,
+      "fields": [
+        {"source-id": 1, "field-id": 1000, "name": "order_id", "transform": "identity"}
+      ]
+    }
+  ],
+  "last-partition-id": 1000,
+  "default-sort-order-id": 0,
+  "sort-orders": [
+    {"order-id": 0, "fields": []}
+  ],
+  "current-snapshot-id": 2002,
+  "snapshots": [
+    {
+      "snapshot-id": 2002,
+      "sequence-number": 2,
+      "timestamp-ms": 1770000001000,
+      "manifest-list": "file:///warehouse/orders/metadata/snap-2002.avro",
+      "summary": {"operation": "append", "total-records": "20", "total-data-files": "2"}
+    }
+  ]
+}"#;
+    fs::write(&path, metadata).expect("unsafe schema fixture write");
+    path
+}
+
 #[cfg(feature = "universal-format-io")]
 fn write_manifest_list_fixture(path: &std::path::Path, include_delete_manifest: bool) {
     use std::{fs::File, sync::Arc};
@@ -220,6 +338,78 @@ fn write_manifest_file_fixture(path: &std::path::Path, include_deleted_data_file
     writer.finish().expect("finish manifest-file writer");
 }
 
+#[cfg(feature = "universal-format-io")]
+fn write_manifest_file_delete_semantics_fixture(path: &std::path::Path) {
+    use std::{fs::File, sync::Arc};
+
+    use arrow_array::{ArrayRef, Int64Array, RecordBatch, StringArray, StructArray};
+    use arrow_avro::writer::AvroWriter;
+    use arrow_schema::{DataType, Field, Schema};
+
+    let data_file = Arc::new(StructArray::from(vec![
+        (
+            Arc::new(Field::new("content", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![1, 2, 1])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_path", DataType::Utf8, false)),
+            Arc::new(StringArray::from(vec![
+                "file:///warehouse/orders/deletes/pos-a.parquet",
+                "file:///warehouse/orders/deletes/eq-a.parquet",
+                "file:///warehouse/orders/deletes/dv-a.puffin",
+            ])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_format", DataType::Utf8, false)),
+            Arc::new(StringArray::from(vec!["PARQUET", "PARQUET", "PUFFIN"])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("record_count", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![3, 4, 5])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_size_in_bytes", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![300, 400, 500])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("referenced_data_file", DataType::Utf8, true)),
+            Arc::new(StringArray::from(vec![
+                None,
+                None,
+                Some("file:///warehouse/orders/data/orders-a.parquet"),
+            ])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("content_offset", DataType::Int64, true)),
+            Arc::new(Int64Array::from(vec![None, None, Some(64)])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("content_size_in_bytes", DataType::Int64, true)),
+            Arc::new(Int64Array::from(vec![None, None, Some(4096)])) as ArrayRef,
+        ),
+    ])) as ArrayRef;
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("status", DataType::Int64, false),
+        Field::new("snapshot_id", DataType::Int64, false),
+        Field::new("data_file", data_file.data_type().clone(), false),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from(vec![1, 1, 1])),
+            Arc::new(Int64Array::from(vec![2002, 2002, 2002])),
+            data_file,
+        ],
+    )
+    .expect("manifest-file delete record batch");
+    let file = File::create(path).expect("create manifest-file delete avro");
+    let mut writer = AvroWriter::new(file, schema.as_ref().clone()).expect("avro writer");
+    writer
+        .write(&batch)
+        .expect("write manifest-file delete batch");
+    writer.finish().expect("finish manifest-file delete writer");
+}
+
 #[test]
 fn iceberg_metadata_read_smoke_exposes_scoped_metadata_summary() {
     let path = write_metadata_fixture("summary", 0);
@@ -329,6 +519,79 @@ fn iceberg_metadata_read_smoke_selects_explicit_snapshot_and_time_travel() {
     assert!(time_stdout.contains(&field("selected_snapshot_id", "2001")));
     assert!(time_stdout.contains(&field("snapshot_selector_kind", "as_of_timestamp_ms")));
     assert!(time_stdout.contains(&field("time_travel_selection_performed", "true")));
+}
+
+#[test]
+fn iceberg_metadata_read_smoke_reports_safe_schema_partition_evolution() {
+    let path = write_metadata_evolution_fixture("safe-evolution");
+    let args = vec![
+        "iceberg-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_iceberg_metadata_read_smoke_json(&args);
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains(&field("schema_count", "2")));
+    assert!(stdout.contains(&field("schema_evolution_present", "true")));
+    assert!(stdout.contains(&field("schema_id_order", "1,2")));
+    assert!(stdout.contains(&field("schema_added_field_id_count", "1")));
+    assert!(stdout.contains(&field("schema_renamed_field_id_count", "1")));
+    assert!(stdout.contains(&field(
+        "schema_evolution_admission_status",
+        "metadata_only_id_based_schema_evolution_admitted_no_data_projection"
+    )));
+    assert!(stdout.contains(&field("partition_spec_count", "2")));
+    assert!(stdout.contains(&field("partition_evolution_present", "true")));
+    assert!(stdout.contains(&field("partition_spec_id_order", "0,1")));
+    assert!(stdout.contains(&field("partition_added_field_count", "1")));
+    assert!(stdout.contains(&field(
+        "partition_evolution_admission_status",
+        "metadata_only_partition_evolution_admitted_no_filter_execution"
+    )));
+    assert!(stdout.contains(&field("unsupported_feature_order", "none")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+}
+
+#[test]
+fn iceberg_metadata_read_smoke_blocks_unsafe_schema_evolution_without_fallback() {
+    let path = write_metadata_unsafe_schema_fixture("unsafe-schema-evolution");
+    let args = vec![
+        "iceberg-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_iceberg_metadata_read_smoke_json(&args);
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("schema_type_changed_field_id_count", "1")));
+    assert!(stdout.contains(&field(
+        "schema_evolution_admission_status",
+        "blocked_requires_schema_projection_semantics"
+    )));
+    assert!(stdout.contains(&field(
+        "unsupported_feature_order",
+        "schema_evolution_projection_required"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
 #[test]
@@ -670,7 +933,63 @@ fn iceberg_metadata_read_smoke_blocks_deleted_manifest_file_entries_without_fall
     )));
     assert!(stdout.contains(&field(
         "delete_tombstone_deletion_vector_admission_status",
-        "delete_manifests_or_delete_files_blocked"
+        "deleted_data_file_entries_blocked"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn iceberg_metadata_read_smoke_classifies_delete_file_types_without_fallback() {
+    let path = write_metadata_fixture("delete-file-types", 0);
+    let manifest_file_path = temp_manifest_file_path("delete-file-types");
+    write_manifest_file_delete_semantics_fixture(&manifest_file_path);
+    let args = vec![
+        "iceberg-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--manifest".to_string(),
+        manifest_file_path.to_string_lossy().to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_iceberg_metadata_read_smoke_json(&args);
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("manifest_file_delete_file_entry_count", "3")));
+    assert!(stdout.contains(&field(
+        "manifest_file_position_delete_file_entry_count",
+        "1"
+    )));
+    assert!(stdout.contains(&field(
+        "manifest_file_equality_delete_file_entry_count",
+        "1"
+    )));
+    assert!(stdout.contains(&field("manifest_file_deletion_vector_entry_count", "1")));
+    assert!(stdout.contains(&field(
+        "delete_tombstone_deletion_vector_admission_status",
+        "deletion_vectors_blocked_requires_puffin_vector_application"
+    )));
+    assert!(stdout.contains(&field(
+        "delete_manifest_file_position_delete_file_count",
+        "1"
+    )));
+    assert!(stdout.contains(&field(
+        "delete_manifest_file_equality_delete_file_count",
+        "1"
+    )));
+    assert!(stdout.contains(&field("delete_manifest_file_deletion_vector_count", "1")));
+    assert!(stdout.contains(&field(
+        "unsupported_feature_order",
+        "deletion_vector_entries_present,position_delete_file_entries_present,equality_delete_file_entries_present"
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
