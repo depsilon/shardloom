@@ -1162,6 +1162,29 @@ fn live_hybrid_durable_checkpoint_fields(
         "changelog_path",
         &report.changelog_path.display().to_string(),
     );
+    push_field(
+        &mut fields,
+        "state_store_path",
+        &report.state_store_path.display().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "micro_segment_path",
+        &report.micro_segment_path.display().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "cold_vortex_segment_manifest_path",
+        &report
+            .cold_vortex_segment_manifest_path
+            .display()
+            .to_string(),
+    );
+    push_field(
+        &mut fields,
+        "partial_checkpoint_path",
+        &report.partial_checkpoint_path.display().to_string(),
+    );
     push_count_field(
         &mut fields,
         "input_change_record_count",
@@ -1197,6 +1220,36 @@ fn live_hybrid_durable_checkpoint_fields(
         "changelog_payload_digest",
         &report.changelog_payload_digest,
     );
+    push_field(
+        &mut fields,
+        "state_store_payload_digest",
+        &report.state_store_payload_digest,
+    );
+    push_field(
+        &mut fields,
+        "restored_state_store_payload_digest",
+        &report.restored_state_store_payload_digest,
+    );
+    push_field(
+        &mut fields,
+        "micro_segment_payload_digest",
+        &report.micro_segment_payload_digest,
+    );
+    push_field(
+        &mut fields,
+        "restored_micro_segment_payload_digest",
+        &report.restored_micro_segment_payload_digest,
+    );
+    push_field(
+        &mut fields,
+        "cold_vortex_segment_manifest_digest",
+        &report.cold_vortex_segment_manifest_digest,
+    );
+    push_field(
+        &mut fields,
+        "restored_cold_vortex_segment_manifest_digest",
+        &report.restored_cold_vortex_segment_manifest_digest,
+    );
     push_u64_field(
         &mut fields,
         "checkpoint_bytes_written",
@@ -1211,6 +1264,56 @@ fn live_hybrid_durable_checkpoint_fields(
         &mut fields,
         "changelog_bytes_written",
         report.changelog_bytes_written,
+    );
+    push_u64_field(
+        &mut fields,
+        "state_store_bytes_written",
+        report.state_store_bytes_written,
+    );
+    push_u64_field(
+        &mut fields,
+        "state_store_bytes_read",
+        report.state_store_bytes_read,
+    );
+    push_u64_field(
+        &mut fields,
+        "micro_segment_bytes_written",
+        report.micro_segment_bytes_written,
+    );
+    push_u64_field(
+        &mut fields,
+        "micro_segment_bytes_read",
+        report.micro_segment_bytes_read,
+    );
+    push_u64_field(
+        &mut fields,
+        "cold_vortex_segment_manifest_bytes_written",
+        report.cold_vortex_segment_manifest_bytes_written,
+    );
+    push_u64_field(
+        &mut fields,
+        "cold_vortex_segment_manifest_bytes_read",
+        report.cold_vortex_segment_manifest_bytes_read,
+    );
+    push_u64_field(
+        &mut fields,
+        "partial_checkpoint_bytes_written",
+        report.partial_checkpoint_bytes_written,
+    );
+    push_count_field(
+        &mut fields,
+        "micro_segment_record_count",
+        report.micro_segment_record_count,
+    );
+    push_count_field(
+        &mut fields,
+        "micro_segment_delete_vector_entry_count",
+        report.micro_segment_delete_vector_entry_count,
+    );
+    push_count_field(
+        &mut fields,
+        "micro_segment_tombstone_count",
+        report.micro_segment_tombstone_count,
     );
     push_bool_field(
         &mut fields,
@@ -1232,10 +1335,85 @@ fn live_hybrid_durable_checkpoint_fields(
         "durable_changelog_write_performed",
         report.durable_changelog_write_performed,
     );
+    push_bool_field(
+        &mut fields,
+        "durable_state_store_used",
+        report.durable_state_store_used,
+    );
+    push_bool_field(
+        &mut fields,
+        "durable_state_store_write_performed",
+        report.durable_state_store_write_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "durable_state_store_restore_performed",
+        report.durable_state_store_restore_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "micro_segment_persistence_performed",
+        report.micro_segment_persistence_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "micro_segment_restore_performed",
+        report.micro_segment_restore_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "cold_vortex_segment_promotion_performed",
+        report.cold_vortex_segment_promotion_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "cold_vortex_segment_manifest_restore_performed",
+        report.cold_vortex_segment_manifest_restore_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "restart_restore_performed",
+        report.restart_restore_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "partial_checkpoint_detected",
+        report.partial_checkpoint_detected,
+    );
+    push_bool_field(
+        &mut fields,
+        "partial_checkpoint_committed",
+        report.partial_checkpoint_committed,
+    );
+    push_bool_field(
+        &mut fields,
+        "partial_checkpoint_cleanup_completed",
+        report.partial_checkpoint_cleanup_completed,
+    );
+    push_bool_field(
+        &mut fields,
+        "duplicate_replay_protection_performed",
+        report.duplicate_replay_protection_performed,
+    );
     push_field(
         &mut fields,
         "state_restore_status",
         report.state_restore_status,
+    );
+    push_field(
+        &mut fields,
+        "restart_restore_status",
+        report.restart_restore_status,
+    );
+    push_field(
+        &mut fields,
+        "duplicate_replay_protection_status",
+        report.duplicate_replay_protection_status,
+    );
+    push_field(
+        &mut fields,
+        "retry_idempotency_key",
+        &report.retry_idempotency_key,
     );
     push_bool_field(&mut fields, "state_match", report.state_match);
     push_field(
@@ -1253,6 +1431,21 @@ fn live_hybrid_durable_checkpoint_fields(
         "cold_vortex_segment_promotion_status",
         report.cold_vortex_segment_promotion_status,
     );
+    push_bool_field(
+        &mut fields,
+        "upstream_vortex_file_write_performed",
+        report.upstream_vortex_file_write_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "vortex_micro_segment_manifest_only",
+        report.vortex_micro_segment_manifest_only,
+    );
+    push_bool_field(
+        &mut fields,
+        "cold_vortex_promotion_manifest_only",
+        report.cold_vortex_promotion_manifest_only,
+    );
     push_bool_field(&mut fields, "broker_io", report.broker_io);
     push_bool_field(&mut fields, "object_store_io", report.object_store_io);
     push_bool_field(
@@ -1264,6 +1457,11 @@ fn live_hybrid_durable_checkpoint_fields(
         &mut fields,
         "exactly_once_claim_allowed",
         report.exactly_once_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "broker_replay_supported",
+        report.broker_replay_supported,
     );
     push_bool_field(
         &mut fields,

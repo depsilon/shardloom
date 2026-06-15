@@ -907,8 +907,8 @@
       "performance_claim_allowed": false,
       "fallback_attempted": false,
       "external_engine_invoked": false,
-      "environment": "single_process_local_filesystem_checkpoint_changelog_fixture",
-      "data_scale": "bounded ten-change in-memory fixture with explicit local checkpoint JSON, changelog JSONL, readback digest, and restored key-count verification; no broker, object-store checkpoint store, Vortex micro-segment persistence, cold promotion, exactly-once, production scale, or performance claim",
+      "environment": "single_process_local_filesystem_checkpoint_changelog_state_store_microsegment_fixture",
+      "data_scale": "bounded ten-change in-memory fixture with explicit local checkpoint JSON, changelog JSONL, local durable state-store JSON, Vortex microsegment manifest, cold-promotion manifest, partial-checkpoint cleanup evidence, idempotent replay evidence, readback digests, and restored key-count verification; no broker, object-store checkpoint store, upstream Vortex file write, exactly-once, production scale, or performance claim",
       "input_formats": [
         "shardloom.live_change_record_fixture.v1",
         "in_memory_fixture_changes"
@@ -916,23 +916,33 @@
       "output_formats": [
         "local_checkpoint_json",
         "local_changelog_jsonl",
+        "local_state_store_json",
+        "local_vortex_microsegment_manifest_json",
+        "local_cold_vortex_segment_promotion_manifest_json",
+        "local_partial_checkpoint_recovery_json",
         "freshness_certificate",
         "state_certificate",
         "execution_certificate",
         "native_io_certificate"
       ],
-      "statefulness": "bounded_fixture_hot_state_to_local_checkpoint_and_changelog_with_restore_digest_verification",
+      "statefulness": "bounded_fixture_hot_state_to_local_checkpoint_changelog_state_store_and_cold_microsegment_manifests_with_restore_digest_verification_plus_partial_checkpoint_cleanup",
       "effect_permissions": [
         "explicit_local_checkpoint_directory_write",
         "local_checkpoint_readback",
+        "local_state_store_readback",
+        "local_microsegment_manifest_readback",
+        "local_cold_promotion_manifest_readback",
+        "local_partial_checkpoint_cleanup",
+        "local_duplicate_replay_idempotency_check",
         "no_network",
         "no_broker_io",
         "no_object_store_io",
+        "no_upstream_vortex_file_write",
         "no_external_engine",
         "no_exactly_once_claim"
       ],
       "security_posture": "local_no_secrets_no_network_explicit_filesystem_output_only",
-      "unsupported_edge_boundary": "Broker adapters, unbounded schedulers, production durable state stores, object-store/catalog checkpoints, Vortex micro-segment persistence, cold Vortex segment promotion, deletion-vector persistence, exactly-once semantics, and benchmark performance claims remain blocked until separate production evidence exists.",
+      "unsupported_edge_boundary": "Broker adapters, unbounded schedulers, broker replay, object-store/catalog checkpoints, upstream Vortex file writes, public production state-store claims, exactly-once semantics, and benchmark performance claims remain blocked until separate production evidence exists. The scoped local fixture covers durable local state-store JSON, Vortex microsegment/cold-promotion manifest evidence, partial-checkpoint cleanup, and duplicate replay/idempotency evidence only.",
       "technique_review": {
         "pulseweave": {
           "decision": "pending_for_production_scheduler",
@@ -940,7 +950,7 @@
         },
         "capillary_work_units": {
           "decision": "applied_scoped",
-          "reason": "The checkpoint proof uses a small capillary state unit: fixture changes, active state, checkpoint payload, changelog payload, readback, digest, and certificate evidence."
+          "reason": "The checkpoint proof uses a small capillary state unit: fixture changes, active state, checkpoint payload, changelog payload, state-store payload, microsegment manifest, cold-promotion manifest, partial-checkpoint cleanup, duplicate replay/idempotency evidence, readback, digest, and certificate evidence."
         },
         "dynamic_admission_work_shaping": {
           "decision": "applied_scoped",
@@ -948,7 +958,7 @@
         },
         "metadata_first_execution": {
           "decision": "applied_scoped",
-          "reason": "The fixture records deterministic record counts, key counts, checkpoint policy, restore status, and digests before allowing the smoke to pass."
+          "reason": "The fixture records deterministic record counts, key counts, checkpoint policy, restore status, microsegment/delete-vector/tombstone counts, and digests before allowing the smoke to pass."
         },
         "timing_surface_separation": {
           "decision": "pending",
@@ -967,7 +977,12 @@
             "shardloom.live_hybrid_durable_checkpoint_fixture.v1",
             "durable_checkpoint_write_performed=true",
             "durable_checkpoint_restore_performed=true",
-            "durable_changelog_write_performed=true"
+            "durable_changelog_write_performed=true",
+            "durable_state_store_write_performed=true",
+            "micro_segment_persistence_performed=true",
+            "cold_vortex_segment_promotion_performed=true",
+            "partial_checkpoint_cleanup_completed=true",
+            "duplicate_replay_protection_performed=true"
           ]
         },
         "correctness": {
@@ -976,6 +991,9 @@
             "state_match=true",
             "checkpoint_record_count=3",
             "restored_active_state_key_count=3",
+            "micro_segment_record_count=10",
+            "micro_segment_delete_vector_entry_count=3",
+            "micro_segment_tombstone_count=1",
             "shardloom-cli/tests/cg22_engine_fabric_snapshots.rs"
           ]
         },
@@ -983,7 +1001,7 @@
           "status": "passed_scoped_local_fixture",
           "evidence_refs": [
             "native_io_certificate_status=certified",
-            "native_io_certificate_path_id=in_memory_change_fixture_to_local_checkpoint_changelog",
+            "native_io_certificate_path_id=in_memory_change_fixture_to_local_state_checkpoint_changelog_microsegment_manifest",
             "native_io_certificate_write_io=true",
             "native_io_certificate_object_store_io=false"
           ]
@@ -998,8 +1016,15 @@
         "fault_tolerance": {
           "status": "passed_scoped_local_restore_digest_check",
           "evidence_refs": [
-            "state_restore_status=restored_local_checkpoint_digest_and_key_count_match",
-            "checkpoint_payload_digest=restored_checkpoint_payload_digest"
+            "state_restore_status=restored_local_checkpoint_state_store_microsegment_and_cold_manifest_match",
+            "checkpoint_payload_digest=restored_checkpoint_payload_digest",
+            "state_store_payload_digest=restored_state_store_payload_digest",
+            "micro_segment_payload_digest=restored_micro_segment_payload_digest",
+            "cold_vortex_segment_manifest_digest=restored_cold_vortex_segment_manifest_digest",
+            "restart_restore_status=local_restart_restore_replayed_checkpoint_state_store_and_microsegment_manifest",
+            "partial_checkpoint_committed=false",
+            "partial_checkpoint_cleanup_completed=true",
+            "duplicate_replay_protection_status=duplicate_change_sequence_replayed_once_by_sequence_key"
           ]
         },
         "memory_backpressure": {
@@ -1036,8 +1061,10 @@
         "unsupported_diagnostics": {
           "status": "passed_scoped_local_fixture",
           "evidence_refs": [
-            "vortex_micro_segment_persistence_status=blocked_not_in_scope_local_checkpoint_fixture",
-            "cold_vortex_segment_promotion_status=blocked_not_in_scope_local_checkpoint_fixture",
+            "vortex_micro_segment_persistence_status=certified_local_vortex_micro_segment_manifest_fixture",
+            "cold_vortex_segment_promotion_status=certified_local_cold_vortex_segment_manifest_fixture",
+            "upstream_vortex_file_write_performed=false",
+            "broker_replay_supported=false",
             "exactly_once_claim_allowed=false",
             "production_claim_allowed=false"
           ]
@@ -1059,14 +1086,7 @@
           "external_engine_invoked": false
         },
         {
-          "operation": "vortex_micro_segment_persistence",
-          "diagnostic_code": "SL_PROD_UNSUPPORTED_LIVE_HYBRID_RUNTIME",
-          "status": "deterministic_unsupported_diagnostic",
-          "fallback_attempted": false,
-          "external_engine_invoked": false
-        },
-        {
-          "operation": "cold_vortex_segment_promotion",
+          "operation": "upstream_vortex_file_write",
           "diagnostic_code": "SL_PROD_UNSUPPORTED_LIVE_HYBRID_RUNTIME",
           "status": "deterministic_unsupported_diagnostic",
           "fallback_attempted": false,
@@ -1088,10 +1108,10 @@
         }
       ],
       "production_blockers": [
-        "production_state_store=blocked_missing_broker_object_store_catalog_state_store",
+        "production_state_store=blocked_beyond_local_filesystem_state_store_fixture",
         "durable_checkpoint=blocked_beyond_local_filesystem_fixture",
-        "vortex_micro_segment_persistence=blocked_not_in_scope_local_checkpoint_fixture",
-        "cold_vortex_segment_promotion=blocked_not_in_scope_local_checkpoint_fixture",
+        "upstream_vortex_file_write=blocked_default_build_manifest_only_fixture",
+        "broker_object_store_catalog_state_store=blocked_missing_backend_profile",
         "exactly_once_claim=blocked_missing_source_state_sink_idempotency_evidence",
         "benchmark=blocked_not_claim_grade"
       ]

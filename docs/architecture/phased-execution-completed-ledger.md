@@ -45703,6 +45703,17 @@ the current queue; promote any actionable unfinished work into Planned before im
       `scripts/check_runtime_gap_family_burn_down.py`. Broad DataFrame parity, schema-aware
       projection rewrites, sampling runtime, nested/list expansion runtime, production claims,
       benchmark execution, performance claims, and external-engine fallback remain gated.
+- [x] PROD-READY-1E scoped local live/hybrid durability and recovery evidence is expanded beyond
+      checkpoint/changelog smoke. `live-hybrid-durable-checkpoint-smoke` now writes and restores
+      deterministic local checkpoint JSON, changelog JSONL, durable state-store JSON, Vortex
+      microsegment manifest JSON, and cold-promotion manifest JSON; records delete-vector-shaped
+      and tombstone counts; simulates partial-checkpoint detection and cleanup; emits restart
+      restore, duplicate replay protection, and retry idempotency evidence; and exposes the new
+      evidence through CLI JSON, Python typed client/context routes, runs-today support docs, and
+      production workload evidence. Upstream Vortex file writes, broker replay, object-store/catalog
+      checkpoint stores, exactly-once semantics, public production live/hybrid claims, benchmark
+      claims, Spark/DataFusion/Polars/DuckDB/Velox fallback, and external-engine execution remain
+      blocked.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project
   encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind

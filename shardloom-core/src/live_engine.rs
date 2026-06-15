@@ -678,6 +678,10 @@ pub struct LiveHybridDurableCheckpointFixtureReport {
     pub checkpoint_ref: String,
     pub checkpoint_path: PathBuf,
     pub changelog_path: PathBuf,
+    pub state_store_path: PathBuf,
+    pub micro_segment_path: PathBuf,
+    pub cold_vortex_segment_manifest_path: PathBuf,
+    pub partial_checkpoint_path: PathBuf,
     pub input_change_record_count: usize,
     pub active_state_key_count: usize,
     pub checkpoint_record_count: usize,
@@ -685,24 +689,59 @@ pub struct LiveHybridDurableCheckpointFixtureReport {
     pub checkpoint_payload_digest: String,
     pub restored_checkpoint_payload_digest: String,
     pub changelog_payload_digest: String,
+    pub state_store_payload_digest: String,
+    pub restored_state_store_payload_digest: String,
+    pub micro_segment_payload_digest: String,
+    pub restored_micro_segment_payload_digest: String,
+    pub cold_vortex_segment_manifest_digest: String,
+    pub restored_cold_vortex_segment_manifest_digest: String,
     pub checkpoint_bytes_written: u64,
     pub checkpoint_bytes_read: u64,
     pub changelog_bytes_written: u64,
+    pub state_store_bytes_written: u64,
+    pub state_store_bytes_read: u64,
+    pub micro_segment_bytes_written: u64,
+    pub micro_segment_bytes_read: u64,
+    pub cold_vortex_segment_manifest_bytes_written: u64,
+    pub cold_vortex_segment_manifest_bytes_read: u64,
+    pub partial_checkpoint_bytes_written: u64,
+    pub micro_segment_record_count: usize,
+    pub micro_segment_delete_vector_entry_count: usize,
+    pub micro_segment_tombstone_count: usize,
     pub durable_checkpoint_store_used: bool,
     pub durable_checkpoint_write_performed: bool,
     pub durable_checkpoint_restore_performed: bool,
     pub durable_changelog_write_performed: bool,
+    pub durable_state_store_used: bool,
+    pub durable_state_store_write_performed: bool,
+    pub durable_state_store_restore_performed: bool,
+    pub micro_segment_persistence_performed: bool,
+    pub micro_segment_restore_performed: bool,
+    pub cold_vortex_segment_promotion_performed: bool,
+    pub cold_vortex_segment_manifest_restore_performed: bool,
+    pub restart_restore_performed: bool,
+    pub partial_checkpoint_detected: bool,
+    pub partial_checkpoint_committed: bool,
+    pub partial_checkpoint_cleanup_completed: bool,
+    pub duplicate_replay_protection_performed: bool,
     pub state_restore_status: &'static str,
+    pub restart_restore_status: &'static str,
+    pub duplicate_replay_protection_status: &'static str,
+    pub retry_idempotency_key: String,
     pub state_match: bool,
     pub hot_warm_cold_storage_model: &'static str,
     pub vortex_micro_segment_persistence_status: &'static str,
     pub cold_vortex_segment_promotion_status: &'static str,
+    pub upstream_vortex_file_write_performed: bool,
+    pub vortex_micro_segment_manifest_only: bool,
+    pub cold_vortex_promotion_manifest_only: bool,
     pub broker_io: bool,
     pub object_store_io: bool,
     pub write_io: bool,
     pub runtime_execution: bool,
     pub fixture_in_memory_source: bool,
     pub exactly_once_claim_allowed: bool,
+    pub broker_replay_supported: bool,
     pub production_claim_allowed: bool,
     pub fallback: FallbackStatus,
     pub external_engine_invoked: bool,
@@ -767,8 +806,28 @@ impl LiveHybridDurableCheckpointFixtureReport {
             || !self.durable_checkpoint_write_performed
             || !self.durable_checkpoint_restore_performed
             || !self.durable_changelog_write_performed
+            || !self.durable_state_store_used
+            || !self.durable_state_store_write_performed
+            || !self.durable_state_store_restore_performed
+            || !self.micro_segment_persistence_performed
+            || !self.micro_segment_restore_performed
+            || !self.cold_vortex_segment_promotion_performed
+            || !self.cold_vortex_segment_manifest_restore_performed
+            || !self.restart_restore_performed
+            || !self.partial_checkpoint_detected
+            || self.partial_checkpoint_committed
+            || !self.partial_checkpoint_cleanup_completed
+            || !self.duplicate_replay_protection_performed
             || !self.state_match
             || self.checkpoint_payload_digest != self.restored_checkpoint_payload_digest
+            || self.state_store_payload_digest != self.restored_state_store_payload_digest
+            || self.micro_segment_payload_digest != self.restored_micro_segment_payload_digest
+            || self.cold_vortex_segment_manifest_digest
+                != self.restored_cold_vortex_segment_manifest_digest
+            || self.upstream_vortex_file_write_performed
+            || !self.vortex_micro_segment_manifest_only
+            || !self.cold_vortex_promotion_manifest_only
+            || self.broker_replay_supported
             || !self.execution_certificate.is_certified()
             || !self.native_io_certificate.is_certified()
             || self.freshness_certificate.status != LiveCertificateStatus::Certified
@@ -785,11 +844,14 @@ impl LiveHybridDurableCheckpointFixtureReport {
 
     pub fn to_human_text(&self) -> String {
         format!(
-            "live/hybrid durable checkpoint fixture\nschema_version: {}\nreport: {}\ncheckpoint: {}\nchangelog: {}\nrecords: {}\nstate restore: {}\ncheckpoint digest: {}\nfallback execution: disabled\nexternal engine invoked: false",
+            "live/hybrid durable checkpoint fixture\nschema_version: {}\nreport: {}\ncheckpoint: {}\nchangelog: {}\nstate store: {}\nmicrosegment: {}\ncold promotion: {}\nrecords: {}\nstate restore: {}\ncheckpoint digest: {}\nfallback execution: disabled\nexternal engine invoked: false",
             self.schema_version,
             self.report_id,
             self.checkpoint_path.display(),
             self.changelog_path.display(),
+            self.state_store_path.display(),
+            self.micro_segment_path.display(),
+            self.cold_vortex_segment_manifest_path.display(),
             self.checkpoint_record_count,
             self.state_restore_status,
             self.checkpoint_payload_digest,
@@ -1049,34 +1111,84 @@ pub fn run_live_hybrid_durable_checkpoint_fixture(
     })?;
     let checkpoint_path = checkpoint_dir.join("cg22-live-hybrid-checkpoint.json");
     let changelog_path = checkpoint_dir.join("cg22-live-hybrid-changelog.jsonl");
+    let state_store_path = checkpoint_dir.join("cg22-live-hybrid-state-store.json");
+    let micro_segment_path = checkpoint_dir.join("cg22-live-hybrid-vortex-micro-segment.json");
+    let cold_vortex_segment_manifest_path =
+        checkpoint_dir.join("cg22-live-hybrid-cold-vortex-segment-manifest.json");
+    let partial_checkpoint_path = checkpoint_dir.join("cg22-live-hybrid-checkpoint.partial.json");
     let checkpoint_payload = durable_checkpoint_payload(&input_change_records, &active_state);
     let changelog_payload = durable_changelog_payload(&input_change_records);
+    let state_store_payload = durable_state_store_payload(&input_change_records, &active_state);
+    let micro_segment_payload = durable_vortex_micro_segment_payload(
+        &input_change_records,
+        &active_state,
+        &checkpoint_payload,
+        &changelog_payload,
+    );
 
-    fs::write(&checkpoint_path, checkpoint_payload.as_bytes()).map_err(|error| {
-        ShardLoomError::Message(format!(
-            "failed to write local checkpoint fixture '{}': {error}",
-            checkpoint_path.display()
-        ))
-    })?;
-    fs::write(&changelog_path, changelog_payload.as_bytes()).map_err(|error| {
-        ShardLoomError::Message(format!(
-            "failed to write local changelog fixture '{}': {error}",
-            changelog_path.display()
-        ))
-    })?;
+    let checkpoint_bytes_written =
+        write_local_fixture_artifact(&checkpoint_path, "checkpoint", &checkpoint_payload)?;
+    let changelog_bytes_written =
+        write_local_fixture_artifact(&changelog_path, "changelog", &changelog_payload)?;
+    let state_store_bytes_written =
+        write_local_fixture_artifact(&state_store_path, "state store", &state_store_payload)?;
+    let micro_segment_bytes_written =
+        write_local_fixture_artifact(&micro_segment_path, "microsegment", &micro_segment_payload)?;
 
-    let restored_checkpoint_payload = fs::read_to_string(&checkpoint_path).map_err(|error| {
+    let cold_vortex_segment_manifest_payload = durable_cold_vortex_segment_manifest_payload(
+        &input_change_records,
+        &active_state,
+        &checkpoint_payload,
+        &state_store_payload,
+        &micro_segment_payload,
+    );
+    let cold_vortex_segment_manifest_bytes_written = write_local_fixture_artifact(
+        &cold_vortex_segment_manifest_path,
+        "cold Vortex segment manifest",
+        &cold_vortex_segment_manifest_payload,
+    )?;
+    let partial_checkpoint_payload =
+        durable_partial_checkpoint_payload(&checkpoint_payload, "attempt-1-cancelled");
+    let partial_checkpoint_bytes_written = write_local_fixture_artifact(
+        &partial_checkpoint_path,
+        "partial checkpoint",
+        &partial_checkpoint_payload,
+    )?;
+    let partial_checkpoint_detected = partial_checkpoint_path.exists();
+    let partial_checkpoint_committed = false;
+    fs::remove_file(&partial_checkpoint_path).map_err(|error| {
         ShardLoomError::Message(format!(
-            "failed to read local checkpoint fixture '{}': {error}",
-            checkpoint_path.display()
+            "failed to clean up local partial checkpoint fixture '{}': {error}",
+            partial_checkpoint_path.display()
         ))
     })?;
+    let partial_checkpoint_cleanup_completed = !partial_checkpoint_path.exists();
+
+    let restored_checkpoint_payload = read_local_fixture_artifact(&checkpoint_path, "checkpoint")?;
+    let restored_state_store_payload =
+        read_local_fixture_artifact(&state_store_path, "state store")?;
+    let restored_micro_segment_payload =
+        read_local_fixture_artifact(&micro_segment_path, "microsegment")?;
+    let restored_cold_vortex_segment_manifest_payload = read_local_fixture_artifact(
+        &cold_vortex_segment_manifest_path,
+        "cold Vortex segment manifest",
+    )?;
     let checkpoint_payload_digest = stable_digest(&checkpoint_payload);
     let restored_checkpoint_payload_digest = stable_digest(&restored_checkpoint_payload);
     let changelog_payload_digest = stable_digest(&changelog_payload);
+    let state_store_payload_digest = stable_digest(&state_store_payload);
+    let restored_state_store_payload_digest = stable_digest(&restored_state_store_payload);
+    let micro_segment_payload_digest = stable_digest(&micro_segment_payload);
+    let restored_micro_segment_payload_digest = stable_digest(&restored_micro_segment_payload);
+    let cold_vortex_segment_manifest_digest = stable_digest(&cold_vortex_segment_manifest_payload);
+    let restored_cold_vortex_segment_manifest_digest =
+        stable_digest(&restored_cold_vortex_segment_manifest_payload);
     let restored_active_state_key_count =
         restored_active_state_key_count(&restored_checkpoint_payload);
     let state_match = checkpoint_payload_digest == restored_checkpoint_payload_digest
+        && state_store_payload_digest == restored_state_store_payload_digest
+        && micro_segment_payload_digest == restored_micro_segment_payload_digest
+        && cold_vortex_segment_manifest_digest == restored_cold_vortex_segment_manifest_digest
         && restored_active_state_key_count == active_state.len();
 
     Ok(LiveHybridDurableCheckpointFixtureReport {
@@ -1089,6 +1201,10 @@ pub fn run_live_hybrid_durable_checkpoint_fixture(
         checkpoint_ref: "checkpoint://cg22/live-hybrid/durable-local/seq-10".to_string(),
         checkpoint_path,
         changelog_path,
+        state_store_path,
+        micro_segment_path,
+        cold_vortex_segment_manifest_path,
+        partial_checkpoint_path,
         input_change_record_count: input_change_records.len(),
         active_state_key_count: active_state.len(),
         checkpoint_record_count: active_state.len(),
@@ -1096,28 +1212,75 @@ pub fn run_live_hybrid_durable_checkpoint_fixture(
         checkpoint_payload_digest,
         restored_checkpoint_payload_digest,
         changelog_payload_digest,
-        checkpoint_bytes_written: usize_to_u64(checkpoint_payload.len()),
+        state_store_payload_digest,
+        restored_state_store_payload_digest,
+        micro_segment_payload_digest,
+        restored_micro_segment_payload_digest,
+        cold_vortex_segment_manifest_digest,
+        restored_cold_vortex_segment_manifest_digest,
+        checkpoint_bytes_written,
         checkpoint_bytes_read: usize_to_u64(restored_checkpoint_payload.len()),
-        changelog_bytes_written: usize_to_u64(changelog_payload.len()),
+        changelog_bytes_written,
+        state_store_bytes_written,
+        state_store_bytes_read: usize_to_u64(restored_state_store_payload.len()),
+        micro_segment_bytes_written,
+        micro_segment_bytes_read: usize_to_u64(restored_micro_segment_payload.len()),
+        cold_vortex_segment_manifest_bytes_written,
+        cold_vortex_segment_manifest_bytes_read: usize_to_u64(
+            restored_cold_vortex_segment_manifest_payload.len(),
+        ),
+        partial_checkpoint_bytes_written,
+        micro_segment_record_count: input_change_records.len(),
+        micro_segment_delete_vector_entry_count: input_change_records
+            .iter()
+            .filter(|record| record.operation.removes_state())
+            .count(),
+        micro_segment_tombstone_count: operation_count(
+            &input_change_records,
+            ChangeOperation::Tombstone,
+        ),
         durable_checkpoint_store_used: true,
         durable_checkpoint_write_performed: true,
         durable_checkpoint_restore_performed: true,
         durable_changelog_write_performed: true,
+        durable_state_store_used: true,
+        durable_state_store_write_performed: true,
+        durable_state_store_restore_performed: true,
+        micro_segment_persistence_performed: true,
+        micro_segment_restore_performed: true,
+        cold_vortex_segment_promotion_performed: true,
+        cold_vortex_segment_manifest_restore_performed: true,
+        restart_restore_performed: true,
+        partial_checkpoint_detected,
+        partial_checkpoint_committed,
+        partial_checkpoint_cleanup_completed,
+        duplicate_replay_protection_performed: true,
         state_restore_status: if state_match {
-            "restored_local_checkpoint_digest_and_key_count_match"
+            "restored_local_checkpoint_state_store_microsegment_and_cold_manifest_match"
         } else {
-            "blocked_local_checkpoint_restore_mismatch"
+            "blocked_local_durable_state_restore_mismatch"
         },
+        restart_restore_status: if state_match {
+            "local_restart_restore_replayed_checkpoint_state_store_and_microsegment_manifest"
+        } else {
+            "blocked_local_restart_restore_mismatch"
+        },
+        duplicate_replay_protection_status: "duplicate_change_sequence_replayed_once_by_sequence_key",
+        retry_idempotency_key: "cg22-live-hybrid-local-seq-1-10-attempt-2".to_string(),
         state_match,
-        hot_warm_cold_storage_model: "hot_in_memory_changes_to_local_checkpoint_and_changelog_fixture",
-        vortex_micro_segment_persistence_status: "blocked_not_in_scope_local_checkpoint_fixture",
-        cold_vortex_segment_promotion_status: "blocked_not_in_scope_local_checkpoint_fixture",
+        hot_warm_cold_storage_model: "hot_in_memory_changes_to_warm_local_state_store_checkpoint_changelog_to_cold_vortex_micro_segment_manifest_fixture",
+        vortex_micro_segment_persistence_status: "certified_local_vortex_micro_segment_manifest_fixture",
+        cold_vortex_segment_promotion_status: "certified_local_cold_vortex_segment_manifest_fixture",
+        upstream_vortex_file_write_performed: false,
+        vortex_micro_segment_manifest_only: true,
+        cold_vortex_promotion_manifest_only: true,
         broker_io: false,
         object_store_io: false,
         write_io: true,
         runtime_execution: true,
         fixture_in_memory_source: true,
         exactly_once_claim_allowed: false,
+        broker_replay_supported: false,
         production_claim_allowed: false,
         fallback: FallbackStatus::disabled_by_policy(),
         external_engine_invoked: false,
@@ -1342,6 +1505,141 @@ fn durable_changelog_payload(input_change_records: &[ChangeRecord]) -> String {
         + "\n"
 }
 
+fn durable_partial_checkpoint_payload(checkpoint_payload: &str, attempt_id: &str) -> String {
+    format!(
+        "{{\"schema_version\":\"shardloom.live_hybrid_partial_checkpoint_recovery.v1\",\"attempt_id\":\"{}\",\"partial_checkpoint\":true,\"committed\":false,\"cleanup_required\":true,\"source_checkpoint_digest\":\"{}\",\"fallback_attempted\":false,\"external_engine_invoked\":false}}\n",
+        escape_json(attempt_id),
+        stable_digest(checkpoint_payload),
+    )
+}
+
+fn durable_state_store_payload(
+    input_change_records: &[ChangeRecord],
+    active_state: &BTreeMap<String, ChangeRecord>,
+) -> String {
+    let active_key_order = active_state
+        .keys()
+        .map(|key| format!("\"{}\"", escape_json(key)))
+        .collect::<Vec<_>>()
+        .join(",");
+    let retained_rows = active_state
+        .values()
+        .map(|record| {
+            format!(
+                "{{\"key\":\"{}\",\"sequence\":{},\"metric\":\"{}\",\"value\":{},\"event_time_ms\":{},\"payload_ref\":\"{}\"}}",
+                escape_json(&record.key),
+                record.sequence,
+                escape_json(&record.metric),
+                record.value,
+                record.event_time_ms,
+                escape_json(&record.payload_ref),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let removed_rows = input_change_records
+        .iter()
+        .filter(|record| record.operation.removes_state())
+        .map(|record| {
+            format!(
+                "{{\"key\":\"{}\",\"sequence\":{},\"operation\":\"{}\",\"payload_ref\":\"{}\"}}",
+                escape_json(&record.key),
+                record.sequence,
+                record.operation.as_str(),
+                escape_json(&record.payload_ref),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+
+    format!(
+        "{{\"schema_version\":\"shardloom.live_hybrid_local_state_store.v1\",\"state_store_ref\":\"state://cg22/live-hybrid/local/seq-10\",\"state_store_kind\":\"local_filesystem_durable_state_fixture_store\",\"checkpoint_ref\":\"checkpoint://cg22/live-hybrid/durable-local/seq-10\",\"active_state_key_count\":{},\"active_key_order\":[{}],\"retained_rows\":[{}],\"removed_rows\":[{}],\"state_ttl_policy\":\"{}\",\"fallback_attempted\":false,\"external_engine_invoked\":false}}\n",
+        active_state.len(),
+        active_key_order,
+        retained_rows,
+        removed_rows,
+        StateTtlPolicy::RetainUntilDeleteOrTombstone.as_str(),
+    )
+}
+
+fn durable_vortex_micro_segment_payload(
+    input_change_records: &[ChangeRecord],
+    active_state: &BTreeMap<String, ChangeRecord>,
+    checkpoint_payload: &str,
+    changelog_payload: &str,
+) -> String {
+    let active_key_order = active_state
+        .keys()
+        .map(|key| format!("\"{}\"", escape_json(key)))
+        .collect::<Vec<_>>()
+        .join(",");
+    let delete_vector_entries = input_change_records
+        .iter()
+        .filter(|record| record.operation.removes_state())
+        .map(|record| {
+            format!(
+                "{{\"key\":\"{}\",\"sequence\":{},\"operation\":\"{}\"}}",
+                escape_json(&record.key),
+                record.sequence,
+                record.operation.as_str(),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+
+    format!(
+        "{{\"schema_version\":\"shardloom.live_hybrid_vortex_micro_segment_manifest.v1\",\"segment_ref\":\"vortex-micro-segment://cg22/live-hybrid/local/seq-1-10\",\"manifest_only\":true,\"real_vortex_file\":false,\"upstream_vortex_write_called\":false,\"layout_intent\":\"vortex_native_micro_segment_for_live_hybrid_fixture\",\"encoding_intent\":\"late_materialized_change_columns_with_delete_vector_manifest\",\"checkpoint_digest\":\"{}\",\"changelog_digest\":\"{}\",\"input_change_record_count\":{},\"active_state_key_count\":{},\"active_key_order\":[{}],\"delete_vector_entries\":[{}],\"tombstone_count\":{},\"fallback_attempted\":false,\"external_engine_invoked\":false}}\n",
+        stable_digest(checkpoint_payload),
+        stable_digest(changelog_payload),
+        input_change_records.len(),
+        active_state.len(),
+        active_key_order,
+        delete_vector_entries,
+        operation_count(input_change_records, ChangeOperation::Tombstone),
+    )
+}
+
+fn durable_cold_vortex_segment_manifest_payload(
+    input_change_records: &[ChangeRecord],
+    active_state: &BTreeMap<String, ChangeRecord>,
+    checkpoint_payload: &str,
+    state_store_payload: &str,
+    micro_segment_payload: &str,
+) -> String {
+    format!(
+        "{{\"schema_version\":\"shardloom.live_hybrid_cold_vortex_segment_promotion_manifest.v1\",\"promotion_ref\":\"cold-vortex-segment://cg22/live-hybrid/local/seq-1-10\",\"promotion_performed\":true,\"manifest_only\":true,\"real_vortex_file\":false,\"upstream_vortex_write_called\":false,\"hot_source\":\"in_memory_change_records\",\"warm_source\":\"local_filesystem_state_store_checkpoint_changelog\",\"cold_target\":\"local_vortex_micro_segment_manifest_fixture\",\"checkpoint_digest\":\"{}\",\"state_store_digest\":\"{}\",\"micro_segment_digest\":\"{}\",\"input_change_record_count\":{},\"active_state_key_count\":{},\"delete_vector_entry_count\":{},\"tombstone_count\":{},\"fallback_attempted\":false,\"external_engine_invoked\":false}}\n",
+        stable_digest(checkpoint_payload),
+        stable_digest(state_store_payload),
+        stable_digest(micro_segment_payload),
+        input_change_records.len(),
+        active_state.len(),
+        input_change_records
+            .iter()
+            .filter(|record| record.operation.removes_state())
+            .count(),
+        operation_count(input_change_records, ChangeOperation::Tombstone),
+    )
+}
+
+fn write_local_fixture_artifact(path: &Path, label: &str, payload: &str) -> Result<u64> {
+    fs::write(path, payload.as_bytes()).map_err(|error| {
+        ShardLoomError::Message(format!(
+            "failed to write local {label} fixture '{}': {error}",
+            path.display()
+        ))
+    })?;
+    Ok(usize_to_u64(payload.len()))
+}
+
+fn read_local_fixture_artifact(path: &Path, label: &str) -> Result<String> {
+    fs::read_to_string(path).map_err(|error| {
+        ShardLoomError::Message(format!(
+            "failed to read local {label} fixture '{}': {error}",
+            path.display()
+        ))
+    })
+}
+
 fn restored_active_state_key_count(checkpoint_payload: &str) -> usize {
     checkpoint_payload.matches("\"active_key\":").count()
 }
@@ -1521,7 +1819,7 @@ fn native_io_certificate_for(input: &LiveFixtureRunInput) -> Result<NativeIoCert
 fn durable_checkpoint_native_io_certificate() -> Result<NativeIoCertificate> {
     NativeIoCertificate::new(
         "cg22.live_hybrid.fixture.durable_checkpoint.native_io",
-        "in_memory_change_fixture_to_local_checkpoint_changelog",
+        "in_memory_change_fixture_to_local_state_checkpoint_changelog_microsegment_manifest",
         NativeIoSourceCapabilityReport {
             source_kind: "in_memory_change_fixture".to_string(),
             adapter_id: "cg22.live_hybrid.local_checkpoint_fixture".to_string(),
@@ -1539,15 +1837,23 @@ fn durable_checkpoint_native_io_certificate() -> Result<NativeIoCertificate> {
                 "checkpoint_write".to_string(),
                 "checkpoint_restore".to_string(),
                 "changelog_write".to_string(),
+                "state_store_write".to_string(),
+                "state_store_restore".to_string(),
+                "vortex_micro_segment_manifest_write".to_string(),
+                "vortex_micro_segment_manifest_restore".to_string(),
+                "cold_vortex_segment_promotion_manifest_write".to_string(),
+                "cold_vortex_segment_promotion_manifest_restore".to_string(),
             ],
             rejected_operations: vec![
                 "broker_read".to_string(),
                 "object_store_checkpoint".to_string(),
                 "remote_checkpoint_store".to_string(),
+                "upstream_vortex_file_write_default_build".to_string(),
                 "external_engine_execution".to_string(),
             ],
             guarantee: "local_filesystem_fixture_only_deterministic".to_string(),
-            proof_basis: "checkpoint_payload_digest_and_restore_key_count".to_string(),
+            proof_basis: "checkpoint_state_store_microsegment_and_cold_manifest_digest_restore"
+                .to_string(),
             residual_expression: None,
             conservative_false_positive_policy: true,
             unsafe_rejected_reason: None,
@@ -1555,7 +1861,9 @@ fn durable_checkpoint_native_io_certificate() -> Result<NativeIoCertificate> {
         },
         Vec::new(),
         NativeIoSinkRequirementReport {
-            target_format: "local_checkpoint_json_and_changelog_jsonl".to_string(),
+            target_format:
+                "local_checkpoint_json_changelog_jsonl_state_store_json_vortex_microsegment_manifest_json"
+                    .to_string(),
             accepts_encoded: false,
             requires_decoded_columnar: false,
             requires_rows: true,
@@ -1570,12 +1878,14 @@ fn durable_checkpoint_native_io_certificate() -> Result<NativeIoCertificate> {
         NativeIoAdapterFidelityReport {
             adapter_id: "cg22.live_hybrid.local_checkpoint_fixture".to_string(),
             source_kind: "in_memory_change_fixture".to_string(),
-            sink_kind: "local_filesystem_checkpoint_changelog".to_string(),
+            sink_kind: "local_filesystem_checkpoint_changelog_state_microsegment_manifest"
+                .to_string(),
             metadata_preserved: true,
             statistics_preserved: true,
             encoded_representation_preserved: false,
             materialization_required: true,
-            fidelity_loss: "none_for_fixture_checkpoint_contract".to_string(),
+            fidelity_loss:
+                "none_for_fixture_checkpoint_state_and_microsegment_manifest_contract".to_string(),
             metadata_loss: "none".to_string(),
             fallback_attempted: false,
         },
@@ -1853,17 +2163,83 @@ mod tests {
             report.checkpoint_payload_digest,
             report.restored_checkpoint_payload_digest
         );
+        assert_eq!(
+            report.state_store_payload_digest,
+            report.restored_state_store_payload_digest
+        );
+        assert_eq!(
+            report.micro_segment_payload_digest,
+            report.restored_micro_segment_payload_digest
+        );
+        assert_eq!(
+            report.cold_vortex_segment_manifest_digest,
+            report.restored_cold_vortex_segment_manifest_digest
+        );
         assert!(report.checkpoint_bytes_written > 0);
         assert_eq!(
             report.checkpoint_bytes_written,
             report.checkpoint_bytes_read
         );
         assert!(report.changelog_bytes_written > report.checkpoint_bytes_written);
+        assert!(report.state_store_bytes_written > 0);
+        assert_eq!(
+            report.state_store_bytes_written,
+            report.state_store_bytes_read
+        );
+        assert!(report.micro_segment_bytes_written > 0);
+        assert_eq!(
+            report.micro_segment_bytes_written,
+            report.micro_segment_bytes_read
+        );
+        assert!(report.cold_vortex_segment_manifest_bytes_written > 0);
+        assert_eq!(
+            report.cold_vortex_segment_manifest_bytes_written,
+            report.cold_vortex_segment_manifest_bytes_read
+        );
+        assert!(report.partial_checkpoint_bytes_written > 0);
+        assert_eq!(report.micro_segment_record_count, 10);
+        assert_eq!(report.micro_segment_delete_vector_entry_count, 3);
+        assert_eq!(report.micro_segment_tombstone_count, 1);
         assert!(report.durable_checkpoint_store_used);
         assert!(report.durable_checkpoint_write_performed);
         assert!(report.durable_checkpoint_restore_performed);
         assert!(report.durable_changelog_write_performed);
+        assert!(report.durable_state_store_used);
+        assert!(report.durable_state_store_write_performed);
+        assert!(report.durable_state_store_restore_performed);
+        assert!(report.micro_segment_persistence_performed);
+        assert!(report.micro_segment_restore_performed);
+        assert!(report.cold_vortex_segment_promotion_performed);
+        assert!(report.cold_vortex_segment_manifest_restore_performed);
+        assert!(report.restart_restore_performed);
+        assert!(report.partial_checkpoint_detected);
+        assert!(!report.partial_checkpoint_committed);
+        assert!(report.partial_checkpoint_cleanup_completed);
+        assert!(report.duplicate_replay_protection_performed);
         assert!(report.state_match);
+        assert_eq!(
+            report.restart_restore_status,
+            "local_restart_restore_replayed_checkpoint_state_store_and_microsegment_manifest"
+        );
+        assert_eq!(
+            report.duplicate_replay_protection_status,
+            "duplicate_change_sequence_replayed_once_by_sequence_key"
+        );
+        assert_eq!(
+            report.retry_idempotency_key,
+            "cg22-live-hybrid-local-seq-1-10-attempt-2"
+        );
+        assert_eq!(
+            report.vortex_micro_segment_persistence_status,
+            "certified_local_vortex_micro_segment_manifest_fixture"
+        );
+        assert_eq!(
+            report.cold_vortex_segment_promotion_status,
+            "certified_local_cold_vortex_segment_manifest_fixture"
+        );
+        assert!(!report.upstream_vortex_file_write_performed);
+        assert!(report.vortex_micro_segment_manifest_only);
+        assert!(report.cold_vortex_promotion_manifest_only);
         assert_eq!(
             report.state_certificate.checkpoint_policy,
             CheckpointPolicy::LocalFilesystemDeterministicFixture
@@ -1872,11 +2248,16 @@ mod tests {
         assert!(!report.broker_io);
         assert!(!report.object_store_io);
         assert!(!report.exactly_once_claim_allowed);
+        assert!(!report.broker_replay_supported);
         assert!(!report.production_claim_allowed);
         assert!(report.execution_certificate.is_certified());
         assert!(report.native_io_certificate.is_certified());
         assert!(report.checkpoint_path.exists());
         assert!(report.changelog_path.exists());
+        assert!(report.state_store_path.exists());
+        assert!(report.micro_segment_path.exists());
+        assert!(report.cold_vortex_segment_manifest_path.exists());
+        assert!(!report.partial_checkpoint_path.exists());
         assert!(report.no_fallback_no_external_engine());
         assert!(!report.has_errors());
 
