@@ -82,6 +82,12 @@ shardloom local-table-commit-recovery-smoke <local-committed-manifest-path> --pr
 - [x] Support one explicitly requested, feature-gated local Avro Iceberg manifest-file split-plan
       read with data-file split counts, bytes, records, and deleted/delete/unknown entry blockers
       while leaving data-file scan runtime blocked.
+- [x] Support Iceberg metadata-level schema/partition evolution admission fields with field-ID,
+      partition field-ID, partition spec-ID, manifest partition-spec, and fail-closed projection
+      blockers while leaving data projection and partition-filter execution blocked.
+- [x] Support Iceberg delete/tombstone/deletion-vector admission classifiers for position deletes,
+      equality deletes, deletion-vector-shaped entries, delete manifests, and deleted data-file
+      entries while leaving delete application blocked.
 - [x] Support one in-memory local manifest-backed delete/tombstone read smoke through
       `LocalDeleteTombstoneReadSmokeReport`.
 - [x] Support one in-memory local append-only CDC overlay smoke through
@@ -298,7 +304,9 @@ timestamp. When `--manifest-list local.avro` is supplied and `shardloom-cli` is 
 `--features universal-format-io`, it also reads one explicit local Avro Iceberg manifest list for
 manifest-summary pruning and manifest-level split-count evidence only. When `--manifest local.avro`
 is supplied with the same feature, it reads one explicit local Avro Iceberg manifest file for
-data-file split-plan evidence only.
+data-file split-plan evidence only. The smoke also computes metadata-level schema/partition
+evolution admission and delete/deletion-vector admission; these are planning and blocker surfaces,
+not data projection, partition-filter, delete-application, or scan execution.
 
 The smoke reports:
 
@@ -326,6 +334,15 @@ The smoke reports:
 - `manifest_file_read_performed=true|false`.
 - `manifest_file_entry_count`, `manifest_file_added_data_file_count`,
   `manifest_file_existing_data_file_count`, and `manifest_file_deleted_data_file_count`.
+- `schema_evolution_present`, `schema_id_order`, schema add/drop/rename/type/requiredness counts,
+  and `schema_evolution_admission_status`.
+- `partition_evolution_present`, `partition_spec_id_order`, partition add/remove/rename/source/
+  transform counts, `manifest_partition_spec_id_order`, and
+  `partition_evolution_admission_status`.
+- `manifest_file_position_delete_file_entry_count`,
+  `manifest_file_equality_delete_file_entry_count`, and
+  `manifest_file_deletion_vector_entry_count`.
+- `delete_tombstone_deletion_vector_admission_status` and `delete_admission_status`.
 - `data_file_split_planning_performed=true|false`.
 - `planned_data_file_split_count` and `planned_data_file_split_bytes`.
 - `metadata_summary_digest=fnv1a64:*`.
@@ -343,9 +360,13 @@ ignoring deletes. If a parsed manifest list contains delete manifests, delete-fi
 unknown manifest content, the command returns an unsupported envelope instead of planning those
 entries. If a parsed manifest file contains deleted data-file entries, delete-file entries, unknown
 content, or unknown entry statuses, the command returns an unsupported envelope instead of silently
-planning those entries.
+planning those entries. It distinguishes position-delete files, equality-delete files, and
+deletion-vector-shaped entries. Unsafe schema projection requirements, missing/duplicate field IDs,
+partition field/spec integrity issues, unknown partition transforms, and unknown manifest
+partition-spec IDs also return deterministic unsupported envelopes.
 
-This smoke does not certify Iceberg table scans, data-file split execution, delete-file execution,
+This smoke does not certify Iceberg table scans, data-file split execution, schema projection
+execution, partition-filter execution, delete-file execution, Puffin/deletion-vector reads,
 object-store tables, external catalogs, writes/commits, production lakehouse support, or
 performance.
 

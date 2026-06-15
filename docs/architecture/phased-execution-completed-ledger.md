@@ -144,6 +144,74 @@ phase plan first.
       Foundry Spark, managed SQL systems, and platform compute remain external baselines or handles,
       never ShardLoom execution.
 
+- [x] Session label: PROD-READY-1C scoped Iceberg evolution and delete admission semantics
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1C` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/table-protocol-source-review.md`.
+    - `docs/architecture/table-intelligence-layer.md`.
+    - Apache Iceberg table spec sections on field IDs, partition specs/evolution, manifest lists,
+      scan planning, row-level deletes, and deletion vectors.
+  - Scope:
+    - Extended `iceberg-metadata-read-smoke` to compare Iceberg schema evolution by stable field
+      IDs across metadata schemas.
+    - Added partition evolution admission by partition field IDs, partition spec IDs, known
+      transforms, and manifest-list partition-spec IDs.
+    - Classified safe ID-based schema/partition evolution as metadata-only planning evidence, not
+      data projection or filter execution support.
+    - Added fail-closed blockers for schema field-ID integrity issues, unsafe schema projection
+      requirements, partition field/spec integrity issues, partition projection requirements, and
+      unknown manifest partition specs.
+    - Classified manifest-file delete content as data files, position-delete files,
+      equality-delete files, and deletion-vector-shaped entries using Iceberg manifest metadata.
+    - Kept delete application, Puffin/deletion-vector reads, row filtering, data-file scans,
+      table writes/commits, production lakehouse claims, and performance claims blocked.
+  - Closed checklist:
+    - [x] Schema evolution fields and admission status emitted.
+    - [x] Partition evolution fields and admission status emitted.
+    - [x] Manifest partition-spec ID order and unknown spec blockers emitted.
+    - [x] Position-delete, equality-delete, deletion-vector, and deleted-data-file classifiers
+      emitted.
+    - [x] Focused default and feature-enabled tests added for safe evolution, unsafe evolution, and
+      delete classifier blockers.
+    - [x] Table source-review, table-intelligence, and phase-plan docs updated.
+  - Evidence fields:
+    - `schema_evolution_present`.
+    - `schema_id_order`.
+    - `schema_added_field_id_count`.
+    - `schema_renamed_field_id_count`.
+    - `schema_type_changed_field_id_count`.
+    - `schema_evolution_admission_status`.
+    - `partition_evolution_present`.
+    - `partition_spec_id_order`.
+    - `partition_added_field_count`.
+    - `manifest_partition_spec_id_order`.
+    - `manifest_unknown_partition_spec_id_count`.
+    - `partition_evolution_admission_status`.
+    - `manifest_file_position_delete_file_entry_count`.
+    - `manifest_file_equality_delete_file_entry_count`.
+    - `manifest_file_deletion_vector_entry_count`.
+    - `delete_tombstone_deletion_vector_admission_status`.
+    - `unsupported_feature_order=schema_evolution_projection_required|position_delete_file_entries_present|equality_delete_file_entries_present|deletion_vector_entries_present|...`.
+    - `fallback_attempted=false`.
+    - `external_engine_invoked=false`.
+  - Evidence commands:
+    - `cargo test -p shardloom-cli --test iceberg_metadata_read_smoke`.
+    - `cargo test -p shardloom-cli --features universal-format-io --test iceberg_metadata_read_smoke`.
+    - `cargo clippy -p shardloom-cli --test iceberg_metadata_read_smoke -- -D warnings`.
+    - `cargo clippy -p shardloom-cli --features universal-format-io --test iceberg_metadata_read_smoke -- -D warnings`.
+  - Claim boundary:
+    - May claim scoped local Iceberg metadata-admission evidence for schema evolution, partition
+      evolution, manifest partition-spec IDs, and delete/deletion-vector classification.
+    - May not claim schema projection execution, partition filter execution, data-file scan
+      runtime, delete application, Puffin/deletion-vector reads, row-level delete execution,
+      Delta/Hudi runtime, catalog runtime, object-store table runtime, writes/commits, production
+      lakehouse support, or table performance.
+  - Fallback boundary:
+    - Spark, DataFusion, DuckDB, Polars, Velox, Trino, warehouse engines, Vortex query-engine
+      integrations, catalog engines, and platform compute remain external baselines or handles,
+      never ShardLoom execution.
+
 - [x] Session label: PROD-READY-1C scoped Iceberg manifest-file split-plan smoke
   - Date: 2026-06-15
   - Source:

@@ -1246,6 +1246,8 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
         "manifest-level split counts",
         "`--manifest` and `universal-format-io`",
         "data-file split counts/bytes/records",
+        "metadata schemas by Iceberg field",
+        "deletion-vector-shaped content",
         "Iceberg data scans, object-store tables",
         "fallback_attempted=false",
         "external_engine_invoked=false",
@@ -1269,6 +1271,8 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
         "`iceberg-metadata-read-smoke`",
         "Extend the selected Iceberg profile to a scoped, explicitly requested local Avro",
         "Extend from manifest-list summary into scoped local Iceberg manifest-file parsing",
+        "Implement metadata-level schema/partition evolution semantics beyond visibility",
+        "Implement delete/tombstone/deletion-vector admission beyond summary/count blockers",
         "Lower planned Iceberg data-file splits into ShardLoom-native scan execution",
     ] {
         assert!(
@@ -1287,6 +1291,9 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
     assert!(table_intelligence.contains("scoped_iceberg_manifest_file_split_plan_smoke"));
     assert!(table_intelligence.contains("planned_manifest_split_count"));
     assert!(table_intelligence.contains("planned_data_file_split_count"));
+    assert!(table_intelligence.contains("schema_evolution_admission_status"));
+    assert!(table_intelligence.contains("partition_evolution_admission_status"));
+    assert!(table_intelligence.contains("manifest_file_deletion_vector_entry_count"));
     assert!(table_intelligence.contains("unsupported_feature_order=delete_files_present"));
 
     let lakehouse_matrix =
@@ -1299,12 +1306,15 @@ fn prod_ready_1c_table_protocol_source_review_is_claim_safe() {
         "PROD-READY-1C scoped Iceberg metadata JSON smoke",
         "PROD-READY-1C scoped Iceberg manifest-list summary smoke",
         "PROD-READY-1C scoped Iceberg manifest-file split-plan smoke",
+        "PROD-READY-1C scoped Iceberg evolution and delete admission semantics",
         "schema_version=shardloom.iceberg_metadata_read_smoke.v1",
         "claim_gate_status=scoped_iceberg_metadata_json_smoke_only",
         "claim_gate_status=scoped_iceberg_metadata_manifest_list_summary_smoke",
         "claim_gate_status=scoped_iceberg_manifest_file_split_plan_smoke",
         "report_id=prod-ready-1c.iceberg_manifest_list_summary_smoke",
         "report_id=prod-ready-1c.iceberg_manifest_file_split_plan_smoke",
+        "schema_evolution_admission_status",
+        "delete_tombstone_deletion_vector_admission_status",
         "Table protocol source review exists before external implementation.",
         "approved_real_backend_profile_declared=false",
         "production_object_store_claim_allowed=false",
