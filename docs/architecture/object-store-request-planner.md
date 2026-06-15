@@ -135,6 +135,19 @@ For the object-store runtime blocker matrix:
 - `existing_local_emulator_write_recovery_claim_gate_status=fixture_smoke_only`
 - `local_emulator_write_recovery_runtime_supported=true`
 - `live_provider_write_recovery_runtime_supported=false`
+- `approved_real_backend_profile_declared=false`
+- `approved_real_backend_profile_id=not_declared`
+- `approved_real_backend_profile_status=missing_approved_real_backend_profile`
+- `approved_real_backend_required_evidence=approved_backend_id,credential_policy,redaction_policy,network_probe_policy,byte_range_read_certificate,write_commit_recovery_certificate,retry_backoff_policy,rate_limit_policy,bounded_streaming_evidence,benchmark_profile`
+- `approved_real_backend_profile_required=true`
+- `approved_real_backend_network_access_allowed=false`
+- `approved_real_backend_credential_resolution_allowed=false`
+- `approved_real_backend_read_allowed=false`
+- `approved_real_backend_write_allowed=false`
+- `production_object_store_native_io_certificate_present=false`
+- `production_object_store_claim_allowed=false`
+- `production_object_store_claim_gate_status=not_claim_grade`
+- `production_object_store_blocker_id=prod-ready-1b.approved_real_backend_profile_missing`
 
 Every row carries `diagnostic_code=SL_OBJECT_STORE_UNSUPPORTED`,
 `claim_gate_status=not_claim_grade`, `allowed=false`, `data_read=false`,
@@ -143,7 +156,10 @@ Every row carries `diagnostic_code=SL_OBJECT_STORE_UNSUPPORTED`,
 blocker ID and required-evidence list. The blocker matrix continues to represent broad live/general
 object-store runtime promotion; the scoped local-emulator partition-discovery and write-recovery
 smokes are surfaced as fixture evidence and do not authorize live provider listing, live recovery,
-or production object-store commits.
+or production object-store commits. A production object-store claim additionally requires an
+approved real-backend profile with credential policy, redaction policy, network-probe policy,
+byte-range read certificate, write/commit/recovery certificate, retry/backoff and rate-limit
+policy, bounded streaming evidence, Native I/O certificate, and benchmark profile.
 
 The runtime promotion gate also copies every blocker row into the typed output envelope diagnostics
 array as `severity=info`, `category=object_store`, `code=SL_OBJECT_STORE_UNSUPPORTED`, and

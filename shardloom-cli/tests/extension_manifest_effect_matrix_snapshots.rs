@@ -214,6 +214,54 @@ fn assert_effectful_manifest_review_summary(output: &str) {
     )));
 }
 
+fn assert_resource_audit_security_review_summary(output: &str) {
+    assert!(output.contains(&field(
+        "extension_manifest_inspection_status",
+        "requires_review"
+    )));
+    assert!(
+        output.contains(
+            "Manifest is parseable and code-free but needs manual review before enablement"
+        )
+    );
+    for reason in [
+        "effectful_permission_declared",
+        "effectful_operation_declared",
+        "supported_capability_claim_declared",
+        "runtime_requires_sandbox_or_bridge_review",
+    ] {
+        assert!(output.contains(reason), "missing review reason {reason}");
+    }
+    assert!(output.contains(&field(
+        "extension_manifest_effect_execution_admission_status",
+        "denied_by_default_external_effect"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_effect_execution_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_runtime_admission_status",
+        "blocked_wasm_requires_runtime_fuel_memory_timeout_sandbox"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_resource_contract",
+        "timeout_ms=75,memory_bytes=4194304,cpu_ms=50"
+    )));
+    assert!(output.contains(&field("extension_manifest_timeout_millis", "75")));
+    assert!(output.contains(&field("extension_manifest_max_memory_bytes", "4194304")));
+    assert!(output.contains(&field("extension_manifest_max_cpu_millis", "50")));
+    assert!(output.contains(&field(
+        "extension_manifest_resource_contract_declared",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_audit_policy",
+        "full_audit_required"
+    )));
+    assert_safe_manifest_no_runtime(output);
+}
+
 #[test]
 fn extension_registry_json_exposes_manifest_effect_matrix() {
     let output = run_json(&["extension-registry", "--format", "json"]);
@@ -695,6 +743,70 @@ fn extension_inspect_effectful_manifest_requires_review_without_effects() {
         "json",
     ]);
     assert_effectful_manifest_review_summary(&output);
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
+fn extension_inspect_security_manifest_exposes_resource_audit_review_and_no_fallback() {
+    let temp_dir = temp_case_dir("security-review");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let manifest_path = temp_dir.join("security-review-extension.json");
+    fs::write(
+        &manifest_path,
+        r#"{
+  "schema_version": "shardloom.extension_manifest.v1",
+  "extension_id": "example.security_review",
+  "name": "Security Review Manifest",
+  "version": "0.1.0",
+  "category": "effect_provider",
+  "license": "Apache-2.0",
+  "runtime": "wasm",
+  "capabilities": [
+    {"name": "bounded_api_enrichment", "status": "supported"}
+  ],
+  "permissions": [
+    {"permission": "call_api", "required": true, "reason": "external enrichment"}
+  ],
+  "effects": [
+    {"effect": "api_write", "level": "external_write", "requires_approval": true}
+  ],
+  "sandbox": {
+    "kind": "bounded_resources",
+    "allow_filesystem": false,
+    "allow_network": false,
+    "allow_environment": false,
+    "allow_secret_access": false,
+    "max_memory_bytes": 4194304,
+    "max_runtime_millis": 75
+  },
+  "execution_contract": {
+    "determinism": "external_effect_bound",
+    "materialization": "materialization_required",
+    "null_behavior": "null_aware",
+    "input_dtypes": ["utf8"],
+    "output_dtype": "utf8",
+    "timeout_millis": 75,
+    "max_memory_bytes": 4194304,
+    "max_cpu_millis": 50,
+    "retry": "manual_replay_required",
+    "idempotency": "key_required",
+    "audit": "full_audit_required"
+  }
+}"#,
+    )
+    .expect("manifest write");
+
+    let manifest_arg = manifest_path.to_string_lossy().to_string();
+    let output = run_json(&[
+        "extension-inspect",
+        "--manifest",
+        &manifest_arg,
+        "--format",
+        "json",
+    ]);
+    assert_resource_audit_security_review_summary(&output);
 
     fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
 }

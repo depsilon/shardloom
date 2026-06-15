@@ -282,6 +282,11 @@ with a recorded infeasibility reason, not merely because they are broad.
     fixture digest validation, local sidecar commit-manifest recovery evidence, provider-admission
     evidence, and deterministic blockers for live S3/GCS/ADLS, credentialed access, table commits,
     distributed runtime, production backpressure, and claim-grade benchmarks.
+    The object-store runtime promotion gate also exposes explicit approved-real-backend absence
+    fields: `approved_real_backend_profile_declared=false`,
+    `approved_real_backend_profile_status=missing_approved_real_backend_profile`,
+    `production_object_store_native_io_certificate_present=false`, and
+    `production_object_store_claim_allowed=false`.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
     object-store workload/backend in v1 if emulator plus approved real-backend proof, credential
     safety, bounded streaming, commit/cleanup, and certificate evidence can close; otherwise
@@ -306,6 +311,8 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [x] Add scoped local-emulator single-object staged writes, sidecar commit protocol,
       rollback/cleanup, idempotency keys, recovery replay/mismatch diagnostics, non-multipart
       posture, and ambiguous-commit evidence fields.
+    - [x] Add machine-readable real-backend absence fields so local-emulator/public-fixture
+      evidence cannot be mistaken for production S3/GCS/ADLS runtime support.
     - [ ] Extend staged/multipart writes, commit protocol, rollback/cleanup, idempotency keys, and
       ambiguous commit diagnostics to the approved real backend profile before any production
       claim.
@@ -340,15 +347,19 @@ with a recorded infeasibility reason, not merely because they are broad.
     certificate artifacts, and unsupported backends.
 - [ ] `PROD-READY-1C` Lakehouse/table runtime production path.
   - Source: attached Lakehouse/Table Runtime review, `docs/architecture/scale-readiness-contract.md`,
-    `docs/skills/translation-layer.md`, universal input/output contracts, and primary table
-    protocol specs to be source-checked before implementation.
+    `docs/skills/translation-layer.md`, universal input/output contracts,
+    `docs/architecture/table-protocol-source-review.md`, and primary table protocol specs.
   - Current state: external table metadata/reporting is separate from production table runtime.
     Scoped ShardLoom-owned `local-manifest` fixture evidence now covers in-memory metadata read,
     snapshot/manifest summary, local append commit rehearsal, rollback cleanup, sidecar recovery
     replay/mismatch diagnostics, request/byte/retry/boundedness evidence, and native
     table-translation/no-loss posture. That does not imply Iceberg/Delta/Hudi, external catalog,
     object-store table commit, data scan, overwrite, merge/update/delete, schema evolution,
-    distributed, production, or performance support.
+    distributed, production, or performance support. Current source-reviewed external candidates
+    are Iceberg table metadata, Iceberg REST, Delta transaction logs, Hudi timeline/metadata,
+    Nessie, Polaris, and Gravitino; Glue-like and Hive-like catalog profiles are not selected for
+    the first external candidate and still require separate source/profile review before
+    implementation.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
     table protocol/workload in v1 if source-checked specs, scan semantics, write/commit scope,
     rollback/recovery, conflict handling, and no-fallback evidence can close; otherwise narrow or
@@ -367,9 +378,10 @@ with a recorded infeasibility reason, not merely because they are broad.
       rehearsal, rollback cleanup, sidecar commit recovery replay/mismatch diagnostics,
       Native I/O request/byte/retry/boundedness evidence, idempotency evidence, and native
       table-translation/no-loss posture.
-    - [ ] Source-check current primary external protocol specs before external implementation:
-      Iceberg, Delta, Hudi, and any chosen catalog such as Iceberg REST, Glue-like, Hive-like,
-      Nessie, Polaris, or Gravitino-style APIs.
+    - [x] Source-check current primary external protocol specs before external implementation:
+      Iceberg, Delta, Hudi, Iceberg REST, Nessie, Polaris, and Gravitino-style APIs. Glue-like and
+      Hive-like catalog profiles are not selected for the first external candidate and require
+      separate source/profile review before implementation.
     - [ ] Implement metadata readers, snapshot/time-travel selection, manifest/log/timeline
       parsing, schema evolution, partition evolution, and delete/tombstone/deletion-vector
       semantics for an external selected profile.
@@ -503,79 +515,6 @@ with a recorded infeasibility reason, not merely because they are broad.
   - Fallback boundary: no Flink/Spark Streaming/Kafka Streams/Ray/Dask or external engine fallback.
   - Ledger rule: ledger entry must list delivery semantics, state model, recovery cases, benchmark
     artifacts, and unsupported modes.
-- [ ] `PROD-READY-1F` UDF, plugin, and explicit-effect execution production gate.
-  - Source: attached UDF / Plugin / Effect Execution review, RFC 0011, RFC 0023,
-    `docs/skills/modular-extensibility.md`, `docs/skills/extension-plugin-sandboxing.md`, and
-    security/governance gates.
-  - Current state: extension/UDF/effect surfaces are mostly architectural or report-only. Bounded
-    local JSON extension-manifest inspection now parses `shardloom.extension_manifest.v1`
-    capability, permission, effect, sandbox, license, provenance, ABI, lifecycle, runtime,
-    determinism, materialization, null behavior, dtype, timeout, memory, CPU, retry, idempotency,
-    and audit metadata without loading code. Approved local manifest-directory discovery now
-    inventories bounded `.json` manifests with duplicate-ID rejection through the same parser. A
-    typed UDF registry now exposes scalar, aggregate, and table-function rows with encoded
-    capability vs materialization-required classification; only the built-in nullable-int64 scalar
-    fixture is admitted. Built-in deterministic scalar UDF and embedding/vector fixtures remain
-    fixture-smoke only. UDF/API/LLM/model/vector execution, network/filesystem/secret effects,
-    dynamic plugin loading, dependency expansion, and plugin runtime are not production supported.
-    Manifest inspection now treats unsafe sandbox declarations, supported capability claims, and
-    non-built-in runtime requests as deterministic `requires_review` blockers and emits explicit
-    effect-execution, host-access, sandbox-admission, and runtime-admission fields while still
-    performing no extension code execution, UDF execution, credential lookup, network probe,
-    dependency expansion, fallback execution, or external-engine invocation.
-  - Intake review: accepted as a v1 candidate for safe scoped subsets. Include manifest
-    inspection and typed deterministic UDF/plugin/effect classes in v1 where sandboxing, denial,
-    audit, timeout/resource, and no-fallback evidence can close; defer dangerous effect classes
-    only with explicit safety reasons.
-  - V1 scope classification: `v1_candidate_pending_feasibility`.
-  - ShardLoom technique review: selectively applicable. Dynamic admission and fail-closed
-    capability checks are central; capillary isolation can bound effectful batches; PulseWeave
-    applies only to explicit, policy-admitted batching/coalescing and must not hide effects or
-    materialization boundaries.
-  - Execution checklist:
-    - [x] Define scoped manifest-first extension inspection model with capability, permission,
-      license, provenance, effect, sandbox, ABI, lifecycle, runtime, and review metadata.
-    - [x] Implement bounded local JSON `extension-inspect --manifest <local-json>` inspection that
-      cannot load extension code, execute UDFs, resolve credentials, probe networks, expand
-      dependencies, or enable runtime support.
-    - [x] Add blocked production-certification workload declaration for the scoped metadata-only
-      manifest inspection surface without authorizing extension runtime or performance claims.
-    - [x] Complete production-grade manifest model with determinism, materialization, null
-      behavior, dtype, timeout, memory, CPU, retry, idempotency, and audit metadata before
-      arbitrary UDF or plugin runtime support.
-    - [x] Implement capability discovery over an approved manifest directory/registry without
-      executing extension code.
-    - [x] Implement typed UDF registry for scoped scalar/aggregate/table functions with encoded
-      capability vs materialization-required classification.
-    - [x] Add sandboxing policy: Rust-native first where possible, WASM later only after ABI
-      review, Python only as an explicit materialization/effect boundary.
-    - [x] Disable network, filesystem, and secret access by default; require explicit policy and
-      audit evidence for any effectful operation.
-    - [x] Ensure explain/estimate/doctor/capabilities never execute external effects.
-    - [ ] Add security tests for permission denial, timeout, memory/CPU limits, deterministic
-      diagnostics, audit output, and no-fallback proof.
-    - [ ] Move closed extension/UDF/effect gate evidence and deferred effect classes to the ledger
-      after merge.
-  - Next outcome: extension/effect execution has a production gate and scoped runtime path rather
-    than report-only architecture.
-  - User-visible surface: plugin manifests, UDF registration, capability discovery, diagnostics,
-    Python/CLI/API execution, docs, and security/release gates.
-  - Implementation scope: manifest parser, registry, sandbox policy, execution bridge, diagnostics,
-    audit/certificate output, tests, and release validators.
-  - Evidence required: manifest inspection tests, security denial tests, typed UDF correctness,
-    effect audit certificates, no-fallback proof, and release validators.
-  - Acceptance: scoped UDF execution can run only under explicit policy and deterministic contracts;
-    external effects are denied by default and never run during discovery/explain/estimate/doctor.
-  - Verification: security tests, UDF correctness tests, release-script shard, security governance
-    gates, and workspace gates.
-  - Non-goals: no arbitrary Python plugin execution, no network/API/LLM/model/vector execution
-    without explicit future production item, no hidden materialization fallback.
-  - Claim boundary: may claim only the scoped UDF/plugin/effect classes proven by tests and
-    certificates.
-  - Fallback boundary: plugin/UDF execution must not delegate unsupported plans to external query
-    engines or hidden runtimes.
-  - Ledger rule: ledger entry must include admitted capability classes, denied effects, sandbox
-    policy, security evidence, and unsupported extensions.
 - [ ] `PROD-READY-1G` Foundry integration production pack.
   - Source: attached Foundry Integration review, RFC 0036,
     `docs/architecture/scale-readiness-contract.md`, Foundry proof docs, and release/package

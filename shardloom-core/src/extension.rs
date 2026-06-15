@@ -3084,6 +3084,30 @@ mod tests {
         );
     }
     #[test]
+    fn sandbox_none_and_unsupported_require_review() {
+        let none = SandboxPolicy {
+            kind: SandboxPolicyKind::None,
+            allow_filesystem: false,
+            allow_network: false,
+            allow_environment: false,
+            allow_secret_access: false,
+            max_memory_bytes: None,
+            max_runtime_millis: None,
+        };
+        assert!(none.requires_review());
+        assert_eq!(
+            none.admission_status(),
+            "review_required_no_sandbox_declared"
+        );
+
+        let unsupported = SandboxPolicy {
+            kind: SandboxPolicyKind::Unsupported,
+            ..none
+        };
+        assert!(unsupported.requires_review());
+        assert_eq!(unsupported.admission_status(), "unsupported_sandbox_policy");
+    }
+    #[test]
     fn call_api_permission_effectful() {
         assert!(ExtensionPermission::required(PermissionKind::CallApi, "x").is_effectful())
     }
@@ -3211,6 +3235,45 @@ mod tests {
         assert_eq!(
             m.effect_execution_admission_status(),
             "denied_by_default_runtime"
+        );
+        assert_eq!(
+            m.review_reason_codes(),
+            vec!["runtime_requires_sandbox_or_bridge_review"]
+        );
+    }
+    #[test]
+    fn manifest_review_reasons_classify_sandbox_policy_blockers() {
+        let none_sandbox = SandboxPolicy {
+            kind: SandboxPolicyKind::None,
+            allow_filesystem: false,
+            allow_network: false,
+            allow_environment: false,
+            allow_secret_access: false,
+            max_memory_bytes: None,
+            max_runtime_millis: None,
+        };
+        let m = ExtensionManifest::new(
+            ExtensionId::new("sandbox.none").expect("id"),
+            "sandbox",
+            ExtensionVersion::new(0, 1, 0),
+            ExtensionCategory::Unknown,
+            ExtensionProvenance::new(ExtensionLicenseKind::Apache2),
+        )
+        .expect("manifest")
+        .with_execution_contract(ExtensionExecutionContract::metadata_only())
+        .with_sandbox(none_sandbox.clone());
+        assert_eq!(
+            m.review_reason_codes(),
+            vec!["sandbox_policy_none_declared"]
+        );
+
+        let m = m.with_sandbox(SandboxPolicy {
+            kind: SandboxPolicyKind::Unsupported,
+            ..none_sandbox
+        });
+        assert_eq!(
+            m.review_reason_codes(),
+            vec!["unsupported_sandbox_policy_declared"]
         );
     }
     #[test]

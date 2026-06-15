@@ -4,6 +4,10 @@ This document defines the CG-9 aggregate surface that keeps table, schema, CDC, 
 compaction evidence visible before ShardLoom performs catalog reads, table metadata reads, data
 reads, maintenance writes, or table-format runtime behavior.
 
+`docs/architecture/table-protocol-source-review.md` records the current source-checked external
+protocol intake for `PROD-READY-1C`; this layer remains the runtime/evidence boundary and does not
+promote external protocols by source review alone.
+
 The first implementation is `TableIntelligenceReport`, exposed through:
 
 ```powershell

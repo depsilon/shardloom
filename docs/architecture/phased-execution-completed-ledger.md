@@ -16,6 +16,132 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-READY-1B/1C production evidence hardening
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1B` and `PROD-READY-1C` in
+      `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/object-store-request-planner.md`.
+    - `docs/architecture/table-protocol-source-review.md`.
+    - `docs/architecture/table-intelligence-layer.md`.
+    - `docs/architecture/lakehouse-value-prop-compatibility.md`.
+  - Scope:
+    - Added explicit production-real-backend absence fields to the object-store runtime promotion
+      gate so local-emulator and public no-credential fixture evidence cannot be mistaken for
+      production S3/GCS/ADLS support.
+    - Source-checked the primary external table/lakehouse protocol candidates before implementation:
+      Iceberg table metadata, Iceberg REST, Delta transaction logs, Hudi timeline/metadata, Nessie,
+      Polaris, and Gravitino.
+    - Selected Iceberg metadata/snapshot read through local metadata fixture or approved
+      no-credential REST-catalog fixture as the first external implementation candidate.
+    - Left Glue-like and Hive-like catalog profiles unselected for the first external candidate and
+      requiring separate source/profile review.
+  - Closed checklist:
+    - [x] Object-store real-backend absence is machine-readable and included in claim gating.
+    - [x] Table protocol source review exists before external implementation.
+    - [x] Phase-plan checklist distinguishes source-reviewed candidates from supported runtime.
+    - [x] Table-intelligence and lakehouse compatibility docs point to the source review without
+      promoting external protocols by source review alone.
+  - Evidence fields:
+    - `approved_real_backend_profile_declared=false`.
+    - `approved_real_backend_profile_status=missing_approved_real_backend_profile`.
+    - `production_object_store_native_io_certificate_present=false`.
+    - `production_object_store_claim_allowed=false`.
+    - `production_object_store_blocker_id=prod-ready-1b.approved_real_backend_profile_missing`.
+    - `fallback_attempted=false`.
+    - `external_engine_invoked=false`.
+  - Evidence commands:
+    - `cargo fmt --all -- --check`.
+    - `cargo test -p shardloom-plan object_store_runtime_gate --lib`.
+    - `cargo test -p shardloom-cli --test cg10_object_store_runtime_gate`.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata security_rfc_and_p80_completion_are_traceable`.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata prod_ready_1c_table_protocol_source_review_is_claim_safe`.
+  - Claim boundary:
+    - May claim object-store production blocker fields and table protocol source review exist.
+    - May not claim production S3/GCS/ADLS runtime, Iceberg/Delta/Hudi runtime, external catalog
+      runtime, object-store table runtime, table scan/write/commit runtime, or table performance.
+  - Fallback boundary:
+    - Spark, DataFusion, DuckDB, Polars, Velox, Trino, warehouse engines, Vortex query-engine
+      integrations, catalog engines, and platform compute remain external baselines or handles,
+      never ShardLoom execution.
+
+- [x] Session label: PROD-READY-1F UDF/plugin/effect production gate closeout
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1F` in `docs/architecture/phased-execution-plan.md`.
+    - RFC 0011 modular extensibility and RFC 0023 extension/plugin ABI sandboxing.
+    - `docs/architecture/extension-manifest-effect-capability-matrix.md`.
+    - `docs/architecture/udf-external-effect-blocker-matrix.md`.
+    - `docs/architecture/plugin-abi-udf-sandbox-blocker.md`.
+  - Scope:
+    - Closed the v1 production gate for UDF, plugin, extension manifest, and explicit-effect
+      surfaces as deterministic, denied-by-default, report/fixture-scoped runtime evidence.
+    - Kept local JSON extension-manifest inspection bounded and code-free while parsing capability,
+      permission, effect, sandbox, license, provenance, ABI, lifecycle, runtime, determinism,
+      materialization, null behavior, dtype, timeout, memory, CPU, retry, idempotency, and audit
+      metadata.
+    - Preserved approved local manifest-directory discovery with duplicate-ID rejection through
+      the same parser, without dynamic loading, dependency expansion, credential resolution,
+      network probing, extension code execution, UDF execution, fallback execution, or external
+      engine invocation.
+    - Added a typed UDF registry that exposes scalar, aggregate, table-function, encoded-capability,
+      and materialization-required classifications; only the built-in nullable-int64 scalar fixture
+      is admitted.
+    - Added sandbox/runtime/effect admission fields for host-access requests, unsupported/no-sandbox
+      declarations, non-built-in runtimes, and external-effect permissions/effects.
+    - Added security evidence that timeout, memory, CPU, retry, idempotency, and audit contracts are
+      emitted as explicit fields while effect execution remains denied.
+  - Closed checklist:
+    - [x] Scoped manifest-first extension inspection model.
+    - [x] Bounded local JSON `extension-inspect --manifest <local-json>` with no code loading.
+    - [x] Blocked production-certification workload declaration for metadata-only manifest
+      inspection.
+    - [x] Production-grade manifest metadata for contracts, resources, and audit policy.
+    - [x] Approved local manifest-directory registry inspection without extension execution.
+    - [x] Typed UDF registry with scoped scalar/aggregate/table-function classification.
+    - [x] Sandbox policy and default-deny host access.
+    - [x] External effects, network, filesystem, secret access, dependency expansion, runtime
+      loading, fallback execution, and external-engine invocation denied by default.
+    - [x] Explain/estimate/doctor/capabilities remain side-effect-free for these surfaces.
+    - [x] Security tests for permission denial, timeout, memory/CPU, deterministic diagnostics,
+      audit output, and no-fallback proof.
+  - Evidence fields:
+    - `extension_manifest_effect_execution_allowed=false`.
+    - `extension_manifest_runtime_execution=false`.
+    - `extension_manifest_dynamic_loading_performed=false`.
+    - `extension_manifest_extension_code_executed=false`.
+    - `extension_manifest_udf_execution_performed=false`.
+    - `extension_manifest_external_effect_executed=false`.
+    - `extension_manifest_credential_resolution_performed=false`.
+    - `extension_manifest_network_probe_performed=false`.
+    - `extension_manifest_dependency_expansion_allowed=false`.
+    - `extension_manifest_fallback_attempted=false`.
+    - `extension_manifest_external_engine_invoked=false`.
+    - `typed_udf_registry_support_status=scoped_fixture_supported`.
+    - `typed_udf_registry_admitted_local_fixture_count=1`.
+    - `typed_udf_registry_arbitrary_runtime_bridge_available=false`.
+    - `plugin_abi_udf_sandbox_blocker_all_plugin_runtime_blocked=true`.
+    - `sandbox_governance_gate_all_sandbox_runtime_blocked=true`.
+  - Evidence commands:
+    - `cargo fmt --all -- --check`.
+    - `cargo test -p shardloom-core extension --lib`.
+    - `cargo test -p shardloom-cli --test extension_manifest_effect_matrix_snapshots`.
+    - `cargo test -p shardloom-cli --test security_governance_evidence_gate`.
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata gar_0011_a_extension_manifest_effect_matrix_remains_report_only`.
+  - Claim boundary:
+    - May claim deterministic manifest inspection, typed UDF registry discovery, sandbox/effect
+      default-deny admission, and the built-in deterministic scalar fixture exactly as evidenced.
+    - May not claim arbitrary Rust/WASM/Python/SQL-defined UDF execution, plugin ABI loading,
+      extension runtime execution, API/LLM/model/embedding/vector calls, object-store/catalog/
+      connector effect execution, dynamic dependency expansion, external effects, production
+      extension platform support, or broad UDF runtime support.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, Velox, Trino, Dask, Ray, pandas, PyArrow, Vortex
+      query-engine integration, plugin runtime, interpreter bridge, or external service may execute
+      unsupported ShardLoom work as fallback.
+    - Unsupported and review-required classes remain explicit blockers with deterministic
+      diagnostics and no runtime side effects.
+
 - [x] Session label: PROD-READY-1A production format and local I/O adapter certification
   - Date: 2026-06-14
   - Source:
