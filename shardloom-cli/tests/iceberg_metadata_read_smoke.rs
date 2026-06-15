@@ -80,7 +80,12 @@ fn write_metadata_fixture(name: &str, delete_files: u64) -> PathBuf {
       "sequence-number": 1,
       "timestamp-ms": 1770000000000,
       "manifest-list": "file:///warehouse/orders/metadata/snap-2001.avro",
-      "summary": {{"operation": "append", "total-records": "10", "total-data-files": "1"}}
+      "summary": {{
+        "operation": "append",
+        "total-records": "10",
+        "total-data-files": "1",
+        "total-delete-files": "0"
+      }}
     }},
     {{
       "snapshot-id": 2002,
@@ -94,6 +99,10 @@ fn write_metadata_fixture(name: &str, delete_files: u64) -> PathBuf {
         "total-delete-files": "{delete_files}"
       }}
     }}
+  ],
+  "snapshot-log": [
+    {{"timestamp-ms": 1770000000000, "snapshot-id": 2001}},
+    {{"timestamp-ms": 1770000001000, "snapshot-id": 2002}}
   ]
 }}"#
     );
@@ -156,7 +165,7 @@ fn write_metadata_evolution_fixture(name: &str) -> PathBuf {
       "sequence-number": 2,
       "timestamp-ms": 1770000001000,
       "manifest-list": "file:///warehouse/orders/metadata/snap-2002.avro",
-      "summary": {"operation": "append", "total-records": "20", "total-data-files": "2"}
+      "summary": {"operation": "append", "total-records": "20", "total-data-files": "2", "total-delete-files": "0"}
     }
   ]
 }"#;
@@ -211,7 +220,7 @@ fn write_metadata_unsafe_schema_fixture(name: &str) -> PathBuf {
       "sequence-number": 2,
       "timestamp-ms": 1770000001000,
       "manifest-list": "file:///warehouse/orders/metadata/snap-2002.avro",
-      "summary": {"operation": "append", "total-records": "20", "total-data-files": "2"}
+      "summary": {"operation": "append", "total-records": "20", "total-data-files": "2", "total-delete-files": "0"}
     }
   ]
 }"#;
@@ -281,6 +290,52 @@ fn write_manifest_list_fixture(path: &std::path::Path, include_delete_manifest: 
 }
 
 #[cfg(feature = "universal-format-io")]
+fn write_manifest_list_missing_spec_id_fixture(path: &std::path::Path) {
+    use std::{fs::File, sync::Arc};
+
+    use arrow_array::{ArrayRef, Int64Array, RecordBatch, StringArray};
+    use arrow_avro::writer::AvroWriter;
+    use arrow_schema::{DataType, Field, Schema};
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("manifest_path", DataType::Utf8, false),
+        Field::new("content", DataType::Int64, false),
+        Field::new("manifest_length", DataType::Int64, false),
+        Field::new("added_data_files_count", DataType::Int64, false),
+        Field::new("existing_data_files_count", DataType::Int64, false),
+        Field::new("deleted_data_files_count", DataType::Int64, false),
+        Field::new("added_delete_files_count", DataType::Int64, false),
+        Field::new("existing_delete_files_count", DataType::Int64, false),
+        Field::new("deleted_delete_files_count", DataType::Int64, false),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(StringArray::from(vec![
+                "file:///warehouse/orders/metadata/missing-spec.avro",
+            ])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![0])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![123])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![1])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![0])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![0])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![0])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![0])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![0])) as ArrayRef,
+        ],
+    )
+    .expect("manifest-list missing-spec record batch");
+    let file = File::create(path).expect("create missing-spec manifest-list avro");
+    let mut writer = AvroWriter::new(file, schema.as_ref().clone()).expect("avro writer");
+    writer
+        .write(&batch)
+        .expect("write missing-spec manifest-list batch");
+    writer
+        .finish()
+        .expect("finish missing-spec manifest-list writer");
+}
+
+#[cfg(feature = "universal-format-io")]
 fn write_manifest_file_fixture(path: &std::path::Path, include_deleted_data_file: bool) {
     use std::{fs::File, sync::Arc};
 
@@ -344,6 +399,23 @@ fn write_manifest_file_scan_fixture(
     first_data_path: &std::path::Path,
     second_data_path: &std::path::Path,
 ) {
+    write_manifest_file_scan_fixture_with_paths(
+        path,
+        first_data_path,
+        second_data_path,
+        first_data_path.to_string_lossy().as_ref(),
+        second_data_path.to_string_lossy().as_ref(),
+    );
+}
+
+#[cfg(feature = "universal-format-io")]
+fn write_manifest_file_scan_fixture_with_paths(
+    path: &std::path::Path,
+    first_data_path: &std::path::Path,
+    second_data_path: &std::path::Path,
+    first_manifest_path: &str,
+    second_manifest_path: &str,
+) {
     use std::{fs::File, sync::Arc};
 
     use arrow_array::{ArrayRef, Int64Array, RecordBatch, StringArray, StructArray};
@@ -370,8 +442,8 @@ fn write_manifest_file_scan_fixture(
         (
             Arc::new(Field::new("file_path", DataType::Utf8, false)),
             Arc::new(StringArray::from(vec![
-                first_data_path.to_string_lossy().to_string(),
-                second_data_path.to_string_lossy().to_string(),
+                first_manifest_path.to_string(),
+                second_manifest_path.to_string(),
             ])) as ArrayRef,
         ),
         (
@@ -407,6 +479,87 @@ fn write_manifest_file_scan_fixture(
         .write(&batch)
         .expect("write manifest-file scan batch");
     writer.finish().expect("finish manifest-file scan writer");
+}
+
+#[cfg(feature = "universal-format-io")]
+fn write_manifest_file_metrics_map_fixture(path: &std::path::Path) {
+    use std::{fs::File, sync::Arc};
+
+    use arrow_array::{
+        ArrayRef, Int64Array, RecordBatch, StringArray, StructArray,
+        builder::{Int64Builder, MapBuilder, StringBuilder},
+    };
+    use arrow_avro::writer::AvroWriter;
+    use arrow_schema::{DataType, Field, Schema};
+
+    let mut value_counts_builder = MapBuilder::new(None, StringBuilder::new(), Int64Builder::new());
+    value_counts_builder.keys().append_value("1");
+    value_counts_builder.values().append_value(10);
+    value_counts_builder
+        .append(true)
+        .expect("append first value-counts metrics map");
+    value_counts_builder.keys().append_value("1");
+    value_counts_builder.values().append_value(20);
+    value_counts_builder
+        .append(true)
+        .expect("append second value-counts metrics map");
+    let value_counts = Arc::new(value_counts_builder.finish()) as ArrayRef;
+
+    let data_file = Arc::new(StructArray::from(vec![
+        (
+            Arc::new(Field::new("content", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![0, 0])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_path", DataType::Utf8, false)),
+            Arc::new(StringArray::from(vec![
+                "file:///warehouse/orders/data/orders-a.parquet",
+                "file:///warehouse/orders/data/orders-b.parquet",
+            ])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_format", DataType::Utf8, false)),
+            Arc::new(StringArray::from(vec!["PARQUET", "PARQUET"])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("record_count", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![10, 20])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new("file_size_in_bytes", DataType::Int64, false)),
+            Arc::new(Int64Array::from(vec![1000, 2000])) as ArrayRef,
+        ),
+        (
+            Arc::new(Field::new(
+                "value_counts",
+                value_counts.data_type().clone(),
+                true,
+            )),
+            value_counts,
+        ),
+    ])) as ArrayRef;
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("status", DataType::Int64, false),
+        Field::new("snapshot_id", DataType::Int64, false),
+        Field::new("data_file", data_file.data_type().clone(), false),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from(vec![1, 0])),
+            Arc::new(Int64Array::from(vec![2002, 2002])),
+            data_file,
+        ],
+    )
+    .expect("manifest-file metrics-map record batch");
+    let file = File::create(path).expect("create manifest-file metrics-map avro");
+    let mut writer = AvroWriter::new(file, schema.as_ref().clone()).expect("avro writer");
+    writer
+        .write(&batch)
+        .expect("write manifest-file metrics-map batch");
+    writer
+        .finish()
+        .expect("finish manifest-file metrics-map writer");
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -680,6 +833,38 @@ fn iceberg_metadata_read_smoke_selects_explicit_snapshot_and_time_travel() {
 }
 
 #[test]
+fn iceberg_metadata_read_smoke_blocks_unknown_snapshot_delete_metrics() {
+    let path = write_metadata_fixture("unknown-delete-metrics", 0);
+    let mut metadata = fs::read_to_string(&path).expect("read metadata fixture");
+    metadata = metadata.replace(",\n        \"total-delete-files\": \"0\"", "");
+    fs::write(&path, metadata).expect("rewrite metadata without delete metrics");
+    let args = vec![
+        "iceberg-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_iceberg_metadata_read_smoke_json(&args);
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("selected_snapshot_delete_file_count_known", "false")));
+    assert!(stdout.contains(&field(
+        "unsupported_feature_order",
+        "delete_file_count_unknown"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn iceberg_metadata_read_smoke_reports_safe_schema_partition_evolution() {
     let path = write_metadata_evolution_fixture("safe-evolution");
     let args = vec![
@@ -717,6 +902,42 @@ fn iceberg_metadata_read_smoke_reports_safe_schema_partition_evolution() {
     )));
     assert!(stdout.contains(&field("unsupported_feature_order", "none")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
+}
+
+#[test]
+fn iceberg_metadata_read_smoke_blocks_missing_partition_source_ids() {
+    let path = write_metadata_fixture("missing-partition-source-id", 0);
+    let metadata = fs::read_to_string(&path)
+        .expect("read metadata fixture")
+        .replace(
+            "{\"source-id\": 2, \"field-id\": 1000",
+            "{\"field-id\": 1000",
+        );
+    fs::write(&path, metadata).expect("rewrite metadata without source-id");
+    let args = vec![
+        "iceberg-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_iceberg_metadata_read_smoke_json(&args);
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("partition_missing_field_id_count", "1")));
+    assert!(stdout.contains(&field(
+        "unsupported_feature_order",
+        "partition_field_or_manifest_spec_integrity_blocked"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
 #[test]
@@ -972,6 +1193,41 @@ fn iceberg_metadata_read_smoke_reads_manifest_list_summary_with_feature() {
 
 #[cfg(feature = "universal-format-io")]
 #[test]
+fn iceberg_metadata_read_smoke_blocks_manifest_list_rows_missing_partition_spec_id() {
+    let path = write_metadata_fixture("manifest-list-missing-spec-id", 0);
+    let manifest_list_path = temp_manifest_list_path("manifest-list-missing-spec-id");
+    write_manifest_list_missing_spec_id_fixture(&manifest_list_path);
+    let args = vec![
+        "iceberg-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--manifest-list".to_string(),
+        manifest_list_path.to_string_lossy().to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_iceberg_metadata_read_smoke_json(&args);
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("manifest_list_missing_partition_spec_id_count", "1")));
+    assert!(stdout.contains(&field("manifest_unknown_partition_spec_id_count", "1")));
+    assert!(stdout.contains(&field(
+        "unsupported_feature_order",
+        "partition_field_or_manifest_spec_integrity_blocked"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
 fn iceberg_metadata_read_smoke_reads_manifest_file_split_plan_with_feature() {
     let path = write_metadata_fixture("manifest-file-split-plan", 0);
     let manifest_list_path = temp_manifest_list_path("manifest-file-split-plan-list");
@@ -1022,6 +1278,68 @@ fn iceberg_metadata_read_smoke_reads_manifest_file_split_plan_with_feature() {
     assert!(stdout.contains(&field("manifest_file_added_data_file_count", "1")));
     assert!(stdout.contains(&field("manifest_file_existing_data_file_count", "1")));
     assert!(stdout.contains(&field("manifest_file_deleted_data_file_count", "0")));
+    assert!(stdout.contains(&field("manifest_file_total_record_count", "30")));
+    assert!(stdout.contains(&field("manifest_file_total_file_size_bytes", "3000")));
+    assert!(stdout.contains(&field("data_file_split_planning_performed", "true")));
+    assert!(stdout.contains(&field("planned_data_file_split_count", "2")));
+    assert!(stdout.contains(&field("planned_data_file_split_bytes", "3000")));
+    assert!(stdout.contains(&field(
+        "native_io_certificate_refs",
+        "local_metadata_json_manifest_list_avro_summary_and_manifest_file_avro_split_plan_read_no_object_store_native_io_certificate"
+    )));
+    assert!(stdout.contains(&field(
+        "materialization_decode_refs",
+        "metadata_json_plus_manifest_list_summary_and_manifest_file_metadata_decode_no_data_file_decode_no_row_materialization"
+    )));
+    assert!(stdout.contains(&field(
+        "dependency_boundary_refs",
+        "serde_json_plus_arrow_avro_manifest_list_and_manifest_file_compat_adapters_no_iceberg_runtime_dependency_no_external_engine"
+    )));
+    assert!(stdout.contains(&field("data_file_read_performed", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn iceberg_metadata_read_smoke_split_plan_ignores_manifest_metrics_map_children() {
+    let path = write_metadata_fixture("manifest-file-metrics-map-split-plan", 0);
+    let manifest_file_path = temp_manifest_file_path("manifest-file-metrics-map-split-plan");
+    write_manifest_file_metrics_map_fixture(&manifest_file_path);
+    let manifest_file_arg = manifest_file_path.to_string_lossy().to_string();
+    let args = vec![
+        "iceberg-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--manifest".to_string(),
+        manifest_file_arg.clone(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_iceberg_metadata_read_smoke_json(&args);
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "report_id",
+        "prod-ready-1c.iceberg_manifest_file_split_plan_smoke"
+    )));
+    assert!(stdout.contains(&field("manifest_file_path", &manifest_file_arg)));
+    assert!(stdout.contains(&field("manifest_file_read_performed", "true")));
+    assert!(stdout.contains(&field("manifest_file_entry_count", "2")));
+    assert!(stdout.contains(&field("manifest_file_added_data_file_count", "1")));
+    assert!(stdout.contains(&field("manifest_file_existing_data_file_count", "1")));
     assert!(stdout.contains(&field("manifest_file_total_record_count", "30")));
     assert!(stdout.contains(&field("manifest_file_total_file_size_bytes", "3000")));
     assert!(stdout.contains(&field("data_file_split_planning_performed", "true")));
@@ -1118,6 +1436,54 @@ fn iceberg_metadata_read_smoke_executes_declared_local_data_file_scan() {
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(!stdout.contains("\"feature\":\"data_file_scan\""));
+
+    fs::remove_file(first_data_path).expect("remove first data file");
+    fs::remove_file(second_data_path).expect("remove second data file");
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn iceberg_metadata_read_smoke_executes_single_slash_file_uri_data_file_scan() {
+    let path = write_metadata_fixture("single-slash-file-uri-data-file-scan", 0);
+    let first_data_path = temp_iceberg_path("single-slash-local-data-a", "parquet");
+    let second_data_path = temp_iceberg_path("single-slash-local-data-b", "parquet");
+    write_iceberg_parquet_data_file(&first_data_path, vec![1], vec!["east"], vec![10.5]);
+    write_iceberg_parquet_data_file(&second_data_path, vec![2], vec!["west"], vec![20.25]);
+    let first_manifest_path = format!("file:{}", first_data_path.display());
+    let second_manifest_path = format!("file:{}", second_data_path.display());
+    let manifest_file_path = temp_manifest_file_path("single-slash-file-uri-data-file-scan");
+    write_manifest_file_scan_fixture_with_paths(
+        &manifest_file_path,
+        &first_data_path,
+        &second_data_path,
+        &first_manifest_path,
+        &second_manifest_path,
+    );
+    let args = vec![
+        "iceberg-metadata-read-smoke".to_string(),
+        path.to_string_lossy().to_string(),
+        "--manifest".to_string(),
+        manifest_file_path.to_string_lossy().to_string(),
+        "--execute-data-file-scan".to_string(),
+        "--format".to_string(),
+        "json".to_string(),
+    ];
+
+    let output = run_iceberg_metadata_read_smoke_json(&args);
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("data_file_scan_execution_performed", "true")));
+    assert!(stdout.contains(&field("data_file_scan_files_read_count", "2")));
+    assert!(stdout.contains(&field("planned_data_file_non_local_path_count", "0")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
     fs::remove_file(first_data_path).expect("remove first data file");
     fs::remove_file(second_data_path).expect("remove second data file");

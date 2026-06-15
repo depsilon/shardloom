@@ -200,9 +200,17 @@ def write_transcript(
     installed = step_status(steps, "install_registry_package") == "passed"
     smoked = step_status(steps, "registry_package_client_smoke") == "passed"
     uninstalled = step_status(steps, "uninstall_registry_package") == "passed"
-    proof_passed = installed and smoked and uninstalled
     smoke_stdout = "\n".join(
         step.get("stdout", "") for step in steps if step["name"] == "registry_package_client_smoke"
+    )
+    fallback_attempted = "fallback_attempted=True" in smoke_stdout
+    external_engine_invoked = "external_engine_invoked=True" in smoke_stdout
+    proof_passed = (
+        installed
+        and smoked
+        and uninstalled
+        and not fallback_attempted
+        and not external_engine_invoked
     )
     report = {
         "schema_version": SCHEMA_VERSION,
@@ -217,8 +225,8 @@ def write_transcript(
         "install_transcript_status": step_status(steps, "install_registry_package"),
         "smoke_check_status": step_status(steps, "registry_package_client_smoke"),
         "uninstall_transcript_status": step_status(steps, "uninstall_registry_package"),
-        "fallback_attempted": "fallback_attempted=True" in smoke_stdout,
-        "external_engine_invoked": "external_engine_invoked=True" in smoke_stdout,
+        "fallback_attempted": fallback_attempted,
+        "external_engine_invoked": external_engine_invoked,
         "testpypi_proof_ref": testpypi_proof_ref,
         "testpypi_proof_required": channel.channel_id == "pypi",
         "registry_upload_attempted_by_this_tool": False,
@@ -232,9 +240,14 @@ def write_transcript(
         report["proof_status"] = "failed"
         report["blockers"] = ["pypi proof requires a prior TestPyPI proof reference"]
     else:
-        report["blockers"] = (
-            [] if report["proof_status"] == "passed" else ["registry proof step failed"]
-        )
+        blockers = []
+        if report["proof_status"] != "passed":
+            blockers.append("registry proof step failed")
+        if fallback_attempted:
+            blockers.append("registry proof smoke reported fallback_attempted=True")
+        if external_engine_invoked:
+            blockers.append("registry proof smoke reported external_engine_invoked=True")
+        report["blockers"] = blockers
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(output)

@@ -21,6 +21,7 @@ shardloom-core = { workspace = true }
 shardloom-exec = { workspace = true }
 shardloom-plan = { workspace = true }
 shardloom-vortex = { workspace = true }
+arrow-array = { workspace = true, optional = true }
 arrow-schema = { workspace = true }
 regex = { workspace = true }
 rusqlite = { version = "0.40.1", default-features = false, features = ["bundled"] }
@@ -28,7 +29,7 @@ serde_json = { workspace = true }
 
 [features]
 default = []
-universal-format-io = ["shardloom-vortex/universal-format-io"]
+universal-format-io = ["dep:arrow-array", "shardloom-vortex/universal-format-io"]
 vortex-write = ["shardloom-vortex/vortex-write"]
 vortex-encoded-read-spike = ["shardloom-vortex/vortex-encoded-read-spike"]
 vortex-local-primitives = ["shardloom-vortex/vortex-local-primitives"]

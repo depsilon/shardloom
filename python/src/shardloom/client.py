@@ -10823,6 +10823,17 @@ class PythonClientSmokeReport:
         )
 
     @property
+    def external_engine_invoked(self) -> bool:
+        """Whether any smoke-check command reported external engine execution."""
+
+        return (
+            _envelope_external_engine_invoked(self.status)
+            or _envelope_external_engine_invoked(self.python_capabilities)
+            or _envelope_external_engine_invoked(self.deployment_capabilities)
+            or _envelope_external_engine_invoked(self.input_adapters)
+        )
+
+    @property
     def commands(self) -> tuple[str, ...]:
         """Return the commands executed by the smoke check."""
 

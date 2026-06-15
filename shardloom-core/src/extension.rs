@@ -1341,6 +1341,10 @@ impl ExtensionPermission {
         self.permission.is_effectful()
     }
     #[must_use]
+    pub const fn requires_review(&self) -> bool {
+        self.permission.requires_extension_review()
+    }
+    #[must_use]
     pub fn summary(&self) -> String {
         format!(
             "permission:{} required={}",
@@ -1593,7 +1597,7 @@ impl ExtensionExecutionContract {
     pub fn undeclared() -> Self {
         Self {
             determinism: ExtensionDeterminismContract::Unknown,
-            materialization: ExtensionMaterializationContract::MetadataOnly,
+            materialization: ExtensionMaterializationContract::Unsupported,
             null_behavior: ExtensionNullBehaviorContract::Unknown,
             input_dtypes: vec![],
             output_dtype: None,
@@ -1962,7 +1966,7 @@ impl ExtensionManifest {
             || self
                 .permissions
                 .iter()
-                .any(ExtensionPermission::is_effectful)
+                .any(ExtensionPermission::requires_review)
             || self
                 .effects
                 .iter()
@@ -2008,6 +2012,12 @@ impl ExtensionManifest {
                 .any(ExtensionEffectDeclaration::is_effectful)
         {
             "denied_by_default_external_effect"
+        } else if self
+            .permissions
+            .iter()
+            .any(ExtensionPermission::requires_review)
+        {
+            "denied_by_default_permission_review_required"
         } else if self.sandbox.host_access_requested() {
             "denied_by_default_host_access"
         } else if self.runtime_requires_review() {
@@ -2028,6 +2038,13 @@ impl ExtensionManifest {
             .any(ExtensionPermission::is_effectful)
         {
             reasons.push("effectful_permission_declared");
+        }
+        if self
+            .permissions
+            .iter()
+            .any(ExtensionPermission::requires_review)
+        {
+            reasons.push("review_required_permission_declared");
         }
         if self
             .effects
@@ -3055,6 +3072,7 @@ mod tests {
     fn undeclared_execution_contract_requires_review() {
         let contract = ExtensionExecutionContract::undeclared();
         assert!(!contract.production_contract_complete());
+        assert_eq!(contract.materialization.as_str(), "unsupported");
         assert!(!contract.dtype_contract_declared());
         assert!(!contract.resource_contract_declared());
     }
@@ -3110,6 +3128,19 @@ mod tests {
     #[test]
     fn call_api_permission_effectful() {
         assert!(ExtensionPermission::required(PermissionKind::CallApi, "x").is_effectful())
+    }
+    #[test]
+    fn filesystem_and_mutating_permissions_require_review() {
+        let filesystem = ExtensionPermission::required(PermissionKind::AccessFilesystem, "x");
+        let temporary_write =
+            ExtensionPermission::required(PermissionKind::WriteTemporaryOutput, "x");
+        let read_metadata = ExtensionPermission::optional(PermissionKind::ReadMetadata, "x");
+
+        assert!(!filesystem.is_effectful());
+        assert!(filesystem.requires_review());
+        assert!(!temporary_write.is_effectful());
+        assert!(temporary_write.requires_review());
+        assert!(!read_metadata.requires_review());
     }
     #[test]
     fn none_effect_not_effectful() {

@@ -58,15 +58,25 @@ pub struct LocalDistributedFixtureRunInput {
 
 impl LocalDistributedFixtureRunInput {
     pub fn new(worker_count: usize, fault_mode: DistributedFixtureFaultMode) -> Result<Self> {
+        Self::validate_worker_count(worker_count)?;
+        Ok(Self {
+            worker_count,
+            fault_mode,
+        })
+    }
+
+    fn validate_worker_count(worker_count: usize) -> Result<()> {
         if !(1..=4).contains(&worker_count) {
             return Err(ShardLoomError::InvalidOperation(
                 "distributed local fixture worker count must be between 1 and 4".to_string(),
             ));
         }
-        Ok(Self {
-            worker_count,
-            fault_mode,
-        })
+        Ok(())
+    }
+
+    pub fn validate(self) -> Result<Self> {
+        Self::validate_worker_count(self.worker_count)?;
+        Ok(self)
     }
 }
 
@@ -436,9 +446,13 @@ impl LocalDistributedFixtureRunReport {
 pub fn run_local_distributed_fixture(
     input: LocalDistributedFixtureRunInput,
 ) -> Result<LocalDistributedFixtureRunReport> {
+    let input = input.validate()?;
     let rows = distributed_fixture_rows();
     let split_manifest = build_split_manifest(input.worker_count, &rows);
     let task_attempts = build_task_attempts(&split_manifest, input.fault_mode);
+    let cancellation_cleanup_completed = task_attempts
+        .iter()
+        .any(|attempt| attempt.outcome == DistributedTaskAttemptOutcome::CancelledCleanupCompleted);
     let result_fragments = execute_certified_attempts(&rows, &task_attempts);
     let worker_leases = build_worker_leases(input.worker_count, &split_manifest, &task_attempts);
     let shuffle_repartition =
@@ -494,7 +508,7 @@ pub fn run_local_distributed_fixture(
             input.fault_mode,
             DistributedFixtureFaultMode::RetryDuplicateStaleLease
         ),
-        cancellation_cleanup_completed: true,
+        cancellation_cleanup_completed,
         partial_output_committed: false,
         data_read: false,
         data_decoded: false,
@@ -1032,6 +1046,7 @@ mod tests {
         assert_eq!(report.execution_certificate.status.as_str(), "certified");
         assert!(report.native_io_certificate.is_certified());
         assert!(!report.remote_worker_invoked);
+        assert!(!report.cancellation_cleanup_completed);
         assert!(!report.fallback_attempted());
     }
 
@@ -1079,6 +1094,21 @@ mod tests {
             DistributedFixtureFaultMode::RetryDuplicateStaleLease,
         )
         .expect_err("invalid worker count rejects");
+
+        assert!(
+            error
+                .message()
+                .contains("worker count must be between 1 and 4")
+        );
+    }
+
+    #[test]
+    fn run_local_distributed_fixture_revalidates_public_input() {
+        let error = run_local_distributed_fixture(LocalDistributedFixtureRunInput {
+            worker_count: 0,
+            fault_mode: DistributedFixtureFaultMode::None,
+        })
+        .expect_err("runner revalidates public input fields");
 
         assert!(
             error

@@ -298,6 +298,12 @@ impl PermissionKind {
                 | Self::ExecuteUdf
         )
     }
+    #[must_use]
+    pub const fn requires_extension_review(&self) -> bool {
+        self.is_effectful()
+            || self.is_destructive_or_mutating()
+            || matches!(self, Self::AccessFilesystem)
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PermissionStatus {

@@ -65,8 +65,64 @@ jobs:
           packages-dir: python/dist
           repository-url: https://test.pypi.org/legacy/
 
-  publish:
+  validate-pypi-prior-proof:
     needs: build
+    if: ${{ inputs.publish_approved == 'publish-approved' && inputs.channel == 'pypi' && inputs.testpypi_proof_ref != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # actions/checkout@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Validate prior TestPyPI proof transcript
+        env:
+          TESTPYPI_PROOF_REF: ${{ inputs.testpypi_proof_ref }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import tomllib
+
+          proof_ref = pathlib.PurePosixPath(
+              pathlib.Path(os.environ["TESTPYPI_PROOF_REF"]).as_posix()
+          )
+          if proof_ref.is_absolute() or ".." in proof_ref.parts:
+              raise SystemExit("testpypi_proof_ref must be a repository-relative path")
+          proof_path = pathlib.Path(proof_ref)
+          proof = json.loads(proof_path.read_text(encoding="utf-8"))
+          pyproject = tomllib.loads(pathlib.Path("python/pyproject.toml").read_text(encoding="utf-8"))
+          expected_version = pyproject["project"]["version"]
+          required = {
+              "schema_version": "shardloom.python_registry_package_proof.v1",
+              "proof_status": "passed",
+              "channel_id": "testpypi",
+              "package_name": "shardloom",
+              "package_version": expected_version,
+              "install_transcript_status": "passed",
+              "smoke_check_status": "passed",
+              "uninstall_transcript_status": "passed",
+              "fallback_attempted": False,
+              "external_engine_invoked": False,
+              "registry_upload_attempted_by_this_tool": False,
+              "publication_attempted_by_this_tool": False,
+              "package_channel_submission_attempted_by_this_tool": False,
+          }
+          mismatches = [
+              f"{key}={proof.get(key)!r} expected {expected!r}"
+              for key, expected in required.items()
+              if proof.get(key) != expected
+          ]
+          if mismatches:
+              raise SystemExit("invalid TestPyPI proof: " + "; ".join(mismatches))
+          PY
+
+  publish:
+    needs:
+      - build
+      - validate-pypi-prior-proof
     if: ${{ inputs.publish_approved == 'publish-approved' && inputs.channel == 'pypi' && inputs.testpypi_proof_ref != '' }}
     runs-on: ubuntu-latest
     environment: pypi

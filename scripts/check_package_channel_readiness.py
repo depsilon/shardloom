@@ -304,12 +304,16 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
         blockers.append(f"channel order/ids mismatch: {seen_ids}")
 
     ready_rows: list[dict[str, Any]] = []
+    in_scope_channel_rows: list[dict[str, Any]] = []
     for row in channels:
         if not isinstance(row, dict):
             blockers.append("channel rows must be objects")
             continue
         channel_id = str(row.get("channel_id", "<missing>"))
         prefix = f"{channel_id}: "
+        row_is_in_v1_scope = row.get("v1_feasibility_status") != "not_in_v1_scope_recorded"
+        if row_is_in_v1_scope:
+            in_scope_channel_rows.append(row)
         for field in [
             "display_name",
             "target_artifact",
@@ -384,21 +388,21 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
             if "no internal crate publication" not in requirement:
                 blockers.append(prefix + "auth requirement must forbid internal crate publication")
 
-    all_channels_ready = len(ready_rows) == len(EXPECTED_CHANNEL_IDS)
+    all_v1_scope_channels_ready = len(ready_rows) == len(in_scope_channel_rows)
     public_claim_allowed = matrix.get("public_package_release_claim_allowed")
     if public_claim_allowed is True:
         if matrix.get("status") != "ready":
             blockers.append(
                 "public_package_release_claim_allowed=true requires top-level status=ready"
             )
-        if not all_channels_ready:
+        if not all_v1_scope_channels_ready:
             blockers.append(
-                "public_package_release_claim_allowed=true requires every channel ready"
+                "public_package_release_claim_allowed=true requires every v1-scope channel ready"
             )
     elif public_claim_allowed is not False:
         blockers.append("public_package_release_claim_allowed must be boolean")
-    if matrix.get("status") == "ready" and not all_channels_ready:
-        blockers.append("top-level status=ready requires every channel ready")
+    if matrix.get("status") == "ready" and not all_v1_scope_channels_ready:
+        blockers.append("top-level status=ready requires every v1-scope channel ready")
 
     return blockers
 
