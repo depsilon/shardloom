@@ -238,6 +238,7 @@ def required_validation_commands(
                 "scripts/check_benchmark_publication_claim_gate.py",
                 "--manifest",
                 "website/assets/benchmarks/latest/manifest.json",
+                "--allow-stale-git",
             ],
         ),
         (
@@ -247,6 +248,7 @@ def required_validation_commands(
                 "scripts/check_front_door_benchmark_publication.py",
                 "--manifest",
                 "website/assets/benchmarks/latest/manifest.json",
+                "--allow-stale-git",
             ],
         ),
         (

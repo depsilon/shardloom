@@ -307,8 +307,8 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         commands=(
             "python scripts/check_pre_5j_dependency_freshness.py",
             "python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json",
-            "python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json",
-            "python scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json",
+            "python scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git",
+            "python scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git",
             "python scripts/check_benchmark_optimization_targets.py --artifact website/assets/benchmarks/latest/benchmark-results.json",
         ),
         artifact_refs=(

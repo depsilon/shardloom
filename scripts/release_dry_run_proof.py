@@ -338,6 +338,36 @@ def clean_python_dist(dist_dir: Path) -> None:
             artifact.unlink()
 
 
+def python_artifact_blockers(dist_dir: Path) -> list[str]:
+    blockers: list[str] = []
+    if not list(dist_dir.glob("shardloom-*.whl")):
+        blockers.append("missing Python wheel")
+    if not list(dist_dir.glob("shardloom-*.tar.gz")):
+        blockers.append("missing Python sdist")
+    return blockers
+
+
+def mark_python_artifact_presence(step: dict[str, Any], dist_dir: Path) -> dict[str, Any]:
+    blockers = python_artifact_blockers(dist_dir)
+    step["python_artifact_blockers"] = blockers
+    if blockers and step.get("returncode") == 0:
+        step["returncode"] = 1
+        step["stderr"] = (step.get("stderr", "") + "\n" + "; ".join(blockers)).strip()
+    return step
+
+
+def fallback_sdist_command(python: str, dist_dir: Path) -> list[str]:
+    script = (
+        "import os, pathlib, setuptools.build_meta as build_meta; "
+        "root = pathlib.Path('python').resolve(); "
+        f"out = pathlib.Path({str(dist_dir)!r}).resolve(); "
+        "out.mkdir(parents=True, exist_ok=True); "
+        "os.chdir(root); "
+        "print(build_meta.build_sdist(str(out), {}))"
+    )
+    return [python, "-c", script]
+
+
 def build_python_artifacts(
     repo_root: Path,
     dist_dir: Path,
@@ -352,12 +382,12 @@ def build_python_artifacts(
     )
     if build_step["returncode"] == 0:
         build_step["build_backend"] = "python_build_frontend"
-        return build_step
+        return mark_python_artifact_presence(build_step, dist_dir)
     if "No module named build" not in build_step.get("stderr", ""):
         build_step["build_backend"] = "python_build_frontend"
-        return build_step
+        return mark_python_artifact_presence(build_step, dist_dir)
 
-    fallback_step = run_step(
+    fallback_wheel_step = run_step(
         name="build_python_artifacts",
         command=[
             python,
@@ -372,10 +402,48 @@ def build_python_artifacts(
         ],
         cwd=repo_root,
     )
-    fallback_step["build_backend"] = "pip_wheel_no_build_isolation"
+    fallback_sdist_step = run_step(
+        name="build_python_artifacts_sdist",
+        command=fallback_sdist_command(python, dist_dir),
+        cwd=repo_root,
+    )
+    fallback_step = {
+        "name": "build_python_artifacts",
+        "command": [
+            *fallback_wheel_step["command"],
+            "<then>",
+            *fallback_sdist_step["command"],
+        ],
+        "returncode": 0
+        if fallback_wheel_step["returncode"] == 0 and fallback_sdist_step["returncode"] == 0
+        else 1,
+        "elapsed_millis": round(
+            float(fallback_wheel_step.get("elapsed_millis", 0.0))
+            + float(fallback_sdist_step.get("elapsed_millis", 0.0)),
+            4,
+        ),
+        "stdout": "\n".join(
+            text
+            for text in [
+                str(fallback_wheel_step.get("stdout", "")),
+                str(fallback_sdist_step.get("stdout", "")),
+            ]
+            if text
+        )[-4000:],
+        "stderr": "\n".join(
+            text
+            for text in [
+                str(fallback_wheel_step.get("stderr", "")),
+                str(fallback_sdist_step.get("stderr", "")),
+            ]
+            if text
+        )[-4000:],
+        "fallback_steps": [fallback_wheel_step, fallback_sdist_step],
+    }
+    fallback_step["build_backend"] = "pip_wheel_and_setuptools_sdist_no_build_isolation"
     fallback_step["fallback_reason"] = "python_build_frontend_missing"
     fallback_step["frontend_stderr"] = build_step.get("stderr", "")
-    return fallback_step
+    return mark_python_artifact_presence(fallback_step, dist_dir)
 
 
 def generated_user_rows_smoke_script(output_path: Path) -> str:

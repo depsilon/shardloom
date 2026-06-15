@@ -20,6 +20,20 @@ Benchmark freshness addendum, 2026-06-13:
 - The refreshed benchmark keeps `performance_claim_allowed=false`; it is evidence freshness and
   optimization direction, not a release, package, production, or performance claim.
 
+V1 local/source/package track addendum, 2026-06-15:
+
+- Real production object-store, table/lakehouse, distributed, live/hybrid, and Foundry environments
+  are not available for v1 certification. Those claims remain fail-closed.
+- The feasible v1 release path is narrowed to source checkout, GitHub pre-release, TestPyPI, PyPI,
+  local API/schema stability, local Python user-surface proof, local benchmark evidence, and
+  claim-safe docs/website/readme surfaces.
+- `docs/release/v1-local-source-package-release.md` and
+  `docs/release/v1-local-source-package-release.json` are the canonical selected-track contract.
+- The selected-track validator is `scripts/check_v1_local_source_package_release.py`.
+- Publication still requires final maintainer confirmation of version/tag/source revision,
+  channels, release notes, checksums, SBOM/provenance/signing policy, rollback/yank policy, and
+  post-release smoke transcripts.
+
 `RELEASE-PACKAGE-15` branch evidence was prepared from local branch
 `codex/release-package-15-runtime-evidence`. The refreshed benchmark publication bundle records
 clean benchmark source revision `74a2e7d4f77eed0686971518e010463da26f2cdf` for that historical

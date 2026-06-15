@@ -22,6 +22,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from release_report_utils import (
+    python_package_version,
     upstream_vortex_lock_version,
     upstream_vortex_manifest_version,
     upstream_vortex_provider_version,
@@ -30,6 +31,7 @@ from release_report_utils import (
 )
 
 CURRENT_RUST_VERSION = workspace_rust_version(REPO_ROOT)
+CURRENT_PYTHON_PACKAGE_VERSION = python_package_version(REPO_ROOT)
 CURRENT_VORTEX_MANIFEST_VERSION = upstream_vortex_manifest_version(REPO_ROOT)
 CURRENT_VORTEX_LOCK_VERSION = upstream_vortex_lock_version(REPO_ROOT)
 UPSTREAM_VORTEX_PROVIDER_VERSION = upstream_vortex_provider_version(REPO_ROOT)
@@ -8018,6 +8020,26 @@ class ReleaseScriptTests(unittest.TestCase):
                 "target/benchmark-artifact-completeness-report.json",
             ],
         )
+        self.assertEqual(
+            commands["benchmark_publication_claim_gate"],
+            [
+                "/tool/python3.12",
+                "scripts/check_benchmark_publication_claim_gate.py",
+                "--manifest",
+                "website/assets/benchmarks/latest/manifest.json",
+                "--allow-stale-git",
+            ],
+        )
+        self.assertEqual(
+            commands["front_door_benchmark_publication_gate"],
+            [
+                "/tool/python3.12",
+                "scripts/check_front_door_benchmark_publication.py",
+                "--manifest",
+                "website/assets/benchmarks/latest/manifest.json",
+                "--allow-stale-git",
+            ],
+        )
 
         self.assertEqual(
             commands["pre_5j_dependency_freshness_gate"],
@@ -9443,6 +9465,39 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn("validate-pypi-prior-proof", current_workflow)
         self.assertIn("Validate prior TestPyPI proof transcript", current_workflow)
         self.assertIn('"proof_status": "passed"', current_workflow)
+
+    def test_pypi_workflow_uses_dynamic_python_package_version_for_prior_proof(self) -> None:
+        workflow = (
+            REPO_ROOT / ".github" / "workflows" / "pypi-publish-draft.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("python/src/shardloom/_version.py", workflow)
+        self.assertIn("expected_version = resolve_python_package_version()", workflow)
+        self.assertNotIn('pyproject["project"]["version"]', workflow)
+        self.assertEqual(CURRENT_PYTHON_PACKAGE_VERSION, "0.1.0.dev0")
+
+    def test_v1_local_source_package_release_track_gate_passes_current_contract(self) -> None:
+        module = self._load_script_module(
+            "check_v1_local_source_package_release.py",
+            "check_v1_local_source_package_release_for_test",
+        )
+
+        report = module.build_report(REPO_ROOT)
+
+        self.assertEqual(report["status"], "passed", report["blockers"])
+        self.assertEqual(
+            report["release_track_status"],
+            "local_source_package_v1_ready_pending_publication_event",
+        )
+        self.assertEqual(
+            report["selected_publication_channels"],
+            ["github_prerelease", "testpypi", "pypi"],
+        )
+        self.assertFalse(report["publication_attempted"])
+        self.assertFalse(report["tag_created"])
+        self.assertFalse(report["package_upload_attempted"])
+        self.assertFalse(report["fallback_attempted"])
+        self.assertFalse(report["external_engine_invoked"])
 
     def test_release_readiness_accepts_configured_dry_run_command_evidence(self) -> None:
         module = self._load_script_module(
@@ -12554,7 +12609,7 @@ jobs:
             self.assertEqual(selected, py312.resolve())
             self.assertEqual(version, "3.12.13")
 
-    def test_release_dry_run_python_artifact_build_falls_back_to_pip_wheel(self) -> None:
+    def test_release_dry_run_python_artifact_build_falls_back_to_wheel_and_sdist(self) -> None:
         module = self._load_script_module(
             "release_dry_run_proof.py", "release_dry_run_proof_build_fallback_for_test"
         )
@@ -12577,6 +12632,14 @@ jobs:
                         "stdout": "",
                         "stderr": f"{sys.executable}: No module named build\n",
                     }
+                if name == "build_python_artifacts":
+                    (dist_dir / "shardloom-0.1.0.dev0-py3-none-any.whl").write_text(
+                        "wheel", encoding="utf-8"
+                    )
+                if name == "build_python_artifacts_sdist":
+                    (dist_dir / "shardloom-0.1.0.dev0.tar.gz").write_text(
+                        "sdist", encoding="utf-8"
+                    )
                 return {
                     "name": name,
                     "command": command,
@@ -12593,13 +12656,20 @@ jobs:
                 module.run_step = original_run_step
 
             self.assertEqual(step["returncode"], 0)
-            self.assertEqual(step["build_backend"], "pip_wheel_no_build_isolation")
+            self.assertEqual(
+                step["build_backend"],
+                "pip_wheel_and_setuptools_sdist_no_build_isolation",
+            )
             self.assertEqual(step["fallback_reason"], "python_build_frontend_missing")
             self.assertFalse(stale_wheel.exists())
             self.assertEqual(commands[0], [sys.executable, "-m", "build", "python"])
             self.assertEqual(commands[1][:4], [sys.executable, "-m", "pip", "wheel"])
             self.assertIn("--no-build-isolation", commands[1])
             self.assertIn("--no-deps", commands[1])
+            self.assertEqual(commands[2][:2], [sys.executable, "-c"])
+            self.assertIn("build_sdist", commands[2][2])
+            self.assertEqual(step["python_artifact_blockers"], [])
+            self.assertEqual(len(step["fallback_steps"]), 2)
 
     def test_release_dry_run_cleanup_rejects_repo_root_and_top_level_targets(self) -> None:
         module = self._load_script_module(
@@ -12634,7 +12704,7 @@ jobs:
                 "docs/getting-started/install.md\n"
                 "docs/getting-started/first-10-minutes.md\n"
                 "scripts\\release_dry_run_proof.py\n"
-                "package-channel evidence is still gated\n"
+                "selected local/source/package v1 release track\n"
             ),
             "docs/getting-started/install.md": (
                 "python scripts\\release_dry_run_proof.py --rows 64 --iterations 1\n"

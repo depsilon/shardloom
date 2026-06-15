@@ -27,6 +27,7 @@ Use this README as the entry point, then follow the source that matches your que
 | How routes, evidence, and claims fit together | [Compute flow](https://shardloom.io/compute-engine-flow), [canonical compute-flow reference](docs/architecture/compute-engine-flow-reference.md) |
 | What public support claims are currently allowed | [Public status matrix](docs/release/public-status-matrix.md) |
 | What finished-product v1 currently means | [Finished product scope](docs/release/finished-product-scope.md) |
+| What local/source/package release track is selected | [V1 local source/package release track](docs/release/v1-local-source-package-release.md) |
 | What the benchmark page is actually showing | [Benchmarks](https://shardloom.io/benchmarks), [local benchmark taxonomy](docs/benchmarks/local-taxonomy-benchmark.md) |
 | What is planned or incomplete | [Phased execution plan](docs/architecture/phased-execution-plan.md) |
 | What has already landed | [Completed ledger](docs/architecture/phased-execution-completed-ledger.md) |
@@ -79,7 +80,7 @@ This table is a README summary; the canonical public status matrix and claim bou
 | Local output/sink scope | Scoped `write(...)`, `write_jsonl(...)`, `write_csv(...)`, feature-gated `write_parquet(...)`, `write_arrow_ipc(...)`, `write_avro(...)`, `write_orc(...)`, `write_vortex(...)`, and fanout helpers are defined by [docs/architecture/v1-local-output-sink-scope.md](docs/architecture/v1-local-output-sink-scope.md). | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
 | Prepared/native benchmark routes | Local benchmark artifacts expose cold, prepare-once, warm prepared, native Vortex, direct transient, and external-baseline lanes. | Claims depend on the selected timing surface and claim gate. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly fixture-scoped with report-only or blocked status for broader platform routes. | No production platform claim. |
-| Package/release status | Local no-publication rehearsals are validated; public packages are not published. | package-channel evidence is still gated. |
+| Package/release status | A selected local/source/package v1 release track exists for source checkout, GitHub pre-release, TestPyPI, and PyPI. Public packages are not uploaded until the final publication event is approved and verified. | No production/platform, performance, or broad runtime claim. |
 
 User surface graduation is tracked separately from runtime breadth. Public CLI/Python surfaces are
 classified as `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
@@ -106,6 +107,13 @@ python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 python scripts\check_production_usability_gate.py
 python examples\local-python-smoke\run.py --repo-root .
 ```
+
+The selected local/source/package v1 release track is source checkout plus GitHub pre-release,
+TestPyPI, and PyPI. GitHub pre-release, TestPyPI, and PyPI are the selected publication channels;
+Homebrew/Scoop/winget/conda are feasible later channels, while real production object-store,
+lakehouse, distributed, live/hybrid, and Foundry claims stay fail-closed without environments. Package
+commands become public only after the final publication event records the approved tag/version,
+release assets, registry proof, rollback/yank policy, and post-release smoke transcripts.
 
 Normal Python use:
 

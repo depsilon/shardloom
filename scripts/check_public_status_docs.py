@@ -82,7 +82,7 @@ PUBLIC_DOC_MARKERS = {
         "docs/getting-started/package-user-install.md",
         "docs/getting-started/v1-supported-unsupported.md",
         "Current Support Posture",
-        "package-channel evidence is still gated",
+        "selected local/source/package v1 release track",
     ),
     "docs/getting-started/install.md": (
         PUBLIC_STATUS_REF.as_posix(),

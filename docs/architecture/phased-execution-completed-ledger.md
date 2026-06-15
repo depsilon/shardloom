@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: v1 local/source/package release-track preparation
+  - Date: 2026-06-15
+  - Source:
+    - `RELEASE-V1-LOCAL-SOURCE-PACKAGE-1` in
+      `docs/architecture/phased-execution-plan.md`.
+    - Maintainer direction to proceed with feasible public source/package workstreams while real
+      production object-store/table/distributed/live/Foundry environments remain unavailable.
+  - Scope:
+    - Added `docs/release/v1-local-source-package-release.md` and
+      `docs/release/v1-local-source-package-release.json` as the canonical selected-track contract
+      for source checkout, GitHub pre-release, TestPyPI, PyPI, local API/schema stability, local
+      Python user-surface proof, local benchmark evidence, and docs/website/readme cleanup.
+    - Added `scripts/check_v1_local_source_package_release.py` and regression tests for the
+      selected-track contract.
+    - Fixed `.github/workflows/pypi-publish-draft.yml` so PyPI prior-proof validation resolves the
+      dynamic Python package version from `python/src/shardloom/_version.py` instead of a
+      nonexistent static `project.version`.
+    - Fixed `scripts/release_dry_run_proof.py` so the local fallback path creates both the wheel
+      and sdist when `python -m build` is unavailable.
+    - Updated README, getting-started package/install docs, public-status docs, maintainer handoff,
+      and website source/static output to show the selected release path while keeping package
+      commands withheld until the final publication event.
+  - Evidence:
+    - `python3 scripts/check_v1_local_source_package_release.py` passed with selected channels
+      `github_prerelease`, `testpypi`, and `pypi`.
+    - `python3 scripts/release_dry_run_proof.py --rows 64 --iterations 1` passed with clean local
+      wheel install, local Python smoke, prepared benchmark smoke, complete GitHub prerelease asset
+      bundle, `publication_attempted=false`, `tag_created=false`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - `python3 examples/local-python-smoke/run.py --repo-root .` passed.
+    - `python3 examples/local-python-benchmark-scenarios/run.py --repo-root . --run-id release-track-scenarios`
+      passed all documented ETL scenarios, including the expected malformed timestamp fail-closed
+      case.
+    - `python3 examples/local-python-benchmark-scenarios/timing_review.py --repo-root . --run-id release-track-timing`
+      passed and wrote timing components under `target/local-python-benchmark-scenarios/`.
+    - `python3 scripts/check_v1_api_schema_stability.py`,
+      `python3 scripts/check_package_channel_readiness.py --require-local-evidence`,
+      `python3 scripts/check_production_usability_gate.py`,
+      `python3 scripts/check_workspace_version_sources.py`,
+      `python3 scripts/check_security_posture.py`,
+      `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git`,
+      and `python3 scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git`
+      passed.
+    - `npm --prefix website-src run check`, `npm --prefix website-src run build`,
+      `python3 scripts/check_website_readiness.py`, and `node website/validate_static_assets.js`
+      passed.
+  - Claim boundary:
+    - This closes release preparation only. It does not upload packages, create tags, create a
+      GitHub Release, sign artifacts, publish attestations, expose live package install commands, or
+      authorize production, performance, superiority, Spark-displacement, broad SQL/DataFrame, or
+      platform claims.
+  - Residual work:
+    - Final publication event remains a human-gated action requiring confirmed version/tag/source
+      revision, selected channels, release notes, checksum/SBOM/provenance/signing policy,
+      rollback/yank policy, and post-release registry/download smoke transcripts.
+
 - [x] Session label: v1 local closeout, external-gate separation, and full-local benchmark refresh
   - Date: 2026-06-15
   - Source:
