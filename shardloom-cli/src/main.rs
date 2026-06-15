@@ -7373,7 +7373,13 @@ mod tests {
     #[test]
     fn cli_usage_execute_command_names_are_explicitly_scoped() {
         let usage = cli_usage_line();
-        let execute_commands = usage.matches("-execute").count();
+        let execute_commands = usage
+            .trim_start_matches("usage: shardloom <")
+            .trim_end_matches('>')
+            .split('|')
+            .filter_map(|fragment| fragment.split_whitespace().next())
+            .filter(|command| command.ends_with("-execute"))
+            .count();
         assert_eq!(execute_commands, 5);
         assert!(usage.contains("sql-execute"));
         assert!(usage.contains("vortex-encoded-read-execute"));

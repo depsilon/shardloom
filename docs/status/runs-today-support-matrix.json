@@ -717,7 +717,7 @@
       ],
       "blocker_id": "none",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "scoped local-manifest append commit rehearsal plus sidecar recovery replay only; no object-store/table catalog/lakehouse production commit, exactly-once recovery, distributed, performance, or fallback claim",
+      "claim_boundary": "scoped local-manifest append commit rehearsal plus optional if-match conflict evidence and sidecar recovery replay only; no object-store/table catalog/lakehouse production commit, exactly-once recovery, distributed, performance, or fallback claim",
       "runtime_execution": true,
       "data_read": false,
       "write_io": true,

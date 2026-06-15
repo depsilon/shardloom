@@ -16,6 +16,120 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PROD-READY-1C scoped local-manifest commit conflict and translation evidence
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1C` in `docs/architecture/phased-execution-plan.md`.
+    - Existing `local-table-append-commit-rehearsal-smoke` and
+      `local-table-commit-recovery-smoke` local-manifest fixture surfaces.
+    - `docs/skills/translation-layer.md`.
+  - Scope:
+    - Added `--expected-current-manifest-digest` to the scoped local-manifest append commit
+      rehearsal command.
+    - When replacing an existing local manifest artifact with `--allow-overwrite`, the command can
+      now observe the current manifest digest and fail before manifest or sidecar writes when the
+      supplied if-match digest is stale or the expected target is missing.
+    - The sidecar commit record now carries the expected/observed manifest digest and
+      existing-manifest posture.
+    - The report now emits explicit conflict-detection fields and native local-manifest translation
+      evidence for metadata, statistics, and layout loss.
+    - Broad Iceberg/Delta/Hudi writes, catalog commits, object-store table commits, exactly-once
+      recovery claims, merge/update/delete, distributed, production, performance, and external
+      engine fallback remain blocked.
+  - Closed checklist:
+    - [x] Add optional if-match digest input for scoped local-manifest overwrite-artifact commits.
+    - [x] Block stale expected-current-manifest digests before any local manifest or sidecar write.
+    - [x] Persist conflict evidence into the local sidecar commit record.
+    - [x] Add explicit table translation/no-loss evidence fields for metadata, statistics, and
+      layout.
+    - [x] Add focused regression coverage for matched and stale digest overwrite paths.
+  - Evidence fields:
+    - `expected_current_manifest_digest`.
+    - `observed_current_manifest_digest`.
+    - `optimistic_concurrency_check_performed`.
+    - `commit_conflict_detected`.
+    - `conflict_detection_status`.
+    - `table_translation_report_schema_version=shardloom.local_table_translation_report.v1`.
+    - `table_translation_report_fidelity=native_local_manifest_no_loss`.
+    - `table_translation_report_metadata_loss=false`.
+    - `table_translation_report_statistics_loss=false`.
+    - `table_translation_report_layout_loss=false`.
+    - `fallback_attempted=false`.
+    - `external_engine_invoked=false`.
+  - Evidence commands:
+    - `cargo test -p shardloom-cli --test local_table_append_commit_rehearsal_smoke`.
+  - Claim boundary:
+    - Scoped ShardLoom-owned local-manifest fixture commit evidence only.
+    - Does not promote protocol-specific Iceberg/Delta/Hudi append/overwrite writes or production
+      table commit support.
+  - Ledger note:
+    - The active plan keeps protocol-specific append/overwrite, merge/update/delete, catalog
+      commits, object-store table commits, and production table recovery as open work.
+- [x] Session label: PROD-READY-1C scoped Iceberg local data-file scan execution
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1C` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/skills/vortex/vortex-first-provider-check.md`.
+    - `docs/skills/vortex/vortex-scan-api.md`.
+    - `docs/rfcs/0031-universal-native-io-envelope.md`.
+    - Existing `iceberg-metadata-read-smoke` metadata, manifest-list, and manifest-file split-plan
+      surface.
+  - Scope:
+    - Extended `iceberg-metadata-read-smoke` with explicit `--execute-data-file-scan`.
+    - Feature-enabled builds lower admitted local Iceberg manifest-file data splits into sequential
+      local Parquet reads through
+      `shardloom_vortex::read_flat_parquet_columnar_source_with_projection`.
+    - The scan projects current Iceberg schema field names, preserves the boundary as local
+      compatibility-source columnar execution, and reports row count, batch count, bytes read,
+      projected columns, split path order, provider kind/surface, execution certificate ref, Native
+      I/O certificate ref, materialization/decode boundary, residual executor, and no-fallback
+      evidence.
+    - Remote/object-store data-file paths, non-Parquet files, delete files, deleted entries,
+      deletion-vector-shaped entries, unsafe schema/partition evolution, catalog/object-store table
+      runtime, writes/commits, broad Iceberg runtime, production claims, and performance claims
+      remain deterministic unsupported diagnostics or explicit blockers.
+  - Closed checklist:
+    - [x] Add explicit scan flag so data-file reads never happen during metadata/split planning by
+      accident.
+    - [x] Preserve manifest-file split path, local-path classification, file format, record count,
+      and declared byte evidence.
+    - [x] Execute admitted local Parquet splits sequentially through the existing scoped
+      compatibility-source columnar adapter.
+    - [x] Emit scan evidence fields, certificate refs, materialization boundary, provider
+      classification, no-fallback fields, and deterministic unsupported blockers.
+    - [x] Add default-build and feature-enabled tests for blocked and successful paths.
+  - Evidence fields:
+    - `report_id=prod-ready-1c.iceberg_local_data_file_scan_smoke`.
+    - `claim_gate_status=scoped_iceberg_local_data_file_scan_smoke`.
+    - `data_file_scan_requested=true`.
+    - `data_file_scan_execution_performed=true` for admitted local Parquet split scans.
+    - `data_file_scan_provider_decision=implement_shardloom_kernel`.
+    - `data_file_scan_provider_kind=compatibility_import`.
+    - `data_file_scan_provider_surface=shardloom_vortex::read_flat_parquet_columnar_source_with_projection`.
+    - `data_file_scan_native_io_certificate_status=certified_local_iceberg_parquet_data_file_scan`.
+    - `data_file_scan_materialization_decode_boundary=foreign_encoded_parquet_to_decoded_columnar_no_scalar_row_materialization`.
+    - `data_file_scan_residual_executor=none`.
+    - `data_file_scan_schema_projection_columns`.
+    - `data_file_scan_actual_row_count`.
+    - `planned_data_file_non_local_path_count`.
+    - `planned_data_file_non_parquet_count`.
+    - `fallback_attempted=false`.
+    - `external_engine_invoked=false`.
+  - Evidence commands:
+    - `cargo test -p shardloom-cli --test iceberg_metadata_read_smoke`.
+    - `cargo test -p shardloom-cli --features universal-format-io --test iceberg_metadata_read_smoke`.
+  - Claim boundary:
+    - May claim scoped local Iceberg data-file scan smoke execution only when explicitly requested,
+      feature-enabled, sourced from an admitted local Avro manifest file, and limited to local
+      Parquet data files with safe metadata/delete/evolution admission.
+    - May not claim broad Iceberg table runtime, external catalog integration, object-store table
+      scans, delete application, deletion-vector/Puffin reads, writes/commits, production
+      lakehouse support, Vortex-native table scan provider support, or performance.
+  - Fallback boundary:
+    - Spark, DataFusion, DuckDB, Polars, Velox, Trino, warehouse engines, Iceberg runtime engines,
+      catalog services, Vortex query-engine integrations, and platform compute remain external
+      baselines or handles, never ShardLoom execution.
+
 - [x] Session label: PROD-READY-1G scoped local Foundry-style proof reconciliation
   - Date: 2026-06-15
   - Source:

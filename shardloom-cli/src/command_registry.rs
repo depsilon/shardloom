@@ -927,7 +927,7 @@ fn command_usage_fragment(command: &str) -> String {
         }
         "local-table-append-commit-rehearsal-smoke" => {
             format!(
-                "{command} <local-committed-manifest-path> [--profile local-manifest] [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit]"
+                "{command} <local-committed-manifest-path> [--profile local-manifest] [--idempotency-key key] [--expected-current-manifest-digest digest] [--allow-overwrite] [--rollback-after-commit]"
             )
         }
         "local-table-commit-recovery-smoke" => {
@@ -937,7 +937,7 @@ fn command_usage_fragment(command: &str) -> String {
         }
         "iceberg-metadata-read-smoke" => {
             format!(
-                "{command} <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro]"
+                "{command} <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro] [--execute-data-file-scan]"
             )
         }
         "delta-log-metadata-read-smoke" => format!("{command} <delta-log-json-path>"),
@@ -1414,7 +1414,14 @@ mod tests {
         assert!(usage.contains("capabilities [sql|functions"));
         assert!(usage.contains("serve --mode discovery"));
         assert!(usage.contains("sql-execute"));
-        assert_eq!(usage.matches("-execute").count(), 5);
+        let execute_command_count = usage
+            .trim_start_matches("usage: shardloom <")
+            .trim_end_matches('>')
+            .split('|')
+            .filter_map(|fragment| fragment.split_whitespace().next())
+            .filter(|command| command.ends_with("-execute"))
+            .count();
+        assert_eq!(execute_command_count, 5);
     }
 
     #[test]

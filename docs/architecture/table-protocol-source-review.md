@@ -51,8 +51,11 @@ local Avro manifest list, summarize manifest entries, report manifest-summary pr
 manifest-level split counts, and block delete/unknown manifest content without fallback. With
 `--manifest` and `universal-format-io`, it can also read one explicit local Avro manifest file,
 parse manifest entries, report data-file split counts/bytes/records, and block deleted, delete-file,
-or unknown entries without scanning data files. It now compares metadata schemas by Iceberg field
-IDs, partition specs by partition field/spec IDs, manifest partition-spec IDs, and delete entries by
+or unknown entries by default without scanning data files. With explicit `--execute-data-file-scan`,
+the same command can lower admitted local Parquet data-file splits into a scoped sequential
+compatibility-source columnar scan with current-schema projection, row/batch/byte evidence,
+execution/Native I/O certificate refs, and no-fallback fields. It now compares metadata schemas by Iceberg field IDs,
+partition specs by partition field/spec IDs, manifest partition-spec IDs, and delete entries by
 data/position-delete/equality-delete/deletion-vector-shaped content.
 
 Delta and Hudi now have scoped metadata-only smokes, not runtime support.
@@ -68,16 +71,16 @@ instants, delta commits/log-merge requirements, replace commits, table-service a
 rollback/savepoint/restore semantics, unknown actions/states, metadata-table storage reads,
 base/log-file scans, writes/commits, and production lakehouse claims.
 
-These are metadata admission and blocker surfaces only. External Iceberg data scans, object-store
-tables, catalog runtime, writes/commits, schema projection execution, partition-filter execution,
-delete-file execution, Puffin/deletion-vector reads, Delta runtime, Hudi runtime, Nessie, Polaris,
-Gravitino, Glue-like, and Hive-like profiles remain source-reviewed or planned candidates, not
-production-supported runtime.
+These are scoped metadata, split-planning, and local Parquet scan admission surfaces only. External Iceberg data scans, object-store
+tables, catalog runtime, writes/commits, partition-filter execution, delete-file execution,
+Puffin/deletion-vector reads, Delta runtime, Hudi runtime, Nessie, Polaris, Gravitino, Glue-like,
+and Hive-like profiles remain source-reviewed or planned candidates, not production-supported
+runtime.
 
-The next Iceberg implementation step should lower planned data-file splits into ShardLoom-native
-scan execution with schema projection, partition-filter, and delete-application semantics where
-admitted. An approved no-credential REST-catalog fixture remains a candidate after
-credential/object-store and effect policy are narrowed.
+The next Iceberg implementation step should focus on proven write semantics and commit/recovery, or
+on separately admitted partition-filter/delete-application semantics where evidence can close. An
+approved no-credential REST-catalog fixture remains a candidate after credential/object-store and
+effect policy are narrowed.
 
 Glue-like and Hive-like catalog profiles are intentionally not selected for the first external
 candidate. They need separate source/profile review before implementation because their credential,

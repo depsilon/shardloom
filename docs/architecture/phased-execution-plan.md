@@ -351,9 +351,11 @@ with a recorded infeasibility reason, not merely because they are broad.
     `docs/architecture/table-protocol-source-review.md`, and primary table protocol specs.
   - Current state: external table metadata/reporting is separate from production table runtime.
     Scoped ShardLoom-owned `local-manifest` fixture evidence now covers in-memory metadata read,
-    snapshot/manifest summary, local append commit rehearsal, rollback cleanup, sidecar recovery
-    replay/mismatch diagnostics, request/byte/retry/boundedness evidence, and native
-    table-translation/no-loss posture. The first source-reviewed external profile also has a
+    snapshot/manifest summary, local append commit rehearsal, optional if-match conflict detection
+    before local artifact overwrite, rollback cleanup, sidecar recovery replay/mismatch
+    diagnostics, request/byte/retry/boundedness evidence, and explicit native
+    table-translation/no metadata/statistics/layout loss posture. The first source-reviewed
+    external profile also has a
     scoped local Iceberg table metadata JSON read smoke through `iceberg-metadata-read-smoke`: it
     reads one local metadata JSON file, selects the current, explicit, or as-of timestamp snapshot,
     reports schema/partition/sort/snapshot/manifest-list references, and blocks delete-file
@@ -369,10 +371,15 @@ with a recorded infeasibility reason, not merely because they are broad.
     delete admission classification for position deletes, equality deletes, deletion-vector-shaped
     entries, deleted data-file entries, and delete manifests. Safe ID-based schema/partition
     evolution is admitted only as metadata/split-planning evidence; projection/filter execution,
-    delete application, Puffin/deletion-vector reads, and data-file scans remain blocked. That does
-    not imply Iceberg data scans, external catalog/runtime, object-store table commit, write
-    semantics, distributed, production, or performance support. Scoped Delta/Hudi metadata readers
-    now exist through `delta-log-metadata-read-smoke` and `hudi-timeline-metadata-read-smoke`: they
+    delete application, and Puffin/deletion-vector reads remain blocked. The same command now
+    lowers admitted planned local Parquet data-file splits into an explicit
+    `--execute-data-file-scan` path when `universal-format-io` is enabled, using ShardLoom's
+    compatibility-source columnar Parquet adapter with schema projection, row/batch/byte evidence,
+    Native I/O/execution certificate refs, and deterministic blockers for remote paths,
+    non-Parquet files, delete semantics, and unsafe evolution. That does not imply broad Iceberg
+    table runtime, external catalog/runtime, object-store table scan/commit, write semantics,
+    distributed, production, or performance support. Scoped Delta/Hudi metadata readers now exist
+    through `delta-log-metadata-read-smoke` and `hudi-timeline-metadata-read-smoke`: they
     read one local Delta transaction log JSON file or one local Hudi timeline directory plus
     optional local metadata-table summary JSON, emit source-review, dependency-boundary,
     no-fallback, and unsupported-feature diagnostics, and fail closed for checkpoint replay,
@@ -399,6 +406,13 @@ with a recorded infeasibility reason, not merely because they are broad.
       rehearsal, rollback cleanup, sidecar commit recovery replay/mismatch diagnostics,
       Native I/O request/byte/retry/boundedness evidence, idempotency evidence, and native
       table-translation/no-loss posture.
+    - [x] Add scoped local-manifest overwrite-artifact guardrails: optional
+      `--expected-current-manifest-digest`, current-manifest digest observation before write,
+      deterministic conflict blockers before overwrite, commit-record evidence, and no-fallback
+      tests for matched and stale if-match digests.
+    - [x] Expand scoped local-manifest table translation evidence to explicit
+      metadata/statistics/layout loss fields so native fixture commits cannot be mistaken for lossy
+      compatibility output.
     - [x] Source-check current primary external protocol specs before external implementation:
       Iceberg, Delta, Hudi, Iceberg REST, Nessie, Polaris, and Gravitino-style APIs. Glue-like and
       Hive-like catalog profiles are not selected for the first external candidate and require
@@ -426,12 +440,18 @@ with a recorded infeasibility reason, not merely because they are broad.
       narrowing: local JSON/timeline metadata only, deterministic blockers for checkpoint replay,
       table-feature/deletion-vector/remove/CDC Delta semantics, pending/table-service/log-merge Hudi
       semantics, catalog/object-store/write/runtime paths, and no-fallback evidence.
-    - [ ] Lower planned Iceberg data-file splits into ShardLoom-native scan execution with Native
-      I/O certificates and deterministic unsupported diagnostics for unadmitted table features.
-    - [ ] Implement writes only for proven semantics: append/overwrite first; merge/update/delete
-      only after correctness, conflict, rollback, and recovery evidence exists.
-    - [ ] Add optimistic concurrency/conflict handling, commit/rollback/recovery evidence, and
-      TranslationReport coverage for metadata/statistics/layout loss.
+    - [x] Lower planned Iceberg data-file splits into ShardLoom-native scan execution as a scoped
+      ShardLoom-owned local Parquet scan with schema projection, compatibility-source
+      materialization-boundary evidence, Native I/O/execution certificate refs, and deterministic
+      unsupported diagnostics for unadmitted table features.
+    - [ ] Promote protocol-specific Iceberg/Delta/Hudi append/overwrite writes only after
+      source-spec write semantics, transaction state, recovery, conflict, and no-fallback evidence
+      exists.
+    - [ ] Keep merge/update/delete blocked until row identity, delete/tombstone application,
+      correctness, conflict, rollback, and recovery evidence exists.
+    - [ ] Add protocol-specific optimistic concurrency/conflict handling, commit/rollback/recovery
+      evidence, and TranslationReport coverage for metadata/statistics/layout loss beyond the
+      scoped ShardLoom local-manifest fixture.
     - [ ] Move closed table protocol/workload evidence and deferred protocols to the ledger after
       merge.
   - Next outcome: table support becomes a scoped runtime path instead of metadata/report-only

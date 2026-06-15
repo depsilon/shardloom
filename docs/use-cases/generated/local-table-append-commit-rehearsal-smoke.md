@@ -52,6 +52,11 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `rollback_status`
 - `cleanup_deleted_count`
 - `idempotency_key`
+- `expected_current_manifest_digest`
+- `observed_current_manifest_digest`
+- `optimistic_concurrency_check_performed`
+- `commit_conflict_detected`
+- `conflict_detection_status`
 - `commit_record_bytes`
 - `local_table_manifest_write_request_count`
 - `local_table_commit_record_write_request_count`
@@ -70,7 +75,15 @@ No current blocker is attached to this supported local smoke path beyond the cla
 - `commit_record_digest`
 - `correctness_digest`
 - `table_translation_report_status`
+- `table_translation_report_schema_version`
+- `table_translation_report_fidelity`
+- `table_translation_report_metadata_loss=false`
+- `table_translation_report_statistics_loss=false`
+- `table_translation_report_layout_loss=false`
+- `table_translation_report_loss_field_order=none`
 - `table_metadata_loss_status`
+- `table_statistics_loss_status`
+- `table_layout_loss_status`
 - `credential_resolution_performed=false`
 - `network_probe_performed=false`
 - `catalog_io_performed=false`
@@ -83,7 +96,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-A fixture-smoke report with base/append/committed snapshot ids, committed manifest and sidecar commit-record digests, idempotency, optional rollback cleanup, request/byte/retry/boundedness evidence, local-manifest Native I/O evidence, native table translation/no-loss posture, catalog/object-store/network-disabled fields, fallback_attempted=false, and external_engine_invoked=false.
+A fixture-smoke report with base/append/committed snapshot ids, committed manifest and sidecar commit-record digests, idempotency, optional if-match conflict detection for existing local manifest artifacts, optional rollback cleanup, request/byte/retry/boundedness evidence, local-manifest Native I/O evidence, native table translation/no-loss posture, catalog/object-store/network-disabled fields, fallback_attempted=false, and external_engine_invoked=false.
 
 ## Common Mistakes
 

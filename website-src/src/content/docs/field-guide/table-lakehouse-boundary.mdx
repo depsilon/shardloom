@@ -1,17 +1,17 @@
 ---
 title: "Table/lakehouse boundary"
-description: "ShardLoom can read local Iceberg metadata JSON for snapshot selection, but manifest lists, table scans, writes, and lakehouse runtime remain gated."
+description: "ShardLoom can read local Iceberg metadata, manifest summaries, manifest split plans, and explicitly requested local Parquet Iceberg data-file scans; broad lakehouse runtime remains gated."
 sidebar: {"label":"Table/lakehouse boundary"}
 ---
 
 
 <span class="status-chip status-smoke-supported">smoke_supported</span>
 
-ShardLoom can read local Iceberg metadata JSON for snapshot selection, but manifest lists, table scans, writes, and lakehouse runtime remain gated.
+ShardLoom can read local Iceberg metadata, manifest summaries, manifest split plans, and explicitly requested local Parquet Iceberg data-file scans; broad lakehouse runtime remains gated.
 
 ## Plain-English Meaning
 
-ShardLoom can read local Iceberg metadata JSON for snapshot selection, but manifest lists, table scans, writes, and lakehouse runtime remain gated.
+ShardLoom can read local Iceberg metadata, manifest summaries, manifest split plans, and explicitly requested local Parquet Iceberg data-file scans; broad lakehouse runtime remains gated.
 
 ## Why It Matters
 
@@ -19,7 +19,7 @@ This concept helps users understand how ShardLoom separates source admission, Vo
 
 ## How ShardLoom Uses It
 
-- Route: `Scoped Iceberg metadata JSON smoke; future table route`
+- Route: `Scoped Iceberg metadata/manifest/local-scan smokes; future table route`
 - Category: Platform Boundaries
 
 ## Current Support
@@ -32,8 +32,9 @@ Status: `smoke_supported`
 - `table_snapshot_id`
 - `iceberg_metadata_read_smoke_status`
 - `snapshot_selection_performed`
-- `manifest_list_read_performed=false`
-- `data_file_read_performed=false`
+- `manifest_list_read_performed`
+- `data_file_scan_execution_performed`
+- `data_file_read_performed`
 - `output_commit_status`
 
 ## What It Does Not Claim
