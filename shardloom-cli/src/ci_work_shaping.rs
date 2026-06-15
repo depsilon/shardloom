@@ -47,6 +47,34 @@ const CONTRACT_INPUTS: &[&str] = &[
     "python/pyproject.toml",
     "website/assets/benchmarks/latest/manifest.json",
 ];
+const MERGE_HARD_LANE_JOB_ORDER: &[&str] = &[
+    "rust-baseline",
+    "rust-feature-matrix",
+    "rust-msrv",
+    "python-test-shards",
+    "python-tests",
+    "python-compatibility-matrix",
+    "python-package",
+    "dependency-security",
+    "release-runtime-core",
+    "release-benchmark-claim",
+    "website-docs",
+    "release-package-governance",
+    "release-user-surface",
+    "release-readiness",
+];
+const RELEASE_PROOF_LANE_JOB_ORDER: &[&str] = &[
+    "dependency-security",
+    "python-test-shards",
+    "python-tests",
+    "python-package",
+    "release-runtime-core",
+    "release-benchmark-claim",
+    "website-docs",
+    "release-package-governance",
+    "release-user-surface",
+    "release-readiness",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CiMode {
@@ -118,6 +146,7 @@ impl ChangeFamily {
                 | Self::ReleasePackaging
                 | Self::CiWorkflow
                 | Self::DependencySecurity
+                | Self::Other
         )
     }
 
@@ -155,6 +184,7 @@ struct CiWorkShapingPlan {
     benchmark_artifact_scan_required: bool,
     website_smoke_required: bool,
     docs_only_candidate: bool,
+    unknown_path_hard_gate_required: bool,
     fingerprint: EvidenceFingerprint,
 }
 
@@ -163,6 +193,15 @@ struct EvidenceFingerprint {
     cache_key: String,
     file_read_count: usize,
     missing_input_count: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)]
+struct JobSelectionRequirements {
+    merge_hard_lane_required: bool,
+    release_proof_lane_required: bool,
+    benchmark_artifact_scan_required: bool,
+    website_smoke_required: bool,
 }
 
 pub(crate) fn handle_ci_work_shaping_plan(
@@ -266,12 +305,11 @@ fn build_plan(input: CiWorkShapingInput) -> CiWorkShapingPlan {
     }
     sort_families(&mut families);
 
-    let docs_only_candidate = families.iter().all(|family| {
-        matches!(
-            family,
-            ChangeFamily::DocsOnly | ChangeFamily::WebsiteDocs | ChangeFamily::Other
-        )
-    }) && families.contains(&ChangeFamily::DocsOnly);
+    let docs_only_candidate = families
+        .iter()
+        .all(|family| matches!(family, ChangeFamily::DocsOnly | ChangeFamily::WebsiteDocs))
+        && families.contains(&ChangeFamily::DocsOnly);
+    let unknown_path_hard_gate_required = families.contains(&ChangeFamily::Other);
     let benchmark_rerun_required = families
         .iter()
         .any(|family| family.requires_benchmark_rerun());
@@ -299,9 +337,12 @@ fn build_plan(input: CiWorkShapingInput) -> CiWorkShapingPlan {
 
     let selected_jobs = selected_jobs(
         &families,
-        benchmark_artifact_scan_required,
-        website_smoke_required,
-        release_proof_lane_required,
+        JobSelectionRequirements {
+            merge_hard_lane_required,
+            release_proof_lane_required,
+            benchmark_artifact_scan_required,
+            website_smoke_required,
+        },
     );
     let fingerprint = fingerprint(input.mode, &input.changed_paths);
 
@@ -316,6 +357,7 @@ fn build_plan(input: CiWorkShapingInput) -> CiWorkShapingPlan {
         benchmark_artifact_scan_required,
         website_smoke_required,
         docs_only_candidate,
+        unknown_path_hard_gate_required,
         fingerprint,
     }
 }
@@ -405,9 +447,7 @@ fn classify_path(path: &str) -> Vec<ChangeFamily> {
 
 fn selected_jobs(
     families: &[ChangeFamily],
-    benchmark_artifact_scan_required: bool,
-    website_smoke_required: bool,
-    release_proof_lane_required: bool,
+    requirements: JobSelectionRequirements,
 ) -> Vec<&'static str> {
     let mut jobs = vec!["ci-work-shaping", "ci-gate-matrix"];
     if families.iter().any(|family| {
@@ -426,16 +466,17 @@ fn selected_jobs(
         push_unique_str(&mut jobs, "python-tests");
         push_unique_str(&mut jobs, "python-package");
     }
-    if website_smoke_required {
+    if requirements.website_smoke_required {
         push_unique_str(&mut jobs, "website-docs");
     }
-    if benchmark_artifact_scan_required {
+    if requirements.benchmark_artifact_scan_required {
         push_unique_str(&mut jobs, "release-benchmark-claim");
     }
-    if release_proof_lane_required {
-        push_unique_str(&mut jobs, "dependency-security");
-        push_unique_str(&mut jobs, "release-package-governance");
-        push_unique_str(&mut jobs, "release-readiness");
+    if requirements.merge_hard_lane_required {
+        push_unique_strs(&mut jobs, MERGE_HARD_LANE_JOB_ORDER);
+    }
+    if requirements.release_proof_lane_required {
+        push_unique_strs(&mut jobs, RELEASE_PROOF_LANE_JOB_ORDER);
     }
     jobs
 }
@@ -531,6 +572,10 @@ fn fields(plan: &CiWorkShapingPlan) -> Vec<(String, String)> {
         (
             "docs_only_candidate".to_string(),
             plan.docs_only_candidate.to_string(),
+        ),
+        (
+            "unknown_path_hard_gate_required".to_string(),
+            plan.unknown_path_hard_gate_required.to_string(),
         ),
         (
             "pr_fast_lane_required".to_string(),
@@ -690,5 +735,11 @@ fn push_unique(families: &mut Vec<ChangeFamily>, family: ChangeFamily) {
 fn push_unique_str(values: &mut Vec<&'static str>, value: &'static str) {
     if !values.contains(&value) {
         values.push(value);
+    }
+}
+
+fn push_unique_strs(values: &mut Vec<&'static str>, candidates: &[&'static str]) {
+    for candidate in candidates {
+        push_unique_str(values, candidate);
     }
 }

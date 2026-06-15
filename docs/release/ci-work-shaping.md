@@ -63,6 +63,10 @@ recommendations. Docs-only changes keep benchmark recomputation out of the recom
 while still keeping no-fallback, unsupported-row, claim-grade, CI drift, and release-boundary
 metadata gates always on.
 
+Unknown paths classify as `other` and fail closed into the hard lane. They are not treated as
+docs-only candidates, because repo helper scripts, generated manifests, or new source trees can be
+merge-critical before the classifier knows their exact family.
+
 ## Lane Split
 
 The CI architecture remains three-lane:
@@ -70,9 +74,13 @@ The CI architecture remains three-lane:
 - `pr_fast_lane`: `ci-work-shaping`, `ci-gate-matrix`, focused Rust/Python/website/benchmark
   validators selected from the changed-file family map.
 - `merge_hard_lane`: full Rust/Python/release evidence producers and aggregate readiness checks.
+  When this lane is required, `recommended_job_order` includes the upstream producer jobs needed by
+  readiness aggregators, including Python shard/package evidence, runtime core evidence, benchmark
+  claim evidence, website evidence, package governance evidence, user-surface evidence, and final
+  release readiness.
 - `release_proof_lane`: dependency/security, package governance, release readiness, SBOM/checksum
-  and publication-boundary proof. The planner can recommend this lane, but it does not authorize
-  publication.
+  and publication-boundary proof. The planner recommends the producer jobs before the downstream
+  governance/readiness jobs, but it does not authorize publication.
 
 The fast lane never authorizes merge by itself:
 

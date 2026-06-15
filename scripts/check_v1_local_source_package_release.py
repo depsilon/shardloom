@@ -41,6 +41,10 @@ DEFERRED_ENVIRONMENT_GATES = [
     "production_live_hybrid_claim",
     "real_foundry_integration_claim",
 ]
+LOCAL_SOURCE_PACKAGE_FAIL_CLOSED_FIELDS = {
+    **fail_closed_fields(),
+    "public_package_release_claim_allowed": False,
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -102,7 +106,7 @@ def validate_contract(contract: dict[str, Any] | None) -> list[str]:
         blockers.append("selected_publication_channels must be GitHub prerelease, TestPyPI, PyPI")
     if contract.get("deferred_environment_gate_ids") != DEFERRED_ENVIRONMENT_GATES:
         blockers.append("deferred_environment_gate_ids must match the production environment gates")
-    for field, value in fail_closed_fields().items():
+    for field, value in LOCAL_SOURCE_PACKAGE_FAIL_CLOSED_FIELDS.items():
         if contract.get(field) is not value:
             blockers.append(f"contract {field} must be {value}")
     for field in (
@@ -250,8 +254,7 @@ def build_report(
             "published_benchmark_row_count"
         ),
         "blockers": blockers,
-        **fail_closed_fields(),
-        "public_package_release_claim_allowed": False,
+        **LOCAL_SOURCE_PACKAGE_FAIL_CLOSED_FIELDS,
     }
 
 
