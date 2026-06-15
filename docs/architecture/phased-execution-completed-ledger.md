@@ -16,6 +16,74 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: v1 local closeout, external-gate separation, and full-local benchmark refresh
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-V1-5A`, `PROD-READY-1B`, `PROD-READY-1C`, `PROD-READY-1D`,
+      `PROD-READY-1E`, and `PROD-READY-1G` in
+      `docs/architecture/phased-execution-plan.md`.
+    - `docs/release/package-channel-readiness-matrix.json`.
+    - `docs/release/production-certification-workloads.json`.
+    - `benchmarks/traditional_analytics/README.md`.
+  - Scope:
+    - Closed the active phase-plan queue for autonomous local v1 work and moved remaining
+      publication, package-channel, real cloud/object-store, table/lakehouse, distributed,
+      live/hybrid, Foundry, and benchmark-publication freshness requirements into an explicit
+      external approval/environment gate table.
+    - Preserved fail-closed claim boundaries: no public package/release claim, no production
+      object-store/table/distributed/live/Foundry claim, no Spark-displacement claim, no public
+      performance superiority claim, and no fallback or external-engine execution.
+    - Refreshed the full-local benchmark artifact from source revision
+      `da14452991d22118dfcdbc54217a031046370c5a` and promoted it into the committed website
+      benchmark bundle.
+    - Rebuilt the static Astro/Starlight website so the benchmark page renders the refreshed
+      artifact.
+  - Closed checklist:
+    - [x] Local package/readiness closeout retained as no-publication evidence with public
+      publication blocked pending explicit maintainer approval and channel proof.
+    - [x] Local object-store, table/lakehouse, distributed, live/hybrid, and Foundry candidate
+      scopes retained as scoped runtime/proof evidence with production claims blocked pending real
+      environments.
+    - [x] Full-local benchmark rerun completed sequentially through the documented profile.
+    - [x] Promoted benchmark artifact to `website/assets/benchmarks/latest/`,
+      `website-public/assets/benchmarks/latest/`, `website/assets/data/benchmark-evidence.json`,
+      `website-public/assets/data/benchmark-evidence.json`, and
+      `website-src/src/data/benchmark-evidence.json`.
+    - [x] Static website output rebuilt from `website-src`.
+    - [x] Phase plan rewritten so stale unchecked local implementation rows do not obscure the
+      real external gates.
+  - Evidence:
+    - `benchmarks/traditional_analytics/.venv/bin/python scripts/check_benchmark_environment.py --profile full_local`
+      passed with all required lanes available.
+    - `benchmarks/traditional_analytics/.venv/bin/python benchmarks/traditional_analytics/run.py --claim-readiness-rerun --rows 100000 --iterations 3 --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask --formats csv,jsonl,parquet,arrow-ipc,avro,orc --dataset-profile tiny_smoke --require-all-engines --output target/benchmark-artifacts/traditional-full-local.json --regenerate`
+      wrote `target/benchmark-artifacts/traditional-full-local.json`.
+    - `python3 scripts/promote_benchmark_artifact.py --profile full_local --input target/benchmark-artifacts/traditional-full-local.json`
+      promoted `website/assets/benchmarks/latest/manifest.json`.
+    - Promoted manifest: `benchmark_git_sha=da14452991d22118dfcdbc54217a031046370c5a`,
+      `generated_at_utc=2026-06-15T15:56:54.109212+00:00`,
+      `published_benchmark_row_count=1920`, `performance_claim_allowed=false`.
+    - Promoted rows: 1,200 ShardLoom rows, all `status=success`, all
+      `route_runtime_status=scoped_runtime_supported`, 600 `timing_surface=hot_runtime`, 600
+      `timing_surface=publication_proof`, zero blocked/unsupported ShardLoom rows,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json`
+      passed.
+    - `python3 scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed.
+    - `python3 scripts/check_benchmark_publish_doctor.py --manifest website/assets/benchmarks/latest/manifest.json`
+      passed completeness/mirror/row checks and remained blocked only for dirty-worktree state and
+      live pre-5J freshness, as expected before commit/publication.
+    - Static website build completed through direct Node/Astro invocation because `npm` is not on
+      the local shell PATH; `python3 scripts/check_website_readiness.py`, Astro check, and
+      `node website/validate_static_assets.js` passed.
+  - Claim boundary:
+    - Current website benchmark data is fresh for the committed source revision after this branch
+      is merged, but it remains a claim-safe evidence surface with `performance_claim_allowed=false`.
+    - Public package/release and production runtime claims require the external gates listed in
+      `docs/architecture/phased-execution-plan.md`.
+  - Fallback boundary:
+    - No Spark/DataFusion/DuckDB/Polars/Velox/Dask/Ray/pandas/PyArrow external engine was used as
+      ShardLoom fallback. External engines remain benchmark baselines only.
 - [x] Session label: PROD-READY-1D scoped local distributed fixture runtime
   - Date: 2026-06-15
   - Source:
