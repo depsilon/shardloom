@@ -35,6 +35,13 @@ discovery. It is non-recursive, admits only explicit regular local directories, 
 manifest files through the same bounded parser, rejects duplicate manifest IDs, and emits a registry
 snapshot. It does not scan default plugin paths or ambient environment locations.
 
+Manifest inspection now also exposes deterministic sandbox and runtime-admission fields. Any
+manifest that requests filesystem, network, environment, or secret host access is parseable, but
+`requires_review`; no extension code, UDF, credential lookup, network probe, dependency expansion,
+or external effect is performed. Rust-native, WASM, Python, SQL-defined, unknown, and
+external-service runtimes are classified as blocked review paths. The only non-review runtime class
+is the separately scoped built-in deterministic fixture, which is not a plugin runtime.
+
 The matrix is emitted by:
 
 - `shardloom extension-registry --format json`
@@ -138,6 +145,22 @@ extension_manifest_supported_capability_claim_count=<count>
 extension_manifest_permission_names=<comma-separated permissions>
 extension_manifest_effect_kinds=<comma-separated effects>
 extension_manifest_effect_levels=<comma-separated effect levels>
+extension_manifest_effect_execution_admission_status=metadata_only_non_executing|denied_by_default_external_effect|denied_by_default_host_access|denied_by_default_runtime
+extension_manifest_effect_execution_allowed=false
+extension_manifest_sandbox_kind=metadata_only|full_sandbox_required|none|no_network|no_filesystem|bounded_resources|unsupported
+extension_manifest_sandbox_safe_default=true|false
+extension_manifest_sandbox_admission_status=deny_by_default_no_host_access|review_required_host_access_requested|review_required_no_sandbox_declared|unsupported_sandbox_policy
+extension_manifest_sandbox_review_required=true|false
+extension_manifest_sandbox_host_access_requested=true|false
+extension_manifest_requested_host_access=none|filesystem|network|environment|secret_access|<comma-separated requested host access>
+extension_manifest_sandbox_allow_filesystem=true|false
+extension_manifest_sandbox_allow_network=true|false
+extension_manifest_sandbox_allow_environment=true|false
+extension_manifest_sandbox_allow_secret_access=true|false
+extension_manifest_abi_status=not_declared|internal_only|experimental|compatible|incompatible|not_checked|unsupported
+extension_manifest_runtime_kind=not_declared|builtin_deterministic_fixture|rust_native|wasm|python|sql_defined|external_service|unknown
+extension_manifest_runtime_admission_status=not_declared_metadata_only|builtin_fixture_only|blocked_rust_native_requires_abi_sandbox_certificate|blocked_wasm_requires_runtime_fuel_memory_timeout_sandbox|blocked_python_requires_materialization_sandbox_policy|blocked_sql_defined_requires_planner_function_registry|blocked_external_service_denied_by_default|blocked_unknown_runtime
+extension_manifest_runtime_review_required=true|false
 extension_manifest_execution_contract_complete=true|false
 extension_manifest_determinism=pure_deterministic|pure_nondeterministic|external_effect_bound|unknown|unsupported
 extension_manifest_materialization=metadata_only|encoded_native|late_materialized|materialization_required|unsupported

@@ -273,34 +273,7 @@ fn handle_extension_manifest_inspect(path_raw: &str, format: OutputFormat) -> Ex
 fn extension_inspection_report_from_manifest(
     manifest: ExtensionManifest,
 ) -> ExtensionInspectionReport {
-    let mut reasons = Vec::new();
-    if manifest.provenance.requires_review() {
-        reasons.push("license_or_provenance_review_required");
-    }
-    if manifest
-        .permissions
-        .iter()
-        .any(ExtensionPermission::is_effectful)
-    {
-        reasons.push("effectful_permission_declared");
-    }
-    if manifest
-        .effects
-        .iter()
-        .any(ExtensionEffectDeclaration::is_effectful)
-    {
-        reasons.push("effectful_operation_declared");
-    }
-    if manifest
-        .capabilities
-        .iter()
-        .any(ExtensionCapability::is_usable)
-    {
-        reasons.push("supported_capability_claim_declared");
-    }
-    if !manifest.execution_contract.production_contract_complete() {
-        reasons.push("execution_contract_incomplete");
-    }
+    let reasons = manifest.review_reason_codes();
     if reasons.is_empty() {
         let mut report = ExtensionInspectionReport::metadata_only(manifest);
         report.status = ExtensionInspectionStatus::Validated;
@@ -2026,6 +1999,12 @@ fn append_extension_manifest_permission_effect_fields(
         "extension_manifest_effects_declared",
         manifest.has_effects(),
     );
+    push_field(
+        fields,
+        "extension_manifest_effect_execution_admission_status",
+        manifest.effect_execution_admission_status(),
+    );
+    push_bool_field(fields, "extension_manifest_effect_execution_allowed", false);
     push_bool_field(
         fields,
         "extension_manifest_review_required",
@@ -2051,6 +2030,26 @@ fn append_extension_manifest_sandbox_runtime_fields(
         fields,
         "extension_manifest_sandbox_safe_default",
         manifest.sandbox.is_safe_default(),
+    );
+    push_field(
+        fields,
+        "extension_manifest_sandbox_admission_status",
+        manifest.sandbox.admission_status(),
+    );
+    push_bool_field(
+        fields,
+        "extension_manifest_sandbox_review_required",
+        manifest.sandbox.requires_review(),
+    );
+    push_bool_field(
+        fields,
+        "extension_manifest_sandbox_host_access_requested",
+        manifest.sandbox.host_access_requested(),
+    );
+    push_field(
+        fields,
+        "extension_manifest_requested_host_access",
+        &manifest.sandbox.requested_host_access_summary(),
     );
     push_bool_field(
         fields,
@@ -2086,6 +2085,16 @@ fn append_extension_manifest_sandbox_runtime_fields(
         manifest
             .runtime
             .map_or("not_declared", |runtime| runtime.as_str()),
+    );
+    push_field(
+        fields,
+        "extension_manifest_runtime_admission_status",
+        manifest.runtime_admission_status(),
+    );
+    push_bool_field(
+        fields,
+        "extension_manifest_runtime_review_required",
+        manifest.runtime_requires_review(),
     );
 }
 

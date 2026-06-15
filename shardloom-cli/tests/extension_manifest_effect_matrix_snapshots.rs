@@ -87,7 +87,36 @@ fn assert_safe_manifest_summary(output: &str) {
         "extension_manifest_effect_levels",
         "pure_deterministic"
     )));
+    assert!(output.contains(&field(
+        "extension_manifest_effect_execution_admission_status",
+        "metadata_only_non_executing"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_effect_execution_allowed",
+        "false"
+    )));
     assert!(output.contains(&field("extension_manifest_review_required", "false")));
+    assert!(output.contains(&field(
+        "extension_manifest_sandbox_admission_status",
+        "deny_by_default_no_host_access"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_sandbox_review_required",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_sandbox_host_access_requested",
+        "false"
+    )));
+    assert!(output.contains(&field("extension_manifest_requested_host_access", "none")));
+    assert!(output.contains(&field(
+        "extension_manifest_runtime_admission_status",
+        "not_declared_metadata_only"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_runtime_review_required",
+        "false"
+    )));
     assert!(output.contains(&field("extension_manifest_file_read_request_count", "1")));
     assert!(output.contains(&field(
         "extension_manifest_execution_contract_complete",
@@ -129,6 +158,60 @@ fn assert_safe_manifest_no_runtime(output: &str) {
         "false"
     )));
     assert!(output.contains(&field("extension_manifest_fallback_attempted", "false")));
+}
+
+fn assert_effectful_manifest_review_summary(output: &str) {
+    assert!(output.contains(&field(
+        "extension_manifest_inspection_status",
+        "requires_review"
+    )));
+    assert!(output.contains(&field("extension_manifest_review_required", "true")));
+    assert!(output.contains(&field(
+        "extension_manifest_provenance_requires_review",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_supported_capability_claim_count",
+        "1"
+    )));
+    assert!(output.contains(&field("extension_manifest_effects_declared", "true")));
+    assert!(output.contains(&field("extension_manifest_permission_names", "call_api")));
+    assert!(output.contains(&field("extension_manifest_effect_kinds", "api_read")));
+    assert!(output.contains(&field("extension_manifest_effect_levels", "external_read")));
+    assert!(output.contains(&field(
+        "extension_manifest_effect_execution_admission_status",
+        "denied_by_default_external_effect"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_effect_execution_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_sandbox_kind",
+        "full_sandbox_required"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_sandbox_admission_status",
+        "deny_by_default_no_host_access"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_sandbox_review_required",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_sandbox_host_access_requested",
+        "false"
+    )));
+    assert!(output.contains(&field("extension_manifest_requested_host_access", "none")));
+    assert_safe_manifest_no_runtime(output);
+    assert!(output.contains(&field(
+        "extension_manifest_credential_resolution_performed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "extension_manifest_external_engine_invoked",
+        "false"
+    )));
 }
 
 #[test]
@@ -611,47 +694,94 @@ fn extension_inspect_effectful_manifest_requires_review_without_effects() {
         "--format",
         "json",
     ]);
+    assert_effectful_manifest_review_summary(&output);
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
+fn extension_inspect_host_access_manifest_requires_review_without_effects() {
+    let temp_dir = temp_case_dir("host-access");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let manifest_path = temp_dir.join("host-access-extension.json");
+    fs::write(
+        &manifest_path,
+        r#"{
+  "schema_version": "shardloom.extension_manifest.v1",
+  "extension_id": "example.host_access",
+  "name": "Host Access Manifest",
+  "version": "0.1.0",
+  "category": "observability_exporter",
+  "license": "Apache-2.0",
+  "capabilities": [
+    {"name": "metrics_manifest", "status": "planned"}
+  ],
+  "permissions": [
+    {"permission": "read_metadata", "required": false, "reason": "metadata inspection"}
+  ],
+  "sandbox": {
+    "kind": "metadata_only",
+    "allow_filesystem": false,
+    "allow_network": true,
+    "allow_environment": false,
+    "allow_secret_access": true
+  },
+  "execution_contract": {
+    "determinism": "pure_deterministic",
+    "materialization": "metadata_only",
+    "null_behavior": "null_aware",
+    "input_dtypes": ["metadata"],
+    "output_dtype": "metadata",
+    "timeout_millis": 1000,
+    "max_memory_bytes": 16777216,
+    "max_cpu_millis": 1000,
+    "retry": "none",
+    "idempotency": "not_required",
+    "audit": "manifest_only"
+  }
+}"#,
+    )
+    .expect("manifest write");
+
+    let manifest_arg = manifest_path.to_string_lossy().to_string();
+    let output = run_json(&[
+        "extension-inspect",
+        "--manifest",
+        &manifest_arg,
+        "--format",
+        "json",
+    ]);
     assert!(output.contains(&field(
         "extension_manifest_inspection_status",
         "requires_review"
     )));
     assert!(output.contains(&field("extension_manifest_review_required", "true")));
+    assert!(output.contains(&field("extension_manifest_effects_declared", "false")));
     assert!(output.contains(&field(
-        "extension_manifest_provenance_requires_review",
+        "extension_manifest_effect_execution_admission_status",
+        "denied_by_default_host_access"
+    )));
+    assert!(output.contains(&field("extension_manifest_sandbox_safe_default", "false")));
+    assert!(output.contains(&field(
+        "extension_manifest_sandbox_admission_status",
+        "review_required_host_access_requested"
+    )));
+    assert!(output.contains(&field("extension_manifest_sandbox_review_required", "true")));
+    assert!(output.contains(&field(
+        "extension_manifest_sandbox_host_access_requested",
         "true"
     )));
     assert!(output.contains(&field(
-        "extension_manifest_supported_capability_claim_count",
-        "1"
+        "extension_manifest_requested_host_access",
+        "network,secret_access"
     )));
-    assert!(output.contains(&field("extension_manifest_effects_declared", "true")));
-    assert!(output.contains(&field("extension_manifest_permission_names", "call_api")));
-    assert!(output.contains(&field("extension_manifest_effect_kinds", "api_read")));
-    assert!(output.contains(&field("extension_manifest_effect_levels", "external_read")));
+    assert!(output.contains(&field("extension_manifest_sandbox_allow_network", "true")));
     assert!(output.contains(&field(
-        "extension_manifest_sandbox_kind",
-        "full_sandbox_required"
+        "extension_manifest_sandbox_allow_secret_access",
+        "true"
     )));
-    assert!(output.contains(&field(
-        "extension_manifest_extension_code_executed",
-        "false"
-    )));
-    assert!(output.contains(&field(
-        "extension_manifest_external_effect_executed",
-        "false"
-    )));
-    assert!(output.contains(&field(
-        "extension_manifest_credential_resolution_performed",
-        "false"
-    )));
-    assert!(output.contains(&field(
-        "extension_manifest_network_probe_performed",
-        "false"
-    )));
-    assert!(output.contains(&field(
-        "extension_manifest_external_engine_invoked",
-        "false"
-    )));
+    assert_safe_manifest_no_runtime(&output);
 
     fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
 }

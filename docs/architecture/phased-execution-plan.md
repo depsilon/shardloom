@@ -518,6 +518,11 @@ with a recorded infeasibility reason, not merely because they are broad.
     fixture is admitted. Built-in deterministic scalar UDF and embedding/vector fixtures remain
     fixture-smoke only. UDF/API/LLM/model/vector execution, network/filesystem/secret effects,
     dynamic plugin loading, dependency expansion, and plugin runtime are not production supported.
+    Manifest inspection now treats unsafe sandbox declarations, supported capability claims, and
+    non-built-in runtime requests as deterministic `requires_review` blockers and emits explicit
+    effect-execution, host-access, sandbox-admission, and runtime-admission fields while still
+    performing no extension code execution, UDF execution, credential lookup, network probe,
+    dependency expansion, fallback execution, or external-engine invocation.
   - Intake review: accepted as a v1 candidate for safe scoped subsets. Include manifest
     inspection and typed deterministic UDF/plugin/effect classes in v1 where sandboxing, denial,
     audit, timeout/resource, and no-fallback evidence can close; defer dangerous effect classes
@@ -542,11 +547,11 @@ with a recorded infeasibility reason, not merely because they are broad.
       executing extension code.
     - [x] Implement typed UDF registry for scoped scalar/aggregate/table functions with encoded
       capability vs materialization-required classification.
-    - [ ] Add sandboxing policy: Rust-native first where possible, WASM later only after ABI
+    - [x] Add sandboxing policy: Rust-native first where possible, WASM later only after ABI
       review, Python only as an explicit materialization/effect boundary.
-    - [ ] Disable network, filesystem, and secret access by default; require explicit policy and
+    - [x] Disable network, filesystem, and secret access by default; require explicit policy and
       audit evidence for any effectful operation.
-    - [ ] Ensure explain/estimate/doctor/capabilities never execute external effects.
+    - [x] Ensure explain/estimate/doctor/capabilities never execute external effects.
     - [ ] Add security tests for permission denial, timeout, memory/CPU limits, deterministic
       diagnostics, audit output, and no-fallback proof.
     - [ ] Move closed extension/UDF/effect gate evidence and deferred effect classes to the ledger
