@@ -562,6 +562,100 @@ pub(crate) fn handle_iceberg_metadata_read_smoke(
     }
 }
 
+pub(crate) fn handle_delta_log_metadata_read_smoke(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let request = match parse_delta_log_metadata_read_smoke_args(args) {
+        Ok(request) => request,
+        Err(error) => {
+            return emit_error(
+                "delta-log-metadata-read-smoke",
+                format,
+                "Delta log metadata read smoke failed",
+                &error,
+            );
+        }
+    };
+    let report = match run_delta_log_metadata_read_smoke(&request) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "delta-log-metadata-read-smoke",
+                format,
+                "Delta log metadata read smoke failed",
+                &error,
+            );
+        }
+    };
+    let has_errors = report.has_errors();
+    emit(
+        "delta-log-metadata-read-smoke",
+        format,
+        if has_errors {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "source-reviewed Delta transaction log metadata smoke".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        delta_log_metadata_read_smoke_fields(&report),
+    );
+    if has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+pub(crate) fn handle_hudi_timeline_metadata_read_smoke(
+    args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let request = match parse_hudi_timeline_metadata_read_smoke_args(args) {
+        Ok(request) => request,
+        Err(error) => {
+            return emit_error(
+                "hudi-timeline-metadata-read-smoke",
+                format,
+                "Hudi timeline metadata read smoke failed",
+                &error,
+            );
+        }
+    };
+    let report = match run_hudi_timeline_metadata_read_smoke(&request) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "hudi-timeline-metadata-read-smoke",
+                format,
+                "Hudi timeline metadata read smoke failed",
+                &error,
+            );
+        }
+    };
+    let has_errors = report.has_errors();
+    emit(
+        "hudi-timeline-metadata-read-smoke",
+        format,
+        if has_errors {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "source-reviewed Hudi timeline metadata smoke".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        hudi_timeline_metadata_read_smoke_fields(&report),
+    );
+    if has_errors {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
 pub(crate) fn handle_local_delete_tombstone_read_smoke(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
@@ -5878,6 +5972,588 @@ impl IcebergSnapshotSelectionRequest {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DeltaLogMetadataReadSmokeRequest {
+    log_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DeltaProtocolSummary {
+    protocol_action_count: usize,
+    min_reader_version: Option<u64>,
+    min_writer_version: Option<u64>,
+    reader_feature_order: Vec<String>,
+    writer_feature_order: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DeltaTableMetadataSummary {
+    metadata_action_count: usize,
+    table_id: String,
+    table_name: String,
+    schema_string_present: bool,
+    partition_column_order: Vec<String>,
+    configuration_key_order: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DeltaLogActionSummary {
+    action_line_count: usize,
+    protocol_action_count: usize,
+    metadata_action_count: usize,
+    add_action_count: usize,
+    remove_action_count: usize,
+    txn_action_count: usize,
+    commit_info_action_count: usize,
+    cdc_action_count: usize,
+    unknown_action_count: usize,
+    add_stats_action_count: usize,
+    deletion_vector_action_count: usize,
+    add_path_order: Vec<String>,
+    unknown_action_order: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DeltaLogBlockedPath {
+    CheckpointRead,
+    DataFileScan,
+    DeleteVectorApplication,
+    WriteCommit,
+    BroadDeltaRuntime,
+    LakehouseProductionClaim,
+}
+
+impl DeltaLogBlockedPath {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::CheckpointRead => "delta_checkpoint_read",
+            Self::DataFileScan => "delta_data_file_scan",
+            Self::DeleteVectorApplication => "delta_delete_vector_application",
+            Self::WriteCommit => "delta_write_commit",
+            Self::BroadDeltaRuntime => "broad_delta_runtime",
+            Self::LakehouseProductionClaim => "delta_production_lakehouse_claim",
+        }
+    }
+
+    const fn diagnostic_category(self) -> DiagnosticCategory {
+        match self {
+            Self::DataFileScan | Self::DeleteVectorApplication | Self::WriteCommit => {
+                DiagnosticCategory::Execution
+            }
+            Self::BroadDeltaRuntime => DiagnosticCategory::ExternalEffect,
+            Self::CheckpointRead | Self::LakehouseProductionClaim => DiagnosticCategory::Planning,
+        }
+    }
+
+    const fn diagnostic_code(self) -> DiagnosticCode {
+        match self {
+            Self::BroadDeltaRuntime => DiagnosticCode::ExternalEffectDisabled,
+            Self::CheckpointRead
+            | Self::DataFileScan
+            | Self::DeleteVectorApplication
+            | Self::WriteCommit
+            | Self::LakehouseProductionClaim => DiagnosticCode::NotImplemented,
+        }
+    }
+
+    fn to_diagnostic(self) -> Diagnostic {
+        Diagnostic::new(
+            self.diagnostic_code(),
+            DiagnosticSeverity::Info,
+            self.diagnostic_category(),
+            format!(
+                "{} remains blocked outside the Delta log metadata smoke scope",
+                self.as_str()
+            ),
+            Some(self.as_str().to_string()),
+            Some(
+                "The smoke reads one local Delta transaction log JSON file and summarizes admitted metadata actions only."
+                    .to_string(),
+            ),
+            Some(
+                "Keep checkpoint replay, data-file scans, deletion-vector application, commits, and production lakehouse claims blocked until dedicated runtime evidence lands."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+struct DeltaLogMetadataReadSmokeReport {
+    schema_version: &'static str,
+    report_id: &'static str,
+    phase_id: &'static str,
+    support_status: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+    source_protocol: &'static str,
+    source_review_ref: &'static str,
+    log_path: String,
+    log_bytes_read: usize,
+    protocol_summary: DeltaProtocolSummary,
+    table_metadata_summary: DeltaTableMetadataSummary,
+    action_summary: DeltaLogActionSummary,
+    metadata_summary: String,
+    metadata_summary_digest: String,
+    correctness_refs: &'static str,
+    execution_certificate_refs: &'static str,
+    native_io_certificate_refs: &'static str,
+    materialization_decode_refs: &'static str,
+    dependency_boundary_refs: &'static str,
+    local_delta_log_json_read_performed: bool,
+    delta_log_action_parse_performed: bool,
+    checkpoint_read_performed: bool,
+    data_file_read_performed: bool,
+    write_io_performed: bool,
+    catalog_io_performed: bool,
+    object_store_io_performed: bool,
+    credential_resolution_performed: bool,
+    external_table_format_dependency_invoked: bool,
+    fallback_attempted: bool,
+    fallback_execution_allowed: bool,
+    external_engine_invoked: bool,
+    performance_claim_allowed: bool,
+    production_table_catalog_claim_allowed: bool,
+    lakehouse_claim_allowed: bool,
+    unsupported_feature_order: Vec<&'static str>,
+    blocked_paths: Vec<DeltaLogBlockedPath>,
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl DeltaLogMetadataReadSmokeReport {
+    fn runtime_supported(&self) -> bool {
+        self.support_status == "runtime_supported"
+            && self.local_delta_log_json_read_performed
+            && self.delta_log_action_parse_performed
+            && self.unsupported_feature_order.is_empty()
+    }
+
+    fn claim_scoped(&self) -> bool {
+        self.claim_gate_status == "scoped_delta_transaction_log_metadata_smoke_only"
+            && !self.performance_claim_allowed
+            && !self.production_table_catalog_claim_allowed
+            && !self.lakehouse_claim_allowed
+    }
+
+    fn side_effect_free_except_local_log_read(&self) -> bool {
+        self.local_delta_log_json_read_performed
+            && self.delta_log_action_parse_performed
+            && !self.checkpoint_read_performed
+            && !self.data_file_read_performed
+            && !self.write_io_performed
+            && !self.catalog_io_performed
+            && !self.object_store_io_performed
+            && !self.credential_resolution_performed
+            && !self.external_table_format_dependency_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    fn unsupported_diagnostic_count(&self) -> usize {
+        self.blocked_paths
+            .iter()
+            .filter(|path| {
+                self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == path.diagnostic_code()
+                        && diagnostic.category == path.diagnostic_category()
+                        && diagnostic.severity == DiagnosticSeverity::Info
+                        && diagnostic.feature.as_deref() == Some(path.as_str())
+                        && !diagnostic.fallback.attempted
+                        && !diagnostic.fallback.allowed
+                })
+            })
+            .count()
+    }
+
+    fn deterministic_unsupported_diagnostics_ready(&self) -> bool {
+        !self.blocked_paths.is_empty()
+            && self.unsupported_diagnostic_count() == self.blocked_paths.len()
+    }
+
+    fn blocked_path_order(&self) -> Vec<&'static str> {
+        self.blocked_paths
+            .iter()
+            .map(|path| path.as_str())
+            .collect()
+    }
+
+    fn unsupported_feature_order_text(&self) -> String {
+        if self.unsupported_feature_order.is_empty() {
+            "none".to_string()
+        } else {
+            self.unsupported_feature_order.join(",")
+        }
+    }
+
+    fn has_errors(&self) -> bool {
+        !self.runtime_supported()
+            || !self.claim_scoped()
+            || !self.side_effect_free_except_local_log_read()
+            || !self.deterministic_unsupported_diagnostics_ready()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    fn to_human_text(&self) -> String {
+        format!(
+            "schema_version: {}\nreport_id: {}\nphase_id: {}\nsupport_status: {}\nclaim_gate_status: {}\nsource_protocol: {}\nlog_path: {}\nmin_reader_version: {}\nmin_writer_version: {}\naction_lines: {}\nadd_actions: {}\nremove_actions: {}\ndeletion_vector_actions: {}\nunsupported_features: {}\nfallback_attempted: {}\nexternal_engine_invoked: {}\n",
+            self.schema_version,
+            self.report_id,
+            self.phase_id,
+            self.support_status,
+            self.claim_gate_status,
+            self.source_protocol,
+            self.log_path,
+            optional_u64_text(self.protocol_summary.min_reader_version),
+            optional_u64_text(self.protocol_summary.min_writer_version),
+            self.action_summary.action_line_count,
+            self.action_summary.add_action_count,
+            self.action_summary.remove_action_count,
+            self.action_summary.deletion_vector_action_count,
+            self.unsupported_feature_order_text(),
+            self.fallback_attempted,
+            self.external_engine_invoked
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct HudiTimelineMetadataReadSmokeRequest {
+    timeline_dir: String,
+    metadata_json_path: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct HudiTimelineActionSummary {
+    timeline_entry_count: usize,
+    requested_instant_count: usize,
+    inflight_instant_count: usize,
+    completed_instant_count: usize,
+    commit_action_count: usize,
+    delta_commit_action_count: usize,
+    replace_commit_action_count: usize,
+    clean_action_count: usize,
+    compaction_action_count: usize,
+    log_compaction_action_count: usize,
+    clustering_action_count: usize,
+    indexing_action_count: usize,
+    rollback_action_count: usize,
+    savepoint_action_count: usize,
+    restore_action_count: usize,
+    unknown_action_count: usize,
+    unknown_state_count: usize,
+    instant_order: Vec<String>,
+    unknown_action_order: Vec<String>,
+    unknown_state_order: Vec<String>,
+}
+
+impl HudiTimelineActionSummary {
+    fn pending_instant_count(&self) -> usize {
+        self.requested_instant_count
+            .saturating_add(self.inflight_instant_count)
+    }
+
+    fn table_service_action_count(&self) -> usize {
+        self.clean_action_count
+            .saturating_add(self.compaction_action_count)
+            .saturating_add(self.log_compaction_action_count)
+            .saturating_add(self.clustering_action_count)
+            .saturating_add(self.indexing_action_count)
+    }
+
+    fn rollback_like_action_count(&self) -> usize {
+        self.rollback_action_count
+            .saturating_add(self.savepoint_action_count)
+            .saturating_add(self.restore_action_count)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct HudiMetadataTableSummary {
+    metadata_json_path: Option<String>,
+    metadata_json_bytes_read: usize,
+    metadata_table_availability: HudiMetadataTableAvailability,
+    partition_order: Vec<String>,
+    unknown_partition_count: usize,
+    unknown_partition_order: Vec<String>,
+    files_count: usize,
+    column_stats_file_count: usize,
+    record_index_file_count: usize,
+}
+
+impl HudiMetadataTableSummary {
+    fn metadata_table_enabled(&self) -> bool {
+        self.metadata_table_availability.is_enabled()
+    }
+
+    fn has_partition(&self, expected: &str) -> bool {
+        self.partition_order
+            .iter()
+            .any(|partition| partition == expected)
+    }
+
+    fn files_partition_present(&self) -> bool {
+        self.has_partition("files")
+    }
+
+    fn column_stats_partition_present(&self) -> bool {
+        self.has_partition("column_stats")
+    }
+
+    fn record_index_partition_present(&self) -> bool {
+        self.has_partition("record_index")
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HudiMetadataTableAvailability {
+    NotProvided,
+    Disabled,
+    Enabled,
+}
+
+impl HudiMetadataTableAvailability {
+    fn from_optional_flag(metadata_table_enabled: bool) -> Self {
+        if metadata_table_enabled {
+            Self::Enabled
+        } else {
+            Self::Disabled
+        }
+    }
+
+    const fn is_enabled(self) -> bool {
+        matches!(self, Self::Enabled)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HudiTimelineBlockedPath {
+    BaseFileScan,
+    LogFileMerge,
+    MetadataTableReadFromStorage,
+    TableServiceExecution,
+    WriteCommit,
+    BroadHudiRuntime,
+    LakehouseProductionClaim,
+}
+
+impl HudiTimelineBlockedPath {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::BaseFileScan => "hudi_base_file_scan",
+            Self::LogFileMerge => "hudi_log_file_merge",
+            Self::MetadataTableReadFromStorage => "hudi_metadata_table_storage_read",
+            Self::TableServiceExecution => "hudi_table_service_execution",
+            Self::WriteCommit => "hudi_write_commit",
+            Self::BroadHudiRuntime => "broad_hudi_runtime",
+            Self::LakehouseProductionClaim => "hudi_production_lakehouse_claim",
+        }
+    }
+
+    const fn diagnostic_category(self) -> DiagnosticCategory {
+        match self {
+            Self::BaseFileScan
+            | Self::LogFileMerge
+            | Self::TableServiceExecution
+            | Self::WriteCommit => DiagnosticCategory::Execution,
+            Self::BroadHudiRuntime => DiagnosticCategory::ExternalEffect,
+            Self::MetadataTableReadFromStorage | Self::LakehouseProductionClaim => {
+                DiagnosticCategory::Planning
+            }
+        }
+    }
+
+    const fn diagnostic_code(self) -> DiagnosticCode {
+        match self {
+            Self::BroadHudiRuntime => DiagnosticCode::ExternalEffectDisabled,
+            Self::BaseFileScan
+            | Self::LogFileMerge
+            | Self::MetadataTableReadFromStorage
+            | Self::TableServiceExecution
+            | Self::WriteCommit
+            | Self::LakehouseProductionClaim => DiagnosticCode::NotImplemented,
+        }
+    }
+
+    fn to_diagnostic(self) -> Diagnostic {
+        Diagnostic::new(
+            self.diagnostic_code(),
+            DiagnosticSeverity::Info,
+            self.diagnostic_category(),
+            format!(
+                "{} remains blocked outside the Hudi timeline metadata smoke scope",
+                self.as_str()
+            ),
+            Some(self.as_str().to_string()),
+            Some(
+                "The smoke reads local Hudi timeline filenames and, when provided, one local metadata-table summary JSON fixture."
+                    .to_string(),
+            ),
+            Some(
+                "Keep base-file scans, log merging, metadata-table storage reads, table services, commits, and production lakehouse claims blocked until dedicated runtime evidence lands."
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+struct HudiTimelineMetadataReadSmokeReport {
+    schema_version: &'static str,
+    report_id: &'static str,
+    phase_id: &'static str,
+    support_status: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+    source_protocol: &'static str,
+    source_review_ref: &'static str,
+    timeline_dir: String,
+    timeline_file_count: usize,
+    timeline_bytes_read: usize,
+    action_summary: HudiTimelineActionSummary,
+    metadata_table_summary: HudiMetadataTableSummary,
+    metadata_summary: String,
+    metadata_summary_digest: String,
+    correctness_refs: &'static str,
+    execution_certificate_refs: &'static str,
+    native_io_certificate_refs: &'static str,
+    materialization_decode_refs: &'static str,
+    dependency_boundary_refs: &'static str,
+    local_timeline_directory_read_performed: bool,
+    timeline_filename_parse_performed: bool,
+    metadata_table_summary_json_read_performed: bool,
+    metadata_table_storage_read_performed: bool,
+    base_file_read_performed: bool,
+    log_file_read_performed: bool,
+    table_service_execution_performed: bool,
+    write_io_performed: bool,
+    catalog_io_performed: bool,
+    object_store_io_performed: bool,
+    credential_resolution_performed: bool,
+    external_table_format_dependency_invoked: bool,
+    fallback_attempted: bool,
+    fallback_execution_allowed: bool,
+    external_engine_invoked: bool,
+    performance_claim_allowed: bool,
+    production_table_catalog_claim_allowed: bool,
+    lakehouse_claim_allowed: bool,
+    unsupported_feature_order: Vec<&'static str>,
+    blocked_paths: Vec<HudiTimelineBlockedPath>,
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl HudiTimelineMetadataReadSmokeReport {
+    fn runtime_supported(&self) -> bool {
+        self.support_status == "runtime_supported"
+            && self.local_timeline_directory_read_performed
+            && self.timeline_filename_parse_performed
+            && self.unsupported_feature_order.is_empty()
+    }
+
+    fn claim_scoped(&self) -> bool {
+        self.claim_gate_status == "scoped_hudi_timeline_metadata_smoke_only"
+            && !self.performance_claim_allowed
+            && !self.production_table_catalog_claim_allowed
+            && !self.lakehouse_claim_allowed
+    }
+
+    fn side_effect_free_except_declared_local_metadata_reads(&self) -> bool {
+        self.local_timeline_directory_read_performed
+            && self.timeline_filename_parse_performed
+            && !self.metadata_table_storage_read_performed
+            && !self.base_file_read_performed
+            && !self.log_file_read_performed
+            && !self.table_service_execution_performed
+            && !self.write_io_performed
+            && !self.catalog_io_performed
+            && !self.object_store_io_performed
+            && !self.credential_resolution_performed
+            && !self.external_table_format_dependency_invoked
+            && !self.fallback_attempted
+            && !self.fallback_execution_allowed
+            && !self.external_engine_invoked
+    }
+
+    fn unsupported_diagnostic_count(&self) -> usize {
+        self.blocked_paths
+            .iter()
+            .filter(|path| {
+                self.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == path.diagnostic_code()
+                        && diagnostic.category == path.diagnostic_category()
+                        && diagnostic.severity == DiagnosticSeverity::Info
+                        && diagnostic.feature.as_deref() == Some(path.as_str())
+                        && !diagnostic.fallback.attempted
+                        && !diagnostic.fallback.allowed
+                })
+            })
+            .count()
+    }
+
+    fn deterministic_unsupported_diagnostics_ready(&self) -> bool {
+        !self.blocked_paths.is_empty()
+            && self.unsupported_diagnostic_count() == self.blocked_paths.len()
+    }
+
+    fn blocked_path_order(&self) -> Vec<&'static str> {
+        self.blocked_paths
+            .iter()
+            .map(|path| path.as_str())
+            .collect()
+    }
+
+    fn unsupported_feature_order_text(&self) -> String {
+        if self.unsupported_feature_order.is_empty() {
+            "none".to_string()
+        } else {
+            self.unsupported_feature_order.join(",")
+        }
+    }
+
+    fn has_errors(&self) -> bool {
+        !self.runtime_supported()
+            || !self.claim_scoped()
+            || !self.side_effect_free_except_declared_local_metadata_reads()
+            || !self.deterministic_unsupported_diagnostics_ready()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+
+    fn to_human_text(&self) -> String {
+        format!(
+            "schema_version: {}\nreport_id: {}\nphase_id: {}\nsupport_status: {}\nclaim_gate_status: {}\nsource_protocol: {}\ntimeline_dir: {}\ntimeline_entries: {}\ncompleted_instants: {}\npending_instants: {}\nmetadata_table_enabled: {}\nmetadata_table_summary_json_read_performed: {}\nunsupported_features: {}\nfallback_attempted: {}\nexternal_engine_invoked: {}\n",
+            self.schema_version,
+            self.report_id,
+            self.phase_id,
+            self.support_status,
+            self.claim_gate_status,
+            self.source_protocol,
+            self.timeline_dir,
+            self.action_summary.timeline_entry_count,
+            self.action_summary.completed_instant_count,
+            self.action_summary.pending_instant_count(),
+            self.metadata_table_summary.metadata_table_enabled(),
+            self.metadata_table_summary_json_read_performed,
+            self.unsupported_feature_order_text(),
+            self.fallback_attempted,
+            self.external_engine_invoked
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum IcebergMetadataBlockedPath {
     ExternalCatalogResolution,
@@ -6508,10 +7184,14 @@ fn run_iceberg_metadata_read_smoke(
 }
 
 fn reject_non_local_metadata_path(path: &str) -> Result<(), ShardLoomError> {
+    reject_non_local_metadata_path_for(path, "iceberg-metadata-read-smoke")
+}
+
+fn reject_non_local_metadata_path_for(path: &str, command: &str) -> Result<(), ShardLoomError> {
     if path.contains("://") && !path.starts_with("file://") {
-        return Err(ShardLoomError::InvalidOperation(
-            "iceberg-metadata-read-smoke only accepts local metadata JSON paths".to_string(),
-        ));
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{command} only accepts local metadata paths"
+        )));
     }
     Ok(())
 }
@@ -6525,6 +7205,893 @@ fn parse_iceberg_metadata_json(
     value.as_object().cloned().ok_or_else(|| {
         ShardLoomError::InvalidOperation("Iceberg metadata JSON must be an object".to_string())
     })
+}
+
+fn parse_delta_log_metadata_read_smoke_args(
+    args: impl Iterator<Item = String>,
+) -> Result<DeltaLogMetadataReadSmokeRequest, ShardLoomError> {
+    let mut log_path = None;
+    for arg in args {
+        if arg.starts_with("--") {
+            return Err(cli_unknown_arg_error("delta-log-metadata-read-smoke", &arg));
+        }
+        if log_path.is_some() {
+            return Err(ShardLoomError::InvalidOperation(
+                "usage: shardloom delta-log-metadata-read-smoke <delta-log-json-path>".to_string(),
+            ));
+        }
+        log_path = Some(arg);
+    }
+    let log_path = log_path.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "usage: shardloom delta-log-metadata-read-smoke <delta-log-json-path>".to_string(),
+        )
+    })?;
+    Ok(DeltaLogMetadataReadSmokeRequest { log_path })
+}
+
+fn run_delta_log_metadata_read_smoke(
+    request: &DeltaLogMetadataReadSmokeRequest,
+) -> Result<DeltaLogMetadataReadSmokeReport, ShardLoomError> {
+    reject_non_local_metadata_path_for(&request.log_path, "delta-log-metadata-read-smoke")?;
+    let log = fs::read_to_string(Path::new(&request.log_path)).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read Delta transaction log JSON {}: {error}",
+            request.log_path
+        ))
+    })?;
+    let actions = parse_delta_log_json_lines(&log, &request.log_path)?;
+    let protocol_summary = delta_protocol_summary(&actions);
+    let table_metadata_summary = delta_table_metadata_summary(&actions);
+    let action_summary = delta_log_action_summary(&actions);
+    let unsupported_feature_order = delta_log_unsupported_feature_order(
+        &protocol_summary,
+        &table_metadata_summary,
+        &action_summary,
+    );
+    let blocked_paths = delta_log_blocked_paths();
+    let diagnostics = delta_log_metadata_diagnostics(&blocked_paths, &unsupported_feature_order);
+    let metadata_summary =
+        delta_log_metadata_summary(&protocol_summary, &table_metadata_summary, &action_summary);
+    Ok(DeltaLogMetadataReadSmokeReport {
+        schema_version: "shardloom.delta_log_metadata_read_smoke.v1",
+        report_id: "prod-ready-1c.delta_transaction_log_metadata_smoke",
+        phase_id: "PROD-READY-1C",
+        support_status: delta_log_support_status(&unsupported_feature_order),
+        claim_gate_status: "scoped_delta_transaction_log_metadata_smoke_only",
+        claim_boundary: "one local Delta transaction log JSON read and metadata action summary only; no checkpoint replay, data-file scan, deletion-vector application, write/commit, production lakehouse, or performance claim",
+        source_protocol: "delta_transaction_log_protocol",
+        source_review_ref: "docs/architecture/table-protocol-source-review.md",
+        log_path: request.log_path.clone(),
+        log_bytes_read: log.len(),
+        protocol_summary,
+        table_metadata_summary,
+        metadata_summary_digest: iceberg_metadata_digest(&metadata_summary),
+        metadata_summary,
+        action_summary,
+        correctness_refs: "shardloom-cli::workflow_planning::delta_log_metadata_read_smoke",
+        execution_certificate_refs: "shardloom-cli/tests/delta_hudi_metadata_read_smoke.rs",
+        native_io_certificate_refs: "local_delta_transaction_log_json_read_only_no_checkpoint_no_object_store_native_io_certificate",
+        materialization_decode_refs: "delta_log_metadata_json_decode_only_no_data_file_decode_no_row_materialization",
+        dependency_boundary_refs: "serde_json_only_no_delta_runtime_dependency_no_external_engine",
+        local_delta_log_json_read_performed: true,
+        delta_log_action_parse_performed: true,
+        checkpoint_read_performed: false,
+        data_file_read_performed: false,
+        write_io_performed: false,
+        catalog_io_performed: false,
+        object_store_io_performed: false,
+        credential_resolution_performed: false,
+        external_table_format_dependency_invoked: false,
+        fallback_attempted: false,
+        fallback_execution_allowed: false,
+        external_engine_invoked: false,
+        performance_claim_allowed: false,
+        production_table_catalog_claim_allowed: false,
+        lakehouse_claim_allowed: false,
+        unsupported_feature_order,
+        blocked_paths,
+        diagnostics,
+    })
+}
+
+fn parse_delta_log_json_lines(
+    log: &str,
+    path: &str,
+) -> Result<Vec<serde_json::Map<String, serde_json::Value>>, ShardLoomError> {
+    let mut actions = Vec::new();
+    for (line_index, line) in log.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let value: serde_json::Value = serde_json::from_str(trimmed).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "invalid Delta transaction log JSON at {} line {}: {error}",
+                path,
+                line_index + 1
+            ))
+        })?;
+        let object = value.as_object().cloned().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "Delta transaction log JSON at {} line {} must be an object",
+                path,
+                line_index + 1
+            ))
+        })?;
+        actions.push(object);
+    }
+    if actions.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "Delta transaction log JSON {path} did not contain any action lines"
+        )));
+    }
+    Ok(actions)
+}
+
+fn delta_protocol_summary(
+    actions: &[serde_json::Map<String, serde_json::Value>],
+) -> DeltaProtocolSummary {
+    let mut summary = DeltaProtocolSummary {
+        protocol_action_count: 0,
+        min_reader_version: None,
+        min_writer_version: None,
+        reader_feature_order: Vec::new(),
+        writer_feature_order: Vec::new(),
+    };
+    for protocol in actions.iter().filter_map(|action| {
+        action
+            .get("protocol")
+            .and_then(serde_json::Value::as_object)
+    }) {
+        summary.protocol_action_count += 1;
+        summary.min_reader_version = max_optional_u64(
+            summary.min_reader_version,
+            protocol
+                .get("minReaderVersion")
+                .and_then(serde_json::Value::as_u64),
+        );
+        summary.min_writer_version = max_optional_u64(
+            summary.min_writer_version,
+            protocol
+                .get("minWriterVersion")
+                .and_then(serde_json::Value::as_u64),
+        );
+        append_json_string_array_unique(
+            &mut summary.reader_feature_order,
+            protocol.get("readerFeatures"),
+        );
+        append_json_string_array_unique(
+            &mut summary.writer_feature_order,
+            protocol.get("writerFeatures"),
+        );
+    }
+    summary
+}
+
+fn max_optional_u64(current: Option<u64>, candidate: Option<u64>) -> Option<u64> {
+    match (current, candidate) {
+        (Some(current), Some(candidate)) => Some(current.max(candidate)),
+        (Some(current), None) => Some(current),
+        (None, Some(candidate)) => Some(candidate),
+        (None, None) => None,
+    }
+}
+
+fn append_json_string_array_unique(values: &mut Vec<String>, value: Option<&serde_json::Value>) {
+    if let Some(array) = value.and_then(serde_json::Value::as_array) {
+        for entry in array.iter().filter_map(serde_json::Value::as_str) {
+            push_unique_string(values, entry);
+        }
+    }
+}
+
+fn delta_table_metadata_summary(
+    actions: &[serde_json::Map<String, serde_json::Value>],
+) -> DeltaTableMetadataSummary {
+    let mut summary = DeltaTableMetadataSummary {
+        metadata_action_count: 0,
+        table_id: "none".to_string(),
+        table_name: "none".to_string(),
+        schema_string_present: false,
+        partition_column_order: Vec::new(),
+        configuration_key_order: Vec::new(),
+    };
+    for metadata in actions.iter().filter_map(|action| {
+        action
+            .get("metaData")
+            .and_then(serde_json::Value::as_object)
+    }) {
+        summary.metadata_action_count += 1;
+        summary.table_id = metadata
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("none")
+            .to_string();
+        summary.table_name = metadata
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("none")
+            .to_string();
+        summary.schema_string_present = metadata
+            .get("schemaString")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|schema| !schema.trim().is_empty());
+        summary.partition_column_order.clear();
+        append_json_string_array_unique(
+            &mut summary.partition_column_order,
+            metadata.get("partitionColumns"),
+        );
+        summary.configuration_key_order = metadata
+            .get("configuration")
+            .and_then(serde_json::Value::as_object)
+            .map_or_else(Vec::new, sorted_json_object_keys);
+    }
+    summary
+}
+
+fn sorted_json_object_keys(object: &serde_json::Map<String, serde_json::Value>) -> Vec<String> {
+    let mut keys = object.keys().cloned().collect::<Vec<_>>();
+    keys.sort();
+    keys
+}
+
+fn delta_log_action_summary(
+    actions: &[serde_json::Map<String, serde_json::Value>],
+) -> DeltaLogActionSummary {
+    let mut summary = DeltaLogActionSummary {
+        action_line_count: actions.len(),
+        protocol_action_count: 0,
+        metadata_action_count: 0,
+        add_action_count: 0,
+        remove_action_count: 0,
+        txn_action_count: 0,
+        commit_info_action_count: 0,
+        cdc_action_count: 0,
+        unknown_action_count: 0,
+        add_stats_action_count: 0,
+        deletion_vector_action_count: 0,
+        add_path_order: Vec::new(),
+        unknown_action_order: Vec::new(),
+    };
+    for action in actions {
+        for (key, value) in action {
+            observe_delta_log_action(&mut summary, key, value);
+        }
+    }
+    summary
+}
+
+fn observe_delta_log_action(
+    summary: &mut DeltaLogActionSummary,
+    key: &str,
+    value: &serde_json::Value,
+) {
+    match key {
+        "protocol" => summary.protocol_action_count += 1,
+        "metaData" => summary.metadata_action_count += 1,
+        "add" => observe_delta_add_action(summary, value),
+        "remove" => observe_delta_remove_action(summary, value),
+        "txn" => summary.txn_action_count += 1,
+        "commitInfo" => summary.commit_info_action_count += 1,
+        "cdc" => summary.cdc_action_count += 1,
+        _ => {
+            summary.unknown_action_count += 1;
+            push_unique_string(&mut summary.unknown_action_order, key);
+        }
+    }
+}
+
+fn observe_delta_add_action(summary: &mut DeltaLogActionSummary, value: &serde_json::Value) {
+    summary.add_action_count += 1;
+    if let Some(add) = value.as_object() {
+        if add.contains_key("stats") {
+            summary.add_stats_action_count += 1;
+        }
+        if add.contains_key("deletionVector") {
+            summary.deletion_vector_action_count += 1;
+        }
+        if let Some(path) = add.get("path").and_then(serde_json::Value::as_str) {
+            push_unique_string(&mut summary.add_path_order, path);
+        }
+    }
+}
+
+fn observe_delta_remove_action(summary: &mut DeltaLogActionSummary, value: &serde_json::Value) {
+    summary.remove_action_count += 1;
+    if value
+        .as_object()
+        .is_some_and(|remove| remove.contains_key("deletionVector"))
+    {
+        summary.deletion_vector_action_count += 1;
+    }
+}
+
+fn delta_log_unsupported_feature_order(
+    protocol: &DeltaProtocolSummary,
+    metadata: &DeltaTableMetadataSummary,
+    actions: &DeltaLogActionSummary,
+) -> Vec<&'static str> {
+    let mut features = Vec::new();
+    if protocol.protocol_action_count == 0 {
+        features.push("missing_protocol_action");
+    }
+    if metadata.metadata_action_count == 0 {
+        features.push("missing_metadata_action");
+    }
+    if protocol
+        .min_reader_version
+        .is_some_and(|version| version > 1)
+    {
+        features.push("delta_min_reader_version_gt_1");
+    }
+    if protocol
+        .min_writer_version
+        .is_some_and(|version| version > 2)
+    {
+        features.push("delta_min_writer_version_gt_2");
+    }
+    if !protocol.reader_feature_order.is_empty() {
+        features.push("delta_reader_features_present");
+    }
+    if !protocol.writer_feature_order.is_empty() {
+        features.push("delta_writer_features_present");
+    }
+    if actions.remove_action_count > 0 {
+        features.push("delta_remove_actions_present");
+    }
+    if actions.deletion_vector_action_count > 0 {
+        features.push("delta_deletion_vectors_present");
+    }
+    if actions.cdc_action_count > 0 {
+        features.push("delta_cdc_actions_present");
+    }
+    if actions.unknown_action_count > 0 {
+        features.push("delta_unknown_actions_present");
+    }
+    features
+}
+
+fn delta_log_blocked_paths() -> Vec<DeltaLogBlockedPath> {
+    vec![
+        DeltaLogBlockedPath::CheckpointRead,
+        DeltaLogBlockedPath::DataFileScan,
+        DeltaLogBlockedPath::DeleteVectorApplication,
+        DeltaLogBlockedPath::WriteCommit,
+        DeltaLogBlockedPath::BroadDeltaRuntime,
+        DeltaLogBlockedPath::LakehouseProductionClaim,
+    ]
+}
+
+fn delta_log_metadata_diagnostics(
+    blocked_paths: &[DeltaLogBlockedPath],
+    unsupported_feature_order: &[&'static str],
+) -> Vec<Diagnostic> {
+    let mut diagnostics = blocked_paths
+        .iter()
+        .map(|path| path.to_diagnostic())
+        .collect::<Vec<_>>();
+    diagnostics.extend(delta_log_unsupported_feature_diagnostics(
+        unsupported_feature_order,
+    ));
+    diagnostics
+}
+
+fn delta_log_unsupported_feature_diagnostics(features: &[&'static str]) -> Vec<Diagnostic> {
+    features
+        .iter()
+        .map(|feature| {
+            Diagnostic::new(
+                DiagnosticCode::NotImplemented,
+                DiagnosticSeverity::Error,
+                DiagnosticCategory::UnsupportedFeature,
+                format!("Delta log metadata feature {feature} is not admitted for runtime support"),
+                Some((*feature).to_string()),
+                Some(
+                    "The local Delta log smoke parsed the transaction log but found an unadmitted feature."
+                        .to_string(),
+                ),
+                Some(
+                    "Keep the request blocked until the phased table runtime item adds correctness and no-fallback evidence for this feature."
+                        .to_string(),
+                ),
+                FallbackStatus::disabled_by_policy(),
+            )
+        })
+        .collect()
+}
+
+fn delta_log_support_status(unsupported_feature_order: &[&'static str]) -> &'static str {
+    if unsupported_feature_order.is_empty() {
+        "runtime_supported"
+    } else {
+        "unsupported_delta_log_features"
+    }
+}
+
+fn delta_log_metadata_summary(
+    protocol: &DeltaProtocolSummary,
+    metadata: &DeltaTableMetadataSummary,
+    actions: &DeltaLogActionSummary,
+) -> String {
+    format!(
+        "protocol=delta min_reader_version={} min_writer_version={} table_id={} metadata_actions={} action_lines={} add_actions={} remove_actions={} cdc_actions={} deletion_vector_actions={} reader_features={} writer_features={} checkpoint_read=false data_file_read=false fallback_attempted=false external_engine_invoked=false",
+        optional_u64_text(protocol.min_reader_version),
+        optional_u64_text(protocol.min_writer_version),
+        metadata.table_id,
+        metadata.metadata_action_count,
+        actions.action_line_count,
+        actions.add_action_count,
+        actions.remove_action_count,
+        actions.cdc_action_count,
+        actions.deletion_vector_action_count,
+        protocol.reader_feature_order.join(","),
+        protocol.writer_feature_order.join(","),
+    )
+}
+
+fn parse_hudi_timeline_metadata_read_smoke_args(
+    args: impl Iterator<Item = String>,
+) -> Result<HudiTimelineMetadataReadSmokeRequest, ShardLoomError> {
+    let mut timeline_dir = None;
+    let mut metadata_json_path = None;
+    let mut iter = args.peekable();
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "--metadata-json" => {
+                let value = iter.next().ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "missing value after --metadata-json".to_string(),
+                    )
+                })?;
+                metadata_json_path = Some(value);
+            }
+            other if other.starts_with("--") => {
+                return Err(cli_unknown_arg_error(
+                    "hudi-timeline-metadata-read-smoke",
+                    other,
+                ));
+            }
+            _ if timeline_dir.is_none() => timeline_dir = Some(arg),
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(
+                    "usage: shardloom hudi-timeline-metadata-read-smoke <timeline-dir> [--metadata-json local.json]"
+                        .to_string(),
+                ));
+            }
+        }
+    }
+    let timeline_dir = timeline_dir.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "usage: shardloom hudi-timeline-metadata-read-smoke <timeline-dir> [--metadata-json local.json]"
+                .to_string(),
+        )
+    })?;
+    Ok(HudiTimelineMetadataReadSmokeRequest {
+        timeline_dir,
+        metadata_json_path,
+    })
+}
+
+fn run_hudi_timeline_metadata_read_smoke(
+    request: &HudiTimelineMetadataReadSmokeRequest,
+) -> Result<HudiTimelineMetadataReadSmokeReport, ShardLoomError> {
+    reject_non_local_metadata_path_for(&request.timeline_dir, "hudi-timeline-metadata-read-smoke")?;
+    if let Some(path) = &request.metadata_json_path {
+        reject_non_local_metadata_path_for(path, "hudi-timeline-metadata-read-smoke")?;
+    }
+    let timeline_files = read_hudi_timeline_file_names(&request.timeline_dir)?;
+    let action_summary = hudi_timeline_action_summary(&timeline_files);
+    let metadata_table_summary =
+        read_hudi_metadata_table_summary(request.metadata_json_path.as_deref())?;
+    let unsupported_feature_order =
+        hudi_timeline_unsupported_feature_order(&action_summary, &metadata_table_summary);
+    let blocked_paths = hudi_timeline_blocked_paths();
+    let diagnostics =
+        hudi_timeline_metadata_diagnostics(&blocked_paths, &unsupported_feature_order);
+    let metadata_summary = hudi_timeline_metadata_summary(&action_summary, &metadata_table_summary);
+    let timeline_bytes_read = timeline_files
+        .iter()
+        .map(|entry| entry.file_len)
+        .sum::<usize>();
+    Ok(HudiTimelineMetadataReadSmokeReport {
+        schema_version: "shardloom.hudi_timeline_metadata_read_smoke.v1",
+        report_id: "prod-ready-1c.hudi_timeline_metadata_smoke",
+        phase_id: "PROD-READY-1C",
+        support_status: hudi_timeline_support_status(&unsupported_feature_order),
+        claim_gate_status: "scoped_hudi_timeline_metadata_smoke_only",
+        claim_boundary: "one local Hudi timeline directory listing and optional local metadata-table summary JSON fixture only; no base-file scan, log-file merge, table-service execution, write/commit, production lakehouse, or performance claim",
+        source_protocol: "apache_hudi_timeline_and_metadata_table",
+        source_review_ref: "docs/architecture/table-protocol-source-review.md",
+        timeline_dir: request.timeline_dir.clone(),
+        timeline_file_count: timeline_files.len(),
+        timeline_bytes_read,
+        metadata_summary_digest: iceberg_metadata_digest(&metadata_summary),
+        metadata_summary,
+        action_summary,
+        metadata_table_summary,
+        correctness_refs: "shardloom-cli::workflow_planning::hudi_timeline_metadata_read_smoke",
+        execution_certificate_refs: "shardloom-cli/tests/delta_hudi_metadata_read_smoke.rs",
+        native_io_certificate_refs: "local_hudi_timeline_directory_listing_and_optional_metadata_summary_json_read_no_object_store_native_io_certificate",
+        materialization_decode_refs: "hudi_timeline_filename_metadata_plus_optional_summary_json_decode_no_base_or_log_file_decode_no_row_materialization",
+        dependency_boundary_refs: "std_fs_plus_serde_json_only_no_hudi_runtime_dependency_no_external_engine",
+        local_timeline_directory_read_performed: true,
+        timeline_filename_parse_performed: true,
+        metadata_table_summary_json_read_performed: request.metadata_json_path.is_some(),
+        metadata_table_storage_read_performed: false,
+        base_file_read_performed: false,
+        log_file_read_performed: false,
+        table_service_execution_performed: false,
+        write_io_performed: false,
+        catalog_io_performed: false,
+        object_store_io_performed: false,
+        credential_resolution_performed: false,
+        external_table_format_dependency_invoked: false,
+        fallback_attempted: false,
+        fallback_execution_allowed: false,
+        external_engine_invoked: false,
+        performance_claim_allowed: false,
+        production_table_catalog_claim_allowed: false,
+        lakehouse_claim_allowed: false,
+        unsupported_feature_order,
+        blocked_paths,
+        diagnostics,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct HudiTimelineFileEntry {
+    file_name: String,
+    file_len: usize,
+    instant: String,
+    action: String,
+    state: String,
+}
+
+fn read_hudi_timeline_file_names(
+    timeline_dir: &str,
+) -> Result<Vec<HudiTimelineFileEntry>, ShardLoomError> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(Path::new(timeline_dir)).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read Hudi timeline directory {timeline_dir}: {error}"
+        ))
+    })? {
+        let entry = entry.map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to read Hudi timeline directory entry in {timeline_dir}: {error}"
+            ))
+        })?;
+        let metadata = entry.metadata().map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to stat Hudi timeline entry {}: {error}",
+                entry.path().display()
+            ))
+        })?;
+        if !metadata.is_file() {
+            continue;
+        }
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        if file_name.starts_with('.') {
+            continue;
+        }
+        let file_len = usize::try_from(metadata.len()).map_err(|_| {
+            ShardLoomError::InvalidOperation(format!(
+                "Hudi timeline file {} is too large for this platform",
+                entry.path().display()
+            ))
+        })?;
+        files.push(parse_hudi_timeline_file_name(&file_name, file_len));
+    }
+    files.sort_by(|left, right| left.file_name.cmp(&right.file_name));
+    if files.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "Hudi timeline directory {timeline_dir} did not contain any timeline files"
+        )));
+    }
+    Ok(files)
+}
+
+fn parse_hudi_timeline_file_name(file_name: &str, file_len: usize) -> HudiTimelineFileEntry {
+    let parts = file_name.split('.').collect::<Vec<_>>();
+    let (instant, action, state) =
+        if parts.len() >= 3 && hudi_timeline_state_known(parts[parts.len() - 1]) {
+            (
+                parts[..parts.len() - 2].join("."),
+                parts[parts.len() - 2].to_string(),
+                parts[parts.len() - 1].to_string(),
+            )
+        } else if parts.len() >= 2 {
+            (
+                parts[..parts.len() - 1].join("."),
+                parts[parts.len() - 1].to_string(),
+                "completed".to_string(),
+            )
+        } else {
+            (
+                file_name.to_string(),
+                "unknown".to_string(),
+                "unknown".to_string(),
+            )
+        };
+    HudiTimelineFileEntry {
+        file_name: file_name.to_string(),
+        file_len,
+        instant,
+        action,
+        state,
+    }
+}
+
+fn hudi_timeline_action_summary(files: &[HudiTimelineFileEntry]) -> HudiTimelineActionSummary {
+    let mut summary = HudiTimelineActionSummary {
+        timeline_entry_count: files.len(),
+        requested_instant_count: 0,
+        inflight_instant_count: 0,
+        completed_instant_count: 0,
+        commit_action_count: 0,
+        delta_commit_action_count: 0,
+        replace_commit_action_count: 0,
+        clean_action_count: 0,
+        compaction_action_count: 0,
+        log_compaction_action_count: 0,
+        clustering_action_count: 0,
+        indexing_action_count: 0,
+        rollback_action_count: 0,
+        savepoint_action_count: 0,
+        restore_action_count: 0,
+        unknown_action_count: 0,
+        unknown_state_count: 0,
+        instant_order: Vec::new(),
+        unknown_action_order: Vec::new(),
+        unknown_state_order: Vec::new(),
+    };
+    for file in files {
+        push_unique_string(&mut summary.instant_order, &file.instant);
+        observe_hudi_timeline_state(&mut summary, &file.state);
+        observe_hudi_timeline_action(&mut summary, &file.action);
+    }
+    summary
+}
+
+fn observe_hudi_timeline_state(summary: &mut HudiTimelineActionSummary, state: &str) {
+    match state {
+        "requested" => summary.requested_instant_count += 1,
+        "inflight" => summary.inflight_instant_count += 1,
+        "completed" => summary.completed_instant_count += 1,
+        _ => {
+            summary.unknown_state_count += 1;
+            push_unique_string(&mut summary.unknown_state_order, state);
+        }
+    }
+}
+
+fn observe_hudi_timeline_action(summary: &mut HudiTimelineActionSummary, action: &str) {
+    match action {
+        "commit" => summary.commit_action_count += 1,
+        "deltacommit" | "delta_commit" => summary.delta_commit_action_count += 1,
+        "replacecommit" | "replace_commit" => summary.replace_commit_action_count += 1,
+        "clean" => summary.clean_action_count += 1,
+        "compaction" => summary.compaction_action_count += 1,
+        "logcompaction" | "log_compaction" => summary.log_compaction_action_count += 1,
+        "clustering" => summary.clustering_action_count += 1,
+        "indexing" => summary.indexing_action_count += 1,
+        "rollback" => summary.rollback_action_count += 1,
+        "savepoint" => summary.savepoint_action_count += 1,
+        "restore" => summary.restore_action_count += 1,
+        _ => {
+            summary.unknown_action_count += 1;
+            push_unique_string(&mut summary.unknown_action_order, action);
+        }
+    }
+}
+
+fn hudi_timeline_state_known(state: &str) -> bool {
+    matches!(state, "requested" | "inflight" | "completed")
+}
+
+fn read_hudi_metadata_table_summary(
+    metadata_json_path: Option<&str>,
+) -> Result<HudiMetadataTableSummary, ShardLoomError> {
+    let Some(path) = metadata_json_path else {
+        return Ok(HudiMetadataTableSummary {
+            metadata_json_path: None,
+            metadata_json_bytes_read: 0,
+            metadata_table_availability: HudiMetadataTableAvailability::NotProvided,
+            partition_order: Vec::new(),
+            unknown_partition_count: 0,
+            unknown_partition_order: Vec::new(),
+            files_count: 0,
+            column_stats_file_count: 0,
+            record_index_file_count: 0,
+        });
+    };
+    let metadata = fs::read_to_string(Path::new(path)).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read Hudi metadata-table summary JSON {path}: {error}"
+        ))
+    })?;
+    let root = parse_hudi_metadata_table_json(&metadata)?;
+    let partition_order = root
+        .get("partitions")
+        .or_else(|| root.get("metadataPartitions"))
+        .and_then(serde_json::Value::as_array)
+        .map_or_else(Vec::new, |partitions| {
+            partitions
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(ToOwned::to_owned)
+                .collect()
+        });
+    let unknown_partition_order = partition_order
+        .iter()
+        .filter(|partition| !hudi_metadata_partition_known(partition))
+        .cloned()
+        .collect::<Vec<_>>();
+    Ok(HudiMetadataTableSummary {
+        metadata_json_path: Some(path.to_string()),
+        metadata_json_bytes_read: metadata.len(),
+        metadata_table_availability: HudiMetadataTableAvailability::from_optional_flag(
+            json_bool_from_keys(&root, &["metadataTableEnabled", "metadata_table_enabled"]),
+        ),
+        unknown_partition_count: unknown_partition_order.len(),
+        unknown_partition_order,
+        files_count: json_usize_from_keys(&root, &["filesCount", "files_count"]),
+        column_stats_file_count: json_usize_from_keys(
+            &root,
+            &["columnStatsFileCount", "column_stats_file_count"],
+        ),
+        record_index_file_count: json_usize_from_keys(
+            &root,
+            &["recordIndexFileCount", "record_index_file_count"],
+        ),
+        partition_order,
+    })
+}
+
+fn parse_hudi_metadata_table_json(
+    metadata: &str,
+) -> Result<serde_json::Map<String, serde_json::Value>, ShardLoomError> {
+    let value: serde_json::Value = serde_json::from_str(metadata).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "invalid Hudi metadata-table summary JSON: {error}"
+        ))
+    })?;
+    value.as_object().cloned().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "Hudi metadata-table summary JSON must be an object".to_string(),
+        )
+    })
+}
+
+fn json_bool_from_keys(root: &serde_json::Map<String, serde_json::Value>, keys: &[&str]) -> bool {
+    keys.iter()
+        .find_map(|key| root.get(*key).and_then(serde_json::Value::as_bool))
+        .unwrap_or(false)
+}
+
+fn json_usize_from_keys(root: &serde_json::Map<String, serde_json::Value>, keys: &[&str]) -> usize {
+    keys.iter()
+        .find_map(|key| root.get(*key).and_then(json_count_value))
+        .and_then(|value| usize::try_from(value).ok())
+        .unwrap_or(0)
+}
+
+fn hudi_metadata_partition_known(partition: &str) -> bool {
+    matches!(
+        partition,
+        "files" | "column_stats" | "record_index" | "partition_stats" | "bloom_filters"
+    )
+}
+
+fn hudi_timeline_unsupported_feature_order(
+    actions: &HudiTimelineActionSummary,
+    metadata_table: &HudiMetadataTableSummary,
+) -> Vec<&'static str> {
+    let mut features = Vec::new();
+    if actions.timeline_entry_count == 0 {
+        features.push("hudi_timeline_empty");
+    }
+    if actions.pending_instant_count() > 0 {
+        features.push("hudi_pending_instants_present");
+    }
+    if actions.delta_commit_action_count > 0 {
+        features.push("hudi_delta_commit_requires_log_merge");
+    }
+    if actions.replace_commit_action_count > 0 {
+        features.push("hudi_replace_commit_requires_file_slice_rewrite");
+    }
+    if actions.table_service_action_count() > 0 {
+        features.push("hudi_table_service_actions_present");
+    }
+    if actions.rollback_like_action_count() > 0 {
+        features.push("hudi_rollback_savepoint_restore_present");
+    }
+    if actions.unknown_action_count > 0 {
+        features.push("hudi_unknown_timeline_actions_present");
+    }
+    if actions.unknown_state_count > 0 {
+        features.push("hudi_unknown_timeline_states_present");
+    }
+    if metadata_table.unknown_partition_count > 0 {
+        features.push("hudi_unknown_metadata_table_partitions_present");
+    }
+    features
+}
+
+fn hudi_timeline_blocked_paths() -> Vec<HudiTimelineBlockedPath> {
+    vec![
+        HudiTimelineBlockedPath::BaseFileScan,
+        HudiTimelineBlockedPath::LogFileMerge,
+        HudiTimelineBlockedPath::MetadataTableReadFromStorage,
+        HudiTimelineBlockedPath::TableServiceExecution,
+        HudiTimelineBlockedPath::WriteCommit,
+        HudiTimelineBlockedPath::BroadHudiRuntime,
+        HudiTimelineBlockedPath::LakehouseProductionClaim,
+    ]
+}
+
+fn hudi_timeline_metadata_diagnostics(
+    blocked_paths: &[HudiTimelineBlockedPath],
+    unsupported_feature_order: &[&'static str],
+) -> Vec<Diagnostic> {
+    let mut diagnostics = blocked_paths
+        .iter()
+        .map(|path| path.to_diagnostic())
+        .collect::<Vec<_>>();
+    diagnostics.extend(hudi_timeline_unsupported_feature_diagnostics(
+        unsupported_feature_order,
+    ));
+    diagnostics
+}
+
+fn hudi_timeline_unsupported_feature_diagnostics(features: &[&'static str]) -> Vec<Diagnostic> {
+    features
+        .iter()
+        .map(|feature| {
+            Diagnostic::new(
+                DiagnosticCode::NotImplemented,
+                DiagnosticSeverity::Error,
+                DiagnosticCategory::UnsupportedFeature,
+                format!("Hudi timeline metadata feature {feature} is not admitted for runtime support"),
+                Some((*feature).to_string()),
+                Some(
+                    "The local Hudi metadata smoke parsed timeline metadata but found an unadmitted feature."
+                        .to_string(),
+                ),
+                Some(
+                    "Keep the request blocked until the phased table runtime item adds correctness and no-fallback evidence for this feature."
+                        .to_string(),
+                ),
+                FallbackStatus::disabled_by_policy(),
+            )
+        })
+        .collect()
+}
+
+fn hudi_timeline_support_status(unsupported_feature_order: &[&'static str]) -> &'static str {
+    if unsupported_feature_order.is_empty() {
+        "runtime_supported"
+    } else {
+        "unsupported_hudi_timeline_features"
+    }
+}
+
+fn hudi_timeline_metadata_summary(
+    actions: &HudiTimelineActionSummary,
+    metadata_table: &HudiMetadataTableSummary,
+) -> String {
+    format!(
+        "protocol=hudi timeline_entries={} completed_instants={} pending_instants={} commit_actions={} delta_commit_actions={} table_service_actions={} metadata_table_enabled={} metadata_partitions={} base_file_read=false log_file_read=false table_service_execution=false fallback_attempted=false external_engine_invoked=false",
+        actions.timeline_entry_count,
+        actions.completed_instant_count,
+        actions.pending_instant_count(),
+        actions.commit_action_count,
+        actions.delta_commit_action_count,
+        actions.table_service_action_count(),
+        metadata_table.metadata_table_enabled(),
+        metadata_table.partition_order.join(","),
+    )
 }
 
 fn build_iceberg_metadata_report(
@@ -7881,7 +9448,6 @@ fn iceberg_json_type_fingerprint(value: &serde_json::Value) -> String {
         .map_or_else(|| value.to_string(), ToOwned::to_owned)
 }
 
-#[cfg(feature = "universal-format-io")]
 fn push_unique_string(values: &mut Vec<String>, value: &str) {
     if !values.iter().any(|existing| existing == value) {
         values.push(value.to_string());
@@ -8954,6 +10520,609 @@ fn append_iceberg_metadata_diagnostic_fields(
 
 fn optional_i64_text(value: Option<i64>) -> String {
     value.map_or_else(|| "none".to_string(), |number| number.to_string())
+}
+
+fn optional_u64_text(value: Option<u64>) -> String {
+    value.map_or_else(|| "none".to_string(), |number| number.to_string())
+}
+
+fn delta_log_metadata_read_smoke_fields(
+    report: &DeltaLogMetadataReadSmokeReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_delta_log_identity_fields(&mut fields, report);
+    append_delta_log_summary_fields(&mut fields, report);
+    append_delta_log_evidence_fields(&mut fields, report);
+    append_delta_log_boundary_fields(&mut fields, report);
+    append_delta_log_diagnostic_fields(&mut fields, report);
+    push_field(&mut fields, "execution", "performed");
+    push_bool_field(&mut fields, "plan_only", false);
+    fields
+}
+
+fn append_delta_log_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &DeltaLogMetadataReadSmokeReport,
+) {
+    push_field(fields, "mode", "delta_log_metadata_read_smoke");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_field(fields, "phase_id", report.phase_id);
+    push_field(fields, "support_status", report.support_status);
+    push_field(fields, "claim_gate_status", report.claim_gate_status);
+    push_field(fields, "claim_boundary", report.claim_boundary);
+    push_field(fields, "source_protocol", report.source_protocol);
+    push_field(fields, "source_review_ref", report.source_review_ref);
+    push_field(fields, "log_path", &report.log_path);
+}
+
+fn append_delta_log_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &DeltaLogMetadataReadSmokeReport,
+) {
+    let protocol = &report.protocol_summary;
+    let metadata = &report.table_metadata_summary;
+    let actions = &report.action_summary;
+    push_count_field(fields, "log_bytes_read", report.log_bytes_read);
+    push_count_field(
+        fields,
+        "protocol_action_count",
+        protocol.protocol_action_count,
+    );
+    push_field(
+        fields,
+        "min_reader_version",
+        &optional_u64_text(protocol.min_reader_version),
+    );
+    push_field(
+        fields,
+        "min_writer_version",
+        &optional_u64_text(protocol.min_writer_version),
+    );
+    push_field(
+        fields,
+        "reader_feature_order",
+        &protocol.reader_feature_order.join(","),
+    );
+    push_field(
+        fields,
+        "writer_feature_order",
+        &protocol.writer_feature_order.join(","),
+    );
+    push_count_field(
+        fields,
+        "metadata_action_count",
+        metadata.metadata_action_count,
+    );
+    push_field(fields, "table_id", &metadata.table_id);
+    push_field(fields, "table_name", &metadata.table_name);
+    push_bool_field(
+        fields,
+        "schema_string_present",
+        metadata.schema_string_present,
+    );
+    push_field(
+        fields,
+        "partition_column_order",
+        &metadata.partition_column_order.join(","),
+    );
+    push_field(
+        fields,
+        "configuration_key_order",
+        &metadata.configuration_key_order.join(","),
+    );
+    push_count_field(fields, "action_line_count", actions.action_line_count);
+    push_count_field(fields, "add_action_count", actions.add_action_count);
+    push_count_field(fields, "remove_action_count", actions.remove_action_count);
+    push_count_field(fields, "txn_action_count", actions.txn_action_count);
+    push_count_field(
+        fields,
+        "commit_info_action_count",
+        actions.commit_info_action_count,
+    );
+    push_count_field(fields, "cdc_action_count", actions.cdc_action_count);
+    push_count_field(fields, "unknown_action_count", actions.unknown_action_count);
+    push_count_field(
+        fields,
+        "add_stats_action_count",
+        actions.add_stats_action_count,
+    );
+    push_count_field(
+        fields,
+        "deletion_vector_action_count",
+        actions.deletion_vector_action_count,
+    );
+    push_field(fields, "add_path_order", &actions.add_path_order.join(","));
+    push_field(
+        fields,
+        "unknown_action_order",
+        &actions.unknown_action_order.join(","),
+    );
+    push_field(fields, "metadata_summary", &report.metadata_summary);
+    push_field(
+        fields,
+        "metadata_summary_digest",
+        &report.metadata_summary_digest,
+    );
+}
+
+fn append_delta_log_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &DeltaLogMetadataReadSmokeReport,
+) {
+    push_field(fields, "correctness_refs", report.correctness_refs);
+    push_field(
+        fields,
+        "execution_certificate_refs",
+        report.execution_certificate_refs,
+    );
+    push_field(
+        fields,
+        "native_io_certificate_refs",
+        report.native_io_certificate_refs,
+    );
+    push_field(
+        fields,
+        "materialization_decode_refs",
+        report.materialization_decode_refs,
+    );
+    push_field(
+        fields,
+        "dependency_boundary_refs",
+        report.dependency_boundary_refs,
+    );
+}
+
+fn append_delta_log_boundary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &DeltaLogMetadataReadSmokeReport,
+) {
+    push_bool_field(
+        fields,
+        "local_delta_log_json_read_performed",
+        report.local_delta_log_json_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "delta_log_action_parse_performed",
+        report.delta_log_action_parse_performed,
+    );
+    push_bool_field(
+        fields,
+        "checkpoint_read_performed",
+        report.checkpoint_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "data_file_read_performed",
+        report.data_file_read_performed,
+    );
+    push_bool_field(fields, "write_io_performed", report.write_io_performed);
+    push_bool_field(fields, "catalog_io_performed", report.catalog_io_performed);
+    push_bool_field(
+        fields,
+        "object_store_io_performed",
+        report.object_store_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "credential_resolution_performed",
+        report.credential_resolution_performed,
+    );
+    push_bool_field(
+        fields,
+        "external_table_format_dependency_invoked",
+        report.external_table_format_dependency_invoked,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "production_table_catalog_claim_allowed",
+        report.production_table_catalog_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "lakehouse_claim_allowed",
+        report.lakehouse_claim_allowed,
+    );
+}
+
+fn append_delta_log_diagnostic_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &DeltaLogMetadataReadSmokeReport,
+) {
+    push_bool_field(fields, "runtime_supported", report.runtime_supported());
+    push_bool_field(fields, "claim_scoped", report.claim_scoped());
+    push_bool_field(
+        fields,
+        "side_effect_free_except_local_log_read",
+        report.side_effect_free_except_local_log_read(),
+    );
+    push_count_field(
+        fields,
+        "unsupported_feature_count",
+        report.unsupported_feature_order.len(),
+    );
+    push_field(
+        fields,
+        "unsupported_feature_order",
+        &report.unsupported_feature_order_text(),
+    );
+    push_count_field(fields, "blocked_path_count", report.blocked_paths.len());
+    push_field(
+        fields,
+        "blocked_path_order",
+        &report.blocked_path_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "unsupported_diagnostic_count",
+        report.unsupported_diagnostic_count(),
+    );
+    push_bool_field(
+        fields,
+        "deterministic_unsupported_diagnostics_ready",
+        report.deterministic_unsupported_diagnostics_ready(),
+    );
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
+}
+
+fn hudi_timeline_metadata_read_smoke_fields(
+    report: &HudiTimelineMetadataReadSmokeReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_hudi_timeline_identity_fields(&mut fields, report);
+    append_hudi_timeline_summary_fields(&mut fields, report);
+    append_hudi_timeline_evidence_fields(&mut fields, report);
+    append_hudi_timeline_boundary_fields(&mut fields, report);
+    append_hudi_timeline_diagnostic_fields(&mut fields, report);
+    push_field(&mut fields, "execution", "performed");
+    push_bool_field(&mut fields, "plan_only", false);
+    fields
+}
+
+fn append_hudi_timeline_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HudiTimelineMetadataReadSmokeReport,
+) {
+    push_field(fields, "mode", "hudi_timeline_metadata_read_smoke");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", report.report_id);
+    push_field(fields, "phase_id", report.phase_id);
+    push_field(fields, "support_status", report.support_status);
+    push_field(fields, "claim_gate_status", report.claim_gate_status);
+    push_field(fields, "claim_boundary", report.claim_boundary);
+    push_field(fields, "source_protocol", report.source_protocol);
+    push_field(fields, "source_review_ref", report.source_review_ref);
+    push_field(fields, "timeline_dir", &report.timeline_dir);
+}
+
+fn append_hudi_timeline_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HudiTimelineMetadataReadSmokeReport,
+) {
+    push_count_field(fields, "timeline_file_count", report.timeline_file_count);
+    push_count_field(fields, "timeline_bytes_read", report.timeline_bytes_read);
+    append_hudi_timeline_action_summary_fields(fields, &report.action_summary);
+    append_hudi_metadata_table_summary_fields(fields, report);
+    push_field(fields, "metadata_summary", &report.metadata_summary);
+    push_field(
+        fields,
+        "metadata_summary_digest",
+        &report.metadata_summary_digest,
+    );
+}
+
+fn append_hudi_timeline_action_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    actions: &HudiTimelineActionSummary,
+) {
+    push_count_field(fields, "timeline_entry_count", actions.timeline_entry_count);
+    push_count_field(
+        fields,
+        "requested_instant_count",
+        actions.requested_instant_count,
+    );
+    push_count_field(
+        fields,
+        "inflight_instant_count",
+        actions.inflight_instant_count,
+    );
+    push_count_field(
+        fields,
+        "completed_instant_count",
+        actions.completed_instant_count,
+    );
+    push_count_field(
+        fields,
+        "pending_instant_count",
+        actions.pending_instant_count(),
+    );
+    push_count_field(fields, "commit_action_count", actions.commit_action_count);
+    push_count_field(
+        fields,
+        "delta_commit_action_count",
+        actions.delta_commit_action_count,
+    );
+    push_count_field(
+        fields,
+        "replace_commit_action_count",
+        actions.replace_commit_action_count,
+    );
+    push_count_field(fields, "clean_action_count", actions.clean_action_count);
+    push_count_field(
+        fields,
+        "compaction_action_count",
+        actions.compaction_action_count,
+    );
+    push_count_field(
+        fields,
+        "log_compaction_action_count",
+        actions.log_compaction_action_count,
+    );
+    push_count_field(
+        fields,
+        "clustering_action_count",
+        actions.clustering_action_count,
+    );
+    push_count_field(
+        fields,
+        "indexing_action_count",
+        actions.indexing_action_count,
+    );
+    push_count_field(
+        fields,
+        "rollback_action_count",
+        actions.rollback_action_count,
+    );
+    push_count_field(
+        fields,
+        "savepoint_action_count",
+        actions.savepoint_action_count,
+    );
+    push_count_field(fields, "restore_action_count", actions.restore_action_count);
+    push_count_field(fields, "unknown_action_count", actions.unknown_action_count);
+    push_count_field(fields, "unknown_state_count", actions.unknown_state_count);
+    push_field(fields, "instant_order", &actions.instant_order.join(","));
+    push_field(
+        fields,
+        "unknown_action_order",
+        &actions.unknown_action_order.join(","),
+    );
+    push_field(
+        fields,
+        "unknown_state_order",
+        &actions.unknown_state_order.join(","),
+    );
+}
+
+fn append_hudi_metadata_table_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HudiTimelineMetadataReadSmokeReport,
+) {
+    let metadata = &report.metadata_table_summary;
+    push_field(
+        fields,
+        "metadata_json_path",
+        metadata.metadata_json_path.as_deref().unwrap_or("none"),
+    );
+    push_count_field(
+        fields,
+        "metadata_json_bytes_read",
+        metadata.metadata_json_bytes_read,
+    );
+    push_bool_field(
+        fields,
+        "metadata_table_enabled",
+        metadata.metadata_table_enabled(),
+    );
+    push_field(
+        fields,
+        "metadata_partition_order",
+        &metadata.partition_order.join(","),
+    );
+    push_bool_field(
+        fields,
+        "files_partition_present",
+        metadata.files_partition_present(),
+    );
+    push_bool_field(
+        fields,
+        "column_stats_partition_present",
+        metadata.column_stats_partition_present(),
+    );
+    push_bool_field(
+        fields,
+        "record_index_partition_present",
+        metadata.record_index_partition_present(),
+    );
+    push_count_field(
+        fields,
+        "unknown_metadata_partition_count",
+        metadata.unknown_partition_count,
+    );
+    push_field(
+        fields,
+        "unknown_metadata_partition_order",
+        &metadata.unknown_partition_order.join(","),
+    );
+    push_count_field(fields, "metadata_files_count", metadata.files_count);
+    push_count_field(
+        fields,
+        "metadata_column_stats_file_count",
+        metadata.column_stats_file_count,
+    );
+    push_count_field(
+        fields,
+        "metadata_record_index_file_count",
+        metadata.record_index_file_count,
+    );
+}
+
+fn append_hudi_timeline_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HudiTimelineMetadataReadSmokeReport,
+) {
+    push_field(fields, "correctness_refs", report.correctness_refs);
+    push_field(
+        fields,
+        "execution_certificate_refs",
+        report.execution_certificate_refs,
+    );
+    push_field(
+        fields,
+        "native_io_certificate_refs",
+        report.native_io_certificate_refs,
+    );
+    push_field(
+        fields,
+        "materialization_decode_refs",
+        report.materialization_decode_refs,
+    );
+    push_field(
+        fields,
+        "dependency_boundary_refs",
+        report.dependency_boundary_refs,
+    );
+}
+
+fn append_hudi_timeline_boundary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HudiTimelineMetadataReadSmokeReport,
+) {
+    push_bool_field(
+        fields,
+        "local_timeline_directory_read_performed",
+        report.local_timeline_directory_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "timeline_filename_parse_performed",
+        report.timeline_filename_parse_performed,
+    );
+    push_bool_field(
+        fields,
+        "metadata_table_summary_json_read_performed",
+        report.metadata_table_summary_json_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "metadata_table_storage_read_performed",
+        report.metadata_table_storage_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "base_file_read_performed",
+        report.base_file_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "log_file_read_performed",
+        report.log_file_read_performed,
+    );
+    push_bool_field(
+        fields,
+        "table_service_execution_performed",
+        report.table_service_execution_performed,
+    );
+    push_bool_field(fields, "write_io_performed", report.write_io_performed);
+    push_bool_field(fields, "catalog_io_performed", report.catalog_io_performed);
+    push_bool_field(
+        fields,
+        "object_store_io_performed",
+        report.object_store_io_performed,
+    );
+    push_bool_field(
+        fields,
+        "credential_resolution_performed",
+        report.credential_resolution_performed,
+    );
+    push_bool_field(
+        fields,
+        "external_table_format_dependency_invoked",
+        report.external_table_format_dependency_invoked,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "production_table_catalog_claim_allowed",
+        report.production_table_catalog_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "lakehouse_claim_allowed",
+        report.lakehouse_claim_allowed,
+    );
+}
+
+fn append_hudi_timeline_diagnostic_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &HudiTimelineMetadataReadSmokeReport,
+) {
+    push_bool_field(fields, "runtime_supported", report.runtime_supported());
+    push_bool_field(fields, "claim_scoped", report.claim_scoped());
+    push_bool_field(
+        fields,
+        "side_effect_free_except_declared_local_metadata_reads",
+        report.side_effect_free_except_declared_local_metadata_reads(),
+    );
+    push_count_field(
+        fields,
+        "unsupported_feature_count",
+        report.unsupported_feature_order.len(),
+    );
+    push_field(
+        fields,
+        "unsupported_feature_order",
+        &report.unsupported_feature_order_text(),
+    );
+    push_count_field(fields, "blocked_path_count", report.blocked_paths.len());
+    push_field(
+        fields,
+        "blocked_path_order",
+        &report.blocked_path_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "unsupported_diagnostic_count",
+        report.unsupported_diagnostic_count(),
+    );
+    push_bool_field(
+        fields,
+        "deterministic_unsupported_diagnostics_ready",
+        report.deterministic_unsupported_diagnostics_ready(),
+    );
+    push_count_field(fields, "diagnostic_count", report.diagnostics.len());
 }
 
 fn local_delete_tombstone_read_smoke_fields(

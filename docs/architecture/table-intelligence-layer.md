@@ -33,6 +33,18 @@ The scoped source-reviewed Iceberg metadata JSON smoke is exposed through:
 shardloom iceberg-metadata-read-smoke <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro] --format json
 ```
 
+The scoped source-reviewed Delta log metadata smoke is exposed through:
+
+```powershell
+shardloom delta-log-metadata-read-smoke <delta-log-json-path> --format json
+```
+
+The scoped source-reviewed Hudi timeline metadata smoke is exposed through:
+
+```powershell
+shardloom hudi-timeline-metadata-read-smoke <timeline-dir> [--metadata-json local.json] --format json
+```
+
 The scoped local delete/tombstone smoke is `LocalDeleteTombstoneReadSmokeReport`, exposed through:
 
 ```powershell
@@ -88,6 +100,15 @@ shardloom local-table-commit-recovery-smoke <local-committed-manifest-path> --pr
 - [x] Support Iceberg delete/tombstone/deletion-vector admission classifiers for position deletes,
       equality deletes, deletion-vector-shaped entries, delete manifests, and deleted data-file
       entries while leaving delete application blocked.
+- [x] Support one source-reviewed local Delta transaction log metadata read smoke with protocol,
+      table metadata, action, table-feature, deletion-vector, CDC, and no-fallback evidence while
+      leaving checkpoint replay, data-file scans, deletion-vector application, writes/commits, and
+      Delta runtime blocked.
+- [x] Support one source-reviewed local Hudi timeline/metadata summary smoke with
+      requested/inflight/completed instant parsing, action-family classification, optional metadata
+      table summary JSON evidence, and no-fallback blockers while leaving base-file scans, log
+      merge, metadata-table storage reads, table services, writes/commits, and Hudi runtime
+      blocked.
 - [x] Support one in-memory local manifest-backed delete/tombstone read smoke through
       `LocalDeleteTombstoneReadSmokeReport`.
 - [x] Support one in-memory local append-only CDC overlay smoke through
@@ -106,7 +127,10 @@ Out of scope until promoted GAR slices complete:
   Iceberg metadata JSON/manifest-list summary smoke. The Iceberg smoke reads one local metadata JSON
   file and, only when `--manifest-list` is supplied with `universal-format-io`, one local Avro
   manifest-list summary. It can also read one local Avro manifest file when `--manifest` is supplied
-  with `universal-format-io`. It still does not read data files, object stores, or catalogs.
+  with `universal-format-io`. Delta/Hudi now have local metadata-only smoke commands for one local
+  Delta log JSON file and one local Hudi timeline directory plus optional local metadata summary
+  JSON. These still do not read data files, object stores, catalogs, checkpoints, Hudi base/log
+  files, metadata-table storage, or table services.
 - Broad delete/tombstone runtime beyond the completed `GAR-0020-D` local fixture smoke, CDC
   execution beyond the completed `GAR-0020-E` append-only overlay smoke, broad compaction writes,
   broad table data I/O, object-store I/O, lakehouse/catalog commits, and table-format runtime
@@ -369,6 +393,69 @@ This smoke does not certify Iceberg table scans, data-file split execution, sche
 execution, partition-filter execution, delete-file execution, Puffin/deletion-vector reads,
 object-store tables, external catalogs, writes/commits, production lakehouse support, or
 performance.
+
+## Delta And Hudi Metadata Smokes
+
+`PROD-READY-1C` adds `shardloom.delta_log_metadata_read_smoke.v1` and
+`shardloom.hudi_timeline_metadata_read_smoke.v1` as scoped source-reviewed metadata readers. They
+are table-protocol admission and diagnostic surfaces only, not Delta/Hudi runtime paths.
+
+The Delta smoke reads one local Delta transaction log JSON file. It reports:
+
+- `claim_gate_status=scoped_delta_transaction_log_metadata_smoke_only`.
+- `source_protocol=delta_transaction_log_protocol`.
+- `local_delta_log_json_read_performed=true`.
+- `delta_log_action_parse_performed=true`.
+- `min_reader_version` and `min_writer_version`.
+- `reader_feature_order` and `writer_feature_order`.
+- `metadata_action_count`, `table_id`, `table_name`, `schema_string_present`,
+  `partition_column_order`, and `configuration_key_order`.
+- `add_action_count`, `remove_action_count`, `txn_action_count`, `commit_info_action_count`,
+  `cdc_action_count`, `unknown_action_count`, `add_stats_action_count`, and
+  `deletion_vector_action_count`.
+- `checkpoint_read_performed=false`.
+- `data_file_read_performed=false`.
+- `write_io_performed=false`.
+- `fallback_attempted=false`.
+- `fallback_execution_allowed=false`.
+- `external_engine_invoked=false`.
+
+It returns an unsupported envelope for missing protocol/metadata actions, unsupported Delta reader
+or writer versions, reader/writer table features, remove actions, deletion vectors, CDC actions,
+or unknown actions. It also emits deterministic blockers for `delta_checkpoint_read`,
+`delta_data_file_scan`, `delta_delete_vector_application`, `delta_write_commit`,
+`broad_delta_runtime`, and `delta_production_lakehouse_claim`.
+
+The Hudi smoke reads one local Hudi timeline directory and optionally one local metadata-table
+summary JSON fixture. It reports:
+
+- `claim_gate_status=scoped_hudi_timeline_metadata_smoke_only`.
+- `source_protocol=apache_hudi_timeline_and_metadata_table`.
+- `local_timeline_directory_read_performed=true`.
+- `timeline_filename_parse_performed=true`.
+- `metadata_table_summary_json_read_performed=true|false`.
+- `timeline_entry_count`, requested/inflight/completed instant counts, and
+  `pending_instant_count`.
+- Hudi action-family counts for commit, delta commit, replace commit, clean, compaction,
+  log-compaction, clustering, indexing, rollback, savepoint, restore, unknown actions, and unknown
+  states.
+- Optional `metadata_table_enabled`, `metadata_partition_order`, files/column-stats/record-index
+  partition flags, and summary counts.
+- `metadata_table_storage_read_performed=false`.
+- `base_file_read_performed=false`.
+- `log_file_read_performed=false`.
+- `table_service_execution_performed=false`.
+- `write_io_performed=false`.
+- `fallback_attempted=false`.
+- `fallback_execution_allowed=false`.
+- `external_engine_invoked=false`.
+
+It returns an unsupported envelope for pending instants, delta commits/log-merge requirements,
+replace commits, table-service actions, rollback/savepoint/restore semantics, unknown actions or
+states, and unknown metadata-table partitions. It also emits deterministic blockers for
+`hudi_base_file_scan`, `hudi_log_file_merge`, `hudi_metadata_table_storage_read`,
+`hudi_table_service_execution`, `hudi_write_commit`, `broad_hudi_runtime`, and
+`hudi_production_lakehouse_claim`.
 
 ## Local Delete/Tombstone Read Smoke
 

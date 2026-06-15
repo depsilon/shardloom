@@ -144,6 +144,78 @@ phase plan first.
       Foundry Spark, managed SQL systems, and platform compute remain external baselines or handles,
       never ShardLoom execution.
 
+- [x] Session label: PROD-READY-1C scoped Delta/Hudi metadata smokes
+  - Date: 2026-06-15
+  - Source:
+    - `PROD-READY-1C` in `docs/architecture/phased-execution-plan.md`.
+    - `docs/architecture/table-protocol-source-review.md`.
+    - `docs/architecture/table-intelligence-layer.md`.
+    - Delta transaction log protocol source review.
+    - Apache Hudi timeline and metadata-table source review.
+  - Scope:
+    - Added `delta-log-metadata-read-smoke <delta-log-json-path> --format json`.
+    - Added `hudi-timeline-metadata-read-smoke <timeline-dir> [--metadata-json local.json] --format json`.
+    - Delta smoke reads one local JSON-lines transaction log file with `serde_json`, summarizes
+      protocol, table metadata, add/remove/txn/commitInfo/CDC/unknown actions, add stats,
+      deletion-vector-shaped actions, table feature arrays, partition columns, configuration keys,
+      and no-fallback boundaries.
+    - Hudi smoke reads one local timeline directory listing, parses timeline instant filenames into
+      requested/inflight/completed states and action families, and optionally reads one local
+      metadata-table summary JSON fixture for files/column-stats/record-index partition evidence.
+    - Delta fails closed for missing protocol/metadata actions, unsupported reader/writer protocol
+      versions, reader/writer table features, remove actions, deletion vectors, CDC actions, and
+      unknown actions.
+    - Hudi fails closed for pending instants, delta commits/log-merge requirements, replace commits,
+      table-service actions, rollback/savepoint/restore semantics, unknown actions/states, and
+      unknown metadata-table partitions.
+    - Kept Delta checkpoint replay, Delta data-file scans, Delta deletion-vector application, Hudi
+      base-file scans, Hudi log-file merge, Hudi metadata-table storage reads, table services,
+      writes/commits, catalog/object-store paths, production lakehouse claims, and performance
+      claims blocked.
+  - Closed checklist:
+    - [x] CLI command registry, usage, input contract, output contract, and owning phase metadata
+      added for both commands.
+    - [x] Delta source-reviewed local transaction log metadata parser added.
+    - [x] Hudi source-reviewed local timeline/metadata summary parser added.
+    - [x] Deterministic blocked-path diagnostics and no-fallback fields emitted for both commands.
+    - [x] Focused CLI tests added for safe and fail-closed Delta/Hudi fixture paths.
+    - [x] Table source-review, table-intelligence, phase-plan, use-case, and release-readiness
+      docs updated.
+  - Evidence fields:
+    - `schema_version=shardloom.delta_log_metadata_read_smoke.v1`.
+    - `schema_version=shardloom.hudi_timeline_metadata_read_smoke.v1`.
+    - `claim_gate_status=scoped_delta_transaction_log_metadata_smoke_only`.
+    - `claim_gate_status=scoped_hudi_timeline_metadata_smoke_only`.
+    - `source_protocol=delta_transaction_log_protocol`.
+    - `source_protocol=apache_hudi_timeline_and_metadata_table`.
+    - `min_reader_version`.
+    - `min_writer_version`.
+    - `reader_feature_order`.
+    - `writer_feature_order`.
+    - `remove_action_count`.
+    - `deletion_vector_action_count`.
+    - `cdc_action_count`.
+    - `timeline_entry_count`.
+    - `pending_instant_count`.
+    - `delta_commit_action_count`.
+    - `metadata_partition_order`.
+    - `unsupported_feature_order=delta_min_reader_version_gt_1|delta_deletion_vectors_present|hudi_pending_instants_present|hudi_table_service_actions_present|...`.
+    - `fallback_attempted=false`.
+    - `external_engine_invoked=false`.
+  - Evidence commands:
+    - `cargo test -p shardloom-cli --test delta_hudi_metadata_read_smoke`.
+    - `cargo clippy -p shardloom-cli --test delta_hudi_metadata_read_smoke -- -D warnings`.
+  - Claim boundary:
+    - May claim scoped local Delta/Hudi metadata smoke evidence exactly as exposed by the commands
+      above.
+    - May not claim Delta checkpoint replay/runtime, Delta deletion-vector application, Hudi
+      base-file scan, Hudi log merge, Hudi table-service execution, catalog runtime, object-store
+      table runtime, table writes/commits, production lakehouse support, or table performance.
+  - Fallback boundary:
+    - Spark, DataFusion, DuckDB, Polars, Velox, Trino, warehouse engines, Vortex query-engine
+      integrations, Delta/Hudi runtime libraries, catalog engines, and platform compute remain
+      external baselines or handles, never ShardLoom execution.
+
 - [x] Session label: PROD-READY-1C scoped Iceberg evolution and delete admission semantics
   - Date: 2026-06-15
   - Source:

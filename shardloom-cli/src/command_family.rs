@@ -343,6 +343,8 @@ fn is_workflow_planning_command(command: &str) -> bool {
             | "table-intelligence-plan"
             | "local-table-metadata-read-smoke"
             | "iceberg-metadata-read-smoke"
+            | "delta-log-metadata-read-smoke"
+            | "hudi-timeline-metadata-read-smoke"
             | "local-delete-tombstone-read-smoke"
             | "local-append-only-cdc-overlay-smoke"
             | "local-table-append-commit-rehearsal-smoke"

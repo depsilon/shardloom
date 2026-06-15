@@ -371,11 +371,16 @@ with a recorded infeasibility reason, not merely because they are broad.
     evolution is admitted only as metadata/split-planning evidence; projection/filter execution,
     delete application, Puffin/deletion-vector reads, and data-file scans remain blocked. That does
     not imply Iceberg data scans, external catalog/runtime, object-store table commit, write
-    semantics, distributed, production, or performance support. Current source-reviewed external
-    candidates are Iceberg table metadata, Iceberg REST, Delta transaction logs, Hudi
-    timeline/metadata, Nessie, Polaris, and Gravitino; Glue-like and Hive-like catalog profiles are
-    not selected for the first external candidate and still require separate source/profile review
-    before implementation.
+    semantics, distributed, production, or performance support. Scoped Delta/Hudi metadata readers
+    now exist through `delta-log-metadata-read-smoke` and `hudi-timeline-metadata-read-smoke`: they
+    read one local Delta transaction log JSON file or one local Hudi timeline directory plus
+    optional local metadata-table summary JSON, emit source-review, dependency-boundary,
+    no-fallback, and unsupported-feature diagnostics, and fail closed for checkpoint replay,
+    table-feature/deletion-vector/remove/CDC Delta semantics, pending/table-service/log-merge Hudi
+    semantics, and production lakehouse claims. Current source-reviewed external candidates are
+    Iceberg table metadata, Iceberg REST, Delta transaction logs, Hudi timeline/metadata, Nessie,
+    Polaris, and Gravitino; Glue-like and Hive-like catalog profiles are not selected for the first
+    external candidate and still require separate source/profile review before implementation.
   - Intake review: accepted as a v1 candidate, not default-deferred. Include the first feasible
     table protocol/workload in v1 if source-checked specs, scan semantics, write/commit scope,
     rollback/recovery, conflict handling, and no-fallback evidence can close; otherwise narrow or
@@ -417,8 +422,10 @@ with a recorded infeasibility reason, not merely because they are broad.
     - [x] Implement delete/tombstone/deletion-vector admission beyond summary/count blockers:
       position-delete, equality-delete, deletion-vector-shaped, deleted data-file, delete-manifest,
       and unknown-content classifiers with deterministic no-fallback blockers.
-    - [ ] Implement Delta log and Hudi timeline/metadata readers only after their source-profile
-      contracts are narrowed to fixture, credential, object-store, and no-fallback evidence.
+    - [x] Implement scoped Delta log and Hudi timeline/metadata readers after source-profile
+      narrowing: local JSON/timeline metadata only, deterministic blockers for checkpoint replay,
+      table-feature/deletion-vector/remove/CDC Delta semantics, pending/table-service/log-merge Hudi
+      semantics, catalog/object-store/write/runtime paths, and no-fallback evidence.
     - [ ] Lower planned Iceberg data-file splits into ShardLoom-native scan execution with Native
       I/O certificates and deterministic unsupported diagnostics for unadmitted table features.
     - [ ] Implement writes only for proven semantics: append/overwrite first; merge/update/delete

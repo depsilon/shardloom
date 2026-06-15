@@ -133,6 +133,8 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "cg9-catalog-metadata-gate",
     "local-table-metadata-read-smoke",
     "iceberg-metadata-read-smoke",
+    "delta-log-metadata-read-smoke",
+    "hudi-timeline-metadata-read-smoke",
     "local-delete-tombstone-read-smoke",
     "local-append-only-cdc-overlay-smoke",
     "local-table-append-commit-rehearsal-smoke",
@@ -938,6 +940,10 @@ fn command_usage_fragment(command: &str) -> String {
                 "{command} <metadata-json-path> [--snapshot-id id|--as-of-timestamp-ms ms] [--manifest-list local.avro] [--manifest local.avro]"
             )
         }
+        "delta-log-metadata-read-smoke" => format!("{command} <delta-log-json-path>"),
+        "hudi-timeline-metadata-read-smoke" => {
+            format!("{command} <timeline-dir> [--metadata-json local.json]")
+        }
         "engine-selection-plan" => {
             format!(
                 "{command} [auto|batch|live|hybrid] [bounded|unbounded|snapshot|unknown] [snapshot|append-only|upsert|delete|retract|tombstone|changelog] [snapshot|append|update|complete|changelog|continuous-view]"
@@ -1168,6 +1174,12 @@ fn command_input_contract(command: &str) -> &'static str {
     if command == "iceberg-metadata-read-smoke" {
         return "local_iceberg_table_metadata_json_path_with_optional_snapshot_selector";
     }
+    if command == "delta-log-metadata-read-smoke" {
+        return "local_delta_transaction_log_json_path";
+    }
+    if command == "hudi-timeline-metadata-read-smoke" {
+        return "local_hudi_timeline_directory_with_optional_metadata_table_summary";
+    }
     if command == "session-cache-smoke" {
         return "scoped_cli_session_cache_lifecycle_smoke";
     }
@@ -1203,6 +1215,12 @@ fn command_input_contract(command: &str) -> &'static str {
 fn command_output_contract(command: &str) -> &'static str {
     if command == "iceberg-metadata-read-smoke" {
         return "typed_envelope_plus_scoped_iceberg_metadata_snapshot_selection_and_no_fallback_evidence";
+    }
+    if command == "delta-log-metadata-read-smoke" {
+        return "typed_envelope_plus_scoped_delta_log_metadata_action_summary_and_no_fallback_evidence";
+    }
+    if command == "hudi-timeline-metadata-read-smoke" {
+        return "typed_envelope_plus_scoped_hudi_timeline_metadata_summary_and_no_fallback_evidence";
     }
     if command == "session-cache-smoke" {
         return "typed_envelope_plus_session_cache_reuse_invalidation_and_cleanup_evidence";
@@ -1240,6 +1258,12 @@ fn command_output_contract(command: &str) -> &'static str {
 
 fn command_owning_phase_item(command: &str) -> &'static str {
     if command == "iceberg-metadata-read-smoke" {
+        return "PROD-READY-1C";
+    }
+    if matches!(
+        command,
+        "delta-log-metadata-read-smoke" | "hudi-timeline-metadata-read-smoke"
+    ) {
         return "PROD-READY-1C";
     }
     if command == "evidence-schema" {
