@@ -35,6 +35,30 @@ class CiLane:
 
 REQUIRED_LANES: tuple[CiLane, ...] = (
     CiLane(
+        lane_id="ci_work_shaping_contract",
+        job_id="ci-work-shaping",
+        commands=("cargo run -q -p shardloom-cli -- ci-work-shaping-plan",),
+        artifact_refs=(
+            "target/ci-work-shaping-plan.json",
+            "target/ci-work-shaping-changed-files.txt",
+            "ci-work-shaping-evidence",
+        ),
+        release_blocker_refs=(
+            "metadata-first CI work shaping",
+            "capillary changed-file selection",
+            "pulseweave evidence fingerprint",
+            "source-aware benchmark rerun recommendations",
+        ),
+        workflow_markers=(
+            "fetch-depth: 0",
+            "Collect changed files",
+            "SHARDLOOM_CI_WORK_SHAPING_MODE=pull_request",
+            "SHARDLOOM_CI_WORK_SHAPING_MODE=merge",
+            "--changed-paths-file target/ci-work-shaping-changed-files.txt",
+            "retention-days: 14",
+        ),
+    ),
+    CiLane(
         lane_id="rust_baseline",
         job_id="rust-baseline",
         commands=(
@@ -390,6 +414,8 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/front-door-benchmark-publication-gate.json",
             "target/benchmark-optimization-targets-report.json",
             "target/ci-gate-matrix-report.json",
+            "target/ci-work-shaping-plan.json",
+            "target/ci-work-shaping-changed-files.txt",
             "target/hard-release-readiness-gate.json",
             "target/finished-product-readiness-report.json",
         ),
@@ -407,6 +433,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         ),
         workflow_markers=(
             "needs:",
+            "ci-work-shaping",
             "ci-gate-matrix",
             "dependency-security",
             "python-tests",
@@ -417,10 +444,12 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "release-benchmark-claim",
             "website-docs",
             "actions/download-artifact@v8",
+            "ci-work-shaping-evidence",
             "dependency-security-evidence",
             "release-local-smoke-evidence",
             "python-test-evidence",
             "target/downloads",
+            "target/downloads/ci-work-shaping-evidence",
             "ci-gate-matrix-report",
             "release-runtime-core-evidence",
             "release-package-governance-evidence",

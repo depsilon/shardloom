@@ -19,6 +19,47 @@ env:
   PYTHONUNBUFFERED: "1"
 
 jobs:
+  ci-work-shaping:
+    name: CI work shaping plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ci-work-shaping-${{ hashFiles('Cargo.toml', 'Cargo.lock') }}
+      - name: Collect changed files
+        shell: bash
+        run: |
+          mkdir -p target
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" > target/ci-work-shaping-changed-files.txt
+            echo "SHARDLOOM_CI_WORK_SHAPING_MODE=pull_request" >> "$GITHUB_ENV"
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" > target/ci-work-shaping-changed-files.txt
+            echo "SHARDLOOM_CI_WORK_SHAPING_MODE=merge" >> "$GITHUB_ENV"
+          else
+            git ls-files > target/ci-work-shaping-changed-files.txt
+            echo "SHARDLOOM_CI_WORK_SHAPING_MODE=merge" >> "$GITHUB_ENV"
+          fi
+      - name: Generate CI work shaping plan
+        run: |
+          cargo run -q -p shardloom-cli -- ci-work-shaping-plan \
+            --mode "$SHARDLOOM_CI_WORK_SHAPING_MODE" \
+            --changed-paths-file target/ci-work-shaping-changed-files.txt \
+            --format json > target/ci-work-shaping-plan.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ci-work-shaping-evidence
+          path: |
+            target/ci-work-shaping-plan.json
+            target/ci-work-shaping-changed-files.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
   rust-baseline:
     name: Rust baseline
     runs-on: ubuntu-latest
@@ -471,6 +512,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ always() }}
     needs:
+      - ci-work-shaping
       - ci-gate-matrix
       - dependency-security
       - python-tests
@@ -490,6 +532,11 @@ jobs:
         with:
           name: ci-gate-matrix-report
           path: target/downloads/ci-gate-matrix-report
+      - name: Reuse CI work shaping evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: ci-work-shaping-evidence
+          path: target/downloads/ci-work-shaping-evidence
       - name: Reuse dependency/security evidence
         uses: actions/download-artifact@v8
         with:
@@ -534,6 +581,7 @@ jobs:
         run: |
           python scripts/merge_release_evidence_artifacts.py \
             --artifact target/downloads/ci-gate-matrix-report \
+            --artifact target/downloads/ci-work-shaping-evidence \
             --artifact target/downloads/dependency-security-evidence \
             --artifact target/downloads/release-local-smoke-evidence \
             --artifact target/downloads/python-test-evidence \
@@ -545,6 +593,7 @@ jobs:
       - name: Verify downloaded release evidence
         run: |
           test -f target/ci-gate-matrix-report.json
+          test -f target/ci-work-shaping-plan.json
           test -f target/python-test-evidence.json
           test -f target/dependency-audit-report.json
           test -f target/security-posture-report.json
@@ -655,6 +704,8 @@ jobs:
             target/front-door-benchmark-publication-gate.json
             target/benchmark-optimization-targets-report.json
             target/ci-gate-matrix-report.json
+            target/ci-work-shaping-plan.json
+            target/ci-work-shaping-changed-files.txt
             target/python-test-evidence.json
             target/hard-release-readiness-gate.json
             target/finished-product-readiness-report.json

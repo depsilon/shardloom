@@ -162,6 +162,7 @@ Reference index:
   `docs/architecture/comparative-rerun-managed-platform-posture-gate.md`,
   `docs/architecture/substrait-report-only-contract.md`,
   `docs/release/per-claim-evidence-attachment-matrix.md`,
+  `docs/release/ci-work-shaping.md`,
   `docs/release/release-architecture-tracker-gate.md`,
   `docs/release/final-release-rehearsal.md`, and `docs/release/*`.
 

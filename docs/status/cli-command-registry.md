@@ -6,7 +6,7 @@ Source: `shardloom-cli/src/command_registry.rs`
 
 Report id: `review-p1-1.command_registry`
 
-Registered command count: 211
+Registered command count: 212
 
 Support-state vocabulary: executable, feature_gated, diagnostic_only, report_only, blocked, future
 
@@ -16,6 +16,8 @@ feature_gated, not_user_facing
 Agent metadata command: `shardloom command-metadata [command] --format json`
 
 Command-specific help command: `shardloom help [command] --format json`
+
+CI work-shaping command: `shardloom ci-work-shaping-plan --format json`
 
 Public workflow facade commands: `shardloom route <sql|python|dataframe|cli> --format json`,
 `shardloom run <sql|python|dataframe|cli> --format json`, and

@@ -12,6 +12,7 @@ use std::process::ExitCode;
 
 mod benchmark_planning;
 mod benchmark_runtime;
+mod ci_work_shaping;
 mod cli_output;
 mod cli_time;
 mod command_family;
@@ -882,6 +883,7 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("release-plan") => packaging_deployment::handle_release_plan(format),
         Some("package-plan") => packaging_deployment::handle_package_plan(format),
         Some("api-compat-plan") => rest_api_planning::handle_api_compat_plan(format),
+        Some("ci-work-shaping-plan") => ci_work_shaping::handle_ci_work_shaping_plan(args, format),
         Some("rest-api-contract-plan") => rest_api_planning::handle_rest_api_contract_plan(format),
         Some("rest-api-plan-preview") => {
             rest_api_planning::handle_rest_api_plan_preview(args, format)
