@@ -5013,6 +5013,69 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ]
+                elif args == ["live-hybrid-durable-checkpoint-smoke", "target/live-checkpoint", "--format", "json"]:
+                    command = "live-hybrid-durable-checkpoint-smoke"
+                    fields = [
+                        {"key": "schema_version", "value": "shardloom.live_hybrid_durable_checkpoint_fixture.v1"},
+                        {"key": "selected_engine_mode", "value": "hybrid"},
+                        {"key": "checkpoint_store_kind", "value": "local_filesystem_fixture_store"},
+                        {"key": "checkpoint_dir", "value": "target/live-checkpoint"},
+                        {"key": "checkpoint_path", "value": "target/live-checkpoint/cg22-live-hybrid-checkpoint.json"},
+                        {"key": "changelog_path", "value": "target/live-checkpoint/cg22-live-hybrid-changelog.jsonl"},
+                        {"key": "input_change_record_count", "value": "10"},
+                        {"key": "active_state_key_count", "value": "3"},
+                        {"key": "checkpoint_record_count", "value": "3"},
+                        {"key": "restored_active_state_key_count", "value": "3"},
+                        {"key": "durable_checkpoint_store_used", "value": "true"},
+                        {"key": "durable_checkpoint_write_performed", "value": "true"},
+                        {"key": "durable_checkpoint_restore_performed", "value": "true"},
+                        {"key": "durable_changelog_write_performed", "value": "true"},
+                        {"key": "state_restore_status", "value": "restored_local_checkpoint_digest_and_key_count_match"},
+                        {"key": "state_match", "value": "true"},
+                        {"key": "freshness_certificate_status", "value": "certified"},
+                        {"key": "state_certificate_status", "value": "certified"},
+                        {"key": "execution_certificate_status", "value": "certified"},
+                        {"key": "native_io_certificate_status", "value": "certified"},
+                        {"key": "runtime_execution", "value": "true"},
+                        {"key": "write_io", "value": "true"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "exactly_once_claim_allowed", "value": "false"},
+                        {"key": "production_claim_allowed", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
+                elif args == ["distributed-local-fixture-run", "2", "fault-injection", "--format", "json"]:
+                    command = "distributed-local-fixture-run"
+                    fields = [
+                        {"key": "schema_version", "value": "shardloom.local_distributed_fixture_run.v1"},
+                        {"key": "distributed_runtime_status", "value": "scoped_local_fixture_supported"},
+                        {"key": "distributed_claim_gate_status", "value": "not_distributed_runtime_grade"},
+                        {"key": "worker_count", "value": "2"},
+                        {"key": "split_unit_count", "value": "3"},
+                        {"key": "task_attempt_count", "value": "6"},
+                        {"key": "task_attempt_outcome_order", "value": "split-000:success,split-001:retry_scheduled,split-001:success,split-002:success,split-002:duplicate_rejected,split-000:stale_lease_rejected"},
+                        {"key": "result_fragment_count", "value": "3"},
+                        {"key": "merged_row_count", "value": "3"},
+                        {"key": "merged_rows", "value": "east:3:13|north:2:10|west:2:9"},
+                        {"key": "merge_digest", "value": "fnv64:fixture-merge"},
+                        {"key": "retry_performed", "value": "true"},
+                        {"key": "duplicate_attempt_rejected", "value": "true"},
+                        {"key": "stale_lease_rejected", "value": "true"},
+                        {"key": "cancellation_cleanup_completed", "value": "true"},
+                        {"key": "partial_output_committed", "value": "false"},
+                        {"key": "repartition_performed", "value": "true"},
+                        {"key": "remote_shuffle_performed", "value": "false"},
+                        {"key": "skew_detected", "value": "true"},
+                        {"key": "memory_budget_exceeded", "value": "false"},
+                        {"key": "spill_required", "value": "false"},
+                        {"key": "execution_certificate_status", "value": "certified"},
+                        {"key": "native_io_certificate_status", "value": "certified"},
+                        {"key": "runtime_execution", "value": "true"},
+                        {"key": "production_claim_allowed", "value": "false"},
+                        {"key": "distributed_performance_claim_allowed", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ]
                 else:
                     raise AssertionError(args)
                 print(json.dumps({
@@ -5070,11 +5133,77 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(transition.runtime_execution)
         self.assertFalse(transition.fallback_attempted)
         self.assertFalse(transition.external_engine_invoked)
+        checkpoint = client.live_hybrid_durable_checkpoint_smoke("target/live-checkpoint")
+        self.assertEqual(checkpoint.selected_engine_mode, "hybrid")
+        self.assertEqual(checkpoint.checkpoint_store_kind, "local_filesystem_fixture_store")
+        self.assertEqual(checkpoint.checkpoint_dir, "target/live-checkpoint")
+        self.assertEqual(
+            checkpoint.checkpoint_path,
+            "target/live-checkpoint/cg22-live-hybrid-checkpoint.json",
+        )
+        self.assertEqual(
+            checkpoint.changelog_path,
+            "target/live-checkpoint/cg22-live-hybrid-changelog.jsonl",
+        )
+        self.assertEqual(checkpoint.input_change_record_count, 10)
+        self.assertEqual(checkpoint.active_state_key_count, 3)
+        self.assertEqual(checkpoint.checkpoint_record_count, 3)
+        self.assertEqual(checkpoint.restored_active_state_key_count, 3)
+        self.assertTrue(checkpoint.durable_checkpoint_store_used)
+        self.assertTrue(checkpoint.durable_checkpoint_write_performed)
+        self.assertTrue(checkpoint.durable_checkpoint_restore_performed)
+        self.assertTrue(checkpoint.durable_changelog_write_performed)
+        self.assertEqual(
+            checkpoint.state_restore_status,
+            "restored_local_checkpoint_digest_and_key_count_match",
+        )
+        self.assertTrue(checkpoint.state_match)
+        self.assertTrue(checkpoint.all_certified)
+        self.assertTrue(checkpoint.runtime_execution)
+        self.assertTrue(checkpoint.write_io)
+        self.assertFalse(checkpoint.object_store_io)
+        self.assertFalse(checkpoint.exactly_once_claim_allowed)
+        self.assertFalse(checkpoint.production_claim_allowed)
+        self.assertFalse(checkpoint.fallback_attempted)
+        self.assertFalse(checkpoint.external_engine_invoked)
+        distributed = client.distributed_local_fixture_run(2, "fault-injection")
+        self.assertEqual(distributed.distributed_runtime_status, "scoped_local_fixture_supported")
+        self.assertEqual(distributed.distributed_claim_gate_status, "not_distributed_runtime_grade")
+        self.assertEqual(distributed.worker_count, 2)
+        self.assertEqual(distributed.split_unit_count, 3)
+        self.assertEqual(distributed.task_attempt_count, 6)
+        self.assertEqual(distributed.result_fragment_count, 3)
+        self.assertEqual(distributed.merged_row_count, 3)
+        self.assertEqual(
+            distributed.merged_rows,
+            ("east:3:13", "north:2:10", "west:2:9"),
+        )
+        self.assertTrue(distributed.retry_performed)
+        self.assertTrue(distributed.duplicate_attempt_rejected)
+        self.assertTrue(distributed.stale_lease_rejected)
+        self.assertTrue(distributed.cancellation_cleanup_completed)
+        self.assertFalse(distributed.partial_output_committed)
+        self.assertTrue(distributed.repartition_performed)
+        self.assertFalse(distributed.remote_shuffle_performed)
+        self.assertTrue(distributed.skew_detected)
+        self.assertFalse(distributed.memory_budget_exceeded)
+        self.assertFalse(distributed.spill_required)
+        self.assertTrue(distributed.all_certified)
+        self.assertTrue(distributed.runtime_execution)
+        self.assertFalse(distributed.production_claim_allowed)
+        self.assertFalse(distributed.distributed_performance_claim_allowed)
+        self.assertFalse(distributed.fallback_attempted)
+        self.assertFalse(distributed.external_engine_invoked)
 
         ctx = ShardLoomContext(client=client)
         ctx_transition = ctx.live_hybrid_state_transition_smoke()
         self.assertEqual(ctx_transition.snapshot_epoch, 11)
         self.assertTrue(ctx_transition.cleanup_completed)
+        ctx_checkpoint = ctx.live_hybrid_durable_checkpoint_smoke("target/live-checkpoint")
+        self.assertTrue(ctx_checkpoint.state_match)
+        self.assertTrue(ctx_checkpoint.write_io)
+        ctx_distributed = ctx.distributed_local_fixture_run(2, "fault-injection")
+        self.assertEqual(ctx_distributed.merged_rows, distributed.merged_rows)
 
     def test_from_env_reads_client_configuration_without_running_commands(self) -> None:
         binary = self.fake_cli(

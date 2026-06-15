@@ -1177,6 +1177,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("live-hybrid-state-transition-smoke") => {
             engine_fabric_planning::handle_live_hybrid_state_transition_smoke(args, format)
         }
+        Some("live-hybrid-durable-checkpoint-smoke") => {
+            engine_fabric_planning::handle_live_hybrid_durable_checkpoint_smoke(args, format)
+        }
         Some("distributed-local-fixture-run") => {
             engine_fabric_planning::handle_distributed_local_fixture_run(args, format)
         }
@@ -3223,6 +3226,7 @@ mod tests {
         assert!(cli_usage_line().contains("live-fixture-run"));
         assert!(cli_usage_line().contains("hybrid-overlay-run"));
         assert!(cli_usage_line().contains("live-hybrid-state-transition-smoke"));
+        assert!(cli_usage_line().contains("live-hybrid-durable-checkpoint-smoke"));
         assert!(cli_usage_line().contains("distributed-local-fixture-run"));
         assert!(cli_usage_line().contains("workload-certification-dossier"));
         assert!(cli_usage_line().contains("claim-gate-closeout"));
@@ -3295,6 +3299,20 @@ mod tests {
     fn live_hybrid_state_transition_smoke_returns_success() {
         let code = run(vec!["live-hybrid-state-transition-smoke".to_string()]);
         assert_eq!(code, ExitCode::SUCCESS);
+    }
+    #[test]
+    fn live_hybrid_durable_checkpoint_smoke_returns_success() {
+        let checkpoint_dir = std::env::temp_dir().join(format!(
+            "shardloom-cli-live-hybrid-checkpoint-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&checkpoint_dir);
+        let code = run(vec![
+            "live-hybrid-durable-checkpoint-smoke".to_string(),
+            checkpoint_dir.display().to_string(),
+        ]);
+        assert_eq!(code, ExitCode::SUCCESS);
+        std::fs::remove_dir_all(&checkpoint_dir).expect("cleanup checkpoint fixture directory");
     }
     #[test]
     fn distributed_local_fixture_run_returns_success() {

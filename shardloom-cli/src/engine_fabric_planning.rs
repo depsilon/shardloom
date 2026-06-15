@@ -1,22 +1,24 @@
 //! CG-22 engine fabric planning handlers.
 //!
-//! These handlers are report-only contract surfaces. They do not run engines,
-//! read sources, write outputs, create checkpoints, probe external systems, or
-//! provide fallback execution.
+//! These handlers are narrow CG-22 planning and fixture surfaces. Most are
+//! report-only; explicitly named fixture commands may run local deterministic
+//! runtime work or write caller-scoped local artifacts. They never probe
+//! external systems or provide fallback execution.
 
-use std::{process::ExitCode, vec::IntoIter};
+use std::{path::PathBuf, process::ExitCode, vec::IntoIter};
 
 use shardloom_core::{
     Boundedness, CommandStatus, ContinuousViewCertificate, DistributedFixtureFaultMode,
     EngineCapabilityMatrixReport, EngineCapabilityRow, EngineMode, EngineSelectionReport,
     EngineSelectionRequest, FreshnessCertificate, HybridFixtureRunInput, HybridFixtureRunReport,
     LiveChangeContractReport, LiveFixtureOperator, LiveFixtureRunInput, LiveFixtureRunReport,
-    LiveHybridFabricFreshnessGateReport, LiveHybridStateTransitionFixtureReport,
-    LocalDistributedFixtureRunInput, LocalDistributedFixtureRunReport, OutputFormat, OutputMode,
-    ShardLoomError, StateCertificate, UpdateMode, boundedness_vocabulary, engine_mode_vocabulary,
-    output_mode_vocabulary, plan_live_change_contract, run_hybrid_fixture, run_live_fixture,
-    run_live_hybrid_state_transition_fixture, run_local_distributed_fixture,
-    update_mode_vocabulary,
+    LiveHybridDurableCheckpointFixtureReport, LiveHybridFabricFreshnessGateReport,
+    LiveHybridStateTransitionFixtureReport, LocalDistributedFixtureRunInput,
+    LocalDistributedFixtureRunReport, OutputFormat, OutputMode, ShardLoomError, StateCertificate,
+    UpdateMode, boundedness_vocabulary, engine_mode_vocabulary, output_mode_vocabulary,
+    plan_live_change_contract, run_hybrid_fixture, run_live_fixture,
+    run_live_hybrid_durable_checkpoint_fixture, run_live_hybrid_state_transition_fixture,
+    run_local_distributed_fixture, update_mode_vocabulary,
 };
 use shardloom_exec::StreamingCapabilityMatrixReport;
 
@@ -39,6 +41,10 @@ const HYBRID_FIXTURE_RUN_COMMAND: &str = "hybrid-overlay-run";
 const HYBRID_FIXTURE_RUN_SUMMARY: &str = "hybrid overlay run failed";
 const HYBRID_FIXTURE_RUN_USAGE: &str = "usage: shardloom hybrid-overlay-run [filter|project|count|count-where|group-count] [predicate|columns|group-column]";
 const LIVE_HYBRID_STATE_TRANSITION_COMMAND: &str = "live-hybrid-state-transition-smoke";
+const LIVE_HYBRID_DURABLE_CHECKPOINT_COMMAND: &str = "live-hybrid-durable-checkpoint-smoke";
+const LIVE_HYBRID_DURABLE_CHECKPOINT_SUMMARY: &str = "live/hybrid durable checkpoint smoke failed";
+const LIVE_HYBRID_DURABLE_CHECKPOINT_USAGE: &str =
+    "usage: shardloom live-hybrid-durable-checkpoint-smoke <checkpoint-dir>";
 const DISTRIBUTED_LOCAL_FIXTURE_RUN_COMMAND: &str = "distributed-local-fixture-run";
 const DISTRIBUTED_LOCAL_FIXTURE_RUN_SUMMARY: &str = "distributed local fixture run failed";
 const DISTRIBUTED_LOCAL_FIXTURE_RUN_USAGE: &str =
@@ -238,6 +244,45 @@ pub(crate) fn handle_live_hybrid_state_transition_smoke(
     }
 }
 
+pub(crate) fn handle_live_hybrid_durable_checkpoint_smoke(
+    args: IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let checkpoint_dir = match parse_live_hybrid_durable_checkpoint_args(args, format) {
+        Ok(checkpoint_dir) => checkpoint_dir,
+        Err(exit_code) => return exit_code,
+    };
+    let report = match run_live_hybrid_durable_checkpoint_fixture(&checkpoint_dir) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                LIVE_HYBRID_DURABLE_CHECKPOINT_COMMAND,
+                format,
+                LIVE_HYBRID_DURABLE_CHECKPOINT_SUMMARY,
+                &error,
+            );
+        }
+    };
+    emit(
+        LIVE_HYBRID_DURABLE_CHECKPOINT_COMMAND,
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "live/hybrid durable checkpoint fixture smoke".to_string(),
+        report.to_human_text(),
+        vec![],
+        live_hybrid_durable_checkpoint_fields(&report),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
 pub(crate) fn handle_distributed_local_fixture_run(
     args: IntoIter<String>,
     format: OutputFormat,
@@ -399,6 +444,29 @@ fn parse_hybrid_fixture_run_args(
                 )),
             )
         })
+}
+
+fn parse_live_hybrid_durable_checkpoint_args(
+    mut args: IntoIter<String>,
+    format: OutputFormat,
+) -> Result<PathBuf, ExitCode> {
+    let Some(checkpoint_dir) = args.next() else {
+        return Err(emit_error(
+            LIVE_HYBRID_DURABLE_CHECKPOINT_COMMAND,
+            format,
+            LIVE_HYBRID_DURABLE_CHECKPOINT_SUMMARY,
+            &ShardLoomError::InvalidOperation(LIVE_HYBRID_DURABLE_CHECKPOINT_USAGE.to_string()),
+        ));
+    };
+    if let Some(extra) = args.next() {
+        return Err(emit_error(
+            LIVE_HYBRID_DURABLE_CHECKPOINT_COMMAND,
+            format,
+            LIVE_HYBRID_DURABLE_CHECKPOINT_SUMMARY,
+            &cli_unknown_arg_error(LIVE_HYBRID_DURABLE_CHECKPOINT_COMMAND, &extra),
+        ));
+    }
+    Ok(PathBuf::from(checkpoint_dir))
 }
 
 fn parse_distributed_local_fixture_run_args(
@@ -1050,6 +1118,167 @@ fn live_hybrid_state_transition_fields(
         "no_fallback_no_external_engine",
         report.no_fallback_no_external_engine(),
     );
+    fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn live_hybrid_durable_checkpoint_fields(
+    report: &LiveHybridDurableCheckpointFixtureReport,
+) -> Vec<(String, String)> {
+    let mut fields = common_engine_contract_fields(
+        report.schema_version,
+        &report.report_id,
+        report.fallback_attempted(),
+        report.external_engine_invoked,
+        report.runtime_execution,
+        false,
+        report.write_io,
+    );
+    push_field(&mut fields, "mode", "live_hybrid_durable_checkpoint_smoke");
+    push_field(&mut fields, "fixture_id", report.fixture_id);
+    push_field(
+        &mut fields,
+        "selected_engine_mode",
+        report.selected_engine_mode,
+    );
+    push_field(
+        &mut fields,
+        "checkpoint_store_kind",
+        report.checkpoint_store_kind,
+    );
+    push_field(
+        &mut fields,
+        "checkpoint_dir",
+        &report.checkpoint_dir.display().to_string(),
+    );
+    push_field(&mut fields, "checkpoint_ref", &report.checkpoint_ref);
+    push_field(
+        &mut fields,
+        "checkpoint_path",
+        &report.checkpoint_path.display().to_string(),
+    );
+    push_field(
+        &mut fields,
+        "changelog_path",
+        &report.changelog_path.display().to_string(),
+    );
+    push_count_field(
+        &mut fields,
+        "input_change_record_count",
+        report.input_change_record_count,
+    );
+    push_count_field(
+        &mut fields,
+        "active_state_key_count",
+        report.active_state_key_count,
+    );
+    push_count_field(
+        &mut fields,
+        "checkpoint_record_count",
+        report.checkpoint_record_count,
+    );
+    push_count_field(
+        &mut fields,
+        "restored_active_state_key_count",
+        report.restored_active_state_key_count,
+    );
+    push_field(
+        &mut fields,
+        "checkpoint_payload_digest",
+        &report.checkpoint_payload_digest,
+    );
+    push_field(
+        &mut fields,
+        "restored_checkpoint_payload_digest",
+        &report.restored_checkpoint_payload_digest,
+    );
+    push_field(
+        &mut fields,
+        "changelog_payload_digest",
+        &report.changelog_payload_digest,
+    );
+    push_u64_field(
+        &mut fields,
+        "checkpoint_bytes_written",
+        report.checkpoint_bytes_written,
+    );
+    push_u64_field(
+        &mut fields,
+        "checkpoint_bytes_read",
+        report.checkpoint_bytes_read,
+    );
+    push_u64_field(
+        &mut fields,
+        "changelog_bytes_written",
+        report.changelog_bytes_written,
+    );
+    push_bool_field(
+        &mut fields,
+        "durable_checkpoint_store_used",
+        report.durable_checkpoint_store_used,
+    );
+    push_bool_field(
+        &mut fields,
+        "durable_checkpoint_write_performed",
+        report.durable_checkpoint_write_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "durable_checkpoint_restore_performed",
+        report.durable_checkpoint_restore_performed,
+    );
+    push_bool_field(
+        &mut fields,
+        "durable_changelog_write_performed",
+        report.durable_changelog_write_performed,
+    );
+    push_field(
+        &mut fields,
+        "state_restore_status",
+        report.state_restore_status,
+    );
+    push_bool_field(&mut fields, "state_match", report.state_match);
+    push_field(
+        &mut fields,
+        "hot_warm_cold_storage_model",
+        report.hot_warm_cold_storage_model,
+    );
+    push_field(
+        &mut fields,
+        "vortex_micro_segment_persistence_status",
+        report.vortex_micro_segment_persistence_status,
+    );
+    push_field(
+        &mut fields,
+        "cold_vortex_segment_promotion_status",
+        report.cold_vortex_segment_promotion_status,
+    );
+    push_bool_field(&mut fields, "broker_io", report.broker_io);
+    push_bool_field(&mut fields, "object_store_io", report.object_store_io);
+    push_bool_field(
+        &mut fields,
+        "fixture_in_memory_source",
+        report.fixture_in_memory_source,
+    );
+    push_bool_field(
+        &mut fields,
+        "exactly_once_claim_allowed",
+        report.exactly_once_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(
+        &mut fields,
+        "no_fallback_no_external_engine",
+        report.no_fallback_no_external_engine(),
+    );
+    append_freshness_certificate_fields(&mut fields, &report.freshness_certificate);
+    append_state_certificate_fields(&mut fields, &report.state_certificate);
+    append_durable_execution_certificate_fields(&mut fields, report);
+    append_durable_native_io_certificate_fields(&mut fields, report);
     fields
 }
 
@@ -1979,6 +2208,86 @@ fn append_hybrid_native_io_certificate_fields(
         fields,
         "native_io_certificate_materializing_transitions_have_boundaries",
         certificate.materializing_transitions_have_boundaries(),
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_object_store_io",
+        certificate.side_effects.object_store_io,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_write_io",
+        certificate.side_effects.write_io,
+    );
+}
+
+fn append_durable_execution_certificate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LiveHybridDurableCheckpointFixtureReport,
+) {
+    let certificate = &report.execution_certificate;
+    push_bool_field(fields, "execution_certificate_emitted", true);
+    push_field(
+        fields,
+        "execution_certificate_id",
+        &certificate.certificate_id,
+    );
+    push_field(
+        fields,
+        "execution_certificate_status",
+        certificate.status.as_str(),
+    );
+    push_field(
+        fields,
+        "execution_certificate_fixture_id",
+        certificate
+            .correctness_fixture_id
+            .as_deref()
+            .unwrap_or("none"),
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_correctness_passed",
+        certificate.correctness_passed,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_fallback_attempted",
+        certificate.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "execution_certificate_external_query_engine_invoked",
+        certificate.external_query_engine_invoked,
+    );
+}
+
+fn append_durable_native_io_certificate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &LiveHybridDurableCheckpointFixtureReport,
+) {
+    let certificate = &report.native_io_certificate;
+    push_bool_field(fields, "native_io_certificate_emitted", true);
+    push_field(
+        fields,
+        "native_io_certificate_id",
+        &certificate.certificate_id,
+    );
+    push_field(fields, "native_io_certificate_status", certificate.status());
+    push_field(
+        fields,
+        "native_io_certificate_path_id",
+        &certificate.path_id,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_fallback_attempted",
+        certificate.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "native_io_certificate_source_streaming_capability",
+        certificate.source_capability_report.streaming_capability,
     );
     push_bool_field(
         fields,

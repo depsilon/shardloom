@@ -53,6 +53,7 @@
     "execution_native_vortex_scoped",
     "execution_report_only_surfaces",
     "execution_distributed_local_fixture",
+    "execution_live_hybrid_local_checkpoint_fixture",
     "execution_live_hybrid_remote_distributed",
     "claim_current_state_discoverability",
     "claim_production_readiness",
@@ -60,9 +61,9 @@
     "claim_package_publication",
     "claim_object_store_lakehouse_foundry_production"
   ],
-  "row_count": 38,
+  "row_count": 39,
   "support_state_counts": {
-    "executable": 23,
+    "executable": 24,
     "feature_gated": 5,
     "diagnostic_only": 3,
     "report_only": 1,
@@ -74,7 +75,7 @@
     "python_api": 5,
     "input_format": 6,
     "output_format": 3,
-    "execution_mode": 7,
+    "execution_mode": 8,
     "claim_state": 5
   },
   "blocker_ids": [
@@ -83,6 +84,7 @@
     "review-p0-3.object_store_runtime_and_path_safety_required",
     "runtime.evidence_required_before_execution_admission",
     "prod-ready-1d.remote_worker_remote_shuffle_spill_benchmark_blocked",
+    "prod-ready-1e.production_state_store_broker_object_store_exactly_once_blocked",
     "cg22.cg23.object_store_runtime_evidence_required",
     "release.production_readiness_gate_required",
     "cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required",
@@ -146,6 +148,9 @@
     "distributed-local-fixture-run 2 fault-injection",
     "shardloom.local_distributed_fixture_run.v1",
     "shardloom.local_distributed_split_manifest.v1",
+    "live-hybrid-durable-checkpoint-smoke <checkpoint-dir>",
+    "shardloom.live_hybrid_durable_checkpoint_fixture.v1",
+    "cg22.live_hybrid.fixture.durable_checkpoint.native_io",
     "engine_capability_matrix",
     "rest_api_contract_plan",
     "object_store_runtime_gate",
@@ -1255,6 +1260,31 @@
       "runtime_execution": true,
       "data_read": false,
       "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "execution_live_hybrid_local_checkpoint_fixture",
+      "family": "execution_mode",
+      "surface": [
+        "live-hybrid-durable-checkpoint-smoke",
+        "local checkpoint JSON",
+        "local changelog JSONL",
+        "restore digest"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "live-hybrid-durable-checkpoint-smoke <checkpoint-dir>",
+        "shardloom.live_hybrid_durable_checkpoint_fixture.v1",
+        "cg22.live_hybrid.fixture.durable_checkpoint.native_io"
+      ],
+      "blocker_id": "prod-ready-1e.production_state_store_broker_object_store_exactly_once_blocked",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "scoped local filesystem checkpoint/changelog fixture only; no broker, object-store checkpoint, Vortex micro-segment persistence, cold Vortex promotion, exactly-once, production streaming, performance, or Spark-displacement claim",
+      "runtime_execution": true,
+      "data_read": false,
+      "write_io": true,
       "fallback_attempted": false,
       "external_engine_invoked": false
     },

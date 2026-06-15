@@ -897,6 +897,206 @@
       ]
     },
     {
+      "workload_id": "live_hybrid_local_checkpoint_fixture_v1_candidate",
+      "workload_name": "Live/hybrid local checkpoint fixture v1 candidate",
+      "v1_scope_classification": "v1_candidate_pending_feasibility",
+      "readiness_status": "blocked_not_production_ready",
+      "production_ready": false,
+      "claim_gate_status": "not_claim_grade",
+      "production_claim_allowed": false,
+      "performance_claim_allowed": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false,
+      "environment": "single_process_local_filesystem_checkpoint_changelog_fixture",
+      "data_scale": "bounded ten-change in-memory fixture with explicit local checkpoint JSON, changelog JSONL, readback digest, and restored key-count verification; no broker, object-store checkpoint store, Vortex micro-segment persistence, cold promotion, exactly-once, production scale, or performance claim",
+      "input_formats": [
+        "shardloom.live_change_record_fixture.v1",
+        "in_memory_fixture_changes"
+      ],
+      "output_formats": [
+        "local_checkpoint_json",
+        "local_changelog_jsonl",
+        "freshness_certificate",
+        "state_certificate",
+        "execution_certificate",
+        "native_io_certificate"
+      ],
+      "statefulness": "bounded_fixture_hot_state_to_local_checkpoint_and_changelog_with_restore_digest_verification",
+      "effect_permissions": [
+        "explicit_local_checkpoint_directory_write",
+        "local_checkpoint_readback",
+        "no_network",
+        "no_broker_io",
+        "no_object_store_io",
+        "no_external_engine",
+        "no_exactly_once_claim"
+      ],
+      "security_posture": "local_no_secrets_no_network_explicit_filesystem_output_only",
+      "unsupported_edge_boundary": "Broker adapters, unbounded schedulers, production durable state stores, object-store/catalog checkpoints, Vortex micro-segment persistence, cold Vortex segment promotion, deletion-vector persistence, exactly-once semantics, and benchmark performance claims remain blocked until separate production evidence exists.",
+      "technique_review": {
+        "pulseweave": {
+          "decision": "pending_for_production_scheduler",
+          "reason": "The bounded fixture does not need runtime control loops yet; production live/hybrid scheduling must apply PulseWeave control before making freshness or throughput claims."
+        },
+        "capillary_work_units": {
+          "decision": "applied_scoped",
+          "reason": "The checkpoint proof uses a small capillary state unit: fixture changes, active state, checkpoint payload, changelog payload, readback, digest, and certificate evidence."
+        },
+        "dynamic_admission_work_shaping": {
+          "decision": "applied_scoped",
+          "reason": "The command admits only caller-provided local filesystem directories and rejects remote URI-like paths before writing."
+        },
+        "metadata_first_execution": {
+          "decision": "applied_scoped",
+          "reason": "The fixture records deterministic record counts, key counts, checkpoint policy, restore status, and digests before allowing the smoke to pass."
+        },
+        "timing_surface_separation": {
+          "decision": "pending",
+          "reason": "No live/hybrid benchmark timing surface is published yet; future timing must separate hot update runtime from checkpoint/proof work."
+        },
+        "evidence_tier_controls": {
+          "decision": "applied_scoped",
+          "reason": "The command emits freshness, state, execution, and Native I/O evidence while keeping production and exactly-once claims disabled."
+        }
+      },
+      "evidence": {
+        "runtime_execution": {
+          "status": "passed_scoped_local_fixture",
+          "evidence_refs": [
+            "live-hybrid-durable-checkpoint-smoke <checkpoint-dir>",
+            "shardloom.live_hybrid_durable_checkpoint_fixture.v1",
+            "durable_checkpoint_write_performed=true",
+            "durable_checkpoint_restore_performed=true",
+            "durable_changelog_write_performed=true"
+          ]
+        },
+        "correctness": {
+          "status": "passed_scoped_local_fixture",
+          "evidence_refs": [
+            "state_match=true",
+            "checkpoint_record_count=3",
+            "restored_active_state_key_count=3",
+            "shardloom-cli/tests/cg22_engine_fabric_snapshots.rs"
+          ]
+        },
+        "native_io_certificate": {
+          "status": "passed_scoped_local_fixture",
+          "evidence_refs": [
+            "native_io_certificate_status=certified",
+            "native_io_certificate_path_id=in_memory_change_fixture_to_local_checkpoint_changelog",
+            "native_io_certificate_write_io=true",
+            "native_io_certificate_object_store_io=false"
+          ]
+        },
+        "execution_certificate": {
+          "status": "passed_scoped_local_fixture",
+          "evidence_refs": [
+            "execution_certificate_status=certified",
+            "cg22.live_hybrid.fixture.durable_checkpoint.execution"
+          ]
+        },
+        "fault_tolerance": {
+          "status": "passed_scoped_local_restore_digest_check",
+          "evidence_refs": [
+            "state_restore_status=restored_local_checkpoint_digest_and_key_count_match",
+            "checkpoint_payload_digest=restored_checkpoint_payload_digest"
+          ]
+        },
+        "memory_backpressure": {
+          "status": "blocked_missing_production_live_state_store_pressure_profile",
+          "evidence_refs": [
+            "bounded_fixture_single_checkpoint_write"
+          ]
+        },
+        "benchmark": {
+          "status": "blocked_not_claim_grade",
+          "evidence_refs": [
+            "PROD-READY-1E live/hybrid benchmark profile",
+            "website/assets/benchmarks/latest/manifest.json"
+          ]
+        },
+        "security_governance": {
+          "status": "passed_scoped_local_fixture",
+          "evidence_refs": [
+            "security_posture=local_no_secrets_no_network_explicit_filesystem_output_only",
+            "broker_io=false",
+            "object_store_io=false",
+            "fallback_attempted=false",
+            "external_engine_invoked=false"
+          ]
+        },
+        "release_api_stability": {
+          "status": "passed_scoped_local_fixture",
+          "evidence_refs": [
+            "live-hybrid-durable-checkpoint-smoke",
+            "ShardLoomClient.live_hybrid_durable_checkpoint_smoke",
+            "ShardLoomContext.live_hybrid_durable_checkpoint_smoke"
+          ]
+        },
+        "unsupported_diagnostics": {
+          "status": "passed_scoped_local_fixture",
+          "evidence_refs": [
+            "vortex_micro_segment_persistence_status=blocked_not_in_scope_local_checkpoint_fixture",
+            "cold_vortex_segment_promotion_status=blocked_not_in_scope_local_checkpoint_fixture",
+            "exactly_once_claim_allowed=false",
+            "production_claim_allowed=false"
+          ]
+        }
+      },
+      "unsupported_diagnostics": [
+        {
+          "operation": "broker_runtime",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_LIVE_HYBRID_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "object_store_checkpoint_store",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_LIVE_HYBRID_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "vortex_micro_segment_persistence",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_LIVE_HYBRID_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "cold_vortex_segment_promotion",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_LIVE_HYBRID_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "exactly_once_semantics",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_LIVE_HYBRID_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        },
+        {
+          "operation": "live_hybrid_performance_claim",
+          "diagnostic_code": "SL_PROD_UNSUPPORTED_LIVE_HYBRID_RUNTIME",
+          "status": "deterministic_unsupported_diagnostic",
+          "fallback_attempted": false,
+          "external_engine_invoked": false
+        }
+      ],
+      "production_blockers": [
+        "production_state_store=blocked_missing_broker_object_store_catalog_state_store",
+        "durable_checkpoint=blocked_beyond_local_filesystem_fixture",
+        "vortex_micro_segment_persistence=blocked_not_in_scope_local_checkpoint_fixture",
+        "cold_vortex_segment_promotion=blocked_not_in_scope_local_checkpoint_fixture",
+        "exactly_once_claim=blocked_missing_source_state_sink_idempotency_evidence",
+        "benchmark=blocked_not_claim_grade"
+      ]
+    },
+    {
       "workload_id": "extension_manifest_inspection_v1_candidate",
       "workload_name": "Extension manifest inspection v1 candidate",
       "v1_scope_classification": "v1_candidate_pending_feasibility",

@@ -660,6 +660,42 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             ],
         },
         EnvelopeCase {
+            name: "live hybrid durable checkpoint runtime success",
+            args: &[
+                "live-hybrid-durable-checkpoint-smoke",
+                "target/typed-envelope-live-hybrid-checkpoint",
+                "--format",
+                "json",
+            ],
+            command: "live-hybrid-durable-checkpoint-smoke",
+            status: "success",
+            family: "engine_runtime_planning",
+            success: true,
+            allow_stderr: false,
+            fields: &[
+                (
+                    "schema_version",
+                    "shardloom.live_hybrid_durable_checkpoint_fixture.v1",
+                ),
+                ("checkpoint_store_kind", "local_filesystem_fixture_store"),
+                ("durable_checkpoint_store_used", "true"),
+                ("durable_checkpoint_write_performed", "true"),
+                ("durable_checkpoint_restore_performed", "true"),
+                ("durable_changelog_write_performed", "true"),
+                ("state_match", "true"),
+                ("write_io", "true"),
+                ("object_store_io", "false"),
+                ("exactly_once_claim_allowed", "false"),
+                ("production_claim_allowed", "false"),
+                ("runtime_execution", "true"),
+                ("fallback_attempted", "false"),
+            ],
+            fragments: &[
+                "\"id\":\"cg22.live_hybrid.fixture.durable_checkpoint.execution\",\"kind\":\"execution_certificate\"",
+                "\"id\":\"cg22.live_hybrid.fixture.durable_checkpoint.native_io\",\"kind\":\"native_io_certificate\"",
+            ],
+        },
+        EnvelopeCase {
             name: "vortex runtime success",
             args: &[
                 "vortex-memory-plan",

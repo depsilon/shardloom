@@ -10299,6 +10299,334 @@ class LiveHybridStateTransitionReport:
 
 
 @dataclass(frozen=True, slots=True)
+class LiveHybridDurableCheckpointReport:
+    """Typed view over the bounded live/hybrid local checkpoint fixture."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def selected_engine_mode(self) -> str | None:
+        """Return the selected fixture engine mode."""
+
+        return self.envelope.field("selected_engine_mode")
+
+    @property
+    def checkpoint_store_kind(self) -> str | None:
+        """Return the checkpoint store kind used by the fixture."""
+
+        return self.envelope.field("checkpoint_store_kind")
+
+    @property
+    def checkpoint_dir(self) -> str | None:
+        """Return the caller-provided checkpoint directory."""
+
+        return self.envelope.field("checkpoint_dir")
+
+    @property
+    def checkpoint_path(self) -> str | None:
+        """Return the checkpoint file path."""
+
+        return self.envelope.field("checkpoint_path")
+
+    @property
+    def changelog_path(self) -> str | None:
+        """Return the changelog file path."""
+
+        return self.envelope.field("changelog_path")
+
+    @property
+    def input_change_record_count(self) -> int:
+        """Return the number of fixture change records."""
+
+        return self.envelope.field_int("input_change_record_count", 0) or 0
+
+    @property
+    def active_state_key_count(self) -> int:
+        """Return the active state key count."""
+
+        return self.envelope.field_int("active_state_key_count", 0) or 0
+
+    @property
+    def checkpoint_record_count(self) -> int:
+        """Return the checkpoint record count."""
+
+        return self.envelope.field_int("checkpoint_record_count", 0) or 0
+
+    @property
+    def restored_active_state_key_count(self) -> int:
+        """Return the restored active state key count."""
+
+        return self.envelope.field_int("restored_active_state_key_count", 0) or 0
+
+    @property
+    def state_match(self) -> bool:
+        """Whether checkpoint digest and restored key count matched."""
+
+        return self.envelope.field_bool("state_match", False) is True
+
+    @property
+    def durable_checkpoint_store_used(self) -> bool:
+        """Whether the local durable checkpoint store was used."""
+
+        return self.envelope.field_bool("durable_checkpoint_store_used", False) is True
+
+    @property
+    def durable_checkpoint_write_performed(self) -> bool:
+        """Whether the checkpoint write was performed."""
+
+        return self.envelope.field_bool("durable_checkpoint_write_performed", False) is True
+
+    @property
+    def durable_checkpoint_restore_performed(self) -> bool:
+        """Whether the checkpoint restore/readback was performed."""
+
+        return self.envelope.field_bool("durable_checkpoint_restore_performed", False) is True
+
+    @property
+    def durable_changelog_write_performed(self) -> bool:
+        """Whether the changelog write was performed."""
+
+        return self.envelope.field_bool("durable_changelog_write_performed", False) is True
+
+    @property
+    def state_restore_status(self) -> str | None:
+        """Return the deterministic restore status."""
+
+        return self.envelope.field("state_restore_status")
+
+    @property
+    def all_certified(self) -> bool:
+        """Whether freshness, state, execution, and Native I/O evidence is certified."""
+
+        return all(
+            self.envelope.field(key) == "certified"
+            for key in (
+                "freshness_certificate_status",
+                "state_certificate_status",
+                "execution_certificate_status",
+                "native_io_certificate_status",
+            )
+        )
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether this explicit fixture command performed runtime work."""
+
+        return self.envelope.field_bool("runtime_execution", False) is True
+
+    @property
+    def write_io(self) -> bool:
+        """Whether this fixture wrote local checkpoint/changelog files."""
+
+        return self.envelope.field_bool("write_io", False) is True
+
+    @property
+    def object_store_io(self) -> bool:
+        """Whether this fixture touched object storage."""
+
+        return self.envelope.field_bool("object_store_io", False) is True
+
+    @property
+    def exactly_once_claim_allowed(self) -> bool:
+        """Whether the fixture authorizes an exactly-once claim."""
+
+        return self.envelope.field_bool("exactly_once_claim_allowed", False) is True
+
+    @property
+    def production_claim_allowed(self) -> bool:
+        """Whether the fixture authorizes a production live/hybrid claim."""
+
+        return self.envelope.field_bool("production_claim_allowed", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the fixture command reported fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether the fixture command invoked an external engine."""
+
+        return _envelope_external_engine_invoked(self.envelope)
+
+
+@dataclass(frozen=True, slots=True)
+class LocalDistributedFixtureRunReport:
+    """Typed view over the scoped local distributed fixture run."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def distributed_runtime_status(self) -> str | None:
+        """Return the distributed runtime support status."""
+
+        return self.envelope.field("distributed_runtime_status")
+
+    @property
+    def distributed_claim_gate_status(self) -> str | None:
+        """Return the distributed claim-gate status."""
+
+        return self.envelope.field("distributed_claim_gate_status")
+
+    @property
+    def worker_count(self) -> int:
+        """Return the requested local worker-slot count."""
+
+        return self.envelope.field_int("worker_count", 0) or 0
+
+    @property
+    def split_unit_count(self) -> int:
+        """Return the number of capillary split units executed."""
+
+        return self.envelope.field_int("split_unit_count", 0) or 0
+
+    @property
+    def task_attempt_count(self) -> int:
+        """Return task-attempt evidence count."""
+
+        return self.envelope.field_int("task_attempt_count", 0) or 0
+
+    @property
+    def task_attempt_outcomes(self) -> tuple[str, ...]:
+        """Return task-attempt outcomes in deterministic order."""
+
+        return _csv_values(self.envelope.field("task_attempt_outcome_order"))
+
+    @property
+    def result_fragment_count(self) -> int:
+        """Return result-fragment evidence count."""
+
+        return self.envelope.field_int("result_fragment_count", 0) or 0
+
+    @property
+    def merged_row_count(self) -> int:
+        """Return deterministic merged output row count."""
+
+        return self.envelope.field_int("merged_row_count", 0) or 0
+
+    @property
+    def merged_rows(self) -> tuple[str, ...]:
+        """Return deterministic merged rows."""
+
+        value = self.envelope.field("merged_rows", "") or ""
+        if value == "none":
+            return ()
+        return tuple(part.strip() for part in value.split("|") if part.strip())
+
+    @property
+    def merge_digest(self) -> str | None:
+        """Return the deterministic merged-output digest."""
+
+        return self.envelope.field("merge_digest")
+
+    @property
+    def retry_performed(self) -> bool:
+        """Whether the fixture performed a retry."""
+
+        return self.envelope.field_bool("retry_performed", False) is True
+
+    @property
+    def duplicate_attempt_rejected(self) -> bool:
+        """Whether duplicate task attempts were rejected."""
+
+        return self.envelope.field_bool("duplicate_attempt_rejected", False) is True
+
+    @property
+    def stale_lease_rejected(self) -> bool:
+        """Whether stale worker leases were rejected."""
+
+        return self.envelope.field_bool("stale_lease_rejected", False) is True
+
+    @property
+    def cancellation_cleanup_completed(self) -> bool:
+        """Whether cancellation cleanup completed."""
+
+        return self.envelope.field_bool("cancellation_cleanup_completed", False) is True
+
+    @property
+    def partial_output_committed(self) -> bool:
+        """Whether partial output was committed."""
+
+        return self.envelope.field_bool("partial_output_committed", False) is True
+
+    @property
+    def repartition_performed(self) -> bool:
+        """Whether scoped local repartition ran."""
+
+        return self.envelope.field_bool("repartition_performed", False) is True
+
+    @property
+    def remote_shuffle_performed(self) -> bool:
+        """Whether remote shuffle ran."""
+
+        return self.envelope.field_bool("remote_shuffle_performed", False) is True
+
+    @property
+    def skew_detected(self) -> bool:
+        """Whether fixture skew detection identified a skewed key."""
+
+        return self.envelope.field_bool("skew_detected", False) is True
+
+    @property
+    def memory_budget_exceeded(self) -> bool:
+        """Whether the scoped memory budget was exceeded."""
+
+        return self.envelope.field_bool("memory_budget_exceeded", False) is True
+
+    @property
+    def spill_required(self) -> bool:
+        """Whether spill was required."""
+
+        return self.envelope.field_bool("spill_required", False) is True
+
+    @property
+    def all_certified(self) -> bool:
+        """Whether execution and Native I/O certificates are certified."""
+
+        return all(
+            self.envelope.field(key) == "certified"
+            for key in ("execution_certificate_status", "native_io_certificate_status")
+        )
+
+    @property
+    def runtime_execution(self) -> bool:
+        """Whether the explicit fixture command performed runtime work."""
+
+        return self.envelope.field_bool("runtime_execution", False) is True
+
+    @property
+    def production_claim_allowed(self) -> bool:
+        """Whether the fixture authorizes a production distributed claim."""
+
+        return self.envelope.field_bool("production_claim_allowed", False) is True
+
+    @property
+    def distributed_performance_claim_allowed(self) -> bool:
+        """Whether the fixture authorizes a distributed performance claim."""
+
+        return self.envelope.field_bool("distributed_performance_claim_allowed", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether fallback execution was attempted."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether an external engine was invoked."""
+
+        return _envelope_external_engine_invoked(self.envelope)
+
+
+@dataclass(frozen=True, slots=True)
 class PythonClientSmokeReport:
     """No-dataset Python client smoke-check envelopes."""
 
@@ -10932,6 +11260,37 @@ class ShardLoomClient:
 
         return LiveHybridStateTransitionReport(
             self.run(["live-hybrid-state-transition-smoke"], check=check)
+        )
+
+    def live_hybrid_durable_checkpoint_smoke(
+        self,
+        checkpoint_dir: str | os.PathLike[str],
+        *,
+        check: bool = True,
+    ) -> LiveHybridDurableCheckpointReport:
+        """Run the bounded CG-22 local checkpoint/changelog fixture."""
+
+        return LiveHybridDurableCheckpointReport(
+            self.run(
+                ["live-hybrid-durable-checkpoint-smoke", str(checkpoint_dir)],
+                check=check,
+            )
+        )
+
+    def distributed_local_fixture_run(
+        self,
+        worker_count: int = 2,
+        fault_mode: str = "none",
+        *,
+        check: bool = True,
+    ) -> LocalDistributedFixtureRunReport:
+        """Run the scoped local distributed fixture command."""
+
+        return LocalDistributedFixtureRunReport(
+            self.run(
+                ["distributed-local-fixture-run", str(worker_count), fault_mode],
+                check=check,
+            )
         )
 
     def explain(self, operation: str, *, check: bool = True) -> OutputEnvelope:

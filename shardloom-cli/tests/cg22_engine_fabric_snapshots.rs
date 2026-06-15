@@ -1,6 +1,22 @@
-use std::process::Command;
+use std::{fs, process::Command};
 
 fn run_json(args: &[&str], success: bool) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(args)
+        .args(["--format", "json"])
+        .output()
+        .expect("shardloom command runs");
+    assert_eq!(
+        output.status.success(),
+        success,
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).expect("stdout is utf8")
+}
+
+fn run_json_owned(args: &[String], success: bool) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args(args)
         .args(["--format", "json"])
@@ -307,6 +323,86 @@ fn live_hybrid_state_transition_smoke_emits_retry_cancellation_cleanup_evidence(
     assert!(output.contains(&field("no_fallback_no_external_engine", "true")));
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn live_hybrid_durable_checkpoint_smoke_writes_and_restores_local_checkpoint() {
+    let checkpoint_dir = std::env::temp_dir().join(format!(
+        "shardloom-cg22-live-hybrid-checkpoint-{}",
+        std::process::id()
+    ));
+    let _ = fs::remove_dir_all(&checkpoint_dir);
+    let checkpoint_dir_text = checkpoint_dir.display().to_string();
+    let output = run_json_owned(
+        &[
+            "live-hybrid-durable-checkpoint-smoke".to_string(),
+            checkpoint_dir_text.clone(),
+        ],
+        true,
+    );
+
+    assert!(output.contains("\"command\":\"live-hybrid-durable-checkpoint-smoke\""));
+    assert!(output.contains(&field("mode", "live_hybrid_durable_checkpoint_smoke")));
+    assert!(output.contains(&field(
+        "schema_version",
+        "shardloom.live_hybrid_durable_checkpoint_fixture.v1"
+    )));
+    assert!(output.contains(&field(
+        "fixture_id",
+        "cg22.live_hybrid.durable_checkpoint.fixture.v1"
+    )));
+    assert!(output.contains(&field("selected_engine_mode", "hybrid")));
+    assert!(output.contains(&field(
+        "checkpoint_store_kind",
+        "local_filesystem_fixture_store"
+    )));
+    assert!(output.contains(&field("checkpoint_dir", &checkpoint_dir_text)));
+    assert!(output.contains(&field(
+        "checkpoint_ref",
+        "checkpoint://cg22/live-hybrid/durable-local/seq-10"
+    )));
+    assert!(output.contains(&field("input_change_record_count", "10")));
+    assert!(output.contains(&field("active_state_key_count", "3")));
+    assert!(output.contains(&field("checkpoint_record_count", "3")));
+    assert!(output.contains(&field("restored_active_state_key_count", "3")));
+    assert!(output.contains(&field("durable_checkpoint_store_used", "true")));
+    assert!(output.contains(&field("durable_checkpoint_write_performed", "true")));
+    assert!(output.contains(&field("durable_checkpoint_restore_performed", "true")));
+    assert!(output.contains(&field("durable_changelog_write_performed", "true")));
+    assert!(output.contains(&field(
+        "state_restore_status",
+        "restored_local_checkpoint_digest_and_key_count_match"
+    )));
+    assert!(output.contains(&field("state_match", "true")));
+    assert!(output.contains(&field("broker_io", "false")));
+    assert!(output.contains(&field("object_store_io", "false")));
+    assert!(output.contains(&field("write_io", "true")));
+    assert!(output.contains(&field("exactly_once_claim_allowed", "false")));
+    assert!(output.contains(&field("production_claim_allowed", "false")));
+    assert!(output.contains(&field("freshness_certificate_status", "certified")));
+    assert!(output.contains(&field("state_certificate_status", "certified")));
+    assert!(output.contains(&field(
+        "checkpoint_policy",
+        "local_filesystem_deterministic_fixture"
+    )));
+    assert!(output.contains(&field("execution_certificate_status", "certified")));
+    assert!(output.contains(&field("native_io_certificate_status", "certified")));
+    assert!(output.contains(&field("native_io_certificate_write_io", "true")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+    assert!(
+        checkpoint_dir
+            .join("cg22-live-hybrid-checkpoint.json")
+            .exists()
+    );
+    assert!(
+        checkpoint_dir
+            .join("cg22-live-hybrid-changelog.jsonl")
+            .exists()
+    );
+
+    fs::remove_dir_all(&checkpoint_dir).expect("cleanup checkpoint fixture directory");
 }
 
 #[test]
