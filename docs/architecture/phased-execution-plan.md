@@ -213,11 +213,12 @@ external approvals and real service environments listed below.
   posture, local dev-stack proof-of-use, generated-output result/evidence dataset-shaped paths,
   Python `foundry_generated_output(...)`, and explicit blocked diagnostics for real `foundry://`,
   Artifact Repository, Compute Module, Spark/platform compute, and production Foundry claims.
-- [x] `BENCH-FRESH-2026-06-15` The full-local benchmark bundle was rerun and promoted from source
-  revision `da14452991d22118dfcdbc54217a031046370c5a`, generated
-  `2026-06-15T15:56:54.109212+00:00`, with 1,920 admitted published rows, 1,200 successful
-  ShardLoom rows, 600 hot-runtime rows, 600 publication-proof rows, zero blocked/unsupported
-  ShardLoom rows, and `performance_claim_allowed=false`.
+- [x] `BENCH-FRESH-2026-06-15` The full-local benchmark bundle was rerun and promoted into
+  `website/assets/benchmarks/latest/manifest.json`. The manifest is the source of truth for
+  `benchmark_git_sha`, `generated_at_utc`, chunk refs, and row admission evidence. The promoted
+  bundle has 1,920 admitted published rows, 1,200 successful ShardLoom rows, 600 hot-runtime rows,
+  600 publication-proof rows, zero blocked/unsupported ShardLoom rows, and
+  `performance_claim_allowed=false`.
 
 ### External Approval And Environment Gates
 
@@ -244,7 +245,7 @@ available and the item can be implemented and validated without weakening no-fal
 | Closed local v1 | Package/readiness, object-store, table/lakehouse, distributed, live/hybrid, Foundry local candidate scopes, docs/website, and current full-local benchmark refresh | Completed details live in `docs/architecture/phased-execution-completed-ledger.md`; keep public/production claims blocked until the external gates above have real evidence. |
 | External gate | Public package/release channels | Maintainer must explicitly authorize publication and provide/confirm trusted-publisher or channel credentials before any upload/tag/release action. |
 | External gate | Real cloud/object-store, table, distributed, live/hybrid, and Foundry production environments | Maintainer must provide the real environment and approval to run credentialed/platform tests before these can become claim-grade. |
-| Claim-safe current evidence | `full_local` benchmark refresh | Current website bundle is refreshed from `da14452991d22118dfcdbc54217a031046370c5a`; it is evidence and optimization direction only, not a public performance/superiority/Spark-displacement claim. |
+| Claim-safe current evidence | `full_local` benchmark refresh | Current website bundle freshness is recorded in `website/assets/benchmarks/latest/manifest.json`; it is evidence and optimization direction only, not a public performance/superiority/Spark-displacement claim. |
 
 ### Evidence Pointers
 

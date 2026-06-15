@@ -33,9 +33,9 @@ phase plan first.
     - Preserved fail-closed claim boundaries: no public package/release claim, no production
       object-store/table/distributed/live/Foundry claim, no Spark-displacement claim, no public
       performance superiority claim, and no fallback or external-engine execution.
-    - Refreshed the full-local benchmark artifact from source revision
-      `da14452991d22118dfcdbc54217a031046370c5a` and promoted it into the committed website
-      benchmark bundle.
+    - Refreshed the full-local benchmark artifact and promoted it into the committed website
+      benchmark bundle. The promoted manifest is the source of truth for `benchmark_git_sha`,
+      `generated_at_utc`, row-run refs, and admission evidence.
     - Rebuilt the static Astro/Starlight website so the benchmark page renders the refreshed
       artifact.
   - Closed checklist:
@@ -59,9 +59,9 @@ phase plan first.
       wrote `target/benchmark-artifacts/traditional-full-local.json`.
     - `python3 scripts/promote_benchmark_artifact.py --profile full_local --input target/benchmark-artifacts/traditional-full-local.json`
       promoted `website/assets/benchmarks/latest/manifest.json`.
-    - Promoted manifest: `benchmark_git_sha=da14452991d22118dfcdbc54217a031046370c5a`,
-      `generated_at_utc=2026-06-15T15:56:54.109212+00:00`,
-      `published_benchmark_row_count=1920`, `performance_claim_allowed=false`.
+    - Promoted manifest: `website/assets/benchmarks/latest/manifest.json` records
+      `benchmark_git_sha`, `generated_at_utc`, `published_benchmark_row_count=1920`, row-run
+      chunk refs, and `performance_claim_allowed=false`.
     - Promoted rows: 1,200 ShardLoom rows, all `status=success`, all
       `route_runtime_status=scoped_runtime_supported`, 600 `timing_surface=hot_runtime`, 600
       `timing_surface=publication_proof`, zero blocked/unsupported ShardLoom rows,
