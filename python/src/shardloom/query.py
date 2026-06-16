@@ -11180,11 +11180,14 @@ def _parse_vortex_sql_route_clauses(value: str) -> _VortexSqlRouteClauses | None
     limit_text = values["limit"]
     if not limit_text.isdecimal():
         return None
+    limit = int(limit_text)
+    if limit <= 0:
+        return None
     return _VortexSqlRouteClauses(
         where=values.get("where"),
         group_by=values.get("group by"),
         order_by=values.get("order by"),
-        limit=_normalize_positive_int("SQL Vortex LIMIT", int(limit_text)),
+        limit=limit,
     )
 
 
@@ -11441,7 +11444,10 @@ def _parse_vortex_sql_tail(value: str) -> tuple[str | None, int | None] | None:
         limit_text = tail[limit_position + len("limit") :].strip()
         if not limit_text or not limit_text.isdecimal():
             return None
-        limit = _normalize_positive_int("SQL Vortex LIMIT", int(limit_text))
+        parsed_limit = int(limit_text)
+        if parsed_limit <= 0:
+            return None
+        limit = parsed_limit
     return predicate, limit
 
 

@@ -15950,6 +15950,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             {},
         )
 
+    def test_sql_vortex_provider_shape_limit_zero_fails_closed(self) -> None:
+        limit_zero_sql = (
+            "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
+            "FROM 'fact.vortex' WHERE metric >= 0 GROUP BY group_key LIMIT 0"
+        )
+
+        self.assertEqual(
+            _sql_native_vortex_public_workflow_kwargs(
+                limit_zero_sql,
+                requested_output="collect",
+            ),
+            {},
+        )
+
     def test_unadmitted_vortex_shapes_still_fail_with_route_blockers(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

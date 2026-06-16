@@ -1595,7 +1595,7 @@ fn quoted_source_refs(value: &str) -> Vec<String> {
 fn compact_ascii_lower(value: &str) -> String {
     value
         .chars()
-        .filter(|ch| !ch.is_whitespace() && *ch != '\'' && *ch != '"')
+        .filter(|ch| !ch.is_whitespace())
         .flat_map(char::to_lowercase)
         .collect()
 }
@@ -4191,6 +4191,44 @@ mod tests {
             .map(str::to_string),
         )
         .expect("payloadless report route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn route_planner_does_not_infer_provider_from_quoted_plan_arguments() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "fact.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(fact.vortex) -> filter('metric >= 0') -> group_by(group_key) -> aggregate('count(*) AS rows','sum(metric) AS total_metric') -> limit(1)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("quoted payloadless provider route request");
 
         let plan = plan_public_workflow_route(&request);
         let fields = route_fields(&request, &plan);
