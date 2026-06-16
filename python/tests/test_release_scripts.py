@@ -7448,10 +7448,10 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(summary["status"], "passed")
         self.assertEqual(summary["review_status"], "reviewed")
         self.assertEqual(
-            summary["status_counts"]["included_pending_channel_proof"], 3
+            summary["status_counts"]["included_pending_channel_proof"], 4
         )
         self.assertEqual(
-            summary["status_counts"]["feasible_pending_channel_proof"], 4
+            summary["status_counts"]["feasible_pending_channel_proof"], 3
         )
         self.assertEqual(summary["status_counts"]["not_in_v1_scope_recorded"], 2)
         self.assertFalse(summary["rows"][0]["ready"])
@@ -7482,7 +7482,8 @@ class ReleaseScriptTests(unittest.TestCase):
             "generated_output_proof_distinct_from_no_dataset_smoke": True,
             "generated_source_user_rows_smoke_performed": True,
             "generated_source_range_smoke_performed": True,
-            "prepared_native_benchmark_smoke_performed": True,
+            "benchmark_smoke_required_for_package_release": False,
+            "benchmark_smoke_status": "skipped_not_required_for_package_release",
             "provenance_dry_run_performed": True,
             "sbom_checksum_manifest_generated": True,
             "publication_attempted": False,
@@ -7521,8 +7522,8 @@ class ReleaseScriptTests(unittest.TestCase):
             write_ref("source_archive", "shardloom-source.tar.gz"),
             write_ref("release_notes", "github-prerelease-release-notes.md"),
             write_ref("release_binary", "shardloom"),
-            write_ref("python_wheel", "shardloom-0.1.0.dev0-py3-none-any.whl"),
-            write_ref("python_sdist", "shardloom-0.1.0.dev0.tar.gz"),
+            write_ref("python_wheel", "shardloom-0.1.0-py3-none-any.whl"),
+            write_ref("python_sdist", "shardloom-0.1.0.tar.gz"),
         ]
         sbom_refs = [
             write_ref("rust_workspace_sbom", "shardloom-rust-workspace.cdx.json"),
@@ -7662,6 +7663,10 @@ class ReleaseScriptTests(unittest.TestCase):
             "publication_attempted_by_this_tool": False,
             "package_channel_submission_attempted_by_this_tool": False,
             "testpypi_proof_ref": testpypi_proof_ref,
+            "cli_binary_required_for_clean_registry_smoke": True,
+            "cli_binary_available": True,
+            "cli_binary_ref": "target/release/shardloom",
+            "cli_binary_smoke_source": "approved_release_or_local_artifact",
         }
 
     def test_python_registry_package_proof_commands_are_channel_specific(self) -> None:
@@ -7690,6 +7695,8 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(pypi_command[-1], "shardloom==0.1.0")
         self.assertIn("smoke.fallback_attempted", smoke_command)
         self.assertIn("external_engine_invoked", smoke_command)
+        proof_env = module.smoke_env(Path("/release/shardloom"))
+        self.assertEqual(proof_env["SHARDLOOM_BIN"], "/release/shardloom")
 
     def test_python_registry_package_proof_blocks_pypi_without_testpypi_ref(self) -> None:
         module = self._load_script_module(
@@ -7708,6 +7715,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 venv_dir=repo_root / "target" / "proof-venv",
                 steps=[],
                 testpypi_proof_ref=None,
+                shardloom_bin=repo_root / "target" / "release" / "shardloom",
             )
             report = json.loads(output.read_text(encoding="utf-8"))
 
@@ -7717,6 +7725,33 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertFalse(report["registry_upload_attempted_by_this_tool"])
         self.assertFalse(report["publication_attempted_by_this_tool"])
         self.assertFalse(report["package_channel_submission_attempted_by_this_tool"])
+
+    def test_python_registry_package_proof_requires_cli_binary_for_smoke(self) -> None:
+        module = self._load_script_module(
+            "python_registry_package_proof.py",
+            "python_registry_package_proof_cli_binary_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo_root = Path(tmp)
+            output = repo_root / "target" / "registry-proof.json"
+            status = module.write_transcript(
+                repo_root=repo_root,
+                output=output,
+                channel=module.REGISTRY_CHANNELS["testpypi"],
+                version="0.1.0",
+                venv_dir=repo_root / "target" / "proof-venv",
+                steps=[],
+                testpypi_proof_ref=None,
+                shardloom_bin=None,
+                setup_blockers=["registry proof requires --shardloom-bin or SHARDLOOM_BIN"],
+            )
+            report = json.loads(output.read_text(encoding="utf-8"))
+
+        self.assertEqual(status, 1)
+        self.assertEqual(report["proof_status"], "failed")
+        self.assertFalse(report["cli_binary_available"])
+        self.assertIn("SHARDLOOM_BIN", "\n".join(report["blockers"]))
 
     def test_python_registry_package_proof_fails_when_smoke_flags_fire(self) -> None:
         module = self._load_script_module(
@@ -7746,6 +7781,7 @@ class ReleaseScriptTests(unittest.TestCase):
                     {"name": "uninstall_registry_package", "returncode": 0},
                 ],
                 testpypi_proof_ref=None,
+                shardloom_bin=repo_root / "target" / "release" / "shardloom",
             )
             report = json.loads(output.read_text(encoding="utf-8"))
 
@@ -8086,9 +8122,14 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["contract_validation_status"], "passed")
         self.assertFalse(report["public_release_ready"])
         self.assertFalse(report["post_release_verification_ready"])
+        self.assertEqual(report["publication_authorization_state"], "approved")
         self.assertTrue(report["public_release_blockers"])
         self.assertEqual(public_report["status"], "failed")
-        self.assertIn("approved_release_tag missing", public_report["blockers"])
+        self.assertIn("public_release_ready must be true", public_report["blockers"])
+        self.assertIn(
+            "package_install_uninstall_smoke: verification_status=blocked_pending_public_release",
+            public_report["blockers"],
+        )
         self.assertFalse(public_report["fallback_attempted"])
         self.assertFalse(public_report["external_engine_invoked"])
 
@@ -9465,6 +9506,8 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn("validate-pypi-prior-proof", current_workflow)
         self.assertIn("Validate prior TestPyPI proof transcript", current_workflow)
         self.assertIn('"proof_status": "passed"', current_workflow)
+        self.assertIn('"cli_binary_required_for_clean_registry_smoke": True', current_workflow)
+        self.assertIn('"cli_binary_available": True', current_workflow)
 
     def test_pypi_workflow_uses_dynamic_python_package_version_for_prior_proof(self) -> None:
         workflow = (
@@ -9474,7 +9517,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn("python/src/shardloom/_version.py", workflow)
         self.assertIn("expected_version = resolve_python_package_version()", workflow)
         self.assertNotIn('pyproject["project"]["version"]', workflow)
-        self.assertEqual(CURRENT_PYTHON_PACKAGE_VERSION, "0.1.0.dev0")
+        self.assertEqual(CURRENT_PYTHON_PACKAGE_VERSION, "0.1.0")
 
     def test_v1_local_source_package_release_track_gate_passes_current_contract(self) -> None:
         module = self._load_script_module(
@@ -9487,11 +9530,11 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(
             report["release_track_status"],
-            "local_source_package_v1_ready_pending_publication_event",
+            "local_source_package_v1_approved_pending_channel_proof",
         )
         self.assertEqual(
             report["selected_publication_channels"],
-            ["github_prerelease", "testpypi", "pypi"],
+            ["github_prerelease", "testpypi", "pypi", "homebrew_tap"],
         )
         self.assertFalse(report["publication_attempted"])
         self.assertFalse(report["tag_created"])
@@ -10722,10 +10765,12 @@ jobs:
             "schema_version": "shardloom.release_dry_run_proof.v1",
             "proof_status": "passed",
             "clean_venv_install_status": "passed",
-            "local_wheel": "python/dist/shardloom-0.1.0.dev0-py3-none-any.whl",
+            "local_wheel": "python/dist/shardloom-0.1.0-py3-none-any.whl",
             "local_cli_binary": "target/debug/shardloom",
             "external_runtime_dependencies_added": False,
             "fallback_engine_dependency_added": False,
+            "benchmark_smoke_required_for_package_release": False,
+            "benchmark_smoke_status": "skipped_not_required_for_package_release",
             **false_fields,
         }
         dry_run.update({field: True for field in module.REQUIRED_DRY_RUN_TRUE_FIELDS})
@@ -12250,10 +12295,10 @@ jobs:
             (artifact / "debug").mkdir()
             (artifact / "debug" / "shardloom").write_text("binary\n", encoding="utf-8")
             (artifact / "dist").mkdir()
-            (artifact / "dist" / "shardloom-0.1.0.dev0-py3-none-any.whl").write_text(
+            (artifact / "dist" / "shardloom-0.1.0-py3-none-any.whl").write_text(
                 "wheel\n", encoding="utf-8"
             )
-            (artifact / "dist" / "shardloom-0.1.0.dev0.tar.gz").write_text(
+            (artifact / "dist" / "shardloom-0.1.0.tar.gz").write_text(
                 "sdist\n", encoding="utf-8"
             )
 
@@ -12270,8 +12315,8 @@ jobs:
                 sorted(file["path"] for file in report["artifact_files"]),
                 [
                     "debug/shardloom",
-                    "dist/shardloom-0.1.0.dev0-py3-none-any.whl",
-                    "dist/shardloom-0.1.0.dev0.tar.gz",
+                    "dist/shardloom-0.1.0-py3-none-any.whl",
+                    "dist/shardloom-0.1.0.tar.gz",
                     "release-dry-run-proof/transcript.json",
                     "release-provenance-dry-run/supply-chain-release-evidence.json",
                 ],
@@ -12310,10 +12355,10 @@ jobs:
                     repo_root
                     / "python"
                     / "dist"
-                    / "shardloom-0.1.0.dev0-py3-none-any.whl"
+                    / "shardloom-0.1.0-py3-none-any.whl"
                 ).is_file()
             )
-            sdist = repo_root / "python" / "dist" / "shardloom-0.1.0.dev0.tar.gz"
+            sdist = repo_root / "python" / "dist" / "shardloom-0.1.0.tar.gz"
             self.assertTrue(sdist.is_file())
 
     def test_release_evidence_artifact_merge_rejects_symlinked_entries(self) -> None:
@@ -12657,11 +12702,11 @@ jobs:
                         "stderr": f"{sys.executable}: No module named build\n",
                     }
                 if name == "build_python_artifacts":
-                    (dist_dir / "shardloom-0.1.0.dev0-py3-none-any.whl").write_text(
+                    (dist_dir / "shardloom-0.1.0-py3-none-any.whl").write_text(
                         "wheel", encoding="utf-8"
                     )
                 if name == "build_python_artifacts_sdist":
-                    (dist_dir / "shardloom-0.1.0.dev0.tar.gz").write_text(
+                    (dist_dir / "shardloom-0.1.0.tar.gz").write_text(
                         "sdist", encoding="utf-8"
                     )
                 return {
@@ -12744,7 +12789,7 @@ jobs:
                 "clean virtual environment\n"
                 "local_python_user_surface_quickstart_performed=true\n"
                 "generated_source_user_rows_smoke_performed=true\n"
-                "prepared_native_benchmark_smoke_performed=true\n"
+                "benchmark_smoke_required_for_package_release=false\n"
             ),
             "docs/release/production-usability-gate.md": (
                 "shardloom.production_usability_gate.v1\n"
@@ -12851,7 +12896,8 @@ jobs:
                 "generated_output_proof_distinct_from_no_dataset_smoke": True,
                 "generated_source_user_rows_smoke_performed": True,
                 "generated_source_range_smoke_performed": True,
-                "prepared_native_benchmark_smoke_performed": True,
+                "benchmark_smoke_required_for_package_release": False,
+                "benchmark_smoke_status": "skipped_not_required_for_package_release",
                 "provenance_dry_run_performed": True,
                 "sbom_checksum_manifest_generated": True,
                 "steps": [
@@ -12890,7 +12936,8 @@ jobs:
                 "local_artifacts_only": True,
                 "public_release_claim_allowed": False,
                 "public_package_claim_allowed": False,
-                "publication_human_approved": False,
+                "publication_authorization_status": "approved_pending_channel_proof",
+                "publication_human_approved": True,
                 "signing_key_used": False,
                 "blockers": ["hard release claim still blocked"],
                 **false_fields,

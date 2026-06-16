@@ -121,12 +121,17 @@ jobs:
               "registry_upload_attempted_by_this_tool": False,
               "publication_attempted_by_this_tool": False,
               "package_channel_submission_attempted_by_this_tool": False,
+              "cli_binary_required_for_clean_registry_smoke": True,
+              "cli_binary_available": True,
+              "cli_binary_smoke_source": "approved_release_or_local_artifact",
           }
           mismatches = [
               f"{key}={proof.get(key)!r} expected {expected!r}"
               for key, expected in required.items()
               if proof.get(key) != expected
           ]
+          if not isinstance(proof.get("cli_binary_ref"), str) or not proof["cli_binary_ref"]:
+              mismatches.append("cli_binary_ref missing")
           if mismatches:
               raise SystemExit("invalid TestPyPI proof: " + "; ".join(mismatches))
           PY

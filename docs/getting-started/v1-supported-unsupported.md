@@ -132,10 +132,10 @@ package_upload_attempted=false
 
 | Channel | Status | Ready | Current blockers |
 | --- | --- | --- | --- |
-| GitHub pre-release | blocked | false | no approved release tag, no GitHub pre-release object or attached assets, no gh release download transcript from attached assets, maintainer approval missing |
-| TestPyPI | blocked | false | no TestPyPI Trusted Publisher proof, no TestPyPI upload proof, no clean TestPyPI install/uninstall/smoke transcript, maintainer approval missing |
-| PyPI | blocked | false | Trusted Publisher/OIDC proof missing, prior TestPyPI install/uninstall/smoke proof missing, maintainer approval missing, clean public install/uninstall/smoke transcript missing, channel-specific SBOM/checksum/provenance evidence missing |
-| Homebrew tap | blocked | false | no tap repository or formula proof, no versioned artifact checksum proof, no clean Homebrew install/uninstall/smoke transcript, maintainer approval missing |
+| GitHub pre-release | blocked | false | approved release tag not created, no GitHub pre-release object or attached assets, no gh release download transcript from attached assets |
+| TestPyPI | blocked | false | no TestPyPI upload proof, no clean TestPyPI install/uninstall/smoke transcript |
+| PyPI | blocked | false | prior TestPyPI install/uninstall/smoke proof missing, clean public install/uninstall/smoke transcript missing, channel-specific SBOM/checksum/provenance evidence missing |
+| Homebrew tap | blocked | false | no tap repository or formula proof, no versioned artifact checksum proof, no clean Homebrew install/uninstall/smoke transcript |
 | Scoop | blocked | false | no bucket manifest proof, no checksum proof, no clean Scoop install/uninstall/smoke transcript, maintainer approval missing |
 | winget | blocked | false | no winget manifest proof, no installer artifact proof, no clean winget install/uninstall/smoke transcript, maintainer approval missing |
 | conda-forge | blocked | false | no staged-recipes submission proof, clean_conda_env_install_status is local proof, not a conda-forge package proof, no feedstock install/uninstall/smoke transcript, maintainer approval missing |

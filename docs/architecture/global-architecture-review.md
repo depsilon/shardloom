@@ -786,7 +786,8 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0024-release-engineering-api-compatibility-packaging.md`](../rfcs/0024-release-engineering-api-compatibility-packaging.md)
-- Current read: Release gates and dry-run evidence exist; publication is not complete.
+- Current read: Release gates and dry-run evidence exist; v0.1.0 publication approval is recorded,
+  but channel publication/proof is not complete.
 - Evidence: `shardloom-core/src/release.rs`, `shardloom-cli/src/packaging_deployment.rs`,
   `scripts/check_release_readiness.py`, `scripts/release_dry_run_proof.py`,
   `scripts/release_provenance_dry_run.py`, `scripts/run_release_validation_evidence.py`,
@@ -808,8 +809,8 @@ plan before coding.
   `public_package_claim_allowed=false`, `package_publication_performed=false`, `tag_created=false`,
   `signing_key_used=false`, `fallback_attempted=false`, and `external_engine_invoked=false`.
 - [ ] First public release/package publication remains incomplete and is carried by
-  `GAR-0043-B`; stable API/schema windows and signing decisions now have explicit fail-closed gate
-  rows but are not approved for public claims.
+  `GAR-0043-B`; v0.1.0 GitHub/TestPyPI/PyPI/Homebrew approval is recorded, but tags/uploads,
+  formula proof, install/uninstall/smoke transcripts, and public claim gates remain incomplete.
 
 ### RFC 0025 - Competitive Engine Track and No-Fallback Replacement Strategy
 
@@ -1703,14 +1704,15 @@ plan before coding.
   artifact, checksum, SBOM, provenance, security, architecture-tracker, package-channel,
   unsupported-path, per-claim, and publication/API/schema refs while keeping
   `rehearsal_status=passed`, `claim_gate_status=not_claim_grade`,
-  `publication_authorization_status=human_approval_required`,
-  `publication_human_approved=false`, `public_release_claim_allowed=false`,
+  `publication_authorization_status=approved_pending_channel_proof`,
+  `publication_human_approved=true`, `public_release_claim_allowed=false`,
   `public_package_claim_allowed=false`, `package_upload_attempted=false`,
   `feedstock_submission_attempted=false`, `marketplace_submission_attempted=false`,
   `signing_key_used=false`, `publication_attempted=false`, `tag_created=false`,
   `secrets_required=false`, `fallback_attempted=false`, and `external_engine_invoked=false`.
-- [ ] Actual public package publication, release tags, signing, uploaded attestations, and final
-  maintainer approval remain incomplete and outside autonomous execution.
+- [ ] Actual public package publication, release tags, signing, uploaded attestations, and channel
+  proof remain incomplete; final maintainer approval exists only for the v0.1.0
+  GitHub/TestPyPI/PyPI/Homebrew sequence and does not authorize production/performance claims.
 
 ## Compute Engine Flow Review
 

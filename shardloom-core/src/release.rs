@@ -762,10 +762,10 @@ impl ReleasePublicationApiSchemaGateReport {
             ),
             ReleasePublicationApiSchemaGateRow::blocked(
                 "package_identity_approval",
-                "blocked",
+                "approved_pending_channel_proof",
                 "approved package identities, channel ownership, naming, install/uninstall/rollback proof",
                 "docs/release/package-channel-readiness-matrix.json",
-                "package channels are represented but none is approved for public publication",
+                "GitHub/TestPyPI/PyPI/Homebrew are approved for v0.1.0 but still lack publication and install proof",
             ),
             ReleasePublicationApiSchemaGateRow::blocked(
                 "signing_policy_decision",
@@ -790,10 +790,10 @@ impl ReleasePublicationApiSchemaGateReport {
             ),
             ReleasePublicationApiSchemaGateRow::blocked(
                 "publication_approval",
-                "blocked",
+                "approved_pending_channel_proof",
                 "explicit maintainer approval, release notes, tag approval, package-channel gate pass",
                 "docs/release/hard-release-readiness-gate.md",
-                "no human has approved a public package release, release tag, or publication event",
+                "maintainer approval exists for the v0.1.0 GitHub, TestPyPI, PyPI, and Homebrew sequence; channel publication, install proof, and post-release verification remain pending",
             ),
         ];
         Self {

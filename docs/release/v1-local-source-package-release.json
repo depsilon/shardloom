@@ -1,7 +1,7 @@
 {
   "schema_version": "shardloom.v1_local_source_package_release.v1",
-  "status": "ready_pending_publication_event",
-  "release_track_status": "local_source_package_v1_ready_pending_publication_event",
+  "status": "approved_pending_channel_publication_and_post_release_verification",
+  "release_track_status": "local_source_package_v1_approved_pending_channel_proof",
   "v1_scope_classification": "required_for_v1_publication_prep",
   "source_checkout_install_status": "supported_local_source_checkout",
   "local_source_install_proof_status": "validated_by_release_dry_run",
@@ -9,11 +9,12 @@
   "api_schema_stability_status": "stable_v1_local_contract",
   "benchmark_publication_scope": "full_local_evidence_only_claim_gated",
   "docs_website_status": "claim_safe_current_source",
-  "publication_authorization_state": "final_maintainer_confirmation_required",
+  "publication_authorization_state": "approved_pending_channel_publication_proof",
   "selected_publication_channels": [
     "github_prerelease",
     "testpypi",
-    "pypi"
+    "pypi",
+    "homebrew_tap"
   ],
   "deferred_environment_gate_ids": [
     "production_object_store_claim",
@@ -29,7 +30,7 @@
   "release_dry_run_command": "python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
   "python_scenario_command": "python examples/local-python-benchmark-scenarios/run.py --repo-root .",
   "timing_review_command": "python examples/local-python-benchmark-scenarios/timing_review.py --repo-root .",
-  "claim_boundary": "This contract narrows v1 release readiness to source checkout, local wheel/sdist proof, GitHub pre-release assets, TestPyPI rehearsal, PyPI package path, stable local v1 schemas, local Python user-surface proof, and local benchmark evidence. It does not approve actual publication, package upload, release tag creation, production platform claims, performance superiority, Spark replacement, or fallback execution.",
+  "claim_boundary": "This contract narrows v1 release readiness to source checkout, local wheel/sdist proof, GitHub pre-release assets, TestPyPI rehearsal, PyPI package path, Homebrew CLI tap path, stable local v1 schemas, local Python user-surface proof, and local benchmark evidence. Maintainer publication approval exists for GitHub v0.1.0, TestPyPI, PyPI, and Homebrew, but public release readiness still requires channel publication, registry/formula install proof, post-release verification, and claim-gate updates. It does not approve production platform claims, performance superiority, Spark replacement, or fallback execution.",
   "fallback_boundary": "All selected release paths must preserve fallback_attempted=false and external_engine_invoked=false. Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or another external query engine as ShardLoom runtime fallback.",
   "public_release_claim_allowed": false,
   "public_package_claim_allowed": false,

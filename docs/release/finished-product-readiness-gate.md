@@ -9,7 +9,7 @@ It has two modes:
   reported separately under `public_release_blockers`.
 - `--require-public-release-ready`: local evidence and all publication evidence must pass,
   including package-channel readiness, benchmark publication freshness, hard-release readiness, and
-  human publication approval.
+  post-release verification.
 
 Local product evidence includes `target/v1-release-boundary-report.json`, which keeps public docs,
 package metadata, generated support surfaces, package dry-run proof, and unsupported
@@ -40,7 +40,7 @@ The public-release side also consumes
 `target/final-release-approval-post-release-verification-report.json`, generated from
 `docs/release/final-release-approval-post-release-verification.json`. That report keeps package
 install/uninstall, first-10-minutes, golden workflow, no-fallback smoke, docs-link, and website
-support-matrix verification blocked until a maintainer-approved public release exists.
+support-matrix verification blocked until a maintainer-approved public release has channel proof.
 
 Run:
 
@@ -52,5 +52,5 @@ python scripts\check_finished_product_readiness.py
 python scripts\check_finished_product_readiness.py --require-public-release-ready
 ```
 
-The first command is the CI release-readiness contract. The second command is reserved for a future
-human-approved public release command.
+The first command is the CI release-readiness contract. The second command is reserved for a
+channel-proofed public release command.

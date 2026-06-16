@@ -33,7 +33,7 @@ SCHEMA_VERSION = "shardloom.v1_local_source_package_release_report.v1"
 CONTRACT_SCHEMA_VERSION = "shardloom.v1_local_source_package_release.v1"
 DEFAULT_CONTRACT = Path("docs/release/v1-local-source-package-release.json")
 DEFAULT_OUTPUT = Path("target/v1-local-source-package-release-report.json")
-SELECTED_CHANNELS = ["github_prerelease", "testpypi", "pypi"]
+SELECTED_CHANNELS = ["github_prerelease", "testpypi", "pypi", "homebrew_tap"]
 DEFERRED_ENVIRONMENT_GATES = [
     "production_object_store_claim",
     "production_table_lakehouse_claim",
@@ -88,8 +88,8 @@ def validate_contract(contract: dict[str, Any] | None) -> list[str]:
     if contract.get("schema_version") != CONTRACT_SCHEMA_VERSION:
         blockers.append(f"contract schema_version={contract.get('schema_version')}")
     expected = {
-        "status": "ready_pending_publication_event",
-        "release_track_status": "local_source_package_v1_ready_pending_publication_event",
+        "status": "approved_pending_channel_publication_and_post_release_verification",
+        "release_track_status": "local_source_package_v1_approved_pending_channel_proof",
         "v1_scope_classification": "required_for_v1_publication_prep",
         "source_checkout_install_status": "supported_local_source_checkout",
         "local_source_install_proof_status": "validated_by_release_dry_run",
@@ -97,13 +97,15 @@ def validate_contract(contract: dict[str, Any] | None) -> list[str]:
         "api_schema_stability_status": "stable_v1_local_contract",
         "benchmark_publication_scope": "full_local_evidence_only_claim_gated",
         "docs_website_status": "claim_safe_current_source",
-        "publication_authorization_state": "final_maintainer_confirmation_required",
+        "publication_authorization_state": "approved_pending_channel_publication_proof",
     }
     for field, value in expected.items():
         if contract.get(field) != value:
             blockers.append(f"contract {field}={contract.get(field)!r}")
     if contract.get("selected_publication_channels") != SELECTED_CHANNELS:
-        blockers.append("selected_publication_channels must be GitHub prerelease, TestPyPI, PyPI")
+        blockers.append(
+            "selected_publication_channels must be GitHub prerelease, TestPyPI, PyPI, and Homebrew tap"
+        )
     if contract.get("deferred_environment_gate_ids") != DEFERRED_ENVIRONMENT_GATES:
         blockers.append("deferred_environment_gate_ids must match the production environment gates")
     for field, value in LOCAL_SOURCE_PACKAGE_FAIL_CLOSED_FIELDS.items():
@@ -218,11 +220,12 @@ def build_report(
     docs_to_markers = {
         "README.md": [
             "selected local/source/package v1 release track",
-            "GitHub pre-release, TestPyPI, and PyPI are the selected publication channels",
+            "GitHub pre-release, TestPyPI, PyPI, and Homebrew are the selected publication channels",
         ],
         "docs/getting-started/package-user-install.md": [
-            "selected_publication_channels=github_prerelease,testpypi,pypi",
+            "selected_publication_channels=github_prerelease,testpypi,pypi,homebrew_tap",
             "final_publication_event_required=true",
+            "homebrew_tap",
         ],
         "docs/release/public-status-matrix.md": [
             "selected local/source/package v1 release track",
@@ -230,7 +233,7 @@ def build_report(
         ],
         "website-src/src/pages/start.astro": [
             "selected local/source/package v1 release track",
-            "GitHub prerelease + TestPyPI/PyPI path",
+            "GitHub prerelease + TestPyPI/PyPI + Homebrew path",
         ],
     }
     for relative, markers in docs_to_markers.items():

@@ -51,7 +51,7 @@ $env:SHARDLOOM_BIN = "target\debug\shardloom.exe"
 
 The source-checkout proof builds source artifacts, installs the locally built wheel in a clean
 virtual environment, runs the local Python smoke, writes scoped local outputs, runs a tiny
-ShardLoom-only benchmark smoke, and records a transcript:
+package-channel proof without requiring the benchmark-only feature lane, and records a transcript:
 
 ```powershell
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1

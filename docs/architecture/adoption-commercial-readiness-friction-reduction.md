@@ -15,8 +15,9 @@ The goal is to reduce friction without overclaiming:
 - Foundry dev-stack starter kit
 - workflow recipes library
 
-This document does not authorize package publication, release tags, runtime expansion, external
-service invocation, Foundry production support, performance claims, or fallback execution.
+This document records the package-channel architecture and current v0.1.0 approval path. It does
+not itself publish packages, create release tags, expand runtime behavior, invoke external services,
+claim Foundry production support, make performance claims, or authorize fallback execution.
 
 ## External Channel Grounding
 
@@ -38,15 +39,16 @@ Reference docs:
 
 ## Current ShardLoom State
 
-Current local proof exists, but public distribution is not complete:
+Current local proof exists and v0.1.0 publication is approved for GitHub, TestPyPI, PyPI, and
+Homebrew, but public distribution is not complete:
 
 - `scripts/release_dry_run_proof.py` builds local artifacts, installs the local wheel in a clean
   virtual environment, resolves the local CLI, runs smoke checks, runs scoped generated-source local
   output smokes, runs a tiny compatibility/prepared-Vortex benchmark smoke, runs release provenance
   dry-run evidence, and records no-publication safety fields.
 - `docs/getting-started/first-10-minutes.md` describes a source-checkout path.
-- `docs/release/package-name-readiness.md` tracks PyPI, TestPyPI, Conda, and crates.io readiness
-  posture.
+- `docs/release/package-name-readiness.md` tracks PyPI, TestPyPI, Homebrew, Conda, and crates.io
+  readiness posture.
 - `docs/release/package-channel-readiness-matrix.md` and
   `docs/release/package-channel-readiness-matrix.json` track channel-specific install, uninstall,
   clean-install, smoke, SBOM/checksum/provenance, rollback/yank, and authorization evidence.
@@ -56,9 +58,10 @@ Current local proof exists, but public distribution is not complete:
   optional Markdown summaries, and redaction reports.
 - `website/status.html` is a public posture board with a generated buyer-facing "Can I use this?"
   matrix sourced from the universal compatibility scoreboard and package-channel readiness matrix.
-- Real package publication, release tags, OCI pushes, Homebrew/Scoop/winget/conda-forge submission,
+- Real package publication, release tags, OCI pushes, Scoop/winget/conda-forge submission,
   crates.io publication, lineage/telemetry backend export, and managed observability integration
-  remain blocked until release and opt-in evidence gates pass.
+  remain blocked until release and opt-in evidence gates pass. Homebrew is selected for v0.1.0, but
+  its formula/install proof remains missing until the GitHub release assets exist.
 
 ## One-Command Local Proof Target
 
@@ -94,10 +97,10 @@ python scripts\check_package_channel_readiness.py
 
 | Channel | Target | Current status | Required proof before ready |
 | --- | --- | --- | --- |
-| GitHub pre-release | Source archive plus built artifacts | `report-only` / blocked for public claim | Tag/release approval, checksums, SBOM, provenance, install/smoke transcript, rollback/delete policy. |
-| TestPyPI | Python package `shardloom` | `blocked` | TestPyPI Trusted Publisher or scoped human credential proof, clean install, uninstall, smoke, no token committed. |
-| PyPI | Python package `shardloom` | `blocked` | PyPI Trusted Publisher/OIDC, maintainer approval, clean install, uninstall, smoke, SBOM/checksum/provenance, yank policy. |
-| Homebrew tap | CLI formula | `blocked` | Tap/formula proof, versioned artifact checksum, install/uninstall, smoke, rollback/deprecate policy. |
+| GitHub pre-release | Source archive plus built artifacts | `approved` / blocked until channel proof | Tag/release creation, checksums, SBOM, provenance, install/smoke transcript, rollback/delete policy. |
+| TestPyPI | Python package `shardloom` | `approved` / blocked until channel proof | Trusted Publisher upload, clean install, uninstall, CLI-backed smoke, no token committed. |
+| PyPI | Python package `shardloom` | `approved` / blocked until TestPyPI and channel proof | PyPI Trusted Publisher/OIDC, prior TestPyPI proof, clean install, uninstall, CLI-backed smoke, SBOM/checksum/provenance, yank policy. |
+| Homebrew tap | CLI formula | `approved` / blocked until formula proof | Tap/formula proof against immutable GitHub v0.1.0 source archive, versioned artifact checksum, install/uninstall, smoke, rollback/deprecate policy. |
 | Scoop | Windows CLI manifest | `blocked` | Bucket manifest, checksum, install/uninstall, smoke, update policy. |
 | winget | Windows package manifest | `blocked` | winget manifest, repository submission validation, install/uninstall, smoke, update/rollback policy. |
 | conda-forge | `shardloom-cli`, `shardloom-python`, `shardloom` | `blocked` | staged-recipes/feedstock proof, clean Conda install, smoke, no fallback dependencies, maintainer policy. |
@@ -105,7 +108,7 @@ python scripts\check_package_channel_readiness.py
 | crates.io | future public Rust API crates only | `blocked` | extracted stable public crates, API stability gate, publish dry-run, no internal crate publication. |
 
 No channel is ready until the specific channel has install, uninstall, clean-install, smoke,
-provenance, and rollback/yank evidence.
+provenance, and rollback/yank/deprecate evidence.
 
 Package access does not imply production readiness.
 PyPI and TestPyPI require Trusted Publisher/OIDC posture for release-grade proof. Current internal

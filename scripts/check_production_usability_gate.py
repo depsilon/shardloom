@@ -50,7 +50,6 @@ DRY_RUN_REQUIRED_TRUE_FIELDS = [
     "generated_output_proof_distinct_from_no_dataset_smoke",
     "generated_source_user_rows_smoke_performed",
     "generated_source_range_smoke_performed",
-    "prepared_native_benchmark_smoke_performed",
     "provenance_dry_run_performed",
     "sbom_checksum_manifest_generated",
 ]
@@ -66,7 +65,6 @@ DRY_RUN_REQUIRED_STEPS = [
     "example_local_python_smoke",
     "generated_source_user_rows_local_output_smoke",
     "generated_source_range_local_output_smoke",
-    "example_local_vortex_benchmark_smoke",
     "release_provenance_dry_run",
 ]
 
@@ -94,7 +92,7 @@ REQUIRED_DOC_MARKERS = {
         "clean virtual environment",
         "local_python_user_surface_quickstart_performed=true",
         "generated_source_user_rows_smoke_performed=true",
-        "prepared_native_benchmark_smoke_performed=true",
+        "benchmark_smoke_required_for_package_release=false",
     ],
     "docs/release/production-usability-gate.md": [
         SCHEMA_VERSION,
@@ -279,6 +277,10 @@ def validate_release_dry_run(
     for field in DRY_RUN_REQUIRED_TRUE_FIELDS:
         if dry_run.get(field) is not True:
             blockers.append(f"release dry-run {field} must be true")
+    if dry_run.get("benchmark_smoke_required_for_package_release") is not False:
+        blockers.append(
+            "release dry-run benchmark_smoke_required_for_package_release must be false"
+        )
     for field in [
         "publication_attempted",
         "tag_created",
@@ -305,6 +307,10 @@ def validate_release_dry_run(
             "status": "passed" if not blockers else "blocked",
             "clean_venv_install_status": dry_run.get("clean_venv_install_status"),
             "clean_conda_env_install_status": clean_conda_status,
+            "benchmark_smoke_status": dry_run.get("benchmark_smoke_status"),
+            "benchmark_smoke_required_for_package_release": dry_run.get(
+                "benchmark_smoke_required_for_package_release"
+            ),
             "passed_step_count": sum(1 for step in DRY_RUN_REQUIRED_STEPS if step_passed(steps, step)),
             "required_step_count": len(DRY_RUN_REQUIRED_STEPS),
             "local_wheel": dry_run.get("local_wheel"),
@@ -658,7 +664,8 @@ def build_report(
             ("local_artifacts_only", True),
             ("public_release_claim_allowed", False),
             ("public_package_claim_allowed", False),
-            ("publication_human_approved", False),
+            ("publication_authorization_status", "approved_pending_channel_proof"),
+            ("publication_human_approved", True),
             ("signing_key_used", False),
         ]:
             if final_rehearsal.get(field) != expected:

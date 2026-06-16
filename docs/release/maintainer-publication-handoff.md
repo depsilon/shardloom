@@ -2,9 +2,10 @@
 
 # Maintainer Publication Handoff
 
-Status: release handoff packet after `RELEASE-PACKAGE-15`. This document does not approve
-publication, create tags, publish packages, sign artifacts, upload SBOMs, submit package-channel
-manifests, add secrets, or authorize fallback execution.
+Status: release handoff packet after `RELEASE-PACKAGE-15`, amended for approved v0.1.0
+GitHub/TestPyPI/PyPI/Homebrew publication sequencing. This document does not itself create tags,
+publish packages, sign artifacts, upload SBOMs, submit package-channel manifests, add secrets, or
+authorize fallback execution.
 
 Date: 2026-06-13
 
@@ -25,14 +26,15 @@ V1 local/source/package track addendum, 2026-06-15:
 - Real production object-store, table/lakehouse, distributed, live/hybrid, and Foundry environments
   are not available for v1 certification. Those claims remain fail-closed.
 - The feasible v1 release path is narrowed to source checkout, GitHub pre-release, TestPyPI, PyPI,
-  local API/schema stability, local Python user-surface proof, local benchmark evidence, and
-  claim-safe docs/website/readme surfaces.
+  Homebrew, local API/schema stability, local Python user-surface proof, local benchmark evidence,
+  and claim-safe docs/website/readme surfaces.
 - `docs/release/v1-local-source-package-release.md` and
   `docs/release/v1-local-source-package-release.json` are the canonical selected-track contract.
 - The selected-track validator is `scripts/check_v1_local_source_package_release.py`.
-- Publication still requires final maintainer confirmation of version/tag/source revision,
-  channels, release notes, checksums, SBOM/provenance/signing policy, rollback/yank policy, and
-  post-release smoke transcripts.
+- Maintainer approval now exists for v0.1.0 publication through GitHub pre-release, TestPyPI,
+  PyPI, and Homebrew. Publication still requires the channel sequence, release notes, checksums,
+  SBOM/provenance/signing policy, rollback/yank/deprecate policy, and post-release smoke
+  transcripts.
 
 `RELEASE-PACKAGE-15` branch evidence was prepared from local branch
 `codex/release-package-15-runtime-evidence`. The refreshed benchmark publication bundle records
@@ -77,13 +79,12 @@ handoff packet.
 
 ## Decision Summary
 
-Nothing is approved for public publication yet.
-
-The current repository has local release-candidate evidence for build, package smoke,
-SBOM/checksum/provenance dry run, package-channel readiness classification, production-usability
-blocking, final no-publication rehearsal, and current benchmark-publication artifacts. The hard
-release gate remains blocked for maintainer/publication approval gates, and all public
-release/package/performance/production/platform claims remain disallowed.
+Maintainer approval is recorded for the v0.1.0 GitHub pre-release, TestPyPI, PyPI, and Homebrew
+publication sequence. The current repository has local release-candidate evidence for build,
+package smoke, SBOM/checksum/provenance dry run, package-channel readiness classification,
+production-usability blocking, final no-publication rehearsal, and current benchmark-publication
+artifacts. Public release/package claims remain disallowed until the selected channels are actually
+published and verified with channel-specific proof.
 
 Allowed now:
 
@@ -93,15 +94,17 @@ Allowed now:
 - Current scoped full-local benchmark-publication evidence with public performance claims still
   disallowed.
 - Package-channel planning and maintainer review.
+- v0.1.0 release preparation for GitHub pre-release, TestPyPI, PyPI, and Homebrew, subject to the
+  ordered channel-proof sequence.
 
 Not allowed now:
 
-- GitHub Release or release tag creation.
-- PyPI, TestPyPI, conda-forge, Homebrew, Scoop, winget, GHCR, or crates.io publication.
+- conda-forge, Scoop, winget, GHCR, or crates.io publication.
 - Signing key use or public attestation generation.
-- Uploading SBOMs, checksums, assets, feedstocks, manifests, images, or package artifacts.
-- Public API/schema stability, production, performance, Spark-replacement, Foundry/platform, broad
-  SQL/DataFrame, object-store/lakehouse, or package-availability claims.
+- Uploading unrelated feedstocks, manifests, images, or package artifacts outside the approved
+  v0.1.0 GitHub/TestPyPI/PyPI/Homebrew sequence.
+- Production, performance, Spark-replacement, Foundry/platform, broad SQL/DataFrame,
+  object-store/lakehouse, or package-availability claims before channel verification.
 
 ## Evidence Packet
 
@@ -134,9 +137,9 @@ Prepared local artifact checksums recorded by the provenance dry run:
 
 | Artifact | Local path | SHA-256 |
 | --- | --- | --- |
-| CLI binary | `target/debug/shardloom` | `7dcc0f001335ba8bf65c982522c09915f060c17a563025c69bbfbc0c4b57c2eb` |
-| Python wheel | `python/dist/shardloom-0.1.0.dev0-py3-none-any.whl` | `cf90ac71ae9fbb47559cabe0c64713a52e56b3172ae071fbdd35b57c38b2fad1` |
-| Python sdist | `python/dist/shardloom-0.1.0.dev0.tar.gz` | `a65dba4f7bc879d76bdc5f76ce261f981d6860a9f45c7c9f4639cee3d1cc566c` |
+| CLI binary | `target/debug/shardloom` | `968dc6d21e7c328e354909c07154f9256ac6a23cf1a9274115852ec3fc872d07` |
+| Python wheel | `python/dist/shardloom-0.1.0-py3-none-any.whl` | `cef48a489b1b98115e4d78566113a504ca822c75dc21f9f36034b516b7cd418c` |
+| Python sdist | `python/dist/shardloom-0.1.0.tar.gz` | `8a127f93913d65a23a2035ef62349250b7fc2c4bc1d2129fe06dd69cd57833c6` |
 
 Prepared local SBOM/checksum refs:
 
@@ -155,12 +158,14 @@ signing/attestation policy, and destination channels.
 
 The hard release gate remains blocked by:
 
-- Package-channel readiness: every configured public channel remains blocked.
-- Publication/API/schema stability: no public API/schema compatibility window is approved.
+- Package-channel readiness: selected public channels remain blocked until publication and
+  install/uninstall/smoke proof pass.
+- Publication/API/schema stability: functional v1 surfaces are approved as stable for v0.1.0, but
+  public compatibility claims still require release artifact and post-release proof.
 - Per-claim evidence: release, package, performance, Spark-displacement, production, platform, and
   broad runtime claims remain not claim-grade.
-- Human approval: no maintainer has approved publication, signing, tagging, package-channel upload,
-  feedstock submission, release-asset upload, or public attestation.
+- Channel evidence: GitHub release/tag/assets, TestPyPI proof, PyPI proof, and Homebrew formula
+  proof are still missing.
 
 Current local release evidence that is no longer a hard-gate blocker:
 
@@ -185,12 +190,12 @@ Current local release evidence that is no longer a hard-gate blocker:
 
 ## Channel Handoff
 
-| Channel | Current status | Maintainer action required before publication |
+| Channel | Current status | Remaining action required before publication/proof |
 | --- | --- | --- |
-| GitHub pre-release | Blocked | Approve tag/release, attach assets/checksums/SBOM/provenance, run channel download smoke, approve rollback/delete policy. |
-| TestPyPI | Blocked | Configure Trusted Publisher or scoped credential proof, approve upload, run clean registry install/uninstall/smoke. |
-| PyPI | Blocked | Configure Trusted Publisher/OIDC, approve package identity, approve upload, run clean public install/uninstall/smoke, approve yank policy. |
-| Homebrew tap | Blocked | Approve tap/formula, versioned checksums, install/uninstall/smoke transcript, rollback/deprecate policy. |
+| GitHub pre-release | Approved, blocked until publication proof | Create v0.1.0 tag/release, attach assets/checksums/SBOM/provenance, run channel download smoke, record rollback/delete policy. |
+| TestPyPI | Approved, Trusted Publisher configured, blocked until upload proof | Run Trusted Publisher upload, then clean registry install/uninstall/smoke with explicit ShardLoom CLI binary. |
+| PyPI | Approved, Trusted Publisher configured, blocked until TestPyPI proof | Reference the passed TestPyPI proof, run Trusted Publisher upload, then clean public install/uninstall/smoke. |
+| Homebrew tap | Approved, blocked until formula proof | Publish tap/formula against the immutable GitHub v0.1.0 source archive, record SHA256, install/uninstall/smoke transcript, and rollback/deprecate policy. |
 | Scoop | Blocked | Approve bucket manifest, checksums, install/uninstall/smoke transcript, update/rollback policy. |
 | winget | Blocked | Approve manifest/submission, installer proof, install/uninstall/smoke transcript, update/rollback policy. |
 | conda-forge | Blocked | Approve staged-recipes/feedstock submission, clean feedstock install/uninstall/smoke, maintainer policy. |
@@ -199,8 +204,9 @@ Current local release evidence that is no longer a hard-gate blocker:
 
 ## Approval Record
 
-Publication is allowed only after maintainers explicitly record all selected approvals below in the
-release issue, PR, or release checklist:
+Publication approval for v0.1.0 is recorded in
+`docs/release/final-release-approval-post-release-verification.json`. The approved channels are
+GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof must still record:
 
 - Approved source revision and release version/tag.
 - Approved destination channels and package identities.
@@ -210,7 +216,8 @@ release issue, PR, or release checklist:
 - Approved secrets/OIDC/environment setup for each selected channel.
 - Passing strict hard release gate for the approved source revision.
 
-Until that approval exists, all publish commands remain prohibited.
+Until channel proof exists, public package and release claims remain prohibited even though the
+publication sequence is approved.
 
 ## Required Re-Run Before Approval
 

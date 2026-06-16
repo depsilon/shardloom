@@ -851,9 +851,9 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(proof.contains("clean virtual environment"));
     assert!(proof.contains("pip --no-index <wheel>"));
     assert!(proof.contains("exact local wheel artifact"));
-    assert!(proof.contains("clean venv interpreter"));
+    assert!(proof.contains("clean venv path"));
     assert!(proof.contains("SHARDLOOM_BIN"));
-    assert!(proof.contains("examples/local-vortex-benchmark"));
+    assert!(proof.contains("--include-benchmark-smoke"));
     assert!(proof.contains("publication_attempted"));
     assert!(proof.contains("fallback_engine_dependency_added"));
     assert!(proof.contains("release_provenance_dry_run"));
@@ -866,7 +866,8 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(proof.contains("sbom_checksum_manifest_generated"));
     assert!(proof.contains("generated_source_user_rows_smoke_performed=true"));
     assert!(proof.contains("generated_source_range_smoke_performed=true"));
-    assert!(proof.contains("prepared_native_benchmark_smoke_performed=true"));
+    assert!(proof.contains("benchmark_smoke_required_for_package_release=false"));
+    assert!(proof.contains("benchmark_smoke_status=skipped_not_required_for_package_release"));
     assert!(proof.contains("generated_source_certificate_status=present"));
     assert!(proof.contains("output_native_io_certificate_status=certified_local_file_sink"));
     assert!(proof.contains("external_engine_invoked=False"));
@@ -880,7 +881,9 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(snapshot.contains("generated_output_proof_distinct_from_no_dataset_smoke: true"));
     assert!(snapshot.contains("generated_source_user_rows_smoke_performed: true"));
     assert!(snapshot.contains("generated_source_range_smoke_performed: true"));
-    assert!(snapshot.contains("prepared_native_benchmark_smoke_performed: true"));
+    assert!(snapshot.contains("prepared_native_benchmark_smoke_performed: false"));
+    assert!(snapshot.contains("benchmark_smoke_required_for_package_release: false"));
+    assert!(snapshot.contains("benchmark_smoke_status: skipped_not_required_for_package_release"));
     assert!(snapshot.contains("clean_conda_env_install_status"));
     assert!(snapshot.contains("fallback_attempted=False"));
     assert!(snapshot.contains("generated_source_user_rows_local_output_smoke -> 0"));
@@ -888,7 +891,7 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(snapshot.contains("generated_source_kind=user_rows"));
     assert!(snapshot.contains("generated_source_kind=range"));
     assert!(snapshot.contains("output_native_io_certificate_status=certified_local_file_sink"));
-    assert!(snapshot.contains("example_local_vortex_benchmark_smoke -> 0"));
+    assert!(!snapshot.contains("example_local_vortex_benchmark_smoke -> 0"));
     assert!(snapshot.contains("release_provenance_dry_run -> 0"));
     assert!(snapshot.contains("provenance_dry_run_performed: true"));
     assert!(snapshot.contains("sbom_checksum_manifest_generated: true"));
@@ -2136,7 +2139,8 @@ fn gar_0043_a_release_architecture_tracker_gate_fails_closed() {
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
     assert!(traceability.contains("GAR-0043-A"));
     assert!(traceability.contains("shardloom.release_architecture_tracker_report.v1"));
-    assert!(traceability.contains("Actual public publication remains unauthorized"));
+    assert!(traceability.contains("Actual public publication, release tags, signing"));
+    assert!(traceability.contains("approval exists but still requires channel proof"));
 }
 
 #[test]
@@ -2201,8 +2205,8 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
         "target/final-release-rehearsal/final-release-rehearsal-report.json",
         "rehearsal_status=passed",
         "claim_gate_status=not_claim_grade",
-        "publication_authorization_status=human_approval_required",
-        "publication_human_approved=false",
+        "publication_authorization_status=approved_pending_channel_proof",
+        "publication_human_approved=true",
         "public_release_claim_allowed=false",
         "public_package_claim_allowed=false",
         "local_artifacts_only=true",
@@ -2352,7 +2356,8 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
     assert!(traceability.contains("GAR-0043-B"));
     assert!(traceability.contains("shardloom.final_release_rehearsal_report.v1"));
-    assert!(traceability.contains("Actual public publication remains unauthorized"));
+    assert!(traceability.contains("Actual public publication, release tags, signing"));
+    assert!(traceability.contains("approval exists but still requires channel proof"));
 }
 
 #[test]

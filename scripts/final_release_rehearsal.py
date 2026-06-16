@@ -3,7 +3,7 @@
 """Aggregate final no-publication release rehearsal evidence for ShardLoom.
 
 This rehearsal is intentionally local-only. It inspects existing dry-run artifacts, writes a local
-attestation plan, and fails closed until maintainers explicitly approve real publication.
+attestation plan, and fails closed until approved package channels have real publication proof.
 """
 
 from __future__ import annotations
@@ -398,7 +398,9 @@ def main() -> int:
     if package_matrix is None:
         blockers.append("missing package-channel readiness matrix")
     elif package_matrix.get("public_package_release_claim_allowed") is not False:
-        blockers.append("package matrix public_package_release_claim_allowed must be false until human approval")
+        blockers.append(
+            "package matrix public_package_release_claim_allowed must be false until channel proof"
+        )
     if "per_claim_evidence_attachment_matrix_claim_gate_status=not_claim_grade" not in per_claim_matrix_text:
         blockers.append("per-claim matrix not-claim-grade marker missing")
     if "fallback_attempted=false" not in unsupported_text or "external_engine_invoked=false" not in unsupported_text:
@@ -412,11 +414,12 @@ def main() -> int:
         "artifact_attestation_refs": attestation_rows,
         "artifact_attestation_count": len(attestation_rows),
         "attestation_generation_status": "not_signed_local_rehearsal",
-        "slsa_attestation_status": "not_generated_until_publication_approval",
-        "signing_policy_decision": "blocked_until_human_approval",
+        "slsa_attestation_status": "not_generated_until_channel_publication_proof",
+        "signing_policy_decision": "approved_pending_channel_publication_proof",
         "signing_key_used": False,
-        "publication_human_approval_required": True,
-        "publication_human_approved": False,
+        "publication_authorization_status": "approved_pending_channel_proof",
+        "publication_human_approval_required": False,
+        "publication_human_approved": True,
         "publication_attempted": False,
         "tag_created": False,
         "secrets_required": False,
@@ -434,9 +437,9 @@ def main() -> int:
         "claim_gate_status": "not_claim_grade",
         "public_release_claim_allowed": False,
         "public_package_claim_allowed": False,
-        "publication_authorization_status": "human_approval_required",
-        "publication_human_approval_required": True,
-        "publication_human_approved": False,
+        "publication_authorization_status": "approved_pending_channel_proof",
+        "publication_human_approval_required": False,
+        "publication_human_approved": True,
         "local_artifacts_only": True,
         "package_artifact_ref_count": len(artifact_rows),
         "sbom_ref_count": len(sbom_rows),

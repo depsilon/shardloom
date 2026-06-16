@@ -7,8 +7,10 @@ Spark, DataFusion, DuckDB, Polars, pandas, Foundry, object stores, or network
 services. The fastest complete path is the local release dry run below: it
 builds source artifacts, installs the exact local wheel in a clean virtual
 environment, runs smoke checks, writes scoped generated-source local outputs,
-runs a tiny compatibility/prepared-Vortex benchmark smoke under an isolated
-per-run benchmark directory, and records the evidence transcript.
+records that benchmark smoke is not required for package-channel proof, and
+records the evidence transcript. Pass `--include-benchmark-smoke` when you
+intentionally want the optional benchmark-only feature lane in the same local
+transcript.
 
 Public status is owned by `docs/release/public-status-matrix.md`. This walkthrough is local
 technical-preview evidence only.
@@ -98,7 +100,8 @@ Certified Route and ShardLoom Warm Prepared Query so their start states are
 visible separately. Use `--engines shardloom-prepare-batch` with the underlying
 `benchmarks\traditional_analytics\run.py` harness when you specifically want the
 single-process compatibility prepare plus prepared/native batch route and its
-`prepare_batch_*` adapter-timing evidence.
+`prepare_batch_*` adapter-timing evidence. Add `--include-benchmark-smoke` only when the local
+benchmark smoke should run as optional benchmark evidence in the same transcript.
 
 Additional example metadata, expected outputs, certificate fields, and known
 limitations are listed in `docs/getting-started/examples.md`.

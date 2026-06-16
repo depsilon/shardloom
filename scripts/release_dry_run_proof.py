@@ -97,9 +97,26 @@ def parse_args() -> argparse.Namespace:
         help="Fail this dry run when clean Conda proof cannot pass.",
     )
     parser.add_argument(
-        "--skip-benchmark-smoke",
+        "--include-benchmark-smoke",
         action="store_true",
-        help="Skip the local benchmark smoke. Intended only for focused packaging troubleshooting.",
+        help=(
+            "Also run the optional local Vortex benchmark smoke. This may compile the "
+            "benchmark-only feature lane and is intentionally not required for package-channel proof."
+        ),
+    )
+    parser.add_argument(
+        "--skip-benchmark-smoke",
+        action="store_false",
+        dest="include_benchmark_smoke",
+        help=(
+            "Deprecated compatibility flag. Benchmark smoke is skipped by default for package-channel proof."
+        ),
+    )
+    parser.add_argument(
+        "--benchmark-smoke-timeout-seconds",
+        type=int,
+        default=180,
+        help="Timeout for the optional benchmark smoke when --include-benchmark-smoke is used.",
     )
     return parser.parse_args()
 
@@ -194,26 +211,48 @@ def run_step(
     command: list[str],
     cwd: Path,
     env: dict[str, str] | None = None,
+    timeout_seconds: int | None = None,
 ) -> dict[str, Any]:
     started = time.perf_counter()
-    completed = subprocess.run(
-        command,
-        cwd=cwd,
-        env=env,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    elapsed_ms = round((time.perf_counter() - started) * 1000.0, 4)
-    return {
-        "name": name,
-        "command": redact_command_for_transcript(cwd, command),
-        "returncode": completed.returncode,
-        "elapsed_millis": elapsed_ms,
-        "stdout": redact_text_for_transcript(cwd, completed.stdout[-4000:]),
-        "stderr": redact_text_for_transcript(cwd, completed.stderr[-4000:]),
-    }
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=cwd,
+            env=env,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=timeout_seconds,
+        )
+        elapsed_ms = round((time.perf_counter() - started) * 1000.0, 4)
+        return {
+            "name": name,
+            "command": redact_command_for_transcript(cwd, command),
+            "returncode": completed.returncode,
+            "elapsed_millis": elapsed_ms,
+            "stdout": redact_text_for_transcript(cwd, completed.stdout[-4000:]),
+            "stderr": redact_text_for_transcript(cwd, completed.stderr[-4000:]),
+            "timed_out": False,
+        }
+    except subprocess.TimeoutExpired as exc:
+        elapsed_ms = round((time.perf_counter() - started) * 1000.0, 4)
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or ""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode("utf-8", errors="replace")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        return {
+            "name": name,
+            "command": redact_command_for_transcript(cwd, command),
+            "returncode": 124,
+            "elapsed_millis": elapsed_ms,
+            "stdout": redact_text_for_transcript(cwd, str(stdout)[-4000:]),
+            "stderr": redact_text_for_transcript(cwd, str(stderr)[-4000:]),
+            "timed_out": True,
+            "timeout_seconds": timeout_seconds,
+        }
 
 
 def parse_python_version_text(text: str) -> tuple[int, int, int] | None:
@@ -709,7 +748,7 @@ def main() -> int:
             env=smoke_env,
         )
     )
-    if not args.skip_benchmark_smoke:
+    if args.include_benchmark_smoke:
         steps.append(
             run_step(
                 name="example_local_vortex_benchmark_smoke",
@@ -726,6 +765,7 @@ def main() -> int:
                     str(args.iterations),
                 ],
                 cwd=repo_root,
+                timeout_seconds=args.benchmark_smoke_timeout_seconds,
             )
         )
     steps.append(
@@ -861,6 +901,20 @@ def write_transcript(
         ),
         "prepared_native_benchmark_smoke_performed": step_passed(
             "example_local_vortex_benchmark_smoke"
+        ),
+        "benchmark_smoke_required_for_package_release": False,
+        "benchmark_smoke_status": (
+            "passed"
+            if step_passed("example_local_vortex_benchmark_smoke")
+            else (
+                "failed"
+                if step_attempted("example_local_vortex_benchmark_smoke")
+                else "skipped_not_required_for_package_release"
+            )
+        ),
+        "benchmark_smoke_optional_reason": (
+            "benchmark-only feature compilation belongs to benchmark and feature-matrix gates, "
+            "not package-channel publication proof"
         ),
         "provenance_dry_run_performed": step_passed("release_provenance_dry_run"),
         "sbom_checksum_manifest_generated": any(

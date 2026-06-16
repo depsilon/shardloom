@@ -2,13 +2,13 @@
 
 # Package User Install Status
 
-ShardLoom package channels are not public install channels yet, but the v1 path is now selected:
-source checkout first, then GitHub pre-release, TestPyPI, and PyPI after the final publication
-event.
+ShardLoom package publication is approved for the v0.1.0 sequence, but channel install commands
+become public only after each channel has been published and verified. The order is source checkout
+proof, GitHub pre-release, TestPyPI, PyPI, then Homebrew tap.
 
 ```text
 package_channel_status=blocked
-selected_publication_channels=github_prerelease,testpypi,pypi
+selected_publication_channels=github_prerelease,testpypi,pypi,homebrew_tap
 final_publication_event_required=true
 package_install_commands_visible=false
 public_package_claim_allowed=false
@@ -19,13 +19,16 @@ fallback_attempted=false
 external_engine_invoked=false
 ```
 
-No package-user install command is active yet. The source checkout path remains the supported local
-proof path until the selected channel gates close and a tagged release updates this page.
+No package-user install command is active yet in this source revision. The source checkout path
+remains the supported local proof path until the selected channel gates close and a tagged release
+updates this page with verified install, smoke, uninstall, and rollback instructions.
 
 ## What Exists Today
 
 - Local wheel and sdist build proof through `python scripts\release_dry_run_proof.py --rows 64 --iterations 1`.
 - Local clean virtual-environment install proof from that local wheel.
+- Publication approval for v0.1.0 GitHub pre-release, TestPyPI, PyPI, and Homebrew, recorded in
+  [`docs/release/final-release-approval-post-release-verification.json`](../release/final-release-approval-post-release-verification.json).
 - Package-channel readiness rows in
   [`docs/release/package-channel-readiness-matrix.md`](../release/package-channel-readiness-matrix.md).
 - Package names and metadata checks in
@@ -59,6 +62,7 @@ python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 
 ## Future Package Page Rule
 
-When the final publication event completes, this page must show the exact channel, version, install,
-upgrade, uninstall, smoke-check, rollback/yank, checksum/SBOM, and support-bundle instructions for
-GitHub pre-release, TestPyPI, and PyPI as applicable. Until then, package commands stay withheld.
+When each publication step completes, this page must show the exact channel, version, install,
+upgrade, uninstall, smoke-check, rollback/yank/deprecate, checksum/SBOM, and support-bundle
+instructions for GitHub pre-release, TestPyPI, PyPI, and Homebrew as applicable. Until channel proof
+exists, package commands stay withheld.

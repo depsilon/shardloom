@@ -20,7 +20,9 @@ local_python_unsupported_path_evidence_printed: true
 generated_output_proof_distinct_from_no_dataset_smoke: true
 generated_source_user_rows_smoke_performed: true
 generated_source_range_smoke_performed: true
-prepared_native_benchmark_smoke_performed: true
+prepared_native_benchmark_smoke_performed: false
+benchmark_smoke_required_for_package_release: false
+benchmark_smoke_status: skipped_not_required_for_package_release
 provenance_dry_run_performed: true
 sbom_checksum_manifest_generated: true
 clean_conda_env_install_status: passed | skipped_tool_missing
@@ -58,7 +60,6 @@ steps:
       fallback_attempted=False
       external_engine_invoked=False
       claim_gate_status=fixture_smoke_only
-  - example_local_vortex_benchmark_smoke -> 0
   - release_provenance_dry_run -> 0
 ```
 
