@@ -8,6 +8,10 @@ commands are install access only; they do not imply production readiness, perfor
 Spark replacement, broad SQL/DataFrame support, object-store/lakehouse production support, Foundry
 production support, or fallback execution.
 
+The repository source version may be ahead of the currently published selected channels during a
+patch-release preparation window. Keep the install commands pinned to the latest proof-backed
+published version until matching channel proofs are checked in.
+
 ```text
 package_channel_status=published_v0.1.1_selected_channels
 selected_publication_channels=github_prerelease,testpypi,pypi,homebrew_tap
