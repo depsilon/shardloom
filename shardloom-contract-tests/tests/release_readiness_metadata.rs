@@ -4004,7 +4004,8 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
     let website_python_surface = read_repo_file("website/field-guide/python-surface/index.html");
     for required in [
         "Python surface",
-        "read_csv",
+        "sl.context",
+        "ctx.read",
         "nested_payload",
         "fallback execution",
     ] {
@@ -4223,8 +4224,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     }
     for required in [
         "Python surface",
-        "ctx = context",
-        "read_csv",
+        "ctx = sl.context",
+        "ctx.read",
         "nested_payload",
     ] {
         assert!(
