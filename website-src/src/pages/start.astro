@@ -1,26 +1,19 @@
 ---
 import SiteLayout from "../layouts/SiteLayout.astro";
 
-const pythonFrontDoorSnippet = `from shardloom import context
-import shardloom as sl
+const pythonFrontDoorSnippet = `import shardloom as sl
 
-ctx = context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
-
-fact = ctx.read_csv("data/fact.csv", schema={
-    "id": "int64",
-    "group_key": "int64",
-    "value": "int64",
-    "metric": "float64",
-    "flag": "boolean",
-})
-
+ctx = sl.context()
 result = (
-    fact.filter(sl.col("flag") == True)
-        .select("id", "group_key", "value")
-        .limit(1000)
-        .collect()
+    ctx.read("data/orders.csv")
+       .filter(sl.col("status") == "paid")
+       .limit(10)
+       .collect()
 )
 
+print(result.output_row_count)
+print(result.first_result_row)
+print(result.claim_summary.claim_gate_status)
 print(result.fallback_attempted, result.external_engine_invoked)`;
 ---
 
@@ -33,8 +26,8 @@ print(result.fallback_attempted, result.external_engine_invoked)`;
   <section class="section-grid">
     <div>
       <h2>Recommended first route</h2>
-      <p class="narrow">Run the documented first-10-minutes checks from the repo, then move to certified local workload docs.</p>
-      <p class="narrow"><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md">Source checkout install</a> remains the strongest local proof path. <a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md">Package user install status</a> shows the v0.1.0 GitHub pre-release, TestPyPI, PyPI, and Homebrew commands with channel proof refs.</p>
+      <p class="narrow">Install the package and CLI, run a normal Python read, then move to source-checkout proof when you need the full release validator stack.</p>
+      <p class="narrow"><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md">Package user install status</a> shows the v0.1.0 GitHub pre-release, TestPyPI, PyPI, and Homebrew commands with channel proof refs. <a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md">Source checkout install</a> remains the strongest maintainer proof path.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">PowerShell</div>
@@ -71,7 +64,7 @@ package_install_commands_visible=true</code></pre>
   <section class="section-grid">
     <div>
       <h2>Python front door</h2>
-      <p class="narrow">The first Python smoke exercises the scoped local read/query/write path and prints the evidence fields that bound the claim.</p>
+      <p class="narrow">The first Python smoke exercises the scoped local read/query path and prints the evidence fields that bound the claim. Source-checkout and benchmark examples may add explicit schemas, repo roots, and build profile order for reproducibility.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">Python</div>

@@ -146,18 +146,20 @@ For normal Python use, start from the simple context and query surface. `repo_ro
 to put in ordinary application code. Source-tree or CI runs can set `SHARDLOOM_BIN` or
 `SHARDLOOM_REPO_ROOT` in the environment when the CLI is not on `PATH`.
 
-Today the Python package still exposes explicit local reader helpers such as `read_csv(...)` and
-`read_json(...)`; those should be treated as compatibility helpers over the centralized runtime
-adapter path. The intended public direction is a single inferred `read(path)` surface after the
-remaining engine runtime work is complete. ShardLoom owns SourceState, preparation, execution,
-OutputPlan, replay, reuse, certificate, and no-fallback evidence behind the query surface:
+`ctx.read(path)` is the normal public read wrapper. It infers `.csv`, `.json`, `.jsonl`, `.ndjson`,
+`.parquet`, `.arrow`, `.ipc`, `.feather`, `.avro`, `.orc`, and `.vortex` local source adapters from
+the path extension. Explicit helpers such as `read_csv(...)`, `read_json(...)`,
+`read_parquet(...)`, `read_arrow_ipc(...)`, `read_avro(...)`, and `read_orc(...)` remain available
+for compatibility, tests, and schema-pinned examples. ShardLoom owns SourceState, preparation,
+execution, OutputPlan, replay, reuse, certificate, and no-fallback evidence behind the query
+surface:
 
 ```python
 import shardloom as sl
 
 ctx = sl.context()
 result = (
-    ctx.read_csv("target/orders.csv")
+    ctx.read("target/orders.csv")
     .filter(sl.col("amount") >= 10)
     .select("id", "amount")
     .limit(100)
@@ -171,11 +173,17 @@ print(result.claim_summary.claim_gate_status)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
-The same query shape can read other admitted local formats through `read_json(...)`,
-`read_parquet(...)`, `read_arrow_ipc(...)`, `read_avro(...)`, or `read_orc(...)` and write to
-`write(...)`, `write_jsonl(...)`, `write_csv(...)`, or feature-gated structured sinks. Format-specific
+The same query shape can read admitted local formats through `ctx.read(...)` or the explicit
+format helpers and write to `write(...)`, `write_jsonl(...)`, `write_csv(...)`, or feature-gated
+structured sinks. CSV, flat JSON/JSONL/NDJSON, generated rows, and scoped local Vortex inputs are
+the default public examples. Parquet, Arrow IPC/Feather, Avro, and ORC are admitted scoped
+local-format surfaces when the matching feature-gated build is present; builds without those
+readers return deterministic adapter blockers instead of invoking another engine. Format-specific
 behavior belongs at read/ingest and write/sink boundaries only; compute semantics should lower
 through the shared ShardLoom SQL/Python runtime or return a deterministic unsupported report.
+Agents and automation should use `docs/reference/shardloom-user-surface-index.md` and
+`docs/reference/shardloom-user-surface-index.json` as the canonical map of Python, SQL, CLI,
+generated-source, materialization, and deterministic blocker surfaces.
 The canonical local output/sink scope is `docs/architecture/v1-local-output-sink-scope.md`; inspect
 it with `ctx.local_output_sink_scope_report()` before treating a write helper as broader than its
 scoped local evidence.

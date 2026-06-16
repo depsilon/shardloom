@@ -167,7 +167,7 @@ REQUIRED_UNSUPPORTED_METHODS = [
 
 REQUIRED_DOC_MARKERS = {
     "README.md": [
-        "ctx.read_csv(\"data/fact.csv\", schema={",
+        "ctx.read(\"data/fact.csv\", schema={",
         "fact.filter(sl.col(\"flag\") == True)",
         ".select(\"id\", \"group_key\", \"value\")",
         ".write_jsonl(\"target/clean-cast-filter-write.jsonl\", allow_overwrite=True)",
@@ -178,8 +178,17 @@ REQUIRED_DOC_MARKERS = {
         "DataFrame-style surface",
         "ctx.session",
         "ctx.sql(...)",
+        "docs/reference/shardloom-user-surface-index.md",
         "blocked.required_evidence",
         "matrix.all_no_fallback_no_external_engine",
+    ],
+    "docs/reference/shardloom-user-surface-index.md": [
+        "shardloom.user_surface_index.v1",
+        "shardloom command-metadata --format json",
+        "ctx.read(path)",
+        "ctx.sql(\"SELECT ...\")",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
     ],
     "docs/getting-started/first-10-minutes.md": [
         "python examples\\local-python-smoke\\run.py --repo-root .",
@@ -189,9 +198,9 @@ REQUIRED_DOC_MARKERS = {
     ],
     "website-src/src/pages/start.astro": [
         "examples\\local-python-smoke\\run.py --repo-root .",
-        "ctx.read_csv(\"data/fact.csv\", schema={",
-        "fact.filter(sl.col(\"flag\") == True)",
-        ".select(\"id\", \"group_key\", \"value\")",
+        "ctx.read(\"data/orders.csv\")",
+        "sl.col(\"status\") == \"paid\"",
+        "print(result.claim_summary.claim_gate_status)",
         "check_python_user_surface_completion.py",
     ],
 }

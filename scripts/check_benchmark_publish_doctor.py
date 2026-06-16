@@ -325,7 +325,7 @@ def next_command(
     if claim_gate_blockers:
         return "python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --allow-dirty-worktree"
     if mirror_blockers:
-        return "cd website-src && PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH ./node_modules/.bin/astro build && node scripts/postbuild-static.mjs"
+        return "cd website-src && PATH=/Users/dylan/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin:$PATH node scripts/prebuild-static.mjs --reset-output && ./node_modules/.bin/astro build && node scripts/postbuild-static.mjs"
     return "python3 scripts/check_release_readiness.py --allow-blocked"
 
 

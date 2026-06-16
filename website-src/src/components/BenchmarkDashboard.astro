@@ -191,12 +191,11 @@ const runtimeCounts = countBy(shardloomRows, "route_runtime_status");
 const evidenceCounts = countBy(shardloomRows, "claim_gate_status");
 const externalUnsupportedRows = publishedRows.filter((row: any) => !String(row.engine ?? "").startsWith("shardloom") && row.status === "unsupported").length;
 const shardloomUnsupportedRows = shardloomRows.filter((row: any) => row.status === "unsupported" || row.route_runtime_status === "unsupported").length;
-const benchmarkEtlSnippet = `from shardloom import context
-import shardloom as sl
+const benchmarkEtlSnippet = `import shardloom as sl
 
-ctx = context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
+ctx = sl.context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
 
-fact = ctx.read_csv("data/fact.csv", schema={
+fact = ctx.read("data/fact.csv", schema={
     "id": "int64",
     "group_key": "int64",
     "dim_key": "int64",
@@ -209,12 +208,12 @@ fact = ctx.read_csv("data/fact.csv", schema={
     "raw_event_time": "utf8",
     "dirty_numeric": "utf8",
 })
-dim = ctx.read_csv("data/dim.csv", schema={
+dim = ctx.read("data/dim.csv", schema={
     "dim_key": "int64",
     "dim_label": "utf8",
     "weight": "float64",
 })
-events = ctx.read_json("data/events.jsonl", schema={
+events = ctx.read("data/events.jsonl", schema={
     "id": "int64",
     "nested_payload": "utf8",
 })
@@ -546,7 +545,7 @@ const localOutputSinkScopeRef = {
       ))}
     </div>
     <div class="code-panel etl-snippet-panel">
-      <div class="panel-label">Benchmark ETL scenarios from Python</div>
+      <div class="panel-label">Schema-pinned benchmark ETL reproduction</div>
       <pre><code>{benchmarkEtlSnippet}</code></pre>
       <div class="code-evidence">
         <span><strong>route</strong>primary ShardLoom front door</span>

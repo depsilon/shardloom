@@ -96,11 +96,11 @@ PUBLIC_DOC_MARKERS = {
     ),
     "docs/release/public-status-matrix.md": (
         DOC_PATH.as_posix(),
-        "Scoped local CSV, JSONL/NDJSON, flat JSON, generated rows, local Vortex",
+        "Scoped local CSV, JSON/JSONL/NDJSON, generated rows, local Vortex",
     ),
     "website-src/src/components/BenchmarkDashboard.astro": (
         DOC_PATH.as_posix(),
-        "Benchmark ETL scenarios from Python",
+        "Schema-pinned benchmark ETL reproduction",
         "primary ShardLoom front door",
     ),
 }

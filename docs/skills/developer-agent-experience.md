@@ -35,6 +35,9 @@ Use this skill for tasks involving:
 - APIs should feel familiar to data engineers and application developers.
 - CLI commands should be scriptable.
 - Agent-facing output should be deterministic and machine-readable where possible.
+- Agents should read `docs/reference/shardloom-user-surface-index.md` and
+  `docs/reference/shardloom-user-surface-index.json` before guessing which Python, SQL, CLI,
+  generated-source, materialization, or blocker surfaces exist.
 - Agents should use `agent-contract-pack --format json` to discover stable command surfaces and
   inspection order before relying on human text.
 - Errors should be specific, actionable, and stable.

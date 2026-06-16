@@ -47,6 +47,19 @@ Publication completion addendum, 2026-06-16:
   performance superiority, Spark replacement, broad SQL/DataFrame support, object-store/lakehouse
   support, Foundry support, or fallback execution.
 
+Patch train addendum, 2026-06-16:
+
+- v0.1.1 is prepared as the first compatible post-v0.1.0 patch train for documentation, website,
+  user-surface, package metadata, and release-process cleanup.
+- v0.1.0 channel proofs remain historical proof for the already-published selected channels.
+- v0.1.1 must receive its own GitHub, TestPyPI, PyPI, and Homebrew channel proofs before public
+  install docs or package-channel matrices mark v0.1.1 published.
+- Patch release notes live in `docs/release/v0.1.1-release-notes.md`.
+- Patch release version bumps now use root `Cargo.toml` `[workspace.package].version` as the
+  source of truth; run `python3 scripts/sync_workspace_package_versions.py --check` before package
+  build/publish and `python3 scripts/sync_workspace_package_versions.py` after changing the root
+  version.
+
 `RELEASE-PACKAGE-15` branch evidence was prepared from local branch
 `codex/release-package-15-runtime-evidence`. The refreshed benchmark publication bundle records
 clean benchmark source revision `74a2e7d4f77eed0686971518e010463da26f2cdf` for that historical

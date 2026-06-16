@@ -38,6 +38,7 @@ dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier
 
 | Phase item | Classification | Support gate posture | Feasibility status | Unsupported boundary | Technique review |
 | --- | --- | --- | --- | --- | --- |
+| `RELEASE-PACKAGE-0.1X-BUNDLED-CLI-1` | `v1_candidate_pending_feasibility` | `feasibility_required` | `pending_bundled_cli_python_wheel_strategy` | `candidate_not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
 | `PROD-V1-0B` | `required_for_v1` | `classification_gate_closed` | `closed_by_this_matrix` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
 | `PROD-V1-1A` | `required_for_v1` | `implementation_gate_closed` | `closed_front_door_scope` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
 | `PROD-V1-1B` | `required_for_v1` | `implementation_gate_closed` | `closed_vortex_runtime_scope`; `docs/architecture/v1-vortex-runtime-scope.md` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
