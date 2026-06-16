@@ -14,6 +14,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+from release_channel_contract import (
+    SELECTED_V0_1_0_FEASIBILITY_STATUS,
+    SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
+    selected_channels_ready,
+)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.package_channel_readiness_matrix.v1"
@@ -31,16 +37,9 @@ EXPECTED_CHANNEL_IDS = [
     "ghcr_container",
     "crates_io_future",
 ]
-SELECTED_V0_1_0_RELEASE_CHANNEL_IDS = [
-    "github_prerelease",
-    "testpypi",
-    "pypi",
-    "homebrew_tap",
-]
-
 EXPECTED_V1_FEASIBILITY_REVIEWED_CHANNEL_IDS = EXPECTED_CHANNEL_IDS
 V1_FEASIBILITY_STATUSES = {
-    "included_channel_proof_passed",
+    SELECTED_V0_1_0_FEASIBILITY_STATUS,
     "included_pending_channel_proof",
     "feasible_pending_channel_proof",
     "not_in_v1_scope_recorded",
@@ -401,17 +400,7 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
             if "no internal crate publication" not in requirement:
                 blockers.append(prefix + "auth requirement must forbid internal crate publication")
 
-    selected_ids = (
-        selected_release_channel_ids
-        if selected_release_channel_ids == SELECTED_V0_1_0_RELEASE_CHANNEL_IDS
-        else []
-    )
-    selected_rows = [row for row in channels if row.get("channel_id") in selected_ids]
-    selected_ready_rows = [row for row in selected_rows if row.get("ready") is True]
-    all_selected_release_channels_ready = (
-        len(selected_rows) == len(SELECTED_V0_1_0_RELEASE_CHANNEL_IDS)
-        and len(selected_ready_rows) == len(selected_rows)
-    )
+    all_selected_release_channels_ready = selected_channels_ready(matrix)
     public_claim_allowed = matrix.get("public_package_release_claim_allowed")
     if public_claim_allowed is True:
         if matrix.get("status") != "ready":

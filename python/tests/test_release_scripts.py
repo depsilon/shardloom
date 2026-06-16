@@ -29,6 +29,11 @@ from release_report_utils import (
     workspace_rust_version,
     workspace_version_env,
 )
+from release_channel_contract import (
+    SELECTED_V0_1_0_FEASIBILITY_STATUS,
+    SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
+    SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
+)
 
 CURRENT_RUST_VERSION = workspace_rust_version(REPO_ROOT)
 CURRENT_PYTHON_PACKAGE_VERSION = python_package_version(REPO_ROOT)
@@ -7447,14 +7452,18 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(blockers, [])
         self.assertEqual(summary["status"], "passed")
         self.assertEqual(summary["review_status"], "reviewed")
-        self.assertEqual(
-            summary["status_counts"]["included_pending_channel_proof"], 4
-        )
+        self.assertEqual(summary["status_counts"][SELECTED_V0_1_0_FEASIBILITY_STATUS], 4)
         self.assertEqual(
             summary["status_counts"]["feasible_pending_channel_proof"], 3
         )
         self.assertEqual(summary["status_counts"]["not_in_v1_scope_recorded"], 2)
-        self.assertFalse(summary["rows"][0]["ready"])
+        selected_rows = [
+            row
+            for row in summary["rows"]
+            if row["v1_feasibility_status"] == SELECTED_V0_1_0_FEASIBILITY_STATUS
+        ]
+        self.assertEqual(len(selected_rows), 4)
+        self.assertTrue(all(row["ready"] for row in selected_rows))
 
     def _package_channel_dependency_audit_fixture(self) -> dict[str, object]:
         return {
@@ -8106,7 +8115,7 @@ class ReleaseScriptTests(unittest.TestCase):
             ],
         )
 
-    def test_final_release_approval_contract_blocks_public_release_until_verified(self) -> None:
+    def test_final_release_approval_contract_records_post_release_verification(self) -> None:
         module = self._load_script_module(
             "check_final_release_approval.py",
             "check_final_release_approval_for_test",
@@ -8120,16 +8129,12 @@ class ReleaseScriptTests(unittest.TestCase):
 
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(report["contract_validation_status"], "passed")
-        self.assertFalse(report["public_release_ready"])
-        self.assertFalse(report["post_release_verification_ready"])
+        self.assertTrue(report["public_release_ready"])
+        self.assertTrue(report["post_release_verification_ready"])
         self.assertEqual(report["publication_authorization_state"], "approved")
-        self.assertTrue(report["public_release_blockers"])
-        self.assertEqual(public_report["status"], "failed")
-        self.assertIn("public_release_ready must be true", public_report["blockers"])
-        self.assertIn(
-            "package_install_uninstall_smoke: verification_status=blocked_pending_public_release",
-            public_report["blockers"],
-        )
+        self.assertEqual(report["public_release_blockers"], [])
+        self.assertEqual(public_report["status"], "passed", public_report["blockers"])
+        self.assertEqual(public_report["public_release_blockers"], [])
         self.assertFalse(public_report["fallback_attempted"])
         self.assertFalse(public_report["external_engine_invoked"])
 
@@ -9530,11 +9535,11 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(
             report["release_track_status"],
-            "local_source_package_v1_approved_pending_channel_proof",
+            "local_source_package_v1_selected_channels_published",
         )
         self.assertEqual(
             report["selected_publication_channels"],
-            ["github_prerelease", "testpypi", "pypi", "homebrew_tap"],
+            SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
         )
         self.assertFalse(report["publication_attempted"])
         self.assertFalse(report["tag_created"])
@@ -9556,13 +9561,13 @@ class ReleaseScriptTests(unittest.TestCase):
                     encoding="utf-8"
                 )
             )
-            contract["public_package_release_claim_allowed"] = True
+            contract["public_package_release_claim_allowed"] = False
             contract_path.write_text(json.dumps(contract), encoding="utf-8")
 
             blockers = module.validate_contract(json.loads(contract_path.read_text(encoding="utf-8")))
 
         self.assertIn(
-            "contract public_package_release_claim_allowed must be False",
+            "contract public_package_release_claim_allowed must be True",
             blockers,
         )
 
@@ -10783,9 +10788,10 @@ jobs:
             "status": "passed",
             "local_gate_evidence_status": "passed",
             "package_identity_contract_status": "passed",
-            "ready_channel_count": 0,
+            "ready_channel_count": 4,
             "expected_channel_count": 9,
             "blockers": [],
+            "public_package_release_claim_allowed": True,
             **false_fields,
         }
         package_report_path = repo_root / module.PACKAGE_CHANNEL_REPORT
@@ -12911,8 +12917,8 @@ jobs:
                 "local_gate_evidence_required": True,
                 "local_gate_evidence_status": "passed",
                 "package_identity_contract_status": "passed",
-                "public_package_release_claim_allowed": False,
-                "ready_channel_count": 0,
+                "public_package_release_claim_allowed": True,
+                "ready_channel_count": 4,
                 "expected_channel_count": 9,
                 **false_fields,
             },
@@ -12936,7 +12942,9 @@ jobs:
                 "local_artifacts_only": True,
                 "public_release_claim_allowed": False,
                 "public_package_claim_allowed": False,
-                "publication_authorization_status": "approved_pending_channel_proof",
+                "publication_authorization_status": (
+                    SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS
+                ),
                 "publication_human_approved": True,
                 "signing_key_used": False,
                 "blockers": ["hard release claim still blocked"],

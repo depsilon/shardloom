@@ -10,6 +10,10 @@ The machine-readable source of truth is
 [`docs/release/package-channel-readiness-matrix.json`](package-channel-readiness-matrix.json) with
 schema `shardloom.package_channel_readiness_matrix.v1`. Validate it with:
 
+The selected v0.1.0 release-channel IDs and shared status vocabulary are centralized in
+[`scripts/release_channel_contract.py`](../../scripts/release_channel_contract.py); validators and
+tests must import that contract instead of duplicating the selected-channel list.
+
 ```powershell
 python scripts\check_package_channel_readiness.py
 ```

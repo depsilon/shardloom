@@ -13,6 +13,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+from release_channel_contract import (
+    SELECTED_V0_1_0_INSTALL_ACCESS_BOUNDARY,
+    SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
+)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.final_release_rehearsal_report.v1"
@@ -397,9 +402,10 @@ def main() -> int:
 
     if package_matrix is None:
         blockers.append("missing package-channel readiness matrix")
-    elif package_matrix.get("public_package_release_claim_allowed") is not False:
+    elif package_matrix.get("public_package_release_claim_allowed") is not True:
         blockers.append(
-            "package matrix public_package_release_claim_allowed must be false until channel proof"
+            "package matrix public_package_release_claim_allowed must be true for "
+            + SELECTED_V0_1_0_INSTALL_ACCESS_BOUNDARY
         )
     if "per_claim_evidence_attachment_matrix_claim_gate_status=not_claim_grade" not in per_claim_matrix_text:
         blockers.append("per-claim matrix not-claim-grade marker missing")
@@ -414,10 +420,10 @@ def main() -> int:
         "artifact_attestation_refs": attestation_rows,
         "artifact_attestation_count": len(attestation_rows),
         "attestation_generation_status": "not_signed_local_rehearsal",
-        "slsa_attestation_status": "not_generated_until_channel_publication_proof",
-        "signing_policy_decision": "approved_pending_channel_publication_proof",
+        "slsa_attestation_status": "not_generated_for_technical_preview_selected_channels",
+        "signing_policy_decision": "selected_channels_published_unsigned",
         "signing_key_used": False,
-        "publication_authorization_status": "approved_pending_channel_proof",
+        "publication_authorization_status": SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
         "publication_human_approval_required": False,
         "publication_human_approved": True,
         "publication_attempted": False,
@@ -437,7 +443,7 @@ def main() -> int:
         "claim_gate_status": "not_claim_grade",
         "public_release_claim_allowed": False,
         "public_package_claim_allowed": False,
-        "publication_authorization_status": "approved_pending_channel_proof",
+        "publication_authorization_status": SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
         "publication_human_approval_required": False,
         "publication_human_approved": True,
         "local_artifacts_only": True,

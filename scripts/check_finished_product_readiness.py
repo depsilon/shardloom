@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from release_channel_contract import selected_channel_ids
 from release_report_utils import fail_closed_fields, load_json
 
 
@@ -347,11 +348,9 @@ def package_matrix_summary(
             + str(payload.get("schema_version", "missing"))
         )
     channels = [row for row in payload.get("channels", []) if isinstance(row, dict)]
-    selected_channel_ids = payload.get("selected_v0_1_0_release_channel_ids")
-    if not isinstance(selected_channel_ids, list) or not selected_channel_ids:
-        selected_channel_ids = [row.get("channel_id") for row in channels]
+    selected_ids = selected_channel_ids(payload)
     selected_channels = [
-        row for row in channels if row.get("channel_id") in selected_channel_ids
+        row for row in channels if row.get("channel_id") in selected_ids
     ]
     blocked_selected_channels = [
         str(row.get("channel_id", "unknown"))
@@ -361,7 +360,7 @@ def package_matrix_summary(
     blocked_future_channel_ids = [
         str(row.get("channel_id", "unknown"))
         for row in channels
-        if row.get("channel_id") not in selected_channel_ids and row.get("ready") is not True
+        if row.get("channel_id") not in selected_ids and row.get("ready") is not True
     ]
     if payload.get("public_package_release_claim_allowed") is not True:
         blockers.append("package_channel_matrix: public_package_release_claim_allowed=false")
@@ -389,7 +388,7 @@ def package_matrix_summary(
         "expected_channel_count": len(selected_channels),
         "blocked_channel_ids": blocked_selected_channels,
         "blocked_future_channel_ids": blocked_future_channel_ids,
-        "selected_v0_1_0_release_channel_ids": selected_channel_ids,
+        "selected_v0_1_0_release_channel_ids": selected_ids,
         "publication_authorization_state": payload.get("publication_authorization_state"),
         "public_package_release_claim_allowed": payload.get(
             "public_package_release_claim_allowed"

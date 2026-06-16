@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # SPDX-License-Identifier: Apache-2.0
-"""Validate local production-usability evidence without authorizing publication.
+"""Validate local production-usability evidence without authorizing production claims.
 
 This gate is intentionally narrower than the hard public-release gate. It proves that a local
-no-publication rehearsal gives a user a clean install path, admitted smokes, docs/status/website
-learning path, benchmark evidence attachment, and explicit unsupported-package/production blockers.
-It must not turn that evidence into a public package, production, performance, or Spark-replacement
-claim.
+local/source/package rehearsal gives a user a clean install path, admitted smokes,
+docs/status/website learning path, benchmark evidence attachment, and explicit
+unsupported production blockers. Selected v0.1.0 GitHub/TestPyPI/PyPI/Homebrew
+install access is allowed only as package access; it must not become a
+production, performance, or Spark-replacement claim.
 """
 
 from __future__ import annotations
@@ -26,6 +27,10 @@ from check_benchmark_artifact_completeness import (
     REPORT_SCHEMA_VERSION as BENCHMARK_COMPLETENESS_REPORT_SCHEMA_VERSION,
 )
 from check_benchmark_artifact_completeness import validate_manifest as validate_benchmark_manifest
+from release_channel_contract import (
+    SELECTED_V0_1_0_INSTALL_ACCESS_BOUNDARY,
+    SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -335,8 +340,11 @@ def validate_package_channel_report(package_report: dict[str, Any] | None) -> tu
             "package-channel local_gate_evidence_status="
             + str(package_report.get("local_gate_evidence_status"))
         )
-    if package_report.get("public_package_release_claim_allowed") is not False:
-        blockers.append("package-channel public_package_release_claim_allowed must be false")
+    if package_report.get("public_package_release_claim_allowed") is not True:
+        blockers.append(
+            "package-channel public_package_release_claim_allowed must be true for "
+            + SELECTED_V0_1_0_INSTALL_ACCESS_BOUNDARY
+        )
     blockers.extend(false_field_blockers(package_report, "package-channel report"))
     return (
         {
@@ -664,7 +672,10 @@ def build_report(
             ("local_artifacts_only", True),
             ("public_release_claim_allowed", False),
             ("public_package_claim_allowed", False),
-            ("publication_authorization_status", "approved_pending_channel_proof"),
+            (
+                "publication_authorization_status",
+                SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
+            ),
             ("publication_human_approved", True),
             ("signing_key_used", False),
         ]:

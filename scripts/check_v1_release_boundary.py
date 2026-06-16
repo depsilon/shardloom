@@ -3,9 +3,10 @@
 """Validate the finished-product v1 release boundary firewall.
 
 This gate is intentionally claim-safe: it proves the current support envelope,
-package dry-run evidence, public docs, and package metadata do not imply public
-package publication, production platform support, performance superiority, or
-external-engine fallback. It does not publish packages or create releases.
+package dry-run evidence, selected v0.1.0 package-channel proof, public docs,
+and package metadata do not imply production platform support, performance
+superiority, future package-channel availability, or external-engine fallback.
+It does not publish packages or create releases.
 """
 
 from __future__ import annotations
@@ -26,6 +27,10 @@ from check_v1_docs_productization import SCHEMA_VERSION as V1_DOCS_PRODUCTIZATIO
 from check_v1_docs_productization import build_report as build_v1_docs_productization_report
 from check_v1_inclusion_scope import SCHEMA_VERSION as V1_INCLUSION_SCOPE_SCHEMA_VERSION
 from check_v1_inclusion_scope import build_report as build_v1_inclusion_scope_report
+from release_channel_contract import (
+    SELECTED_V0_1_0_INSTALL_ACCESS_BOUNDARY,
+    SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
+)
 from release_report_utils import fail_closed_fields, load_json, read_text, resolve_path, write_json
 
 
@@ -46,11 +51,12 @@ V1_SUPPORT_ENVELOPE = {
     "front_doors": "scoped CLI and Python source/local Vortex front doors",
     "input_formats": "local CSV, JSON/JSONL/NDJSON, generated rows, local Vortex, and feature-gated flat scalar compatibility formats",
     "output_targets": "local inline JSONL/CSV, feature-gated local compatibility exports, and local Vortex writes",
-    "evidence_boundary": "no public package, production, superiority, broad SQL/DataFrame, object-store, lakehouse, Foundry, live/hybrid, distributed, or fallback claim",
+    "evidence_boundary": SELECTED_V0_1_0_INSTALL_ACCESS_BOUNDARY
+    + " only; no production, superiority, broad SQL/DataFrame, object-store, lakehouse, Foundry, live/hybrid, distributed, future package-channel, or fallback claim",
 }
 
 UNSUPPORTED_PRODUCTION_FAMILIES = (
-    "public package channels",
+    "future package channels",
     "production readiness",
     "performance superiority",
     "Spark displacement or broad engine replacement",
@@ -73,7 +79,6 @@ FALSE_SAFETY_FIELDS = (
     "signing_key_used",
     "fallback_attempted",
     "external_engine_invoked",
-    "public_package_release_claim_allowed",
     "public_package_claim_allowed",
 )
 
@@ -102,8 +107,8 @@ SUPPORT_DOC_HEADER_EXPECTED = {
 }
 
 PACKAGE_CHANNEL_BLOCK_EXPECTED = {
-    "package_install_commands_visible": "false",
-    "public_package_release_claim_allowed": "false",
+    "package_install_commands_visible": "true",
+    "public_package_release_claim_allowed": "true",
     "publication_attempted": "false",
     "tag_created": "false",
     "package_upload_attempted": "false",
@@ -311,8 +316,6 @@ def validate_package_matrix(matrix: dict[str, Any] | None) -> tuple[dict[str, An
         ]:
             if matrix.get(field) is not False:
                 blockers.append(f"package matrix {field} must be false")
-        if matrix.get("public_package_release_claim_allowed") is not False:
-            blockers.append("package matrix public_package_release_claim_allowed must be false")
     return {
         "status": "passed" if not blockers else "blocked",
         "schema_version": matrix.get("schema_version") if isinstance(matrix, dict) else None,
@@ -390,8 +393,15 @@ def validate_package_channel_report(
             "package-channel package_identity_contract_status="
             + str(payload.get("package_identity_contract_status", "missing"))
         )
-    if payload.get("ready_channel_count") != 0:
-        blockers.append("package-channel ready_channel_count must remain 0 before approval")
+    if int(payload.get("ready_channel_count") or 0) < len(
+        SELECTED_V0_1_0_RELEASE_CHANNEL_IDS
+    ):
+        blockers.append("package-channel ready_channel_count must include selected v0.1.0 channels")
+    if payload.get("public_package_release_claim_allowed") is not True:
+        blockers.append(
+            "package-channel report public_package_release_claim_allowed must be true for "
+            + SELECTED_V0_1_0_INSTALL_ACCESS_BOUNDARY
+        )
     for field in FALSE_SAFETY_FIELDS:
         if field in payload and payload.get(field) is not False:
             blockers.append(f"package-channel report {field} must be false")

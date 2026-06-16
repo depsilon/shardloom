@@ -18,6 +18,11 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from release_channel_contract import (
+    SELECTED_V0_1_0_FEASIBILITY_STATUS,
+    SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
+    SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
+)
 from release_report_utils import (
     fail_closed_fields,
     load_json,
@@ -33,7 +38,6 @@ SCHEMA_VERSION = "shardloom.v1_local_source_package_release_report.v1"
 CONTRACT_SCHEMA_VERSION = "shardloom.v1_local_source_package_release.v1"
 DEFAULT_CONTRACT = Path("docs/release/v1-local-source-package-release.json")
 DEFAULT_OUTPUT = Path("target/v1-local-source-package-release-report.json")
-SELECTED_CHANNELS = ["github_prerelease", "testpypi", "pypi", "homebrew_tap"]
 DEFERRED_ENVIRONMENT_GATES = [
     "production_object_store_claim",
     "production_table_lakehouse_claim",
@@ -96,12 +100,12 @@ def validate_contract(contract: dict[str, Any] | None) -> list[str]:
         "api_schema_stability_status": "stable_v1_local_contract",
         "benchmark_publication_scope": "full_local_evidence_only_claim_gated",
         "docs_website_status": "claim_safe_current_source",
-        "publication_authorization_state": "approved_channel_proof_passed",
+        "publication_authorization_state": SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
     }
     for field, value in expected.items():
         if contract.get(field) != value:
             blockers.append(f"contract {field}={contract.get(field)!r}")
-    if contract.get("selected_publication_channels") != SELECTED_CHANNELS:
+    if contract.get("selected_publication_channels") != SELECTED_V0_1_0_RELEASE_CHANNEL_IDS:
         blockers.append(
             "selected_publication_channels must be GitHub prerelease, TestPyPI, PyPI, and Homebrew tap"
         )
@@ -162,7 +166,7 @@ def build_report(
 
     channels = _channel_map(package_matrix)
     selected_channel_status: dict[str, dict[str, Any]] = {}
-    for channel_id in SELECTED_CHANNELS:
+    for channel_id in SELECTED_V0_1_0_RELEASE_CHANNEL_IDS:
         row = channels.get(channel_id)
         if row is None:
             blockers.append(f"package matrix missing selected channel {channel_id}")
@@ -174,8 +178,8 @@ def build_report(
             "v1_feasibility_status": row.get("v1_feasibility_status"),
             "human_approval_required": row.get("human_approval_required"),
         }
-        if row.get("v1_feasibility_status") != "included_channel_proof_passed":
-            blockers.append(f"{channel_id}: must be included_channel_proof_passed")
+        if row.get("v1_feasibility_status") != SELECTED_V0_1_0_FEASIBILITY_STATUS:
+            blockers.append(f"{channel_id}: must be {SELECTED_V0_1_0_FEASIBILITY_STATUS}")
         if row.get("ready") is not True or row.get("status") != "ready":
             blockers.append(f"{channel_id}: must be ready after channel proof exists")
         if row.get("human_approval_required") is not True:
@@ -248,7 +252,7 @@ def build_report(
         "output_ref": output_ref.as_posix(),
         "status": "passed" if not blockers else "failed",
         "release_track_status": (contract or {}).get("release_track_status", "missing"),
-        "selected_publication_channels": SELECTED_CHANNELS,
+        "selected_publication_channels": SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
         "selected_channel_status": selected_channel_status,
         "deferred_environment_gate_ids": DEFERRED_ENVIRONMENT_GATES,
         "python_package_version": python_package_version(repo_root),

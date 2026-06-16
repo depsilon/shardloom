@@ -97,10 +97,10 @@ python scripts\check_package_channel_readiness.py
 
 | Channel | Target | Current status | Required proof before ready |
 | --- | --- | --- | --- |
-| GitHub pre-release | Source archive plus built artifacts | `approved` / blocked until channel proof | Tag/release creation, checksums, SBOM, provenance, install/smoke transcript, rollback/delete policy. |
-| TestPyPI | Python package `shardloom` | `approved` / blocked until channel proof | Trusted Publisher upload, clean install, uninstall, CLI-backed smoke, no token committed. |
-| PyPI | Python package `shardloom` | `approved` / blocked until TestPyPI and channel proof | PyPI Trusted Publisher/OIDC, prior TestPyPI proof, clean install, uninstall, CLI-backed smoke, SBOM/checksum/provenance, yank policy. |
-| Homebrew tap | CLI formula | `approved` / blocked until formula proof | Tap/formula proof against immutable GitHub v0.1.0 source archive, versioned artifact checksum, install/uninstall, smoke, rollback/deprecate policy. |
+| GitHub pre-release | Source archive plus built artifacts | `ready` / proof-backed selected v0.1.0 channel | Tag/release creation, checksums, SBOM, provenance, install/smoke transcript, rollback/delete policy. |
+| TestPyPI | Python package `shardloom` | `ready` / proof-backed selected v0.1.0 channel | Trusted Publisher upload, clean install, uninstall, CLI-backed smoke, no token committed. |
+| PyPI | Python package `shardloom` | `ready` / proof-backed selected v0.1.0 channel | PyPI Trusted Publisher/OIDC, prior TestPyPI proof, clean install, uninstall, CLI-backed smoke, SBOM/checksum/provenance, yank policy. |
+| Homebrew tap | CLI formula | `ready` / proof-backed selected v0.1.0 channel | Tap/formula proof against immutable GitHub v0.1.0 source archive, versioned artifact checksum, install/uninstall, smoke, rollback/deprecate policy. |
 | Scoop | Windows CLI manifest | `blocked` | Bucket manifest, checksum, install/uninstall, smoke, update policy. |
 | winget | Windows package manifest | `blocked` | winget manifest, repository submission validation, install/uninstall, smoke, update/rollback policy. |
 | conda-forge | `shardloom-cli`, `shardloom-python`, `shardloom` | `blocked` | staged-recipes/feedstock proof, clean Conda install, smoke, no fallback dependencies, maintainer policy. |
@@ -145,8 +145,8 @@ The current public status board renders a first-class "Can I use this?" matrix w
   recipe row
 - explicit not-planned rows for hidden fallback execution, Spark replacement claims, and production
   SQL/DataFrame/object-store/lakehouse/Foundry claims
-- visible `fallback_attempted=false`, `external_engine_invoked=false`, and
-  `public_package_release_claim_allowed=false` evidence where applicable
+- visible `fallback_attempted=false`, `external_engine_invoked=false`, selected-channel package
+  install access, and production/performance/future-channel claim blockers where applicable
 
 This matrix is a maturity map, not a runtime-support expansion.
 

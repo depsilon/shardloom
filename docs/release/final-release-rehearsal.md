@@ -12,7 +12,8 @@ authorize fallback execution.
 python scripts\final_release_rehearsal.py
 ```
 
-For local inspection while channel publication evidence is incomplete:
+For local inspection when reviewing local release blockers without requiring a public production
+claim:
 
 ```powershell
 python scripts\final_release_rehearsal.py --allow-blocked
@@ -62,7 +63,7 @@ rehearsal_status=passed
 claim_gate_status=not_claim_grade
 public_release_claim_allowed=false
 public_package_claim_allowed=false
-publication_authorization_status=approved_pending_channel_proof
+publication_authorization_status=approved_channel_proof_passed
 publication_human_approved=true
 local_artifacts_only=true
 package_artifact_ref_count
@@ -86,10 +87,12 @@ external_engine_invoked=false
 
 The current local attestation plan records
 `attestation_generation_status=not_signed_local_rehearsal`,
-`publication_authorization_status=approved_pending_channel_proof`,
+`publication_authorization_status=approved_channel_proof_passed`,
 `publication_human_approved=true`, and
-`slsa_attestation_status=not_generated_until_channel_publication_proof`. Real signing and artifact
-attestations remain channel-publication actions, not autonomous Codex actions.
+`slsa_attestation_status=not_generated_for_technical_preview_selected_channels`. The selected
+v0.1.0 GitHub/TestPyPI/PyPI/Homebrew channels are published unsigned for the technical preview.
+Future signing and artifact attestations remain separate release-channel actions, not autonomous
+Codex actions.
 
 ## Current Expected State
 
@@ -106,9 +109,9 @@ public_release_claim_allowed=false
 public_package_claim_allowed=false
 ```
 
-That local pass is not a public release pass. The surrounding hard release-readiness gate remains
-blocked while package-channel evidence, post-release verification, architecture tracker closeout,
-and per-claim evidence remain incomplete.
+That local pass is not a production-readiness or performance-claim pass. The surrounding hard
+release-readiness gate remains claim-safe while package access, production environment proof,
+architecture tracker closeout, and per-claim evidence stay explicitly separated.
 
 ## Claim Rule
 

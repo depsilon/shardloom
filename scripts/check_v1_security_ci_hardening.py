@@ -22,6 +22,7 @@ from release_report_utils import (
     resolve_path,
     write_json,
 )
+from release_channel_contract import SELECTED_V0_1_0_INSTALL_ACCESS_BOUNDARY
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -230,8 +231,11 @@ def check_package_channel(payload: dict[str, Any] | None) -> dict[str, Any]:
             blockers.append(
                 "claim_gate_status=" + str(payload.get("claim_gate_status", "missing"))
             )
-        if payload.get("public_package_release_claim_allowed") is not False:
-            blockers.append("public_package_release_claim_allowed must be false")
+        if payload.get("public_package_release_claim_allowed") is not True:
+            blockers.append(
+                "public_package_release_claim_allowed must be true for "
+                + SELECTED_V0_1_0_INSTALL_ACCESS_BOUNDARY
+            )
         blockers.extend(false_field_blockers("package-channel", payload))
     return {
         "name": "package_artifact_scan_and_blocked_publication_channels",

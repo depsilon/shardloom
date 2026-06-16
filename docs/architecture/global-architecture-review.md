@@ -1704,7 +1704,7 @@ plan before coding.
   artifact, checksum, SBOM, provenance, security, architecture-tracker, package-channel,
   unsupported-path, per-claim, and publication/API/schema refs while keeping
   `rehearsal_status=passed`, `claim_gate_status=not_claim_grade`,
-  `publication_authorization_status=approved_pending_channel_proof`,
+  `publication_authorization_status=approved_channel_proof_passed`,
   `publication_human_approved=true`, `public_release_claim_allowed=false`,
   `public_package_claim_allowed=false`, `package_upload_attempted=false`,
   `feedstock_submission_attempted=false`, `marketplace_submission_attempted=false`,

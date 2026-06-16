@@ -734,7 +734,9 @@ fn release_package_docs_workflow_and_examples_are_present() {
         read_repo_file("docs/release/package-channel-readiness-matrix.json");
     for required in [
         "shardloom.package_channel_readiness_matrix.v1",
-        "\"public_package_release_claim_allowed\": false",
+        "\"public_package_release_claim_allowed\": true",
+        "\"selected_v0_1_0_release_channel_ids\"",
+        "\"v1_feasibility_status\": \"included_channel_proof_passed\"",
         "\"publication_attempted\": false",
         "\"tag_created\": false",
         "\"secrets_required\": false",
@@ -2139,8 +2141,11 @@ fn gar_0043_a_release_architecture_tracker_gate_fails_closed() {
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
     assert!(traceability.contains("GAR-0043-A"));
     assert!(traceability.contains("shardloom.release_architecture_tracker_report.v1"));
-    assert!(traceability.contains("Actual public publication, release tags, signing"));
-    assert!(traceability.contains("approval exists but still requires channel proof"));
+    assert!(
+        traceability
+            .contains("v0.1.0 GitHub/TestPyPI/PyPI/Homebrew package access is proof-backed")
+    );
+    assert!(traceability.contains("production claims, future package-channel claims, signing"));
 }
 
 #[test]
@@ -2205,7 +2210,7 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
         "target/final-release-rehearsal/final-release-rehearsal-report.json",
         "rehearsal_status=passed",
         "claim_gate_status=not_claim_grade",
-        "publication_authorization_status=approved_pending_channel_proof",
+        "publication_authorization_status=approved_channel_proof_passed",
         "publication_human_approved=true",
         "public_release_claim_allowed=false",
         "public_package_claim_allowed=false",
@@ -2356,8 +2361,11 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
     assert!(traceability.contains("GAR-0043-B"));
     assert!(traceability.contains("shardloom.final_release_rehearsal_report.v1"));
-    assert!(traceability.contains("Actual public publication, release tags, signing"));
-    assert!(traceability.contains("approval exists but still requires channel proof"));
+    assert!(
+        traceability
+            .contains("v0.1.0 GitHub/TestPyPI/PyPI/Homebrew package access is proof-backed")
+    );
+    assert!(traceability.contains("production claims, future package-channel claims, signing"));
 }
 
 #[test]

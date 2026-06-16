@@ -42,6 +42,10 @@ from check_package_channel_readiness import (
     validate_local_gate_evidence as validate_package_local_gate_evidence,
 )
 from check_package_channel_readiness import validate_matrix as validate_package_channel_matrix
+from release_channel_contract import (
+    SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
+    selected_channel_ids,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -924,19 +928,13 @@ def main() -> int:
         if package_channel_matrix.get("public_package_release_claim_allowed") is not True:
             package_channel_blockers.append("public_package_release_claim_allowed=false")
         channels = package_channel_matrix.get("channels", [])
-        selected_channel_ids = package_channel_matrix.get("selected_v0_1_0_release_channel_ids")
-        if not isinstance(selected_channel_ids, list) or not selected_channel_ids:
-            selected_channel_ids = [
-                row.get("channel_id", "unknown")
-                for row in channels
-                if isinstance(row, dict)
-            ]
+        selected_ids = selected_channel_ids(package_channel_matrix)
         blocked_channels = [
             row.get("channel_id", "unknown")
             for row in channels
             if (
                 isinstance(row, dict)
-                and row.get("channel_id") in selected_channel_ids
+                and row.get("channel_id") in selected_ids
                 and row.get("ready") is not True
             )
         ]
@@ -1163,12 +1161,12 @@ def main() -> int:
         ]:
             if final_release_rehearsal.get(field) is not False:
                 final_rehearsal_blockers.append(f"final rehearsal {field} must be false")
-        if final_release_rehearsal.get("publication_authorization_status") != (
-            "approved_pending_channel_proof"
-        ):
+        if final_release_rehearsal.get(
+            "publication_authorization_status"
+        ) != SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS:
             final_rehearsal_blockers.append(
                 "final rehearsal publication_authorization_status must be "
-                "approved_pending_channel_proof"
+                + SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS
             )
         if final_release_rehearsal.get("publication_human_approved") is not True:
             final_rehearsal_blockers.append(
