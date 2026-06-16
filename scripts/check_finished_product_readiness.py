@@ -347,17 +347,28 @@ def package_matrix_summary(
             + str(payload.get("schema_version", "missing"))
         )
     channels = [row for row in payload.get("channels", []) if isinstance(row, dict)]
-    blocked_channels = [
+    selected_channel_ids = payload.get("selected_v0_1_0_release_channel_ids")
+    if not isinstance(selected_channel_ids, list) or not selected_channel_ids:
+        selected_channel_ids = [row.get("channel_id") for row in channels]
+    selected_channels = [
+        row for row in channels if row.get("channel_id") in selected_channel_ids
+    ]
+    blocked_selected_channels = [
+        str(row.get("channel_id", "unknown"))
+        for row in selected_channels
+        if row.get("ready") is not True
+    ]
+    blocked_future_channel_ids = [
         str(row.get("channel_id", "unknown"))
         for row in channels
-        if row.get("ready") is not True
+        if row.get("channel_id") not in selected_channel_ids and row.get("ready") is not True
     ]
     if payload.get("public_package_release_claim_allowed") is not True:
         blockers.append("package_channel_matrix: public_package_release_claim_allowed=false")
-    if blocked_channels:
+    if blocked_selected_channels:
         blockers.append(
-            "package_channel_matrix: package channels not ready: "
-            + ", ".join(blocked_channels)
+            "package_channel_matrix: selected package channels not ready: "
+            + ", ".join(blocked_selected_channels)
         )
     for field in FALSE_SAFETY_FIELDS:
         if field in payload and payload.get(field) is not False:
@@ -374,9 +385,11 @@ def package_matrix_summary(
         "schema_version": payload.get("schema_version"),
         "status": "passed" if public_ready else "blocked",
         "matrix_status": payload.get("status"),
-        "ready_channel_count": len(channels) - len(blocked_channels),
-        "expected_channel_count": len(channels),
-        "blocked_channel_ids": blocked_channels,
+        "ready_channel_count": len(selected_channels) - len(blocked_selected_channels),
+        "expected_channel_count": len(selected_channels),
+        "blocked_channel_ids": blocked_selected_channels,
+        "blocked_future_channel_ids": blocked_future_channel_ids,
+        "selected_v0_1_0_release_channel_ids": selected_channel_ids,
         "publication_authorization_state": payload.get("publication_authorization_state"),
         "public_package_release_claim_allowed": payload.get(
             "public_package_release_claim_allowed"

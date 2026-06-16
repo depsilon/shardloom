@@ -111,11 +111,18 @@ def render_runs_today(runs_today: dict[str, Any]) -> list[str]:
 def render_package_channels(package_matrix: dict[str, Any]) -> list[str]:
     channels = [row for row in package_matrix.get("channels", []) if isinstance(row, dict)]
     ready_channels = [row for row in channels if row.get("ready") is True]
+    blocked_channels = [row for row in channels if row.get("ready") is not True]
+    channel_text = (
+        "Selected v0.1.0 package channels expose install commands. Future package channels remain "
+        "blocked until their channel-specific proof exists."
+        if ready_channels
+        else "Package install commands are intentionally withheld while channel status is blocked."
+    )
     lines = [
         "## Package Channels",
         "",
         "Package channel rows are generated from `docs/release/package-channel-readiness-matrix.json`.",
-        "Package install commands are intentionally withheld while channel status is blocked.",
+        channel_text,
         "",
         "```text",
         f"package_install_commands_visible={str(bool(ready_channels)).lower()}",
@@ -126,6 +133,21 @@ def render_package_channels(package_matrix: dict[str, Any]) -> list[str]:
         "```",
         "",
     ]
+    if ready_channels:
+        lines.extend(
+            table(
+                ("Ready channel", "Install command", "Uninstall command"),
+                [
+                    (
+                        row.get("display_name", row.get("channel_id", "")),
+                        row.get("install_command", ""),
+                        row.get("uninstall_command", ""),
+                    )
+                    for row in ready_channels
+                ],
+            )
+        )
+        lines.append("")
     lines.extend(
         table(
             ("Channel", "Status", "Ready", "Current blockers"),
@@ -136,7 +158,7 @@ def render_package_channels(package_matrix: dict[str, Any]) -> list[str]:
                     bool_text(row.get("ready")),
                     row.get("current_blockers", []),
                 )
-                for row in channels
+                for row in [*ready_channels, *blocked_channels]
             ],
         )
     )

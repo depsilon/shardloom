@@ -924,14 +924,25 @@ def main() -> int:
         if package_channel_matrix.get("public_package_release_claim_allowed") is not True:
             package_channel_blockers.append("public_package_release_claim_allowed=false")
         channels = package_channel_matrix.get("channels", [])
+        selected_channel_ids = package_channel_matrix.get("selected_v0_1_0_release_channel_ids")
+        if not isinstance(selected_channel_ids, list) or not selected_channel_ids:
+            selected_channel_ids = [
+                row.get("channel_id", "unknown")
+                for row in channels
+                if isinstance(row, dict)
+            ]
         blocked_channels = [
             row.get("channel_id", "unknown")
             for row in channels
-            if isinstance(row, dict) and row.get("ready") is not True
+            if (
+                isinstance(row, dict)
+                and row.get("channel_id") in selected_channel_ids
+                and row.get("ready") is not True
+            )
         ]
         if blocked_channels:
             package_channel_blockers.append(
-                "package channels not ready: "
+                "selected package channels not ready: "
                 + ", ".join(str(channel) for channel in blocked_channels)
             )
     checks.append(

@@ -177,7 +177,7 @@
   "package_publication_allowed": false,
   "performance_claim_allowed": false,
   "claim_gate_status": "not_claim_grade",
-  "claim_boundary": "current-state discoverability only; this matrix does not expand runtime support or authorize production, package, performance, object-store, lakehouse, Foundry, REST, or Spark-replacement claims",
+  "claim_boundary": "current-state discoverability only; selected v0.1.0 package channels are published, but this matrix does not expand runtime support or authorize production, performance, object-store, lakehouse, Foundry, REST, broad package-channel, or Spark-replacement claims",
   "production_unsupported_diagnostic_schema_version": "shardloom.production_unsupported_diagnostics.v1",
   "production_unsupported_diagnostic_docs_ref": "docs/release/known-unsupported-paths.md#production-family-diagnostic-catalog",
   "production_unsupported_diagnostic_row_order": [
@@ -411,11 +411,8 @@
     },
     {
       "id": "public_package_publication",
-      "production_family": "package_publication",
+      "production_family": "future_package_channels",
       "user_surface": [
-        "TestPyPI",
-        "PyPI",
-        "Homebrew",
         "Scoop",
         "winget",
         "conda-forge",
@@ -423,15 +420,13 @@
         "crates.io"
       ],
       "entrypoint_kind": "release_gate",
-      "support_status": "blocked",
+      "support_status": "blocked_future_channels",
       "diagnostic_code": "SL_UNSUPPORTED_PUBLIC_PACKAGE_PUBLICATION",
       "blocker_id": "release.package_publication_gate_required",
-      "message": "Public package publication, release tags, signing, uploads, and channel install claims require maintainer approval and channel proof.",
-      "next_action": "Use package-channel readiness reports and local dry-run proof until explicit maintainer approval exists.",
+      "message": "Selected v0.1.0 GitHub/TestPyPI/PyPI/Homebrew channels are published and proof-backed; future package channels, signing expansion, containers, feedstocks, and public Rust crates remain blocked.",
+      "next_action": "Use package-channel readiness reports for selected v0.1.0 installs; add separate channel proof before advertising future package channels.",
       "required_evidence": [
-        "maintainer_approval",
-        "testpypi_proof",
-        "pypi_proof",
+        "future_channel_approval",
         "channel_install_smoke",
         "sbom",
         "checksums",

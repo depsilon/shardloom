@@ -2,67 +2,112 @@
 
 # Package User Install Status
 
-ShardLoom package publication is approved for the v0.1.0 sequence, but channel install commands
-become public only after each channel has been published and verified. The order is source checkout
-proof, GitHub pre-release, TestPyPI, PyPI, then Homebrew tap.
+ShardLoom v0.1.0 is published as a technical preview through the selected package channels:
+GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula. These package
+commands are install access only; they do not imply production readiness, performance superiority,
+Spark replacement, broad SQL/DataFrame support, object-store/lakehouse production support, Foundry
+production support, or fallback execution.
 
 ```text
-package_channel_status=blocked
+package_channel_status=published_v0.1.0_selected_channels
 selected_publication_channels=github_prerelease,testpypi,pypi,homebrew_tap
-final_publication_event_required=true
-package_install_commands_visible=false
+package_install_commands_visible=true
+public_package_release_claim_allowed=true
 public_package_claim_allowed=false
-publication_attempted=false
-tag_created=false
-package_upload_attempted=false
 fallback_attempted=false
 external_engine_invoked=false
 ```
 
-No package-user install command is active yet in this source revision. The source checkout path
-remains the supported local proof path until the selected channel gates close and a tagged release
-updates this page with verified install, smoke, uninstall, and rollback instructions.
+## Install
 
-## What Exists Today
+Python package:
 
-- Local wheel and sdist build proof through `python scripts\release_dry_run_proof.py --rows 64 --iterations 1`.
-- Local clean virtual-environment install proof from that local wheel.
-- Publication approval for v0.1.0 GitHub pre-release, TestPyPI, PyPI, and Homebrew, recorded in
-  [`docs/release/final-release-approval-post-release-verification.json`](../release/final-release-approval-post-release-verification.json).
-- Package-channel readiness rows in
-  [`docs/release/package-channel-readiness-matrix.md`](../release/package-channel-readiness-matrix.md).
-- Package names and metadata checks in
-  [`docs/release/package-name-readiness.md`](../release/package-name-readiness.md).
-- The selected release track in
-  [`docs/release/v1-local-source-package-release.md`](../release/v1-local-source-package-release.md).
+```sh
+python -m pip install shardloom==0.1.0
+```
 
-## Uninstall And Upgrade While Local
+Homebrew CLI formula:
 
-For an editable source-tree Python install, uninstall the local package with:
+```sh
+brew install depsilon/tap/shardloom
+```
 
-```powershell
+GitHub release assets:
+
+```sh
+gh release download v0.1.0 --repo depsilon/shardloom --pattern '*' --dir shardloom-v0.1.0
+```
+
+TestPyPI rehearsal package:
+
+```sh
+python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.0
+```
+
+The PyPI package is a Python client surface. CLI-backed commands need a `shardloom` binary resolved
+through `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, or a source checkout with a built CLI.
+
+## Smoke Check
+
+After installing the Homebrew formula:
+
+```sh
+shardloom status
+```
+
+Expected posture includes:
+
+```text
+fallback execution: disabled
+```
+
+For the Python package, point the client at an approved CLI binary before running CLI-backed smoke
+checks:
+
+```sh
+export SHARDLOOM_BIN=/path/to/shardloom
+python - <<'PY'
+from shardloom import ShardLoomClient
+
+smoke = ShardLoomClient.from_env().smoke_check()
+print(smoke.fallback_attempted)
+print(smoke.external_engine_invoked)
+PY
+```
+
+## Proof Refs
+
+- GitHub release proof:
+  [`docs/release/channel-proofs/github-prerelease-v0.1.0-transcript.json`](../release/channel-proofs/github-prerelease-v0.1.0-transcript.json)
+- TestPyPI proof:
+  [`docs/release/channel-proofs/testpypi-v0.1.0-transcript.json`](../release/channel-proofs/testpypi-v0.1.0-transcript.json)
+- PyPI proof:
+  [`docs/release/channel-proofs/pypi-v0.1.0-transcript.json`](../release/channel-proofs/pypi-v0.1.0-transcript.json)
+- Homebrew proof:
+  [`docs/release/channel-proofs/homebrew-v0.1.0-transcript.json`](../release/channel-proofs/homebrew-v0.1.0-transcript.json)
+- Package-channel matrix:
+  [`docs/release/package-channel-readiness-matrix.md`](../release/package-channel-readiness-matrix.md)
+
+## Uninstall And Upgrade
+
+Python package:
+
+```sh
 python -m pip uninstall -y shardloom
+python -m pip install --upgrade shardloom==0.1.0
 ```
 
-Then remove any local build outputs you no longer need:
+Homebrew formula:
 
-```powershell
-cargo clean
-Remove-Item -LiteralPath python\dist -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath target\release-dry-run-proof -Recurse -Force -ErrorAction SilentlyContinue
+```sh
+brew uninstall shardloom
+brew upgrade depsilon/tap/shardloom
 ```
 
-To upgrade a source checkout, pull the repository and rerun the source proof:
+GitHub release asset installs are ordinary downloaded files; remove the download directory when you
+no longer need it.
 
-```powershell
-git pull --ff-only
-cargo build -p shardloom-cli --bin shardloom
-python scripts\release_dry_run_proof.py --rows 64 --iterations 1
-```
+## Blocked Channels
 
-## Future Package Page Rule
-
-When each publication step completes, this page must show the exact channel, version, install,
-upgrade, uninstall, smoke-check, rollback/yank/deprecate, checksum/SBOM, and support-bundle
-instructions for GitHub pre-release, TestPyPI, PyPI, and Homebrew as applicable. Until channel proof
-exists, package commands stay withheld.
+Scoop, winget, conda-forge, GHCR containers, and future crates.io public API crates remain blocked
+until separate channel-specific proofs exist. Current workspace Rust crates remain unpublished.

@@ -2,9 +2,9 @@
 
 # Package Channel Readiness Matrix
 
-Status: approved release sequence with blocked channel-readiness evidence. This document does not
-publish packages, create tags, push containers, submit package manifests, add secrets, or authorize
-fallback execution.
+Status: selected v0.1.0 release channels are published and proof-backed. This document does not
+authorize production readiness, performance superiority, broad runtime support, future package
+channels, container publication, crates.io publication, signing-key use, or fallback execution.
 
 The machine-readable source of truth is
 [`docs/release/package-channel-readiness-matrix.json`](package-channel-readiness-matrix.json) with
@@ -26,11 +26,10 @@ Release-readiness and CI use the stricter local evidence mode:
 python scripts\check_package_channel_readiness.py --require-local-evidence
 ```
 
-That mode consumes the dependency audit report, local package smoke transcript, and local
-SBOM/checksum/provenance dry-run evidence before the package-channel report can pass. It still does
-not mark any public channel ready; channel rows remain blocked until channel-specific install,
-uninstall, clean-install, smoke, SBOM/checksum/provenance, rollback, and authorization evidence is
-attached.
+That mode consumes the dependency audit report, local package smoke transcript, local
+SBOM/checksum/provenance dry-run evidence, and checked-in TestPyPI/PyPI registry proof transcripts.
+Selected v0.1.0 rows are ready only when channel-specific install, uninstall, clean-install, smoke,
+SBOM/checksum/provenance, rollback, and authorization evidence is attached.
 
 After an approved registry upload exists, use `scripts/python_registry_package_proof.py` to produce
 the clean install, smoke, and uninstall transcript for that channel. PyPI proof is not accepted
@@ -38,8 +37,8 @@ until the TestPyPI transcript exists and is referenced.
 
 ## Readiness Rules
 
-- No channel may be marked ready without channel-specific install, uninstall, clean-install, smoke,
-  SBOM/checksum/provenance, and rollback/yank/delete/deprecate evidence.
+- No selected channel may be marked ready without channel-specific install, uninstall,
+  clean-install, smoke, SBOM/checksum/provenance, and rollback/yank/delete/deprecate evidence.
 - The package gate requires dependency inventory, license classification, provenance status,
   forbidden-fallback dependency absence, package smoke transcript, SBOM refs, checksum refs,
   rollback policy refs, and publication authorization state.
@@ -60,8 +59,8 @@ until the TestPyPI transcript exists and is referenced.
 - Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or
   another external query engine as a ShardLoom runtime fallback dependency.
 - Every package channel now carries a v1 feasibility decision in the JSON matrix. GitHub
-  pre-release, TestPyPI, PyPI, and Homebrew are included in the v0.1.0 package sequence after
-  channel proof. Scoop, winget, and conda-forge remain v1-feasible later channels once
+  pre-release, TestPyPI, PyPI, and Homebrew are included and proof-backed in the v0.1.0 package
+  sequence. Scoop, winget, and conda-forge remain v1-feasible later channels once
   their channel-specific install/uninstall/smoke and provenance evidence exists. GHCR and
   crates.io are explicitly not in v1 scope because the container image contract and future public
   Rust API crates are not real yet.
@@ -70,10 +69,10 @@ until the TestPyPI transcript exists and is referenced.
 
 | Channel | Target | v1 feasibility | Install command | Uninstall command | Required proof | Current status |
 | --- | --- | --- | --- | --- | --- | --- |
-| GitHub pre-release | Reviewed source archive plus staged local pre-release assets | included pending channel proof | `gh release download <tag> --repo depsilon/shardloom --pattern shardloom-* --dir <install-dir>` | `Remove-Item -LiteralPath <install-dir> -Recurse -Force` | Approved tag/release, attached checksums, SBOM, provenance, clean install/smoke transcript, rollback/delete policy. | `blocked`: approval exists, local asset bundle evidence is prepared, but no v0.1.0 tag, GitHub release object/assets, or channel download transcript exists yet. |
-| TestPyPI | Python package `shardloom` | included pending channel proof | `python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==<version>` | `python -m pip uninstall -y shardloom` | TestPyPI Trusted Publisher/OIDC, clean install, uninstall, smoke, no committed token. | `blocked`: pending publisher is configured and local wheel/sdist build proof exists; no TestPyPI upload proof or clean registry install/uninstall/smoke transcript exists yet. |
-| PyPI | Python package `shardloom` | included pending channel proof | `python -m pip install shardloom==<version>` | `python -m pip uninstall -y shardloom` | PyPI Trusted Publisher/OIDC, prior TestPyPI proof, clean install, uninstall, smoke, SBOM/checksum/provenance, yank policy. | `blocked`: pending publisher is configured and local artifact proof exists; no prior TestPyPI proof, clean public install/uninstall/smoke transcript, or channel-specific SBOM/checksum/provenance evidence exists yet. |
-| Homebrew tap | CLI formula | included pending channel proof | `brew install depsilon/tap/shardloom` | `brew uninstall shardloom` | Tap/formula proof, versioned artifact checksum, install/uninstall, smoke, rollback/deprecate policy. | `blocked`: approval exists and local CLI build proof exists; no tap formula, versioned channel checksum, or clean Homebrew install/uninstall/smoke transcript exists yet. |
+| GitHub pre-release | GitHub v0.1.0 pre-release assets | included channel proof passed | `gh release download v0.1.0 --repo depsilon/shardloom --pattern '*' --dir <install-dir>` | `rm -rf <install-dir>` | Approved tag/release, attached checksums, SBOM, provenance, clean download/smoke transcript, rollback/delete policy. | `ready`: `docs/release/channel-proofs/github-prerelease-v0.1.0-transcript.json` verifies attached assets, checksums, and CLI smoke. |
+| TestPyPI | Python package `shardloom` | included channel proof passed | `python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.0` | `python -m pip uninstall -y shardloom` | TestPyPI Trusted Publisher/OIDC, clean install, uninstall, smoke, no committed token. | `ready`: `docs/release/channel-proofs/testpypi-v0.1.0-transcript.json` verifies registry install, Python client smoke, and uninstall. |
+| PyPI | Python package `shardloom` | included channel proof passed | `python -m pip install shardloom==0.1.0` | `python -m pip uninstall -y shardloom` | PyPI Trusted Publisher/OIDC, prior TestPyPI proof, clean install, uninstall, smoke, SBOM/checksum/provenance, yank policy. | `ready`: `docs/release/channel-proofs/pypi-v0.1.0-transcript.json` verifies public registry install, Python client smoke, prior TestPyPI proof ref, and uninstall. |
+| Homebrew tap | CLI formula | included channel proof passed | `brew install depsilon/tap/shardloom` | `brew uninstall shardloom` | Tap/formula proof, versioned artifact checksum, install/uninstall, smoke, rollback/deprecate policy. | `ready`: `docs/release/channel-proofs/homebrew-v0.1.0-transcript.json` verifies tap audit/style/test, source build install, CLI smoke, and uninstall. |
 | Scoop | Windows CLI manifest | v1 feasible pending channel proof | `scoop install shardloom` | `scoop uninstall shardloom` | Bucket manifest, checksum, install/uninstall, smoke, update/rollback policy. | `blocked`: local CLI build, local smoke, checksum, and provenance refs are prepared; no bucket manifest, channel checksum, clean Scoop install/uninstall/smoke transcript, or maintainer approval exists. |
 | winget | Windows Package Manager manifest | v1 feasible pending channel proof | `winget install depsilon.shardloom` | `winget uninstall depsilon.shardloom` | winget manifest, repository submission validation, install/uninstall, smoke, update/rollback policy. | `blocked`: local CLI build, local smoke, checksum, and provenance refs are prepared; no winget manifest/submission, installer proof, clean winget install/uninstall/smoke transcript, or maintainer approval exists. |
 | conda-forge | `shardloom-cli`, `shardloom-python`, and `shardloom` metapackage | v1 feasible pending channel proof | `conda install -c conda-forge shardloom` | `conda remove shardloom shardloom-cli shardloom-python` | staged-recipes/feedstock proof, clean Conda install, smoke, no fallback dependencies, maintainer policy. | `blocked`: local Conda recipe scaffold tests and clean Conda source-local install proof pass; no staged-recipes/feedstock submission, feedstock install/uninstall/smoke transcript, or maintainer approval exists. |
@@ -106,5 +105,5 @@ The machine-readable matrix lists these gate references under `gate_evidence_ref
 - `docs/security/supply-chain-response.md`
 - `scripts/check_package_channel_readiness.py`
 
-The current matrix is intentionally blocked. It is valid because it lists blockers and prevents
-package claims; it is not valid evidence for public package publication.
+The current matrix is ready for the selected v0.1.0 package channels only. It is not evidence for
+future package channels, production readiness, performance superiority, or broad runtime claims.

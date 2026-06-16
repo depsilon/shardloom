@@ -31,10 +31,21 @@ V1 local/source/package track addendum, 2026-06-15:
 - `docs/release/v1-local-source-package-release.md` and
   `docs/release/v1-local-source-package-release.json` are the canonical selected-track contract.
 - The selected-track validator is `scripts/check_v1_local_source_package_release.py`.
-- Maintainer approval now exists for v0.1.0 publication through GitHub pre-release, TestPyPI,
-  PyPI, and Homebrew. Publication still requires the channel sequence, release notes, checksums,
-  SBOM/provenance/signing policy, rollback/yank/deprecate policy, and post-release smoke
-  transcripts.
+- Maintainer approval existed for v0.1.0 publication through GitHub pre-release, TestPyPI, PyPI,
+  and Homebrew. At that point, publication still required the channel sequence, release notes,
+  checksums, SBOM/provenance/signing policy, rollback/yank/deprecate policy, and post-release smoke
+  transcripts; see the 2026-06-16 completion addendum below for current channel status.
+
+Publication completion addendum, 2026-06-16:
+
+- The selected v0.1.0 channels are published and proof-backed: GitHub pre-release assets,
+  TestPyPI, PyPI, and Homebrew.
+- Channel proofs are checked in under `docs/release/channel-proofs/`.
+- Future channels remain blocked: Scoop, winget, conda-forge, GHCR, and crates.io public API
+  crates.
+- Package access remains technical-preview install access only. It is not production readiness,
+  performance superiority, Spark replacement, broad SQL/DataFrame support, object-store/lakehouse
+  support, Foundry support, or fallback execution.
 
 `RELEASE-PACKAGE-15` branch evidence was prepared from local branch
 `codex/release-package-15-runtime-evidence`. The refreshed benchmark publication bundle records
@@ -158,14 +169,15 @@ signing/attestation policy, and destination channels.
 
 The hard release gate remains blocked by:
 
-- Package-channel readiness: selected public channels remain blocked until publication and
-  install/uninstall/smoke proof pass.
+- Package-channel readiness is no longer blocked for the selected v0.1.0 channels; GitHub
+  pre-release, TestPyPI, PyPI, and Homebrew proofs are attached.
 - Publication/API/schema stability: functional v1 surfaces are approved as stable for v0.1.0, but
-  public compatibility claims still require release artifact and post-release proof.
+  production compatibility, signing, future package-channel, and broad runtime claims still require
+  separate proof.
 - Per-claim evidence: release, package, performance, Spark-displacement, production, platform, and
   broad runtime claims remain not claim-grade.
-- Channel evidence: GitHub release/tag/assets, TestPyPI proof, PyPI proof, and Homebrew formula
-  proof are still missing.
+- Channel evidence is present for the selected channels and remains missing for future package
+  channels.
 
 Current local release evidence that is no longer a hard-gate blocker:
 
@@ -192,10 +204,10 @@ Current local release evidence that is no longer a hard-gate blocker:
 
 | Channel | Current status | Remaining action required before publication/proof |
 | --- | --- | --- |
-| GitHub pre-release | Approved, blocked until publication proof | Create v0.1.0 tag/release, attach assets/checksums/SBOM/provenance, run channel download smoke, record rollback/delete policy. |
-| TestPyPI | Approved, Trusted Publisher configured, blocked until upload proof | Run Trusted Publisher upload, then clean registry install/uninstall/smoke with explicit ShardLoom CLI binary. |
-| PyPI | Approved, Trusted Publisher configured, blocked until TestPyPI proof | Reference the passed TestPyPI proof, run Trusted Publisher upload, then clean public install/uninstall/smoke. |
-| Homebrew tap | Approved, blocked until formula proof | Publish tap/formula against the immutable GitHub v0.1.0 source archive, record SHA256, install/uninstall/smoke transcript, and rollback/deprecate policy. |
+| GitHub pre-release | Ready for v0.1.0 | Release/tag/assets/checksum/SBOM/provenance download proof: `docs/release/channel-proofs/github-prerelease-v0.1.0-transcript.json`. |
+| TestPyPI | Ready for v0.1.0 | Trusted Publisher upload and clean registry install/uninstall/smoke proof: `docs/release/channel-proofs/testpypi-v0.1.0-transcript.json`. |
+| PyPI | Ready for v0.1.0 | Trusted Publisher upload after TestPyPI proof and clean public install/uninstall/smoke proof: `docs/release/channel-proofs/pypi-v0.1.0-transcript.json`. |
+| Homebrew tap | Ready for v0.1.0 | Tap/formula audit/style/test plus source build install/uninstall/smoke proof: `docs/release/channel-proofs/homebrew-v0.1.0-transcript.json`. |
 | Scoop | Blocked | Approve bucket manifest, checksums, install/uninstall/smoke transcript, update/rollback policy. |
 | winget | Blocked | Approve manifest/submission, installer proof, install/uninstall/smoke transcript, update/rollback policy. |
 | conda-forge | Blocked | Approve staged-recipes/feedstock submission, clean feedstock install/uninstall/smoke, maintainer policy. |
@@ -206,7 +218,7 @@ Current local release evidence that is no longer a hard-gate blocker:
 
 Publication approval for v0.1.0 is recorded in
 `docs/release/final-release-approval-post-release-verification.json`. The approved channels are
-GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof must still record:
+GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof now records:
 
 - Approved source revision and release version/tag.
 - Approved destination channels and package identities.
@@ -216,8 +228,9 @@ GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof must still recor
 - Approved secrets/OIDC/environment setup for each selected channel.
 - Passing strict hard release gate for the approved source revision.
 
-Until channel proof exists, public package and release claims remain prohibited even though the
-publication sequence is approved.
+Selected-channel package install claims are now allowed for v0.1.0. Production, performance,
+Spark-replacement, platform, broad runtime, future package-channel, and fallback-execution claims
+remain prohibited.
 
 ## Required Re-Run Before Approval
 

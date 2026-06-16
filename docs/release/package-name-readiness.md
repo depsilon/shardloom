@@ -2,8 +2,9 @@
 
 # Package Name Readiness
 
-Status: release-readiness scaffold with v0.1.0 publication approval recorded separately. Do not
-publish packages, create tags, or add secrets from this document.
+Status: v0.1.0 selected package identities are published and proof-backed for GitHub pre-release,
+TestPyPI, PyPI, and Homebrew. Do not publish additional channels, create new tags, or add secrets
+from this document.
 
 Package-name posture is separate from package-channel readiness. The channel-by-channel release
 gate lives in [`package-channel-readiness-matrix.md`](package-channel-readiness-matrix.md) and the
@@ -20,27 +21,28 @@ machine-readable matrix lives in
 Internal crates remain unpublished. Public crates should be split out only when
 their API contracts are stable enough for permanent publication.
 
-## PyPI Trusted Publisher Draft
+## PyPI Trusted Publisher Workflow
 
-The draft workflow lives at `.github/workflows/pypi-publish-draft.yml`.
+The workflow lives at `.github/workflows/pypi-publish-draft.yml`.
 It uses GitHub OIDC, the `testpypi` and `pypi` environments, and no token secrets. It is manual and
 guarded by an explicit `publish-approved` input so it does not publish accidentally.
 
-Before publication:
+The v0.1.0 release sequence completed:
 
-- configure TestPyPI and PyPI pending publishers for the repository, workflow, and matching
-  `testpypi` / `pypi` environments
-- verify package metadata with `python -m build python`
-- run `python scripts\release_dry_run_proof.py --rows 64 --iterations 1`
-- verify `twine check python/dist/*`
-- ensure the release approval contract records the selected version/tag/source revision
-- ensure no runtime fallback dependencies were added
+- GitHub release/tag/assets: `v0.1.0`
+- TestPyPI package proof:
+  `docs/release/channel-proofs/testpypi-v0.1.0-transcript.json`
+- PyPI package proof:
+  `docs/release/channel-proofs/pypi-v0.1.0-transcript.json`
+- Homebrew tap proof:
+  `docs/release/channel-proofs/homebrew-v0.1.0-transcript.json`
+- no runtime fallback dependencies were added
 
 ## TestPyPI Dry Run
 
-Use TestPyPI first through the Trusted Publisher workflow. The registry proof must install from the
-target registry into a clean environment, smoke the package with an explicit approved ShardLoom CLI
-binary via `--shardloom-bin` or `SHARDLOOM_BIN`, and uninstall the package.
+Use TestPyPI first through the Trusted Publisher workflow for future releases. The registry proof
+must install from the target registry into a clean environment, smoke the package with an explicit
+approved ShardLoom CLI binary via `--shardloom-bin` or `SHARDLOOM_BIN`, and uninstall the package.
 
 ```powershell
 gh workflow run pypi-publish-draft.yml -f channel=testpypi -f publish_approved=publish-approved
@@ -118,5 +120,5 @@ python scripts\check_package_channel_readiness.py --require-local-evidence
 python scripts\check_release_readiness.py
 ```
 
-The current package-channel matrix is valid but blocked: no channel has channel-specific install,
-uninstall, clean-install, smoke, SBOM/checksum/provenance, rollback/yank, and authorization proof.
+The current package-channel matrix is ready for the selected v0.1.0 channels and remains blocked for
+future channels such as Scoop, winget, conda-forge, GHCR, and crates.io public API crates.

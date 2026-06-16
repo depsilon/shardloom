@@ -113,29 +113,36 @@ production_unsupported_diagnostic_side_effects_performed=false
 | live_hybrid_remote_distributed | live, hybrid, remote, distributed, rest-api-event-stream, certified-live-fixture | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_EXECUTION_FABRIC | cg22.cg23.object_store_runtime_evidence_required | Use engine capability and remote API plan reports for discovery; do not request production fabric execution. |
 | rest_event_remote_api | rest-api-contract-plan, rest-api-plan-preview, remote_result_delivery, event_stream | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_REMOTE_API | cg23.remote_api.lifecycle.uncertified_blocked | Use REST/API contract plan outputs for schema review; do not treat plan previews as remote runtime support. |
 | extensions_udfs_effects | extension-registry, extension-inspect, udf-runtime-plan, api_call, embedding_generation, sqlite_effects | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_EXTENSION_EFFECT | gar-0032-d.effectful_runtime_blocked | Use extension inspection and effect admission matrices; production effectful execution requires separate policy and certificate evidence. |
-| package_publication | TestPyPI, PyPI, Homebrew, Scoop, winget, conda-forge, GHCR, crates.io | blocked | SL_UNSUPPORTED_PUBLIC_PACKAGE_PUBLICATION | release.package_publication_gate_required | Use package-channel readiness reports and local dry-run proof until explicit maintainer approval exists. |
+| future_package_channels | Scoop, winget, conda-forge, GHCR, crates.io | blocked_future_channels | SL_UNSUPPORTED_PUBLIC_PACKAGE_PUBLICATION | release.package_publication_gate_required | Use package-channel readiness reports for selected v0.1.0 installs; add separate channel proof before advertising future package channels. |
 | public_claims | performance_superiority, spark_replacement, engine_replacement | blocked | SL_UNSUPPORTED_PERFORMANCE_SUPERIORITY_CLAIM | cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required | Attach the selected timing surface, evidence tier, benchmark artifact, and correctness report before making a public performance claim. |
 | production_readiness | production_ready, finished_product, public_release_ready | blocked | SL_UNSUPPORTED_PRODUCTION_READINESS_CLAIM | release.production_readiness_gate_required | Use finished-product readiness and hard release-readiness reports; do not claim production support from local fixtures alone. |
 
 ## Package Channels
 
 Package channel rows are generated from `docs/release/package-channel-readiness-matrix.json`.
-Package install commands are intentionally withheld while channel status is blocked.
+Selected v0.1.0 package channels expose install commands. Future package channels remain blocked until their channel-specific proof exists.
 
 ```text
-package_install_commands_visible=false
-public_package_release_claim_allowed=false
+package_install_commands_visible=true
+public_package_release_claim_allowed=true
 publication_attempted=false
 tag_created=false
 package_upload_attempted=false
 ```
 
+| Ready channel | Install command | Uninstall command |
+| --- | --- | --- |
+| GitHub pre-release | gh release download v0.1.0 --repo depsilon/shardloom --pattern '*' --dir <install-dir> | rm -rf <install-dir> |
+| TestPyPI | python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.0 | python -m pip uninstall -y shardloom |
+| PyPI | python -m pip install shardloom==0.1.0 | python -m pip uninstall -y shardloom |
+| Homebrew tap | brew install depsilon/tap/shardloom | brew uninstall shardloom |
+
 | Channel | Status | Ready | Current blockers |
 | --- | --- | --- | --- |
-| GitHub pre-release | blocked | false | approved release tag not created, no GitHub pre-release object or attached assets, no gh release download transcript from attached assets |
-| TestPyPI | blocked | false | no TestPyPI upload proof, no clean TestPyPI install/uninstall/smoke transcript |
-| PyPI | blocked | false | prior TestPyPI install/uninstall/smoke proof missing, clean public install/uninstall/smoke transcript missing, channel-specific SBOM/checksum/provenance evidence missing |
-| Homebrew tap | blocked | false | no tap repository or formula proof, no versioned artifact checksum proof, no clean Homebrew install/uninstall/smoke transcript |
+| GitHub pre-release | ready | true |  |
+| TestPyPI | ready | true |  |
+| PyPI | ready | true |  |
+| Homebrew tap | ready | true |  |
 | Scoop | blocked | false | no bucket manifest proof, no checksum proof, no clean Scoop install/uninstall/smoke transcript, maintainer approval missing |
 | winget | blocked | false | no winget manifest proof, no installer artifact proof, no clean winget install/uninstall/smoke transcript, maintainer approval missing |
 | conda-forge | blocked | false | no staged-recipes submission proof, clean_conda_env_install_status is local proof, not a conda-forge package proof, no feedstock install/uninstall/smoke transcript, maintainer approval missing |

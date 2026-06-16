@@ -1,0 +1,86 @@
+{
+  "blockers": [],
+  "channel_id": "pypi",
+  "clean_env": "target/python-registry-package-proof/pypi-docs-venv",
+  "cli_binary_available": true,
+  "cli_binary_env_var": "SHARDLOOM_BIN",
+  "cli_binary_ref": "target/github-prerelease-channel-proof/shardloom",
+  "cli_binary_required_for_clean_registry_smoke": true,
+  "cli_binary_smoke_source": "approved_release_or_local_artifact",
+  "display_name": "PyPI",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "index_url": null,
+  "install_source": "pypi_registry",
+  "install_transcript_status": "passed",
+  "package_channel_submission_attempted_by_this_tool": false,
+  "package_name": "shardloom",
+  "package_version": "0.1.0",
+  "proof_status": "passed",
+  "publication_attempted_by_this_tool": false,
+  "registry_upload_attempted_by_this_tool": false,
+  "schema_version": "shardloom.python_registry_package_proof.v1",
+  "secrets_required": false,
+  "smoke_check_status": "passed",
+  "steps": [
+    {
+      "command": [
+        "external-path:python3",
+        "-m",
+        "venv",
+        "target/python-registry-package-proof/pypi-docs-venv"
+      ],
+      "elapsed_millis": 945.2155,
+      "name": "create_clean_venv",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": [
+        "external-path:python",
+        "-m",
+        "pip",
+        "install",
+        "--no-deps",
+        "shardloom==0.1.0"
+      ],
+      "elapsed_millis": 413.9074,
+      "name": "install_registry_package",
+      "returncode": 0,
+      "stderr": "\n[notice] A new release of pip is available: 25.0.1 -> 26.1.2\n[notice] To update, run: /Users/dylan/Documents/shardloom-local-repo/target/python-registry-package-proof/pypi-docs-venv/bin/python -m pip install --upgrade pip\n",
+      "stdout": "Collecting shardloom==0.1.0\n  Using cached shardloom-0.1.0-py3-none-any.whl.metadata (139 kB)\nUsing cached shardloom-0.1.0-py3-none-any.whl (268 kB)\nInstalling collected packages: shardloom\nSuccessfully installed shardloom-0.1.0\n"
+    },
+    {
+      "command": [
+        "external-path:python",
+        "-c",
+        "from shardloom import ShardLoomClient; client=ShardLoomClient.from_env(); smoke=client.smoke_check(); caps=client.capabilities(); print('fallback_attempted=' + str(smoke.fallback_attempted)); print('external_engine_invoked=' + str(getattr(smoke, 'external_engine_invoked', False))); print('capabilities_command=' + caps.command)"
+      ],
+      "elapsed_millis": 100.4548,
+      "name": "registry_package_client_smoke",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "fallback_attempted=False\nexternal_engine_invoked=False\ncapabilities_command=capabilities\n"
+    },
+    {
+      "command": [
+        "external-path:python",
+        "-m",
+        "pip",
+        "uninstall",
+        "-y",
+        "shardloom"
+      ],
+      "elapsed_millis": 141.3062,
+      "name": "uninstall_registry_package",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "Found existing installation: shardloom 0.1.0\nUninstalling shardloom-0.1.0:\n  Successfully uninstalled shardloom-0.1.0\n"
+    }
+  ],
+  "tag_created": false,
+  "testpypi_proof_ref": "docs/release/channel-proofs/testpypi-v0.1.0-transcript.json",
+  "testpypi_proof_required": true,
+  "uninstall_transcript_status": "passed"
+}

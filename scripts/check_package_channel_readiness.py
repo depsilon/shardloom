@@ -31,9 +31,16 @@ EXPECTED_CHANNEL_IDS = [
     "ghcr_container",
     "crates_io_future",
 ]
+SELECTED_V0_1_0_RELEASE_CHANNEL_IDS = [
+    "github_prerelease",
+    "testpypi",
+    "pypi",
+    "homebrew_tap",
+]
 
 EXPECTED_V1_FEASIBILITY_REVIEWED_CHANNEL_IDS = EXPECTED_CHANNEL_IDS
 V1_FEASIBILITY_STATUSES = {
+    "included_channel_proof_passed",
     "included_pending_channel_proof",
     "feasible_pending_channel_proof",
     "not_in_v1_scope_recorded",
@@ -168,12 +175,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--testpypi-proof",
         type=Path,
-        default=Path("target/python-registry-package-proof/testpypi-transcript.json"),
+        default=Path("docs/release/channel-proofs/testpypi-v0.1.0-transcript.json"),
     )
     parser.add_argument(
         "--pypi-proof",
         type=Path,
-        default=Path("target/python-registry-package-proof/pypi-transcript.json"),
+        default=Path("docs/release/channel-proofs/pypi-v0.1.0-transcript.json"),
     )
     parser.add_argument(
         "--require-local-evidence",
@@ -259,11 +266,17 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
         blockers.append(
             "v1_feasibility_reviewed_channel_ids must match the expected release-channel list"
         )
+    selected_release_channel_ids = matrix.get("selected_v0_1_0_release_channel_ids")
+    if selected_release_channel_ids != SELECTED_V0_1_0_RELEASE_CHANNEL_IDS:
+        blockers.append(
+            "selected_v0_1_0_release_channel_ids must match the approved v0.1.0 channel list"
+        )
     if matrix.get("package_gate_required_evidence") != PACKAGE_GATE_REQUIRED_EVIDENCE:
         blockers.append("package_gate_required_evidence must match the package-gate evidence list")
     if matrix.get("package_identity_contract_status") not in {
         "local_contract_recorded_publication_approval_blocked",
         "local_contract_recorded_publication_approved_pending_channel_proof",
+        "public_package_release_selected_channels_ready",
     }:
         blockers.append(
             "package_identity_contract_status must record local contract with publication approval state"
@@ -388,21 +401,31 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
             if "no internal crate publication" not in requirement:
                 blockers.append(prefix + "auth requirement must forbid internal crate publication")
 
-    all_v1_scope_channels_ready = len(ready_rows) == len(in_scope_channel_rows)
+    selected_ids = (
+        selected_release_channel_ids
+        if selected_release_channel_ids == SELECTED_V0_1_0_RELEASE_CHANNEL_IDS
+        else []
+    )
+    selected_rows = [row for row in channels if row.get("channel_id") in selected_ids]
+    selected_ready_rows = [row for row in selected_rows if row.get("ready") is True]
+    all_selected_release_channels_ready = (
+        len(selected_rows) == len(SELECTED_V0_1_0_RELEASE_CHANNEL_IDS)
+        and len(selected_ready_rows) == len(selected_rows)
+    )
     public_claim_allowed = matrix.get("public_package_release_claim_allowed")
     if public_claim_allowed is True:
         if matrix.get("status") != "ready":
             blockers.append(
                 "public_package_release_claim_allowed=true requires top-level status=ready"
             )
-        if not all_v1_scope_channels_ready:
+        if not all_selected_release_channels_ready:
             blockers.append(
-                "public_package_release_claim_allowed=true requires every v1-scope channel ready"
+                "public_package_release_claim_allowed=true requires every selected v0.1.0 release channel ready"
             )
     elif public_claim_allowed is not False:
         blockers.append("public_package_release_claim_allowed must be boolean")
-    if matrix.get("status") == "ready" and not all_v1_scope_channels_ready:
-        blockers.append("top-level status=ready requires every v1-scope channel ready")
+    if matrix.get("status") == "ready" and not all_selected_release_channels_ready:
+        blockers.append("top-level status=ready requires every selected v0.1.0 release channel ready")
 
     return blockers
 
@@ -993,6 +1016,8 @@ def self_test(matrix: dict[str, Any] | None) -> list[str]:
     first["smoke_check_status"] = "passed"
     first["sbom_checksum_provenance_status"] = "passed"
     first["current_blockers"] = []
+    for field in READY_REFERENCE_FIELDS:
+        first.pop(field, None)
     ready_blockers = validate_matrix(synthetic)
     expected = f"{first['channel_id']}: ready=true requires install_transcript_ref"
     if expected not in ready_blockers:
@@ -1073,6 +1098,9 @@ def main() -> int:
         "claim_gate_status": (matrix or {}).get("claim_gate_status", "missing"),
         "public_package_release_claim_allowed": (matrix or {}).get(
             "public_package_release_claim_allowed", False
+        ),
+        "selected_v0_1_0_release_channel_ids": (matrix or {}).get(
+            "selected_v0_1_0_release_channel_ids", []
         ),
         "ready_channel_count": sum(
             1

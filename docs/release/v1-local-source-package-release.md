@@ -2,8 +2,8 @@
 
 # V1 Local Source And Package Release Track
 
-Status: selected local/source/package v1 release track, approved pending channel publication proof
-and post-release verification.
+Status: selected local/source/package v1 release track with v0.1.0 GitHub pre-release, TestPyPI,
+PyPI, and Homebrew channel proof complete.
 
 Schema marker: `shardloom.v1_local_source_package_release.v1`.
 
@@ -14,9 +14,10 @@ python scripts\check_v1_local_source_package_release.py
 ```
 
 This page narrows the feasible v1 release after excluding real production environments. Maintainer
-approval exists for the v0.1.0 GitHub pre-release, TestPyPI, PyPI, and Homebrew sequence. This page
-does not itself publish packages, create tags, create GitHub releases, upload artifacts, sign
-artifacts, add secrets, run production services, or authorize fallback execution.
+approval and channel proof now exist for the v0.1.0 GitHub pre-release, TestPyPI, PyPI, and
+Homebrew sequence. This page does not itself publish additional packages, create new tags, create
+new GitHub releases, upload new artifacts, sign artifacts, add secrets, run production services, or
+authorize fallback execution.
 
 ## Selected V1 Track
 
@@ -28,15 +29,14 @@ artifacts, add secrets, run production services, or authorize fallback execution
 | API/schema stability | Stable local v1 machine-readable contract. | `docs/release/v1-api-schema-stability.md`, `docs/release/schemas/v1/*`, `scripts/check_v1_api_schema_stability.py` |
 | Local benchmark publication | Scoped full-local evidence only. | `website/assets/benchmarks/latest/manifest.json` |
 | Docs/website/readme | Claim-safe public interpretation layer. | `README.md`, `docs/release/public-status-matrix.md`, `website-src/` |
-| GitHub pre-release | Selected package channel after approved tag/release object/assets. | `docs/release/package-channel-readiness-matrix.json`, `target/release-provenance-dry-run/github-prerelease-assets/asset-manifest.json` |
-| TestPyPI | Selected rehearsal channel after Trusted Publisher and approval. | `.github/workflows/pypi-publish-draft.yml`, `scripts/python_registry_package_proof.py` |
-| PyPI | Selected public Python package channel after TestPyPI proof and approval. | `.github/workflows/pypi-publish-draft.yml`, `scripts/python_registry_package_proof.py` |
-| Homebrew tap | Selected public CLI package channel after GitHub release assets and formula proof. | `docs/release/package-channel-readiness-matrix.json`, Homebrew tap formula proof |
+| GitHub pre-release | Published v0.1.0 release assets with channel proof. | `docs/release/channel-proofs/github-prerelease-v0.1.0-transcript.json` |
+| TestPyPI | Published v0.1.0 rehearsal package with Trusted Publisher proof. | `docs/release/channel-proofs/testpypi-v0.1.0-transcript.json` |
+| PyPI | Published v0.1.0 public Python package with prior TestPyPI proof. | `docs/release/channel-proofs/pypi-v0.1.0-transcript.json` |
+| Homebrew tap | Published v0.1.0 public CLI formula against the GitHub source archive. | `docs/release/channel-proofs/homebrew-v0.1.0-transcript.json` |
 
-## Publication Sequence Still Required
+## Publication Sequence Completed For Selected Channels
 
-Publication approval is recorded, but channel proof still gates release claims. The logical channel
-order is:
+The selected v0.1.0 channel order was:
 
 1. Merge the v0.1.0 release-prep source revision.
 2. Create the GitHub v0.1.0 release and attach source, wheel, sdist, CLI, checksums, SBOM, and
@@ -49,22 +49,21 @@ order is:
 6. Publish the Homebrew tap formula against the immutable GitHub v0.1.0 source archive and run
    `brew install`, `shardloom status --format json`, and `brew uninstall` proof.
 
-The remaining publication proof requires:
+The completed publication proof records:
 
-- release version and tag
+- release version and tag: `v0.1.0`
 - selected channels: GitHub pre-release, TestPyPI, PyPI, Homebrew
-- exact source revision
+- exact source revision: `a8a462af9525f41f62412ebe338470f7754a4d95`
 - release notes
 - checksum, SBOM, provenance, and signing/attestation policy
 - rollback, yank, delete, or advisory plan per channel
 - clean release gate evidence at the selected revision
 
-Until that final confirmation exists:
+The package publication state is:
 
 ```text
-publication_attempted=false
-tag_created=false
-package_upload_attempted=false
+package_channel_status=published_v0.1.0_selected_channels
+package_install_commands_visible=true
 public_release_claim_allowed=false
 public_package_claim_allowed=false
 ```

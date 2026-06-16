@@ -28,13 +28,13 @@ print(result.fallback_attempted, result.external_engine_invoked)`;
   <section class="page-hero">
     <p class="eyebrow">Start</p>
     <h1>Start local proof.</h1>
-    <p class="lede">Use the source checkout, run local smokes, and inspect evidence. The selected local/source/package v1 release track is GitHub prerelease + TestPyPI/PyPI + Homebrew path, pending channel publication proof.</p>
+    <p class="lede">Use the source checkout, published v0.1.0 package channels, local smokes, and checked-in evidence. The selected local/source/package v1 release track is GitHub prerelease + TestPyPI/PyPI + Homebrew.</p>
   </section>
   <section class="section-grid">
     <div>
       <h2>Recommended first route</h2>
       <p class="narrow">Run the documented first-10-minutes checks from the repo, then move to certified local workload docs.</p>
-      <p class="narrow"><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md">Source checkout install</a> is the active path. <a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md">Package user install status</a> shows the selected GitHub pre-release, TestPyPI, PyPI, and Homebrew path while package commands stay withheld until channels are live.</p>
+      <p class="narrow"><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md">Source checkout install</a> remains the strongest local proof path. <a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md">Package user install status</a> shows the v0.1.0 GitHub pre-release, TestPyPI, PyPI, and Homebrew commands with channel proof refs.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">PowerShell</div>
@@ -57,14 +57,14 @@ python scripts\check_production_usability_gate.py</code></pre>
   <section class="section-grid">
     <div>
       <h2>Support boundary</h2>
-      <p class="narrow">Use the generated v1 support surface before assuming a path is live. Package commands are withheld until the final publication event closes the selected channel gates.</p>
+      <p class="narrow">Use the generated v1 support surface before assuming a path is live. Selected v0.1.0 package channels are published; future package channels stay blocked until their own proof exists.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">Docs</div>
       <pre><code>docs/getting-started/v1-supported-unsupported.md
 docs/getting-started/troubleshooting-support.md
 docs/release/v1-local-source-package-release.md
-package_install_commands_visible=false</code></pre>
+package_install_commands_visible=true</code></pre>
       <div class="code-evidence"><span><strong>source</strong>runs-today + package-channel matrices</span><span><strong>support</strong>doctor/support-bundle JSON</span></div>
     </div>
   </section>

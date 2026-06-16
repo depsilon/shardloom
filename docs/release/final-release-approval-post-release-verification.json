@@ -1,66 +1,66 @@
 {
   "schema_version": "shardloom.final_release_approval_post_release_verification.v1",
-  "status": "approved_pending_channel_publication_and_post_release_verification",
+  "status": "published_selected_channels_post_release_verification_passed",
   "publication_authorization_state": "approved",
-  "public_release_ready": false,
-  "post_release_verification_ready": false,
+  "public_release_ready": true,
+  "post_release_verification_ready": true,
   "approval_artifact_ref": "target/final-release-approval/maintainer-approval.json",
   "approved_release_tag": "v0.1.0",
-  "approved_release_commit": "pending_release_prep_merge_commit",
+  "approved_release_commit": "a8a462af9525f41f62412ebe338470f7754a4d95",
   "approved_package_channels": [
     "github_prerelease",
     "testpypi",
     "pypi",
     "homebrew_tap"
   ],
-  "claim_boundary": "Maintainer approval exists for the v0.1.0 GitHub release, TestPyPI, PyPI, and Homebrew publication sequence. Public release readiness remains false until the channel publication steps, registry/formula install-uninstall-smoke proofs, checksum/SBOM/provenance attachment, and post-release verification rows pass. This approval does not allow production, performance, Spark-replacement, object-store, lakehouse, Foundry, broad SQL/DataFrame, or fallback-execution claims.",
+  "claim_boundary": "Maintainer approval and selected-channel proof exist for the v0.1.0 GitHub release, TestPyPI, PyPI, and Homebrew publication sequence. This allows technical-preview install access only. It does not allow production, performance, Spark-replacement, object-store, lakehouse, Foundry, broad SQL/DataFrame, broad runtime, future package-channel, or fallback-execution claims.",
   "fallback_boundary": "Post-release verification must prove ShardLoom runtime paths keep fallback_attempted=false and external_engine_invoked=false. Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or another external query engine as fallback execution.",
   "verification_rows": [
     {
       "row_id": "package_install_uninstall_smoke",
-      "verification_status": "blocked_pending_public_release",
+      "verification_status": "passed",
       "required_evidence": "clean install transcript, uninstall transcript, package smoke transcript, SBOM/checksum/provenance refs, package-channel readiness report",
-      "evidence_ref": "target/package-channel-readiness-report.json",
+      "evidence_ref": "docs/release/package-channel-readiness-matrix.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
     {
       "row_id": "first_10_minutes_public_smoke",
-      "verification_status": "blocked_pending_public_release",
+      "verification_status": "passed",
       "required_evidence": "public package install followed by first-10-minutes commands and transcript",
-      "evidence_ref": "target/release-dry-run-proof/transcript.json",
+      "evidence_ref": "docs/release/channel-proofs/pypi-v0.1.0-transcript.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
     {
       "row_id": "golden_workflow_public_smoke",
-      "verification_status": "blocked_pending_public_release",
+      "verification_status": "passed",
       "required_evidence": "golden workflow validator transcript over the public package or approved release artifact",
-      "evidence_ref": "target/golden-workflow-report.json",
+      "evidence_ref": "docs/release/channel-proofs/github-prerelease-v0.1.0-transcript.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
     {
       "row_id": "no_fallback_runtime_smoke",
-      "verification_status": "blocked_pending_public_release",
+      "verification_status": "passed",
       "required_evidence": "runtime envelope or Python client smoke showing fallback_attempted=false and external_engine_invoked=false",
-      "evidence_ref": "target/runtime-execution-envelopes-report.json",
+      "evidence_ref": "docs/release/channel-proofs/homebrew-v0.1.0-transcript.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
     {
       "row_id": "docs_links_public_smoke",
-      "verification_status": "blocked_pending_public_release",
+      "verification_status": "passed",
       "required_evidence": "public docs link/readiness validation after release links are live",
-      "evidence_ref": "target/website-readiness-report.json",
+      "evidence_ref": "target/public-status-docs-report.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
     {
       "row_id": "website_support_matrix_public_smoke",
-      "verification_status": "blocked_pending_public_release",
+      "verification_status": "passed",
       "required_evidence": "website support matrix and benchmark/public-status pages reflect the approved release artifact and claim boundaries",
-      "evidence_ref": "target/public-status-docs-report.json",
+      "evidence_ref": "target/v1-docs-productization-report.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     }
@@ -73,5 +73,6 @@
   "oci_push_attempted": false,
   "signing_key_used": false,
   "fallback_attempted": false,
-  "external_engine_invoked": false
+  "external_engine_invoked": false,
+  "selected_v0_1_0_publication_status": "published_and_verified"
 }
