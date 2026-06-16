@@ -3060,6 +3060,25 @@ class _VortexSqlPrimitiveWorkflowShape:
     count: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class _VortexSqlRouteClauses:
+    """Parsed top-level SQL clauses for exact native Vortex provider routes."""
+
+    where: str | None = None
+    group_by: str | None = None
+    order_by: str | None = None
+    limit: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _ParsedVortexSqlSingleSourceRoute:
+    """Parsed single-source SQL route used for structural provider admission."""
+
+    uri: str
+    projection: tuple[str, ...]
+    clauses: _VortexSqlRouteClauses
+
+
 def _native_vortex_operation_family_for_primitive(primitive: str) -> str:
     normalized = primitive.strip().lower().replace("-", "_")
     if normalized in {"count", "count_where", "filter_count", "filtered_count"}:
@@ -11034,47 +11053,48 @@ def _vortex_sql_user_route_shape(
     has_limit = _find_top_level_sql_keyword_outside_quotes(normalized, "limit") is not None
     if not has_limit:
         return None
-    compact = _sql_normalized(normalized)
     if len(refs) == 1:
-        uri = refs[0]
-        if _vortex_sql_matches_null_heavy_aggregate(compact):
+        parsed = _parse_vortex_sql_single_source_route(normalized, refs[0])
+        if parsed is None:
+            return None
+        if _vortex_sql_matches_null_heavy_aggregate(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="aggregate",
                 provider_scenario="null-heavy-aggregate",
             )
-        if _vortex_sql_matches_group_by_aggregation(compact):
+        if _vortex_sql_matches_group_by_aggregation(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="aggregate",
                 provider_scenario="group-by-aggregation",
             )
-        if _vortex_sql_matches_global_top_n(compact):
+        if _vortex_sql_matches_global_top_n(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="top_n",
                 provider_scenario="sort-and-top-k",
             )
-        if _vortex_sql_matches_clean_cast(compact):
+        if _vortex_sql_matches_clean_cast(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="cast",
                 provider_scenario="clean-cast-filter-write",
             )
-        if _vortex_sql_matches_malformed_timestamp(compact):
+        if _vortex_sql_matches_malformed_timestamp(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="cast",
                 provider_scenario="malformed-timestamp-dirty-csv",
             )
-        if _vortex_sql_matches_nested_json_contains(compact):
+        if _vortex_sql_matches_nested_json_contains(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="contains",
                 provider_scenario="nested-json-field-scan",
             )
         return None
-    if len(refs) == 2 and _vortex_sql_matches_hash_join(compact, refs[0], refs[1]):
+    if len(refs) == 2 and _vortex_sql_matches_hash_join(normalized, refs[0], refs[1]):
         return _NativeVortexSqlUserRouteShape(
             uri=refs[0],
             operation_family="join",
@@ -11084,77 +11104,286 @@ def _vortex_sql_user_route_shape(
     return None
 
 
-def _vortex_sql_matches_group_by_aggregation(compact: str) -> bool:
-    return _sql_compact_contains_all(
-        compact,
-        (
-            "count(*) AS rows",
-            "sum(metric) AS total_metric",
-            "WHERE metric >= 0",
-            "GROUP BY group_key",
-        ),
+def _parse_vortex_sql_single_source_route(
+    statement: str,
+    expected_uri: str,
+) -> _ParsedVortexSqlSingleSourceRoute | None:
+    select_body = statement[len("select") :].strip()
+    from_position = _find_sql_keyword_outside_quotes(select_body, "from")
+    if from_position is None:
+        return None
+    projection_sql = select_body[:from_position].strip()
+    from_tail = select_body[from_position + len("from") :].strip()
+    parsed_ref = _parse_sql_single_quoted_prefix(from_tail)
+    if parsed_ref is None:
+        return None
+    uri, tail = parsed_ref
+    if uri != expected_uri:
+        return None
+    try:
+        projection = tuple(
+            _normalize_sql_projection_item(item)
+            for item in _split_projection_function_args(projection_sql)
+        )
+    except ValueError:
+        return None
+    if not projection:
+        return None
+    clauses = _parse_vortex_sql_route_clauses(tail)
+    if clauses is None:
+        return None
+    return _ParsedVortexSqlSingleSourceRoute(
+        uri=uri,
+        projection=projection,
+        clauses=clauses,
     )
 
 
-def _vortex_sql_matches_null_heavy_aggregate(compact: str) -> bool:
-    return _sql_compact_contains_all(
-        compact,
-        (
-            "count(*) AS rows",
-            "sum(nullable_metric_00) AS total_nullable_metric",
-            "WHERE nullable_metric_00 IS NOT NULL",
-            "GROUP BY group_key",
-        ),
+def _parse_vortex_sql_route_clauses(value: str) -> _VortexSqlRouteClauses | None:
+    tail = value.strip()
+    if not tail:
+        return None
+    spans: list[tuple[int, int, str]] = []
+    for clause in ("where", "group by", "order by", "limit"):
+        span = _find_top_level_sql_phrase_span_outside_quotes(tail, clause)
+        if span is not None:
+            spans.append((span[0], span[1], clause))
+    if not spans:
+        return None
+    spans.sort()
+    if tail[: spans[0][0]].strip():
+        return None
+    seen: set[str] = set()
+    values: dict[str, str] = {}
+    previous_position = -1
+    for index, (start, end, clause) in enumerate(spans):
+        if start <= previous_position or clause in seen:
+            return None
+        seen.add(clause)
+        next_start = spans[index + 1][0] if index + 1 < len(spans) else len(tail)
+        body = tail[end:next_start].strip()
+        if not body:
+            return None
+        values[clause] = body
+        previous_position = start
+    if "limit" not in values:
+        return None
+    limit_text = values["limit"]
+    if not limit_text.isdecimal():
+        return None
+    return _VortexSqlRouteClauses(
+        where=values.get("where"),
+        group_by=values.get("group by"),
+        order_by=values.get("order by"),
+        limit=_normalize_positive_int("SQL Vortex LIMIT", int(limit_text)),
     )
 
 
-def _vortex_sql_matches_hash_join(compact: str, left_uri: str, right_uri: str) -> bool:
-    return _sql_compact_contains_all(
-        compact,
-        (
-            "SELECT f.id, d.dim_label, f.metric",
-            f"FROM '{left_uri}' AS f",
-            f"JOIN '{right_uri}' AS d",
-            "ON f.dim_key = d.dim_key",
-        ),
-    )
+def _normalize_sql_projection_item(value: str) -> str:
+    return _sql_normalized(value)
 
 
-def _vortex_sql_matches_global_top_n(compact: str) -> bool:
-    return _sql_compact_contains_all(
-        compact,
-        (
-            "SELECT id, group_key, metric",
-            "ORDER BY metric DESC",
-        ),
-    )
+def _sql_projection_equals(
+    projection: Sequence[str],
+    expected: Sequence[str],
+) -> bool:
+    return tuple(projection) == tuple(_sql_normalized(item) for item in expected)
 
 
-def _vortex_sql_matches_clean_cast(compact: str) -> bool:
-    if _sql_normalized("CAST(dirty_numeric AS float64) AS amount_float") not in compact:
-        return False
+def _sql_clause_equals(value: str | None, expected: str) -> bool:
+    return value is not None and _sql_normalized(value) == _sql_normalized(expected)
+
+
+def _vortex_sql_matches_group_by_aggregation(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
     return (
-        _sql_normalized("WHERE amount_float >= 0") in compact
-        or _sql_normalized("WHERE CAST(dirty_numeric AS float64) >= 0") in compact
+        _sql_projection_equals(
+            parsed.projection,
+            (
+                "group_key",
+                "count(*) AS rows",
+                "sum(metric) AS total_metric",
+            ),
+        )
+        and _sql_clause_equals(parsed.clauses.where, "metric >= 0")
+        and _sql_clause_equals(parsed.clauses.group_by, "group_key")
+        and parsed.clauses.order_by is None
     )
 
 
-def _vortex_sql_matches_malformed_timestamp(compact: str) -> bool:
-    return _sql_normalized("CAST(raw_event_time AS date32) AS event_day") in compact
-
-
-def _vortex_sql_matches_nested_json_contains(compact: str) -> bool:
-    return _sql_compact_contains_all(
-        compact,
-        (
-            "SELECT id, nested_payload",
-            "nested_payload LIKE '%target%'",
-        ),
+def _vortex_sql_matches_null_heavy_aggregate(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
+    return (
+        _sql_projection_equals(
+            parsed.projection,
+            (
+                "group_key",
+                "count(*) AS rows",
+                "sum(nullable_metric_00) AS total_nullable_metric",
+            ),
+        )
+        and _sql_clause_equals(parsed.clauses.where, "nullable_metric_00 IS NOT NULL")
+        and _sql_clause_equals(parsed.clauses.group_by, "group_key")
+        and parsed.clauses.order_by is None
     )
 
 
-def _sql_compact_contains_all(compact: str, needles: Sequence[str]) -> bool:
-    return all(_sql_normalized(needle) in compact for needle in needles)
+def _vortex_sql_matches_hash_join(statement: str, left_uri: str, right_uri: str) -> bool:
+    select_body = statement[len("select") :].strip()
+    from_position = _find_sql_keyword_outside_quotes(select_body, "from")
+    if from_position is None:
+        return False
+    projection_sql = select_body[:from_position].strip()
+    try:
+        projection = tuple(
+            _normalize_sql_projection_item(item)
+            for item in _split_projection_function_args(projection_sql)
+        )
+    except ValueError:
+        return False
+    if not _sql_projection_equals(projection, ("f.id", "d.dim_label", "f.metric")):
+        return False
+    from_tail = select_body[from_position + len("from") :].strip()
+    parsed_ref = _parse_sql_single_quoted_prefix(from_tail)
+    if parsed_ref is None:
+        return False
+    uri, tail = parsed_ref
+    if uri != left_uri:
+        return False
+    tail_compact = _sql_normalized(tail)
+    expected_prefix = _sql_normalized(
+        f"AS f JOIN '{right_uri}' AS d ON f.dim_key = d.dim_key LIMIT"
+    )
+    if not tail_compact.startswith(expected_prefix):
+        return False
+    limit_text = tail_compact[len(expected_prefix) :]
+    return limit_text.isdecimal() and int(limit_text) > 0
+
+
+def _vortex_sql_matches_global_top_n(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
+    return (
+        _sql_projection_equals(parsed.projection, ("id", "group_key", "metric"))
+        and parsed.clauses.where is None
+        and parsed.clauses.group_by is None
+        and _sql_clause_equals(parsed.clauses.order_by, "metric DESC")
+    )
+
+
+def _vortex_sql_matches_clean_cast(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
+    return (
+        _sql_projection_equals(
+            parsed.projection,
+            (
+                "id",
+                "group_key",
+                "metric",
+                "CAST(dirty_numeric AS float64) AS amount_float",
+            ),
+        )
+        and (
+            _sql_clause_equals(parsed.clauses.where, "amount_float >= 0")
+            or _sql_clause_equals(
+                parsed.clauses.where,
+                "CAST(dirty_numeric AS float64) >= 0",
+            )
+        )
+        and parsed.clauses.group_by is None
+        and parsed.clauses.order_by is None
+    )
+
+
+def _vortex_sql_matches_malformed_timestamp(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
+    return (
+        _sql_projection_equals(
+            parsed.projection,
+            (
+                "id",
+                "CAST(raw_event_time AS date32) AS event_day",
+            ),
+        )
+        and parsed.clauses.where is None
+        and parsed.clauses.group_by is None
+        and parsed.clauses.order_by is None
+    )
+
+
+def _vortex_sql_matches_nested_json_contains(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
+    return (
+        _sql_projection_equals(parsed.projection, ("id", "nested_payload"))
+        and _sql_clause_equals(parsed.clauses.where, "nested_payload LIKE '%target%'")
+        and parsed.clauses.group_by is None
+        and parsed.clauses.order_by is None
+    )
+
+
+def _find_top_level_sql_phrase_span_outside_quotes(
+    statement: str,
+    phrase: str,
+) -> tuple[int, int] | None:
+    tokens = phrase.lower().split()
+    if not tokens:
+        return None
+    lower = statement.lower()
+    in_quote = False
+    depth = 0
+    index = 0
+    first = tokens[0]
+    while index <= len(statement) - len(first):
+        char = statement[index]
+        if char == "'":
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if not in_quote:
+            if char == "(":
+                depth += 1
+                index += 1
+                continue
+            if char == ")" and depth > 0:
+                depth -= 1
+                index += 1
+                continue
+            if depth == 0 and lower.startswith(first, index):
+                before = statement[index - 1] if index > 0 else ""
+                after_index = index + len(first)
+                after = statement[after_index] if after_index < len(statement) else ""
+                if _is_identifier_char(before) or _is_identifier_char(after):
+                    index += 1
+                    continue
+                cursor = after_index
+                matched = True
+                for token in tokens[1:]:
+                    if cursor >= len(statement) or not statement[cursor].isspace():
+                        matched = False
+                        break
+                    while cursor < len(statement) and statement[cursor].isspace():
+                        cursor += 1
+                    if not lower.startswith(token, cursor):
+                        matched = False
+                        break
+                    token_end = cursor + len(token)
+                    next_char = statement[token_end] if token_end < len(statement) else ""
+                    if _is_identifier_char(next_char):
+                        matched = False
+                        break
+                    cursor = token_end
+                if matched:
+                    return index, cursor
+        index += 1
+    return None
 
 
 def _parse_sql_single_quoted_prefix(value: str) -> tuple[str, str] | None:

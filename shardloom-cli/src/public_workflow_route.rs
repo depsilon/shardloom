@@ -1255,6 +1255,9 @@ fn infer_native_vortex_route_payload(
     if request.input_format.as_deref() != Some("vortex") {
         return None;
     }
+    if request.surface == "sql" || request.sql_statement.is_some() {
+        return None;
+    }
     if request.native_vortex_provider_scenario.is_some() || request.vortex_primitive.is_some() {
         return None;
     }
@@ -1275,59 +1278,34 @@ fn effective_public_workflow_request(
 fn infer_native_vortex_provider_payload(
     request: &PublicWorkflowRouteRequest,
 ) -> Option<InferredNativeVortexRoutePayload> {
-    let summary = request.plan_summary.as_deref().unwrap_or_default();
-    let sql = request.sql_statement.as_deref().unwrap_or_default();
-    let normalized_summary = compact_ascii_lower(summary);
-    let normalized_sql = compact_ascii_lower(sql);
+    if request.surface == "sql" || request.sql_statement.is_some() {
+        return None;
+    }
+    let operations = parse_plan_summary_operations(request.plan_summary.as_deref()?)?;
     let write_vortex = request.requested_output == "write_vortex";
 
-    let (family, provider_scenario) = if normalized_summary.contains("group_by(group_key)")
-        && normalized_summary.contains("sum(metric)astotal_metric")
-        || normalized_sql.contains("groupbygroup_key")
-            && normalized_sql.contains("sum(metric)astotal_metric")
-    {
+    let (family, provider_scenario) = if summary_matches_group_by_aggregation(&operations) {
         (
             NativeVortexOperationFamily::Aggregate,
             "group-by-aggregation",
         )
-    } else if normalized_summary.contains("group_by(group_key)")
-        && normalized_summary.contains("sum(nullable_metric_00)astotal_nullable_metric")
-        || normalized_sql.contains("groupbygroup_key")
-            && normalized_sql.contains("sum(nullable_metric_00)astotal_nullable_metric")
-    {
+    } else if summary_matches_null_heavy_aggregate(&operations) {
         (
             NativeVortexOperationFamily::Aggregate,
             "null-heavy-aggregate",
         )
-    } else if normalized_summary.contains("join(")
-        && normalized_summary.contains("dim_key,dim_key,inner,f,d")
-        || normalized_sql.contains("join") && normalized_sql.contains("onf.dim_key=d.dim_key")
-    {
+    } else if summary_matches_hash_join(&operations) {
         (NativeVortexOperationFamily::Join, "hash-join")
-    } else if normalized_summary.contains("select(id,group_key,metric)")
-        && normalized_summary.contains("sort(desc,metric)")
-        || normalized_sql.contains("selectid,group_key,metric")
-            && normalized_sql.contains("orderbymetricdesc")
-    {
+    } else if summary_matches_global_top_n(&operations) {
         (NativeVortexOperationFamily::TopN, "sort-and-top-k")
-    } else if normalized_summary.contains("with_column(amount_float,cast(dirty_numericasfloat64))")
-        || normalized_sql.contains("cast(dirty_numericasfloat64)asamount_float")
-    {
+    } else if summary_matches_clean_cast(&operations) {
         (NativeVortexOperationFamily::Cast, "clean-cast-filter-write")
-    } else if normalized_summary.contains("with_column(event_day,cast(raw_event_timeasdate32))")
-        || normalized_sql.contains("cast(raw_event_timeasdate32)asevent_day")
-    {
+    } else if summary_matches_malformed_timestamp(&operations) {
         (
             NativeVortexOperationFamily::Cast,
             "malformed-timestamp-dirty-csv",
         )
-    } else if normalized_summary.contains("select(id,nested_payload)")
-        && normalized_summary.contains("nested_payload")
-        && normalized_summary.contains("target")
-        || normalized_sql.contains("selectid,nested_payload")
-            && normalized_sql.contains("nested_payload")
-            && normalized_sql.contains("target")
-    {
+    } else if summary_matches_nested_json_contains(&operations) {
         (
             NativeVortexOperationFamily::Contains,
             "nested-json-field-scan",
@@ -1349,6 +1327,129 @@ fn infer_native_vortex_provider_payload(
         source_order_limit: None,
         right_input: infer_native_vortex_right_input(request),
     })
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SummaryOperation<'a> {
+    kind: &'a str,
+    arg: &'a str,
+}
+
+fn parse_plan_summary_operations(summary: &str) -> Option<Vec<SummaryOperation<'_>>> {
+    let mut operations = Vec::new();
+    for segment in summary.split(" -> ") {
+        let open = segment.find('(')?;
+        if !segment.ends_with(')') || open == 0 {
+            return None;
+        }
+        let kind = &segment[..open];
+        if !kind
+            .chars()
+            .all(|ch| ch.is_ascii_lowercase() || ch == '_' || ch.is_ascii_digit())
+        {
+            return None;
+        }
+        operations.push(SummaryOperation {
+            kind,
+            arg: &segment[open + 1..segment.len() - 1],
+        });
+    }
+    (!operations.is_empty()).then_some(operations)
+}
+
+fn summary_matches_group_by_aggregation(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(
+        operations,
+        &["read_vortex", "filter", "group_by", "aggregate", "limit"],
+    ) && summary_arg_eq(operations[1].arg, "metric >= 0")
+        && summary_arg_eq(operations[2].arg, "group_key")
+        && summary_arg_eq(
+            operations[3].arg,
+            "count(*) AS rows,sum(metric) AS total_metric",
+        )
+        && summary_positive_limit(operations[4].arg)
+}
+
+fn summary_matches_null_heavy_aggregate(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(
+        operations,
+        &["read_vortex", "filter", "group_by", "aggregate", "limit"],
+    ) && summary_arg_eq(operations[1].arg, "nullable_metric_00 IS NOT NULL")
+        && summary_arg_eq(operations[2].arg, "group_key")
+        && summary_arg_eq(
+            operations[3].arg,
+            "count(*) AS rows,sum(nullable_metric_00) AS total_nullable_metric",
+        )
+        && summary_positive_limit(operations[4].arg)
+}
+
+fn summary_matches_hash_join(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(operations, &["read_vortex", "join", "select", "limit"])
+        && summary_arg_matches_hash_join(operations[1].arg)
+        && summary_arg_eq(operations[2].arg, "f.id,d.dim_label,f.metric")
+        && summary_positive_limit(operations[3].arg)
+}
+
+fn summary_matches_global_top_n(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(operations, &["read_vortex", "select", "sort", "limit"])
+        && summary_arg_eq(operations[1].arg, "id,group_key,metric")
+        && summary_arg_eq(operations[2].arg, "desc,metric")
+        && summary_positive_limit(operations[3].arg)
+}
+
+fn summary_matches_clean_cast(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(
+        operations,
+        &["read_vortex", "with_column", "filter", "limit"],
+    ) && summary_arg_eq(
+        operations[1].arg,
+        "amount_float,CAST(dirty_numeric AS float64)",
+    ) && summary_arg_eq(operations[2].arg, "amount_float >= 0")
+        && summary_positive_limit(operations[3].arg)
+}
+
+fn summary_matches_malformed_timestamp(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(operations, &["read_vortex", "with_column", "limit"])
+        && summary_arg_eq(
+            operations[1].arg,
+            "event_day,CAST(raw_event_time AS date32)",
+        )
+        && summary_positive_limit(operations[2].arg)
+}
+
+fn summary_matches_nested_json_contains(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(operations, &["read_vortex", "filter", "select", "limit"])
+        && summary_arg_eq(operations[1].arg, "nested_payload LIKE '%target%'")
+        && summary_arg_eq(operations[2].arg, "id,nested_payload")
+        && summary_positive_limit(operations[3].arg)
+}
+
+fn matches_summary_kinds(operations: &[SummaryOperation<'_>], kinds: &[&str]) -> bool {
+    operations.len() == kinds.len()
+        && operations
+            .iter()
+            .zip(kinds)
+            .all(|(operation, kind)| operation.kind == *kind)
+}
+
+fn summary_arg_eq(actual: &str, expected: &str) -> bool {
+    compact_ascii_lower(actual) == compact_ascii_lower(expected)
+}
+
+fn summary_positive_limit(value: &str) -> bool {
+    value.trim().parse::<usize>().is_ok_and(|parsed| parsed > 0)
+}
+
+fn summary_arg_matches_hash_join(value: &str) -> bool {
+    let parts: Vec<_> = value.split(',').map(str::trim).collect();
+    parts.len() == 7
+        && parts[0].ends_with(".vortex")
+        && parts[1] == "dim_key"
+        && parts[2] == "dim_key"
+        && parts[3] == "inner"
+        && parts[4] == "f"
+        && parts[5] == "d"
+        && parts[6].is_empty()
 }
 
 fn infer_native_vortex_primitive_payload(
@@ -3893,7 +3994,7 @@ mod tests {
                 "--input-format",
                 "vortex",
                 "--plan",
-                "read_vortex(fact.vortex) -> filter(metric >= 0) -> group_by(group_key) -> aggregate(rows=count(*) AS rows,total_metric=sum(metric) AS total_metric) -> limit(100)",
+                "read_vortex(fact.vortex) -> filter(metric >= 0) -> group_by(group_key) -> aggregate(count(*) AS rows,sum(metric) AS total_metric) -> limit(100)",
                 "--request",
                 "collect",
                 "--bounded",
@@ -3927,6 +4028,46 @@ mod tests {
             ),
             "group-by-aggregation"
         );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn route_planner_does_not_infer_provider_from_sql_literals() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--input",
+                "orders.vortex",
+                "--input-format",
+                "vortex",
+                "--sql",
+                "SELECT 'count(*) AS rows', 'sum(metric) AS total_metric', 'WHERE metric >= 0', 'GROUP BY group_key' FROM 'orders.vortex' LIMIT 1",
+                "--plan",
+                "read_vortex(orders.vortex) -> filter(metric >= 0) -> group_by(group_key) -> aggregate(count(*) AS rows,sum(metric) AS total_metric) -> limit(100)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("literal bait SQL route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
     #[test]

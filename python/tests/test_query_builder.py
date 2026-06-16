@@ -15858,6 +15858,81 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
 
+    def test_sql_vortex_literal_bait_does_not_attach_provider_payload(self) -> None:
+        bait_sql = (
+            "SELECT 'count(*) AS rows', 'sum(metric) AS total_metric', "
+            "'WHERE metric >= 0', 'GROUP BY group_key' FROM 'orders.vortex' LIMIT 1"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[:2] == ["route", "sql"], args
+                assert args[args.index("--sql") + 1] == {bait_sql!r}, args
+                assert args[args.index("--plan") + 1] == "sql(statement)", args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
+                assert "--input" not in args, args
+                assert "--input-format" not in args, args
+                assert "--native-vortex-operation-family" not in args, args
+                assert "--native-vortex-provider-scenario" not in args, args
+                assert "--native-vortex-right-input" not in args, args
+                assert "--vortex-primitive" not in args, args
+                assert args[-2:] == ["--format", "json"], args
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "route",
+                    "status": "unsupported",
+                    "summary": "native Vortex general SQL route blocked",
+                    "human_text": "native Vortex general SQL route blocked",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [{{
+                        "code": "SL_UNSUPPORTED_SQL",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "native Vortex general SQL route is not admitted",
+                        "feature": "py-vortex-route-unify-1.native_vortex_general_route_missing",
+                        "reason": "SQL shape is not structurally admitted",
+                        "suggested_next_step": "use an admitted native Vortex SQL shape",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    }}],
+                    "fields": [
+                        {{"key": "public_workflow_route_schema_version", "value": "shardloom.public_workflow_route.v1"}},
+                        {{"key": "route_id", "value": "blocked"}},
+                        {{"key": "route_status", "value": "blocked"}},
+                        {{"key": "route_support_status", "value": "unsupported_boundary"}},
+                        {{"key": "route_runtime_status", "value": "unsupported_boundary"}},
+                        {{"key": "resolved_internal_command", "value": "workflow-unsupported-plan"}},
+                        {{"key": "surface", "value": "sql"}},
+                        {{"key": "start_state", "value": "native_vortex_input"}},
+                        {{"key": "vortex_normalization_point", "value": "native_input"}},
+                        {{"key": "execution_mode", "value": "unsupported"}},
+                        {{"key": "native_vortex_provider_scenario", "value": "none"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        route = ctx.sql(bait_sql).route(
+            execution_policy="native_vortex",
+            materialization_policy="zero_decode",
+        )
+
+        self.assertEqual(route.route_id, "blocked")
+        self.assertEqual(route.resolved_internal_command, "workflow-unsupported-plan")
+        self.assertEqual(route.envelope.field("native_vortex_provider_scenario"), "none")
+        self.assertFalse(route.fallback_attempted)
+        self.assertFalse(route.external_engine_invoked)
+
     def test_unadmitted_vortex_shapes_still_fail_with_route_blockers(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
