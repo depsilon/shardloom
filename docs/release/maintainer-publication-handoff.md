@@ -49,6 +49,11 @@ Publication completion addendum, 2026-06-16:
 
 Patch train addendum, 2026-06-16:
 
+- v0.1.3 is prepared as the next compatible post-v0.1.2 patch train for native Vortex facade route
+  hardening, structural SQL/Python provider inference, exact provider-shape gating, and the
+  release workflow sdist/wheel split. It must receive its own GitHub, TestPyPI, PyPI, and Homebrew
+  channel proofs before public install docs or package-channel matrices mark v0.1.3 published.
+- Patch release notes live in `docs/release/v0.1.3-release-notes.md`.
 - v0.1.2 is prepared as the next compatible post-v0.1.1 patch train for native Vortex route
   unification, product local workflow cap removal, and bundled CLI package resolution. It must
   receive its own GitHub, TestPyPI, PyPI, and Homebrew channel proofs before public install docs or

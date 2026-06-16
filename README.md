@@ -11,8 +11,8 @@
 repository. The repo remains the source of truth for code, architecture docs, phase plans, use
 cases, benchmarks, and release evidence.
 
-ShardLoom is a v0.1.2 source-track technical preview and a v0.1.1 proof-backed package-channel
-release until v0.1.2 channel proofs land. It is a Vortex-first, no-fallback local compute engine
+ShardLoom is a v0.1.3 source-track technical preview and a v0.1.1 proof-backed package-channel
+release until v0.1.3 channel proofs land. It is a Vortex-first, no-fallback local compute engine
 foundation built around explicit routes and evidence fields that show what ran: source admission,
 Vortex preparation, execution mode, output planning, certificates, fallback status, and claim-gate
 status.
@@ -131,7 +131,7 @@ brew install depsilon/tap/shardloom
 
 The Python package is a thin client surface over the ShardLoom CLI. Published v0.1.1 resolves the
 CLI from `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, a source checkout build, or `shardloom` on `PATH`.
-The v0.1.2 source track stages the CLI inside supported platform wheels so managed Python
+The v0.1.3 source track stages the CLI inside supported platform wheels so managed Python
 environments can use `sl.context()` without passing binary paths once the patch release is
 published; explicit binary/env/source configuration still takes precedence.
 
