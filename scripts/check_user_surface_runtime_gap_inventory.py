@@ -207,8 +207,17 @@ RUNS_TODAY_GAP_ROUTES: dict[str, dict[str, str]] = {
     "claim_package_publication": {
         "classification": "runtime_available_needs_claim_evidence",
         "vortex_normalization_point": "not_applicable_package_distribution_gate",
-        "runtime_route": "local source checkout runtime only",
-        "output_or_evidence_route": "package-channel release evidence pending",
+        "runtime_route": "selected package channels provide proof-backed package access only",
+        "output_or_evidence_route": (
+            "production, performance, broad runtime, and future channel claims remain blocked"
+        ),
+        "owner": "release.package_publication_gate",
+    },
+    "claim_future_package_channels": {
+        "classification": "runtime_available_needs_claim_evidence",
+        "vortex_normalization_point": "not_applicable_package_distribution_gate",
+        "runtime_route": "future package channels are not runtime surfaces",
+        "output_or_evidence_route": "Scoop, winget, conda-forge, GHCR, and crates.io proof pending",
         "owner": "release.package_publication_gate",
     },
     "claim_object_store_lakehouse_foundry_production": {

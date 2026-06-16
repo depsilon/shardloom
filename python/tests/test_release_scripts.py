@@ -13080,8 +13080,17 @@ jobs:
                     "fallback_attempted": False,
                     "external_engine_invoked": False,
                 }
-                for row_id in ["claim_production_readiness", "claim_package_publication"]
+                for row_id in ["claim_production_readiness", "claim_future_package_channels"]
             ]
+        )
+        rows.append(
+            {
+                "id": "claim_package_publication",
+                "support_state": "executable",
+                "claim_gate_status": "package_access_only",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+            }
         )
         rows.extend(
             {
