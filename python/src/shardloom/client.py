@@ -9,6 +9,7 @@ import platform
 import re
 import shutil
 import subprocess
+from importlib import resources as importlib_resources
 from pathlib import Path
 from typing import Any, Mapping, Sequence, Union
 
@@ -39,6 +40,7 @@ ENV_BINARY = "SHARDLOOM_BIN"
 ENV_REPO_ROOT = "SHARDLOOM_REPO_ROOT"
 ENV_PROFILE_ORDER = "SHARDLOOM_PROFILE_ORDER"
 ENV_TIMEOUT_SECONDS = "SHARDLOOM_TIMEOUT_SECONDS"
+BUNDLED_CLI_RESOURCE_DIR = "bin"
 DEFAULT_COMPATIBILITY_SOURCE_SMOKE_INPUTS = (
     ("csv", "examples/local/fact.csv"),
     ("jsonl", "examples/local/events.jsonl"),
@@ -11123,6 +11125,9 @@ class ShardLoomClient:
         generated_range_step: int | None = None,
         generated_range_column: str | None = None,
         fanout_outputs: FanoutOutputs | None = None,
+        native_vortex_operation_family: str | None = None,
+        native_vortex_provider_scenario: str | None = None,
+        native_vortex_right_input: str | os.PathLike[str] | None = None,
         vortex_primitive: str | None = None,
         vortex_predicate: str | None = None,
         vortex_columns: str | Sequence[str] | None = None,
@@ -11168,6 +11173,9 @@ class ShardLoomClient:
             args.extend(["--generated-range-column", generated_range_column])
         _append_public_vortex_payload_args(
             args,
+            native_vortex_operation_family=native_vortex_operation_family,
+            native_vortex_provider_scenario=native_vortex_provider_scenario,
+            native_vortex_right_input=native_vortex_right_input,
             vortex_primitive=vortex_primitive,
             vortex_predicate=vortex_predicate,
             vortex_columns=vortex_columns,
@@ -11200,6 +11208,9 @@ class ShardLoomClient:
         generated_range_step: int | None = None,
         generated_range_column: str | None = None,
         fanout_outputs: FanoutOutputs | None = None,
+        native_vortex_operation_family: str | None = None,
+        native_vortex_provider_scenario: str | None = None,
+        native_vortex_right_input: str | os.PathLike[str] | None = None,
         vortex_primitive: str | None = None,
         vortex_predicate: str | None = None,
         vortex_columns: str | Sequence[str] | None = None,
@@ -11232,6 +11243,9 @@ class ShardLoomClient:
             generated_range_step=generated_range_step,
             generated_range_column=generated_range_column,
             fanout_outputs=fanout_outputs,
+            native_vortex_operation_family=native_vortex_operation_family,
+            native_vortex_provider_scenario=native_vortex_provider_scenario,
+            native_vortex_right_input=native_vortex_right_input,
             vortex_primitive=vortex_primitive,
             vortex_predicate=vortex_predicate,
             vortex_columns=vortex_columns,
@@ -11250,6 +11264,8 @@ class ShardLoomClient:
         input_format: str | None = None,
         plan_summary: str | None = None,
         evidence_level: str = "runtime_smoke",
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Prepare an admitted public workflow input through the shared route facade."""
@@ -11266,6 +11282,8 @@ class ShardLoomClient:
             materialization_policy="bounded",
             evidence_level=evidence_level,
             bounded=True,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
         )
         return PublicWorkflowExecution(self.run(args, check=check))
 
@@ -11293,6 +11311,9 @@ class ShardLoomClient:
         generated_range_step: int | None = None,
         generated_range_column: str | None = None,
         fanout_outputs: FanoutOutputs | None = None,
+        native_vortex_operation_family: str | None = None,
+        native_vortex_provider_scenario: str | None = None,
+        native_vortex_right_input: str | os.PathLike[str] | None = None,
         vortex_primitive: str | None = None,
         vortex_predicate: str | None = None,
         vortex_columns: str | Sequence[str] | None = None,
@@ -11337,6 +11358,9 @@ class ShardLoomClient:
             args.extend(["--generated-range-column", generated_range_column])
         _append_public_vortex_payload_args(
             args,
+            native_vortex_operation_family=native_vortex_operation_family,
+            native_vortex_provider_scenario=native_vortex_provider_scenario,
+            native_vortex_right_input=native_vortex_right_input,
             vortex_primitive=vortex_primitive,
             vortex_predicate=vortex_predicate,
             vortex_columns=vortex_columns,
@@ -13235,15 +13259,20 @@ class ShardLoomClient:
             if candidate is not None:
                 return candidate
 
+        bundled_binary = self._bundled_binary_candidate()
+        if bundled_binary is not None:
+            return bundled_binary
+
         path_binary = shutil.which("shardloom", path=effective_env.get("PATH"))
         if path_binary is not None:
             return path_binary
 
         raise ShardLoomBinaryNotFoundError(
-            "ShardLoom CLI binary could not be resolved. Install the "
-            "ShardLoom CLI package, put `shardloom` on PATH, set "
-            "SHARDLOOM_BIN to a valid binary, or set SHARDLOOM_REPO_ROOT to a "
-            "checkout with target/release or target/debug binaries."
+            "ShardLoom CLI binary could not be resolved. Install a supported "
+            "ShardLoom wheel with a bundled CLI, install the ShardLoom CLI "
+            "package, put `shardloom` on PATH, set SHARDLOOM_BIN to a valid "
+            "binary, or set SHARDLOOM_REPO_ROOT to a checkout with "
+            "target/release or target/debug binaries."
         )
 
     def _effective_env(self) -> Mapping[str, str]:
@@ -13284,6 +13313,25 @@ class ShardLoomClient:
                 candidate = self._repo_root / "target" / profile / f"shardloom{suffix}"
                 if candidate.is_file():
                     return candidate
+        return None
+
+    def _bundled_binary_candidate(self) -> str | None:
+        executable = "shardloom.exe" if os.name == "nt" else "shardloom"
+        for tag in _bundled_cli_platform_tags():
+            resource = importlib_resources.files("shardloom").joinpath(
+                BUNDLED_CLI_RESOURCE_DIR,
+                tag,
+                executable,
+            )
+            try:
+                if not resource.is_file():
+                    continue
+                with importlib_resources.as_file(resource) as candidate:
+                    candidate_path = Path(candidate)
+                    if _is_executable_file(candidate_path):
+                        return str(candidate_path)
+            except (FileNotFoundError, ModuleNotFoundError, OSError):
+                continue
         return None
 
     @staticmethod
@@ -13741,6 +13789,9 @@ def _append_resource_execution_args(
 def _append_public_vortex_payload_args(
     args: list[CommandPart],
     *,
+    native_vortex_operation_family: str | None,
+    native_vortex_provider_scenario: str | None,
+    native_vortex_right_input: str | os.PathLike[str] | None,
     vortex_primitive: str | None,
     vortex_predicate: str | None,
     vortex_columns: str | Sequence[str] | None,
@@ -13748,6 +13799,12 @@ def _append_public_vortex_payload_args(
     memory_gb: int | None,
     max_parallelism: int | None,
 ) -> None:
+    if native_vortex_operation_family is not None:
+        args.extend(["--native-vortex-operation-family", native_vortex_operation_family])
+    if native_vortex_provider_scenario is not None:
+        args.extend(["--native-vortex-provider-scenario", native_vortex_provider_scenario])
+    if native_vortex_right_input is not None:
+        args.extend(["--native-vortex-right-input", str(native_vortex_right_input)])
     if vortex_primitive is not None:
         args.extend(["--vortex-primitive", vortex_primitive])
     if vortex_predicate is not None:
@@ -13773,6 +13830,44 @@ def _positive_int(name: str, value: int) -> int:
     if value < 1:
         raise ValueError(f"{name} must be >= 1")
     return value
+
+
+def _bundled_cli_platform_tags() -> tuple[str, ...]:
+    system = _normalized_bundled_cli_system_tag()
+    arch = _normalized_bundled_cli_arch_tag()
+    primary = f"{system}-{arch}"
+    aliases: list[str] = [primary]
+    if system == "macos" and arch == "aarch64":
+        aliases.append("macos-arm64")
+    if system == "windows":
+        aliases.append(f"win-{arch}")
+    return tuple(dict.fromkeys(aliases))
+
+
+def _normalized_bundled_cli_system_tag() -> str:
+    raw = platform.system().strip().lower()
+    if raw == "darwin":
+        return "macos"
+    if raw.startswith("msys") or raw.startswith("mingw") or raw == "windows":
+        return "windows"
+    return raw or "unknown"
+
+
+def _normalized_bundled_cli_arch_tag() -> str:
+    raw = platform.machine().strip().lower()
+    if raw in {"amd64", "x64"}:
+        return "x86_64"
+    if raw == "arm64":
+        return "aarch64"
+    return raw or "unknown"
+
+
+def _is_executable_file(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    if os.name == "nt":
+        return True
+    return os.access(path, os.X_OK)
 
 
 def _looks_like_path(value: str) -> bool:

@@ -10,6 +10,7 @@
     "cli_registry_status_doc": "docs/status/cli-command-registry.md",
     "agent_contract_pack_doc": "docs/architecture/agent-contract-pack.md",
     "v1_front_door_runtime_scope": "docs/architecture/v1-front-door-runtime-scope.md",
+    "native_vortex_provider_route_certificate_report": "ctx.native_vortex_provider_route_certificate_report()",
     "python_package_readme": "python/README.md"
   },
   "cli": {

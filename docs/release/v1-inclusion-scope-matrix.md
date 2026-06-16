@@ -38,7 +38,9 @@ dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier
 
 | Phase item | Classification | Support gate posture | Feasibility status | Unsupported boundary | Technique review |
 | --- | --- | --- | --- | --- | --- |
-| `RELEASE-PACKAGE-0.1X-BUNDLED-CLI-1` | `v1_candidate_pending_feasibility` | `feasibility_required` | `pending_bundled_cli_python_wheel_strategy` | `candidate_not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
+| `RELEASE-PACKAGE-0.1X-BUNDLED-CLI-1` | `v1_candidate_pending_feasibility` | `platform_wheel_clean_venv_proof_required` | `bundled_cli_strategy_resolver_and_local_platform_wheel_wiring_implemented_validation_pending` | `candidate_not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
+| `PY-LOCAL-WORKFLOW-1M-PRODUCT-ROUTE-1` | `required_for_v1` | `implementation_gate_closed` | `closed_product_local_workflow_route_scope`; `docs/architecture/v1-front-door-runtime-scope.md`; `target/v1-front-door-runtime-scope-report.json` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
+| `PY-VORTEX-ROUTE-UNIFY-1` | `required_for_v1` | `implementation_gate_closed` | `closed_exact_native_vortex_provider_route_scope`; `docs/architecture/v1-vortex-runtime-scope.md`; `target/v1-vortex-runtime-scope-report.json` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
 | `PROD-V1-0B` | `required_for_v1` | `classification_gate_closed` | `closed_by_this_matrix` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
 | `PROD-V1-1A` | `required_for_v1` | `implementation_gate_closed` | `closed_front_door_scope` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |
 | `PROD-V1-1B` | `required_for_v1` | `implementation_gate_closed` | `closed_vortex_runtime_scope`; `docs/architecture/v1-vortex-runtime-scope.md` | `not_deferred` | dynamic; capillary; PulseWeave; metadata-first; timing-surface; evidence-tier |

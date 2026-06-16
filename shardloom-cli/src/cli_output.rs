@@ -88,6 +88,23 @@ pub(crate) fn emit_error(
     ExitCode::from(2)
 }
 
+pub(crate) fn emit_error_with_fields(
+    command: &str,
+    format: OutputFormat,
+    summary: &str,
+    error: &ShardLoomError,
+    fields: Vec<(String, String)>,
+) -> ExitCode {
+    let envelope = OutputEnvelope::from_error(command, summary, error)
+        .with_lifecycle_field("command_family", classify_command(command).as_str());
+    let envelope = apply_typed_envelope_fields(envelope, command, fields);
+    match format {
+        OutputFormat::Text => eprintln!("{}", envelope.to_text()),
+        OutputFormat::Json => write_stdout_line(&envelope.to_json()),
+    }
+    ExitCode::from(2)
+}
+
 fn write_stdout_line(rendered: &str) {
     let mut stdout = io::stdout().lock();
     if let Err(error) = writeln!(stdout, "{rendered}") {

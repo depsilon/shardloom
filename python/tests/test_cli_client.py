@@ -10508,6 +10508,136 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertEqual(command[0], sys.executable)
 
+    def test_bundled_binary_is_resolved_before_path_binary(self) -> None:
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        root = Path(tempdir.name)
+        bundled = root / "wheel" / "shardloom"
+        path_binary = root / "path" / "shardloom"
+        bundled.parent.mkdir(parents=True)
+        path_binary.parent.mkdir(parents=True)
+        bundled.write_text("", encoding="utf-8")
+        path_binary.write_text("", encoding="utf-8")
+        bundled.chmod(0o755)
+        path_binary.chmod(0o755)
+
+        client = ShardLoomClient(env={"PATH": str(path_binary.parent)})
+        client._bundled_binary_candidate = lambda: str(bundled)  # type: ignore[method-assign]
+
+        command = client._command(["status"])
+
+        self.assertEqual(Path(command[0]), bundled)
+
+    def test_env_binary_precedes_bundled_binary(self) -> None:
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        bundled = Path(tempdir.name) / "wheel" / "shardloom"
+        bundled.parent.mkdir(parents=True)
+        bundled.write_text("", encoding="utf-8")
+        bundled.chmod(0o755)
+
+        client = ShardLoomClient(env={"SHARDLOOM_BIN": sys.executable, "PATH": ""})
+        client._bundled_binary_candidate = lambda: str(bundled)  # type: ignore[method-assign]
+
+        command = client._command(["status"])
+
+        self.assertEqual(command[0], sys.executable)
+
+    def test_non_executable_bundled_binary_does_not_override_path_binary(self) -> None:
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        root = Path(tempdir.name)
+        bundled = root / "wheel" / "shardloom"
+        path_binary = root / "path" / "shardloom"
+        bundled.parent.mkdir(parents=True)
+        path_binary.parent.mkdir(parents=True)
+        bundled.write_text("", encoding="utf-8")
+        path_binary.write_text("", encoding="utf-8")
+        bundled.chmod(0o644)
+        path_binary.chmod(0o755)
+
+        client = ShardLoomClient(env={"PATH": str(path_binary.parent)})
+        client._bundled_binary_candidate = lambda: (
+            str(bundled) if os.access(bundled, os.X_OK) else None
+        )  # type: ignore[method-assign]
+
+        command = client._command(["status"])
+
+        self.assertEqual(Path(command[0]), path_binary)
+
+    def test_public_workflow_run_forwards_native_vortex_operation_family(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "file.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--plan",
+                    "read_vortex(file.vortex).count()",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--native-vortex-operation-family",
+                    "count",
+                    "--vortex-primitive",
+                    "count",
+                    "--memory-gb",
+                    "4",
+                    "--max-parallelism",
+                    "1",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "public_workflow_native_vortex_operation_family", "value": "count"},
+                        {"key": "public_workflow_fallback_attempted", "value": "false"},
+                        {"key": "public_workflow_external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).public_workflow_run(
+            "dataframe",
+            input_uri="file.vortex",
+            input_format="vortex",
+            plan_summary="read_vortex(file.vortex).count()",
+            requested_output="collect",
+            execution_policy="native_vortex",
+            materialization_policy="zero_decode",
+            bounded=True,
+            native_vortex_operation_family="count",
+            vortex_primitive="count",
+            memory_gb=4,
+            max_parallelism=1,
+        )
+
+        self.assertEqual(
+            result.envelope.field("public_workflow_native_vortex_operation_family"),
+            "count",
+        )
+
     def test_subprocess_env_merges_overrides_with_inherited_environment(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

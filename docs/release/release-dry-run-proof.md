@@ -23,12 +23,15 @@ target/release-dry-run-proof/transcript.json
 The dry run performs these checks in order:
 
 - builds the local `shardloom` CLI binary with Cargo
-- builds the Python wheel and sdist from `python/`
+- stages the Python package under `target/` with the built CLI in
+  `shardloom/bin/<system-arch>/`
+- builds the Python wheel and sdist from the staged package tree
 - creates a clean virtual environment under `target/`
 - installs the exact local wheel artifact with `pip --no-index <wheel>`
-- resolves the built CLI through `SHARDLOOM_BIN`
+- resolves the bundled CLI from the installed wheel without `SHARDLOOM_BIN` or
+  `SHARDLOOM_REPO_ROOT`
 - imports `shardloom` from the installed wheel
-- runs `ShardLoomClient.from_env().smoke_check()`
+- runs `ShardLoomClient().smoke_check()`
 - attempts a clean Conda-style proof with `mamba`, `conda`, or `micromamba` when one is available
 - runs `client.capabilities()`
 - runs `shardloom status --format json`
@@ -41,8 +44,9 @@ The dry run performs these checks in order:
 - records that benchmark smoke is not required for package-channel proof
 - runs `scripts/release_provenance_dry_run.py --skip-build`
 
-The transcript records command return codes, bounded stdout/stderr excerpts,
-local wheel path, CLI binary path, clean venv path, and release-safety booleans.
+The transcript records command return codes, bounded stdout/stderr excerpts, local wheel path, CLI
+binary path, bundled CLI resource path, clean venv path, `wheel_client_resolved_bundled_cli`, and
+release-safety booleans.
 
 ## Required Safety Fields
 
@@ -94,9 +98,10 @@ When using a local, non-`PATH` Conda-compatible executable, pass it explicitly:
 python scripts\release_dry_run_proof.py --conda-executable target\release-tools\miniforge3\_conda.exe --require-clean-conda
 ```
 
-The clean venv proof installs only the exact ShardLoom wheel built during the current dry run.
-Benchmark comparison engines remain optional benchmark/dev dependencies and are not installed by
-this proof. The package proof does not compile the benchmark-only
+The clean venv proof installs only the exact ShardLoom wheel built during the current dry run. It
+removes `SHARDLOOM_BIN` and `SHARDLOOM_REPO_ROOT` before client smoke so the installed package must
+resolve its bundled CLI resource. Benchmark comparison engines remain optional benchmark/dev
+dependencies and are not installed by this proof. The package proof does not compile the benchmark-only
 `vortex-traditional-analytics-benchmark` feature lane by default because package-channel evidence
 must stay focused on install, CLI/Python smoke, generated-source local output, SBOM/checksum, and
 provenance. Run `python scripts\release_dry_run_proof.py --include-benchmark-smoke --rows 64

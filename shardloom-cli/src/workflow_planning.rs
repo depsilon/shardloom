@@ -969,6 +969,9 @@ struct WorkflowUnsupportedOperation {
 
 fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOperation> {
     let normalized = token.trim().to_ascii_lowercase().replace('_', "-");
+    if let Some(operation) = workflow_unsupported_native_vortex_operation(&normalized) {
+        return Some(operation);
+    }
     if let Some(operation) = workflow_unsupported_dataframe_operation(&normalized) {
         return Some(operation);
     }
@@ -1042,6 +1045,41 @@ fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOper
         "fallback-engine" | "spark-fallback" | "external-fallback" => {
             Some(workflow_unsupported_fallback_engine())
         }
+        _ => None,
+    }
+}
+
+fn workflow_unsupported_native_vortex_operation(
+    token: &str,
+) -> Option<WorkflowUnsupportedOperation> {
+    match token {
+        "native-vortex-aggregate"
+        | "native-vortex-aggregation"
+        | "vortex-aggregate"
+        | "vortex-aggregation" => Some(workflow_unsupported_native_vortex_aggregate()),
+        "native-vortex-join" | "native-vortex-join-state" | "vortex-join" | "vortex-join-state" => {
+            Some(workflow_unsupported_native_vortex_join())
+        }
+        "native-vortex-top-n"
+        | "native-vortex-topn"
+        | "native-vortex-nlargest"
+        | "vortex-top-n"
+        | "vortex-topn"
+        | "vortex-nlargest" => Some(workflow_unsupported_native_vortex_top_n()),
+        "native-vortex-cast" | "native-vortex-try-cast" | "vortex-cast" | "vortex-try-cast" => {
+            Some(workflow_unsupported_native_vortex_cast())
+        }
+        "native-vortex-string-contains"
+        | "native-vortex-contains"
+        | "vortex-string-contains"
+        | "vortex-contains" => Some(workflow_unsupported_native_vortex_string_contains()),
+        "native-vortex-sink"
+        | "native-vortex-write-jsonl"
+        | "native-vortex-write-csv"
+        | "native-vortex-write-parquet"
+        | "native-vortex-write-arrow-ipc"
+        | "native-vortex-write-vortex"
+        | "vortex-sink" => Some(workflow_unsupported_native_vortex_sink()),
         _ => None,
     }
 }
@@ -1786,6 +1824,102 @@ fn workflow_unsupported_eval() -> WorkflowUnsupportedOperation {
     }
 }
 
+fn workflow_unsupported_native_vortex_aggregate() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "native_vortex_aggregate",
+        label: "native Vortex aggregate route",
+        surface: "native_vortex_operator_route",
+        feature: "py-vortex-route-unify-1.aggregate",
+        blocker_id: "py-vortex-route-unify-1.native_vortex_aggregate_route_missing",
+        required_evidence: "native_vortex_operator_route,python_sql_lowering,grouped_count_sum_kernel,execution_certificate,native_io_certificate,decode_materialization_evidence,no_fallback_evidence",
+        suggested_next_action: "Implement PY-VORTEX-ROUTE-UNIFY-1 native Vortex grouped aggregate lowering and certificate evidence before admitting this workflow.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_native_vortex_join() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "native_vortex_join",
+        label: "native Vortex join route",
+        surface: "native_vortex_operator_route",
+        feature: "py-vortex-route-unify-1.join_state",
+        blocker_id: "py-vortex-route-unify-1.native_vortex_join_state_missing",
+        required_evidence: "native_vortex_operator_route,python_sql_lowering,native_vortex_join_state,build_probe_state_evidence,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Implement PY-VORTEX-ROUTE-UNIFY-1 native Vortex multi-input join state before admitting this workflow.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_native_vortex_top_n() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "native_vortex_top_n",
+        label: "native Vortex top-N route",
+        surface: "native_vortex_operator_route",
+        feature: "py-vortex-route-unify-1.top_n",
+        blocker_id: "py-vortex-route-unify-1.native_vortex_top_n_route_missing",
+        required_evidence: "native_vortex_operator_route,python_sql_lowering,top_n_operator,ordering_null_semantics,execution_certificate,native_io_certificate,decode_materialization_evidence,no_fallback_evidence",
+        suggested_next_action: "Implement PY-VORTEX-ROUTE-UNIFY-1 native Vortex global top-N lowering and ordering semantics before admitting this workflow.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_native_vortex_cast() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "native_vortex_cast",
+        label: "native Vortex cast route",
+        surface: "native_vortex_expression_route",
+        feature: "py-vortex-route-unify-1.cast",
+        blocker_id: "py-vortex-route-unify-1.native_vortex_cast_route_missing",
+        required_evidence: "native_vortex_expression_route,python_sql_lowering,cast_try_cast_semantics,null_error_policy,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Implement PY-VORTEX-ROUTE-UNIFY-1 native Vortex cast/try-cast lowering and fail-closed semantics before admitting this workflow.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_native_vortex_string_contains() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "native_vortex_string_contains",
+        label: "native Vortex substring contains route",
+        surface: "native_vortex_expression_route",
+        feature: "py-vortex-route-unify-1.string_contains",
+        blocker_id: "py-vortex-route-unify-1.native_vortex_contains_route_missing",
+        required_evidence: "native_vortex_expression_route,python_sql_lowering,string_contains_semantics,utf8_null_policy,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Implement PY-VORTEX-ROUTE-UNIFY-1 native Vortex substring contains lowering before admitting this workflow.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_native_vortex_sink() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "native_vortex_sink",
+        label: "native Vortex typed result/sink route",
+        surface: "native_vortex_sink_route",
+        feature: "py-vortex-route-unify-1.typed_result_sink",
+        blocker_id: "py-vortex-route-unify-1.native_vortex_sink_contract_missing",
+        required_evidence: "typed_result_sink_contract,native_vortex_output_boundary,decode_materialization_evidence,metadata_loss_evidence,write_intent,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Implement PY-VORTEX-ROUTE-UNIFY-1 typed collect/write sink contract before admitting this native Vortex output workflow.",
+        diagnostic_code: DiagnosticCode::UnsupportedOutputFormat,
+        materialization_required: true,
+        write_required: true,
+        runtime_required: true,
+    }
+}
+
 fn workflow_unsupported_write_vortex() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "write_vortex",
@@ -2329,6 +2463,16 @@ fn workflow_unsupported_fields(
     push_field(&mut fields, "report_id", "cg21.workflow.unsupported.parity");
     push_field(&mut fields, "workflow_operation", operation.operation);
     push_field(&mut fields, "workflow_surface", operation.surface);
+    push_field(
+        &mut fields,
+        "native_vortex_route_unification_status",
+        native_vortex_route_unification_status(operation),
+    );
+    push_field(
+        &mut fields,
+        "native_vortex_route_unification_phase",
+        native_vortex_route_unification_phase(operation),
+    );
     push_field(&mut fields, "workflow_summary", workflow_summary);
     push_field(&mut fields, "target_ref", target_ref);
     push_field(&mut fields, "blocker_id", operation.blocker_id);
@@ -2386,6 +2530,22 @@ fn workflow_unsupported_fields(
     push_bool_field(&mut fields, "no_fallback", true);
     push_bool_field(&mut fields, "no_effects", true);
     fields
+}
+
+fn native_vortex_route_unification_status(operation: WorkflowUnsupportedOperation) -> &'static str {
+    if operation.surface.starts_with("native_vortex_") {
+        "blocked_until_native_route_admitted"
+    } else {
+        "not_applicable"
+    }
+}
+
+fn native_vortex_route_unification_phase(operation: WorkflowUnsupportedOperation) -> &'static str {
+    if operation.feature.starts_with("py-vortex-route-unify-1") {
+        "PY-VORTEX-ROUTE-UNIFY-1"
+    } else {
+        "not_applicable"
+    }
 }
 
 pub(crate) fn emit_schema_plan_skeleton(format: OutputFormat) -> ExitCode {
@@ -12758,6 +12918,33 @@ fn cdc_change_set_between() -> Result<ChangeSet, ShardLoomError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_vortex_unsupported_operations_emit_route_unification_blockers() {
+        let operation = workflow_unsupported_operation("native-vortex-join-state")
+            .expect("native Vortex join blocker is registered");
+        let fields = workflow_unsupported_fields(
+            operation,
+            "ctx.read_vortex(left).join(ctx.read_vortex(right), on='dim_key')",
+            "target/fact.vortex,target/dim.vortex",
+        );
+
+        assert_eq!(operation.operation, "native_vortex_join");
+        assert_eq!(
+            output_field(&fields, "blocker_id"),
+            "py-vortex-route-unify-1.native_vortex_join_state_missing"
+        );
+        assert_eq!(
+            output_field(&fields, "native_vortex_route_unification_status"),
+            "blocked_until_native_route_admitted"
+        );
+        assert_eq!(
+            output_field(&fields, "native_vortex_route_unification_phase"),
+            "PY-VORTEX-ROUTE-UNIFY-1"
+        );
+        assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+        assert_eq!(output_field(&fields, "external_engine_invoked"), "false");
+    }
 
     #[test]
     fn table_intelligence_fields_include_report_only_no_io_no_fallback() {

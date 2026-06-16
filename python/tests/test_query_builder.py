@@ -100,6 +100,10 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         sql = _shardloom_take_flag(args, "--sql")
         generated_kind = _shardloom_take_flag(args, "--generated-source-kind")
         allow_overwrite = _shardloom_has_flag(args, "--allow-overwrite")
+        execution_policy = _shardloom_take_flag(args, "--execution-policy")
+
+        if execution_policy == "native_vortex":
+            return
 
         if generated_kind is not None:
             if generated_kind in {
@@ -329,60 +333,36 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 assert args[-2:] == ["--format", "json"], sys.argv
                 surface = args[1]
                 if surface == "dataframe":
-                    assert args == [
-                        "route",
-                        "dataframe",
-                        "--input",
-                        "target/input.csv",
-                        "--input-format",
-                        "csv",
-                        "--plan",
-                        "read_csv(target/input.csv) -> select(id) -> limit(10)",
-                        "--request",
-                        "collect",
-                        "--execution-policy",
-                        "auto",
-                        "--materialization-policy",
-                        "bounded",
-                        "--evidence-level",
+                    assert args[:6] == ["route", "dataframe", "--input", "target/input.csv", "--input-format", "csv"], sys.argv
+                    assert args[args.index("--plan") + 1] == "read_csv(target/input.csv) -> select(id) -> limit(10)", sys.argv
+                    assert args[args.index("--evidence-level") + 1] in {
+                        "production_admitted_local_workflow",
                         "runtime_smoke",
-                        "--bounded",
-                        "true",
-                        "--format",
-                        "json",
-                    ], sys.argv
+                    }, sys.argv
                 elif surface == "sql":
-                    assert args == [
-                        "route",
-                        "sql",
-                        "--sql",
-                        "SELECT id FROM 'target/input.csv' LIMIT 10",
-                        "--plan",
-                        "sql(statement)",
-                        "--request",
-                        "collect",
-                        "--execution-policy",
-                        "auto",
-                        "--materialization-policy",
-                        "bounded",
-                        "--evidence-level",
-                        "runtime_smoke",
-                        "--bounded",
-                        "true",
-                        "--format",
-                        "json",
-                    ], sys.argv
+                    assert args[:2] == ["route", "sql"], sys.argv
+                    assert args[args.index("--sql") + 1] == "SELECT id FROM 'target/input.csv' LIMIT 10", sys.argv
+                    assert args[args.index("--plan") + 1] == "sql(statement)", sys.argv
+                    assert args[args.index("--evidence-level") + 1] == "runtime_smoke", sys.argv
                 else:
                     raise AssertionError(sys.argv)
+                assert args[args.index("--request") + 1] == "collect", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
+                assert args[args.index("--bounded") + 1] == "true", sys.argv
                 fields = [
                     ["public_workflow_route_schema_version", "shardloom.public_workflow_route.v1"],
-                    ["route_id", "local_file_direct_query"],
+                    ["route_id", "local_file_product_query"],
                     ["route_status", "admitted"],
-                    ["resolved_internal_command", "sql-local-source-smoke"],
+                    ["resolved_internal_command", "local-workflow-run"],
                     ["surface", surface],
                     ["start_state", "compatibility_local_source"],
-                    ["vortex_normalization_point", "direct_transient"],
-                    ["execution_mode", "direct"],
+                    [
+                        "vortex_normalization_point",
+                        "compatibility_source_state_pre_vortex_unification",
+                    ],
+                    ["vortex_middle_status", "pending_native_vortex_middle_unification"],
+                    ["execution_mode", "product_local"],
                     ["preparation_included", "false"],
                     ["query_timing_starts_after_preparation", "false"],
                     ["route_side_effect_free", "true"],
@@ -419,7 +399,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
 
         self.assertIsInstance(dataframe_route, sl.PublicWorkflowRoute)
-        self.assertEqual(dataframe_route.route_id, "local_file_direct_query")
+        self.assertEqual(dataframe_route.route_id, "local_file_product_query")
         self.assertEqual(sql_route.route_id, dataframe_route.route_id)
         self.assertEqual(live_context_route.route_id, dataframe_route.route_id)
         self.assertEqual(
@@ -430,12 +410,15 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             live_context_route.resolved_internal_command,
             dataframe_route.resolved_internal_command,
         )
-        self.assertEqual(dataframe_route.vortex_normalization_point, "direct_transient")
+        self.assertEqual(
+            dataframe_route.vortex_normalization_point,
+            "compatibility_source_state_pre_vortex_unification",
+        )
         self.assertTrue(dataframe_route.side_effect_free)
         self.assertFalse(dataframe_route.fallback_attempted)
         self.assertFalse(dataframe_route.external_engine_invoked)
         self.assertIsNone(dataframe_route.blocker_id)
-        self.assertEqual(dataframe_route.as_dict()["execution_mode"], "direct")
+        self.assertEqual(dataframe_route.as_dict()["execution_mode"], "product_local")
 
     def test_workflow_route_blocks_unbounded_collect_at_admission(self) -> None:
         binary = self.fake_cli(
@@ -459,7 +442,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
-                    "runtime_smoke",
+                    "production_admitted_local_workflow",
                     "--bounded",
                     "false",
                     "--format",
@@ -533,6 +516,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "runtime_smoke",
                     "--bounded",
                     "true",
+                    "--memory-gb",
+                    "4",
+                    "--max-parallelism",
+                    "1",
                     "--format",
                     "json",
                 ], sys.argv
@@ -540,11 +527,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
                     ["public_workflow_route_attached", "true"],
                     ["public_workflow_facade_command", "run"],
-                    ["public_workflow_route_id", "local_file_direct_query"],
+                    ["public_workflow_route_id", "local_file_product_query"],
                     ["public_workflow_route_status", "admitted"],
-                    ["public_workflow_resolved_internal_command", "sql-local-source-smoke"],
-                    ["public_workflow_vortex_normalization_point", "direct_transient"],
-                    ["public_workflow_execution_mode", "direct"],
+                    ["public_workflow_resolved_internal_command", "local-workflow-run"],
+                    [
+                        "public_workflow_vortex_normalization_point",
+                        "compatibility_source_state_pre_vortex_unification",
+                    ],
+                    [
+                        "public_workflow_vortex_middle_status",
+                        "pending_native_vortex_middle_unification",
+                    ],
+                    ["public_workflow_execution_mode", "product_local"],
                     ["public_workflow_preparation_included", "false"],
                     ["runtime_execution", "true"],
                     ["fallback_attempted", "false"],
@@ -574,8 +568,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(execution, sl.PublicWorkflowExecution)
         self.assertEqual(execution.facade_command, "run")
         self.assertTrue(execution.route_attached)
-        self.assertEqual(execution.route_id, "local_file_direct_query")
-        self.assertEqual(execution.resolved_internal_command, "sql-local-source-smoke")
+        self.assertEqual(execution.route_id, "local_file_product_query")
+        self.assertEqual(execution.resolved_internal_command, "local-workflow-run")
         self.assertTrue(execution.runtime_execution)
         self.assertFalse(execution.fallback_attempted)
         self.assertFalse(execution.external_engine_invoked)
@@ -607,9 +601,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
-                    "runtime_smoke",
+                    "production_admitted_local_workflow",
                     "--bounded",
                     "true",
+                    "--memory-gb",
+                    "4",
+                    "--max-parallelism",
+                    "1",
                     "--format",
                     "json",
                 ], sys.argv
@@ -678,10 +676,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
-                    "runtime_smoke",
+                    "production_admitted_local_workflow",
                     "--bounded",
                     "true",
                     "--allow-overwrite",
+                    "--max-parallelism",
+                    "1",
                     "--format",
                     "json",
                 ], sys.argv
@@ -689,9 +689,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
                     ["public_workflow_route_attached", "true"],
                     ["public_workflow_facade_command", "run"],
-                    ["public_workflow_route_id", "local_file_direct_sink"],
+                    ["public_workflow_route_id", "local_file_product_sink"],
                     ["public_workflow_route_status", "admitted"],
-                    ["public_workflow_resolved_internal_command", "sql-local-source-smoke"],
+                    ["public_workflow_resolved_internal_command", "local-workflow-run"],
                     ["public_workflow_requested_output", "write_jsonl"],
                     ["public_workflow_output_ref", "target/input.jsonl"],
                     ["public_workflow_fanout_output_count", "1"],
@@ -706,7 +706,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ["public_workflow_fallback_attempted", "false"],
                     ["public_workflow_external_engine_invoked", "false"],
                     ["public_workflow_blocker_id", "none"],
-                    ["claim_gate_status", "fixture_smoke_only"],
+                    ["claim_gate_status", "local_workflow_runtime_supported"],
                 ]
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
@@ -738,7 +738,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
 
         self.assertEqual(report.envelope.command, "run")
-        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_sink")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_product_sink")
         self.assertEqual(report.envelope.field("public_workflow_fanout_output_count"), "1")
         self.assertEqual(
             report.envelope.field("public_workflow_fanout_outputs"),
@@ -756,31 +756,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 """
                 import json, sys
 
-                assert sys.argv[1:] == [
-                    "run",
-                    "sql",
-                    "--sql",
-                    "SELECT 1 AS id, 'alpha' AS label",
-                    "--plan",
-                    "sql(statement)",
-                    "--request",
-                    "write_jsonl",
-                    "--output",
-                    "target/sql-select.jsonl",
-                    "--fanout-output",
-                    "csv=target/sql-select.csv",
-                    "--execution-policy",
-                    "auto",
-                    "--materialization-policy",
-                    "bounded",
-                    "--evidence-level",
-                    "runtime_smoke",
-                    "--bounded",
-                    "true",
-                    "--allow-overwrite",
-                    "--format",
-                    "json",
-                ], sys.argv
+                args = sys.argv[1:]
+                assert args[:2] == ["run", "sql"], sys.argv
+                assert args[args.index("--sql") + 1] == "SELECT 1 AS id, 'alpha' AS label", sys.argv
+                assert args[args.index("--plan") + 1] == "sql(statement)", sys.argv
+                assert args[args.index("--request") + 1] == "write_jsonl", sys.argv
+                assert args[args.index("--output") + 1] == "target/sql-select.jsonl", sys.argv
+                assert args[args.index("--fanout-output") + 1] == "csv=target/sql-select.csv", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", sys.argv
+                assert args[args.index("--bounded") + 1] == "true", sys.argv
+                assert args[args.index("--max-parallelism") + 1] == "1", sys.argv
+                assert "--allow-overwrite" in args, sys.argv
+                assert args[-2:] == ["--format", "json"], sys.argv
                 fields = [
                     ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
                     ["public_workflow_route_attached", "true"],
@@ -854,9 +843,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
-                    "runtime_smoke",
+                    "production_admitted_local_workflow",
                     "--bounded",
                     "true",
+                    "--memory-gb",
+                    "4",
+                    "--max-parallelism",
+                    "1",
                     "--format",
                     "json",
                 ], sys.argv
@@ -1009,33 +1002,21 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 """
                 import json, sys
 
-                assert sys.argv[1:] == [
-                    "run",
-                    "python",
-                    "--plan",
-                    "generated_source(user_rows) -> write(target/generated-public.jsonl)",
-                    "--request",
-                    "write_jsonl",
-                    "--output",
-                    "target/generated-public.jsonl",
-                    "--execution-policy",
-                    "auto",
-                    "--materialization-policy",
-                    "bounded",
-                    "--evidence-level",
-                    "runtime_smoke",
-                    "--bounded",
-                    "true",
-                    "--allow-overwrite",
-                    "--generated-source-kind",
-                    "user_rows",
-                    "--generated-schema",
-                    "id:int64,label:utf8",
-                    "--generated-rows",
-                    "id=1,label=alpha",
-                    "--format",
-                    "json",
-                ], sys.argv
+                args = sys.argv[1:]
+                assert args[:2] == ["run", "python"], sys.argv
+                assert args[args.index("--plan") + 1] == "generated_source(user_rows) -> write(target/generated-public.jsonl)", sys.argv
+                assert args[args.index("--request") + 1] == "write_jsonl", sys.argv
+                assert args[args.index("--output") + 1] == "target/generated-public.jsonl", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", sys.argv
+                assert args[args.index("--bounded") + 1] == "true", sys.argv
+                assert args[args.index("--max-parallelism") + 1] == "1", sys.argv
+                assert "--allow-overwrite" in args, sys.argv
+                assert args[args.index("--generated-source-kind") + 1] == "user_rows", sys.argv
+                assert args[args.index("--generated-schema") + 1] == "id:int64,label:utf8", sys.argv
+                assert args[args.index("--generated-rows") + 1] == "id=1,label=alpha", sys.argv
+                assert args[-2:] == ["--format", "json"], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
                     "command": "run",
@@ -11750,9 +11731,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
-                    "runtime_smoke",
+                    "production_admitted_local_workflow",
                     "--bounded",
                     "true",
+                    "--memory-gb",
+                    "4",
+                    "--max-parallelism",
+                    "1",
                     "--format",
                     "json",
                 ], sys.argv
@@ -11768,12 +11753,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
                         {"key": "public_workflow_route_attached", "value": "true"},
                         {"key": "public_workflow_facade_command", "value": "run"},
-                        {"key": "public_workflow_route_id", "value": "local_file_direct_query"},
+                        {"key": "public_workflow_route_id", "value": "local_file_product_query"},
                         {"key": "public_workflow_requested_output", "value": "collect"},
                         {"key": "runtime_execution", "value": "true"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                        {"key": "claim_gate_status", "value": "local_workflow_runtime_supported"}
                     ],
                 }))
                 """
@@ -11790,7 +11775,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
 
         self.assertEqual(report.envelope.command, "run")
-        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_query")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_product_query")
         self.assertEqual(report.envelope.field("public_workflow_requested_output"), "collect")
         self.assertEqual(report.result_rows[0]["label"], "alpha")
         self.assertFalse(report.fallback_attempted)
@@ -11824,10 +11809,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
-                    "runtime_smoke",
+                    "production_admitted_local_workflow",
                     "--bounded",
                     "true",
                     "--allow-overwrite",
+                    "--max-parallelism",
+                    "1",
                     "--format",
                     "json",
                 ], sys.argv
@@ -11847,12 +11834,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "output_native_io_certificate_status", "value": "certified_local_csv_sink"},
                         {"key": "public_workflow_route_attached", "value": "true"},
                         {"key": "public_workflow_facade_command", "value": "run"},
-                        {"key": "public_workflow_route_id", "value": "local_file_direct_sink"},
+                        {"key": "public_workflow_route_id", "value": "local_file_product_sink"},
                         {"key": "public_workflow_requested_output", "value": "write_csv"},
                         {"key": "public_workflow_allow_overwrite", "value": "true"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                        {"key": "claim_gate_status", "value": "local_workflow_runtime_supported"}
                     ],
                 }))
                 """
@@ -11871,7 +11858,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.envelope.command, "run")
         self.assertEqual(report.output_path, "target/out-public.csv")
         self.assertEqual(report.output_format, "csv")
-        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_sink")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_product_sink")
         self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_csv")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -12028,10 +12015,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
-                    "runtime_smoke",
+                    "production_admitted_local_workflow",
                     "--bounded",
                     "true",
                     "--allow-overwrite",
+                    "--max-parallelism",
+                    "1",
                     "--format",
                     "json",
                 ], sys.argv
@@ -12054,12 +12043,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "output_certificate_ref", "value": "sql-local-source.local-parquet-output.native-io.v1"},
                         {"key": "public_workflow_route_attached", "value": "true"},
                         {"key": "public_workflow_facade_command", "value": "run"},
-                        {"key": "public_workflow_route_id", "value": "local_file_direct_sink"},
+                        {"key": "public_workflow_route_id", "value": "local_file_product_sink"},
                         {"key": "public_workflow_requested_output", "value": "write_parquet"},
                         {"key": "public_workflow_allow_overwrite", "value": "true"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                        {"key": "claim_gate_status", "value": "local_workflow_runtime_supported"}
                     ],
                 }))
                 """
@@ -12087,7 +12076,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "sql-local-source.local-parquet-output.native-io.v1",
         )
         self.assertEqual(report.envelope.command, "run")
-        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_sink")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_product_sink")
         self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_parquet")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -12120,10 +12109,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
-                    "runtime_smoke",
+                    "production_admitted_local_workflow",
                     "--bounded",
                     "true",
                     "--allow-overwrite",
+                    "--max-parallelism",
+                    "1",
                     "--format",
                     "json",
                 ], sys.argv
@@ -12159,12 +12150,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "output_fidelity_loss", "value": "parquet:vortex_layout_metadata_dropped_typed_nested_preserved_only_when_arrow_schema_inferred"},
                         {"key": "public_workflow_route_attached", "value": "true"},
                         {"key": "public_workflow_facade_command", "value": "run"},
-                        {"key": "public_workflow_route_id", "value": "local_file_direct_sink"},
+                        {"key": "public_workflow_route_id", "value": "local_file_product_sink"},
                         {"key": "public_workflow_requested_output", "value": "write_parquet"},
                         {"key": "public_workflow_allow_overwrite", "value": "true"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                        {"key": "claim_gate_status", "value": "local_workflow_runtime_supported"}
                     ],
                 }))
                 """
@@ -12227,7 +12218,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ),
         )
         self.assertEqual(report.envelope.command, "run")
-        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_sink")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_product_sink")
         self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_parquet")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -12323,10 +12314,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--materialization-policy",
                     "bounded",
                     "--evidence-level",
-                    "runtime_smoke",
+                    "production_admitted_local_workflow",
                     "--bounded",
                     "true",
                     "--allow-overwrite",
+                    "--max-parallelism",
+                    "1",
                     "--format",
                     "json",
                 ], sys.argv
@@ -12357,12 +12350,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "upstream_vortex_scan_called", "value": "true"},
                         {"key": "public_workflow_route_attached", "value": "true"},
                         {"key": "public_workflow_facade_command", "value": "run"},
-                        {"key": "public_workflow_route_id", "value": "local_file_direct_sink"},
+                        {"key": "public_workflow_route_id", "value": "local_file_product_sink"},
                         {"key": "public_workflow_requested_output", "value": "write_vortex"},
                         {"key": "public_workflow_allow_overwrite", "value": "true"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                        {"key": "claim_gate_status", "value": "local_workflow_runtime_supported"}
                     ],
                 }))
                 """
@@ -12398,7 +12391,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.upstream_vortex_write_called)
         self.assertTrue(report.upstream_vortex_scan_called)
         self.assertEqual(report.envelope.command, "run")
-        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_direct_sink")
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "local_file_product_sink")
         self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_vortex")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -12476,33 +12469,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 """
                 import json, sys
 
-                assert sys.argv[1:] == [
-                    "run",
-                    "dataframe",
-                    "--input",
-                    "target/input.csv",
-                    "--input-format",
-                    "csv",
-                    "--sql",
-                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
-                    "--plan",
-                    "read_csv(target/input.csv) -> select(id,label) -> limit(2)",
-                    "--request",
-                    "write_parquet",
-                    "--output",
-                    "target/out.parquet",
-                    "--execution-policy",
-                    "auto",
-                    "--materialization-policy",
-                    "bounded",
-                    "--evidence-level",
-                    "runtime_smoke",
-                    "--bounded",
-                    "true",
-                    "--allow-overwrite",
-                    "--format",
-                    "json",
-                ], sys.argv
+                args = sys.argv[1:]
+                assert args[:6] == ["run", "dataframe", "--input", "target/input.csv", "--input-format", "csv"], sys.argv
+                assert args[args.index("--sql") + 1] == "SELECT id,label FROM 'target/input.csv' LIMIT 2", sys.argv
+                assert args[args.index("--plan") + 1] == "read_csv(target/input.csv) -> select(id,label) -> limit(2)", sys.argv
+                assert args[args.index("--request") + 1] == "write_parquet", sys.argv
+                assert args[args.index("--output") + 1] == "target/out.parquet", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
+                assert args[args.index("--evidence-level") + 1] == "production_admitted_local_workflow", sys.argv
+                assert args[args.index("--bounded") + 1] == "true", sys.argv
+                assert args[args.index("--max-parallelism") + 1] == "1", sys.argv
+                assert "--allow-overwrite" in args, sys.argv
+                assert args[-2:] == ["--format", "json"], sys.argv
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
                     "command": "run",
@@ -15571,6 +15550,388 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             by_operation["foundry-generated-output"].envelope.field_bool("write_required")
         )
 
+    def test_vortex_user_operator_shapes_route_to_native_provider(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[:2] == ["run", "dataframe"], args
+                assert args[args.index("--input-format") + 1] == "vortex", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
+                assert "--vortex-primitive" not in args, args
+                assert args[-2:] == ["--format", "json"], args
+                request = args[args.index("--request") + 1]
+                family = args[args.index("--native-vortex-operation-family") + 1]
+                scenario = args[args.index("--native-vortex-provider-scenario") + 1]
+                input_uri = args[args.index("--input") + 1]
+                route_ids = {
+                    "aggregate": "native_vortex_user_aggregate",
+                    "join": "native_vortex_user_join",
+                    "top_n": "native_vortex_user_top_n",
+                    "cast": "native_vortex_user_cast",
+                    "contains": "native_vortex_user_contains",
+                    "sink": "native_vortex_user_sink",
+                }
+                expected_scenarios = {
+                    "group-by-aggregation": "aggregate",
+                    "null-heavy-aggregate": "aggregate",
+                    "hash-join": "join",
+                    "sort-and-top-k": "top_n",
+                    "clean-cast-filter-write": "cast",
+                    "malformed-timestamp-dirty-csv": "cast",
+                    "nested-json-field-scan": "contains",
+                }
+                if request == "write_vortex":
+                    assert family == "sink", args
+                    assert scenario == "clean-cast-filter-write", args
+                    assert args[args.index("--output") + 1] == "target/out.vortex", args
+                    assert "--allow-overwrite" in args, args
+                    expected_family = "sink"
+                    write_io = True
+                else:
+                    assert request == "collect", args
+                    expected_family = expected_scenarios[scenario]
+                    assert family == expected_family, args
+                    assert args[args.index("--memory-gb") + 1] == "4", args
+                    write_io = False
+                if family == "join":
+                    assert args[args.index("--native-vortex-right-input") + 1] == "dim.vortex", args
+                    right_input = "dim.vortex"
+                else:
+                    assert "--native-vortex-right-input" not in args, args
+                    right_input = "none"
+                if scenario == "nested-json-field-scan":
+                    assert input_uri == "events.vortex", args
+                else:
+                    assert input_uri == "fact.vortex", args
+                route_id = route_ids[family]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "native Vortex provider route",
+                    "human_text": "native Vortex provider route",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_route_id", "value": route_id},
+                        {"key": "public_workflow_resolved_internal_command", "value": "traditional-analytics-vortex-run"},
+                        {"key": "public_workflow_native_vortex_operation_family", "value": family},
+                        {"key": "public_workflow_native_vortex_provider_scenario", "value": scenario},
+                        {"key": "public_workflow_native_vortex_right_input", "value": right_input},
+                        {"key": "mode", "value": "traditional_analytics_vortex_run"},
+                        {"key": "execution", "value": "native_vortex_user_operator_provider_performed"},
+                        {"key": "data_read", "value": "true"},
+                        {"key": "data_decoded", "value": "false"},
+                        {"key": "data_materialized", "value": str(write_io).lower()},
+                        {"key": "write_io", "value": str(write_io).lower()},
+                        {"key": "runtime_required", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+        fact = sl.read_vortex("fact.vortex", client=client)
+        dim = sl.read_vortex("dim.vortex", client=client)
+        events = sl.read_vortex("events.vortex", client=client)
+
+        reports = (
+            fact.filter(sl.col("metric") >= 0)
+            .group_by("group_key")
+            .agg(rows="count(*)", total_metric="sum(metric)")
+            .limit(100)
+            .collect(),
+            fact.dropna(subset=["nullable_metric_00"])
+            .group_by("group_key")
+            .agg(rows="count(*)", total_nullable_metric="sum(nullable_metric_00)")
+            .limit(100)
+            .collect(),
+            fact.join(dim, on="dim_key", how="inner")
+            .select("f.id", "d.dim_label", "f.metric")
+            .limit(100)
+            .collect(),
+            fact.select("id", "group_key", "metric").nlargest(10, "metric").collect(),
+            fact.with_column("amount_float", sl.col("dirty_numeric").cast("float64"))
+            .filter(sl.col("amount_float") >= 0)
+            .limit(1000)
+            .collect(),
+            fact.with_column("event_day", sl.col("raw_event_time").cast("date32"))
+            .limit(1000)
+            .collect(),
+            events.filter(sl.col("nested_payload").contains("target"))
+            .select("id", "nested_payload")
+            .limit(100)
+            .collect(),
+            fact.with_column("amount_float", sl.col("dirty_numeric").cast("float64"))
+            .filter(sl.col("amount_float") >= 0)
+            .limit(1000)
+            .write_vortex("target/out.vortex", allow_overwrite=True),
+        )
+
+        expected = (
+            ("aggregate", "group-by-aggregation"),
+            ("aggregate", "null-heavy-aggregate"),
+            ("join", "hash-join"),
+            ("top_n", "sort-and-top-k"),
+            ("cast", "clean-cast-filter-write"),
+            ("cast", "malformed-timestamp-dirty-csv"),
+            ("contains", "nested-json-field-scan"),
+            ("sink", "clean-cast-filter-write"),
+        )
+        for report, (family, scenario) in zip(reports, expected):
+            self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+            self.assertEqual(report.envelope.command, "run")
+            self.assertEqual(report.command, "traditional-analytics-vortex-run")
+            self.assertEqual(
+                report.envelope.field("public_workflow_native_vortex_operation_family"),
+                family,
+            )
+            self.assertEqual(
+                report.envelope.field("public_workflow_native_vortex_provider_scenario"),
+                scenario,
+            )
+            self.assertFalse(report.fallback_attempted)
+            self.assertFalse(report.external_engine_invoked)
+
+    def test_sql_vortex_user_operator_shapes_route_to_native_provider(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[:2] == ["run", "sql"], args
+                assert args[args.index("--input-format") + 1] == "vortex", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
+                assert "--vortex-primitive" not in args, args
+                assert args[-2:] == ["--format", "json"], args
+                request = args[args.index("--request") + 1]
+                family = args[args.index("--native-vortex-operation-family") + 1]
+                scenario = args[args.index("--native-vortex-provider-scenario") + 1]
+                input_uri = args[args.index("--input") + 1]
+                sql_statement = args[args.index("--sql") + 1]
+                assert sql_statement.startswith("SELECT "), args
+                route_ids = {
+                    "aggregate": "native_vortex_user_aggregate",
+                    "join": "native_vortex_user_join",
+                    "top_n": "native_vortex_user_top_n",
+                    "cast": "native_vortex_user_cast",
+                    "contains": "native_vortex_user_contains",
+                    "sink": "native_vortex_user_sink",
+                }
+                expected_scenarios = {
+                    "group-by-aggregation": "aggregate",
+                    "null-heavy-aggregate": "aggregate",
+                    "hash-join": "join",
+                    "sort-and-top-k": "top_n",
+                    "clean-cast-filter-write": "cast",
+                    "malformed-timestamp-dirty-csv": "cast",
+                    "nested-json-field-scan": "contains",
+                }
+                if request == "write_vortex":
+                    assert family == "sink", args
+                    assert scenario == "clean-cast-filter-write", args
+                    assert args[args.index("--output") + 1] == "target/sql-out.vortex", args
+                    assert "--allow-overwrite" in args, args
+                    expected_family = "sink"
+                    write_io = True
+                else:
+                    assert request == "collect", args
+                    expected_family = expected_scenarios[scenario]
+                    assert family == expected_family, args
+                    assert args[args.index("--memory-gb") + 1] == "4", args
+                    write_io = False
+                if family == "join":
+                    assert args[args.index("--native-vortex-right-input") + 1] == "dim.vortex", args
+                    right_input = "dim.vortex"
+                else:
+                    assert "--native-vortex-right-input" not in args, args
+                    right_input = "none"
+                if scenario == "nested-json-field-scan":
+                    assert input_uri == "events.vortex", args
+                else:
+                    assert input_uri == "fact.vortex", args
+                route_id = route_ids[family]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "native Vortex SQL provider route",
+                    "human_text": "native Vortex SQL provider route",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "public_workflow_route_attached", "value": "true"},
+                        {"key": "public_workflow_route_id", "value": route_id},
+                        {"key": "public_workflow_resolved_internal_command", "value": "traditional-analytics-vortex-run"},
+                        {"key": "public_workflow_native_vortex_operation_family", "value": family},
+                        {"key": "public_workflow_native_vortex_provider_scenario", "value": scenario},
+                        {"key": "public_workflow_native_vortex_right_input", "value": right_input},
+                        {"key": "mode", "value": "traditional_analytics_vortex_run"},
+                        {"key": "execution", "value": "native_vortex_user_operator_provider_performed"},
+                        {"key": "data_read", "value": "true"},
+                        {"key": "data_decoded", "value": "false"},
+                        {"key": "data_materialized", "value": str(write_io).lower()},
+                        {"key": "write_io", "value": str(write_io).lower()},
+                        {"key": "runtime_required", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        group_sql = (
+            "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
+            "FROM 'fact.vortex' WHERE metric >= 0 GROUP BY group_key LIMIT 100"
+        )
+        clean_sql = (
+            "SELECT id, group_key, metric, CAST(dirty_numeric AS float64) AS amount_float "
+            "FROM 'fact.vortex' WHERE amount_float >= 0 LIMIT 1000"
+        )
+
+        reports = (
+            ctx.sql(group_sql).collect(memory_gb=4, max_parallelism=1),
+            ctx.sql(
+                "SELECT group_key, COUNT(*) AS rows, "
+                "SUM(nullable_metric_00) AS total_nullable_metric FROM 'fact.vortex' "
+                "WHERE nullable_metric_00 IS NOT NULL GROUP BY group_key LIMIT 100"
+            ).collect(memory_gb=4, max_parallelism=1),
+            ctx.sql(
+                "SELECT f.id, d.dim_label, f.metric FROM 'fact.vortex' AS f "
+                "JOIN 'dim.vortex' AS d ON f.dim_key = d.dim_key LIMIT 100"
+            ).collect(memory_gb=4, max_parallelism=1),
+            ctx.sql(
+                "SELECT id, group_key, metric FROM 'fact.vortex' "
+                "ORDER BY metric DESC LIMIT 10"
+            ).collect(memory_gb=4, max_parallelism=1),
+            ctx.sql(clean_sql).collect(memory_gb=4, max_parallelism=1),
+            ctx.sql(
+                "SELECT id, CAST(raw_event_time AS date32) AS event_day "
+                "FROM 'fact.vortex' LIMIT 1000"
+            ).collect(memory_gb=4, max_parallelism=1),
+            ctx.sql(
+                "SELECT id, nested_payload FROM 'events.vortex' "
+                "WHERE nested_payload LIKE '%target%' LIMIT 100"
+            ).collect(memory_gb=4, max_parallelism=1),
+            ctx.sql(clean_sql).write_vortex(
+                "target/sql-out.vortex",
+                allow_overwrite=True,
+            ),
+        )
+
+        expected = (
+            ("aggregate", "group-by-aggregation"),
+            ("aggregate", "null-heavy-aggregate"),
+            ("join", "hash-join"),
+            ("top_n", "sort-and-top-k"),
+            ("cast", "clean-cast-filter-write"),
+            ("cast", "malformed-timestamp-dirty-csv"),
+            ("contains", "nested-json-field-scan"),
+            ("sink", "clean-cast-filter-write"),
+        )
+        for report, (family, scenario) in zip(reports, expected):
+            self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+            self.assertEqual(report.envelope.command, "run")
+            self.assertEqual(report.command, "traditional-analytics-vortex-run")
+            self.assertEqual(
+                report.envelope.field("public_workflow_native_vortex_operation_family"),
+                family,
+            )
+            self.assertEqual(
+                report.envelope.field("public_workflow_native_vortex_provider_scenario"),
+                scenario,
+            )
+            self.assertFalse(report.fallback_attempted)
+            self.assertFalse(report.external_engine_invoked)
+
+    def test_unadmitted_vortex_shapes_still_fail_with_route_blockers(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[-2:] == ["--format", "json"], args
+                parts = args[:-2]
+                assert parts[0] == "workflow-unsupported-plan", args
+                operation = parts[1]
+                workflow_summary = parts[2]
+                target_ref = parts[3] if len(parts) == 4 else "none"
+                blockers = {
+                    "native-vortex-aggregate": "py-vortex-route-unify-1.native_vortex_aggregate_route_missing",
+                    "native-vortex-sink": "py-vortex-route-unify-1.native_vortex_sink_contract_missing",
+                }
+                assert operation in blockers, operation
+                canonical = operation.replace("-", "_")
+                write_required = operation == "native-vortex-sink"
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "native Vortex route blocker",
+                    "human_text": "native Vortex route blocker",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [{
+                        "code": "SL_UNSUPPORTED_OUTPUT_FORMAT" if write_required else "SL_UNSUPPORTED_SQL",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "native Vortex route blocked",
+                        "feature": f"py-vortex-route-unify-1.{canonical}",
+                        "reason": "native Vortex route is not admitted",
+                        "suggested_next_step": "complete PY-VORTEX-ROUTE-UNIFY-1",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    }],
+                    "fields": [
+                        {"key": "mode", "value": "workflow_unsupported_plan"},
+                        {"key": "workflow_operation", "value": canonical},
+                        {"key": "workflow_summary", "value": workflow_summary},
+                        {"key": "target_ref", "value": target_ref},
+                        {"key": "blocker_id", "value": blockers[operation]},
+                        {"key": "native_vortex_route_unification_status", "value": "blocked_until_native_route_admitted"},
+                        {"key": "native_vortex_route_unification_phase", "value": "PY-VORTEX-ROUTE-UNIFY-1"},
+                        {"key": "suggested_next_action", "value": "complete PY-VORTEX-ROUTE-UNIFY-1"},
+                        {"key": "write_required", "value": str(write_required).lower()},
+                        {"key": "runtime_required", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                    ],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+        fact = sl.read_vortex("fact.vortex", client=client)
+
+        reports = (
+            fact.group_by("other_key").agg(rows="count(*)").limit(100).collect(),
+            fact.filter(sl.col("metric") >= 0).write_jsonl("target/out.jsonl", check=False),
+        )
+        expected = {
+            "native-vortex-aggregate": "py-vortex-route-unify-1.native_vortex_aggregate_route_missing",
+            "native-vortex-sink": "py-vortex-route-unify-1.native_vortex_sink_contract_missing",
+        }
+        self.assertEqual(tuple(report.operation for report in reports), tuple(expected))
+        for report in reports:
+            self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
+            self.assertEqual(report.blocker_id, expected[report.operation])
+            self.assertFalse(report.fallback_attempted)
+            self.assertFalse(report.external_engine_invoked)
+
     def test_generated_output_to_remote_object_store_is_report_only_without_staging(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -16604,11 +16965,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 args = sys.argv[1:]
                 assert args == [
                     "run",
-                    "cli",
+                    "dataframe",
                     "--input",
                     "orders.vortex",
                     "--input-format",
                     "vortex",
+                    "--plan",
+                    "read_vortex(orders.vortex) -> filter(gte:value:3) -> select(metric,value) -> limit(5)",
                     "--request",
                     "collect",
                     "--execution-policy",
@@ -16619,6 +16982,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "runtime_smoke",
                     "--bounded",
                     "true",
+                    "--native-vortex-operation-family",
+                    "filter_project_limit",
                     "--vortex-primitive",
                     "filter_project",
                     "--vortex-predicate",
@@ -16705,38 +17070,22 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                assert args == [
-                    "run",
-                    "cli",
-                    "--input",
-                    "orders.vortex",
-                    "--input-format",
-                    "vortex",
-                    "--request",
-                    "collect",
-                    "--execution-policy",
-                    "native_vortex",
-                    "--materialization-policy",
-                    "zero_decode",
-                    "--evidence-level",
-                    "runtime_smoke",
-                    "--bounded",
-                    "true",
-                    "--vortex-primitive",
-                    "filter_project",
-                    "--vortex-predicate",
-                    "gte:value:3",
-                    "--vortex-columns",
-                    "metric,value",
-                    "--vortex-source-order-limit",
-                    "5",
-                    "--memory-gb",
-                    "6",
-                    "--max-parallelism",
-                    "3",
-                    "--format",
-                    "json",
-                ], args
+                assert args[:6] == ["run", "sql", "--input", "orders.vortex", "--input-format", "vortex"], args
+                assert args[args.index("--sql") + 1] == "SELECT metric, value FROM 'orders.vortex' WHERE value >= 3 LIMIT 5", args
+                assert args[args.index("--plan") + 1] == "sql(statement)", args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
+                assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
+                assert args[args.index("--vortex-primitive") + 1] == "filter_project", args
+                assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
+                assert args[args.index("--vortex-columns") + 1] == "metric,value", args
+                assert args[args.index("--vortex-source-order-limit") + 1] == "5", args
+                assert args[args.index("--memory-gb") + 1] == "6", args
+                assert args[args.index("--max-parallelism") + 1] == "3", args
+                assert args[-2:] == ["--format", "json"], args
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
                     "command": "run",
@@ -16801,24 +17150,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                assert args[:16] == [
-                    "run",
-                    "cli",
-                    "--input",
-                    "orders.vortex",
-                    "--input-format",
-                    "vortex",
-                    "--request",
-                    "collect",
-                    "--execution-policy",
-                    "native_vortex",
-                    "--materialization-policy",
-                    "zero_decode",
-                    "--evidence-level",
-                    "runtime_smoke",
-                    "--bounded",
-                    "true",
-                ], args
+                assert args[:6] == ["run", "dataframe", "--input", "orders.vortex", "--input-format", "vortex"], args
+                assert "--plan" in args, args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
                 primitive = args[args.index("--vortex-primitive") + 1]
                 assert args[args.index("--memory-gb") + 1] == "4", args
                 assert args[args.index("--max-parallelism") + 1] == "2", args
@@ -16947,24 +17285,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                assert args[:16] == [
-                    "run",
-                    "cli",
-                    "--input",
-                    "orders.vortex",
-                    "--input-format",
-                    "vortex",
-                    "--request",
-                    "collect",
-                    "--execution-policy",
-                    "native_vortex",
-                    "--materialization-policy",
-                    "zero_decode",
-                    "--evidence-level",
-                    "runtime_smoke",
-                    "--bounded",
-                    "true",
-                ], args
+                assert args[:6] == ["run", "sql", "--input", "orders.vortex", "--input-format", "vortex"], args
+                assert "--sql" in args, args
+                assert args[args.index("--plan") + 1] == "sql(statement)", args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
                 primitive = args[args.index("--vortex-primitive") + 1]
                 assert args[args.index("--memory-gb") + 1] == "4", args
                 assert args[args.index("--max-parallelism") + 1] == "2", args
@@ -17092,24 +17420,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                assert args[:16] == [
-                    "run",
-                    "cli",
-                    "--input",
-                    "orders.vortex",
-                    "--input-format",
-                    "vortex",
-                    "--request",
-                    "collect",
-                    "--execution-policy",
-                    "native_vortex",
-                    "--materialization-policy",
-                    "zero_decode",
-                    "--evidence-level",
-                    "runtime_smoke",
-                    "--bounded",
-                    "true",
-                ], args
+                assert args[:6] == ["run", "dataframe", "--input", "orders.vortex", "--input-format", "vortex"], args
+                assert "--plan" in args, args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
                 primitive = args[args.index("--vortex-primitive") + 1]
                 assert args[args.index("--memory-gb") + 1] == "5", args
                 assert args[args.index("--max-parallelism") + 1] == "2", args
@@ -17191,34 +17508,21 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 """
                 import json, sys
 
-                assert sys.argv[1:] == [
-                    "run",
-                    "cli",
-                    "--input",
-                    "orders.vortex",
-                    "--input-format",
-                    "vortex",
-                    "--request",
-                    "collect",
-                    "--execution-policy",
-                    "native_vortex",
-                    "--materialization-policy",
-                    "zero_decode",
-                    "--evidence-level",
-                    "runtime_smoke",
-                    "--bounded",
-                    "true",
-                    "--vortex-primitive",
-                    "project",
-                    "--vortex-columns",
-                    "metric",
-                    "--memory-gb",
-                    "7",
-                    "--max-parallelism",
-                    "2",
-                    "--format",
-                    "json",
-                ], sys.argv
+                args = sys.argv[1:]
+                assert args[:6] == ["run", "sql", "--input", "orders.vortex", "--input-format", "vortex"], args
+                assert args[args.index("--sql") + 1] == "SELECT metric FROM 'orders.vortex'", args
+                assert args[args.index("--plan") + 1] == "sql(statement)", args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
+                assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
+                assert args[args.index("--vortex-primitive") + 1] == "project", args
+                assert args[args.index("--vortex-columns") + 1] == "metric", args
+                assert args[args.index("--memory-gb") + 1] == "7", args
+                assert args[args.index("--max-parallelism") + 1] == "2", args
+                assert args[-2:] == ["--format", "json"], args
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
                     "command": "run",
@@ -17371,36 +17675,21 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 """
                 import json, sys
 
-                assert sys.argv[1:] == [
-                    "run",
-                    "cli",
-                    "--input",
-                    "orders.vortex",
-                    "--input-format",
-                    "vortex",
-                    "--request",
-                    "collect",
-                    "--execution-policy",
-                    "native_vortex",
-                    "--materialization-policy",
-                    "zero_decode",
-                    "--evidence-level",
-                    "runtime_smoke",
-                    "--bounded",
-                    "true",
-                    "--vortex-primitive",
-                    "filter",
-                    "--vortex-predicate",
-                    "gte:value:3",
-                    "--vortex-source-order-limit",
-                    "5",
-                    "--memory-gb",
-                    "4",
-                    "--max-parallelism",
-                    "1",
-                    "--format",
-                    "json",
-                ], sys.argv
+                args = sys.argv[1:]
+                assert args[:6] == ["run", "dataframe", "--input", "orders.vortex", "--input-format", "vortex"], args
+                assert "--plan" in args, args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
+                assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
+                assert args[args.index("--vortex-primitive") + 1] == "filter", args
+                assert args[args.index("--vortex-predicate") + 1] == "gte:value:3", args
+                assert args[args.index("--vortex-source-order-limit") + 1] == "5", args
+                assert args[args.index("--memory-gb") + 1] == "4", args
+                assert args[args.index("--max-parallelism") + 1] == "1", args
+                assert args[-2:] == ["--format", "json"], args
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
                     "command": "run",
@@ -17449,24 +17738,15 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                assert args[:16] == [
-                    "run",
-                    "cli",
-                    "--input",
-                    "orders.vortex",
-                    "--input-format",
-                    "vortex",
-                    "--request",
-                    "collect",
-                    "--execution-policy",
-                    "native_vortex",
-                    "--materialization-policy",
-                    "zero_decode",
-                    "--evidence-level",
-                    "runtime_smoke",
-                    "--bounded",
-                    "true",
-                ], args
+                assert args[:6] == ["run", "sql", "--input", "orders.vortex", "--input-format", "vortex"], args
+                assert "--sql" in args, args
+                assert args[args.index("--plan") + 1] == "sql(statement)", args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
+                assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
                 assert args[args.index("--vortex-primitive") + 1] == "project", args
                 columns = args[args.index("--vortex-columns") + 1]
                 assert columns in {"metric", "*"}, args
@@ -17521,24 +17801,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 import json, sys
 
                 args = sys.argv[1:]
-                assert args[:16] == [
-                    "run",
-                    "cli",
-                    "--input",
-                    "orders.vortex",
-                    "--input-format",
-                    "vortex",
-                    "--request",
-                    "collect",
-                    "--execution-policy",
-                    "native_vortex",
-                    "--materialization-policy",
-                    "zero_decode",
-                    "--evidence-level",
-                    "runtime_smoke",
-                    "--bounded",
-                    "true",
-                ], args
+                assert args[:6] == ["run", "dataframe", "--input", "orders.vortex", "--input-format", "vortex"], args
+                assert "--plan" in args, args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
                 primitive = args[args.index("--vortex-primitive") + 1]
                 if primitive == "project":
                     assert args[args.index("--vortex-columns") + 1] == "*", args

@@ -17,7 +17,6 @@ classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
@@ -44,7 +43,7 @@ Documentation = "https://github.com/depsilon/shardloom/tree/main/docs"
 where = ["src"]
 
 [tool.setuptools.package-data]
-shardloom = ["py.typed"]
+shardloom = ["py.typed", "bin/*/shardloom", "bin/*/shardloom.exe"]
 
 [tool.setuptools.dynamic]
 version = { attr = "shardloom._version.__version__" }

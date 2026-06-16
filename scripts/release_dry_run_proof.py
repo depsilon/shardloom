@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -170,6 +171,28 @@ def shardloom_binary(repo_root: Path) -> Path:
     if os.name == "nt":
         binary = binary.with_suffix(".exe")
     return binary
+
+
+def bundled_cli_platform_tag() -> str:
+    system = platform.system().strip().lower()
+    if system == "darwin":
+        system = "macos"
+    elif system.startswith("msys") or system.startswith("mingw") or system == "windows":
+        system = "windows"
+    elif not system:
+        system = "unknown"
+    arch = platform.machine().strip().lower()
+    if arch in {"amd64", "x64"}:
+        arch = "x86_64"
+    elif arch == "arm64":
+        arch = "aarch64"
+    elif not arch:
+        arch = "unknown"
+    return f"{system}-{arch}"
+
+
+def bundled_cli_executable_name() -> str:
+    return "shardloom.exe" if os.name == "nt" else "shardloom"
 
 
 def find_conda_tool(explicit: Path | None) -> Path | None:
@@ -348,9 +371,23 @@ def select_package_python(
             checked.append(f"{resolved}: version unavailable")
             continue
         version_label = ".".join(str(part) for part in version)
-        if version_satisfies_minimum(version, MIN_PACKAGE_PYTHON):
+        if not version_satisfies_minimum(version, MIN_PACKAGE_PYTHON):
+            checked.append(f"{resolved}: Python {version_label}")
+            continue
+        backend = runner(
+            [
+                str(resolved),
+                "-c",
+                "import setuptools.build_meta",
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if backend.returncode == 0:
             return resolved, version_label
-        checked.append(f"{resolved}: Python {version_label}")
+        checked.append(f"{resolved}: Python {version_label}; setuptools.build_meta unavailable")
 
     checked_text = "; ".join(checked) if checked else "no candidates"
     minimum = ".".join(str(part) for part in MIN_PACKAGE_PYTHON)
@@ -395,10 +432,10 @@ def mark_python_artifact_presence(step: dict[str, Any], dist_dir: Path) -> dict[
     return step
 
 
-def fallback_sdist_command(python: str, dist_dir: Path) -> list[str]:
+def fallback_sdist_command(python: str, package_dir: Path, dist_dir: Path) -> list[str]:
     script = (
         "import os, pathlib, setuptools.build_meta as build_meta; "
-        "root = pathlib.Path('python').resolve(); "
+        f"root = pathlib.Path({str(package_dir)!r}).resolve(); "
         f"out = pathlib.Path({str(dist_dir)!r}).resolve(); "
         "out.mkdir(parents=True, exist_ok=True); "
         "os.chdir(root); "
@@ -409,6 +446,7 @@ def fallback_sdist_command(python: str, dist_dir: Path) -> list[str]:
 
 def build_python_artifacts(
     repo_root: Path,
+    package_dir: Path,
     dist_dir: Path,
     python_executable: Path | None = None,
 ) -> dict[str, Any]:
@@ -416,7 +454,7 @@ def build_python_artifacts(
     clean_python_dist(dist_dir)
     build_step = run_step(
         name="build_python_artifacts",
-        command=[python, "-m", "build", "python"],
+        command=[python, "-m", "build", str(package_dir)],
         cwd=repo_root,
     )
     if build_step["returncode"] == 0:
@@ -437,13 +475,13 @@ def build_python_artifacts(
             "--no-deps",
             "--wheel-dir",
             str(dist_dir),
-            str(repo_root / "python"),
+            str(package_dir),
         ],
         cwd=repo_root,
     )
     fallback_sdist_step = run_step(
         name="build_python_artifacts_sdist",
-        command=fallback_sdist_command(python, dist_dir),
+        command=fallback_sdist_command(python, package_dir, dist_dir),
         cwd=repo_root,
     )
     fallback_step = {
@@ -483,6 +521,75 @@ def build_python_artifacts(
     fallback_step["fallback_reason"] = "python_build_frontend_missing"
     fallback_step["frontend_stderr"] = build_step.get("stderr", "")
     return mark_python_artifact_presence(fallback_step, dist_dir)
+
+
+def stage_python_package_with_bundled_cli(
+    repo_root: Path,
+    stage_dir: Path,
+    binary: Path,
+) -> dict[str, Any]:
+    started = time.perf_counter()
+    resource_ref: str | None = None
+    try:
+        if not binary.is_file():
+            raise FileNotFoundError(f"built CLI binary not found: {binary}")
+        if stage_dir.exists():
+            remove_tree_under_repo(repo_root, stage_dir)
+        shutil.copytree(
+            repo_root / "python",
+            stage_dir,
+            ignore=shutil.ignore_patterns(
+                "build",
+                "dist",
+                "*.egg-info",
+                "__pycache__",
+                ".pytest_cache",
+            ),
+        )
+        platform_tag = bundled_cli_platform_tag()
+        bundled_dir = stage_dir / "src" / "shardloom" / "bin" / platform_tag
+        bundled_dir.mkdir(parents=True, exist_ok=True)
+        bundled_binary = bundled_dir / bundled_cli_executable_name()
+        shutil.copy2(binary, bundled_binary)
+        if os.name != "nt":
+            bundled_binary.chmod(bundled_binary.stat().st_mode | 0o111)
+        resource_ref = transcript_path_ref(repo_root, bundled_binary)
+        return {
+            "name": "stage_python_package_with_bundled_cli",
+            "command": redact_command_for_transcript(
+                repo_root,
+                [
+                    "stage-python-package-with-bundled-cli",
+                    str(binary),
+                    str(stage_dir),
+                ],
+            ),
+            "returncode": 0,
+            "elapsed_millis": round((time.perf_counter() - started) * 1000.0, 4),
+            "stdout": f"bundled_cli_resource={resource_ref}",
+            "stderr": "",
+            "timed_out": False,
+            "bundled_cli_platform_tag": platform_tag,
+            "bundled_cli_resource": resource_ref,
+        }
+    except (OSError, shutil.Error) as exc:
+        return {
+            "name": "stage_python_package_with_bundled_cli",
+            "command": redact_command_for_transcript(
+                repo_root,
+                [
+                    "stage-python-package-with-bundled-cli",
+                    str(binary),
+                    str(stage_dir),
+                ],
+            ),
+            "returncode": 1,
+            "elapsed_millis": round((time.perf_counter() - started) * 1000.0, 4),
+            "stdout": "",
+            "stderr": str(exc),
+            "timed_out": False,
+            "bundled_cli_resource": resource_ref,
+        }
 
 
 def generated_user_rows_smoke_script(output_path: Path) -> str:
@@ -544,9 +651,10 @@ def main() -> int:
     venv_dir = resolve_under_repo(repo_root, args.venv_dir)
     conda_env_dir = resolve_under_repo(repo_root, args.conda_env_dir)
     output = resolve_under_repo(repo_root, args.output)
-    dist_dir = repo_root / "python" / "dist"
     binary = shardloom_binary(repo_root)
     proof_artifact_dir = repo_root / "target" / "release-dry-run-proof"
+    package_stage_dir = proof_artifact_dir / "python-package-stage"
+    dist_dir = package_stage_dir / "dist"
     generated_user_rows_output = proof_artifact_dir / "generated-user-rows.jsonl"
     generated_range_output = proof_artifact_dir / "generated-range.jsonl"
     clean_conda_status = "not_run_prerequisite_failed"
@@ -570,7 +678,11 @@ def main() -> int:
             cwd=repo_root,
         )
     )
-    steps.append(build_python_artifacts(repo_root, dist_dir, package_python))
+    steps.append(
+        stage_python_package_with_bundled_cli(repo_root, package_stage_dir, binary)
+    )
+    if all(step["returncode"] == 0 for step in steps):
+        steps.append(build_python_artifacts(repo_root, package_stage_dir, dist_dir, package_python))
     steps.append(
         run_step(
             name="create_clean_venv",
@@ -599,7 +711,9 @@ def main() -> int:
     wheel = newest_wheel(dist_dir)
     clean_python = venv_python(venv_dir)
     smoke_env = os.environ.copy()
-    smoke_env["SHARDLOOM_BIN"] = str(binary)
+    smoke_env.pop("SHARDLOOM_BIN", None)
+    smoke_env.pop("SHARDLOOM_REPO_ROOT", None)
+    smoke_env.pop("SHARDLOOM_PROFILE_ORDER", None)
 
     steps.append(
         run_step(
@@ -621,13 +735,18 @@ def main() -> int:
             command=[
                 str(clean_python),
                 "-c",
-                (
-                    "from shardloom import ShardLoomClient; "
-                    "client=ShardLoomClient.from_env(); "
-                    "smoke=client.smoke_check(); "
-                    "caps=client.capabilities(); "
-                    "print('fallback_attempted=' + str(smoke.fallback_attempted)); "
-                    "print('capabilities_command=' + caps.command)"
+                            (
+                                "from shardloom import ShardLoomClient; "
+                                "client=ShardLoomClient(); "
+                                "binary=client.binary_command()[0]; "
+                                "is_bundled='/shardloom/bin/' in binary.replace('\\\\\\\\', '/'); "
+                                "assert is_bundled, binary; "
+                                "smoke=client.smoke_check(); "
+                                "caps=client.capabilities(); "
+                                "print('bundled_cli_resolved=' + str(is_bundled)); "
+                                "print('binary_command=' + binary); "
+                                "print('fallback_attempted=' + str(smoke.fallback_attempted)); "
+                                "print('capabilities_command=' + caps.command)"
                 ),
             ],
             cwd=repo_root,
@@ -681,8 +800,12 @@ def main() -> int:
                             "-c",
                             (
                                 "from shardloom import ShardLoomClient; "
-                                "client=ShardLoomClient.from_env(); "
+                                "client=ShardLoomClient(); "
+                                "binary=client.binary_command()[0]; "
+                                "is_bundled='/shardloom/bin/' in binary.replace('\\\\\\\\', '/'); "
+                                "assert is_bundled, binary; "
                                 "smoke=client.smoke_check(); "
+                                "print('bundled_cli_resolved=' + str(is_bundled)); "
                                 "print('fallback_attempted=' + str(smoke.fallback_attempted))"
                             ),
                         ],
@@ -876,6 +999,13 @@ def write_transcript(
         "local_wheel": transcript_path_ref(repo_root, wheel),
         "local_cli_binary": transcript_path_ref(repo_root, binary),
         "cli_binary_build_status": step_status("build_cli_binary"),
+        "bundled_cli_stage_status": step_status("stage_python_package_with_bundled_cli"),
+        "bundled_cli_platform_tag": steps_by_name.get(
+            "stage_python_package_with_bundled_cli", {}
+        ).get("bundled_cli_platform_tag"),
+        "bundled_cli_resource": steps_by_name.get(
+            "stage_python_package_with_bundled_cli", {}
+        ).get("bundled_cli_resource"),
         "python_artifact_build_status": step_status("build_python_artifacts"),
         "publication_attempted": False,
         "tag_created": False,
@@ -886,6 +1016,17 @@ def write_transcript(
         "external_engine_invoked": False,
         "public_package_release_claim_allowed": False,
         "wheel_import_and_client_smoke_performed": step_passed("wheel_import_and_client_smoke"),
+        "wheel_import_and_client_smoke_without_shardloom_bin": step_passed(
+            "wheel_import_and_client_smoke"
+        ),
+        "wheel_client_resolved_bundled_cli": step_stdout_contains(
+            "wheel_import_and_client_smoke",
+            "bundled_cli_resolved=True",
+        ),
+        "conda_client_resolved_bundled_cli": step_stdout_contains(
+            "conda_wheel_import_and_client_smoke",
+            "bundled_cli_resolved=True",
+        ),
         "cli_status_smoke_performed": step_passed("cli_status_json"),
         "cli_capabilities_smoke_performed": step_passed("cli_capabilities_json"),
         "local_python_example_smoke_performed": step_passed("example_local_python_smoke"),

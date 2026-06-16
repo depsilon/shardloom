@@ -178,18 +178,285 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
+- [x] `PY-LOCAL-WORKFLOW-1M-PRODUCT-ROUTE-1` Promote released Python local CSV/JSONL
+  workflows out of smoke-only caps.
+  - Source: maintainer request on June 16, 2026 to remove synthetic caps from the released Python
+    front door for 1M-row local chart/post workflows while preserving existing
+    `sql-local-source-smoke` safeguards, no-fallback policy, and Vortex-native input/output
+    direction.
+  - Current state: `sql-local-source-smoke` intentionally caps local smoke inputs at 50,000 rows
+    and must remain available as a smoke-route safeguard. The released Python
+    `ctx.read(...)`/`ctx.read_csv(...)`/`ctx.read_json(...)` `LazyFrame.collect()` and
+    `write_jsonl()` paths still route admitted local workflows through the smoke facade, which can
+    surface `scoped SQL local-source smoke supports at most 50000 ... data rows` for normal
+    product-looking local workflows. Existing native Vortex Python paths cover scoped
+    primitive/report routes, but product local compatibility-source workflows need a distinct
+    large-local route and clear evidence while the native Vortex middle is unified. The cap fix is
+    a product-route admission boundary, not a new per-format execution stack and not proof that
+    compatibility-source execution has already converged on the final native Vortex middle.
+  - Intake review: accepted selective filter, filter/projection/limit, grouped count/sum, hash
+    join, global top-N, clean/cast/filter/write JSONL, malformed timestamp fail-closed behavior,
+    null-heavy aggregate, and nested JSON field scan as product-route admission targets rather than
+    a new benchmark/test-scenario matrix. They share the same source-adapter admission, Python/SQL
+    lowering, no-fallback diagnostics, and cap-removal boundary. The request to preserve existing
+    smoke caps is accepted as a non-negotiable boundary; the request to avoid simply increasing
+    `MAX_INPUT_ROWS` is accepted as the route-design constraint.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: capillary work units apply to input adapters, bounded output
+    writes, and hash-join/group-state ownership; dynamic admission/work shaping applies to selecting
+    product-local versus smoke-local versus deterministic blocker routes from plan shape and source
+    format; PulseWeave applies to sequential local work scheduling, join/build/probe state, and
+    local memory posture even when `max_parallelism=1` is the default; metadata-first execution
+    applies to schema, required-column planning, null/dropna, and limit pushdown; evidence-tier
+    controls apply to separating `smoke_supported`, `scoped_runtime_supported`, `feature_gated`,
+    and `production_admitted_local_workflow`. User surfaces must remain format-neutral:
+    `ctx.read(...)`, `ctx.read_csv(...)`, `ctx.read_json(...)`, SQL, and DataFrame-style builders
+    should share a logical ShardLoom plan after the input-adapter boundary. The next native-route
+    item owns convergence into a Vortex-normalized middle; this item must not hide a direct
+    compatibility-source path behind Vortex wording. This item must not use DuckDB, Polars, pandas, Spark,
+    DataFusion, Vortex query-engine integrations, or decode-first shortcuts as execution fallback.
+  - Execution checklist:
+    - [x] Add a product-grade local workflow route distinct from `sql-local-source-smoke`; keep the
+      smoke command and `MAX_INPUT_ROWS` cap intact for smoke-route safeguards.
+    - [x] Route admitted Python `ctx.read(...)`/`ctx.read_csv(...)`/`ctx.read_json(...)`
+      `LazyFrame.collect()` and `write_jsonl()` workflows to the product local route for large local
+      CSV/JSONL inputs, with `max_parallelism=1` default unless explicitly overridden.
+    - [x] Admit the listed local workflow shapes by removing production-route synthetic caps
+      without adding or changing benchmark/test scenario definitions: selective filter; filter +
+      projection + limit; group by count/sum aggregation; hash join; global top-N;
+      clean/cast/filter/write JSONL; malformed timestamp cast fail-closed behavior; null-heavy
+      aggregate; nested JSON field scan.
+    - [x] Treat raw compatibility-source Vortex normalization as an internal/public workflow
+      lifecycle detail with evidence fields instead of exposing benchmark preparation as a normal
+      Python user step; do not create separate per-format user-surface components beyond input
+      adapters and output sinks.
+    - [x] Expand `ctx.read_vortex(...)` only where existing ShardLoom-native benchmark-family
+      operators have evidence; otherwise emit deterministic blockers with stable blocker IDs and
+      concrete `next_action`.
+    - [x] Emit machine-readable evidence for product local workflows, including route ID,
+      support status, source format, row-count posture, `fallback_attempted=false`,
+      `external_engine_invoked=false`, normalization point, materialization/decode boundary,
+      `max_parallelism`, and route claim boundary.
+    - [x] Update capability reports/docs so `smoke-supported`, `scoped runtime supported`,
+      `feature-gated`, and `production-admitted local workflow` are distinct and not used
+      interchangeably.
+    - [x] Add a release/package/Homebrew readiness note for feature gates:
+      `universal-format-io`, `vortex-write`, and `vortex-traditional-analytics-benchmark`.
+      Do not publish.
+    - [x] Keep validation focused on route/runtime contracts: product route has no synthetic
+      source-row, source-byte, or join-candidate caps; smoke route still enforces its safeguards;
+      fail-closed errors preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+    - [x] Add minimal Rust/Python regression coverage only where needed for route admission,
+      evidence fields, and preserved smoke-route cap boundaries.
+    - [x] Update `docs/architecture/v1-front-door-runtime-scope.md` and
+      `docs/architecture/v1-vortex-runtime-scope.md` with current route scope, blockers, and
+      feature-gate posture.
+    - [x] Move completed detail to the phased execution completed ledger after merge/session
+      completion.
+  - Next outcome: a cohesive runtime/docs/tests PR where normal released Python local CSV/JSONL
+    workflows can exercise the listed 1M-row scenarios through a product local route without
+    touching external engines or removing the smoke route.
+  - User-visible surface: Python `ctx.read_csv`, `ctx.read_json`, `LazyFrame.collect`,
+    `LazyFrame.write_jsonl`, capability reports, docs, and machine-readable execution evidence.
+  - Implementation scope: `python/src/shardloom/query.py`, `python/src/shardloom/client.py`,
+    `python/tests/*`, `shardloom-cli/src/public_workflow_route.rs`,
+    `shardloom-cli/src/sql_local_source_runtime.rs` or a new product-local runtime module,
+    `shardloom-cli/src/status_capabilities.rs`, command registry/capability validators, and
+    affected docs/readiness artifacts.
+  - Evidence required: route/admission tests; no-fallback evidence; explicit unsupported
+    diagnostics; local-source Native I/O and materialization/decode evidence; feature-gate
+    readiness note.
+  - Acceptance: admitted 1M-row workflows do not emit the 50k smoke-cap error; unsupported plans
+    block before execution with stable diagnostics; no external engine is invoked; existing
+    `sql-local-source-smoke` behavior remains capped; docs/capabilities no longer conflate smoke
+    support with product-admitted local workflow support.
+  - Verification: `cargo fmt --all -- --check`; `cargo clippy --workspace --all-targets -- -D
+    warnings`; `cargo test --workspace --all-targets`; `PYTHONPATH=python/src python -m unittest
+    python.tests.test_cli_client`; focused route/cap regression tests run sequentially.
+  - Non-goals: no package publication; no object-store/table/distributed/Foundry proof; no
+    hidden pandas/Polars/DuckDB/Spark/DataFusion fallback; no broad arbitrary SQL/DataFrame parity
+    claim; no increase-only patch to `MAX_INPUT_ROWS`.
+  - Claim boundary: local 1M-row Python CSV/JSONL workflow support only for the admitted scenario
+    set with recorded evidence; no production object-store, lakehouse, Foundry, or superiority
+    claim without separate benchmark/release evidence.
+  - Fallback boundary: all successful and blocked paths must report `fallback_attempted=false` and
+    `external_engine_invoked=false`.
+  - Ledger rule: completed detail moves to
+    `docs/architecture/phased-execution-completed-ledger.md`.
+
+- [x] `PY-VORTEX-ROUTE-UNIFY-1` Native Vortex route unification for Python and SQL user
+  operations.
+  - Source: maintainer request on June 16, 2026 to make
+    `ctx.read_vortex(...).filter(...).select(...).group_by(...).join(...).nlargest(...).write_*()`
+    and equivalent SQL lower into the native Vortex runtime instead of only scoped primitives,
+    report paths, or named benchmark scenario routes.
+  - Current state: v0.1.x Python exposes familiar lazy query-builder methods and some Vortex
+    collect paths already use local primitive commands for filter/project/count. Exact
+    benchmark-family Python/DataFrame and SQL shapes now lower through real native Vortex
+    provider-backed routes for aggregate, hash join, top-N, cast, contains, and `write_vortex`.
+    Broader arbitrary Python/SQL ETL chains, general multi-input joins, multi-output sinks, and
+    benchmark/publication route-certificate refresh are still not unified under one general route
+    contract. Input formats should be unique only at source-adapter boundaries; Python, SQL, and
+    DataFrame-style builders should lower into the same ShardLoom logical plan and native Vortex
+    runtime contract after normalization. Unsupported behavior must remain deterministic and
+    no-fallback.
+  - Intake review: accepted the route unification, operator coverage, native Vortex join/state,
+    typed result/sink contract, capability gating, and evidence/test candidates as one coherent
+    runtime section because they share the same Python/SQL lowering, native-route admission, and
+    no-fallback validation surface.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: metadata-first execution and Vortex-first provider checks apply to
+    source/schema/statistics handling; capillary work units apply to input normalization,
+    per-operator route admission, and bounded sink writes; dynamic admission/work shaping applies to
+    choosing native primitive, benchmark-equivalent native route, or deterministic blocker by
+    operator set; PulseWeave applies to multi-input join/build/probe state and bounded execution
+    evidence; timing-surface and evidence-tier controls apply when comparing Python-route rows to
+    benchmark route rows. Do not add generic DataFrame fallback, per-format execution stacks, or
+    decode-first shortcuts.
+  - Execution checklist:
+    - [x] Add a native Vortex user-route capability contract that maps Python and SQL operations to
+      `supported`, `supported_with_materialization_boundary`, or deterministic blocker states with
+      stable diagnostic codes, `fallback_attempted=false`, and `external_engine_invoked=false`.
+      - Evidence note: `public_workflow_route` and `public_workflow_run` now emit
+        `native_vortex_user_route_contract_schema_version`,
+        `native_vortex_operation_family`, `native_vortex_capability_status`,
+        `native_vortex_required_evidence`, `native_vortex_next_action`,
+        `typed_result_contract`, `typed_sink_contract`, and
+        `decode_materialization_boundary`; public run envelopes attach the same fields with the
+        `public_workflow_` prefix.
+    - [x] Define a single user-surface lowering path where `ctx.read(...)`, explicit format readers,
+      SQL, and DataFrame-style lazy chains produce the same logical plan after source-adapter
+      normalization; keep format-specific code at input adapters and output sinks.
+      - Evidence note: product local workflows, direct `.vortex` primitives, exact native Vortex
+        provider-backed shapes, and SQL/DataFrame-style surfaces now enter the same
+        `public_workflow_route`/`public_workflow_run` facade with source/format-specific handling
+        kept at adapter and sink boundaries. Broad arbitrary Vortex SQL/DataFrame planning remains
+        explicitly blocked outside the exact admitted shapes.
+    - [x] Route `ctx.read_vortex(...).filter(...).select(...).limit(...).collect()` and equivalent
+      SQL through the same native primitive path and evidence fields, including decode/materialize
+      boundaries for bounded Python rows.
+      - Evidence note: Python/DataFrame and SQL Vortex primitive collect/count paths now call the
+        shared `public_workflow_run` facade with real `surface`, `plan_summary`/`sql_statement`,
+        `execution_policy=native_vortex`, and primitive payloads before dispatching to
+        `vortex-run`, `vortex-count-where`, `vortex-filter`, `vortex-project`, or
+        `vortex-filter-project`.
+    - [x] Admit grouped count/sum, null-heavy aggregate, cast/try-cast, substring contains, global
+      top-N, and declared JSONL/CSV/Vortex sink chains only when the Python expression lowering and
+      native route support are present; otherwise block before execution with actionable
+      diagnostics.
+      - [x] Add Python/native Vortex deterministic blocker routing for aggregate, join state,
+        global top-N, cast/try-cast, substring contains, and declared sinks without invoking
+        external engines or adding per-format user-surface APIs.
+      - [x] Add route-level operation-family blockers for unshaped native Vortex query, aggregate,
+        join, top-N, cast/try-cast, substring contains, and sink families so route inspection and
+        run envelopes agree before execution.
+      - [x] Promote exact benchmark-family Python/DataFrame and SQL shapes for grouped count/sum,
+        null-heavy aggregate, hash join, global top-N, clean/cast/filter, malformed timestamp
+        cast, substring contains, and `write_vortex` result sinks to real native Vortex
+        provider-backed routes via `traditional-analytics-vortex-run`, with provider
+        scenario/right-input evidence in public run envelopes.
+      - [x] Keep compatibility sinks such as JSONL/CSV from Vortex-native workflows blocked until
+        an explicit decode/export contract is implemented; `write_vortex` is the admitted native
+        sink route.
+    - [x] Add v1-scoped native Vortex multi-input join state for the admitted Python/SQL hash-join
+      provider route, keeping declared right-input/build-probe state inside ShardLoom-native
+      execution instead of compatibility fallback.
+      - Evidence note: exact hash-join Python/DataFrame and SQL shapes now pass
+        `native_vortex_right_input` through the public workflow facade to
+        `traditional-analytics-vortex-run`, with route certificate rows proving
+        `native_vortex_user_join`, provider scenario `hash-join`, `fallback_attempted=false`, and
+        `external_engine_invoked=false`. Arbitrary multi-input native Vortex joins remain outside
+        the v1 claim and continue to block deterministically.
+    - [x] Define the typed result/sink contract for bounded `collect()` rows versus
+      `write_jsonl`, `write_csv`, `write_parquet`, `write_arrow_ipc`, and `write_vortex`, including
+      explicit decode/materialization and metadata-loss evidence.
+      - Evidence note: current supported primitives expose bounded scalar/row result contracts;
+        product-local workflows expose declared compatibility sink contracts; exact provider-backed
+        native Vortex `write_vortex` chains expose
+        `native_vortex_result_sink_with_replay_verified_artifact`; compatibility exports from a
+        Vortex-native workflow remain blocked until a decode/export contract is implemented.
+    - [x] Add minimal Python/SQL contract fixtures, not new benchmark scenario definitions,
+      covering single input, multiple inputs, multiple outputs, chained operations, blocked
+      unsupported operators, and no external engine invocation.
+      - [x] Add/update positive single-input Python/DataFrame, session, and SQL fixtures proving
+        native Vortex count/filter/project/filter-project/limit routes use the public facade with
+        `fallback_attempted=false` and `external_engine_invoked=false`.
+      - [x] Add/update provider-backed fixtures proving the exact Python/DataFrame and SQL
+        benchmark-family aggregate, join, top-N, cast, contains, and `write_vortex` sink shapes
+        lower through the public native Vortex route facade with `fallback_attempted=false` and
+        `external_engine_invoked=false`.
+      - [x] Keep blocked fixtures for unadmitted Vortex shapes and compatibility sinks.
+      - [x] Add broader fixtures only when real multi-input joins, multi-output sinks, and typed
+        native Vortex sink contracts are implemented.
+        - Evidence note: v1-scoped hash join and native `write_vortex` sink fixtures now cover the
+          admitted multi-input and sink routes. Broader arbitrary multi-input joins and multi-output
+          sinks are not part of this v1 route certificate and remain explicit blockers.
+    - [x] Add benchmark/publication evidence or route certificate rows proving the native Python
+      route matches the named benchmark route for the admitted scenario families before making any
+      performance claim.
+      - Evidence note: `ShardLoomContext.native_vortex_provider_route_certificate_report()` and
+        `scripts/check_v1_vortex_runtime_scope.py` now record certificate rows for exact
+        grouped-aggregation, null-heavy aggregate, hash join, global top-N, clean/malformed casts,
+        substring contains, and native `write_vortex` sink provider routes. The report is
+        side-effect-free and keeps `performance_claim_allowed=false`.
+    - [x] Update README, Python README, user-surface index, architecture docs, website examples, and
+      generated/reference artifacts so normal user snippets and advanced benchmark snippets no
+      longer conflict.
+      - Evidence note: README, Python README, the user-surface index, website Python field guide,
+        v1 front-door scope, and v1 Vortex runtime scope now point to the simple
+        `sl.context()`/`ctx.read(...)` user surface and the exact native provider route
+        certificate report for advanced direct-Vortex shapes.
+    - [x] Move completed details to the ledger after implementation, validation, PR handling, and
+      any required benchmark or route-certificate refresh.
+  - Next outcome: a cohesive runtime PR/session that starts by unifying native Vortex filter,
+    project, limit, collect, and deterministic capability/blocker evidence for Python and SQL, then
+    promotes additional operator families only where ShardLoom-native support is real.
+  - User-visible surface: Python `sl.context()`, `ctx.read_vortex`, `ctx.read`, lazy query-builder
+    methods, `ctx.sql`, result objects, write helpers, capability reports, README/docs, website
+    examples, and benchmark route evidence.
+  - Implementation scope: `python/src/shardloom/query.py`, `python/src/shardloom/context.py`,
+    `python/src/shardloom/native_route.py`, `python/src/shardloom/client.py`, Python tests,
+    `shardloom-cli` local primitive commands, `shardloom-vortex` native primitive/join/sink
+    surfaces, route/evidence validators, docs/reference, README/Python README, website source, and
+    generated static artifacts as behavior moves.
+  - Evidence required: Python unit/UAT tests, SQL parity tests, Rust primitive/join/sink tests where
+    runtime behavior changes, execution certificates, Native I/O evidence, typed result/sink
+    evidence, deterministic unsupported diagnostics, no-fallback fields, and route/benchmark
+    evidence before performance claims.
+  - Acceptance: admitted Python and SQL Vortex chains execute through ShardLoom-native routes with
+    correct results, explicit materialization/decode boundaries, no external engines, and stable
+    fallback-disabled evidence; unsupported operators fail before execution with deterministic
+    blockers; docs and website examples reflect the same supported surface.
+  - Verification: focused Python tests for query builder/native route lowering, SQL/Vortex parity
+    tests, targeted Rust primitive/join/sink tests for changed runtime code, user-surface reference
+    validator, docs/static checks, `cargo fmt --all -- --check`, focused `cargo test` packages, and
+    broader CI-equivalent checks when runtime contracts move.
+  - Non-goals: no Spark/DataFusion/DuckDB/Polars/pandas execution fallback, no arbitrary ANSI SQL
+    claim, no broad DataFrame parity claim, no unbounded materialization convenience path, no
+    object-store/table/distributed/live/Foundry production claim, and no performance superiority
+    claim without current benchmark evidence.
+  - Claim boundary: scoped native Vortex user-route support only for explicitly admitted operators,
+    inputs, and sinks. Report-only, planned, and unsupported surfaces remain blocked until they have
+    runtime evidence.
+  - Fallback boundary: every admitted route and blocker must report `fallback_attempted=false` and
+    `external_engine_invoked=false`; external engines remain baselines/oracles only.
+  - Ledger rule: completed details move to
+    `docs/architecture/phased-execution-completed-ledger.md`.
+
 - [ ] `RELEASE-PACKAGE-0.1X-BUNDLED-CLI-1` Python package bundled CLI binary resolution for
   managed development environments.
   - Source: June 16, 2026 package/UAT feedback after live package simulation showed normal
     `sl.context()` works when `shardloom` is on `PATH`, but PyPI-only managed environments such as
     Foundry dev repos still need `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, or a source checkout
     binary.
-  - Current state: v0.1.0 PyPI is a pure Python client surface. `ShardLoomClient` resolves an
-    explicit `binary`, `SHARDLOOM_BIN`, source-checkout `repo_root` binaries, then `shardloom` on
-    `PATH`. It does not ship a CLI binary inside the Python wheel, so Python-only package installs
-    cannot run CLI-backed commands without an external binary. README, package docs, and website
-    examples now distinguish normal `ctx.read(...)` code from schema-pinned benchmark/source
-    checkout code, but the binary-resolution ergonomics remain a real packaging gap.
+  - Current state: published v0.1.x PyPI is a Python client surface over an external CLI
+    installation. This branch teaches `ShardLoomClient` to resolve an explicit `binary`,
+    `SHARDLOOM_BIN`, source-checkout `repo_root` binaries, bundled wheel CLI resources, then
+    `shardloom` on `PATH`; the release dry-run stages a bundled platform wheel and proves clean
+    venv resolution without `SHARDLOOM_BIN` or `SHARDLOOM_REPO_ROOT`. Public publication of the
+    bundled patch wheel is still a release action, not an implementation claim. README, package
+    docs, and website examples distinguish normal `ctx.read(...)` code from schema-pinned
+    benchmark/source checkout code.
   - V1 scope classification: `v1_candidate_pending_feasibility`.
   - ShardLoom technique review: dynamic admission applies to binary resolution and selected wheel
     platform tags; metadata-first release evidence applies to wheel contents, checksums, SBOM,
@@ -197,25 +464,45 @@ Current autonomous execution order:
     directly because this is package resolution, not query execution, but release evidence-tier
     controls must keep package access separate from production/performance claims.
   - Execution checklist:
-    - [ ] Decide and document the package strategy: bundled platform wheels in `shardloom` versus a
+    - [x] Decide and document the package strategy: bundled platform wheels in `shardloom` versus a
       companion platform package; reject runtime binary download unless a later explicit RFC
       approves network/provenance side effects.
-    - [ ] Add a packaged-binary resolver path that checks bundled wheel resources before `PATH`
+    - [x] Add a packaged-binary resolver path that checks bundled wheel resources before `PATH`
       while preserving explicit `binary`, `SHARDLOOM_BIN`, and source-checkout `repo_root`
       precedence.
-    - [ ] Add platform wheel build/release wiring for the selected patch release scope, starting
+    - [x] Add platform wheel build/release wiring for the selected patch release scope, starting
       with the platforms that can support Foundry/dev-env and local maintainer proof without
       weakening Apache-2.0 license/provenance or no-fallback constraints.
-    - [ ] Add resolver tests proving bundled binary discovery, explicit override precedence,
+      - Evidence note: `scripts/release_dry_run_proof.py` now stages the source package under
+        `target/release-dry-run-proof/python-package-stage`, copies the built `shardloom` CLI into
+        `shardloom/bin/<system-arch>/`, builds the wheel/sdist from that stage, and
+        `python/setup.py` marks wheels as platform-specific when the bundled native CLI is present.
+    - [x] Add resolver tests proving bundled binary discovery, explicit override precedence,
       deterministic missing-binary diagnostics, executable-bit handling, and no runtime download.
-    - [ ] Add clean-venv package smoke proof with no `SHARDLOOM_BIN`, no `SHARDLOOM_REPO_ROOT`, and
+      - [x] Add focused resolver tests for bundled-before-`PATH`, `SHARDLOOM_BIN` override
+        precedence, non-executable bundled resource handling, deterministic missing-binary
+        diagnostics, and the no-runtime-download resolver order.
+    - [x] Add clean-venv package smoke proof with no `SHARDLOOM_BIN`, no `SHARDLOOM_REPO_ROOT`, and
       no Homebrew dependency: `import shardloom as sl; ctx = sl.context(); ctx.smoke_check();
       ctx.read(...).limit(...).collect()`.
-    - [ ] Update README, Python README, package install docs, release/channel matrices, website
+      - Evidence note: clean venv and optional clean Conda smokes now remove
+        `SHARDLOOM_BIN`/`SHARDLOOM_REPO_ROOT`, assert that `ShardLoomClient().binary_command()`
+        resolves through installed `shardloom/bin/<system-arch>/`, and record
+        `wheel_client_resolved_bundled_cli`.
+    - [x] Update README, Python README, package install docs, release/channel matrices, website
       source, generated website output, and maintainer handoff docs so managed Python installs no
       longer require user code to pass binary paths when a supported bundled wheel is installed.
-    - [ ] Add release validators/channel proof fields for bundled CLI wheel contents, checksums,
+      - Evidence note: README, Python README, package install docs, package readiness docs, release
+        dry-run proof docs, and inclusion matrix now distinguish published v0.1.1 external-CLI
+        installs from the next bundled-wheel patch path; website source already uses the simple
+        `sl.context()` surface and does not require binary-path examples.
+    - [x] Add release validators/channel proof fields for bundled CLI wheel contents, checksums,
       SBOM/provenance, clean install/uninstall, Homebrew coexistence, and rollback/yank policy.
+      - Evidence note: the dry-run transcript now emits `bundled_cli_stage_status`,
+        `bundled_cli_platform_tag`, `bundled_cli_resource`,
+        `wheel_import_and_client_smoke_without_shardloom_bin`, and
+        `wheel_client_resolved_bundled_cli`; channel matrices remain publication records and do not
+        claim package publication for unreleased future wheels.
     - [ ] Move completed details to the ledger after implementation, validation, and patch-release
       PR handling.
   - Next outcome: a cohesive patch-release packaging PR that makes `sl.context()` usable from a
