@@ -26,9 +26,23 @@ permissions:
 jobs:
   build:
     if: ${{ inputs.publish_approved == 'publish-approved' }}
-    runs-on: ubuntu-latest
+    name: Build Python package with bundled CLI (${{ matrix.artifact_suffix }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_suffix: linux
+          - os: macos-latest
+            artifact_suffix: macos
+          - os: windows-latest
+            artifact_suffix: windows
     permissions:
       contents: read
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # actions/checkout@v6
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # actions/setup-python@v6
@@ -45,6 +59,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import sys
+          import zipfile
 
           sys.path.insert(0, "scripts")
           from release_dry_run_proof import (
@@ -72,12 +87,32 @@ jobs:
           ]
           if failures:
               raise SystemExit("; ".join(failures))
+          wheels = sorted(dist_dir.glob("shardloom-*.whl"))
+          if not wheels:
+              raise SystemExit("missing platform wheel")
+          for wheel in wheels:
+              if wheel.name.endswith("-py3-none-any.whl"):
+                  raise SystemExit(f"bundled CLI wheel must not be universal: {wheel.name}")
+              with zipfile.ZipFile(wheel) as archive:
+                  wheel_metadata = next(
+                      name for name in archive.namelist() if name.endswith(".dist-info/WHEEL")
+                  )
+                  wheel_text = archive.read(wheel_metadata).decode("utf-8")
+              if "Root-Is-Purelib: false" not in wheel_text:
+                  raise SystemExit(f"bundled CLI wheel must be platform-specific: {wheel.name}")
           PY
       - name: Upload Python dist artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
         with:
-          name: python-dist
-          path: target/pypi-python-package-stage/dist/*
+          name: python-dist-${{ matrix.artifact_suffix }}
+          path: target/pypi-python-package-stage/dist/*.whl
+          if-no-files-found: error
+      - name: Upload Python sdist artifact
+        if: ${{ matrix.artifact_suffix == 'linux' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
+        with:
+          name: python-dist-sdist
+          path: target/pypi-python-package-stage/dist/*.tar.gz
           if-no-files-found: error
 
   publish-testpypi:
@@ -92,8 +127,9 @@ jobs:
       - name: Download Python dist artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
         with:
-          name: python-dist
+          pattern: python-dist-*
           path: python/dist
+          merge-multiple: true
       - name: Publish to TestPyPI with Trusted Publisher
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # pypa/gh-action-pypi-publish@release/v1
         with:
@@ -178,8 +214,9 @@ jobs:
       - name: Download Python dist artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # actions/download-artifact@v8
         with:
-          name: python-dist
+          pattern: python-dist-*
           path: python/dist
+          merge-multiple: true
       - name: Publish to PyPI with Trusted Publisher
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # pypa/gh-action-pypi-publish@release/v1
         with:

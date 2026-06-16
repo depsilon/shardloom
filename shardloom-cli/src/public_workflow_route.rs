@@ -1282,6 +1282,9 @@ fn infer_native_vortex_provider_payload(
         return None;
     }
     let operations = parse_plan_summary_operations(request.plan_summary.as_deref()?)?;
+    if !summary_read_vortex_matches_input(&operations, request.input_uri.as_deref()?) {
+        return None;
+    }
     let write_vortex = request.requested_output == "write_vortex";
 
     let (family, provider_scenario) = if summary_matches_group_by_aggregation(&operations) {
@@ -1355,6 +1358,12 @@ fn parse_plan_summary_operations(summary: &str) -> Option<Vec<SummaryOperation<'
         });
     }
     (!operations.is_empty()).then_some(operations)
+}
+
+fn summary_read_vortex_matches_input(operations: &[SummaryOperation<'_>], input_uri: &str) -> bool {
+    operations.first().is_some_and(|operation| {
+        operation.kind == "read_vortex" && operation.arg.trim() == input_uri
+    })
 }
 
 fn summary_matches_group_by_aggregation(operations: &[SummaryOperation<'_>]) -> bool {
@@ -1458,16 +1467,62 @@ fn infer_native_vortex_primitive_payload(
     if request.requested_output != "collect" {
         return None;
     }
-    let summary = request.plan_summary.as_deref()?;
-    let predicate = summary_operation_arg(summary, "filter");
-    let columns = summary_operation_arg(summary, "select");
-    let source_order_limit = summary_operation_arg(summary, "limit");
-    let primitive = match (predicate.is_some(), columns.is_some()) {
-        (true, true) => PublicVortexPrimitive::FilterProject,
-        (true, false) => PublicVortexPrimitive::Filter,
-        (false, true) => PublicVortexPrimitive::Project,
-        (false, false) => return None,
-    };
+    let operations = parse_plan_summary_operations(request.plan_summary.as_deref()?)?;
+    if !summary_read_vortex_matches_input(&operations, request.input_uri.as_deref()?) {
+        return None;
+    }
+    let (primitive, predicate, columns, source_order_limit) =
+        if matches_summary_kinds(&operations, &["read_vortex", "filter", "select", "limit"])
+            && summary_positive_limit(operations[3].arg)
+        {
+            (
+                PublicVortexPrimitive::FilterProject,
+                Some(operations[1].arg.trim().to_string()),
+                Some(operations[2].arg.trim().to_string()),
+                Some(operations[3].arg.trim().to_string()),
+            )
+        } else if matches_summary_kinds(&operations, &["read_vortex", "filter", "select"]) {
+            (
+                PublicVortexPrimitive::FilterProject,
+                Some(operations[1].arg.trim().to_string()),
+                Some(operations[2].arg.trim().to_string()),
+                None,
+            )
+        } else if matches_summary_kinds(&operations, &["read_vortex", "filter", "limit"])
+            && summary_positive_limit(operations[2].arg)
+        {
+            (
+                PublicVortexPrimitive::Filter,
+                Some(operations[1].arg.trim().to_string()),
+                None,
+                Some(operations[2].arg.trim().to_string()),
+            )
+        } else if matches_summary_kinds(&operations, &["read_vortex", "filter"]) {
+            (
+                PublicVortexPrimitive::Filter,
+                Some(operations[1].arg.trim().to_string()),
+                None,
+                None,
+            )
+        } else if matches_summary_kinds(&operations, &["read_vortex", "select", "limit"])
+            && summary_positive_limit(operations[2].arg)
+        {
+            (
+                PublicVortexPrimitive::Project,
+                None,
+                Some(operations[1].arg.trim().to_string()),
+                Some(operations[2].arg.trim().to_string()),
+            )
+        } else if matches_summary_kinds(&operations, &["read_vortex", "select"]) {
+            (
+                PublicVortexPrimitive::Project,
+                None,
+                Some(operations[1].arg.trim().to_string()),
+                None,
+            )
+        } else {
+            return None;
+        };
     Some(InferredNativeVortexRoutePayload {
         family: NativeVortexOperationFamily::from_primitive(primitive),
         provider_scenario: None,
@@ -3820,6 +3875,43 @@ mod tests {
             field(&attachments, "public_workflow_vortex_source_order_limit"),
             "5"
         );
+    }
+
+    #[test]
+    fn route_planner_does_not_infer_primitive_from_partial_plan_summary() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "fact.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(fact.vortex) -> join(dim.vortex,dim_key,dim_key,inner,f,d,) -> filter(gte:value:3)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("partial native primitive route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "vortex_primitive"), "none");
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
     #[cfg(not(feature = "vortex-traditional-analytics-benchmark"))]
