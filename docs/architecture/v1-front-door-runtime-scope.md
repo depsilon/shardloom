@@ -20,12 +20,14 @@ external_engine_invoked=false
 
 The machine-readable sources for this scope are:
 
+- `docs/reference/shardloom-user-surface-index.json`
 - `ShardLoomContext.front_door_parity_matrix()`
 - `ShardLoomContext.user_route_capability_report()`
 - `examples/local-python-benchmark-scenarios/run.py`
 - `examples/local-python-benchmark-scenarios/timing_review.py`
 - `scripts/check_v1_front_door_runtime_scope.py`
 
+The human-readable all-surface index is `docs/reference/shardloom-user-surface-index.md`.
 Public docs, website snippets, and README examples must link to this file when they describe the
 v1-supported front door. They may summarize it, but they must not broaden it.
 
@@ -35,7 +37,7 @@ The v1 front-door scope is local and bounded by default.
 
 | Surface | Supported v1 forms | Runtime boundary |
 | --- | --- | --- |
-| Python context | `context()`, `context(repo_root=...)`, `ctx.read(...)`, `ctx.read_csv(...)`, `ctx.read_json(...)`, `ctx.read_vortex(...)`, source-free helpers such as `ctx.from_rows(...)`, `ctx.range(...)`, `ctx.sequence(...)`, and `ctx.calendar(...)`. | ShardLoom CLI JSON commands through `ShardLoomClient`; no native Python execution engine. |
+| Python context | `context()`, `context(repo_root=...)`, `ctx.read(...)`, `ctx.read_csv(...)`, `ctx.read_json(...)`, `ctx.read_parquet(...)`, `ctx.read_arrow_ipc(...)`, `ctx.read_avro(...)`, `ctx.read_orc(...)`, `ctx.read_vortex(...)`, source-free helpers such as `ctx.from_rows(...)`, `ctx.range(...)`, `ctx.sequence(...)`, and `ctx.calendar(...)`. `ctx.read(...)` infers `.csv`, `.json`, `.jsonl`, `.ndjson`, `.parquet`, `.arrow`, `.ipc`, `.feather`, `.avro`, `.orc`, and `.vortex` local adapters. | ShardLoom CLI JSON commands through `ShardLoomClient`; no native Python execution engine. Feature-gated structured readers return deterministic blockers when their adapter is not enabled. |
 | Query builder | `filter`, `where`, `select`, `project`, `limit`, bounded `collect`, `group_by(...).agg(...)`, scoped `join(..., on=..., how="inner")`, `sort`/`order_by`, `nlargest`, `dropna`, `astype`, `with_column`, and local writes such as `write_jsonl`, `write_csv`, and feature-gated `write_vortex`. | Local-source route, prepared route, generated-source route, or local Vortex primitive route as reported by the capability matrices. |
 | SQL frontend | Scoped local-source SQL over local file references, source-free literal/VALUES output, and scoped local `.vortex` primitive SQL shapes. | SQL is a frontend into ShardLoom planning and execution, not DataFusion, DuckDB, Spark, pandas, Polars, or another engine. |
 | DataFrame-style aliases | Familiar aliases such as `where`, `groupby`, `sort_values`, `head`, `take`, `query` without unsupported keyword arguments, bounded display/materialization helpers, and explicit unsupported reports for non-admitted methods. | Same ShardLoom route as the corresponding SQL/Python workflow or deterministic unsupported report. |

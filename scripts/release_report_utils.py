@@ -79,6 +79,27 @@ def _quoted_value(raw: str) -> str | None:
         return match.group(1)
 
 
+def _quoted_values(text: str) -> list[str]:
+    return [match.group(1) for match in re.finditer(r'"([^"\\]*(?:\\.[^"\\]*)*)"', text)]
+
+
+def workspace_members(repo_root: Path) -> list[str]:
+    """Return root Cargo workspace members from `Cargo.toml`."""
+
+    text = read_text(repo_root / "Cargo.toml", missing_ok=False)
+    members: list[str] = []
+    in_members = False
+    for line in text.splitlines():
+        stripped = line.split("#", 1)[0].strip()
+        if not in_members and stripped.startswith("members"):
+            in_members = "[" in stripped
+        if in_members:
+            members.extend(_quoted_values(stripped))
+            if "]" in stripped:
+                break
+    return members
+
+
 def workspace_rust_version(repo_root: Path) -> str:
     """Return `[workspace.package] rust-version` from the root Cargo manifest."""
 
@@ -97,6 +118,26 @@ def workspace_rust_version(repo_root: Path) -> str:
             if value:
                 return value
     raise ValueError("root Cargo.toml is missing [workspace.package] rust-version")
+
+
+def workspace_package_version(repo_root: Path) -> str:
+    """Return `[workspace.package] version` from the root Cargo manifest."""
+
+    text = read_text(repo_root / "Cargo.toml", missing_ok=False)
+    section: str | None = None
+    for line in text.splitlines():
+        section_key = _current_section_key(line)
+        if section_key is not None:
+            section = section_key
+            continue
+        if section != "workspace.package":
+            continue
+        stripped = line.split("#", 1)[0].strip()
+        if stripped.startswith("version"):
+            value = _quoted_value(stripped)
+            if value:
+                return value
+    raise ValueError("root Cargo.toml is missing [workspace.package] version")
 
 
 def rust_toolchain_version(repo_root: Path) -> str:
@@ -247,6 +288,7 @@ def workspace_version_env(repo_root: Path) -> dict[str, str]:
     """Return the manifest-derived version variables shared by CI and evidence tools."""
 
     return {
+        "SHARDLOOM_PACKAGE_VERSION": workspace_package_version(repo_root),
         "SHARDLOOM_RUST_MSRV_TOOLCHAIN": rust_toolchain_version(repo_root),
         "SHARDLOOM_RUST_MSRV_LANE": rust_msrv_lane_id(repo_root),
         "SHARDLOOM_UPSTREAM_VORTEX_MANIFEST_VERSION": upstream_vortex_manifest_version(

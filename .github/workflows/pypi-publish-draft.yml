@@ -37,6 +37,8 @@ jobs:
       - name: Build Python package
         run: |
           python -m pip install --upgrade pip build
+          python scripts/sync_workspace_package_versions.py --check
+          python scripts/check_workspace_version_sources.py
           python -m build python
       - name: Upload Python dist artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
@@ -84,20 +86,13 @@ jobs:
           import json
           import os
           import pathlib
-          import re
+          import sys
+
+          sys.path.insert(0, "scripts")
+          from release_report_utils import workspace_package_version
 
           def resolve_python_package_version() -> str:
-              version_text = pathlib.Path("python/src/shardloom/_version.py").read_text(
-                  encoding="utf-8"
-              )
-              match = re.search(
-                  r'^\s*__version__\s*=\s*"([^"]+)"\s*$',
-                  version_text,
-                  flags=re.MULTILINE,
-              )
-              if match is None:
-                  raise SystemExit("python/src/shardloom/_version.py missing __version__")
-              return match.group(1)
+              return workspace_package_version(pathlib.Path("."))
 
           proof_ref = pathlib.PurePosixPath(
               pathlib.Path(os.environ["TESTPYPI_PROOF_REF"]).as_posix()

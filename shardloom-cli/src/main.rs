@@ -48,7 +48,7 @@ mod workflow_planning;
 mod workload_certification;
 
 use cli_output::emit_error;
-use shardloom_core::{OutputFormat, ShardLoomError, WorkspaceSafeLocalWriteReport};
+use shardloom_core::{CommandStatus, OutputFormat, ShardLoomError, WorkspaceSafeLocalWriteReport};
 use shardloom_vortex::{
     VortexCommitIntentSignal, VortexCommitMarkerSignal, VortexCommitMarkerWriteOption,
     VortexCommitProtocolSignal, VortexCommitProtocolState, VortexCommitProtocolTransition,
@@ -94,6 +94,41 @@ fn cli_command_name() -> &'static str {
 
 fn cli_usage_line() -> String {
     command_registry::usage_line(cli_command_name())
+}
+
+fn handle_version(format: OutputFormat) -> ExitCode {
+    match format {
+        OutputFormat::Text => {
+            println!("{} {}", cli_command_name(), env!("CARGO_PKG_VERSION"));
+        }
+        OutputFormat::Json => {
+            cli_output::emit(
+                "version",
+                format,
+                CommandStatus::Success,
+                "cli version".to_string(),
+                format!("{} {}", cli_command_name(), env!("CARGO_PKG_VERSION")),
+                vec![],
+                vec![
+                    (
+                        "cli_binary_version".to_string(),
+                        env!("CARGO_PKG_VERSION").to_string(),
+                    ),
+                    (
+                        "version_source".to_string(),
+                        "Cargo.toml#[workspace.package].version".to_string(),
+                    ),
+                    (
+                        "runtime_discovery_side_effect_free".to_string(),
+                        "true".to_string(),
+                    ),
+                    ("fallback_attempted".to_string(), "false".to_string()),
+                    ("external_engine_invoked".to_string(), "false".to_string()),
+                ],
+            );
+        }
+    }
+    ExitCode::SUCCESS
 }
 fn parse_vortex_output_payload_signals(
     signals_raw: &str,
@@ -857,6 +892,9 @@ fn run(args: Vec<String>) -> ExitCode {
             );
         }
     };
+    if matches!(args.as_slice(), [flag] if flag == "--version" || flag == "-V") {
+        return handle_version(format);
+    }
     let args = normalize_help_aliases(args);
     let mut args = args.into_iter();
 

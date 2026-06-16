@@ -10,23 +10,24 @@ object-store/lakehouse, Foundry, or Spark-displacement claims.
 
 ## Stable V1 Local Examples
 
-These examples show the copy-paste shape of the current v1 local surface. Replace paths and schema
-fields with local files that match your checkout. The examples are intentionally bounded and must
-emit ShardLoom evidence instead of delegating unsupported work to another engine.
+These examples show the copy-paste shape of the current v1 local surface. Start with
+`sl.context()` and `ctx.read(path)`; use explicit schemas or format-specific helpers only when a
+test, benchmark, or reproducibility workflow needs them. The examples are intentionally bounded and
+must emit ShardLoom evidence instead of delegating unsupported work to another engine.
+
+`ctx.read(path)` infers local adapters for `.csv`, `.json`, `.jsonl`, `.ndjson`, `.parquet`,
+`.arrow`, `.ipc`, `.feather`, `.avro`, `.orc`, and `.vortex`. CSV, flat JSON/JSONL/NDJSON,
+generated rows, and scoped local Vortex inputs are the default public examples. Parquet, Arrow
+IPC/Feather, Avro, and ORC are scoped local-format surfaces when the matching feature-gated build is
+present; otherwise ShardLoom returns deterministic adapter blockers without fallback execution.
 
 <!-- stable_v1_example_local_csv -->
 
 ```python
-from shardloom import context
 import shardloom as sl
 
-ctx = context(repo_root=".", profile_order=("release", "debug"))
-
-orders = ctx.read_csv("target/orders.csv", schema={
-    "id": "int64",
-    "amount": "float64",
-    "status": "utf8",
-})
+ctx = sl.context()
+orders = ctx.read("target/orders.csv")
 
 result = (
     orders.filter(sl.col("amount") >= 10)
@@ -41,10 +42,7 @@ print(result.fallback_attempted, result.external_engine_invoked)
 <!-- stable_v1_example_local_jsonl -->
 
 ```python
-events = ctx.read_json("target/events.jsonl", schema={
-    "id": "int64",
-    "nested_payload": "utf8",
-})
+events = ctx.read("target/events.jsonl")
 
 result = (
     events.filter(sl.col("nested_payload").contains("target"))
@@ -58,10 +56,7 @@ print(result.output_row_count)
 <!-- stable_v1_example_local_parquet -->
 
 ```python
-facts = ctx.read_parquet("target/fact.parquet", schema={
-    "id": "int64",
-    "metric": "float64",
-})
+facts = ctx.read("target/fact.parquet")
 
 result = facts.filter(sl.col("metric") >= 0).select("id", "metric").limit(100).collect()
 print(result.claim_summary.claim_gate_status)
@@ -73,7 +68,7 @@ the matching feature-gated build. They are not external-engine execution.
 <!-- stable_v1_example_local_vortex -->
 
 ```python
-native = ctx.read_vortex("target/orders.vortex")
+native = ctx.read("target/orders.vortex")
 result = native.filter("gte:amount:10").select("id", "amount").limit(100).collect()
 print(result.fallback_attempted, result.external_engine_invoked)
 ```

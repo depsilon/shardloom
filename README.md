@@ -127,27 +127,22 @@ python -m pip install shardloom==0.1.0
 brew install depsilon/tap/shardloom
 ```
 
-The Python package is a thin client surface and still needs an explicit ShardLoom CLI binary through
-`SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, or the source checkout path when invoking CLI-backed
-commands.
+The Python package is a thin client surface over the ShardLoom CLI. In v0.1.0 it resolves the CLI
+from `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, a source checkout build, or `shardloom` on `PATH`.
+Managed environments that install only the PyPI wheel still need one of those binary-resolution
+paths until a platform wheel bundles the CLI binary.
 
 Normal Python use:
 
 ```python
-from shardloom import context
 import shardloom as sl
 
-ctx = context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
+ctx = sl.context()
 result = (
-    ctx.read_csv("data/orders.csv", schema={
-        "id": "int64",
-        "amount": "float64",
-        "status": "utf8",
-    })
-    .filter(sl.col("amount") >= 10)
-    .select("id", "amount", "status")
-    .limit(100)
-    .collect()
+    ctx.read("data/orders.csv")
+       .filter(sl.col("status") == "paid")
+       .limit(10)
+       .collect()
 )
 
 print(result.output_row_count)
@@ -156,13 +151,20 @@ print(result.claim_summary.claim_gate_status)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
-`context(...)` is the user-facing entry point in the source-checkout workflow. Source-tree or CI
-runs can set `SHARDLOOM_BIN` or `SHARDLOOM_REPO_ROOT` when the CLI is not on `PATH`; ordinary
-installed-package snippets should not need repo-root or build-profile arguments once package
-publication is authorized.
+`sl.context()` is the ordinary user-facing entry point. `repo_root`, `profile_order`, explicit
+schemas, and format-specific helpers such as `read_csv(...)` remain useful for source-checkout,
+CI, benchmark, and reproducibility flows, but they are not required for normal local package code.
 
-The benchmark-page ETL scenarios use the same primary ShardLoom front door from Python. These
-snippets show the user-facing shape for the scoped v1 front door defined in
+`ctx.read(path)` infers the local source adapter for `.csv`, `.json`, `.jsonl`, `.ndjson`,
+`.parquet`, `.arrow`, `.ipc`, `.feather`, `.avro`, `.orc`, and `.vortex` paths. CSV, flat
+JSON/JSONL/NDJSON, generated rows, and scoped local Vortex inputs are the default public examples.
+Parquet, Arrow IPC/Feather, Avro, and ORC are admitted scoped local-format surfaces when the
+matching feature-gated build is present; builds without those readers return deterministic adapter
+blockers instead of invoking another engine.
+
+The benchmark-page ETL scenarios use the same primary ShardLoom front door from Python, but they are
+schema-pinned source-checkout reproduction snippets rather than the minimal application-start code.
+They show the scoped v1 front door defined in
 [`docs/architecture/v1-front-door-runtime-scope.md`](docs/architecture/v1-front-door-runtime-scope.md);
 measured route timing comes from the promoted benchmark artifact and remains claim-gated.
 The v1 Vortex runtime scope is separately defined in
@@ -173,6 +175,10 @@ The v1 SourceState and prepared-state reuse boundary is defined in
 [`docs/architecture/v1-source-prepared-state-scope.md`](docs/architecture/v1-source-prepared-state-scope.md):
 it owns the scoped `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState`
 normalization path, direct transient boundary, reuse invalidation matrix, and no-fallback evidence.
+Agents and automation should start from the canonical all-surface index in
+[`docs/reference/shardloom-user-surface-index.md`](docs/reference/shardloom-user-surface-index.md)
+and `docs/reference/shardloom-user-surface-index.json` before guessing available Python, SQL, CLI,
+generated-source, or blocker surfaces.
 
 To run these local scenario snippets from a source checkout and inspect timing components:
 
@@ -182,12 +188,11 @@ python examples\local-python-benchmark-scenarios\timing_review.py --repo-root .
 ```
 
 ```python
-from shardloom import context
 import shardloom as sl
 
-ctx = context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
+ctx = sl.context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
 
-fact = ctx.read_csv("data/fact.csv", schema={
+fact = ctx.read("data/fact.csv", schema={
     "id": "int64",
     "group_key": "int64",
     "dim_key": "int64",
@@ -200,12 +205,12 @@ fact = ctx.read_csv("data/fact.csv", schema={
     "raw_event_time": "utf8",
     "dirty_numeric": "utf8",
 })
-dim = ctx.read_csv("data/dim.csv", schema={
+dim = ctx.read("data/dim.csv", schema={
     "dim_key": "int64",
     "dim_label": "utf8",
     "weight": "float64",
 })
-events = ctx.read_json("data/events.jsonl", schema={
+events = ctx.read("data/events.jsonl", schema={
     "id": "int64",
     "nested_payload": "utf8",
 })
@@ -255,7 +260,7 @@ Bounded local-source workflows can collect or write through admitted ShardLoom p
 convenience materialization returns deterministic evidence rather than invoking another engine:
 
 ```python
-materialization_report = ctx.read_csv("data/orders.csv", schema={"id": "int64"}).select("id").to_pandas()
+materialization_report = ctx.read("data/orders.csv", schema={"id": "int64"}).select("id").to_pandas()
 print(materialization_report.blocker_id)
 print(materialization_report.fallback_attempted, materialization_report.external_engine_invoked)
 ```

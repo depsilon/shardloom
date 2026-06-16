@@ -1,3 +1,6 @@
-"""Package version for the ShardLoom Python client."""
+"""Package version for the ShardLoom Python client.
 
-__version__ = "0.1.0"
+This file is derived from root Cargo.toml by scripts/sync_workspace_package_versions.py.
+"""
+
+__version__ = "0.1.1"

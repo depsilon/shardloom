@@ -26,8 +26,8 @@
   feasibility, deferred beyond the current product scope, or rejected with a reason. Do not paste
   broad lists verbatim into Planned.
 - Production-shift items must state whether they are `required_for_v1`,
-  `v1_candidate_pending_feasibility`, `deferred_after_v1`, `documentation_only_for_v1`, or
-  `unsupported_boundary_for_v1`. The v1 default is inclusion for anything feasible to complete with
+  `v1_candidate_pending_feasibility`, `deferred_out_of_v1`, `documentation_only`, or
+  `unsupported_boundary`. The v1 default is inclusion for anything feasible to complete with
   real runtime behavior, deterministic unsupported diagnostics, safety evidence, and release proof.
   Defer beyond v1 only when the item records a concrete reason such as unavailable external
   platform proof, unresolved safety/security design, missing protocol approval, or scope that would
@@ -57,7 +57,7 @@ Each item should name:
 - Intake review: for externally supplied lists or audits, which candidate rows were accepted,
   merged with existing work, already addressed, or deferred, and why.
 - V1 scope classification: `required_for_v1`, `v1_candidate_pending_feasibility`,
-  `deferred_after_v1`, `documentation_only_for_v1`, or `unsupported_boundary_for_v1` for
+  `deferred_out_of_v1`, `documentation_only`, or `unsupported_boundary` for
   production-shift items.
 - ShardLoom technique review: whether PulseWeave, capillary work units, dynamic admission/work
   shaping, metadata-first execution, timing-surface separation, or evidence-tier controls apply; if
@@ -178,6 +178,73 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
+- [ ] `RELEASE-PACKAGE-0.1X-BUNDLED-CLI-1` Python package bundled CLI binary resolution for
+  managed development environments.
+  - Source: June 16, 2026 package/UAT feedback after live package simulation showed normal
+    `sl.context()` works when `shardloom` is on `PATH`, but PyPI-only managed environments such as
+    Foundry dev repos still need `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, or a source checkout
+    binary.
+  - Current state: v0.1.0 PyPI is a pure Python client surface. `ShardLoomClient` resolves an
+    explicit `binary`, `SHARDLOOM_BIN`, source-checkout `repo_root` binaries, then `shardloom` on
+    `PATH`. It does not ship a CLI binary inside the Python wheel, so Python-only package installs
+    cannot run CLI-backed commands without an external binary. README, package docs, and website
+    examples now distinguish normal `ctx.read(...)` code from schema-pinned benchmark/source
+    checkout code, but the binary-resolution ergonomics remain a real packaging gap.
+  - V1 scope classification: `v1_candidate_pending_feasibility`.
+  - ShardLoom technique review: dynamic admission applies to binary resolution and selected wheel
+    platform tags; metadata-first release evidence applies to wheel contents, checksums, SBOM,
+    provenance, and no-download policy. PulseWeave and capillary runtime controls do not apply
+    directly because this is package resolution, not query execution, but release evidence-tier
+    controls must keep package access separate from production/performance claims.
+  - Execution checklist:
+    - [ ] Decide and document the package strategy: bundled platform wheels in `shardloom` versus a
+      companion platform package; reject runtime binary download unless a later explicit RFC
+      approves network/provenance side effects.
+    - [ ] Add a packaged-binary resolver path that checks bundled wheel resources before `PATH`
+      while preserving explicit `binary`, `SHARDLOOM_BIN`, and source-checkout `repo_root`
+      precedence.
+    - [ ] Add platform wheel build/release wiring for the selected patch release scope, starting
+      with the platforms that can support Foundry/dev-env and local maintainer proof without
+      weakening Apache-2.0 license/provenance or no-fallback constraints.
+    - [ ] Add resolver tests proving bundled binary discovery, explicit override precedence,
+      deterministic missing-binary diagnostics, executable-bit handling, and no runtime download.
+    - [ ] Add clean-venv package smoke proof with no `SHARDLOOM_BIN`, no `SHARDLOOM_REPO_ROOT`, and
+      no Homebrew dependency: `import shardloom as sl; ctx = sl.context(); ctx.smoke_check();
+      ctx.read(...).limit(...).collect()`.
+    - [ ] Update README, Python README, package install docs, release/channel matrices, website
+      source, generated website output, and maintainer handoff docs so managed Python installs no
+      longer require user code to pass binary paths when a supported bundled wheel is installed.
+    - [ ] Add release validators/channel proof fields for bundled CLI wheel contents, checksums,
+      SBOM/provenance, clean install/uninstall, Homebrew coexistence, and rollback/yank policy.
+    - [ ] Move completed details to the ledger after implementation, validation, and patch-release
+      PR handling.
+  - Next outcome: a cohesive patch-release packaging PR that makes `sl.context()` usable from a
+    Python-only managed environment on supported wheel platforms without `SHARDLOOM_BIN`.
+  - User-visible surface: PyPI wheel, Python `sl.context()`, package install docs, release matrix,
+    website quickstart, and Foundry/dev-env package smoke instructions.
+  - Implementation scope: `python/src/shardloom/client.py`, Python package metadata/build config,
+    release scripts, package-channel validators, docs/release, README/Python README, website source
+    and generated static output, and focused resolver/package smoke tests.
+  - Evidence required: resolver unit tests, clean-venv wheel smoke, package metadata proof,
+    checksum/SBOM/provenance proof, no-fallback fields, no external-engine fields, and no runtime
+    network download.
+  - Acceptance: on supported platform wheels, `python -m pip install shardloom==<patch>` followed
+    by `import shardloom as sl; ctx = sl.context(); ctx.smoke_check()` works without
+    `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, Homebrew, or source checkout; unsupported platforms
+    fail with deterministic installation or binary-resolution diagnostics.
+  - Verification: focused Python resolver tests, clean package install smoke, release-channel
+    validator, website/static checks, and CI package build jobs for the selected wheel platforms.
+  - Non-goals: no runtime binary downloads, no hidden network effects, no Spark/DataFusion fallback,
+    no production Foundry claim, no object-store/table/live/distributed production claim, no
+    performance superiority claim, and no broad SQL/DataFrame parity expansion.
+  - Claim boundary: package ergonomics only. This may support Foundry/dev-env trials after install,
+    but it is not production Foundry proof until a real Foundry environment supplies workload
+    evidence.
+  - Fallback boundary: `fallback_attempted=false` and `external_engine_invoked=false` remain
+    required in smoke reports; the bundled binary is ShardLoom's own CLI, not an execution fallback.
+  - Ledger rule: completed details move to
+    `docs/architecture/phased-execution-completed-ledger.md`.
+
 - [x] `RELEASE-V1-LOCAL-SOURCE-PACKAGE-1` Public-source/package release track without production
   environments.
   - Source: maintainer decision on June 15, 2026 to proceed with the feasible release workstreams
@@ -187,7 +254,7 @@ Current autonomous execution order:
     evidence exist; actual package uploads, release tags, GitHub Release object/assets, registry
     install/uninstall smoke transcripts, signing/attestation, and production/platform claims remain
     blocked until the selected final publication event.
-  - V1 scope classification: `required_for_v1_publication_prep`.
+  - V1 scope classification: `required_for_v1`.
   - ShardLoom technique review: timing-surface separation and evidence-tier controls apply to the
     local benchmark publication wording; dynamic admission applies to selected package channels;
     PulseWeave/capillary runtime work does not apply because this item is release orchestration,
@@ -238,12 +305,12 @@ Current autonomous execution order:
 
 ### v1 Local Closeout Status
 
-No unchecked autonomous local implementation item remains after the June 15, 2026 closeout. The
-v1-local surface is current for no-publication release validation, generated docs/website output,
-Python/package smoke evidence, and the committed full-local benchmark artifact. Public release,
-package-channel, production cloud/object-store, production lakehouse, production distributed,
-production live/hybrid, and real Foundry claims remain fail-closed until maintainers provide the
-external approvals and real service environments listed below.
+The June 15, 2026 v1-local closeout remains current for generated docs/website output,
+Python/package smoke evidence, and the committed full-local benchmark artifact. One post-release
+package ergonomics item is now open above to remove the explicit CLI-binary setup burden for
+supported Python-only managed environments. Production cloud/object-store, production lakehouse,
+production distributed, production live/hybrid, and real Foundry claims remain fail-closed until
+maintainers provide the external approvals and real service environments listed below.
 
 - [x] `PROD-V1-5A-LOCAL` Local finished-product gate, package-channel matrix, hard-release gate,
   release rehearsal, release boundary, security/dependency/provenance, and final approval/post

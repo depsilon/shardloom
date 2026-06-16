@@ -6,6 +6,9 @@ This document centralizes the machine-readable surfaces an autonomous agent shou
 planning, executing, benchmarking, or stopping.
 
 Active queue and completion state live in `docs/architecture/phased-execution-plan.md`.
+The user-facing Python, SQL, CLI, generated-source, materialization, and blocker surface index lives
+in `docs/reference/shardloom-user-surface-index.md`; its machine-readable companion is
+`docs/reference/shardloom-user-surface-index.json`.
 
 The agent contract pack is report-only. It does not execute commands, probe the environment, resolve
 credentials, read data, call external systems, run benchmarks, publish artifacts, or authorize

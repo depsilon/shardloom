@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""Validate manifest-derived Rust and Vortex version source contracts.
+"""Validate manifest-derived package, Rust, and Vortex version source contracts.
 
 This gate keeps ShardLoom's active Rust/Vortex version surfaces centralized:
 
+- Package version is read from root `Cargo.toml` `[workspace.package].version`.
 - Rust MSRV is read from root `Cargo.toml` `[workspace.package].rust-version`.
 - The upstream Vortex crate line is read from root `Cargo.toml`
   `[workspace.dependencies].vortex`.
 - Workspace crates inherit `rust-version.workspace = true`.
 - `shardloom-vortex` inherits `vortex = { workspace = true, optional = true }`.
+- PyPI and website package metadata are derived by
+  `scripts/sync_workspace_package_versions.py`.
 - CI and release evidence use `scripts/release_report_utils.py` instead of
   duplicating current-version literals.
 """
@@ -23,7 +26,10 @@ from typing import Any
 
 from release_report_utils import (
     fail_closed_fields,
+    load_json,
+    python_package_version,
     read_text,
+    workspace_package_version,
     workspace_rust_version,
     workspace_version_env,
 )
@@ -224,14 +230,17 @@ def build_report(repo_root: Path) -> dict[str, Any]:
 
     try:
         version_env = workspace_version_env(repo_root)
+        package_version = workspace_package_version(repo_root)
         rust_version = workspace_rust_version(repo_root)
     except Exception as exc:  # pragma: no cover - exercised through script failure path.
         version_env = {}
+        package_version = ""
         rust_version = ""
         blockers.append(f"workspace version env derivation failed: {exc}")
 
     root_cargo = read_text(repo_root / "Cargo.toml", missing_ok=True)
     require_marker(blockers, "root Cargo.toml", root_cargo, "[workspace.package]")
+    require_marker(blockers, "root Cargo.toml", root_cargo, "version =")
     require_marker(blockers, "root Cargo.toml", root_cargo, "rust-version =")
     require_marker(blockers, "root Cargo.toml", root_cargo, "[workspace.dependencies]")
     require_marker(blockers, "root Cargo.toml", root_cargo, "vortex =")
@@ -270,6 +279,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
 
     release_utils = read_text(repo_root / "scripts/release_report_utils.py", missing_ok=True)
     for marker in [
+        "def workspace_package_version",
         "def workspace_rust_version",
         "def upstream_vortex_manifest_version",
         "def upstream_vortex_lock_version",
@@ -277,6 +287,26 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "def workspace_version_env",
     ]:
         require_marker(blockers, "scripts/release_report_utils.py", release_utils, marker)
+
+    sync_versions = read_text(
+        repo_root / "scripts" / "sync_workspace_package_versions.py",
+        missing_ok=True,
+    )
+    for marker in [
+        "workspace_package_version",
+        "DERIVED_VERSION_SOURCES",
+        "python/src/shardloom/_version.py",
+        "website-src/package.json",
+        "website-src/package-lock.json",
+        "Cargo.lock",
+        "--check",
+    ]:
+        require_marker(
+            blockers,
+            "scripts/sync_workspace_package_versions.py",
+            sync_versions,
+            marker,
+        )
 
     ci_env_writer = read_text(repo_root / "scripts/write_ci_version_env.py", missing_ok=True)
     require_marker(
@@ -293,6 +323,52 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "upstream_vortex_provider_version",
     ]:
         forbid_marker(blockers, "scripts/write_ci_version_env.py", ci_env_writer, marker)
+
+    python_version = python_package_version(repo_root)
+    if package_version and python_version != package_version:
+        blockers.append(
+            "python/src/shardloom/_version.py: derived package version "
+            f"{python_version!r} != workspace package version {package_version!r}"
+        )
+    python_version_source = read_text(
+        repo_root / "python" / "src" / "shardloom" / "_version.py",
+        missing_ok=True,
+    )
+    require_marker(
+        blockers,
+        "python/src/shardloom/_version.py",
+        python_version_source,
+        "scripts/sync_workspace_package_versions.py",
+    )
+
+    website_package = load_json(repo_root / "website-src" / "package.json", missing_ok=True)
+    if isinstance(website_package, dict):
+        if package_version and website_package.get("version") != package_version:
+            blockers.append(
+                "website-src/package.json: derived package version "
+                f"{website_package.get('version')!r} != workspace package version "
+                f"{package_version!r}"
+            )
+    else:
+        blockers.append("website-src/package.json missing or invalid JSON")
+
+    website_lock = load_json(repo_root / "website-src" / "package-lock.json", missing_ok=True)
+    if isinstance(website_lock, dict):
+        root_package = website_lock.get("packages", {}).get("")
+        lock_versions = [
+            ("website-src/package-lock.json", website_lock.get("version")),
+            ("website-src/package-lock.json packages['']", root_package.get("version"))
+            if isinstance(root_package, dict)
+            else ("website-src/package-lock.json packages['']", None),
+        ]
+        for label, actual in lock_versions:
+            if package_version and actual != package_version:
+                blockers.append(
+                    f"{label}: derived package version {actual!r} != workspace package "
+                    f"version {package_version!r}"
+                )
+    else:
+        blockers.append("website-src/package-lock.json missing or invalid JSON")
 
     workflow = read_text(repo_root / ".github/workflows/ci.yml", missing_ok=True)
     for marker in [
@@ -376,6 +452,14 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "workspace_version_sources_status": "passed" if not blockers else "blocked",
         "blockers": blockers,
         "version_env": version_env,
+        "workspace_package_version_source": "Cargo.toml#[workspace.package].version",
+        "workspace_package_version": package_version,
+        "derived_package_version_sources": [
+            "python/src/shardloom/_version.py",
+            "website-src/package.json",
+            "website-src/package-lock.json",
+            "Cargo.lock",
+        ],
         "rust_msrv_source": "Cargo.toml#[workspace.package].rust-version",
         "upstream_vortex_manifest_source": "Cargo.toml#[workspace.dependencies].vortex",
         "upstream_vortex_lock_source": "Cargo.lock#package:vortex.version",

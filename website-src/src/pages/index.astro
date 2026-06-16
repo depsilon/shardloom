@@ -106,8 +106,8 @@ const manifestAny = manifest as any;
   <section class="section-grid">
     <div>
       <p class="eyebrow">Try it</p>
-      <h2>Start with a source-checkout proof.</h2>
-      <p class="narrow">The public site shows runnable local posture and the selected local/source/package v1 release track without implying production support or broad SQL/DataFrame readiness. GitHub pre-release, TestPyPI, PyPI, and Homebrew remain channel-proof gated until publication evidence exists.</p>
+      <h2>Start with the package surface.</h2>
+      <p class="narrow">The public site shows runnable local posture and the selected local/source/package v1 release track without implying production support or broad SQL/DataFrame readiness. GitHub pre-release assets, TestPyPI, PyPI, and Homebrew are the current v0.1.0 package channels with proof refs.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">Python surface shape</div>
@@ -115,7 +115,7 @@ const manifestAny = manifest as any;
 
 ctx = sl.context()
 result = (
-    ctx.read_csv("orders.csv")
+    ctx.read("orders.csv")
        .filter(sl.col("status") == "paid")
        .limit(10)
        .collect()

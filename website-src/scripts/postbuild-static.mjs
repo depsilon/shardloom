@@ -2,6 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  assertNoDuplicateSuffixedArtifacts,
+  duplicateSettleOptions,
+  removeDuplicateSuffixedArtifacts,
+  settleDuplicateSuffixedArtifacts,
+} from "./static-artifact-hygiene.mjs";
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.resolve(root, "..", "website");
 const publicRoot = path.resolve(root, "..", "website-public");
@@ -18,18 +25,6 @@ function copyPublicPath(relativePath) {
     fs.rmSync(target, { recursive: true, force: true });
   }
   fs.cpSync(source, target, { recursive: true, force: true });
-}
-
-function removeDuplicateSuffixedArtifacts(directory) {
-  if (!fs.existsSync(directory)) return;
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    const child = path.join(directory, entry.name);
-    if (/ \d+(?:\.[^.]+)?$/.test(entry.name)) {
-      fs.rmSync(child, { recursive: true, force: true });
-      continue;
-    }
-    if (entry.isDirectory()) removeDuplicateSuffixedArtifacts(child);
-  }
 }
 
 function canonicalizeDeployableBenchmarkPaths(directory) {
@@ -60,7 +55,7 @@ function canonicalizeDeployableBenchmarkPaths(directory) {
   }
 }
 
-removeDuplicateSuffixedArtifacts(publicRoot);
+const publicRootPreCopyRemoved = removeDuplicateSuffixedArtifacts(publicRoot);
 
 function copyLegacyHtml(route) {
   const legacyDirectory = path.join(out, `${route}.html`);
@@ -104,7 +99,17 @@ for (const relativePath of [
   copyPublicPath(relativePath);
 }
 
-removeDuplicateSuffixedArtifacts(out);
 canonicalizeDeployableBenchmarkPaths(path.join(out, "assets", "benchmarks", "latest"));
 
-console.log("wrote canonical .html compatibility pages and refreshed public assets");
+const settleOptions = duplicateSettleOptions();
+const finalRemoved = await settleDuplicateSuffixedArtifacts([out, publicRoot], settleOptions);
+assertNoDuplicateSuffixedArtifacts([out, publicRoot]);
+
+console.log(
+  [
+    "wrote canonical .html compatibility pages and refreshed public assets",
+    `duplicate_suffixed_removed=${publicRootPreCopyRemoved.length + finalRemoved.length}`,
+    `settle_passes=${settleOptions.passes}`,
+    `settle_delay_ms=${settleOptions.delayMs}`,
+  ].join("; "),
+);

@@ -1,15 +1,18 @@
 {
   "name": "shardloom-website",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Astro/Starlight static website source for shardloom.io.",
   "scripts": {
     "sync-content": "node scripts/sync-content.mjs",
+    "clean:static": "node scripts/prebuild-static.mjs",
+    "settle:static": "node scripts/prebuild-static.mjs --settle-output",
+    "prebuild:static": "node scripts/prebuild-static.mjs --reset-output",
     "dev": "npm run sync-content && astro dev --host 127.0.0.1",
-    "build": "npm run sync-content && astro build && node scripts/postbuild-static.mjs",
+    "build": "npm run prebuild:static && npm run sync-content && astro build && node scripts/postbuild-static.mjs",
     "preview": "astro preview --host 127.0.0.1",
-    "check": "npm run sync-content && astro check"
+    "check": "npm run clean:static && npm run sync-content && astro check && npm run settle:static"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",

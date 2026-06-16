@@ -7,18 +7,42 @@ sidebar: {"label":"Python surface","order":2}
 
 The Python surface is the current user-facing way to describe local ETL scenarios. It is a front door into ShardLoom route admission, not permission to use pandas, Polars, DuckDB, Spark, or DataFusion as fallback execution.
 
-## Scenario Shape
+## Normal Package Shape
+
+```python
+import shardloom as sl
+
+ctx = sl.context()
+result = (
+    ctx.read("data/orders.csv")
+       .filter(sl.col("status") == "paid")
+       .limit(10)
+       .collect()
+)
+
+print(result.output_row_count)
+print(result.first_result_row)
+print(result.claim_summary.claim_gate_status)
+print(result.fallback_attempted, result.external_engine_invoked)
+```
+
+`ctx.read(path)` infers local adapters for `.csv`, `.json`, `.jsonl`, `.ndjson`, `.parquet`,
+`.arrow`, `.ipc`, `.feather`, `.avro`, `.orc`, and `.vortex`. CSV, flat JSON/JSONL/NDJSON,
+generated rows, and scoped local Vortex inputs are the default public examples. Parquet, Arrow
+IPC/Feather, Avro, and ORC are scoped local-format surfaces when the matching feature-gated build is
+present; otherwise ShardLoom returns deterministic adapter blockers without fallback execution.
+
+## Schema-Pinned Benchmark Shape
 
 Markers for the copyable v1 guide examples: `stable_v1_example_local_csv`,
 `stable_v1_example_blocker_inspection`, and `unsupported_example_broad_sql`.
 
 ```python
-from shardloom import context
 import shardloom as sl
 
-ctx = context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
+ctx = sl.context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
 
-fact = ctx.read_csv("data/fact.csv", schema={
+fact = ctx.read("data/fact.csv", schema={
     "id": "int64",
     "group_key": "int64",
     "dim_key": "int64",
@@ -31,12 +55,12 @@ fact = ctx.read_csv("data/fact.csv", schema={
     "raw_event_time": "utf8",
     "dirty_numeric": "utf8",
 })
-dim = ctx.read_csv("data/dim.csv", schema={
+dim = ctx.read("data/dim.csv", schema={
     "dim_key": "int64",
     "dim_label": "utf8",
     "weight": "float64",
 })
-events = ctx.read_json("data/events.jsonl", schema={
+events = ctx.read("data/events.jsonl", schema={
     "id": "int64",
     "nested_payload": "utf8",
 })

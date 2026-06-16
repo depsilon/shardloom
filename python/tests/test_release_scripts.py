@@ -26,6 +26,7 @@ from release_report_utils import (
     upstream_vortex_lock_version,
     upstream_vortex_manifest_version,
     upstream_vortex_provider_version,
+    workspace_package_version,
     workspace_rust_version,
     workspace_version_env,
 )
@@ -36,6 +37,7 @@ from release_channel_contract import (
 )
 
 CURRENT_RUST_VERSION = workspace_rust_version(REPO_ROOT)
+CURRENT_WORKSPACE_PACKAGE_VERSION = workspace_package_version(REPO_ROOT)
 CURRENT_PYTHON_PACKAGE_VERSION = python_package_version(REPO_ROOT)
 CURRENT_VORTEX_MANIFEST_VERSION = upstream_vortex_manifest_version(REPO_ROOT)
 CURRENT_VORTEX_LOCK_VERSION = upstream_vortex_lock_version(REPO_ROOT)
@@ -6144,7 +6146,10 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertEqual(packet["next_implementation_slice"], "none")
+        self.assertIn(
+            "RELEASE-PACKAGE-0.1X-BUNDLED-CLI-1",
+            packet["next_implementation_slice"],
+        )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def _optimization_target_rows(self) -> list[dict[str, object]]:
@@ -7117,7 +7122,7 @@ class ReleaseScriptTests(unittest.TestCase):
                 members = ["shardloom-core", "shardloom-vortex"]
 
                 [workspace.package]
-                version = "0.1.0"
+                version = "{CURRENT_WORKSPACE_PACKAGE_VERSION}"
                 rust-version = "{CURRENT_RUST_VERSION}"
 
                 [workspace.dependencies]
@@ -7130,7 +7135,15 @@ class ReleaseScriptTests(unittest.TestCase):
         (root / "Cargo.lock").write_text(
             "[[package]]\n"
             'name = "vortex"\n'
-            f'version = "{CURRENT_VORTEX_LOCK_VERSION}"\n',
+            f'version = "{CURRENT_VORTEX_LOCK_VERSION}"\n'
+            "\n"
+            "[[package]]\n"
+            'name = "shardloom-core"\n'
+            f'version = "{CURRENT_WORKSPACE_PACKAGE_VERSION}"\n'
+            "\n"
+            "[[package]]\n"
+            'name = "shardloom-vortex"\n'
+            f'version = "{CURRENT_WORKSPACE_PACKAGE_VERSION}"\n',
             encoding="utf-8",
         )
         core_manifest = root / "shardloom-core" / "Cargo.toml"
@@ -7175,11 +7188,23 @@ class ReleaseScriptTests(unittest.TestCase):
         release_utils = root / "scripts" / "release_report_utils.py"
         release_utils.parent.mkdir(parents=True)
         release_utils.write_text(
+            "def workspace_package_version(): pass\n"
             "def workspace_rust_version(): pass\n"
             "def upstream_vortex_manifest_version(): pass\n"
             "def upstream_vortex_lock_version(): pass\n"
             "def upstream_vortex_provider_version(): pass\n"
             "def workspace_version_env(): pass\n",
+            encoding="utf-8",
+        )
+        sync_versions = root / "scripts" / "sync_workspace_package_versions.py"
+        sync_versions.write_text(
+            "workspace_package_version\n"
+            "DERIVED_VERSION_SOURCES\n"
+            "python/src/shardloom/_version.py\n"
+            "website-src/package.json\n"
+            "website-src/package-lock.json\n"
+            "Cargo.lock\n"
+            "--check\n",
             encoding="utf-8",
         )
         (root / "scripts" / "write_ci_version_env.py").write_text(
@@ -7188,6 +7213,49 @@ class ReleaseScriptTests(unittest.TestCase):
                 if stale
                 else "from release_report_utils import workspace_version_env\n"
             ),
+            encoding="utf-8",
+        )
+        python_version = root / "python" / "src" / "shardloom" / "_version.py"
+        python_version.parent.mkdir(parents=True)
+        python_version.write_text(
+            '"""Package version for the ShardLoom Python client.\n\n'
+            "This file is derived from root Cargo.toml by "
+            "scripts/sync_workspace_package_versions.py.\n"
+            '"""\n\n'
+            + (
+                '__version__ = "0.0.0"\n'
+                if stale
+                else f'__version__ = "{CURRENT_WORKSPACE_PACKAGE_VERSION}"\n'
+            ),
+            encoding="utf-8",
+        )
+        website_package = root / "website-src" / "package.json"
+        website_package.parent.mkdir(parents=True)
+        website_version = "0.0.0" if stale else CURRENT_WORKSPACE_PACKAGE_VERSION
+        website_package.write_text(
+            json.dumps(
+                {"name": "shardloom-website", "version": website_version, "private": True},
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (root / "website-src" / "package-lock.json").write_text(
+            json.dumps(
+                {
+                    "name": "shardloom-website",
+                    "version": website_version,
+                    "lockfileVersion": 3,
+                    "packages": {
+                        "": {
+                            "name": "shardloom-website",
+                            "version": website_version,
+                        }
+                    },
+                },
+                indent=2,
+            )
+            + "\n",
             encoding="utf-8",
         )
         workflow = root / ".github" / "workflows" / "ci.yml"
@@ -9519,10 +9587,12 @@ class ReleaseScriptTests(unittest.TestCase):
             REPO_ROOT / ".github" / "workflows" / "pypi-publish-draft.yml"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("python/src/shardloom/_version.py", workflow)
+        self.assertIn("python scripts/sync_workspace_package_versions.py --check", workflow)
+        self.assertIn("python scripts/check_workspace_version_sources.py", workflow)
+        self.assertIn("from release_report_utils import workspace_package_version", workflow)
         self.assertIn("expected_version = resolve_python_package_version()", workflow)
         self.assertNotIn('pyproject["project"]["version"]', workflow)
-        self.assertEqual(CURRENT_PYTHON_PACKAGE_VERSION, "0.1.0")
+        self.assertEqual(CURRENT_PYTHON_PACKAGE_VERSION, CURRENT_WORKSPACE_PACKAGE_VERSION)
 
     def test_v1_local_source_package_release_track_gate_passes_current_contract(self) -> None:
         module = self._load_script_module(

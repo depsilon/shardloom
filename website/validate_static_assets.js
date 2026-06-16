@@ -110,6 +110,23 @@ function collectFiles(directory, prefix = "") {
   return files;
 }
 
+function collectDuplicateSuffixedArtifacts(directory, prefix = "") {
+  const entries = fs.readdirSync(directory, { withFileTypes: true });
+  const duplicates = [];
+  for (const entry of entries) {
+    const relativePath = path.join(prefix, entry.name).replace(/\\/g, "/");
+    const absolutePath = path.join(directory, entry.name);
+    if (/ \d+(?:\.[^.]+)?$/.test(entry.name)) {
+      duplicates.push(relativePath);
+      continue;
+    }
+    if (entry.isDirectory()) {
+      duplicates.push(...collectDuplicateSuffixedArtifacts(absolutePath, relativePath));
+    }
+  }
+  return duplicates;
+}
+
 for (const file of requiredFiles) {
   assert(exists(file), `Missing required website file: ${file}`);
 }
@@ -123,6 +140,11 @@ for (const file of collectFiles(root)) {
     `Cloudflare Workers static asset exceeds 25 MiB: ${file} (${size} bytes)`,
   );
 }
+const duplicateSuffixedArtifacts = collectDuplicateSuffixedArtifacts(root);
+assert(
+  duplicateSuffixedArtifacts.length === 0,
+  `Duplicate-suffixed generated website artifacts remain: ${duplicateSuffixedArtifacts.join(", ")}`,
+);
 
 const canonicalFlow = fs
   .readFileSync(path.join(repoRoot, "docs/architecture/compute-engine-flow-reference.md"), "utf8")
@@ -268,7 +290,8 @@ for (const required of [
   "full_local",
   "Public front doors",
   "Route rows name the user-facing prepared paths.",
-  "Benchmark ETL scenarios from Python",
+  "Schema-pinned benchmark ETL reproduction",
+  "ctx.read(&quot;data/fact.csv&quot;, schema={",
   "clean-cast-filter-write.jsonl",
   "benchmark route owns the current top-N-per-group scenario",
   "nested_payload",
@@ -402,8 +425,9 @@ for (const required of [
 const pythonSurface = read("field-guide/python-surface/index.html");
 for (const required of [
   "Python surface",
-  "ctx = context",
-  "read_csv",
+  "Normal Package Shape",
+  "ctx = sl.context()",
+  "ctx.read(path)",
   "nested_payload",
 ]) {
   assert(pythonSurface.includes(required), `python surface doc missing ${required}`);

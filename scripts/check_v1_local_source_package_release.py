@@ -213,7 +213,9 @@ def build_report(
         ".github/workflows/pypi-publish-draft.yml",
         pypi_workflow,
         [
-            "python/src/shardloom/_version.py",
+            "python scripts/sync_workspace_package_versions.py --check",
+            "python scripts/check_workspace_version_sources.py",
+            "from release_report_utils import workspace_package_version",
             "expected_version = resolve_python_package_version()",
             "validate-pypi-prior-proof",
             "inputs.testpypi_proof_ref != ''",
