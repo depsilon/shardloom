@@ -12901,7 +12901,8 @@ jobs:
         )
         with tempfile.TemporaryDirectory() as tempdir:
             repo_root = Path(tempdir)
-            (repo_root / "python").mkdir()
+            package_dir = repo_root / "python"
+            package_dir.mkdir()
             dist_dir = repo_root / "python" / "dist"
             dist_dir.mkdir()
             stale_wheel = dist_dir / "shardloom-0.0.0-py3-none-any.whl"
@@ -12937,7 +12938,7 @@ jobs:
             original_run_step = module.run_step
             module.run_step = fake_run_step
             try:
-                step = module.build_python_artifacts(repo_root, dist_dir)
+                step = module.build_python_artifacts(repo_root, package_dir, dist_dir)
             finally:
                 module.run_step = original_run_step
 
@@ -12948,7 +12949,9 @@ jobs:
             )
             self.assertEqual(step["fallback_reason"], "python_build_frontend_missing")
             self.assertFalse(stale_wheel.exists())
-            self.assertEqual(commands[0], [sys.executable, "-m", "build", "python"])
+            self.assertEqual(
+                commands[0], [sys.executable, "-m", "build", str(package_dir)]
+            )
             self.assertEqual(commands[1][:4], [sys.executable, "-m", "pip", "wheel"])
             self.assertIn("--no-build-isolation", commands[1])
             self.assertIn("--no-deps", commands[1])

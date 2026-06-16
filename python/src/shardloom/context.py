@@ -5535,7 +5535,13 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "vortex-run",
             "vortex-query-trace",
         ),
-        context_methods=("prepare_vortex", "read_vortex", "native_vortex_route", "session"),
+        context_methods=(
+            "prepare_vortex",
+            "read_vortex",
+            "native_vortex_route",
+            "native_vortex_provider_route_certificate_report",
+            "session",
+        ),
         client_methods=(
             "vortex_ingest_smoke",
             "vortex_run",

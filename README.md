@@ -175,7 +175,8 @@ artifacts, and generated local Vortex artifacts without claiming broad Vortex su
 For direct `.vortex` inputs, exact benchmark-family Python and SQL shapes for grouped aggregation,
 hash join, global top-N, cast/try-cast, substring contains, and native `write_vortex` sinks are
 listed by `ctx.native_vortex_provider_route_certificate_report()`; broader arbitrary Vortex
-SQL/DataFrame planning remains explicitly blocked until it has its own route certificate.
+SQL/DataFrame planning remains outside the v1 support claim and returns deterministic route
+diagnostics until it has its own route certificate.
 The v1 SourceState and prepared-state reuse boundary is defined in
 [`docs/architecture/v1-source-prepared-state-scope.md`](docs/architecture/v1-source-prepared-state-scope.md):
 it owns the scoped `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState`

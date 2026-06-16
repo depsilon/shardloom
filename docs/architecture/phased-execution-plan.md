@@ -178,7 +178,7 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
-- [ ] `PY-LOCAL-WORKFLOW-1M-PRODUCT-ROUTE-1` Promote released Python local CSV/JSONL
+- [x] `PY-LOCAL-WORKFLOW-1M-PRODUCT-ROUTE-1` Promote released Python local CSV/JSONL
   workflows out of smoke-only caps.
   - Source: maintainer request on June 16, 2026 to remove synthetic caps from the released Python
     front door for 1M-row local chart/post workflows while preserving existing
@@ -251,7 +251,7 @@ Current autonomous execution order:
     - [x] Update `docs/architecture/v1-front-door-runtime-scope.md` and
       `docs/architecture/v1-vortex-runtime-scope.md` with current route scope, blockers, and
       feature-gate posture.
-    - [ ] Move completed detail to the phased execution completed ledger after merge/session
+    - [x] Move completed detail to the phased execution completed ledger after merge/session
       completion.
   - Next outcome: a cohesive runtime/docs/tests PR where normal released Python local CSV/JSONL
     workflows can exercise the listed 1M-row scenarios through a product local route without
@@ -284,7 +284,7 @@ Current autonomous execution order:
   - Ledger rule: completed detail moves to
     `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] `PY-VORTEX-ROUTE-UNIFY-1` Native Vortex route unification for Python and SQL user
+- [x] `PY-VORTEX-ROUTE-UNIFY-1` Native Vortex route unification for Python and SQL user
   operations.
   - Source: maintainer request on June 16, 2026 to make
     `ctx.read_vortex(...).filter(...).select(...).group_by(...).join(...).nlargest(...).write_*()`
@@ -406,7 +406,7 @@ Current autonomous execution order:
         v1 front-door scope, and v1 Vortex runtime scope now point to the simple
         `sl.context()`/`ctx.read(...)` user surface and the exact native provider route
         certificate report for advanced direct-Vortex shapes.
-    - [ ] Move completed details to the ledger after implementation, validation, PR handling, and
+    - [x] Move completed details to the ledger after implementation, validation, PR handling, and
       any required benchmark or route-certificate refresh.
   - Next outcome: a cohesive runtime PR/session that starts by unifying native Vortex filter,
     project, limit, collect, and deterministic capability/blocker evidence for Python and SQL, then
