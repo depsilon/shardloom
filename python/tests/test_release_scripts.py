@@ -9596,6 +9596,8 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn("artifact_suffix: windows", workflow)
         self.assertIn("python-dist-${{ matrix.artifact_suffix }}", workflow)
         self.assertIn("python-dist-sdist", workflow)
+        self.assertIn("Build clean Python sdist", workflow)
+        self.assertIn("target/pypi-python-package-sdist/dist/*.tar.gz", workflow)
         self.assertIn("pattern: python-dist-*", workflow)
         self.assertIn("merge-multiple: true", workflow)
         self.assertIn("bundled CLI wheel must not be universal", workflow)

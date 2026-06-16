@@ -11151,6 +11151,15 @@ def _parse_vortex_sql_route_clauses(value: str) -> _VortexSqlRouteClauses | None
     if not spans:
         return None
     spans.sort()
+    canonical_order = {
+        "where": 0,
+        "group by": 1,
+        "order by": 2,
+        "limit": 3,
+    }
+    ordered_positions = [canonical_order[clause] for _, _, clause in spans]
+    if ordered_positions != sorted(ordered_positions):
+        return None
     if tail[: spans[0][0]].strip():
         return None
     seen: set[str] = set()

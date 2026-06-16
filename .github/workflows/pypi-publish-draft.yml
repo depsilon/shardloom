@@ -107,12 +107,16 @@ jobs:
           name: python-dist-${{ matrix.artifact_suffix }}
           path: target/pypi-python-package-stage/dist/*.whl
           if-no-files-found: error
+      - name: Build clean Python sdist
+        if: ${{ matrix.artifact_suffix == 'linux' }}
+        run: |
+          python -m build --sdist --outdir target/pypi-python-package-sdist/dist python
       - name: Upload Python sdist artifact
         if: ${{ matrix.artifact_suffix == 'linux' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
         with:
           name: python-dist-sdist
-          path: target/pypi-python-package-stage/dist/*.tar.gz
+          path: target/pypi-python-package-sdist/dist/*.tar.gz
           if-no-files-found: error
 
   publish-testpypi:

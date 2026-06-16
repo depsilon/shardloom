@@ -13,7 +13,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import shardloom as sl
 from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext
-from shardloom.query import _rewrite_predicate_with_computed_columns
+from shardloom.query import (
+    _rewrite_predicate_with_computed_columns,
+    _sql_native_vortex_public_workflow_kwargs,
+)
 
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     """
@@ -15932,6 +15935,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(route.envelope.field("native_vortex_provider_scenario"), "none")
         self.assertFalse(route.fallback_attempted)
         self.assertFalse(route.external_engine_invoked)
+
+    def test_sql_vortex_provider_shape_rejects_noncanonical_clause_order(self) -> None:
+        invalid_order_sql = (
+            "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
+            "FROM 'fact.vortex' GROUP BY group_key WHERE metric >= 0 LIMIT 100"
+        )
+
+        self.assertEqual(
+            _sql_native_vortex_public_workflow_kwargs(
+                invalid_order_sql,
+                requested_output="collect",
+            ),
+            {},
+        )
 
     def test_unadmitted_vortex_shapes_still_fail_with_route_blockers(self) -> None:
         binary = self.fake_cli(

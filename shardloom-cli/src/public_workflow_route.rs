@@ -1281,6 +1281,12 @@ fn infer_native_vortex_provider_payload(
     if request.surface == "sql" || request.sql_statement.is_some() {
         return None;
     }
+    if !matches!(
+        request.requested_output.as_str(),
+        "collect" | "write_vortex"
+    ) {
+        return None;
+    }
     let operations = parse_plan_summary_operations(request.plan_summary.as_deref()?)?;
     if !summary_read_vortex_matches_input(&operations, request.input_uri.as_deref()?) {
         return None;
@@ -4147,6 +4153,44 @@ mod tests {
             .map(str::to_string),
         )
         .expect("literal bait SQL route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn route_planner_does_not_infer_provider_for_report_requests() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "fact.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(fact.vortex) -> filter(metric >= 0) -> group_by(group_key) -> aggregate(count(*) AS rows,sum(metric) AS total_metric) -> limit(100)",
+                "--request",
+                "explain",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("payloadless report route request");
 
         let plan = plan_public_workflow_route(&request);
         let fields = route_fields(&request, &plan);
