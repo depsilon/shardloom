@@ -10,7 +10,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Pre-release Vortex-first no-fallback local compute engine with evidence-certified workflows."
 license = "Apache-2.0"
@@ -30,10 +30,10 @@ arrow-schema = "58.3.0"
 parquet = "58.3.0"
 regex = "1.12.4"
 serde_json = "1.0.150"
-shardloom-core = { version = "0.1.1", path = "shardloom-core" }
-shardloom-exec = { version = "0.1.1", path = "shardloom-exec" }
-shardloom-plan = { version = "0.1.1", path = "shardloom-plan" }
-shardloom-vortex = { version = "0.1.1", path = "shardloom-vortex" }
+shardloom-core = { version = "0.1.2", path = "shardloom-core" }
+shardloom-exec = { version = "0.1.2", path = "shardloom-exec" }
+shardloom-plan = { version = "0.1.2", path = "shardloom-plan" }
+shardloom-vortex = { version = "0.1.2", path = "shardloom-vortex" }
 vortex = "0.75"
 
 [workspace.lints.rust]

@@ -1,7 +1,7 @@
 # ShardLoom
 
 [![CI](https://github.com/depsilon/shardloom/actions/workflows/ci.yml/badge.svg)](https://github.com/depsilon/shardloom/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/depsilon/shardloom?include_prereleases&label=release)](https://github.com/depsilon/shardloom/releases/tag/v0.1.1)
+[![Release](https://img.shields.io/github/v/release/depsilon/shardloom?include_prereleases&label=release)](https://github.com/depsilon/shardloom/releases)
 [![PyPI](https://img.shields.io/pypi/v/shardloom?label=PyPI)](https://pypi.org/project/shardloom/)
 [![Homebrew](https://img.shields.io/badge/Homebrew-depsilon%2Ftap%2Fshardloom-2f4f4f)](https://github.com/depsilon/homebrew-tap)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -11,9 +11,11 @@
 repository. The repo remains the source of truth for code, architecture docs, phase plans, use
 cases, benchmarks, and release evidence.
 
-ShardLoom is a v0.1.1 technical-preview, Vortex-first, no-fallback local compute engine foundation. It is built
-around explicit routes and evidence fields that show what ran: source admission, Vortex
-preparation, execution mode, output planning, certificates, fallback status, and claim-gate status.
+ShardLoom is a v0.1.2 source-track technical preview and a v0.1.1 proof-backed package-channel
+release until v0.1.2 channel proofs land. It is a Vortex-first, no-fallback local compute engine
+foundation built around explicit routes and evidence fields that show what ran: source admission,
+Vortex preparation, execution mode, output planning, certificates, fallback status, and claim-gate
+status.
 
 ShardLoom is not an official Vortex project and is not Vortex-endorsed. It does not claim production
 readiness, public performance superiority, broad engine replacement or Apache Spark displacement,
@@ -129,9 +131,9 @@ brew install depsilon/tap/shardloom
 
 The Python package is a thin client surface over the ShardLoom CLI. Published v0.1.1 resolves the
 CLI from `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, a source checkout build, or `shardloom` on `PATH`.
-The next bundled-wheel patch release stages the CLI inside supported platform wheels so managed
-Python environments can use `sl.context()` without passing binary paths; explicit binary/env/source
-configuration still takes precedence.
+The v0.1.2 source track stages the CLI inside supported platform wheels so managed Python
+environments can use `sl.context()` without passing binary paths once the patch release is
+published; explicit binary/env/source configuration still takes precedence.
 
 Normal Python use:
 

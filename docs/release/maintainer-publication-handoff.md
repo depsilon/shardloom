@@ -49,6 +49,12 @@ Publication completion addendum, 2026-06-16:
 
 Patch train addendum, 2026-06-16:
 
+- v0.1.2 is prepared as the next compatible post-v0.1.1 patch train for native Vortex route
+  unification, product local workflow cap removal, and bundled CLI package resolution. It must
+  receive its own GitHub, TestPyPI, PyPI, and Homebrew channel proofs before public install docs or
+  package-channel matrices mark v0.1.2 published.
+- Patch release notes live in `docs/release/v0.1.2-release-notes.md`.
+
 - v0.1.1 is prepared as the first compatible post-v0.1.0 patch train for documentation, website,
   user-surface, package metadata, and release-process cleanup.
 - v0.1.0 channel proofs remain historical proof for the already-published selected channels.
