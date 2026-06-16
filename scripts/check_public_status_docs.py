@@ -99,9 +99,9 @@ PUBLIC_DOC_MARKERS = {
         "fallback_attempted=false",
     ),
     "docs/getting-started/package-user-install.md": (
-        "package_channel_status=published_v0.1.0_selected_channels",
+        "package_channel_status=published_v0.1.1_selected_channels",
         "package_install_commands_visible=true",
-        "python -m pip install shardloom==0.1.0",
+        "python -m pip install shardloom==0.1.1",
         "brew install depsilon/tap/shardloom",
         "public_package_claim_allowed=false",
     ),
