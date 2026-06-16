@@ -58,14 +58,14 @@ The gate requires:
 - `target/release-dry-run-proof/transcript.json` with a clean venv local-wheel install,
   installed-wheel Python client smoke, CLI status/capabilities smokes, local Python example smoke,
   first user-surface result/evidence markers, deterministic unsupported-path evidence,
-  generated-source local output smokes, benchmark smoke, SBOM/checksum/provenance dry run, and
-  no-publication/no-fallback fields.
+  generated-source local output smokes, `benchmark_smoke_required_for_package_release=false`,
+  SBOM/checksum/provenance dry run, and no-publication/no-fallback fields.
 - `target/package-channel-readiness-report.json` generated with `--require-local-evidence`, while
-  every real package channel remains blocked until channel-specific proof and human approval exist.
+  every real package channel remains blocked until channel-specific proof exists.
 - release security and contribution-governance reports with fallback and external-engine fields
   false.
 - final release rehearsal evidence that may still be blocked for hard public-release reasons, but
-  keeps local artifacts only, unsigned attestation status, publication approval false, and public
+  keeps local artifacts only, unsigned attestation status, publication approval recorded, and public
   release/package claims false.
 - website readiness evidence and checked start/status/docs assets.
 - current benchmark artifact completeness for the promoted website bundle without rerunning or

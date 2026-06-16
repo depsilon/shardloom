@@ -85,7 +85,7 @@ The gate aggregates:
   phased-plan closure, traceability, unsupported-path, security, provenance, and per-claim evidence
   blockers
 - final no-publication release rehearsal report for local artifact, checksum, SBOM, provenance,
-  attestation-plan, package-channel, and human-approval blockers
+  attestation-plan, package-channel, and channel-proof blockers
 - Python user-surface completion report for import/context/session/SQL/DataFrame/generated-output
   proof, deterministic unsupported-path blockers, and no-fallback/no-external-engine fields
 - SQL/Python/DataFrame front-door parity report for scoped shared-runtime rows, broad parity gap
@@ -380,10 +380,10 @@ fallback_attempted=false
 external_engine_invoked=false
 ```
 
-The broader release process must also attach clean Conda proof, benchmark smoke evidence,
-package metadata/license proof, package-channel proof, SBOM/checksum/provenance evidence, runtime
-no-fallback dependency audit, and release notes or known-unsupported-path evidence before public
-claims are allowed.
+The broader release process must also attach clean Conda proof, package metadata/license proof,
+package-channel proof, SBOM/checksum/provenance evidence, runtime no-fallback dependency audit,
+benchmark evidence from the benchmark/feature lane, and release notes or known-unsupported-path
+evidence before public claims are allowed.
 
 Contribution governance uses schema `shardloom.contribution_governance_report.v1`:
 
@@ -836,8 +836,8 @@ rehearsal_status=passed
 claim_gate_status=not_claim_grade
 public_release_claim_allowed=false
 public_package_claim_allowed=false
-publication_authorization_status=human_approval_required
-publication_human_approved=false
+publication_authorization_status=approved_pending_channel_proof
+publication_human_approved=true
 local_artifacts_only=true
 final_attestation_status=not_signed_local_rehearsal
 package_upload_attempted=false

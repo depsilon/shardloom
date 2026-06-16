@@ -1140,7 +1140,6 @@ def main() -> int:
         for field in [
             "public_release_claim_allowed",
             "public_package_claim_allowed",
-            "publication_human_approved",
             "publication_attempted",
             "tag_created",
             "secrets_required",
@@ -1153,6 +1152,17 @@ def main() -> int:
         ]:
             if final_release_rehearsal.get(field) is not False:
                 final_rehearsal_blockers.append(f"final rehearsal {field} must be false")
+        if final_release_rehearsal.get("publication_authorization_status") != (
+            "approved_pending_channel_proof"
+        ):
+            final_rehearsal_blockers.append(
+                "final rehearsal publication_authorization_status must be "
+                "approved_pending_channel_proof"
+            )
+        if final_release_rehearsal.get("publication_human_approved") is not True:
+            final_rehearsal_blockers.append(
+                "final rehearsal publication_human_approved must be true"
+            )
     checks.append(
         check(
             "final_release_rehearsal",

@@ -12,8 +12,8 @@ a caller explicitly invokes a CLI command through `ShardLoomClient` or one of th
 helpers that wraps an evidence-backed CLI smoke.
 
 Public status is owned by `docs/release/public-status-matrix.md`. This README may describe scoped
-local Python surfaces, but it does not authorize package publication, production support,
-performance claims, Spark displacement, or hidden external execution.
+local Python surfaces and the approved v0.1.0 package track, but it does not authorize production
+support, performance claims, Spark displacement, or hidden external execution.
 
 ## Local Use
 
@@ -31,9 +31,11 @@ Foundry-style imports:
 python -m pip install -e python
 ```
 
-The package exposes a non-placeholder development version through
-`shardloom.__version__`. It is still pre-release and is not published from this
-repository session.
+The package exposes the v0.1.0 pre-release technical-preview version through
+`shardloom.__version__`.
+GitHub, TestPyPI, PyPI, and Homebrew publication are approved for the v0.1.0 release sequence, but
+registry install commands should be treated as live only after channel publication and clean
+install/uninstall/smoke proof are recorded.
 
 Use `SHARDLOOM_BIN` to point at a specific CLI binary:
 

@@ -88,7 +88,6 @@ REQUIRED_DRY_RUN_TRUE_FIELDS = (
     "generated_output_proof_distinct_from_no_dataset_smoke",
     "generated_source_user_rows_smoke_performed",
     "generated_source_range_smoke_performed",
-    "prepared_native_benchmark_smoke_performed",
     "provenance_dry_run_performed",
     "sbom_checksum_manifest_generated",
 )
@@ -342,6 +341,10 @@ def validate_release_dry_run(payload: dict[str, Any] | None) -> tuple[dict[str, 
     for field in REQUIRED_DRY_RUN_TRUE_FIELDS:
         if payload.get(field) is not True:
             blockers.append(f"release dry-run {field} must be true")
+    if payload.get("benchmark_smoke_required_for_package_release") is not False:
+        blockers.append(
+            "release dry-run benchmark_smoke_required_for_package_release must be false"
+        )
     for field in FALSE_SAFETY_FIELDS:
         if field in payload and payload.get(field) is not False:
             blockers.append(f"release dry-run {field} must be false")
@@ -355,6 +358,10 @@ def validate_release_dry_run(payload: dict[str, Any] | None) -> tuple[dict[str, 
         "status": "passed" if not blockers else "blocked",
         "proof_status": payload.get("proof_status"),
         "clean_venv_install_status": payload.get("clean_venv_install_status"),
+        "benchmark_smoke_status": payload.get("benchmark_smoke_status"),
+        "benchmark_smoke_required_for_package_release": payload.get(
+            "benchmark_smoke_required_for_package_release"
+        ),
         "local_wheel": payload.get("local_wheel"),
         "local_cli_binary": payload.get("local_cli_binary"),
     }, blockers

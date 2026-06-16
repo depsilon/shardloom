@@ -2,7 +2,8 @@
 
 # V1 Local Source And Package Release Track
 
-Status: selected local/source/package v1 release track, ready pending the final publication event.
+Status: selected local/source/package v1 release track, approved pending channel publication proof
+and post-release verification.
 
 Schema marker: `shardloom.v1_local_source_package_release.v1`.
 
@@ -12,9 +13,10 @@ Validate with:
 python scripts\check_v1_local_source_package_release.py
 ```
 
-This page narrows the feasible v1 release after excluding real production environments. It does not
-publish packages, create tags, create GitHub releases, upload artifacts, sign artifacts, add
-secrets, run production services, or authorize fallback execution.
+This page narrows the feasible v1 release after excluding real production environments. Maintainer
+approval exists for the v0.1.0 GitHub pre-release, TestPyPI, PyPI, and Homebrew sequence. This page
+does not itself publish packages, create tags, create GitHub releases, upload artifacts, sign
+artifacts, add secrets, run production services, or authorize fallback execution.
 
 ## Selected V1 Track
 
@@ -29,14 +31,28 @@ secrets, run production services, or authorize fallback execution.
 | GitHub pre-release | Selected package channel after approved tag/release object/assets. | `docs/release/package-channel-readiness-matrix.json`, `target/release-provenance-dry-run/github-prerelease-assets/asset-manifest.json` |
 | TestPyPI | Selected rehearsal channel after Trusted Publisher and approval. | `.github/workflows/pypi-publish-draft.yml`, `scripts/python_registry_package_proof.py` |
 | PyPI | Selected public Python package channel after TestPyPI proof and approval. | `.github/workflows/pypi-publish-draft.yml`, `scripts/python_registry_package_proof.py` |
+| Homebrew tap | Selected public CLI package channel after GitHub release assets and formula proof. | `docs/release/package-channel-readiness-matrix.json`, Homebrew tap formula proof |
 
-## Final Publication Event Still Required
+## Publication Sequence Still Required
 
-The final event is the only remaining non-environment release action. It requires maintainer
-confirmation of:
+Publication approval is recorded, but channel proof still gates release claims. The logical channel
+order is:
+
+1. Merge the v0.1.0 release-prep source revision.
+2. Create the GitHub v0.1.0 release and attach source, wheel, sdist, CLI, checksums, SBOM, and
+   provenance assets.
+3. Publish TestPyPI through Trusted Publisher/OIDC and run the clean registry install/uninstall
+   smoke transcript.
+4. Commit or otherwise attach the TestPyPI proof reference required by the PyPI workflow.
+5. Publish PyPI through Trusted Publisher/OIDC and run the clean registry install/uninstall smoke
+   transcript.
+6. Publish the Homebrew tap formula against the immutable GitHub v0.1.0 source archive and run
+   `brew install`, `shardloom status --format json`, and `brew uninstall` proof.
+
+The remaining publication proof requires:
 
 - release version and tag
-- selected channels: GitHub pre-release, TestPyPI, PyPI
+- selected channels: GitHub pre-release, TestPyPI, PyPI, Homebrew
 - exact source revision
 - release notes
 - checksum, SBOM, provenance, and signing/attestation policy

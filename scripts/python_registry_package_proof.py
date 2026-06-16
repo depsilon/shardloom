@@ -26,6 +26,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.python_registry_package_proof.v1"
 PACKAGE_NAME = "shardloom"
+ENV_BINARY = "SHARDLOOM_BIN"
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--testpypi-proof-ref",
         help="Required when --channel=pypi; records the prior TestPyPI proof reference.",
+    )
+    parser.add_argument(
+        "--shardloom-bin",
+        type=Path,
+        help=(
+            "Approved local ShardLoom CLI binary used for the registry package smoke. "
+            "If omitted, SHARDLOOM_BIN must already point at an existing binary."
+        ),
     )
     return parser.parse_args()
 
@@ -180,6 +189,28 @@ def uninstall_command(python: Path) -> list[str]:
     return [str(python), "-m", "pip", "uninstall", "-y", PACKAGE_NAME]
 
 
+def resolve_shardloom_bin(repo_root: Path, explicit: Path | None) -> tuple[Path | None, list[str]]:
+    raw = explicit or (Path(os.environ[ENV_BINARY]) if os.environ.get(ENV_BINARY) else None)
+    if raw is None:
+        return None, [f"registry proof requires --shardloom-bin or {ENV_BINARY}"]
+    binary = raw if raw.is_absolute() else repo_root / raw
+    binary = binary.resolve()
+    blockers: list[str] = []
+    if not binary.exists():
+        blockers.append(f"registry proof CLI binary does not exist: {rel(repo_root, binary)}")
+    elif not binary.is_file():
+        blockers.append(f"registry proof CLI binary is not a file: {rel(repo_root, binary)}")
+    elif os.name != "nt" and not os.access(binary, os.X_OK):
+        blockers.append(f"registry proof CLI binary is not executable: {rel(repo_root, binary)}")
+    return binary, blockers
+
+
+def smoke_env(cli_binary: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    env[ENV_BINARY] = str(cli_binary)
+    return env
+
+
 def step_status(steps: list[dict[str, Any]], name: str) -> str:
     for step in steps:
         if step["name"] == name:
@@ -196,6 +227,8 @@ def write_transcript(
     venv_dir: Path,
     steps: list[dict[str, Any]],
     testpypi_proof_ref: str | None,
+    shardloom_bin: Path | None,
+    setup_blockers: list[str] | None = None,
 ) -> int:
     installed = step_status(steps, "install_registry_package") == "passed"
     smoked = step_status(steps, "registry_package_client_smoke") == "passed"
@@ -205,12 +238,15 @@ def write_transcript(
     )
     fallback_attempted = "fallback_attempted=True" in smoke_stdout
     external_engine_invoked = "external_engine_invoked=True" in smoke_stdout
+    setup_blockers = setup_blockers or []
     proof_passed = (
         installed
         and smoked
         and uninstalled
         and not fallback_attempted
         and not external_engine_invoked
+        and not setup_blockers
+        and shardloom_bin is not None
     )
     report = {
         "schema_version": SCHEMA_VERSION,
@@ -229,6 +265,11 @@ def write_transcript(
         "external_engine_invoked": external_engine_invoked,
         "testpypi_proof_ref": testpypi_proof_ref,
         "testpypi_proof_required": channel.channel_id == "pypi",
+        "cli_binary_required_for_clean_registry_smoke": True,
+        "cli_binary_available": shardloom_bin is not None and not setup_blockers,
+        "cli_binary_ref": rel(repo_root, shardloom_bin),
+        "cli_binary_env_var": ENV_BINARY,
+        "cli_binary_smoke_source": "approved_release_or_local_artifact",
         "registry_upload_attempted_by_this_tool": False,
         "publication_attempted_by_this_tool": False,
         "tag_created": False,
@@ -240,9 +281,11 @@ def write_transcript(
         report["proof_status"] = "failed"
         report["blockers"] = ["pypi proof requires a prior TestPyPI proof reference"]
     else:
-        blockers = []
+        blockers = list(setup_blockers)
         if report["proof_status"] != "passed":
             blockers.append("registry proof step failed")
+        if shardloom_bin is None:
+            blockers.append("registry proof requires an approved ShardLoom CLI binary")
         if fallback_attempted:
             blockers.append("registry proof smoke reported fallback_attempted=True")
         if external_engine_invoked:
@@ -260,6 +303,7 @@ def main() -> int:
     channel = REGISTRY_CHANNELS[args.channel]
     venv_dir = resolve_under_repo(repo_root, args.venv_dir)
     output = resolve_under_repo(repo_root, args.output)
+    shardloom_bin, setup_blockers = resolve_shardloom_bin(repo_root, args.shardloom_bin)
     if channel.channel_id == "pypi" and not args.testpypi_proof_ref:
         return write_transcript(
             repo_root=repo_root,
@@ -269,6 +313,20 @@ def main() -> int:
             venv_dir=venv_dir,
             steps=[],
             testpypi_proof_ref=None,
+            shardloom_bin=shardloom_bin,
+            setup_blockers=setup_blockers,
+        )
+    if setup_blockers:
+        return write_transcript(
+            repo_root=repo_root,
+            output=output,
+            channel=channel,
+            version=args.version,
+            venv_dir=venv_dir,
+            steps=[],
+            testpypi_proof_ref=args.testpypi_proof_ref,
+            shardloom_bin=shardloom_bin,
+            setup_blockers=setup_blockers,
         )
 
     if venv_dir.exists():
@@ -299,7 +357,7 @@ def main() -> int:
                 name="registry_package_client_smoke",
                 command=smoke_command(clean_python),
                 cwd=repo_root,
-                env=os.environ.copy(),
+                env=smoke_env(shardloom_bin),
             )
         )
     if step_status(steps, "install_registry_package") == "passed":
@@ -320,6 +378,8 @@ def main() -> int:
         venv_dir=venv_dir,
         steps=steps,
         testpypi_proof_ref=args.testpypi_proof_ref,
+        shardloom_bin=shardloom_bin,
+        setup_blockers=setup_blockers,
     )
 
 

@@ -80,7 +80,7 @@ This table is a README summary; the canonical public status matrix and claim bou
 | Local output/sink scope | Scoped `write(...)`, `write_jsonl(...)`, `write_csv(...)`, feature-gated `write_parquet(...)`, `write_arrow_ipc(...)`, `write_avro(...)`, `write_orc(...)`, `write_vortex(...)`, and fanout helpers are defined by [docs/architecture/v1-local-output-sink-scope.md](docs/architecture/v1-local-output-sink-scope.md). | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
 | Prepared/native benchmark routes | Local benchmark artifacts expose cold, prepare-once, warm prepared, native Vortex, direct transient, and external-baseline lanes. | Claims depend on the selected timing surface and claim gate. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly fixture-scoped with report-only or blocked status for broader platform routes. | No production platform claim. |
-| Package/release status | A selected local/source/package v1 release track exists for source checkout, GitHub pre-release, TestPyPI, and PyPI. Public packages are not uploaded until the final publication event is approved and verified. | No production/platform, performance, or broad runtime claim. |
+| Package/release status | A selected local/source/package v1 release track exists for source checkout, GitHub pre-release, TestPyPI, PyPI, and Homebrew. v0.1.0 publication is approved, but channel commands are public only after each channel is published and verified. | No production/platform, performance, or broad runtime claim. |
 
 User surface graduation is tracked separately from runtime breadth. Public CLI/Python surfaces are
 classified as `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
@@ -109,11 +109,12 @@ python examples\local-python-smoke\run.py --repo-root .
 ```
 
 The selected local/source/package v1 release track is source checkout plus GitHub pre-release,
-TestPyPI, and PyPI. GitHub pre-release, TestPyPI, and PyPI are the selected publication channels;
-Homebrew/Scoop/winget/conda are feasible later channels, while real production object-store,
-lakehouse, distributed, live/hybrid, and Foundry claims stay fail-closed without environments. Package
-commands become public only after the final publication event records the approved tag/version,
-release assets, registry proof, rollback/yank policy, and post-release smoke transcripts.
+TestPyPI, PyPI, and Homebrew. GitHub pre-release, TestPyPI, PyPI, and Homebrew are the selected publication channels
+for v0.1.0; Scoop/winget/conda are feasible later channels, while real
+production object-store, lakehouse, distributed, live/hybrid, and Foundry claims stay fail-closed
+without environments. Package commands become public only after the release records the approved
+tag/version, release assets, registry/formula proof, rollback/yank/deprecate policy, and
+post-release smoke transcripts.
 
 Normal Python use:
 

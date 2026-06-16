@@ -63,5 +63,5 @@ Diagnostic-code stability policy: `docs/release/diagnostic-code-stability.md`.
 
 `docs/release/publication-api-schema-stability-gate.md` remains the public-release fail-closed gate.
 The matrix here supplies local schema stability evidence for API/schema fields. Package identity,
-signing, checksum/SBOM publication grade, channel proof, and human publication approval remain
-blocked until their own release items close.
+signing, checksum/SBOM publication grade, and channel proof remain blocked until their own release
+items close.

@@ -2,8 +2,8 @@
 
 # Package Name Readiness
 
-Status: release-readiness scaffold. Do not publish packages, create tags, or
-add secrets from this document.
+Status: release-readiness scaffold with v0.1.0 publication approval recorded separately. Do not
+publish packages, create tags, or add secrets from this document.
 
 Package-name posture is separate from package-channel readiness. The channel-by-channel release
 gate lives in [`package-channel-readiness-matrix.md`](package-channel-readiness-matrix.md) and the
@@ -23,36 +23,32 @@ their API contracts are stable enough for permanent publication.
 ## PyPI Trusted Publisher Draft
 
 The draft workflow lives at `.github/workflows/pypi-publish-draft.yml`.
-It uses GitHub OIDC, the `pypi` environment, and no token secrets. It is manual
-and guarded by an explicit `publish-approved` input so it does not publish
-accidentally.
+It uses GitHub OIDC, the `testpypi` and `pypi` environments, and no token secrets. It is manual and
+guarded by an explicit `publish-approved` input so it does not publish accidentally.
 
-Before enabling publication:
+Before publication:
 
-- configure PyPI Trusted Publisher for the repository, workflow, and `pypi`
-  environment
+- configure TestPyPI and PyPI pending publishers for the repository, workflow, and matching
+  `testpypi` / `pypi` environments
 - verify package metadata with `python -m build python`
 - run `python scripts\release_dry_run_proof.py --rows 64 --iterations 1`
 - verify `twine check python/dist/*`
-- ensure the release has maintainer approval
+- ensure the release approval contract records the selected version/tag/source revision
 - ensure no runtime fallback dependencies were added
 
 ## TestPyPI Dry Run
 
-Use TestPyPI only from a release branch or throwaway package version. Do not
-reuse a public version number.
+Use TestPyPI first through the Trusted Publisher workflow. The registry proof must install from the
+target registry into a clean environment, smoke the package with an explicit approved ShardLoom CLI
+binary via `--shardloom-bin` or `SHARDLOOM_BIN`, and uninstall the package.
 
 ```powershell
-python -m pip install build twine
-python -m build python
-python -m twine check python/dist/*
-python -m twine upload --repository testpypi python/dist/*
-python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom
-python -c "import shardloom; print(shardloom.__version__)"
+gh workflow run pypi-publish-draft.yml -f channel=testpypi -f publish_approved=publish-approved
+python scripts\python_registry_package_proof.py --channel testpypi --version 0.1.0 --shardloom-bin target\release\shardloom --output target\python-registry-package-proof\testpypi-transcript.json
 ```
 
-This requires human-provided TestPyPI credentials or a future TestPyPI Trusted
-Publisher configuration. Do not commit tokens.
+PyPI publication uses the same workflow with `channel=pypi`, but it must reference the passed
+TestPyPI transcript. Do not commit tokens.
 
 ## Conda-Forge Staged-Recipes Readiness
 
@@ -106,8 +102,10 @@ python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 
 It builds the local CLI, builds wheel/sdist artifacts, installs the local wheel
 in a clean virtual environment, resolves the built CLI through `SHARDLOOM_BIN`,
-runs the first-10-minutes smoke path, and executes the local benchmark smoke.
-The transcript lives at `target/release-dry-run-proof/transcript.json`.
+runs the first-10-minutes smoke path, records
+`benchmark_smoke_required_for_package_release=false`, and writes the transcript at
+`target/release-dry-run-proof/transcript.json`. Run the optional benchmark smoke separately, or
+pass `--include-benchmark-smoke`, when benchmark evidence is the goal.
 
 This proof is intentionally not a publish workflow. It does not create tags,
 submit Conda feedstocks, upload to PyPI/TestPyPI, publish crates, push OCI

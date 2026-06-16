@@ -1,14 +1,19 @@
 {
   "schema_version": "shardloom.final_release_approval_post_release_verification.v1",
-  "status": "blocked_pending_maintainer_approval",
-  "publication_authorization_state": "human_approval_required",
+  "status": "approved_pending_channel_publication_and_post_release_verification",
+  "publication_authorization_state": "approved",
   "public_release_ready": false,
   "post_release_verification_ready": false,
   "approval_artifact_ref": "target/final-release-approval/maintainer-approval.json",
-  "approved_release_tag": null,
-  "approved_release_commit": null,
-  "approved_package_channels": [],
-  "claim_boundary": "This artifact is a no-publication approval and post-release verification contract. It does not approve publication, create tags, upload packages, sign artifacts, push containers, or allow production, performance, Spark-replacement, object-store, lakehouse, Foundry, broad SQL/DataFrame, or fallback-execution claims.",
+  "approved_release_tag": "v0.1.0",
+  "approved_release_commit": "pending_release_prep_merge_commit",
+  "approved_package_channels": [
+    "github_prerelease",
+    "testpypi",
+    "pypi",
+    "homebrew_tap"
+  ],
+  "claim_boundary": "Maintainer approval exists for the v0.1.0 GitHub release, TestPyPI, PyPI, and Homebrew publication sequence. Public release readiness remains false until the channel publication steps, registry/formula install-uninstall-smoke proofs, checksum/SBOM/provenance attachment, and post-release verification rows pass. This approval does not allow production, performance, Spark-replacement, object-store, lakehouse, Foundry, broad SQL/DataFrame, or fallback-execution claims.",
   "fallback_boundary": "Post-release verification must prove ShardLoom runtime paths keep fallback_attempted=false and external_engine_invoked=false. Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or another external query engine as fallback execution.",
   "verification_rows": [
     {

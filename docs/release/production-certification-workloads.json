@@ -223,7 +223,7 @@
         "fault_tolerance=blocked_missing_production_fault_injection",
         "memory_backpressure=blocked_missing_production_memory_pressure_proof",
         "benchmark=blocked_not_claim_grade",
-        "public package/release approval missing"
+        "public package/release channel proof missing"
       ]
     },
     {

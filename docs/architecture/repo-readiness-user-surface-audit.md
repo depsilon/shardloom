@@ -104,4 +104,4 @@ claim-boundary reclassification:
 3. Freshness/consolidation sweep: remove duplicate completed-ledger wording, stale platform-specific
    validation text, and superseded blocker descriptions after each runtime family lands.
 4. Package/deploy readiness gate: only after true runtime gaps are closed, run release/package
-   evidence without `--allow-blocked` and attach package publication approval gates.
+   evidence without `--allow-blocked` and attach package publication proof gates.

@@ -38,9 +38,7 @@ The dry run performs these checks in order:
   clean installed wheel
 - runs a scoped `ctx.range(...).write(local_jsonl)` engine-native generated-source output smoke from
   the clean installed wheel
-- runs `examples/local-vortex-benchmark/run.py` with the default compatibility-import plus
-  `shardloom-prepared-vortex` lanes under
-  `target/release-dry-run-proof/local-vortex-benchmark/<run-id>/`
+- records that benchmark smoke is not required for package-channel proof
 - runs `scripts/release_provenance_dry_run.py --skip-build`
 
 The transcript records command return codes, bounded stdout/stderr excerpts,
@@ -76,7 +74,8 @@ clean_conda_env_install_required=true | false
 generated_output_proof_distinct_from_no_dataset_smoke=true
 generated_source_user_rows_smoke_performed=true
 generated_source_range_smoke_performed=true
-prepared_native_benchmark_smoke_performed=true
+benchmark_smoke_required_for_package_release=false
+benchmark_smoke_status=skipped_not_required_for_package_release | passed
 ```
 
 `clean_conda_env_install_status=passed` is required by the hard release-readiness gate before public
@@ -97,8 +96,12 @@ python scripts\release_dry_run_proof.py --conda-executable target\release-tools\
 
 The clean venv proof installs only the exact ShardLoom wheel built during the current dry run.
 Benchmark comparison engines remain optional benchmark/dev dependencies and are not installed by
-this proof. The local benchmark smoke is launched through the clean venv interpreter so wrapper
-import behavior is checked from the installed artifact, not the host Python environment.
+this proof. The package proof does not compile the benchmark-only
+`vortex-traditional-analytics-benchmark` feature lane by default because package-channel evidence
+must stay focused on install, CLI/Python smoke, generated-source local output, SBOM/checksum, and
+provenance. Run `python scripts\release_dry_run_proof.py --include-benchmark-smoke --rows 64
+--iterations 1` only when you intentionally want the optional local benchmark smoke in the same
+transcript.
 
 The local Python smoke is no longer only import/status evidence. It creates a tiny local CSV,
 runs the first user-facing `ctx.read(...).filter(...).select(...).write_jsonl(...)` workflow,
@@ -114,9 +117,10 @@ local JSONL files under `target/release-dry-run-proof/`, emit
 `claim_gate_status=fixture_smoke_only`. They do not claim SQL `VALUES`, broad DataFrame runtime,
 object-store/lakehouse output, Foundry output, production support, or performance.
 
-The benchmark smoke is local pre-release evidence. Its default lanes separate
-`compatibility_import_certified` from `prepared_vortex`; the page and transcript must not read those
-rows as public speed rankings, Spark replacement evidence, or production readiness.
+Benchmark smoke is local pre-release evidence owned by the benchmark/feature lanes, not
+package-channel proof. Its default lanes separate `compatibility_import_certified` from
+`prepared_vortex`; the page and transcript must not read those rows as public speed rankings, Spark
+replacement evidence, or production readiness.
 
 The provenance step writes SBOM, checksum, workflow policy, and local
 `SupplyChainReleaseEvidence` dry-run artifacts under
@@ -128,10 +132,10 @@ The package-channel validator's strict mode consumes this transcript:
 python scripts\check_package_channel_readiness.py --require-local-evidence
 ```
 
-That strict mode requires the generated-source smokes, prepared/native benchmark smoke,
-provenance dry run, SBOM/checksum manifest generation, and no-publication safety fields before the
-package-gate report can pass. Channel-specific package rows still remain blocked until real
-channel evidence is attached.
+That strict mode requires the generated-source smokes, package/CLI/Python smokes, provenance dry
+run, SBOM/checksum manifest generation, `benchmark_smoke_required_for_package_release=false`, and
+no-publication safety fields before the package-gate report can pass. Channel-specific package rows
+still remain blocked until real channel evidence is attached.
 
 The production-usability gate also consumes this transcript:
 
@@ -140,13 +144,14 @@ python scripts\check_production_usability_gate.py
 ```
 
 That gate requires the clean venv install, installed-wheel client smoke, CLI status/capabilities
-smokes, local Python example smoke, generated-source output smokes, benchmark smoke, provenance
-dry run, and no-publication/no-fallback fields before it can pass. It still keeps
+smokes, local Python example smoke, generated-source output smokes, provenance dry run,
+`benchmark_smoke_required_for_package_release=false`, and no-publication/no-fallback fields before
+it can pass. It still keeps
 `public_release_claim_allowed=false` and `public_package_claim_allowed=false`.
 
 ## Relationship To First 10 Minutes
 
 The dry run is the source-mode version of the public first-10-minutes path. It
-uses local build artifacts because no public package publication is authorized
-yet. Once release artifacts exist, the same proof should install the tagged
-wheel, CLI binary, or Conda packages instead of source-built artifacts.
+uses local build artifacts until channel publication and install proof exist.
+Once release artifacts exist, the same proof should install the tagged wheel,
+CLI binary, or channel package instead of source-built artifacts.

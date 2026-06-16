@@ -261,12 +261,12 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
         )
     if matrix.get("package_gate_required_evidence") != PACKAGE_GATE_REQUIRED_EVIDENCE:
         blockers.append("package_gate_required_evidence must match the package-gate evidence list")
-    if (
-        matrix.get("package_identity_contract_status")
-        != "local_contract_recorded_publication_approval_blocked"
-    ):
+    if matrix.get("package_identity_contract_status") not in {
+        "local_contract_recorded_publication_approval_blocked",
+        "local_contract_recorded_publication_approved_pending_channel_proof",
+    }:
         blockers.append(
-            "package_identity_contract_status must record local contract with publication approval blocked"
+            "package_identity_contract_status must record local contract with publication approval state"
         )
     if matrix.get("python_package_identity") != EXPECTED_PYTHON_PACKAGE_NAME:
         blockers.append(
@@ -690,6 +690,19 @@ def python_registry_proof_blockers(
             blockers.append(f"{channel_id}: registry proof {field} must be false")
     if require_prior_testpypi_ref and not proof.get("testpypi_proof_ref"):
         blockers.append(f"{channel_id}: registry proof requires testpypi_proof_ref")
+    if proof.get("cli_binary_required_for_clean_registry_smoke") is not True:
+        blockers.append(
+            f"{channel_id}: registry proof must require an explicit ShardLoom CLI binary"
+        )
+    if proof.get("cli_binary_available") is not True:
+        blockers.append(f"{channel_id}: registry proof cli_binary_available must be true")
+    if proof.get("cli_binary_smoke_source") != "approved_release_or_local_artifact":
+        blockers.append(
+            f"{channel_id}: registry proof cli_binary_smoke_source="
+            + str(proof.get("cli_binary_smoke_source", "missing"))
+        )
+    if not isinstance(proof.get("cli_binary_ref"), str) or not proof.get("cli_binary_ref"):
+        blockers.append(f"{channel_id}: registry proof cli_binary_ref missing")
     return blockers
 
 
@@ -712,6 +725,12 @@ def python_registry_proof_summary(proof: dict[str, Any] | None) -> dict[str, Any
         "smoke_check_status": proof.get("smoke_check_status"),
         "uninstall_transcript_status": proof.get("uninstall_transcript_status"),
         "testpypi_proof_ref": proof.get("testpypi_proof_ref"),
+        "cli_binary_required_for_clean_registry_smoke": proof.get(
+            "cli_binary_required_for_clean_registry_smoke"
+        ),
+        "cli_binary_available": proof.get("cli_binary_available"),
+        "cli_binary_ref": proof.get("cli_binary_ref"),
+        "cli_binary_smoke_source": proof.get("cli_binary_smoke_source"),
     }
 
 
@@ -817,7 +836,8 @@ def validate_local_gate_evidence(
         "local_python_unsupported_path_evidence_printed": None,
         "generated_source_user_rows_smoke_performed": None,
         "generated_source_range_smoke_performed": None,
-        "prepared_native_benchmark_smoke_performed": None,
+        "benchmark_smoke_required_for_package_release": None,
+        "benchmark_smoke_status": None,
         "provenance_dry_run_performed": None,
         "sbom_checksum_manifest_generated": None,
     }
@@ -850,13 +870,22 @@ def validate_local_gate_evidence(
             "generated_output_proof_distinct_from_no_dataset_smoke",
             "generated_source_user_rows_smoke_performed",
             "generated_source_range_smoke_performed",
-            "prepared_native_benchmark_smoke_performed",
             "provenance_dry_run_performed",
             "sbom_checksum_manifest_generated",
         ]:
             smoke_fields[field] = release_dry_run_transcript.get(field)
             if release_dry_run_transcript.get(field) is not True:
                 blockers.append(f"release dry-run {field} must be true")
+        smoke_fields["benchmark_smoke_required_for_package_release"] = (
+            release_dry_run_transcript.get("benchmark_smoke_required_for_package_release")
+        )
+        smoke_fields["benchmark_smoke_status"] = release_dry_run_transcript.get(
+            "benchmark_smoke_status"
+        )
+        if release_dry_run_transcript.get("benchmark_smoke_required_for_package_release") is not False:
+            blockers.append(
+                "release dry-run benchmark_smoke_required_for_package_release must be false"
+            )
         blockers.extend(
             false_field_blockers(
                 release_dry_run_transcript,

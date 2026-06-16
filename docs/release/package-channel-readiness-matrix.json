@@ -11,7 +11,7 @@
   "fallback_engine_dependency_added": false,
   "external_engine_runtime_dependency_added": false,
   "package_access_implies_production_readiness": false,
-  "package_identity_contract_status": "local_contract_recorded_publication_approval_blocked",
+  "package_identity_contract_status": "local_contract_recorded_publication_approved_pending_channel_proof",
   "python_package_identity": "shardloom",
   "internal_workspace_crates_publish_allowed": false,
   "future_public_crate_candidates": [
@@ -44,7 +44,7 @@
   ],
   "claim_boundary": "Package-channel readiness is release evidence only. Package access does not imply production readiness, performance or superiority, Spark replacement, production SQL/DataFrame support, production object-store/lakehouse support, production Foundry support, or fallback execution.",
   "fallback_boundary": "Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or another external query engine as a ShardLoom runtime fallback dependency.",
-  "publication_authorization_state": "human_approval_required",
+  "publication_authorization_state": "approved",
   "package_gate_required_evidence": [
     "dependency_inventory",
     "license_classification",
@@ -76,8 +76,8 @@
       "status": "blocked",
       "ready": false,
       "v1_feasibility_status": "included_pending_channel_proof",
-      "v1_scope_decision": "included in v1 release package sequence after approved tag, GitHub release object, attached assets, and maintainer approval",
-      "v1_feasibility_reason": "local source archive, release notes, CLI binary, wheel, sdist, checksums, SBOM, and provenance dry-run artifacts are already staged; remaining work is channel attachment and approval proof",
+      "v1_scope_decision": "included in v1 release package sequence after approved tag, GitHub release object, attached assets, and channel proof",
+      "v1_feasibility_reason": "local source archive, release notes, CLI binary, wheel, sdist, checksums, SBOM, and provenance dry-run artifacts are already staged; remaining work is channel attachment and download proof",
       "install_command": "gh release download <tag> --repo depsilon/shardloom --pattern shardloom-* --dir <install-dir>",
       "uninstall_command": "Remove-Item -LiteralPath <install-dir> -Recurse -Force",
       "channel_specific_proof_status": "blocked_until_approved_github_prerelease_exists",
@@ -98,8 +98,8 @@
       "prepared_local_artifact_refs": [
         "target/release-provenance-dry-run/github-prerelease-assets/asset-manifest.json",
         "target/release-dry-run-proof/transcript.json",
-        "python/dist/shardloom-0.1.0.dev0-py3-none-any.whl",
-        "python/dist/shardloom-0.1.0.dev0.tar.gz",
+        "python/dist/shardloom-0.1.0-py3-none-any.whl",
+        "python/dist/shardloom-0.1.0.tar.gz",
         "target/debug/shardloom"
       ],
       "prepared_local_github_prerelease_asset_manifest_ref": "target/release-provenance-dry-run/github-prerelease-assets/asset-manifest.json",
@@ -112,10 +112,9 @@
         "target/release-provenance-dry-run/shardloom-cli-binary.cdx.json"
       ],
       "current_blockers": [
-        "no approved release tag",
+        "approved release tag not created",
         "no GitHub pre-release object or attached assets",
-        "no gh release download transcript from attached assets",
-        "maintainer approval missing"
+        "no gh release download transcript from attached assets"
       ],
       "claim_boundary": "GitHub pre-release access would be preview distribution only, not production readiness."
     },
@@ -126,19 +125,19 @@
       "status": "blocked",
       "ready": false,
       "v1_feasibility_status": "included_pending_channel_proof",
-      "v1_scope_decision": "included in v1 package rehearsal before PyPI after TestPyPI Trusted Publisher setup and maintainer approval",
+      "v1_scope_decision": "included in v1 package rehearsal before PyPI after TestPyPI Trusted Publisher setup and channel proof",
       "v1_feasibility_reason": "local wheel/sdist build, metadata check, local install smoke, registry-proof tooling, and Trusted Publisher draft workflow exist; remaining work is approved TestPyPI upload plus clean registry install/uninstall/smoke proof",
       "install_command": "python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==<version>",
       "uninstall_command": "python -m pip uninstall -y shardloom",
       "python_artifact_metadata_status": "local_build_and_twine_check_passed",
-      "trusted_publisher_workflow_posture": "draft_oidc_workflow_present_not_channel_configured",
+      "trusted_publisher_workflow_posture": "trusted_publisher_pending_publisher_configured_upload_missing",
       "clean_install_proof_status": "local_release_dry_run_passed_testpypi_upload_missing",
       "smoke_check_status": "local_release_dry_run_passed_testpypi_smoke_missing",
       "sbom_checksum_provenance_status": "local_refs_present_channel_attachment_missing",
       "rollback_yank_policy": "Use disposable versions; yank or delete only according to TestPyPI policy and document any consumed build.",
       "auth_provenance_requirement": "TestPyPI Trusted Publisher/OIDC or explicitly scoped human credential proof with no committed token.",
       "trusted_publisher_required": true,
-      "trusted_publisher_status": "not_configured",
+      "trusted_publisher_status": "configured",
       "human_approval_required": true,
       "publication_attempted": false,
       "tag_created": false,
@@ -147,8 +146,8 @@
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
       "prepared_local_artifact_refs": [
-        "python/dist/shardloom-0.1.0.dev0-py3-none-any.whl",
-        "python/dist/shardloom-0.1.0.dev0.tar.gz",
+        "python/dist/shardloom-0.1.0-py3-none-any.whl",
+        "python/dist/shardloom-0.1.0.tar.gz",
         "target/release-dry-run-proof/transcript.json"
       ],
       "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
@@ -159,10 +158,8 @@
       "prepared_workflow_policy_ref": "target/release-provenance-dry-run/workflow-policy-snapshot.json",
       "prepared_registry_install_smoke_proof_ref": "target/python-registry-package-proof/testpypi-transcript.json",
       "current_blockers": [
-        "no TestPyPI Trusted Publisher proof",
         "no TestPyPI upload proof",
-        "no clean TestPyPI install/uninstall/smoke transcript",
-        "maintainer approval missing"
+        "no clean TestPyPI install/uninstall/smoke transcript"
       ],
       "claim_boundary": "TestPyPI is packaging rehearsal only and does not imply public package release readiness."
     },
@@ -173,19 +170,19 @@
       "status": "blocked",
       "ready": false,
       "v1_feasibility_status": "included_pending_channel_proof",
-      "v1_scope_decision": "included in v1 public package path only after TestPyPI proof, PyPI Trusted Publisher setup, and maintainer approval",
+      "v1_scope_decision": "included in v1 public package path only after TestPyPI proof, PyPI Trusted Publisher setup, and channel proof",
       "v1_feasibility_reason": "Python package identity and local artifacts are prepared, but PyPI must remain blocked until TestPyPI proof exists and public upload/install/uninstall/smoke evidence is attached",
       "install_command": "python -m pip install shardloom==<version>",
       "uninstall_command": "python -m pip uninstall -y shardloom",
       "python_artifact_metadata_status": "local_build_and_twine_check_passed",
-      "trusted_publisher_workflow_posture": "draft_oidc_workflow_present_not_channel_configured",
+      "trusted_publisher_workflow_posture": "trusted_publisher_pending_publisher_configured_upload_missing",
       "clean_install_proof_status": "local_release_dry_run_passed_pypi_upload_missing",
       "smoke_check_status": "local_release_dry_run_passed_pypi_smoke_missing",
       "sbom_checksum_provenance_status": "local_refs_present_channel_attachment_missing",
       "rollback_yank_policy": "Yank affected release where appropriate, publish an advisory, and keep immutable version history intact.",
       "auth_provenance_requirement": "PyPI Trusted Publisher/OIDC with GitHub environment protection; no long-lived upload token.",
       "trusted_publisher_required": true,
-      "trusted_publisher_status": "not_configured",
+      "trusted_publisher_status": "configured",
       "human_approval_required": true,
       "publication_attempted": false,
       "tag_created": false,
@@ -194,8 +191,8 @@
       "external_engine_runtime_dependency_allowed": false,
       "internal_crates_publish_allowed": false,
       "prepared_local_artifact_refs": [
-        "python/dist/shardloom-0.1.0.dev0-py3-none-any.whl",
-        "python/dist/shardloom-0.1.0.dev0.tar.gz",
+        "python/dist/shardloom-0.1.0-py3-none-any.whl",
+        "python/dist/shardloom-0.1.0.tar.gz",
         "target/release-dry-run-proof/transcript.json"
       ],
       "prepared_local_checksum_ref": "target/release-provenance-dry-run/checksums.sha256",
@@ -207,9 +204,7 @@
       "prepared_registry_install_smoke_proof_ref": "target/python-registry-package-proof/pypi-transcript.json",
       "requires_prior_testpypi_proof_ref": "target/python-registry-package-proof/testpypi-transcript.json",
       "current_blockers": [
-        "Trusted Publisher/OIDC proof missing",
         "prior TestPyPI install/uninstall/smoke proof missing",
-        "maintainer approval missing",
         "clean public install/uninstall/smoke transcript missing",
         "channel-specific SBOM/checksum/provenance evidence missing"
       ],
@@ -221,8 +216,8 @@
       "target_artifact": "CLI formula",
       "status": "blocked",
       "ready": false,
-      "v1_feasibility_status": "feasible_pending_channel_proof",
-      "v1_scope_decision": "v1 feasible as a CLI install channel after reviewed tap formula, versioned checksum, clean install/uninstall/smoke transcript, and maintainer approval",
+      "v1_feasibility_status": "included_pending_channel_proof",
+      "v1_scope_decision": "included in v1 CLI release path after reviewed tap formula, versioned checksum, clean install/uninstall/smoke transcript, and channel proof",
       "v1_feasibility_reason": "the CLI binary dry-run proof and checksum/provenance refs exist; the missing evidence is Homebrew-specific formula and clean channel install proof, not a runtime design blocker",
       "install_command": "brew install depsilon/tap/shardloom",
       "uninstall_command": "brew uninstall shardloom",
@@ -250,8 +245,7 @@
       "current_blockers": [
         "no tap repository or formula proof",
         "no versioned artifact checksum proof",
-        "no clean Homebrew install/uninstall/smoke transcript",
-        "maintainer approval missing"
+        "no clean Homebrew install/uninstall/smoke transcript"
       ],
       "claim_boundary": "Homebrew distribution would be CLI access only and not a production platform claim."
     },

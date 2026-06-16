@@ -410,7 +410,7 @@ GLOBAL_REVIEW_MAPPINGS: tuple[GapMapping, ...] = (
     GapMapping("Full comparative reruns, source-backed claim-grade promotion, managed-platform lanes,", "performance_claim_evidence"),
     GapMapping("Passing public release/package/performance/production/platform claims remain incomplete until", "release_package_platform_readiness"),
     GapMapping("Generalized Source/Split runtime paths, field-mask/predicate-ordering proof, layout/write", "native_vortex_operator_runtime"),
-    GapMapping("Actual public package publication, release tags, signing, uploaded attestations, and final", "release_package_platform_readiness"),
+    GapMapping("Actual public package publication, release tags, signing, uploaded attestations, and channel", "release_package_platform_readiness"),
     GapMapping("Prepared/native Vortex rows now carry a typed operator blocker matrix, explicit", "native_vortex_operator_runtime"),
     GapMapping("`GAR-IOREUSE-1` adds I/O reuse and cross-format fanout follow-through. `GAR-IOREUSE-1A`", "io_reuse_fanout_followthrough"),
 )
