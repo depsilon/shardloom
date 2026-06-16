@@ -1,0 +1,88 @@
+{
+  "blockers": [],
+  "channel_id": "testpypi",
+  "clean_env": "target/python-registry-package-proof/testpypi-v0.1.1-venv",
+  "cli_binary_available": true,
+  "cli_binary_env_var": "SHARDLOOM_BIN",
+  "cli_binary_ref": "target/github-prerelease-channel-proof-v0.1.1/shardloom",
+  "cli_binary_required_for_clean_registry_smoke": true,
+  "cli_binary_smoke_source": "approved_release_or_local_artifact",
+  "display_name": "TestPyPI",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "index_url": "https://test.pypi.org/simple/",
+  "install_source": "testpypi_registry",
+  "install_transcript_status": "passed",
+  "package_channel_submission_attempted_by_this_tool": false,
+  "package_name": "shardloom",
+  "package_version": "0.1.1",
+  "proof_status": "passed",
+  "publication_attempted_by_this_tool": false,
+  "registry_upload_attempted_by_this_tool": false,
+  "schema_version": "shardloom.python_registry_package_proof.v1",
+  "secrets_required": false,
+  "smoke_check_status": "passed",
+  "steps": [
+    {
+      "command": [
+        "external-path:python3.13",
+        "-m",
+        "venv",
+        "target/python-registry-package-proof/testpypi-v0.1.1-venv"
+      ],
+      "elapsed_millis": 1080.9702,
+      "name": "create_clean_venv",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": [
+        "external-path:python",
+        "-m",
+        "pip",
+        "install",
+        "--no-deps",
+        "--index-url",
+        "https://test.pypi.org/simple/",
+        "shardloom==0.1.1"
+      ],
+      "elapsed_millis": 636.3715,
+      "name": "install_registry_package",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "Looking in indexes: https://test.pypi.org/simple/\nCollecting shardloom==0.1.1\n  Downloading shardloom-0.1.1-py3-none-any.whl.metadata (139 kB)\nDownloading shardloom-0.1.1-py3-none-any.whl (268 kB)\nInstalling collected packages: shardloom\nSuccessfully installed shardloom-0.1.1\n"
+    },
+    {
+      "command": [
+        "external-path:python",
+        "-c",
+        "from shardloom import ShardLoomClient; client=ShardLoomClient.from_env(); smoke=client.smoke_check(); caps=client.capabilities(); print('fallback_attempted=' + str(smoke.fallback_attempted)); print('external_engine_invoked=' + str(getattr(smoke, 'external_engine_invoked', False))); print('capabilities_command=' + caps.command)"
+      ],
+      "elapsed_millis": 267.3311,
+      "name": "registry_package_client_smoke",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "fallback_attempted=False\nexternal_engine_invoked=False\ncapabilities_command=capabilities\n"
+    },
+    {
+      "command": [
+        "external-path:python",
+        "-m",
+        "pip",
+        "uninstall",
+        "-y",
+        "shardloom"
+      ],
+      "elapsed_millis": 150.0648,
+      "name": "uninstall_registry_package",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "Found existing installation: shardloom 0.1.1\nUninstalling shardloom-0.1.1:\n  Successfully uninstalled shardloom-0.1.1\n"
+    }
+  ],
+  "tag_created": false,
+  "testpypi_proof_ref": null,
+  "testpypi_proof_required": false,
+  "uninstall_transcript_status": "passed"
+}

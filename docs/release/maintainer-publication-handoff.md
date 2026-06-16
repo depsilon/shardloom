@@ -60,6 +60,23 @@ Patch train addendum, 2026-06-16:
   build/publish and `python3 scripts/sync_workspace_package_versions.py` after changing the root
   version.
 
+v0.1.1 publication completion addendum, 2026-06-16:
+
+- v0.1.1 is published and proof-backed through the selected channels: GitHub pre-release assets,
+  TestPyPI, PyPI, and Homebrew.
+- The release tag is `v0.1.1` at source revision
+  `99093904d923d275072456512627110b4c0862d2`.
+- Channel proofs are checked in as
+  `docs/release/channel-proofs/github-prerelease-v0.1.1-transcript.json`,
+  `docs/release/channel-proofs/testpypi-v0.1.1-transcript.json`,
+  `docs/release/channel-proofs/pypi-v0.1.1-transcript.json`, and
+  `docs/release/channel-proofs/homebrew-v0.1.1-transcript.json`.
+- The Homebrew tap formula update is published in `depsilon/homebrew-tap` at
+  `3030e23afa866eea77543150753fef54f9b9e338`.
+- v0.1.1 remains technical-preview install access only. It does not authorize production,
+  performance superiority, Spark replacement, broad runtime, object-store/lakehouse, Foundry,
+  future package-channel, or fallback-execution claims.
+
 `RELEASE-PACKAGE-15` branch evidence was prepared from local branch
 `codex/release-package-15-runtime-evidence`. The refreshed benchmark publication bundle records
 clean benchmark source revision `74a2e7d4f77eed0686971518e010463da26f2cdf` for that historical

@@ -132,9 +132,9 @@ package_upload_attempted=false
 
 | Ready channel | Install command | Uninstall command |
 | --- | --- | --- |
-| GitHub pre-release | gh release download v0.1.0 --repo depsilon/shardloom --pattern '*' --dir <install-dir> | rm -rf <install-dir> |
-| TestPyPI | python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.0 | python -m pip uninstall -y shardloom |
-| PyPI | python -m pip install shardloom==0.1.0 | python -m pip uninstall -y shardloom |
+| GitHub pre-release | gh release download v0.1.1 --repo depsilon/shardloom --pattern '*' --dir <install-dir> | rm -rf <install-dir> |
+| TestPyPI | python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.1 | python -m pip uninstall -y shardloom |
+| PyPI | python -m pip install shardloom==0.1.1 | python -m pip uninstall -y shardloom |
 | Homebrew tap | brew install depsilon/tap/shardloom | brew uninstall shardloom |
 
 | Channel | Status | Ready | Current blockers |

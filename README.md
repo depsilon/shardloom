@@ -1,7 +1,7 @@
 # ShardLoom
 
 [![CI](https://github.com/depsilon/shardloom/actions/workflows/ci.yml/badge.svg)](https://github.com/depsilon/shardloom/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/depsilon/shardloom?include_prereleases&label=release)](https://github.com/depsilon/shardloom/releases/tag/v0.1.0)
+[![Release](https://img.shields.io/github/v/release/depsilon/shardloom?include_prereleases&label=release)](https://github.com/depsilon/shardloom/releases/tag/v0.1.1)
 [![PyPI](https://img.shields.io/pypi/v/shardloom?label=PyPI)](https://pypi.org/project/shardloom/)
 [![Homebrew](https://img.shields.io/badge/Homebrew-depsilon%2Ftap%2Fshardloom-2f4f4f)](https://github.com/depsilon/homebrew-tap)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -11,7 +11,7 @@
 repository. The repo remains the source of truth for code, architecture docs, phase plans, use
 cases, benchmarks, and release evidence.
 
-ShardLoom is a v0.1.0 technical-preview, Vortex-first, no-fallback local compute engine foundation. It is built
+ShardLoom is a v0.1.1 technical-preview, Vortex-first, no-fallback local compute engine foundation. It is built
 around explicit routes and evidence fields that show what ran: source admission, Vortex
 preparation, execution mode, output planning, certificates, fallback status, and claim-gate status.
 
@@ -87,7 +87,7 @@ This table is a README summary; the canonical public status matrix and claim bou
 | Local output/sink scope | Scoped `write(...)`, `write_jsonl(...)`, `write_csv(...)`, feature-gated `write_parquet(...)`, `write_arrow_ipc(...)`, `write_avro(...)`, `write_orc(...)`, `write_vortex(...)`, and fanout helpers are defined by [docs/architecture/v1-local-output-sink-scope.md](docs/architecture/v1-local-output-sink-scope.md). | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
 | Prepared/native benchmark routes | Local benchmark artifacts expose cold, prepare-once, warm prepared, native Vortex, direct transient, and external-baseline lanes. | Claims depend on the selected timing surface and claim gate. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly fixture-scoped with report-only or blocked status for broader platform routes. | No production platform claim. |
-| Package/release status | v0.1.0 is published through GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula with checked-in channel proof. | No production/platform, performance, or broad runtime claim. |
+| Package/release status | v0.1.1 is published through GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula with checked-in channel proof. | No production/platform, performance, or broad runtime claim. |
 
 User surface graduation is tracked separately from runtime breadth. Public CLI/Python surfaces are
 classified as `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
@@ -117,17 +117,17 @@ python examples\local-python-smoke\run.py --repo-root .
 
 The selected local/source/package v1 release track is source checkout plus GitHub pre-release,
 TestPyPI, PyPI, and Homebrew. GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for
-v0.1.0; Scoop/winget/conda are feasible later channels, while real production object-store,
+v0.1.1; Scoop/winget/conda are feasible later channels, while real production object-store,
 lakehouse, distributed, live/hybrid, and Foundry claims stay fail-closed without environments.
 
 Package installs:
 
 ```sh
-python -m pip install shardloom==0.1.0
+python -m pip install shardloom==0.1.1
 brew install depsilon/tap/shardloom
 ```
 
-The Python package is a thin client surface over the ShardLoom CLI. In v0.1.0 it resolves the CLI
+The Python package is a thin client surface over the ShardLoom CLI. In v0.1.1 it resolves the CLI
 from `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, a source checkout build, or `shardloom` on `PATH`.
 Managed environments that install only the PyPI wheel still need one of those binary-resolution
 paths until a platform wheel bundles the CLI binary.

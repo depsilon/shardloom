@@ -12,7 +12,7 @@ a caller explicitly invokes a CLI command through `ShardLoomClient` or one of th
 helpers that wraps an evidence-backed CLI smoke.
 
 Public status is owned by `docs/release/public-status-matrix.md`. This README may describe scoped
-local Python surfaces and the approved v0.1.0 package track, but it does not authorize production
+local Python surfaces and the approved v0.1.1 package track, but it does not authorize production
 support, performance claims, Spark displacement, or hidden external execution.
 
 ## Local Use
@@ -31,14 +31,14 @@ Foundry-style imports:
 python -m pip install -e python
 ```
 
-The package exposes the v0.1.0 technical-preview version through
+The package exposes the v0.1.1 technical-preview version through
 `shardloom.__version__`.
-The PyPI package is published as `shardloom==0.1.0`; GitHub release assets and the
-`depsilon/tap/shardloom` Homebrew formula are also published for v0.1.0. These channels are install
+The PyPI package is published as `shardloom==0.1.1`; GitHub release assets and the
+`depsilon/tap/shardloom` Homebrew formula are also published for v0.1.1. These channels are install
 access only and do not imply production readiness, broad runtime support, or performance claims.
 
 ```sh
-python -m pip install shardloom==0.1.0
+python -m pip install shardloom==0.1.1
 ```
 
 Use `SHARDLOOM_BIN` to point at a specific CLI binary:

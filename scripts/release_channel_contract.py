@@ -17,7 +17,7 @@ SELECTED_V0_1_0_RELEASE_CHANNEL_IDS = [
 SELECTED_V0_1_0_FEASIBILITY_STATUS = "included_channel_proof_passed"
 SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS = "approved_channel_proof_passed"
 SELECTED_V0_1_0_INSTALL_ACCESS_BOUNDARY = (
-    "selected v0.1.0 GitHub/TestPyPI/PyPI/Homebrew install access"
+    "selected v0.1.1 GitHub/TestPyPI/PyPI/Homebrew install access"
 )
 
 

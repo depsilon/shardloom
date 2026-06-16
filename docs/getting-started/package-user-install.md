@@ -2,14 +2,14 @@
 
 # Package User Install Status
 
-ShardLoom v0.1.0 is published as a technical preview through the selected package channels:
+ShardLoom v0.1.1 is published as a technical preview through the selected package channels:
 GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula. These package
 commands are install access only; they do not imply production readiness, performance superiority,
 Spark replacement, broad SQL/DataFrame support, object-store/lakehouse production support, Foundry
 production support, or fallback execution.
 
 ```text
-package_channel_status=published_v0.1.0_selected_channels
+package_channel_status=published_v0.1.1_selected_channels
 selected_publication_channels=github_prerelease,testpypi,pypi,homebrew_tap
 package_install_commands_visible=true
 public_package_release_claim_allowed=true
@@ -23,7 +23,7 @@ external_engine_invoked=false
 Python package:
 
 ```sh
-python -m pip install shardloom==0.1.0
+python -m pip install shardloom==0.1.1
 ```
 
 Homebrew CLI formula:
@@ -35,13 +35,13 @@ brew install depsilon/tap/shardloom
 GitHub release assets:
 
 ```sh
-gh release download v0.1.0 --repo depsilon/shardloom --pattern '*' --dir shardloom-v0.1.0
+gh release download v0.1.1 --repo depsilon/shardloom --pattern '*' --dir shardloom-v0.1.1
 ```
 
 TestPyPI rehearsal package:
 
 ```sh
-python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.0
+python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.1
 ```
 
 The PyPI package is a Python client surface. CLI-backed commands need a `shardloom` binary resolved
@@ -94,13 +94,13 @@ PY
 ## Proof Refs
 
 - GitHub release proof:
-  [`docs/release/channel-proofs/github-prerelease-v0.1.0-transcript.json`](../release/channel-proofs/github-prerelease-v0.1.0-transcript.json)
+  [`docs/release/channel-proofs/github-prerelease-v0.1.1-transcript.json`](../release/channel-proofs/github-prerelease-v0.1.1-transcript.json)
 - TestPyPI proof:
-  [`docs/release/channel-proofs/testpypi-v0.1.0-transcript.json`](../release/channel-proofs/testpypi-v0.1.0-transcript.json)
+  [`docs/release/channel-proofs/testpypi-v0.1.1-transcript.json`](../release/channel-proofs/testpypi-v0.1.1-transcript.json)
 - PyPI proof:
-  [`docs/release/channel-proofs/pypi-v0.1.0-transcript.json`](../release/channel-proofs/pypi-v0.1.0-transcript.json)
+  [`docs/release/channel-proofs/pypi-v0.1.1-transcript.json`](../release/channel-proofs/pypi-v0.1.1-transcript.json)
 - Homebrew proof:
-  [`docs/release/channel-proofs/homebrew-v0.1.0-transcript.json`](../release/channel-proofs/homebrew-v0.1.0-transcript.json)
+  [`docs/release/channel-proofs/homebrew-v0.1.1-transcript.json`](../release/channel-proofs/homebrew-v0.1.1-transcript.json)
 - Package-channel matrix:
   [`docs/release/package-channel-readiness-matrix.md`](../release/package-channel-readiness-matrix.md)
 
@@ -110,7 +110,7 @@ Python package:
 
 ```sh
 python -m pip uninstall -y shardloom
-python -m pip install --upgrade shardloom==0.1.0
+python -m pip install --upgrade shardloom==0.1.1
 ```
 
 Homebrew formula:

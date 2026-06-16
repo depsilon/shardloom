@@ -174,12 +174,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--testpypi-proof",
         type=Path,
-        default=Path("docs/release/channel-proofs/testpypi-v0.1.0-transcript.json"),
+        default=Path("docs/release/channel-proofs/testpypi-v0.1.1-transcript.json"),
     )
     parser.add_argument(
         "--pypi-proof",
         type=Path,
-        default=Path("docs/release/channel-proofs/pypi-v0.1.0-transcript.json"),
+        default=Path("docs/release/channel-proofs/pypi-v0.1.1-transcript.json"),
     )
     parser.add_argument(
         "--require-local-evidence",
@@ -268,7 +268,7 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
     selected_release_channel_ids = matrix.get("selected_v0_1_0_release_channel_ids")
     if selected_release_channel_ids != SELECTED_V0_1_0_RELEASE_CHANNEL_IDS:
         blockers.append(
-            "selected_v0_1_0_release_channel_ids must match the approved v0.1.0 channel list"
+            "selected_v0_1_0_release_channel_ids must match the approved v0.1.1 channel list"
         )
     if matrix.get("package_gate_required_evidence") != PACKAGE_GATE_REQUIRED_EVIDENCE:
         blockers.append("package_gate_required_evidence must match the package-gate evidence list")
@@ -409,12 +409,12 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
             )
         if not all_selected_release_channels_ready:
             blockers.append(
-                "public_package_release_claim_allowed=true requires every selected v0.1.0 release channel ready"
+                "public_package_release_claim_allowed=true requires every selected v0.1.1 release channel ready"
             )
     elif public_claim_allowed is not False:
         blockers.append("public_package_release_claim_allowed must be boolean")
     if matrix.get("status") == "ready" and not all_selected_release_channels_ready:
-        blockers.append("top-level status=ready requires every selected v0.1.0 release channel ready")
+        blockers.append("top-level status=ready requires every selected v0.1.1 release channel ready")
 
     return blockers
 
