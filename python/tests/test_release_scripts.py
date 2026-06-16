@@ -9589,6 +9589,10 @@ class ReleaseScriptTests(unittest.TestCase):
 
         self.assertIn("python scripts/sync_workspace_package_versions.py --check", workflow)
         self.assertIn("python scripts/check_workspace_version_sources.py", workflow)
+        self.assertIn("stage_python_package_with_bundled_cli", workflow)
+        self.assertIn("build_python_artifacts(repo_root, stage_dir, dist_dir)", workflow)
+        self.assertIn("target/pypi-python-package-stage/dist/*", workflow)
+        self.assertNotIn("python -m build python", workflow)
         self.assertIn("from release_report_utils import workspace_package_version", workflow)
         self.assertIn("expected_version = resolve_python_package_version()", workflow)
         self.assertNotIn('pyproject["project"]["version"]', workflow)

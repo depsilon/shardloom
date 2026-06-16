@@ -339,7 +339,10 @@ Current autonomous execution order:
         shared `public_workflow_run` facade with real `surface`, `plan_summary`/`sql_statement`,
         `execution_policy=native_vortex`, and primitive payloads before dispatching to
         `vortex-run`, `vortex-count-where`, `vortex-filter`, `vortex-project`, or
-        `vortex-filter-project`.
+        `vortex-filter-project`. Follow-up review resolution moved primitive payload inference into
+        `public_workflow_route`/`public_workflow_run` as well, so payload-less facade calls such as
+        `ctx.read_vortex(...).select(...).limit(...).route()` admit the real native Vortex route
+        instead of reporting a synthetic missing-route blocker.
     - [x] Admit grouped count/sum, null-heavy aggregate, cast/try-cast, substring contains, global
       top-N, and declared JSONL/CSV/Vortex sink chains only when the Python expression lowering and
       native route support are present; otherwise block before execution with actionable
@@ -355,6 +358,11 @@ Current autonomous execution order:
         cast, substring contains, and `write_vortex` result sinks to real native Vortex
         provider-backed routes via `traditional-analytics-vortex-run`, with provider
         scenario/right-input evidence in public run envelopes.
+        - Evidence note: route support/status fields now classify admitted provider routes
+          (`native_vortex_user_aggregate`, `native_vortex_user_join`, `native_vortex_user_top_n`,
+          `native_vortex_user_cast`, `native_vortex_user_contains`, and
+          `native_vortex_user_sink`) as `scoped_runtime_supported` with
+          `native_vortex_user_operator_provider` middle status, matching the admitted runtime path.
       - [x] Keep compatibility sinks such as JSONL/CSV from Vortex-native workflows blocked until
         an explicit decode/export contract is implemented; `write_vortex` is the admitted native
         sink route.
@@ -477,6 +485,9 @@ Current autonomous execution order:
         `target/release-dry-run-proof/python-package-stage`, copies the built `shardloom` CLI into
         `shardloom/bin/<system-arch>/`, builds the wheel/sdist from that stage, and
         `python/setup.py` marks wheels as platform-specific when the bundled native CLI is present.
+        The PyPI Trusted Publisher draft workflow now uses the same staging/build helpers and
+        uploads `target/pypi-python-package-stage/dist/*`, so release publication cannot bypass the
+        bundled-CLI wheel contract.
     - [x] Add resolver tests proving bundled binary discovery, explicit override precedence,
       deterministic missing-binary diagnostics, executable-bit handling, and no runtime download.
       - [x] Add focused resolver tests for bundled-before-`PATH`, `SHARDLOOM_BIN` override

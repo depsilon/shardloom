@@ -109,6 +109,12 @@ the local wheel in a clean virtual environment, resolves the bundled CLI without
 writes the transcript at `target/release-dry-run-proof/transcript.json`. Run the optional benchmark
 smoke separately, or pass `--include-benchmark-smoke`, when benchmark evidence is the goal.
 
+The Trusted Publisher draft workflow follows the same bundled-CLI staging contract for the selected
+PyPI/TestPyPI channel build. It builds `shardloom-cli`, stages the CLI under
+`shardloom/bin/<platform-tag>/`, builds wheel/sdist artifacts from the staged package tree, and
+uploads the staged `dist` directory. The release workflow must not publish a direct
+`python -m build python` wheel for bundled-CLI patch releases.
+
 This proof is intentionally not a publish workflow. It does not create tags,
 submit Conda feedstocks, upload to PyPI/TestPyPI, publish crates, push OCI
 images, or add secrets.

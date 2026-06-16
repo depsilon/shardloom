@@ -1823,6 +1823,10 @@ class SqlWorkflow:
             if bounded is None and requested_output == "collect"
             else bounded
         )
+        native_vortex_kwargs = _sql_native_vortex_public_workflow_kwargs(
+            self.statement,
+            requested_output=requested_output,
+        )
         return self.client.public_workflow_route(
             "sql",
             sql_statement=self.statement,
@@ -1834,6 +1838,7 @@ class SqlWorkflow:
             evidence_level=evidence_level,
             bounded=normalized_bounded,
             check=check,
+            **native_vortex_kwargs,
         )
 
     def run(
@@ -1855,6 +1860,10 @@ class SqlWorkflow:
             if bounded is None and requested_output == "collect"
             else bounded
         )
+        native_vortex_kwargs = _sql_native_vortex_public_workflow_kwargs(
+            self.statement,
+            requested_output=requested_output,
+        )
         return self.client.public_workflow_run(
             "sql",
             sql_statement=self.statement,
@@ -1866,6 +1875,7 @@ class SqlWorkflow:
             evidence_level=evidence_level,
             bounded=normalized_bounded,
             check=check,
+            **native_vortex_kwargs,
         )
 
     def collect(
@@ -3055,6 +3065,71 @@ def _native_vortex_operation_family_for_primitive(primitive: str) -> str:
     if normalized in {"count", "count_where", "filter_count", "filtered_count"}:
         return "count"
     return "filter_project_limit"
+
+
+def _sql_native_vortex_public_workflow_kwargs(
+    statement: str,
+    *,
+    requested_output: str,
+) -> dict[str, Any]:
+    """Return exact native Vortex route payloads inferred from a SQL workflow."""
+
+    if requested_output == "write_vortex":
+        provider_shape = _vortex_sql_user_route_shape(statement)
+        if provider_shape is None:
+            return {}
+        payload: dict[str, Any] = {
+            "input_uri": provider_shape.uri,
+            "input_format": "vortex",
+            "native_vortex_operation_family": "sink",
+            "native_vortex_provider_scenario": provider_shape.provider_scenario,
+        }
+        if provider_shape.right_input is not None:
+            payload["native_vortex_right_input"] = provider_shape.right_input
+        return payload
+    if requested_output != "collect":
+        return {}
+    primitive_shape = _vortex_sql_primitive_shape(statement)
+    if primitive_shape is not None:
+        if primitive_shape.count:
+            primitive = "count_where" if primitive_shape.predicate else "count"
+            columns = None
+        elif primitive_shape.predicate and primitive_shape.columns:
+            primitive = "filter_project"
+            columns = primitive_shape.columns
+        elif primitive_shape.predicate:
+            primitive = "filter"
+            columns = None
+        elif primitive_shape.columns:
+            primitive = "project"
+            columns = primitive_shape.columns
+        else:
+            primitive = None
+            columns = None
+        if primitive is not None:
+            return {
+                "input_uri": primitive_shape.uri,
+                "input_format": "vortex",
+                "native_vortex_operation_family": _native_vortex_operation_family_for_primitive(
+                    primitive
+                ),
+                "vortex_primitive": primitive,
+                "vortex_predicate": primitive_shape.predicate,
+                "vortex_columns": columns,
+                "vortex_source_order_limit": primitive_shape.limit,
+            }
+    provider_shape = _vortex_sql_user_route_shape(statement)
+    if provider_shape is None:
+        return {}
+    payload = {
+        "input_uri": provider_shape.uri,
+        "input_format": "vortex",
+        "native_vortex_operation_family": provider_shape.operation_family,
+        "native_vortex_provider_scenario": provider_shape.provider_scenario,
+    }
+    if provider_shape.right_input is not None:
+        payload["native_vortex_right_input"] = provider_shape.right_input
+    return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -4500,6 +4575,58 @@ class LazyFrame:
             raise ValueError("limit count must be non-negative")
         return self._append(WorkflowOperation("limit", (str(count),)))
 
+    def _native_vortex_public_workflow_kwargs(
+        self,
+        *,
+        requested_output: str,
+    ) -> dict[str, Any]:
+        """Return exact native Vortex route payloads inferred from this lazy plan."""
+
+        if self.source.source_format != "vortex":
+            return {}
+        if requested_output == "write_vortex":
+            shape = self._native_vortex_user_route_shape()
+            if shape is None:
+                return {}
+            payload: dict[str, Any] = {
+                "native_vortex_operation_family": "sink",
+                "native_vortex_provider_scenario": shape.provider_scenario,
+            }
+            if shape.right_input is not None:
+                payload["native_vortex_right_input"] = shape.right_input
+            return payload
+        if requested_output != "collect":
+            return {}
+        primitive_shape = self._vortex_primitive_shape()
+        if primitive_shape is not None:
+            primitive: str | None = None
+            if primitive_shape.predicate and primitive_shape.columns:
+                primitive = "filter_project"
+            elif primitive_shape.predicate:
+                primitive = "filter"
+            elif primitive_shape.columns:
+                primitive = "project"
+            if primitive is not None:
+                return {
+                    "native_vortex_operation_family": _native_vortex_operation_family_for_primitive(
+                        primitive
+                    ),
+                    "vortex_primitive": primitive,
+                    "vortex_predicate": primitive_shape.predicate,
+                    "vortex_columns": primitive_shape.columns,
+                    "vortex_source_order_limit": primitive_shape.limit,
+                }
+        provider_shape = self._native_vortex_user_route_shape()
+        if provider_shape is None:
+            return {}
+        payload = {
+            "native_vortex_operation_family": provider_shape.operation_family,
+            "native_vortex_provider_scenario": provider_shape.provider_scenario,
+        }
+        if provider_shape.right_input is not None:
+            payload["native_vortex_right_input"] = provider_shape.right_input
+        return payload
+
     def plan(self, *, check: bool = False) -> OutputEnvelope:
         """Return a side-effect-free input/read planning envelope."""
 
@@ -4545,6 +4672,9 @@ class LazyFrame:
             and _is_query_builder_local_source(self.source)
         ):
             effective_evidence_level = "production_admitted_local_workflow"
+        native_vortex_kwargs = self._native_vortex_public_workflow_kwargs(
+            requested_output=requested_output,
+        )
         return self.client.public_workflow_route(
             "dataframe",
             input_uri=self.source.uri,
@@ -4557,6 +4687,7 @@ class LazyFrame:
             evidence_level=effective_evidence_level,
             bounded=normalized_bounded,
             check=check,
+            **native_vortex_kwargs,
         )
 
     def run(
@@ -4577,6 +4708,9 @@ class LazyFrame:
             if bounded is None and requested_output == "collect"
             else bounded
         )
+        native_vortex_kwargs = self._native_vortex_public_workflow_kwargs(
+            requested_output=requested_output,
+        )
         return self.client.public_workflow_run(
             "dataframe",
             input_uri=self.source.uri,
@@ -4592,6 +4726,7 @@ class LazyFrame:
             memory_gb=4,
             max_parallelism=1,
             check=check,
+            **native_vortex_kwargs,
         )
 
     def prepare(

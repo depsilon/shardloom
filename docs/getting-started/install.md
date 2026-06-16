@@ -76,11 +76,13 @@ channel commands are advertised:
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 ```
 
-The proof installs the exact wheel built during the dry run with `pip --no-index`, resolves the
-local CLI through `SHARDLOOM_BIN`, runs CLI/Python smoke checks, writes scoped generated-source
-local JSONL/CSV outputs, records that benchmark smoke is not required for package-channel proof,
-and writes a transcript under `target/`. Use `--include-benchmark-smoke` only when deliberately
-adding the benchmark-only feature lane to the local proof.
+The proof builds the CLI, stages it inside a temporary platform wheel under
+`shardloom/bin/<system-arch>/`, installs that exact wheel with `pip --no-index`, removes
+`SHARDLOOM_BIN`/`SHARDLOOM_REPO_ROOT` from the clean environment, verifies bundled CLI resolution,
+runs CLI/Python smoke checks, writes scoped generated-source local JSONL/CSV outputs, records that
+benchmark smoke is not required for package-channel proof, and writes a transcript under `target/`.
+Use `--include-benchmark-smoke` only when deliberately adding the benchmark-only feature lane to the
+local proof.
 
 ## Package Boundary
 

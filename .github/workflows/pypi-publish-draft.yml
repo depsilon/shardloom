@@ -34,17 +34,50 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # actions/setup-python@v6
         with:
           python-version: "3.13"
-      - name: Build Python package
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@0c1db6b5cd106c87b8cd4f7a33219e8f23784db9 # Swatinem/rust-cache@v2
+      - name: Build Python package with bundled CLI
         run: |
           python -m pip install --upgrade pip build
           python scripts/sync_workspace_package_versions.py --check
           python scripts/check_workspace_version_sources.py
-          python -m build python
+          cargo build -p shardloom-cli --bin shardloom
+          python - <<'PY'
+          from pathlib import Path
+          import sys
+
+          sys.path.insert(0, "scripts")
+          from release_dry_run_proof import (
+              build_python_artifacts,
+              shardloom_binary,
+              stage_python_package_with_bundled_cli,
+          )
+
+          repo_root = Path(".").resolve()
+          stage_dir = repo_root / "target" / "pypi-python-package-stage"
+          dist_dir = stage_dir / "dist"
+          steps = [
+              stage_python_package_with_bundled_cli(
+                  repo_root,
+                  stage_dir,
+                  shardloom_binary(repo_root),
+              ),
+          ]
+          if steps[0]["returncode"] == 0:
+              steps.append(build_python_artifacts(repo_root, stage_dir, dist_dir))
+          failures = [
+              f"{step['name']}: {step.get('stderr') or step.get('stdout')}"
+              for step in steps
+              if step["returncode"] != 0
+          ]
+          if failures:
+              raise SystemExit("; ".join(failures))
+          PY
       - name: Upload Python dist artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7
         with:
           name: python-dist
-          path: python/dist/*
+          path: target/pypi-python-package-stage/dist/*
           if-no-files-found: error
 
   publish-testpypi:
