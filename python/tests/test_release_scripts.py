@@ -9589,6 +9589,19 @@ class ReleaseScriptTests(unittest.TestCase):
 
         self.assertIn("python scripts/sync_workspace_package_versions.py --check", workflow)
         self.assertIn("python scripts/check_workspace_version_sources.py", workflow)
+        self.assertIn("stage_python_package_with_bundled_cli", workflow)
+        self.assertIn("build_python_artifacts(repo_root, stage_dir, dist_dir)", workflow)
+        self.assertIn("artifact_suffix: linux", workflow)
+        self.assertIn("artifact_suffix: macos", workflow)
+        self.assertIn("artifact_suffix: windows", workflow)
+        self.assertIn("python-dist-${{ matrix.artifact_suffix }}", workflow)
+        self.assertIn("python-dist-sdist", workflow)
+        self.assertIn("Build clean Python sdist", workflow)
+        self.assertIn("target/pypi-python-package-sdist/dist/*.tar.gz", workflow)
+        self.assertIn("pattern: python-dist-*", workflow)
+        self.assertIn("merge-multiple: true", workflow)
+        self.assertIn("bundled CLI wheel must not be universal", workflow)
+        self.assertNotIn("python -m build python", workflow)
         self.assertIn("from release_report_utils import workspace_package_version", workflow)
         self.assertIn("expected_version = resolve_python_package_version()", workflow)
         self.assertNotIn('pyproject["project"]["version"]', workflow)
@@ -13076,8 +13089,17 @@ jobs:
                     "fallback_attempted": False,
                     "external_engine_invoked": False,
                 }
-                for row_id in ["claim_production_readiness", "claim_package_publication"]
+                for row_id in ["claim_production_readiness", "claim_future_package_channels"]
             ]
+        )
+        rows.append(
+            {
+                "id": "claim_package_publication",
+                "support_state": "executable",
+                "claim_gate_status": "package_access_only",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+            }
         )
         rows.extend(
             {

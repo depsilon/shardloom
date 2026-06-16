@@ -112,8 +112,9 @@ def render_package_channels(package_matrix: dict[str, Any]) -> list[str]:
     channels = [row for row in package_matrix.get("channels", []) if isinstance(row, dict)]
     ready_channels = [row for row in channels if row.get("ready") is True]
     blocked_channels = [row for row in channels if row.get("ready") is not True]
+    selected_tag = str(package_matrix.get("selected_v0_1_0_release_tag") or "selected")
     channel_text = (
-        "Selected v0.1.0 package channels expose install commands. Future package channels remain "
+        f"Selected {selected_tag} package channels expose install commands. Future package channels remain "
         "blocked until their channel-specific proof exists."
         if ready_channels
         else "Package install commands are intentionally withheld while channel status is blocked."

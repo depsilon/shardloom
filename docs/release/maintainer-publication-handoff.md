@@ -53,6 +53,9 @@ Patch train addendum, 2026-06-16:
   unification, product local workflow cap removal, and bundled CLI package resolution. It must
   receive its own GitHub, TestPyPI, PyPI, and Homebrew channel proofs before public install docs or
   package-channel matrices mark v0.1.2 published.
+- For v0.1.2 and later bundled-CLI wheel releases, the PyPI/TestPyPI Trusted Publisher workflow must
+  build artifacts from the staged package tree that includes `shardloom/bin/<platform-tag>/`; direct
+  `python -m build python` artifacts are not sufficient for managed-environment package proof.
 - Patch release notes live in `docs/release/v0.1.2-release-notes.md`.
 
 - v0.1.1 is prepared as the first compatible post-v0.1.0 patch train for documentation, website,

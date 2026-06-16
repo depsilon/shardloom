@@ -108,6 +108,12 @@ that exact platform artifact before publication. On POSIX platforms, bundled CLI
 preserve the executable bit; non-executable packaged binaries are ignored and normal resolver
 fallbacks continue in order.
 
+The PyPI Trusted Publisher draft workflow must build publishable wheel/sdist artifacts from the
+same staged package tree used by the release dry-run proof: build `shardloom-cli`, copy the CLI into
+`shardloom/bin/<platform-tag>/`, build artifacts from the staged package directory, and upload only
+that staged `dist` directory. Direct `python -m build python` publication is not sufficient for
+bundled-CLI releases because it omits the managed-environment binary resource.
+
 ## Deferred Environment Gates
 
 These gates are intentionally not part of the v1 public package release because the real service

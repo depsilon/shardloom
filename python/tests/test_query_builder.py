@@ -13,7 +13,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import shardloom as sl
 from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext
-from shardloom.query import _rewrite_predicate_with_computed_columns
+from shardloom.query import (
+    _rewrite_predicate_with_computed_columns,
+    _sql_native_vortex_public_workflow_kwargs,
+)
 
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
     """
@@ -15645,8 +15648,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         events = sl.read_vortex("events.vortex", client=client)
 
         reports = (
-            fact.filter(sl.col("metric") >= 0)
-            .group_by("group_key")
+            fact.group_by("group_key")
             .agg(rows="count(*)", total_metric="sum(metric)")
             .limit(100)
             .collect(),
@@ -15796,7 +15798,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
         group_sql = (
             "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
-            "FROM 'fact.vortex' WHERE metric >= 0 GROUP BY group_key LIMIT 100"
+            "FROM 'fact.vortex' GROUP BY group_key LIMIT 100"
         )
         clean_sql = (
             "SELECT id, group_key, metric, CAST(dirty_numeric AS float64) AS amount_float "
@@ -15857,6 +15859,137 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             )
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
+
+    def test_sql_vortex_literal_bait_does_not_attach_provider_payload(self) -> None:
+        bait_sql = (
+            "SELECT 'count(*) AS rows', 'sum(metric) AS total_metric', "
+            "'WHERE metric >= 0', 'GROUP BY group_key' FROM 'orders.vortex' LIMIT 1"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[:2] == ["route", "sql"], args
+                assert args[args.index("--sql") + 1] == {bait_sql!r}, args
+                assert args[args.index("--plan") + 1] == "sql(statement)", args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "native_vortex", args
+                assert args[args.index("--materialization-policy") + 1] == "zero_decode", args
+                assert args[args.index("--evidence-level") + 1] == "runtime_smoke", args
+                assert args[args.index("--bounded") + 1] == "true", args
+                assert "--input" not in args, args
+                assert "--input-format" not in args, args
+                assert "--native-vortex-operation-family" not in args, args
+                assert "--native-vortex-provider-scenario" not in args, args
+                assert "--native-vortex-right-input" not in args, args
+                assert "--vortex-primitive" not in args, args
+                assert args[-2:] == ["--format", "json"], args
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "route",
+                    "status": "unsupported",
+                    "summary": "native Vortex general SQL route blocked",
+                    "human_text": "native Vortex general SQL route blocked",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [{{
+                        "code": "SL_UNSUPPORTED_SQL",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "native Vortex general SQL route is not admitted",
+                        "feature": "py-vortex-route-unify-1.native_vortex_general_route_missing",
+                        "reason": "SQL shape is not structurally admitted",
+                        "suggested_next_step": "use an admitted native Vortex SQL shape",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    }}],
+                    "fields": [
+                        {{"key": "public_workflow_route_schema_version", "value": "shardloom.public_workflow_route.v1"}},
+                        {{"key": "route_id", "value": "blocked"}},
+                        {{"key": "route_status", "value": "blocked"}},
+                        {{"key": "route_support_status", "value": "unsupported_boundary"}},
+                        {{"key": "route_runtime_status", "value": "unsupported_boundary"}},
+                        {{"key": "resolved_internal_command", "value": "workflow-unsupported-plan"}},
+                        {{"key": "surface", "value": "sql"}},
+                        {{"key": "start_state", "value": "native_vortex_input"}},
+                        {{"key": "vortex_normalization_point", "value": "native_input"}},
+                        {{"key": "execution_mode", "value": "unsupported"}},
+                        {{"key": "native_vortex_provider_scenario", "value": "none"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        route = ctx.sql(bait_sql).route(
+            execution_policy="native_vortex",
+            materialization_policy="zero_decode",
+        )
+
+        self.assertEqual(route.route_id, "blocked")
+        self.assertEqual(route.resolved_internal_command, "workflow-unsupported-plan")
+        self.assertEqual(route.envelope.field("native_vortex_provider_scenario"), "none")
+        self.assertFalse(route.fallback_attempted)
+        self.assertFalse(route.external_engine_invoked)
+
+    def test_sql_vortex_provider_shape_rejects_noncanonical_clause_order(self) -> None:
+        invalid_order_sql = (
+            "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
+            "FROM 'fact.vortex' GROUP BY group_key WHERE metric >= 0 LIMIT 100"
+        )
+
+        self.assertEqual(
+            _sql_native_vortex_public_workflow_kwargs(
+                invalid_order_sql,
+                requested_output="collect",
+            ),
+            {},
+        )
+
+    def test_sql_vortex_provider_shape_rejects_filtered_group_by(self) -> None:
+        filtered_group_sql = (
+            "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
+            "FROM 'fact.vortex' WHERE metric >= 0 GROUP BY group_key LIMIT 100"
+        )
+
+        self.assertEqual(
+            _sql_native_vortex_public_workflow_kwargs(
+                filtered_group_sql,
+                requested_output="collect",
+            ),
+            {},
+        )
+
+    def test_sql_vortex_provider_shape_rejects_noncanonical_top_n_limit(self) -> None:
+        top_one_sql = (
+            "SELECT id, group_key, metric FROM 'fact.vortex' "
+            "ORDER BY metric DESC LIMIT 1"
+        )
+
+        self.assertEqual(
+            _sql_native_vortex_public_workflow_kwargs(
+                top_one_sql,
+                requested_output="collect",
+            ),
+            {},
+        )
+
+    def test_sql_vortex_provider_shape_limit_zero_fails_closed(self) -> None:
+        limit_zero_sql = (
+            "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
+            "FROM 'fact.vortex' WHERE metric >= 0 GROUP BY group_key LIMIT 0"
+        )
+
+        self.assertEqual(
+            _sql_native_vortex_public_workflow_kwargs(
+                limit_zero_sql,
+                requested_output="collect",
+            ),
+            {},
+        )
 
     def test_unadmitted_vortex_shapes_still_fail_with_route_blockers(self) -> None:
         binary = self.fake_cli(
@@ -15919,13 +16052,25 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         reports = (
             fact.group_by("other_key").agg(rows="count(*)").limit(100).collect(),
+            fact.filter(sl.col("metric") >= 0)
+            .group_by("group_key")
+            .agg(rows="count(*)", total_metric="sum(metric)")
+            .limit(100)
+            .collect(),
             fact.filter(sl.col("metric") >= 0).write_jsonl("target/out.jsonl", check=False),
         )
         expected = {
             "native-vortex-aggregate": "py-vortex-route-unify-1.native_vortex_aggregate_route_missing",
             "native-vortex-sink": "py-vortex-route-unify-1.native_vortex_sink_contract_missing",
         }
-        self.assertEqual(tuple(report.operation for report in reports), tuple(expected))
+        self.assertEqual(
+            tuple(report.operation for report in reports),
+            (
+                "native-vortex-aggregate",
+                "native-vortex-aggregate",
+                "native-vortex-sink",
+            ),
+        )
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.blocker_id, expected[report.operation])
@@ -17062,6 +17207,75 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "not_claim_grade")
+
+    def test_vortex_query_builder_route_and_run_forward_inferred_primitive_payload(self) -> None:
+        expected_plan = (
+            "read_vortex(orders.vortex) -> select(metric,value) -> limit(5)"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[:2] in (["route", "dataframe"], ["run", "dataframe"]), args
+                assert args[args.index("--input") + 1] == "orders.vortex", args
+                assert args[args.index("--input-format") + 1] == "vortex", args
+                assert args[args.index("--plan") + 1] == {expected_plan!r}, args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "auto", args
+                assert args[args.index("--native-vortex-operation-family") + 1] == "filter_project_limit", args
+                assert args[args.index("--vortex-primitive") + 1] == "project", args
+                assert args[args.index("--vortex-columns") + 1] == "metric,value", args
+                assert args[args.index("--vortex-source-order-limit") + 1] == "5", args
+                assert args[-2:] == ["--format", "json"], args
+                command = args[0]
+                fields = [
+                    {{"key": "route_id", "value": "native_vortex_project"}},
+                    {{"key": "route_status", "value": "admitted"}},
+                    {{"key": "route_support_status", "value": "scoped_runtime_supported"}},
+                    {{"key": "route_runtime_status", "value": "scoped_runtime_supported"}},
+                    {{"key": "resolved_internal_command", "value": "vortex-project"}},
+                    {{"key": "vortex_primitive", "value": "project"}},
+                    {{"key": "native_vortex_operation_family", "value": "filter_project_limit"}},
+                    {{"key": "public_workflow_route_attached", "value": "true"}},
+                    {{"key": "public_workflow_route_id", "value": "native_vortex_project"}},
+                    {{"key": "public_workflow_route_status", "value": "admitted"}},
+                    {{"key": "public_workflow_route_runtime_status", "value": "scoped_runtime_supported"}},
+                    {{"key": "public_workflow_resolved_internal_command", "value": "vortex-project"}},
+                    {{"key": "public_workflow_vortex_primitive", "value": "project"}},
+                    {{"key": "public_workflow_native_vortex_operation_family", "value": "filter_project_limit"}},
+                    {{"key": "fallback_attempted", "value": "false"}},
+                    {{"key": "external_engine_invoked", "value": "false"}},
+                ]
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": fields,
+                }}))
+                """
+            )
+        )
+        workflow = (
+            sl.read_vortex("orders.vortex", client=ShardLoomClient(binary=binary))
+            .select("metric", "value")
+            .limit(5)
+        )
+
+        route = workflow.route()
+        execution = workflow.run()
+
+        self.assertEqual(route.route_id, "native_vortex_project")
+        self.assertEqual(route.vortex_primitive, "project")
+        self.assertEqual(execution.route_id, "native_vortex_project")
+        self.assertEqual(execution.vortex_primitive, "project")
+        self.assertFalse(route.fallback_attempted)
+        self.assertFalse(execution.fallback_attempted)
 
     def test_sql_vortex_collect_uses_local_filter_project_primitive(self) -> None:
         binary = self.fake_cli(

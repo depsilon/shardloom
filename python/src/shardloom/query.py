@@ -1823,6 +1823,10 @@ class SqlWorkflow:
             if bounded is None and requested_output == "collect"
             else bounded
         )
+        native_vortex_kwargs = _sql_native_vortex_public_workflow_kwargs(
+            self.statement,
+            requested_output=requested_output,
+        )
         return self.client.public_workflow_route(
             "sql",
             sql_statement=self.statement,
@@ -1834,6 +1838,7 @@ class SqlWorkflow:
             evidence_level=evidence_level,
             bounded=normalized_bounded,
             check=check,
+            **native_vortex_kwargs,
         )
 
     def run(
@@ -1855,6 +1860,10 @@ class SqlWorkflow:
             if bounded is None and requested_output == "collect"
             else bounded
         )
+        native_vortex_kwargs = _sql_native_vortex_public_workflow_kwargs(
+            self.statement,
+            requested_output=requested_output,
+        )
         return self.client.public_workflow_run(
             "sql",
             sql_statement=self.statement,
@@ -1866,6 +1875,7 @@ class SqlWorkflow:
             evidence_level=evidence_level,
             bounded=normalized_bounded,
             check=check,
+            **native_vortex_kwargs,
         )
 
     def collect(
@@ -3050,11 +3060,95 @@ class _VortexSqlPrimitiveWorkflowShape:
     count: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class _VortexSqlRouteClauses:
+    """Parsed top-level SQL clauses for exact native Vortex provider routes."""
+
+    where: str | None = None
+    group_by: str | None = None
+    order_by: str | None = None
+    limit: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _ParsedVortexSqlSingleSourceRoute:
+    """Parsed single-source SQL route used for structural provider admission."""
+
+    uri: str
+    projection: tuple[str, ...]
+    clauses: _VortexSqlRouteClauses
+
+
 def _native_vortex_operation_family_for_primitive(primitive: str) -> str:
     normalized = primitive.strip().lower().replace("-", "_")
     if normalized in {"count", "count_where", "filter_count", "filtered_count"}:
         return "count"
     return "filter_project_limit"
+
+
+def _sql_native_vortex_public_workflow_kwargs(
+    statement: str,
+    *,
+    requested_output: str,
+) -> dict[str, Any]:
+    """Return exact native Vortex route payloads inferred from a SQL workflow."""
+
+    if requested_output == "write_vortex":
+        provider_shape = _vortex_sql_user_route_shape(statement)
+        if provider_shape is None:
+            return {}
+        payload: dict[str, Any] = {
+            "input_uri": provider_shape.uri,
+            "input_format": "vortex",
+            "native_vortex_operation_family": "sink",
+            "native_vortex_provider_scenario": provider_shape.provider_scenario,
+        }
+        if provider_shape.right_input is not None:
+            payload["native_vortex_right_input"] = provider_shape.right_input
+        return payload
+    if requested_output != "collect":
+        return {}
+    primitive_shape = _vortex_sql_primitive_shape(statement)
+    if primitive_shape is not None:
+        if primitive_shape.count:
+            primitive = "count_where" if primitive_shape.predicate else "count"
+            columns = None
+        elif primitive_shape.predicate and primitive_shape.columns:
+            primitive = "filter_project"
+            columns = primitive_shape.columns
+        elif primitive_shape.predicate:
+            primitive = "filter"
+            columns = None
+        elif primitive_shape.columns:
+            primitive = "project"
+            columns = primitive_shape.columns
+        else:
+            primitive = None
+            columns = None
+        if primitive is not None:
+            return {
+                "input_uri": primitive_shape.uri,
+                "input_format": "vortex",
+                "native_vortex_operation_family": _native_vortex_operation_family_for_primitive(
+                    primitive
+                ),
+                "vortex_primitive": primitive,
+                "vortex_predicate": primitive_shape.predicate,
+                "vortex_columns": columns,
+                "vortex_source_order_limit": primitive_shape.limit,
+            }
+    provider_shape = _vortex_sql_user_route_shape(statement)
+    if provider_shape is None:
+        return {}
+    payload = {
+        "input_uri": provider_shape.uri,
+        "input_format": "vortex",
+        "native_vortex_operation_family": provider_shape.operation_family,
+        "native_vortex_provider_scenario": provider_shape.provider_scenario,
+    }
+    if provider_shape.right_input is not None:
+        payload["native_vortex_right_input"] = provider_shape.right_input
+    return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -4500,6 +4594,58 @@ class LazyFrame:
             raise ValueError("limit count must be non-negative")
         return self._append(WorkflowOperation("limit", (str(count),)))
 
+    def _native_vortex_public_workflow_kwargs(
+        self,
+        *,
+        requested_output: str,
+    ) -> dict[str, Any]:
+        """Return exact native Vortex route payloads inferred from this lazy plan."""
+
+        if self.source.source_format != "vortex":
+            return {}
+        if requested_output == "write_vortex":
+            shape = self._native_vortex_user_route_shape()
+            if shape is None:
+                return {}
+            payload: dict[str, Any] = {
+                "native_vortex_operation_family": "sink",
+                "native_vortex_provider_scenario": shape.provider_scenario,
+            }
+            if shape.right_input is not None:
+                payload["native_vortex_right_input"] = shape.right_input
+            return payload
+        if requested_output != "collect":
+            return {}
+        primitive_shape = self._vortex_primitive_shape()
+        if primitive_shape is not None:
+            primitive: str | None = None
+            if primitive_shape.predicate and primitive_shape.columns:
+                primitive = "filter_project"
+            elif primitive_shape.predicate:
+                primitive = "filter"
+            elif primitive_shape.columns:
+                primitive = "project"
+            if primitive is not None:
+                return {
+                    "native_vortex_operation_family": _native_vortex_operation_family_for_primitive(
+                        primitive
+                    ),
+                    "vortex_primitive": primitive,
+                    "vortex_predicate": primitive_shape.predicate,
+                    "vortex_columns": primitive_shape.columns,
+                    "vortex_source_order_limit": primitive_shape.limit,
+                }
+        provider_shape = self._native_vortex_user_route_shape()
+        if provider_shape is None:
+            return {}
+        payload = {
+            "native_vortex_operation_family": provider_shape.operation_family,
+            "native_vortex_provider_scenario": provider_shape.provider_scenario,
+        }
+        if provider_shape.right_input is not None:
+            payload["native_vortex_right_input"] = provider_shape.right_input
+        return payload
+
     def plan(self, *, check: bool = False) -> OutputEnvelope:
         """Return a side-effect-free input/read planning envelope."""
 
@@ -4545,6 +4691,9 @@ class LazyFrame:
             and _is_query_builder_local_source(self.source)
         ):
             effective_evidence_level = "production_admitted_local_workflow"
+        native_vortex_kwargs = self._native_vortex_public_workflow_kwargs(
+            requested_output=requested_output,
+        )
         return self.client.public_workflow_route(
             "dataframe",
             input_uri=self.source.uri,
@@ -4557,6 +4706,7 @@ class LazyFrame:
             evidence_level=effective_evidence_level,
             bounded=normalized_bounded,
             check=check,
+            **native_vortex_kwargs,
         )
 
     def run(
@@ -4577,6 +4727,9 @@ class LazyFrame:
             if bounded is None and requested_output == "collect"
             else bounded
         )
+        native_vortex_kwargs = self._native_vortex_public_workflow_kwargs(
+            requested_output=requested_output,
+        )
         return self.client.public_workflow_run(
             "dataframe",
             input_uri=self.source.uri,
@@ -4592,6 +4745,7 @@ class LazyFrame:
             memory_gb=4,
             max_parallelism=1,
             check=check,
+            **native_vortex_kwargs,
         )
 
     def prepare(
@@ -10629,10 +10783,11 @@ def _matches_vortex_group_by_aggregation_shape(
     filter_expr, group_by, aggregate, limit = _vortex_grouped_aggregate_parts(operations)
     return (
         limit is not None
+        and limit == 100
         and group_by == ("group_key",)
         and _aggregate_values_include(aggregate, "count(*) AS rows")
         and _aggregate_values_include(aggregate, "sum(metric) AS total_metric")
-        and (filter_expr is None or _sql_normalized(filter_expr) == _sql_normalized("metric >= 0"))
+        and filter_expr is None
     )
 
 
@@ -10717,7 +10872,7 @@ def _matches_vortex_global_top_n_shape(operations: Sequence[WorkflowOperation]) 
         and sort.kind == "sort"
         and sort.values == ("desc", "metric")
         and limit.kind == "limit"
-        and int(limit.values[0]) > 0
+        and int(limit.values[0]) == 10
     )
 
 
@@ -10899,47 +11054,48 @@ def _vortex_sql_user_route_shape(
     has_limit = _find_top_level_sql_keyword_outside_quotes(normalized, "limit") is not None
     if not has_limit:
         return None
-    compact = _sql_normalized(normalized)
     if len(refs) == 1:
-        uri = refs[0]
-        if _vortex_sql_matches_null_heavy_aggregate(compact):
+        parsed = _parse_vortex_sql_single_source_route(normalized, refs[0])
+        if parsed is None:
+            return None
+        if _vortex_sql_matches_null_heavy_aggregate(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="aggregate",
                 provider_scenario="null-heavy-aggregate",
             )
-        if _vortex_sql_matches_group_by_aggregation(compact):
+        if _vortex_sql_matches_group_by_aggregation(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="aggregate",
                 provider_scenario="group-by-aggregation",
             )
-        if _vortex_sql_matches_global_top_n(compact):
+        if _vortex_sql_matches_global_top_n(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="top_n",
                 provider_scenario="sort-and-top-k",
             )
-        if _vortex_sql_matches_clean_cast(compact):
+        if _vortex_sql_matches_clean_cast(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="cast",
                 provider_scenario="clean-cast-filter-write",
             )
-        if _vortex_sql_matches_malformed_timestamp(compact):
+        if _vortex_sql_matches_malformed_timestamp(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="cast",
                 provider_scenario="malformed-timestamp-dirty-csv",
             )
-        if _vortex_sql_matches_nested_json_contains(compact):
+        if _vortex_sql_matches_nested_json_contains(parsed):
             return _NativeVortexSqlUserRouteShape(
-                uri=uri,
+                uri=parsed.uri,
                 operation_family="contains",
                 provider_scenario="nested-json-field-scan",
             )
         return None
-    if len(refs) == 2 and _vortex_sql_matches_hash_join(compact, refs[0], refs[1]):
+    if len(refs) == 2 and _vortex_sql_matches_hash_join(normalized, refs[0], refs[1]):
         return _NativeVortexSqlUserRouteShape(
             uri=refs[0],
             operation_family="join",
@@ -10949,77 +11105,300 @@ def _vortex_sql_user_route_shape(
     return None
 
 
-def _vortex_sql_matches_group_by_aggregation(compact: str) -> bool:
-    return _sql_compact_contains_all(
-        compact,
-        (
-            "count(*) AS rows",
-            "sum(metric) AS total_metric",
-            "WHERE metric >= 0",
-            "GROUP BY group_key",
-        ),
+def _parse_vortex_sql_single_source_route(
+    statement: str,
+    expected_uri: str,
+) -> _ParsedVortexSqlSingleSourceRoute | None:
+    select_body = statement[len("select") :].strip()
+    from_position = _find_sql_keyword_outside_quotes(select_body, "from")
+    if from_position is None:
+        return None
+    projection_sql = select_body[:from_position].strip()
+    from_tail = select_body[from_position + len("from") :].strip()
+    parsed_ref = _parse_sql_single_quoted_prefix(from_tail)
+    if parsed_ref is None:
+        return None
+    uri, tail = parsed_ref
+    if uri != expected_uri:
+        return None
+    try:
+        projection = tuple(
+            _normalize_sql_projection_item(item)
+            for item in _split_projection_function_args(projection_sql)
+        )
+    except ValueError:
+        return None
+    if not projection:
+        return None
+    clauses = _parse_vortex_sql_route_clauses(tail)
+    if clauses is None:
+        return None
+    return _ParsedVortexSqlSingleSourceRoute(
+        uri=uri,
+        projection=projection,
+        clauses=clauses,
     )
 
 
-def _vortex_sql_matches_null_heavy_aggregate(compact: str) -> bool:
-    return _sql_compact_contains_all(
-        compact,
-        (
-            "count(*) AS rows",
-            "sum(nullable_metric_00) AS total_nullable_metric",
-            "WHERE nullable_metric_00 IS NOT NULL",
-            "GROUP BY group_key",
-        ),
+def _parse_vortex_sql_route_clauses(value: str) -> _VortexSqlRouteClauses | None:
+    tail = value.strip()
+    if not tail:
+        return None
+    spans: list[tuple[int, int, str]] = []
+    for clause in ("where", "group by", "order by", "limit"):
+        span = _find_top_level_sql_phrase_span_outside_quotes(tail, clause)
+        if span is not None:
+            spans.append((span[0], span[1], clause))
+    if not spans:
+        return None
+    spans.sort()
+    canonical_order = {
+        "where": 0,
+        "group by": 1,
+        "order by": 2,
+        "limit": 3,
+    }
+    ordered_positions = [canonical_order[clause] for _, _, clause in spans]
+    if ordered_positions != sorted(ordered_positions):
+        return None
+    if tail[: spans[0][0]].strip():
+        return None
+    seen: set[str] = set()
+    values: dict[str, str] = {}
+    previous_position = -1
+    for index, (start, end, clause) in enumerate(spans):
+        if start <= previous_position or clause in seen:
+            return None
+        seen.add(clause)
+        next_start = spans[index + 1][0] if index + 1 < len(spans) else len(tail)
+        body = tail[end:next_start].strip()
+        if not body:
+            return None
+        values[clause] = body
+        previous_position = start
+    if "limit" not in values:
+        return None
+    limit_text = values["limit"]
+    if not limit_text.isdecimal():
+        return None
+    limit = int(limit_text)
+    if limit <= 0:
+        return None
+    return _VortexSqlRouteClauses(
+        where=values.get("where"),
+        group_by=values.get("group by"),
+        order_by=values.get("order by"),
+        limit=limit,
     )
 
 
-def _vortex_sql_matches_hash_join(compact: str, left_uri: str, right_uri: str) -> bool:
-    return _sql_compact_contains_all(
-        compact,
-        (
-            "SELECT f.id, d.dim_label, f.metric",
-            f"FROM '{left_uri}' AS f",
-            f"JOIN '{right_uri}' AS d",
-            "ON f.dim_key = d.dim_key",
-        ),
-    )
+def _normalize_sql_projection_item(value: str) -> str:
+    return _sql_normalized(value)
 
 
-def _vortex_sql_matches_global_top_n(compact: str) -> bool:
-    return _sql_compact_contains_all(
-        compact,
-        (
-            "SELECT id, group_key, metric",
-            "ORDER BY metric DESC",
-        ),
-    )
+def _sql_projection_equals(
+    projection: Sequence[str],
+    expected: Sequence[str],
+) -> bool:
+    return tuple(projection) == tuple(_sql_normalized(item) for item in expected)
 
 
-def _vortex_sql_matches_clean_cast(compact: str) -> bool:
-    if _sql_normalized("CAST(dirty_numeric AS float64) AS amount_float") not in compact:
-        return False
+def _sql_clause_equals(value: str | None, expected: str) -> bool:
+    return value is not None and _sql_normalized(value) == _sql_normalized(expected)
+
+
+def _vortex_sql_matches_group_by_aggregation(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
     return (
-        _sql_normalized("WHERE amount_float >= 0") in compact
-        or _sql_normalized("WHERE CAST(dirty_numeric AS float64) >= 0") in compact
+        _sql_projection_equals(
+            parsed.projection,
+            (
+                "group_key",
+                "count(*) AS rows",
+                "sum(metric) AS total_metric",
+            ),
+        )
+        and parsed.clauses.where is None
+        and _sql_clause_equals(parsed.clauses.group_by, "group_key")
+        and parsed.clauses.order_by is None
+        and parsed.clauses.limit == 100
     )
 
 
-def _vortex_sql_matches_malformed_timestamp(compact: str) -> bool:
-    return _sql_normalized("CAST(raw_event_time AS date32) AS event_day") in compact
-
-
-def _vortex_sql_matches_nested_json_contains(compact: str) -> bool:
-    return _sql_compact_contains_all(
-        compact,
-        (
-            "SELECT id, nested_payload",
-            "nested_payload LIKE '%target%'",
-        ),
+def _vortex_sql_matches_null_heavy_aggregate(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
+    return (
+        _sql_projection_equals(
+            parsed.projection,
+            (
+                "group_key",
+                "count(*) AS rows",
+                "sum(nullable_metric_00) AS total_nullable_metric",
+            ),
+        )
+        and _sql_clause_equals(parsed.clauses.where, "nullable_metric_00 IS NOT NULL")
+        and _sql_clause_equals(parsed.clauses.group_by, "group_key")
+        and parsed.clauses.order_by is None
     )
 
 
-def _sql_compact_contains_all(compact: str, needles: Sequence[str]) -> bool:
-    return all(_sql_normalized(needle) in compact for needle in needles)
+def _vortex_sql_matches_hash_join(statement: str, left_uri: str, right_uri: str) -> bool:
+    select_body = statement[len("select") :].strip()
+    from_position = _find_sql_keyword_outside_quotes(select_body, "from")
+    if from_position is None:
+        return False
+    projection_sql = select_body[:from_position].strip()
+    try:
+        projection = tuple(
+            _normalize_sql_projection_item(item)
+            for item in _split_projection_function_args(projection_sql)
+        )
+    except ValueError:
+        return False
+    if not _sql_projection_equals(projection, ("f.id", "d.dim_label", "f.metric")):
+        return False
+    from_tail = select_body[from_position + len("from") :].strip()
+    parsed_ref = _parse_sql_single_quoted_prefix(from_tail)
+    if parsed_ref is None:
+        return False
+    uri, tail = parsed_ref
+    if uri != left_uri:
+        return False
+    tail_compact = _sql_normalized(tail)
+    expected_prefix = _sql_normalized(
+        f"AS f JOIN '{right_uri}' AS d ON f.dim_key = d.dim_key LIMIT"
+    )
+    if not tail_compact.startswith(expected_prefix):
+        return False
+    limit_text = tail_compact[len(expected_prefix) :]
+    return limit_text.isdecimal() and int(limit_text) > 0
+
+
+def _vortex_sql_matches_global_top_n(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
+    return (
+        _sql_projection_equals(parsed.projection, ("id", "group_key", "metric"))
+        and parsed.clauses.where is None
+        and parsed.clauses.group_by is None
+        and _sql_clause_equals(parsed.clauses.order_by, "metric DESC")
+        and parsed.clauses.limit == 10
+    )
+
+
+def _vortex_sql_matches_clean_cast(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
+    return (
+        _sql_projection_equals(
+            parsed.projection,
+            (
+                "id",
+                "group_key",
+                "metric",
+                "CAST(dirty_numeric AS float64) AS amount_float",
+            ),
+        )
+        and (
+            _sql_clause_equals(parsed.clauses.where, "amount_float >= 0")
+            or _sql_clause_equals(
+                parsed.clauses.where,
+                "CAST(dirty_numeric AS float64) >= 0",
+            )
+        )
+        and parsed.clauses.group_by is None
+        and parsed.clauses.order_by is None
+    )
+
+
+def _vortex_sql_matches_malformed_timestamp(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
+    return (
+        _sql_projection_equals(
+            parsed.projection,
+            (
+                "id",
+                "CAST(raw_event_time AS date32) AS event_day",
+            ),
+        )
+        and parsed.clauses.where is None
+        and parsed.clauses.group_by is None
+        and parsed.clauses.order_by is None
+    )
+
+
+def _vortex_sql_matches_nested_json_contains(
+    parsed: _ParsedVortexSqlSingleSourceRoute,
+) -> bool:
+    return (
+        _sql_projection_equals(parsed.projection, ("id", "nested_payload"))
+        and _sql_clause_equals(parsed.clauses.where, "nested_payload LIKE '%target%'")
+        and parsed.clauses.group_by is None
+        and parsed.clauses.order_by is None
+    )
+
+
+def _find_top_level_sql_phrase_span_outside_quotes(
+    statement: str,
+    phrase: str,
+) -> tuple[int, int] | None:
+    tokens = phrase.lower().split()
+    if not tokens:
+        return None
+    lower = statement.lower()
+    in_quote = False
+    depth = 0
+    index = 0
+    first = tokens[0]
+    while index <= len(statement) - len(first):
+        char = statement[index]
+        if char == "'":
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if not in_quote:
+            if char == "(":
+                depth += 1
+                index += 1
+                continue
+            if char == ")" and depth > 0:
+                depth -= 1
+                index += 1
+                continue
+            if depth == 0 and lower.startswith(first, index):
+                before = statement[index - 1] if index > 0 else ""
+                after_index = index + len(first)
+                after = statement[after_index] if after_index < len(statement) else ""
+                if _is_identifier_char(before) or _is_identifier_char(after):
+                    index += 1
+                    continue
+                cursor = after_index
+                matched = True
+                for token in tokens[1:]:
+                    if cursor >= len(statement) or not statement[cursor].isspace():
+                        matched = False
+                        break
+                    while cursor < len(statement) and statement[cursor].isspace():
+                        cursor += 1
+                    if not lower.startswith(token, cursor):
+                        matched = False
+                        break
+                    token_end = cursor + len(token)
+                    next_char = statement[token_end] if token_end < len(statement) else ""
+                    if _is_identifier_char(next_char):
+                        matched = False
+                        break
+                    cursor = token_end
+                if matched:
+                    return index, cursor
+        index += 1
+    return None
 
 
 def _parse_sql_single_quoted_prefix(value: str) -> tuple[str, str] | None:
@@ -11068,7 +11447,10 @@ def _parse_vortex_sql_tail(value: str) -> tuple[str | None, int | None] | None:
         limit_text = tail[limit_position + len("limit") :].strip()
         if not limit_text or not limit_text.isdecimal():
             return None
-        limit = _normalize_positive_int("SQL Vortex LIMIT", int(limit_text))
+        parsed_limit = int(limit_text)
+        if parsed_limit <= 0:
+            return None
+        limit = parsed_limit
     return predicate, limit
 
 

@@ -11,7 +11,7 @@ This page is generated from `docs/status/runs-today-support-matrix.json` and `do
 
 ```text
 runs_today_schema_version=shardloom.runs_today_support_matrix.v1
-runs_today_row_count=39
+runs_today_row_count=40
 production_unsupported_diagnostic_schema_version=shardloom.production_unsupported_diagnostics.v1
 production_unsupported_diagnostic_row_count=10
 package_channel_schema_version=shardloom.package_channel_readiness_matrix.v1
@@ -78,7 +78,7 @@ Use this page to decide what can be run locally today and what must return a det
 | distributed-local-fixture-run, local coordinator, local workers, split fragments, deterministic merge | executable | default | true | false | not_claim_grade | scoped in-process local distributed fixture with local hash repartition/local combine/global merge only; no remote worker, object-store, remote shuffle, spill IO, production, performance, or Spark-displacement claim |
 | live-hybrid-durable-checkpoint-smoke, local checkpoint JSON, local changelog JSONL, local state-store JSON, Vortex microsegment manifest, cold-promotion manifest, partial-checkpoint cleanup, idempotent replay evidence, restore digest | executable | default | true | true | not_claim_grade | scoped local filesystem checkpoint/changelog/state-store plus Vortex microsegment and cold-promotion manifest fixture only; no broker, object-store checkpoint, upstream Vortex file write, exactly-once, public production streaming, performance, or Spark-displacement claim |
 | live, hybrid, remote, distributed | future | not_enabled | false | false | not_claim_grade | future execution fabric; no remote/distributed runtime claim |
-| native_vortex | executable | default | true | false | fixture_smoke_only | scoped local count/filter/project primitive coverage only |
+| native_vortex | executable | default plus vortex-traditional-analytics-benchmark for promoted provider routes | true | true | fixture_smoke_only | scoped local count/filter/project primitives plus exact grouped aggregate, hash join, global top-N, cast/try-cast, substring contains, and native Vortex sink routes; arbitrary Vortex SQL/DataFrame plans still require explicit route certificates |
 | prepared_vortex | executable | default | true | false | not_claim_grade | prepared local Vortex reuse route only; not broad Vortex-native operator completeness |
 | runtime-plan, scan-plan, engine-capability-matrix, workflow-unsupported-plan | report_only | default | false | false | not_claim_grade | architecture/planning reports only; these commands do not execute workloads |
 
@@ -87,8 +87,9 @@ Use this page to decide what can be run locally today and what must return a det
 | Surface | State | Feature gate | Runtime | Write | Claim gate | Boundary |
 | --- | --- | --- | --- | --- | --- | --- |
 | what_runs_today | diagnostic_only | default | false | false | claim_safe_discovery | current-state discoverability only; not runtime expansion |
+| crates_io, oci, future_package_channels | blocked | not_enabled | false | false | not_claim_grade | no public Rust crate, container, Scoop, winget, or conda-forge claim is allowed without separate channel proof |
 | object_store, lakehouse, foundry, rest_api | blocked | not_enabled | false | false | not_claim_grade | integration/platform production support remains blocked or report-only |
-| pypi, crates_io, oci, package_install | blocked | not_enabled | false | false | not_claim_grade | no public package publication or install-channel claim is allowed |
+| pypi, package_install | executable | selected v0.1.1 channels | true | false | package_access_only | GitHub/TestPyPI/PyPI/Homebrew selected channels are proof-backed package access only; production, performance, broad runtime, and future channel claims remain blocked |
 | performance_superiority, spark_replacement | blocked | not_enabled | false | false | not_claim_grade | no faster-than or replacement claim is allowed |
 | production_readiness | blocked | not_enabled | false | false | not_claim_grade | no production-readiness claim is allowed |
 
@@ -113,14 +114,14 @@ production_unsupported_diagnostic_side_effects_performed=false
 | live_hybrid_remote_distributed | live, hybrid, remote, distributed, rest-api-event-stream, certified-live-fixture | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_EXECUTION_FABRIC | cg22.cg23.object_store_runtime_evidence_required | Use engine capability and remote API plan reports for discovery; do not request production fabric execution. |
 | rest_event_remote_api | rest-api-contract-plan, rest-api-plan-preview, remote_result_delivery, event_stream | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_REMOTE_API | cg23.remote_api.lifecycle.uncertified_blocked | Use REST/API contract plan outputs for schema review; do not treat plan previews as remote runtime support. |
 | extensions_udfs_effects | extension-registry, extension-inspect, udf-runtime-plan, api_call, embedding_generation, sqlite_effects | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_EXTENSION_EFFECT | gar-0032-d.effectful_runtime_blocked | Use extension inspection and effect admission matrices; production effectful execution requires separate policy and certificate evidence. |
-| future_package_channels | Scoop, winget, conda-forge, GHCR, crates.io | blocked_future_channels | SL_UNSUPPORTED_PUBLIC_PACKAGE_PUBLICATION | release.package_publication_gate_required | Use package-channel readiness reports for selected v0.1.0 installs; add separate channel proof before advertising future package channels. |
+| future_package_channels | Scoop, winget, conda-forge, GHCR, crates.io | blocked_future_channels | SL_UNSUPPORTED_PUBLIC_PACKAGE_PUBLICATION | release.package_publication_gate_required | Use package-channel readiness reports for selected v0.1.1 installs; add separate channel proof before advertising future package channels. |
 | public_claims | performance_superiority, spark_replacement, engine_replacement | blocked | SL_UNSUPPORTED_PERFORMANCE_SUPERIORITY_CLAIM | cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required | Attach the selected timing surface, evidence tier, benchmark artifact, and correctness report before making a public performance claim. |
 | production_readiness | production_ready, finished_product, public_release_ready | blocked | SL_UNSUPPORTED_PRODUCTION_READINESS_CLAIM | release.production_readiness_gate_required | Use finished-product readiness and hard release-readiness reports; do not claim production support from local fixtures alone. |
 
 ## Package Channels
 
 Package channel rows are generated from `docs/release/package-channel-readiness-matrix.json`.
-Selected v0.1.0 package channels expose install commands. Future package channels remain blocked until their channel-specific proof exists.
+Selected v0.1.1 package channels expose install commands. Future package channels remain blocked until their channel-specific proof exists.
 
 ```text
 package_install_commands_visible=true

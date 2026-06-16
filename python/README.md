@@ -355,6 +355,13 @@ print(prepared.facade_command, prepared.route_id, prepared.preparation_included)
 print(native_vortex.command, native_vortex.route_id, native_vortex.vortex_primitive)
 ```
 
+For direct `.vortex` inputs, `route()` and `run()` infer the admitted primitive/provider payloads
+for scoped count/filter/project/limit and exact benchmark-family grouped aggregate, hash join,
+global top-N, cast/try-cast, substring contains, and native `write_vortex` sink shapes. Manual
+`vortex_primitive` and `native_vortex_provider_scenario` arguments remain available on
+`ctx.client.public_workflow_*` for low-level diagnostics, but normal Python/SQL facades route the
+admitted shapes without requiring those flags.
+
 Unbounded collect requests block at route admission and keep
 `runtime_execution=false`, `fallback_attempted=false`, and `external_engine_invoked=false` in the
 envelope. The equivalent CLI surfaces are
@@ -364,9 +371,9 @@ envelope. The equivalent CLI surfaces are
 Lazy DataFrame bounded `collect()`, general `write(...)`, `write_jsonl(...)`, `write_csv(...)`,
 structured write aliases, generated-source direct writes, source-free SQL writes, and admitted
 local/generated fanout helpers route through the same public `run` facade and return existing typed
-reports with attached `public_workflow_*` route fields. Native Vortex primitive helpers still use
-their lower-level evidence commands until the facade has explicit payload contracts for those
-shapes.
+reports with attached `public_workflow_*` route fields. Native Vortex primitive and promoted
+provider helpers now attach the inferred route payloads to the same facade rather than relying on a
+separate payload-only path.
 
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and
@@ -436,11 +443,12 @@ print(result.field("selected_execution_mode"))
 print(result.fallback.attempted)
 ```
 
-`read_vortex(...).count/filter/select/limit/collect` remains the scoped primitive/query-builder
-surface. `native_vortex_route(...)` is the explicit route-comparable surface for
-`traditional-analytics-vortex-run` / `traditional-analytics-vortex-batch-run`; it keeps source,
-execution mode, scenario/operator, memory/parallelism hints, result sink, and no-fallback evidence
-visible.
+`read_vortex(...).count/filter/select/limit/collect`, admitted grouped aggregate/join/top-N/cast/
+contains chains, and native `write_vortex` sinks route through the public native Vortex facade when
+their shape has a certificate-backed provider route. `native_vortex_route(...)` remains the
+explicit route-comparable surface for `traditional-analytics-vortex-run` /
+`traditional-analytics-vortex-batch-run`; it keeps source, execution mode, scenario/operator,
+memory/parallelism hints, result sink, and no-fallback evidence visible.
 
 Engine intent is explicit. `engine="auto"` selects the current bounded snapshot
 batch path when allowed; `live` selects the CG-22 in-memory fixture path for

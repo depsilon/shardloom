@@ -89,6 +89,7 @@ pub(crate) fn handle_public_workflow_route(
             return emit_error("route", format, "public workflow route failed", &error);
         }
     };
+    let request = effective_public_workflow_request(&request);
     let plan = plan_public_workflow_route(&request);
     let human_text = route_human_text(&request, &plan);
     emit(
@@ -113,6 +114,7 @@ pub(crate) fn handle_public_workflow_run(
             return emit_error("run", format, "public workflow run failed", &error);
         }
     };
+    let request = effective_public_workflow_request(&request);
     let plan = plan_public_workflow_route(&request);
     if plan.status != CommandStatus::Success {
         return emit_blocked_facade("run", format, &request, &plan);
@@ -895,27 +897,31 @@ impl NativeVortexOperationFamily {
 }
 
 fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoutePlan {
-    if request.input_uri.is_none() {
+    let mut effective_request = request.clone();
+    if let Some(payload) = infer_native_vortex_route_payload(&effective_request) {
+        payload.apply(&mut effective_request);
+    }
+    if effective_request.input_uri.is_none() {
         return input_not_declared_route();
     }
-    let Ok(requested_family) = normalized_native_vortex_operation_family(request) else {
+    let Ok(requested_family) = normalized_native_vortex_operation_family(&effective_request) else {
         return native_vortex_payload_blocked_route(
             "public_workflow_route.native_vortex_operation_family",
             "unsupported native Vortex operation family",
             "use count, filter_project_limit, aggregate, join, top_n, cast, contains, or sink",
         );
     };
-    if request.native_vortex_provider_scenario.is_some() {
-        return native_vortex_provider_route(request, requested_family);
+    if effective_request.native_vortex_provider_scenario.is_some() {
+        return native_vortex_provider_route(&effective_request, requested_family);
     }
-    if is_write_request(request)
-        || request.output_ref.is_some()
-        || !request.fanout_outputs.is_empty()
+    if is_write_request(&effective_request)
+        || effective_request.output_ref.is_some()
+        || !effective_request.fanout_outputs.is_empty()
     {
         return native_vortex_operation_blocked_route(NativeVortexOperationFamily::Sink);
     }
-    let Some(primitive) = normalized_vortex_primitive(request) else {
-        if request.vortex_primitive.is_some() {
+    let Some(primitive) = normalized_vortex_primitive(&effective_request) else {
+        if effective_request.vortex_primitive.is_some() {
             return native_vortex_payload_blocked_route(
                 "public_workflow_route.vortex_primitive",
                 "unsupported native Vortex primitive",
@@ -931,52 +937,31 @@ fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRo
     if !operation_family.allows_primitive(primitive) {
         return native_vortex_operation_blocked_route(operation_family);
     }
-    if primitive.requires_predicate() && request.vortex_predicate.is_none() {
+    if primitive.requires_predicate() && effective_request.vortex_predicate.is_none() {
         return native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_predicate",
             "native Vortex primitive requires a predicate payload",
             "pass --vortex-predicate with the scoped tiny predicate expression",
         );
     }
-    if primitive.requires_columns() && request.vortex_columns.is_none() {
+    if primitive.requires_columns() && effective_request.vortex_columns.is_none() {
         return native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_columns",
             "native Vortex primitive requires a projection payload",
             "pass --vortex-columns with comma-separated projected columns",
         );
     }
-    if request.vortex_source_order_limit.is_some() && !primitive.allows_source_order_limit() {
+    if effective_request.vortex_source_order_limit.is_some()
+        && !primitive.allows_source_order_limit()
+    {
         return native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_source_order_limit",
             "native Vortex primitive does not admit a source-order limit",
             "use --vortex-source-order-limit only with filter, project, or filter_project",
         );
     }
-    if let Some(error) = positive_u64_option_error("--memory-gb", request.memory_gb.as_deref()) {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.memory_gb",
-            error,
-            "pass --memory-gb with an integer >= 1",
-        );
-    }
-    if let Some(error) =
-        positive_usize_option_error("--max-parallelism", request.max_parallelism.as_deref())
-    {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.max_parallelism",
-            error,
-            "pass --max-parallelism with an integer >= 1",
-        );
-    }
-    if let Some(error) = positive_usize_option_error(
-        "--vortex-source-order-limit",
-        request.vortex_source_order_limit.as_deref(),
-    ) {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_source_order_limit",
-            error,
-            "pass --vortex-source-order-limit with an integer >= 1",
-        );
+    if let Some(plan) = native_vortex_resource_hint_blocker(&effective_request) {
+        return plan;
     }
     admitted_route(
         primitive.route_id(),
@@ -987,6 +972,38 @@ fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRo
         false,
         true,
     )
+}
+
+fn native_vortex_resource_hint_blocker(
+    request: &PublicWorkflowRouteRequest,
+) -> Option<PublicWorkflowRoutePlan> {
+    if let Some(error) = positive_u64_option_error("--memory-gb", request.memory_gb.as_deref()) {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.memory_gb",
+            error,
+            "pass --memory-gb with an integer >= 1",
+        ));
+    }
+    if let Some(error) =
+        positive_usize_option_error("--max-parallelism", request.max_parallelism.as_deref())
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.max_parallelism",
+            error,
+            "pass --max-parallelism with an integer >= 1",
+        ));
+    }
+    if let Some(error) = positive_usize_option_error(
+        "--vortex-source-order-limit",
+        request.vortex_source_order_limit.as_deref(),
+    ) {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_source_order_limit",
+            error,
+            "pass --vortex-source-order-limit with an integer >= 1",
+        ));
+    }
+    None
 }
 
 fn native_vortex_provider_route(
@@ -1191,6 +1208,399 @@ fn normalized_vortex_primitive(
         .vortex_primitive
         .as_deref()
         .and_then(PublicVortexPrimitive::parse)
+}
+
+#[derive(Debug, Clone)]
+struct InferredNativeVortexRoutePayload {
+    family: NativeVortexOperationFamily,
+    provider_scenario: Option<&'static str>,
+    primitive: Option<PublicVortexPrimitive>,
+    predicate: Option<String>,
+    columns: Option<String>,
+    source_order_limit: Option<String>,
+    right_input: Option<String>,
+}
+
+impl InferredNativeVortexRoutePayload {
+    fn apply(self, request: &mut PublicWorkflowRouteRequest) {
+        if request.native_vortex_operation_family.is_none() {
+            request.native_vortex_operation_family = Some(self.family.as_str().to_string());
+        }
+        if request.native_vortex_provider_scenario.is_none() {
+            request.native_vortex_provider_scenario = self.provider_scenario.map(str::to_string);
+        }
+        if request.vortex_primitive.is_none() {
+            request.vortex_primitive = self
+                .primitive
+                .map(|primitive| primitive.as_str().to_string());
+        }
+        if request.vortex_predicate.is_none() {
+            request.vortex_predicate = self.predicate;
+        }
+        if request.vortex_columns.is_none() {
+            request.vortex_columns = self.columns;
+        }
+        if request.vortex_source_order_limit.is_none() {
+            request.vortex_source_order_limit = self.source_order_limit;
+        }
+        if request.native_vortex_right_input.is_none() {
+            request.native_vortex_right_input = self.right_input;
+        }
+    }
+}
+
+fn infer_native_vortex_route_payload(
+    request: &PublicWorkflowRouteRequest,
+) -> Option<InferredNativeVortexRoutePayload> {
+    if request.input_format.as_deref() != Some("vortex") {
+        return None;
+    }
+    if request.surface == "sql" || request.sql_statement.is_some() {
+        return None;
+    }
+    if request.native_vortex_provider_scenario.is_some() || request.vortex_primitive.is_some() {
+        return None;
+    }
+    infer_native_vortex_provider_payload(request)
+        .or_else(|| infer_native_vortex_primitive_payload(request))
+}
+
+fn effective_public_workflow_request(
+    request: &PublicWorkflowRouteRequest,
+) -> PublicWorkflowRouteRequest {
+    let mut effective_request = request.clone();
+    if let Some(payload) = infer_native_vortex_route_payload(&effective_request) {
+        payload.apply(&mut effective_request);
+    }
+    effective_request
+}
+
+fn infer_native_vortex_provider_payload(
+    request: &PublicWorkflowRouteRequest,
+) -> Option<InferredNativeVortexRoutePayload> {
+    if request.surface == "sql" || request.sql_statement.is_some() {
+        return None;
+    }
+    if !matches!(
+        request.requested_output.as_str(),
+        "collect" | "write_vortex"
+    ) {
+        return None;
+    }
+    let operations = parse_plan_summary_operations(request.plan_summary.as_deref()?)?;
+    if !summary_read_vortex_matches_input(&operations, request.input_uri.as_deref()?) {
+        return None;
+    }
+    let write_vortex = request.requested_output == "write_vortex";
+
+    let (family, provider_scenario) = if summary_matches_group_by_aggregation(&operations) {
+        (
+            NativeVortexOperationFamily::Aggregate,
+            "group-by-aggregation",
+        )
+    } else if summary_matches_null_heavy_aggregate(&operations) {
+        (
+            NativeVortexOperationFamily::Aggregate,
+            "null-heavy-aggregate",
+        )
+    } else if summary_matches_hash_join(&operations) {
+        (NativeVortexOperationFamily::Join, "hash-join")
+    } else if summary_matches_global_top_n(&operations) {
+        (NativeVortexOperationFamily::TopN, "sort-and-top-k")
+    } else if summary_matches_clean_cast(&operations) {
+        (NativeVortexOperationFamily::Cast, "clean-cast-filter-write")
+    } else if summary_matches_malformed_timestamp(&operations) {
+        (
+            NativeVortexOperationFamily::Cast,
+            "malformed-timestamp-dirty-csv",
+        )
+    } else if summary_matches_nested_json_contains(&operations) {
+        (
+            NativeVortexOperationFamily::Contains,
+            "nested-json-field-scan",
+        )
+    } else {
+        return None;
+    };
+
+    Some(InferredNativeVortexRoutePayload {
+        family: if write_vortex {
+            NativeVortexOperationFamily::Sink
+        } else {
+            family
+        },
+        provider_scenario: Some(provider_scenario),
+        primitive: None,
+        predicate: None,
+        columns: None,
+        source_order_limit: None,
+        right_input: infer_native_vortex_right_input(request),
+    })
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SummaryOperation<'a> {
+    kind: &'a str,
+    arg: &'a str,
+}
+
+fn parse_plan_summary_operations(summary: &str) -> Option<Vec<SummaryOperation<'_>>> {
+    let mut operations = Vec::new();
+    for segment in summary.split(" -> ") {
+        let open = segment.find('(')?;
+        if !segment.ends_with(')') || open == 0 {
+            return None;
+        }
+        let kind = &segment[..open];
+        if !kind
+            .chars()
+            .all(|ch| ch.is_ascii_lowercase() || ch == '_' || ch.is_ascii_digit())
+        {
+            return None;
+        }
+        operations.push(SummaryOperation {
+            kind,
+            arg: &segment[open + 1..segment.len() - 1],
+        });
+    }
+    (!operations.is_empty()).then_some(operations)
+}
+
+fn summary_read_vortex_matches_input(operations: &[SummaryOperation<'_>], input_uri: &str) -> bool {
+    operations.first().is_some_and(|operation| {
+        operation.kind == "read_vortex" && operation.arg.trim() == input_uri
+    })
+}
+
+fn summary_matches_group_by_aggregation(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(
+        operations,
+        &["read_vortex", "group_by", "aggregate", "limit"],
+    ) && summary_arg_eq(operations[1].arg, "group_key")
+        && summary_arg_eq(
+            operations[2].arg,
+            "count(*) AS rows,sum(metric) AS total_metric",
+        )
+        && summary_limit_eq(operations[3].arg, 100)
+}
+
+fn summary_matches_null_heavy_aggregate(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(
+        operations,
+        &["read_vortex", "filter", "group_by", "aggregate", "limit"],
+    ) && summary_arg_eq(operations[1].arg, "nullable_metric_00 IS NOT NULL")
+        && summary_arg_eq(operations[2].arg, "group_key")
+        && summary_arg_eq(
+            operations[3].arg,
+            "count(*) AS rows,sum(nullable_metric_00) AS total_nullable_metric",
+        )
+        && summary_positive_limit(operations[4].arg)
+}
+
+fn summary_matches_hash_join(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(operations, &["read_vortex", "join", "select", "limit"])
+        && summary_arg_matches_hash_join(operations[1].arg)
+        && summary_arg_eq(operations[2].arg, "f.id,d.dim_label,f.metric")
+        && summary_positive_limit(operations[3].arg)
+}
+
+fn summary_matches_global_top_n(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(operations, &["read_vortex", "select", "sort", "limit"])
+        && summary_arg_eq(operations[1].arg, "id,group_key,metric")
+        && summary_arg_eq(operations[2].arg, "desc,metric")
+        && summary_limit_eq(operations[3].arg, 10)
+}
+
+fn summary_matches_clean_cast(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(
+        operations,
+        &["read_vortex", "with_column", "filter", "limit"],
+    ) && summary_arg_eq(
+        operations[1].arg,
+        "amount_float,CAST(dirty_numeric AS float64)",
+    ) && summary_arg_eq(operations[2].arg, "amount_float >= 0")
+        && summary_positive_limit(operations[3].arg)
+}
+
+fn summary_matches_malformed_timestamp(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(operations, &["read_vortex", "with_column", "limit"])
+        && summary_arg_eq(
+            operations[1].arg,
+            "event_day,CAST(raw_event_time AS date32)",
+        )
+        && summary_positive_limit(operations[2].arg)
+}
+
+fn summary_matches_nested_json_contains(operations: &[SummaryOperation<'_>]) -> bool {
+    matches_summary_kinds(operations, &["read_vortex", "filter", "select", "limit"])
+        && summary_arg_eq(operations[1].arg, "nested_payload LIKE '%target%'")
+        && summary_arg_eq(operations[2].arg, "id,nested_payload")
+        && summary_positive_limit(operations[3].arg)
+}
+
+fn matches_summary_kinds(operations: &[SummaryOperation<'_>], kinds: &[&str]) -> bool {
+    operations.len() == kinds.len()
+        && operations
+            .iter()
+            .zip(kinds)
+            .all(|(operation, kind)| operation.kind == *kind)
+}
+
+fn summary_arg_eq(actual: &str, expected: &str) -> bool {
+    compact_ascii_lower(actual) == compact_ascii_lower(expected)
+}
+
+fn summary_positive_limit(value: &str) -> bool {
+    value.trim().parse::<usize>().is_ok_and(|parsed| parsed > 0)
+}
+
+fn summary_limit_eq(value: &str, expected: usize) -> bool {
+    value.trim().parse::<usize>() == Ok(expected)
+}
+
+fn summary_arg_matches_hash_join(value: &str) -> bool {
+    let parts: Vec<_> = value.split(',').map(str::trim).collect();
+    parts.len() == 7
+        && parts[0].ends_with(".vortex")
+        && parts[1] == "dim_key"
+        && parts[2] == "dim_key"
+        && parts[3] == "inner"
+        && parts[4] == "f"
+        && parts[5] == "d"
+        && parts[6].is_empty()
+}
+
+fn infer_native_vortex_primitive_payload(
+    request: &PublicWorkflowRouteRequest,
+) -> Option<InferredNativeVortexRoutePayload> {
+    if request.requested_output != "collect" {
+        return None;
+    }
+    let operations = parse_plan_summary_operations(request.plan_summary.as_deref()?)?;
+    if !summary_read_vortex_matches_input(&operations, request.input_uri.as_deref()?) {
+        return None;
+    }
+    let (primitive, predicate, columns, source_order_limit) =
+        if matches_summary_kinds(&operations, &["read_vortex", "filter", "select", "limit"])
+            && summary_positive_limit(operations[3].arg)
+        {
+            (
+                PublicVortexPrimitive::FilterProject,
+                Some(operations[1].arg.trim().to_string()),
+                Some(operations[2].arg.trim().to_string()),
+                Some(operations[3].arg.trim().to_string()),
+            )
+        } else if matches_summary_kinds(&operations, &["read_vortex", "filter", "select"]) {
+            (
+                PublicVortexPrimitive::FilterProject,
+                Some(operations[1].arg.trim().to_string()),
+                Some(operations[2].arg.trim().to_string()),
+                None,
+            )
+        } else if matches_summary_kinds(&operations, &["read_vortex", "filter", "limit"])
+            && summary_positive_limit(operations[2].arg)
+        {
+            (
+                PublicVortexPrimitive::Filter,
+                Some(operations[1].arg.trim().to_string()),
+                None,
+                Some(operations[2].arg.trim().to_string()),
+            )
+        } else if matches_summary_kinds(&operations, &["read_vortex", "filter"]) {
+            (
+                PublicVortexPrimitive::Filter,
+                Some(operations[1].arg.trim().to_string()),
+                None,
+                None,
+            )
+        } else if matches_summary_kinds(&operations, &["read_vortex", "select", "limit"])
+            && summary_positive_limit(operations[2].arg)
+        {
+            (
+                PublicVortexPrimitive::Project,
+                None,
+                Some(operations[1].arg.trim().to_string()),
+                Some(operations[2].arg.trim().to_string()),
+            )
+        } else if matches_summary_kinds(&operations, &["read_vortex", "select"]) {
+            (
+                PublicVortexPrimitive::Project,
+                None,
+                Some(operations[1].arg.trim().to_string()),
+                None,
+            )
+        } else {
+            return None;
+        };
+    Some(InferredNativeVortexRoutePayload {
+        family: NativeVortexOperationFamily::from_primitive(primitive),
+        provider_scenario: None,
+        primitive: Some(primitive),
+        predicate,
+        columns,
+        source_order_limit,
+        right_input: None,
+    })
+}
+
+fn infer_native_vortex_right_input(request: &PublicWorkflowRouteRequest) -> Option<String> {
+    if let Some(value) = request.native_vortex_right_input.clone() {
+        return Some(value);
+    }
+    request
+        .plan_summary
+        .as_deref()
+        .and_then(|summary| summary_operation_arg(summary, "join"))
+        .and_then(|join| join.split(',').next().map(str::to_string))
+        .or_else(|| {
+            request.sql_statement.as_deref().and_then(|sql| {
+                let refs = quoted_source_refs(sql);
+                refs.get(1).cloned()
+            })
+        })
+}
+
+fn summary_operation_arg(summary: &str, operation: &str) -> Option<String> {
+    let marker = format!(" -> {operation}(");
+    let start = summary.find(&marker)? + marker.len();
+    let rest = &summary[start..];
+    let end = rest.find(')')?;
+    let value = rest[..end].trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
+fn quoted_source_refs(value: &str) -> Vec<String> {
+    let mut refs = Vec::new();
+    let mut chars = value.char_indices().peekable();
+    while let Some((_, ch)) = chars.next() {
+        if ch != '\'' {
+            continue;
+        }
+        let mut current = String::new();
+        while let Some((_, inner)) = chars.next() {
+            if inner == '\'' {
+                if matches!(chars.peek(), Some((_, '\''))) {
+                    current.push('\'');
+                    chars.next();
+                    continue;
+                }
+                break;
+            }
+            current.push(inner);
+        }
+        if !current.is_empty() {
+            refs.push(current);
+        }
+    }
+    refs
+}
+
+fn compact_ascii_lower(value: &str) -> String {
+    value
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 fn positive_u64_option_error<'a>(flag: &str, value: Option<&str>) -> Option<&'a str> {
@@ -1522,9 +1932,10 @@ fn route_fields(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
 ) -> Vec<(String, String)> {
+    let effective_request = effective_public_workflow_request(request);
     let mut fields = Vec::with_capacity(40);
-    add_route_identity_fields(&mut fields, request, plan);
-    add_route_request_fields(&mut fields, request, plan);
+    add_route_identity_fields(&mut fields, &effective_request, plan);
+    add_route_request_fields(&mut fields, &effective_request, plan);
     add_route_execution_fields(&mut fields, plan);
     add_route_boundary_fields(&mut fields, plan);
     fields
@@ -2039,6 +2450,12 @@ fn route_support_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
         | "native_vortex_filter"
         | "native_vortex_project"
         | "native_vortex_filter_project"
+        | "native_vortex_user_aggregate"
+        | "native_vortex_user_join"
+        | "native_vortex_user_top_n"
+        | "native_vortex_user_cast"
+        | "native_vortex_user_contains"
+        | "native_vortex_user_sink"
         | "source_free_generated_output"
         | "generated_user_rows_direct_output"
         | "generated_range_direct_output"
@@ -2068,6 +2485,12 @@ fn vortex_middle_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
         | "native_vortex_filter"
         | "native_vortex_project"
         | "native_vortex_filter_project" => "native_vortex_primitive",
+        "native_vortex_user_aggregate"
+        | "native_vortex_user_join"
+        | "native_vortex_user_top_n"
+        | "native_vortex_user_cast"
+        | "native_vortex_user_contains"
+        | "native_vortex_user_sink" => "native_vortex_user_operator_provider",
         "source_free_generated_output"
         | "generated_user_rows_direct_output"
         | "generated_range_direct_output"
@@ -2184,6 +2607,7 @@ fn execution_attachment_fields(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
 ) -> Vec<(String, String)> {
+    let effective_request = effective_public_workflow_request(request);
     let mut fields = vec![
         (
             "public_workflow_facade_schema_version".to_string(),
@@ -2211,7 +2635,7 @@ fn execution_attachment_fields(
         ),
         (
             "public_workflow_surface".to_string(),
-            request.surface.clone(),
+            effective_request.surface.clone(),
         ),
         (
             "public_workflow_route_id".to_string(),
@@ -2267,71 +2691,74 @@ fn execution_attachment_fields(
         ),
         (
             "public_workflow_requested_output".to_string(),
-            request.requested_output.clone(),
+            effective_request.requested_output.clone(),
         ),
         (
             "public_workflow_output_ref".to_string(),
-            optional_or_none(request.output_ref.as_ref()),
+            optional_or_none(effective_request.output_ref.as_ref()),
         ),
         (
             "public_workflow_fanout_output_count".to_string(),
-            request.fanout_outputs.len().to_string(),
+            effective_request.fanout_outputs.len().to_string(),
         ),
         (
             "public_workflow_fanout_outputs".to_string(),
-            fanout_outputs_field(request),
+            fanout_outputs_field(&effective_request),
         ),
         (
             "public_workflow_evidence_level".to_string(),
-            effective_evidence_level(request, plan).to_string(),
+            effective_evidence_level(&effective_request, plan).to_string(),
         ),
         (
             "public_workflow_bounded_request".to_string(),
-            request.bounded.to_string(),
+            effective_request.bounded.to_string(),
         ),
         (
             "public_workflow_allow_overwrite".to_string(),
-            request.allow_overwrite.to_string(),
+            effective_request.allow_overwrite.to_string(),
         ),
         (
             "public_workflow_generated_source_kind".to_string(),
-            normalized_generated_source_kind(request)
+            normalized_generated_source_kind(&effective_request)
                 .unwrap_or("none")
                 .to_string(),
         ),
         (
             "public_workflow_generated_source_schema_present".to_string(),
-            request.generated_schema.is_some().to_string(),
+            effective_request.generated_schema.is_some().to_string(),
         ),
         (
             "public_workflow_generated_source_rows_present".to_string(),
-            request.generated_rows.is_some().to_string(),
+            effective_request.generated_rows.is_some().to_string(),
         ),
         (
             "public_workflow_vortex_primitive".to_string(),
-            normalized_vortex_primitive(request)
+            normalized_vortex_primitive(&effective_request)
                 .map_or("none", PublicVortexPrimitive::as_str)
                 .to_string(),
         ),
         (
             "public_workflow_vortex_predicate".to_string(),
-            optional_or_none(request.vortex_predicate.as_ref()),
+            optional_or_none(effective_request.vortex_predicate.as_ref()),
         ),
         (
             "public_workflow_vortex_columns".to_string(),
-            optional_or_none(request.vortex_columns.as_ref()),
+            optional_or_none(effective_request.vortex_columns.as_ref()),
         ),
         (
             "public_workflow_vortex_source_order_limit".to_string(),
-            optional_or_none(request.vortex_source_order_limit.as_ref()),
+            optional_or_none(effective_request.vortex_source_order_limit.as_ref()),
         ),
         (
             "public_workflow_memory_gb".to_string(),
-            request.memory_gb.clone().unwrap_or_else(|| "1".to_string()),
+            effective_request
+                .memory_gb
+                .clone()
+                .unwrap_or_else(|| "1".to_string()),
         ),
         (
             "public_workflow_max_parallelism".to_string(),
-            request
+            effective_request
                 .max_parallelism
                 .clone()
                 .unwrap_or_else(|| "1".to_string()),
@@ -2361,7 +2788,7 @@ fn execution_attachment_fields(
             FALLBACK_BOUNDARY.to_string(),
         ),
     ];
-    push_native_vortex_contract_fields(&mut fields, "public_workflow_", request, plan);
+    push_native_vortex_contract_fields(&mut fields, "public_workflow_", &effective_request, plan);
     fields
 }
 
@@ -3403,6 +3830,99 @@ mod tests {
         );
     }
 
+    #[test]
+    fn route_planner_infers_payloadless_native_vortex_primitive_facade_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "orders.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(orders.vortex) -> filter(gte:value:3) -> select(metric,value) -> limit(5)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("payloadless native primitive route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+        let attachments = execution_attachment_fields("run", &request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Success);
+        assert_eq!(plan.route_id, "native_vortex_filter_project");
+        assert_eq!(
+            field(&fields, "route_runtime_status"),
+            "scoped_runtime_supported"
+        );
+        assert_eq!(field(&fields, "vortex_primitive"), "filter_project");
+        assert_eq!(
+            field(&fields, "native_vortex_operation_family"),
+            "filter_project_limit"
+        );
+        assert_eq!(
+            field(&attachments, "public_workflow_vortex_primitive"),
+            "filter_project"
+        );
+        assert_eq!(
+            field(&attachments, "public_workflow_vortex_predicate"),
+            "gte:value:3"
+        );
+        assert_eq!(
+            field(&attachments, "public_workflow_vortex_columns"),
+            "metric,value"
+        );
+        assert_eq!(
+            field(&attachments, "public_workflow_vortex_source_order_limit"),
+            "5"
+        );
+    }
+
+    #[test]
+    fn route_planner_does_not_infer_primitive_from_partial_plan_summary() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "fact.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(fact.vortex) -> join(dim.vortex,dim_key,dim_key,inner,f,d,) -> filter(gte:value:3)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("partial native primitive route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "vortex_primitive"), "none");
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
     #[cfg(not(feature = "vortex-traditional-analytics-benchmark"))]
     #[test]
     fn route_planner_feature_gates_native_vortex_provider_routes() {
@@ -3533,6 +4053,14 @@ mod tests {
         assert_eq!(aggregate_plan.status, CommandStatus::Success);
         assert_eq!(aggregate_plan.route_id, "native_vortex_user_aggregate");
         assert_eq!(
+            field(&aggregate_fields, "route_runtime_status"),
+            "scoped_runtime_supported"
+        );
+        assert_eq!(
+            field(&aggregate_fields, "vortex_middle_status"),
+            "native_vortex_user_operator_provider"
+        );
+        assert_eq!(
             aggregate_plan.resolved_internal_command,
             "traditional-analytics-vortex-run"
         );
@@ -3554,6 +4082,245 @@ mod tests {
         );
         assert_eq!(field(&sink_fields, "fallback_attempted"), "false");
         assert_eq!(field(&sink_fields, "external_engine_invoked"), "false");
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn route_planner_infers_payloadless_native_vortex_provider_facade_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "fact.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(fact.vortex) -> group_by(group_key) -> aggregate(count(*) AS rows,sum(metric) AS total_metric) -> limit(100)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("payloadless native provider route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+        let attachments = execution_attachment_fields("run", &request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Success);
+        assert_eq!(plan.route_id, "native_vortex_user_aggregate");
+        assert_eq!(
+            field(&fields, "route_runtime_status"),
+            "scoped_runtime_supported"
+        );
+        assert_eq!(
+            field(&fields, "native_vortex_provider_scenario"),
+            "group-by-aggregation"
+        );
+        assert_eq!(
+            field(
+                &attachments,
+                "public_workflow_native_vortex_provider_scenario"
+            ),
+            "group-by-aggregation"
+        );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn route_planner_does_not_infer_filtered_group_by_provider_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "fact.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(fact.vortex) -> filter(metric >= 0) -> group_by(group_key) -> aggregate(count(*) AS rows,sum(metric) AS total_metric) -> limit(100)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("filtered group-by provider route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn route_planner_does_not_infer_top_n_provider_with_noncanonical_limit() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "fact.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(fact.vortex) -> select(id,group_key,metric) -> sort(desc,metric) -> limit(1)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("top-N provider route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn route_planner_does_not_infer_provider_from_sql_literals() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--input",
+                "orders.vortex",
+                "--input-format",
+                "vortex",
+                "--sql",
+                "SELECT 'count(*) AS rows', 'sum(metric) AS total_metric', 'WHERE metric >= 0', 'GROUP BY group_key' FROM 'orders.vortex' LIMIT 1",
+                "--plan",
+                "read_vortex(orders.vortex) -> filter(metric >= 0) -> group_by(group_key) -> aggregate(count(*) AS rows,sum(metric) AS total_metric) -> limit(100)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("literal bait SQL route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn route_planner_does_not_infer_provider_for_report_requests() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "fact.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(fact.vortex) -> filter(metric >= 0) -> group_by(group_key) -> aggregate(count(*) AS rows,sum(metric) AS total_metric) -> limit(100)",
+                "--request",
+                "explain",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("payloadless report route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn route_planner_does_not_infer_provider_from_quoted_plan_arguments() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "fact.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(fact.vortex) -> filter('metric >= 0') -> group_by(group_key) -> aggregate('count(*) AS rows','sum(metric) AS total_metric') -> limit(1)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("quoted payloadless provider route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
     #[test]

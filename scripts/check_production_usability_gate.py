@@ -529,7 +529,7 @@ def validate_runs_today(runs_today: dict[str, Any] | None) -> tuple[dict[str, An
     ]:
         if row_id not in by_id:
             blockers.append(f"runs-today missing supported learning row: {row_id}")
-    for row_id in ["claim_production_readiness", "claim_package_publication"]:
+    for row_id in ["claim_production_readiness", "claim_future_package_channels"]:
         row = by_id.get(row_id)
         if not isinstance(row, dict):
             blockers.append(f"runs-today missing blocked claim row: {row_id}")
@@ -540,6 +540,21 @@ def validate_runs_today(runs_today: dict[str, Any] | None) -> tuple[dict[str, An
             blockers.append(f"runs-today {row_id} claim_gate_status must be not_claim_grade")
         if row.get("fallback_attempted") is not False or row.get("external_engine_invoked") is not False:
             blockers.append(f"runs-today {row_id} must keep fallback/external false")
+    package_row = by_id.get("claim_package_publication")
+    if not isinstance(package_row, dict):
+        blockers.append("runs-today missing selected package access row: claim_package_publication")
+    else:
+        if package_row.get("support_state") != "executable":
+            blockers.append("runs-today claim_package_publication support_state must be executable")
+        if package_row.get("claim_gate_status") != "package_access_only":
+            blockers.append(
+                "runs-today claim_package_publication claim_gate_status must be package_access_only"
+            )
+        if (
+            package_row.get("fallback_attempted") is not False
+            or package_row.get("external_engine_invoked") is not False
+        ):
+            blockers.append("runs-today claim_package_publication must keep fallback/external false")
     return (
         {
             "status": "passed" if not blockers else "blocked",
