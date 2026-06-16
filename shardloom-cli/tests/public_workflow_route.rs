@@ -65,16 +65,28 @@ fn public_route_emits_side_effect_free_local_file_route() {
         "public_workflow_route_schema_version",
         "shardloom.public_workflow_route.v1"
     )));
-    assert!(stdout.contains(&field("route_id", "local_file_direct_query")));
+    assert!(stdout.contains(&field("route_id", "local_file_product_query")));
     assert!(stdout.contains(&field(
-        "resolved_internal_command",
+        "route_support_status",
+        "production_admitted_local_workflow"
+    )));
+    assert!(stdout.contains(&field("resolved_internal_command", "local-workflow-run")));
+    assert!(stdout.contains(&field(
+        "underlying_runtime_command",
         "sql-local-source-smoke"
+    )));
+    assert!(stdout.contains(&field(
+        "local_workflow_runtime_profile",
+        "product_local_workflow"
     )));
     assert!(stdout.contains(&field("surface", "dataframe")));
     assert!(stdout.contains(&field("source_format", "csv")));
     assert!(stdout.contains(&field("start_state", "compatibility_local_source")));
-    assert!(stdout.contains(&field("vortex_normalization_point", "direct_transient")));
-    assert!(stdout.contains(&field("execution_mode", "direct")));
+    assert!(stdout.contains(&field(
+        "vortex_normalization_point",
+        "compatibility_source_state_pre_vortex_unification"
+    )));
+    assert!(stdout.contains(&field("execution_mode", "product_local")));
     assert!(stdout.contains(&field("preparation_included", "false")));
     assert!(stdout.contains(&field("query_timing_starts_after_preparation", "false")));
     assert!(stdout.contains(&field("runtime_execution", "false")));
@@ -261,7 +273,12 @@ fn public_route_blocks_native_vortex_write_payloads() {
     assert!(stdout.contains(&field("route_id", "blocked")));
     assert!(stdout.contains(&field(
         "blocker_id",
-        "cg21.route.native_vortex_output_not_admitted"
+        "py-vortex-route-unify-1.native_vortex_sink_contract_missing"
+    )));
+    assert!(stdout.contains(&field("native_vortex_operation_family", "sink")));
+    assert!(stdout.contains(&field(
+        "typed_sink_contract",
+        "blocked_until_native_vortex_typed_sink_contract"
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
@@ -294,11 +311,19 @@ fn public_run_executes_local_sql_with_attached_route_envelope() {
     assert!(stdout.contains(&field("public_workflow_route_attached", "true")));
     assert!(stdout.contains(&field(
         "public_workflow_route_id",
-        "local_file_direct_query"
+        "local_file_product_query"
     )));
     assert!(stdout.contains(&field(
         "public_workflow_resolved_internal_command",
+        "local-workflow-run"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_underlying_runtime_command",
         "sql-local-source-smoke"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_local_workflow_runtime_profile",
+        "product_local_workflow"
     )));
     assert!(stdout.contains(&field("runtime_execution", "true")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
@@ -329,7 +354,7 @@ fn public_run_forwards_declared_input_format_for_extensionless_sql_source() {
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field(
         "public_workflow_route_id",
-        "local_file_direct_query"
+        "local_file_product_query"
     )));
     assert!(stdout.contains(&field("source_format", "csv")));
     assert!(stdout.contains(&field("source_format_inferred", "false")));
@@ -377,7 +402,14 @@ fn public_run_forwards_local_write_output_and_overwrite_intent() {
 
     assert!(stdout.contains("\"command\":\"run\""));
     assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field("public_workflow_route_id", "local_file_direct_sink")));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "local_file_product_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_local_workflow_runtime_profile",
+        "product_local_workflow"
+    )));
     assert!(stdout.contains(&field("public_workflow_requested_output", "write_csv")));
     assert!(stdout.contains(&field("public_workflow_allow_overwrite", "true")));
     assert!(stdout.contains(&field("output_format", "csv")));
@@ -427,9 +459,16 @@ fn public_run_forwards_local_fanout_payload_with_attached_route_envelope() {
 
     assert!(stdout.contains("\"command\":\"run\""));
     assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field("public_workflow_route_id", "local_file_direct_sink")));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "local_file_product_sink"
+    )));
     assert!(stdout.contains(&field(
         "public_workflow_resolved_internal_command",
+        "local-workflow-run"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_underlying_runtime_command",
         "sql-local-source-smoke"
     )));
     assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));

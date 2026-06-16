@@ -156,6 +156,23 @@ V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS = (
     "nested_json_field_scan",
     "small_change_over_large_base",
 )
+V1_VORTEX_PROVIDER_ROUTE_IDS = (
+    "native_vortex_user_aggregate",
+    "native_vortex_user_join",
+    "native_vortex_user_top_n",
+    "native_vortex_user_cast",
+    "native_vortex_user_contains",
+    "native_vortex_user_sink",
+)
+V1_VORTEX_PROVIDER_SCENARIO_IDS = (
+    "group-by-aggregation",
+    "null-heavy-aggregate",
+    "hash-join",
+    "sort-and-top-k",
+    "clean-cast-filter-write",
+    "malformed-timestamp-dirty-csv",
+    "nested-json-field-scan",
+)
 V1_VORTEX_UNSUPPORTED_BOUNDARY_IDS = (
     "object_store_vortex_io",
     "table_catalog_vortex_io",
@@ -1786,6 +1803,174 @@ class LocalVortexPrimitiveRouteReport:
 
 
 @dataclass(frozen=True, slots=True)
+class NativeVortexProviderRouteCertificateRow:
+    """Certificate row for exact Python/SQL native Vortex provider routes."""
+
+    route_id: str
+    operation_family: str
+    provider_scenario: str
+    benchmark_scenario_id: str
+    python_surface: str
+    sql_surface: str
+    required_right_input: bool
+    right_input_contract: str
+    resolved_internal_command: str
+    feature_gate: str
+    start_state: str
+    vortex_normalization_point: str
+    execution_policy: str
+    typed_result_contract: str
+    typed_sink_contract: str
+    decode_materialization_boundary: str
+    output_route: str
+    evidence_route: str
+    route_certificate_status: str
+    route_certificate_source: str
+    benchmark_route_equivalence: str
+    route_runtime_status: str
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str
+    performance_claim_allowed: bool
+    production_claim_allowed: bool
+    claim_boundary: str
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether the provider route preserves ShardLoom's no-fallback boundary."""
+
+        return not self.fallback_attempted and not self.external_engine_invoked
+
+    @property
+    def runtime_supported(self) -> bool:
+        """Whether the exact provider route is admitted for v1 scoped runtime use."""
+
+        return self.route_runtime_status == "scoped_runtime_supported"
+
+    @property
+    def route_certificate_current(self) -> bool:
+        """Whether the row is backed by a current route certificate."""
+
+        return self.route_certificate_status == "current"
+
+
+@dataclass(frozen=True, slots=True)
+class NativeVortexProviderRouteCertificateReport:
+    """Side-effect-free certificate map for exact native Vortex provider routes."""
+
+    rows: tuple[NativeVortexProviderRouteCertificateRow, ...]
+
+    @property
+    def schema_version(self) -> str:
+        """Return the report schema version."""
+
+        return "shardloom.native_vortex_provider_route_certificate_report.v1"
+
+    @property
+    def report_id(self) -> str:
+        """Return the stable report id."""
+
+        return "py-vortex-route-unify-1.native_vortex_provider_route_certificates"
+
+    @property
+    def route_order(self) -> tuple[str, ...]:
+        """Return provider route ids in stable report order."""
+
+        return tuple(row.route_id for row in self.rows)
+
+    @property
+    def scenario_order(self) -> tuple[str, ...]:
+        """Return provider scenario ids in stable report order."""
+
+        return tuple(row.provider_scenario for row in self.rows)
+
+    @property
+    def v1_scope_document(self) -> str:
+        """Return the canonical v1 Vortex runtime scope document path."""
+
+        return V1_VORTEX_RUNTIME_SCOPE_DOCUMENT
+
+    @property
+    def v1_provider_route_ids(self) -> tuple[str, ...]:
+        """Return v1 native provider route ids."""
+
+        return V1_VORTEX_PROVIDER_ROUTE_IDS
+
+    @property
+    def v1_provider_scenario_ids(self) -> tuple[str, ...]:
+        """Return v1 exact provider scenario ids."""
+
+        return V1_VORTEX_PROVIDER_SCENARIO_IDS
+
+    @property
+    def feature_gate(self) -> str:
+        """Return the shared provider-route feature gate."""
+
+        return "vortex-traditional-analytics-benchmark"
+
+    @property
+    def all_runtime_supported(self) -> bool:
+        """Whether every exact provider row is runtime-supported."""
+
+        return all(row.runtime_supported for row in self.rows)
+
+    @property
+    def all_route_certificates_current(self) -> bool:
+        """Whether every provider row has current route-certificate evidence."""
+
+        return all(row.route_certificate_current for row in self.rows)
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every provider route preserves no fallback and no external engine use."""
+
+        return all(row.no_fallback_no_external_engine for row in self.rows)
+
+    @property
+    def general_multi_input_join_claim_allowed(self) -> bool:
+        """Whether arbitrary multi-input native Vortex joins are in the v1 claim."""
+
+        return False
+
+    @property
+    def performance_claim_allowed(self) -> bool:
+        """Whether this route-certificate report alone permits a performance claim."""
+
+        return False
+
+    @property
+    def production_claim_allowed(self) -> bool:
+        """Whether this report alone permits a production-readiness claim."""
+
+        return False
+
+    @property
+    def v1_scope_ready(self) -> bool:
+        """Whether exact provider rows satisfy the v1 route-certificate contract."""
+
+        return (
+            tuple(dict.fromkeys(self.route_order)) == V1_VORTEX_PROVIDER_ROUTE_IDS
+            and tuple(dict.fromkeys(self.scenario_order))
+            == V1_VORTEX_PROVIDER_SCENARIO_IDS
+            and self.all_runtime_supported
+            and self.all_route_certificates_current
+            and self.all_no_fallback_no_external_engine
+        )
+
+    def route(self, provider_scenario: str) -> NativeVortexProviderRouteCertificateRow:
+        """Return one provider route row by provider scenario id."""
+
+        normalized = provider_scenario.strip()
+        for row in self.rows:
+            if row.provider_scenario == normalized:
+                return row
+        raise KeyError(
+            f"native Vortex provider scenario {provider_scenario!r} is not in the report"
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class LocalFileBenchmarkRouteRow:
     """Scenario-level route row for local-file benchmark families."""
 
@@ -3132,6 +3317,161 @@ LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS: tuple[LocalVortexPrimitiveRouteRow, ...] = (
             "source_order_limit",
             "execution_certificate",
             "native_io_certificate",
+        ),
+    ),
+)
+
+
+def _native_vortex_provider_route(
+    route_id: str,
+    operation_family: str,
+    provider_scenario: str,
+    benchmark_scenario_id: str,
+    python_surface: str,
+    sql_surface: str,
+    *,
+    required_right_input: bool = False,
+    output_route: str = "provider_result_summary",
+    typed_result_contract: str = (
+        "provider_backed_native_vortex_result_summary_with_route_certificate"
+    ),
+    typed_sink_contract: str = "not_applicable_collect",
+    required_evidence: Sequence[str] = (
+        "execution_certificate",
+        "native_io_certificate",
+        "provider_route_certificate",
+        "fallback_disabled",
+    ),
+) -> NativeVortexProviderRouteCertificateRow:
+    return NativeVortexProviderRouteCertificateRow(
+        route_id=route_id,
+        operation_family=operation_family,
+        provider_scenario=provider_scenario,
+        benchmark_scenario_id=benchmark_scenario_id,
+        python_surface=python_surface,
+        sql_surface=sql_surface,
+        required_right_input=required_right_input,
+        right_input_contract=(
+            "declared_native_vortex_right_input_required"
+            if required_right_input
+            else "not_applicable_single_input"
+        ),
+        resolved_internal_command="traditional-analytics-vortex-run",
+        feature_gate="vortex-traditional-analytics-benchmark",
+        start_state="native_vortex_file",
+        vortex_normalization_point="native_vortex_boundary",
+        execution_policy="native_vortex",
+        typed_result_contract=typed_result_contract,
+        typed_sink_contract=typed_sink_contract,
+        decode_materialization_boundary=(
+            "native_vortex_zero_decode_runtime_with_bounded_python_materialization_boundary"
+        ),
+        output_route=output_route,
+        evidence_route="public_workflow_run_facade_with_provider_route_certificate",
+        route_certificate_status="current",
+        route_certificate_source=(
+            "shardloom-cli/src/public_workflow_route.rs::native_vortex_provider_route"
+        ),
+        benchmark_route_equivalence=(
+            "matches_named_traditional_analytics_vortex_provider_scenario"
+        ),
+        route_runtime_status="scoped_runtime_supported",
+        fallback_attempted=False,
+        external_engine_invoked=False,
+        required_evidence=tuple(required_evidence),
+        claim_gate_status="not_claim_grade",
+        performance_claim_allowed=False,
+        production_claim_allowed=False,
+        claim_boundary=(
+            "exact feature-gated native Vortex provider route only; no broad arbitrary "
+            "SQL/DataFrame parity or production/performance claim"
+        ),
+    )
+
+
+NATIVE_VORTEX_PROVIDER_ROUTE_CERTIFICATE_ROWS: tuple[
+    NativeVortexProviderRouteCertificateRow, ...
+] = (
+    _native_vortex_provider_route(
+        "native_vortex_user_aggregate",
+        "aggregate",
+        "group-by-aggregation",
+        "group_by_aggregation",
+        "ctx.read_vortex('fact.vortex').filter(sl.col('metric') >= 0).group_by('group_key').agg(rows='count(*)', total_metric='sum(metric)').limit(100).collect()",
+        "ctx.sql(\"SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric FROM 'fact.vortex' WHERE metric >= 0 GROUP BY group_key LIMIT 100\").collect()",
+    ),
+    _native_vortex_provider_route(
+        "native_vortex_user_aggregate",
+        "aggregate",
+        "null-heavy-aggregate",
+        "null_heavy_aggregate",
+        "ctx.read_vortex('fact.vortex').dropna(subset=['nullable_metric_00']).group_by('group_key').agg(rows='count(*)', total_nullable_metric='sum(nullable_metric_00)').limit(100).collect()",
+        "ctx.sql(\"SELECT group_key, COUNT(*) AS rows, SUM(nullable_metric_00) AS total_nullable_metric FROM 'fact.vortex' WHERE nullable_metric_00 IS NOT NULL GROUP BY group_key LIMIT 100\").collect()",
+    ),
+    _native_vortex_provider_route(
+        "native_vortex_user_join",
+        "join",
+        "hash-join",
+        "hash_join",
+        "ctx.read_vortex('fact.vortex').join(ctx.read_vortex('dim.vortex'), on='dim_key', how='inner').select('f.id', 'd.dim_label', 'f.metric').limit(100).collect()",
+        "ctx.sql(\"SELECT f.id, d.dim_label, f.metric FROM 'fact.vortex' AS f JOIN 'dim.vortex' AS d ON f.dim_key = d.dim_key LIMIT 100\").collect()",
+        required_right_input=True,
+        required_evidence=(
+            "execution_certificate",
+            "native_io_certificate",
+            "provider_route_certificate",
+            "declared_native_vortex_right_input",
+            "fallback_disabled",
+        ),
+    ),
+    _native_vortex_provider_route(
+        "native_vortex_user_top_n",
+        "top_n",
+        "sort-and-top-k",
+        "global_top_n",
+        "ctx.read_vortex('fact.vortex').select('id', 'group_key', 'metric').nlargest(10, 'metric').collect()",
+        "ctx.sql(\"SELECT id, group_key, metric FROM 'fact.vortex' ORDER BY metric DESC LIMIT 10\").collect()",
+    ),
+    _native_vortex_provider_route(
+        "native_vortex_user_cast",
+        "cast",
+        "clean-cast-filter-write",
+        "clean_cast_filter_write",
+        "ctx.read_vortex('fact.vortex').with_column('amount_float', sl.col('dirty_numeric').cast('float64')).filter(sl.col('amount_float') >= 0).limit(1000).collect()",
+        "ctx.sql(\"SELECT *, CAST(dirty_numeric AS float64) AS amount_float FROM 'fact.vortex' WHERE amount_float >= 0 LIMIT 1000\").collect()",
+    ),
+    _native_vortex_provider_route(
+        "native_vortex_user_cast",
+        "cast",
+        "malformed-timestamp-dirty-csv",
+        "malformed_timestamp_cast",
+        "ctx.read_vortex('fact.vortex').with_column('event_day', sl.col('raw_event_time').cast('date32')).limit(1000).collect()",
+        "ctx.sql(\"SELECT *, CAST(raw_event_time AS date32) AS event_day FROM 'fact.vortex' LIMIT 1000\").collect()",
+    ),
+    _native_vortex_provider_route(
+        "native_vortex_user_contains",
+        "contains",
+        "nested-json-field-scan",
+        "nested_json_field_scan",
+        "ctx.read_vortex('events.vortex').filter(sl.col('nested_payload').contains('target')).select('id', 'nested_payload').limit(100).collect()",
+        "ctx.sql(\"SELECT id, nested_payload FROM 'events.vortex' WHERE nested_payload LIKE '%target%' LIMIT 100\").collect()",
+    ),
+    _native_vortex_provider_route(
+        "native_vortex_user_sink",
+        "sink",
+        "clean-cast-filter-write",
+        "clean_cast_filter_write",
+        "ctx.read_vortex('fact.vortex').with_column('amount_float', sl.col('dirty_numeric').cast('float64')).filter(sl.col('amount_float') >= 0).limit(1000).write_vortex('target/out.vortex')",
+        "ctx.sql(\"SELECT *, CAST(dirty_numeric AS float64) AS amount_float FROM 'fact.vortex' WHERE amount_float >= 0 LIMIT 1000\").write_vortex('target/out.vortex')",
+        output_route="native_vortex_result_sink",
+        typed_result_contract="native_vortex_result_sink_with_replay_certificate",
+        typed_sink_contract="native_vortex_result_sink_with_replay_verified_artifact",
+        required_evidence=(
+            "execution_certificate",
+            "native_io_certificate",
+            "provider_route_certificate",
+            "result_sink_replay_certificate",
+            "fallback_disabled",
         ),
     ),
 )
@@ -10556,6 +10896,16 @@ class ContextCapabilities:
         return LocalVortexPrimitiveRouteReport(rows=LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS)
 
     @property
+    def native_vortex_provider_route_certificate_report(
+        self,
+    ) -> NativeVortexProviderRouteCertificateReport:
+        """Return exact native Vortex provider route certificate coverage."""
+
+        return NativeVortexProviderRouteCertificateReport(
+            rows=NATIVE_VORTEX_PROVIDER_ROUTE_CERTIFICATE_ROWS
+        )
+
+    @property
     def local_file_benchmark_route_report(self) -> LocalFileBenchmarkRouteReport:
         """Return scenario-level local-file benchmark route coverage."""
 
@@ -10953,6 +11303,18 @@ class ShardLoomContext:
 
         _ = check
         return LocalVortexPrimitiveRouteReport(rows=LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS)
+
+    def native_vortex_provider_route_certificate_report(
+        self,
+        *,
+        check: bool | None = None,
+    ) -> NativeVortexProviderRouteCertificateReport:
+        """Return exact native Vortex provider route certificate coverage."""
+
+        _ = check
+        return NativeVortexProviderRouteCertificateReport(
+            rows=NATIVE_VORTEX_PROVIDER_ROUTE_CERTIFICATE_ROWS
+        )
 
     def local_file_benchmark_route_report(
         self,

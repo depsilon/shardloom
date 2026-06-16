@@ -21,6 +21,7 @@ external_engine_invoked=false
 The machine-readable sources for this scope are:
 
 - `ShardLoomContext.local_vortex_primitive_route_report()`
+- `ShardLoomContext.native_vortex_provider_route_certificate_report()`
 - `ShardLoomContext.user_route_capability_report()`
 - `ShardLoomContext.local_file_benchmark_route_report()`
 - `scripts/check_v1_vortex_runtime_scope.py`
@@ -37,6 +38,68 @@ turn it into a broad Vortex runtime, object-store, table/catalog, or performance
 | `prepared_local_vortex_state` | A previously created `VortexPreparedState` is reused for a warm prepared query. | `prepared_vortex` starts after preparation and reports preparation exclusion, prepared-state reuse, execution evidence, and result boundary evidence. |
 | `prepared_compatibility_artifact` | A local compatibility source is normalized through `SourceState -> vortex_ingest -> VortexPreparedState` before query execution. | Prepared benchmark-family rows include preparation/reuse evidence, source and split refs, route timing fields, execution certificate, Native I/O certificate, and no-fallback evidence. |
 | `generated_local_vortex_artifact` | Source-free/generated rows create a local Vortex-preparable artifact with explicit local output evidence. | Generated-source certificates and local output evidence prove the artifact boundary; this is not object-store or table/catalog support. |
+
+## Format-Neutral Vortex Middle
+
+ShardLoom should not grow one Python/SQL/DataFrame execution implementation per input format.
+Inputs have format-specific adapters; execution should converge on a ShardLoom logical plan and,
+where admitted, a Vortex-native or Vortex-prepared runtime boundary:
+
+```text
+CSV/JSON/Parquet/Arrow/Avro/ORC/Vortex adapter
+  -> ShardLoom source state
+  -> native Vortex boundary or Vortex-prepared state
+  -> ShardLoom operator route
+  -> JSONL/CSV/Parquet/Arrow/Vortex sink
+```
+
+`ctx.read_vortex(...)` should be the direct native starting state. `ctx.read(...)` and explicit
+compatibility readers should normalize internally when the route requires Vortex. That lifecycle is
+not a user-facing benchmark preparation step. The current product-local compatibility-source route
+removes smoke-only caps but still reports `pending_native_vortex_middle_unification` until that
+normalization lifecycle is implemented. If a format, operator, join state, or sink is not admitted
+by the native route contract, the public surface must return a deterministic blocker with
+`fallback_attempted=false` and `external_engine_invoked=false`.
+
+The admitted direct `.vortex` primitive user routes are surface-aware: Python/DataFrame-style
+`ctx.read_vortex(...).filter(...).select(...).limit(...).collect()` and equivalent scoped SQL
+statements enter through the shared `public_workflow_run` facade with `surface=dataframe` or
+`surface=sql`, the logical plan or SQL statement attached, and `execution_policy=native_vortex`.
+The facade then dispatches only the admitted primitive payloads to `vortex-run`,
+`vortex-count-where`, `vortex-filter`, `vortex-project`, or `vortex-filter-project`. This is still
+scoped primitive support, not broad Vortex SQL/DataFrame parity.
+
+The admitted direct `.vortex` benchmark-family user routes are exact-shape provider routes:
+Python/DataFrame-style chains and equivalent exact SQL statements that match the existing native
+traditional-analytics scenario families enter through the same `public_workflow_run` facade with
+`execution_policy=native_vortex`, `materialization_policy=zero_decode`,
+`native_vortex_provider_scenario`, and optional `native_vortex_right_input` evidence. When the CLI
+is built with `vortex-traditional-analytics-benchmark`, the facade dispatches these exact shapes to
+`traditional-analytics-vortex-run` instead of returning the older route-missing blockers. This is a
+real ShardLoom-native provider route, but it is not broad arbitrary Vortex SQL/DataFrame planning.
+
+Every native Vortex public route also emits the route-unification contract fields
+`native_vortex_user_route_contract_schema_version`, `native_vortex_operation_family`,
+`native_vortex_capability_status`, `native_vortex_required_evidence`,
+`native_vortex_next_action`, `typed_result_contract`, `typed_sink_contract`, and
+`decode_materialization_boundary`. The same fields are attached to public run envelopes with the
+`public_workflow_` prefix. These fields are evidence metadata; they do not make a blocked operator
+supported. Count-style primitive routes report `native_vortex_capability_status=supported`;
+row-returning filter/project/filter-project primitive routes report
+`native_vortex_capability_status=supported_with_materialization_boundary`.
+
+Current native Vortex route-unification blockers are reserved for unshaped or non-admitted
+families:
+
+| Blocked family | Stable blocker ID |
+| --- | --- |
+| Unshaped/general native Vortex query | `py-vortex-route-unify-1.native_vortex_general_route_missing` |
+| Aggregate shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_aggregate_route_missing` |
+| Join shape without admitted right-input/provider scenario | `py-vortex-route-unify-1.native_vortex_join_state_missing` |
+| Top-N shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_top_n_route_missing` |
+| Cast/try-cast shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_cast_route_missing` |
+| Substring contains shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_contains_route_missing` |
+| Compatibility JSONL/CSV/Parquet/Arrow sink from native Vortex workflow | `py-vortex-route-unify-1.native_vortex_sink_contract_missing` |
 
 ## Supported V1 Local Vortex Primitive Operations
 
@@ -57,6 +120,39 @@ The scoped local primitive report admits these route ids:
 Each route must expose SQL, Python, DataFrame-style, context, session, and CLI surfaces. Each route
 must name output route, evidence route, materialization/decode boundary, required evidence,
 `claim_gate_status=not_claim_grade`, and the scoped claim boundary.
+
+## Supported Exact Native Vortex Provider Routes
+
+The following exact Python/DataFrame-style chains and equivalent SQL statements are admitted as
+feature-gated native Vortex provider routes because they map to existing ShardLoom
+traditional-analytics runtime scenarios:
+
+| Python/DataFrame shape | Equivalent SQL shape | Provider scenario | Route id |
+| --- | --- | --- | --- |
+| `filter(metric >= 0).group_by("group_key").agg(count/sum).limit(...)` | `SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric FROM 'fact.vortex' WHERE metric >= 0 GROUP BY group_key LIMIT ...` | `group-by-aggregation` | `native_vortex_user_aggregate` |
+| `dropna(nullable_metric_00).group_by("group_key").agg(count/sum).limit(...)` | `SELECT group_key, COUNT(*) AS rows, SUM(nullable_metric_00) AS total_nullable_metric FROM 'fact.vortex' WHERE nullable_metric_00 IS NOT NULL GROUP BY group_key LIMIT ...` | `null-heavy-aggregate` | `native_vortex_user_aggregate` |
+| `join(dim, on="dim_key").select("f.id", "d.dim_label", "f.metric").limit(...)` | `SELECT f.id, d.dim_label, f.metric FROM 'fact.vortex' AS f JOIN 'dim.vortex' AS d ON f.dim_key = d.dim_key LIMIT ...` | `hash-join` with `native_vortex_right_input` | `native_vortex_user_join` |
+| `select("id", "group_key", "metric").nlargest(10, "metric")` | `SELECT id, group_key, metric FROM 'fact.vortex' ORDER BY metric DESC LIMIT ...` | `sort-and-top-k` | `native_vortex_user_top_n` |
+| `with_column("amount_float", cast(dirty_numeric)).filter(amount_float >= 0).limit(...)` | `SELECT ..., CAST(dirty_numeric AS float64) AS amount_float FROM 'fact.vortex' WHERE amount_float >= 0 LIMIT ...` | `clean-cast-filter-write` | `native_vortex_user_cast` |
+| `with_column("event_day", cast(raw_event_time AS date32)).limit(...)` | `SELECT ..., CAST(raw_event_time AS date32) AS event_day FROM 'fact.vortex' LIMIT ...` | `malformed-timestamp-dirty-csv` | `native_vortex_user_cast` |
+| `filter(nested_payload.contains("target")).select("id", "nested_payload").limit(...)` | `SELECT id, nested_payload FROM 'events.vortex' WHERE nested_payload LIKE '%target%' LIMIT ...` | `nested-json-field-scan` | `native_vortex_user_contains` |
+| Any admitted provider shape followed by `write_vortex(...)` | Exact admitted SQL shape followed by `write_vortex(...)` | matching provider scenario | `native_vortex_user_sink` |
+
+These routes emit `public_workflow_native_vortex_provider_scenario` and
+`public_workflow_native_vortex_right_input` fields. Compatibility exports such as `write_jsonl()`
+from a direct Vortex-native workflow remain blocked until a separate explicit decode/export
+contract is implemented. Arbitrary SQL parity remains out of scope; only the exact shapes above
+emit the provider payload.
+
+`ShardLoomContext.native_vortex_provider_route_certificate_report()` is the machine-readable
+certificate surface for these exact routes. It records the route id, operation family, provider
+scenario, benchmark scenario id, Python and SQL surfaces, `native_vortex_right_input` requirement,
+`traditional-analytics-vortex-run` provider command, feature gate, typed result/sink contract,
+decode/materialization boundary, route certificate source, `claim_gate_status=not_claim_grade`,
+`fallback_attempted=false`, and `external_engine_invoked=false`. The report deliberately keeps
+`general_multi_input_join_claim_allowed=false`, `performance_claim_allowed=false`, and
+`production_claim_allowed=false`: it proves exact route admission and benchmark-family equivalence,
+not arbitrary Vortex SQL/DataFrame planning or a refreshed performance claim.
 
 ## Supported Prepared Vortex Benchmark Families
 

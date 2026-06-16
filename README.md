@@ -127,10 +127,11 @@ python -m pip install shardloom==0.1.1
 brew install depsilon/tap/shardloom
 ```
 
-The Python package is a thin client surface over the ShardLoom CLI. In v0.1.1 it resolves the CLI
-from `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, a source checkout build, or `shardloom` on `PATH`.
-Managed environments that install only the PyPI wheel still need one of those binary-resolution
-paths until a platform wheel bundles the CLI binary.
+The Python package is a thin client surface over the ShardLoom CLI. Published v0.1.1 resolves the
+CLI from `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, a source checkout build, or `shardloom` on `PATH`.
+The next bundled-wheel patch release stages the CLI inside supported platform wheels so managed
+Python environments can use `sl.context()` without passing binary paths; explicit binary/env/source
+configuration still takes precedence.
 
 Normal Python use:
 
@@ -171,6 +172,10 @@ The v1 Vortex runtime scope is separately defined in
 [`docs/architecture/v1-vortex-runtime-scope.md`](docs/architecture/v1-vortex-runtime-scope.md):
 it admits feature-gated local Vortex primitives, prepared Vortex state, prepared compatibility
 artifacts, and generated local Vortex artifacts without claiming broad Vortex support.
+For direct `.vortex` inputs, exact benchmark-family Python and SQL shapes for grouped aggregation,
+hash join, global top-N, cast/try-cast, substring contains, and native `write_vortex` sinks are
+listed by `ctx.native_vortex_provider_route_certificate_report()`; broader arbitrary Vortex
+SQL/DataFrame planning remains explicitly blocked until it has its own route certificate.
 The v1 SourceState and prepared-state reuse boundary is defined in
 [`docs/architecture/v1-source-prepared-state-scope.md`](docs/architecture/v1-source-prepared-state-scope.md):
 it owns the scoped `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState`

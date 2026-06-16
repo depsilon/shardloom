@@ -487,8 +487,23 @@ fn emit_direct_compatibility_transient_unsupported(
 
 #[allow(clippy::too_many_lines)]
 pub(crate) fn handle_traditional_analytics_vortex_run(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_traditional_analytics_vortex_run_with_facade(
+        args,
+        format,
+        "traditional-analytics-vortex-run",
+        Vec::new(),
+    )
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    emit_command: &'static str,
+    extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
     let Some(scenario_text) = args.next() else {
         eprintln!(
@@ -555,7 +570,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
                     }
                     Ok(mode) => {
                         return emit_error(
-                            "traditional-analytics-vortex-run",
+                            emit_command,
                             format,
                             "traditional analytics native Vortex run failed",
                             &ShardLoomError::InvalidOperation(format!(
@@ -566,7 +581,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
                     }
                     Err(error) => {
                         return emit_error(
-                            "traditional-analytics-vortex-run",
+                            emit_command,
                             format,
                             "traditional analytics native Vortex run failed",
                             &error,
@@ -585,7 +600,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
                     Ok(parsed) if parsed > 0 => memory_gb = Some(parsed),
                     _ => {
                         return emit_error(
-                            "traditional-analytics-vortex-run",
+                            emit_command,
                             format,
                             "traditional analytics native Vortex run failed",
                             &ShardLoomError::InvalidOperation(format!(
@@ -606,7 +621,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
                     Ok(parsed) if parsed > 0 => max_parallelism = Some(parsed),
                     _ => {
                         return emit_error(
-                            "traditional-analytics-vortex-run",
+                            emit_command,
                             format,
                             "traditional analytics native Vortex run failed",
                             &ShardLoomError::InvalidOperation(format!(
@@ -618,7 +633,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
             }
             extra => {
                 return emit_error(
-                    "traditional-analytics-vortex-run",
+                    emit_command,
                     format,
                     "traditional analytics native Vortex run failed",
                     &cli_unknown_arg_error("traditional-analytics-vortex-run", extra),
@@ -631,7 +646,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
         Ok(scenario) => scenario,
         Err(error) => {
             return emit_error(
-                "traditional-analytics-vortex-run",
+                emit_command,
                 format,
                 "traditional analytics native Vortex run failed",
                 &error,
@@ -657,7 +672,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
         Ok(report) => report,
         Err(error) => {
             return emit_error(
-                "traditional-analytics-vortex-run",
+                emit_command,
                 format,
                 "traditional analytics native Vortex run failed",
                 &error,
@@ -669,10 +684,11 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
     let human_render_elapsed = human_render_start.elapsed();
     let report_fields_start = Instant::now();
     let mut fields = report.fields();
+    fields.extend(extra_fields);
     let report_fields_elapsed = report_fields_start.elapsed();
     record_evidence_render_timing(&mut fields, human_render_elapsed, report_fields_elapsed);
     emit_timed(
-        "traditional-analytics-vortex-run",
+        emit_command,
         format,
         CommandStatus::Success,
         "traditional analytics native Vortex smoke".to_string(),

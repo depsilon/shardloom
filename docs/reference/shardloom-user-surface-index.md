@@ -78,6 +78,12 @@ Explicit helpers remain available when an agent needs a pinned adapter:
 Feature-gated readers return deterministic adapter blockers when unavailable. They must not invoke
 another engine as a fallback.
 
+For direct `.vortex` inputs, use
+`ctx.native_vortex_provider_route_certificate_report()` to inspect the exact feature-gated
+Python/SQL provider routes for grouped aggregation, hash join, global top-N, cast/try-cast,
+substring contains, and native `write_vortex` sink shapes. This report is route evidence, not a
+broad arbitrary Vortex SQL/DataFrame parity or performance claim.
+
 ## Python Query Builder
 
 Admitted scoped local-source and generated-source workflows use `LazyFrame` and related source

@@ -41,7 +41,10 @@ access only and do not imply production readiness, broad runtime support, or per
 python -m pip install shardloom==0.1.1
 ```
 
-Use `SHARDLOOM_BIN` to point at a specific CLI binary:
+Published v0.1.1 wheels require a CLI binary from Homebrew, source checkout, `PATH`,
+`SHARDLOOM_BIN`, or `SHARDLOOM_REPO_ROOT`. The next bundled-wheel patch release resolves the CLI
+from installed package resources before falling back to `PATH`; explicit binary/env/source
+configuration still wins. Use `SHARDLOOM_BIN` only when you want to pin a specific CLI binary:
 
 ```powershell
 $env:SHARDLOOM_BIN = "target\release\shardloom.exe"
@@ -1706,6 +1709,9 @@ The v1 Vortex runtime scope is owned by `docs/architecture/v1-vortex-runtime-sco
 ids, CLI commands, materialization boundaries, and no-fallback evidence posture; broad object-store
 Vortex, table/catalog Vortex, generalized Source/Sink, and broad Vortex SQL/DataFrame support remain
 outside that scope.
+Use `ctx.native_vortex_provider_route_certificate_report()` for the exact feature-gated native
+Vortex provider routes that admit benchmark-family grouped aggregation, hash join, global top-N,
+cast/try-cast, substring contains, and native `write_vortex` sink shapes from Python and SQL.
 
 The v1 SourceState/prepared-state scope is owned by
 `docs/architecture/v1-source-prepared-state-scope.md`. Use
@@ -2337,11 +2343,22 @@ report-only surfaces into runtime support.
 
 ## Package Build Smoke
 
-The current package is pure Python and has no runtime dependencies. Release
-readiness can be checked locally without publishing:
+The current published v0.1.1 package is a Python client surface over an external CLI installation.
+Bundled platform-wheel readiness can be checked locally without publishing:
 
 ```powershell
 python -m pip install build
+python scripts/release_dry_run_proof.py --rows 64 --iterations 1
+```
+
+That proof builds the CLI, stages it under `shardloom/bin/<system-arch>/` in a temporary package
+tree, builds a platform-specific wheel/sdist, installs the wheel in a clean environment, and asserts
+that `ShardLoomClient().binary_command()` resolves the bundled CLI without `SHARDLOOM_BIN` or
+`SHARDLOOM_REPO_ROOT`.
+
+For a client-only wheel smoke without bundled CLI proof:
+
+```powershell
 python -m build python
 python -m venv $env:TEMP\shardloom-wheel-smoke
 $wheel = Get-ChildItem python\dist\shardloom-*.whl | Select-Object -First 1

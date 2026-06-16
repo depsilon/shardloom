@@ -44,11 +44,12 @@ TestPyPI rehearsal package:
 python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.1
 ```
 
-The PyPI package is a Python client surface. CLI-backed commands need a `shardloom` binary resolved
-from `shardloom` on `PATH`, `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, or a source checkout with a
-built CLI. Installing the Homebrew CLI before using the PyPI package is enough on machines where
-Homebrew's binary directory is on `PATH`; Python-only managed environments need an explicit binary
-path until ShardLoom publishes platform wheels that bundle the CLI binary.
+The PyPI package is a Python client surface over the ShardLoom CLI. Published v0.1.1 resolves that
+CLI from `shardloom` on `PATH`, `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, or a source checkout with a
+built CLI. The bundled-wheel patch-release path resolves a supported platform wheel's packaged
+`shardloom/bin/<system-arch>/shardloom` resource before falling back to `PATH`, so Python-only
+managed environments do not need user code to pass binary paths when they install a supported
+bundled wheel. Explicit binary/env/source configuration still takes precedence.
 
 ## Smoke Check
 
@@ -64,7 +65,8 @@ Expected posture includes:
 fallback execution: disabled
 ```
 
-For the Python package, use the normal context surface when the CLI is already on `PATH`:
+For the Python package, use the normal context surface when the CLI is bundled in the installed
+wheel or already on `PATH`:
 
 ```sh
 python - <<'PY'

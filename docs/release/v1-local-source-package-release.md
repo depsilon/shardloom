@@ -68,6 +68,46 @@ public_release_claim_allowed=false
 public_package_claim_allowed=false
 ```
 
+## Runtime Feature-Gate Packaging Note
+
+The selected GitHub, PyPI, and Homebrew channels expose the default v0.1.1 package/CLI posture.
+Feature gates remain runtime/build-scope qualifiers and do not become package-channel readiness
+claims by being named in the public surface:
+
+| Feature gate | Package/Homebrew posture | Claim boundary |
+| --- | --- | --- |
+| `universal-format-io` | Feature-gated local flat-scalar structured input/output support; not a default broad-format production claim. | Parquet, Arrow IPC, Avro, and ORC remain scoped local adapter/sink evidence surfaces until their feature-gated build and tests are explicitly selected. |
+| `vortex-write` | Feature-gated local Vortex output support; default builds must fail closed with a deterministic sink blocker when disabled. | Vortex output is the highest-fidelity target, but broad native write/commit/object-store behavior requires separate write-intent, recovery, and Native I/O evidence. |
+| `vortex-traditional-analytics-benchmark` | Feature-gated benchmark/runtime evidence path; not part of package installation proof by itself. | Benchmark-family prepared/native routes can support local evidence rows, but package availability does not imply performance superiority or production runtime scope. |
+
+Package-channel proofs must state which binary/build profile was smoked. If a future channel ships
+with any of these gates enabled by default, the channel proof must include the matching route,
+fallback-disabled, Native I/O, and rollback evidence before the channel can be marked ready.
+
+## Bundled CLI Wheel Strategy
+
+Managed Python environments should not require user code to pass `repo_root`, `profile_order`, or
+`SHARDLOOM_BIN` when a supported platform wheel includes ShardLoom's own CLI binary. The selected
+strategy is bundled platform wheels in the `shardloom` package, with binary resources staged under
+`shardloom/bin/<platform-tag>/shardloom` or `shardloom/bin/<platform-tag>/shardloom.exe`.
+
+Python binary resolution precedence is:
+
+```text
+explicit binary argument
+-> SHARDLOOM_BIN
+-> SHARDLOOM_REPO_ROOT target/<profile>/shardloom
+-> bundled wheel CLI resource
+-> shardloom on PATH
+-> deterministic binary-resolution error
+```
+
+Runtime binary download is rejected for this release track. Any wheel that includes a bundled CLI
+must carry checksum, SBOM/provenance, clean install/uninstall, and no-fallback smoke evidence for
+that exact platform artifact before publication. On POSIX platforms, bundled CLI resources must
+preserve the executable bit; non-executable packaged binaries are ignored and normal resolver
+fallbacks continue in order.
+
 ## Deferred Environment Gates
 
 These gates are intentionally not part of the v1 public package release because the real service

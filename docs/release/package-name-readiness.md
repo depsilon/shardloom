@@ -102,12 +102,12 @@ The current package-name readiness proof is source-local:
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 ```
 
-It builds the local CLI, builds wheel/sdist artifacts, installs the local wheel
-in a clean virtual environment, resolves the built CLI through `SHARDLOOM_BIN`,
-runs the first-10-minutes smoke path, records
-`benchmark_smoke_required_for_package_release=false`, and writes the transcript at
-`target/release-dry-run-proof/transcript.json`. Run the optional benchmark smoke separately, or
-pass `--include-benchmark-smoke`, when benchmark evidence is the goal.
+It builds the local CLI, stages a bundled-wheel package tree, builds wheel/sdist artifacts, installs
+the local wheel in a clean virtual environment, resolves the bundled CLI without `SHARDLOOM_BIN` or
+`SHARDLOOM_REPO_ROOT`, runs the first-10-minutes smoke path, records
+`wheel_client_resolved_bundled_cli` and `benchmark_smoke_required_for_package_release=false`, and
+writes the transcript at `target/release-dry-run-proof/transcript.json`. Run the optional benchmark
+smoke separately, or pass `--include-benchmark-smoke`, when benchmark evidence is the goal.
 
 This proof is intentionally not a publish workflow. It does not create tags,
 submit Conda feedstocks, upload to PyPI/TestPyPI, publish crates, push OCI

@@ -11044,6 +11044,23 @@ jobs:
             "nested_complex_dtype_general_vortex",
             "vector_device_gpu_vortex_runtime",
         ]
+        provider_route_ids = [
+            "native_vortex_user_aggregate",
+            "native_vortex_user_join",
+            "native_vortex_user_top_n",
+            "native_vortex_user_cast",
+            "native_vortex_user_contains",
+            "native_vortex_user_sink",
+        ]
+        provider_scenario_ids = [
+            "group-by-aggregation",
+            "null-heavy-aggregate",
+            "hash-join",
+            "sort-and-top-k",
+            "clean-cast-filter-write",
+            "malformed-timestamp-dirty-csv",
+            "nested-json-field-scan",
+        ]
 
         for rel_path, markers in {
             module.DOC_PATH.as_posix(): module.DOC_MARKERS,
@@ -11064,6 +11081,8 @@ jobs:
                 V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS = {tuple(primitive_ids)!r}
                 V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS = {tuple(scenario_ids)!r}
                 V1_VORTEX_SUPPORTED_STARTING_STATES = {tuple(starting_states)!r}
+                V1_VORTEX_PROVIDER_ROUTE_IDS = {tuple(provider_route_ids)!r}
+                V1_VORTEX_PROVIDER_SCENARIO_IDS = {tuple(provider_scenario_ids)!r}
                 V1_VORTEX_UNSUPPORTED_BOUNDARY_IDS = {tuple(unsupported_boundaries)!r}
 
 
@@ -11108,6 +11127,127 @@ jobs:
                     v1_scope_ready = True
                     all_runtime_supported = True
                     all_no_fallback_no_external_engine = True
+
+
+                def _v1_vortex_provider_rows():
+                    rows = []
+                    scenario_to_route = {{
+                        "group-by-aggregation": ("native_vortex_user_aggregate", "aggregate", False),
+                        "null-heavy-aggregate": ("native_vortex_user_aggregate", "aggregate", False),
+                        "hash-join": ("native_vortex_user_join", "join", True),
+                        "sort-and-top-k": ("native_vortex_user_top_n", "top_n", False),
+                        "clean-cast-filter-write": ("native_vortex_user_cast", "cast", False),
+                        "malformed-timestamp-dirty-csv": ("native_vortex_user_cast", "cast", False),
+                        "nested-json-field-scan": ("native_vortex_user_contains", "contains", False),
+                    }}
+                    for scenario_id in V1_VORTEX_PROVIDER_SCENARIO_IDS:
+                        route_id, operation_family, required_right_input = scenario_to_route[scenario_id]
+                        rows.append(SimpleNamespace(
+                            route_id=route_id,
+                            operation_family=operation_family,
+                            provider_scenario=scenario_id,
+                            benchmark_scenario_id=scenario_id.replace("-", "_"),
+                            python_surface="ctx.read_vortex",
+                            sql_surface="ctx.sql",
+                            required_right_input=required_right_input,
+                            right_input_contract=(
+                                "declared_native_vortex_right_input_required"
+                                if required_right_input
+                                else "not_applicable_single_input"
+                            ),
+                            resolved_internal_command="traditional-analytics-vortex-run",
+                            feature_gate="vortex-traditional-analytics-benchmark",
+                            start_state="native_vortex_file",
+                            vortex_normalization_point="native_vortex_boundary",
+                            execution_policy="native_vortex",
+                            typed_result_contract=(
+                                "provider_backed_native_vortex_result_summary_with_route_certificate"
+                            ),
+                            typed_sink_contract="not_applicable_collect",
+                            decode_materialization_boundary=(
+                                "native_vortex_zero_decode_runtime_with_bounded_python_materialization_boundary"
+                            ),
+                            output_route="provider_result_summary",
+                            evidence_route="public_workflow_run_facade_with_provider_route_certificate",
+                            route_certificate_status="current",
+                            route_certificate_source="fixture",
+                            benchmark_route_equivalence=(
+                                "matches_named_traditional_analytics_vortex_provider_scenario"
+                            ),
+                            route_runtime_status="scoped_runtime_supported",
+                            fallback_attempted=False,
+                            external_engine_invoked=False,
+                            required_evidence=(
+                                "execution_certificate",
+                                "native_io_certificate",
+                                "provider_route_certificate",
+                                "fallback_disabled",
+                            ),
+                            claim_gate_status="not_claim_grade",
+                            performance_claim_allowed=False,
+                            production_claim_allowed=False,
+                            claim_boundary="exact provider route only",
+                        ))
+                    rows.append(SimpleNamespace(
+                        route_id="native_vortex_user_sink",
+                        operation_family="sink",
+                        provider_scenario="clean-cast-filter-write",
+                        benchmark_scenario_id="clean_cast_filter_write",
+                        python_surface="ctx.read_vortex.write_vortex",
+                        sql_surface="ctx.sql.write_vortex",
+                        required_right_input=False,
+                        right_input_contract="not_applicable_single_input",
+                        resolved_internal_command="traditional-analytics-vortex-run",
+                        feature_gate="vortex-traditional-analytics-benchmark",
+                        start_state="native_vortex_file",
+                        vortex_normalization_point="native_vortex_boundary",
+                        execution_policy="native_vortex",
+                        typed_result_contract="native_vortex_result_sink_with_replay_certificate",
+                        typed_sink_contract="native_vortex_result_sink_with_replay_verified_artifact",
+                        decode_materialization_boundary=(
+                            "native_vortex_zero_decode_runtime_with_bounded_python_materialization_boundary"
+                        ),
+                        output_route="native_vortex_result_sink",
+                        evidence_route="public_workflow_run_facade_with_provider_route_certificate",
+                        route_certificate_status="current",
+                        route_certificate_source="fixture",
+                        benchmark_route_equivalence=(
+                            "matches_named_traditional_analytics_vortex_provider_scenario"
+                        ),
+                        route_runtime_status="scoped_runtime_supported",
+                        fallback_attempted=False,
+                        external_engine_invoked=False,
+                        required_evidence=(
+                            "execution_certificate",
+                            "native_io_certificate",
+                            "provider_route_certificate",
+                            "result_sink_replay_certificate",
+                            "fallback_disabled",
+                        ),
+                        claim_gate_status="not_claim_grade",
+                        performance_claim_allowed=False,
+                        production_claim_allowed=False,
+                        claim_boundary="exact provider route only",
+                    ))
+                    return tuple(rows)
+
+
+                class _V1VortexProviderRouteReport:
+                    rows = _v1_vortex_provider_rows()
+                    schema_version = "shardloom.native_vortex_provider_route_certificate_report.v1"
+                    route_order = tuple(row.route_id for row in rows)
+                    scenario_order = tuple(row.provider_scenario for row in rows)
+                    v1_scope_document = "docs/architecture/v1-vortex-runtime-scope.md"
+                    v1_provider_route_ids = V1_VORTEX_PROVIDER_ROUTE_IDS
+                    v1_provider_scenario_ids = V1_VORTEX_PROVIDER_SCENARIO_IDS
+                    feature_gate = "vortex-traditional-analytics-benchmark"
+                    v1_scope_ready = True
+                    all_runtime_supported = True
+                    all_route_certificates_current = True
+                    all_no_fallback_no_external_engine = True
+                    general_multi_input_join_claim_allowed = False
+                    performance_claim_allowed = False
+                    production_claim_allowed = False
 
 
                 def _v1_vortex_user_report(self):
@@ -11196,6 +11336,7 @@ jobs:
 
 
                 ShardLoomContext.local_vortex_primitive_route_report = lambda self: _V1VortexPrimitiveReport()
+                ShardLoomContext.native_vortex_provider_route_certificate_report = lambda self: _V1VortexProviderRouteReport()
                 ShardLoomContext.user_route_capability_report = _v1_vortex_user_report
                 ShardLoomContext.local_file_benchmark_route_report = _v1_vortex_local_file_report
                 '''

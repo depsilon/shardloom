@@ -456,7 +456,9 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
     assert!(dry_run.contains("pip"));
     assert!(dry_run.contains("--no-index"));
     assert!(dry_run.contains("SHARDLOOM_BIN"));
-    assert!(dry_run.contains("ShardLoomClient.from_env()"));
+    assert!(dry_run.contains("stage_python_package_with_bundled_cli"));
+    assert!(dry_run.contains("bundled_cli_resolved=True"));
+    assert!(dry_run.contains("ShardLoomClient()"));
     assert!(dry_run.contains("smoke_check()"));
     assert!(dry_run.contains("generated_source_user_rows_local_output_smoke"));
     assert!(dry_run.contains("generated_source_range_local_output_smoke"));

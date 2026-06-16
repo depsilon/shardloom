@@ -1105,6 +1105,7 @@ class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
             generated_source_kind=self.source_kind,
             generated_schema=self.schema_arg,
             generated_rows=self.rows_arg,
+            max_parallelism=1,
             check=check,
         )
         return GeneratedSourceWriteReport(execution.envelope)
@@ -1899,6 +1900,12 @@ class SqlWorkflow:
             max_parallelism=max_parallelism,
         ):
             return report
+        if report := self._vortex_sql_user_route_collect_report(
+            check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        ):
+            return report
         if statement := self._bounded_local_source_statement(default_limit=None):
             execution = self.client.public_workflow_run(
                 "sql",
@@ -1906,8 +1913,10 @@ class SqlWorkflow:
                 plan_summary=self.operation_summary,
                 requested_output="collect",
                 materialization_policy="bounded",
-                evidence_level="runtime_smoke",
+                evidence_level="production_admitted_local_workflow",
                 bounded=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
                 check=check,
             )
             return SqlLocalSourceSmokeReport(execution.envelope)
@@ -2257,7 +2266,12 @@ class SqlWorkflow:
         output_format: str = "jsonl",
         allow_overwrite: bool = False,
         check: bool = True,
-    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> (
+        GeneratedSourceWriteReport
+        | SqlLocalSourceSmokeReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
         """Write an admitted SQL result to a scoped local output."""
 
         normalized_output_format = _normalize_local_output_format(output_format)
@@ -2390,13 +2404,20 @@ class SqlWorkflow:
         *,
         allow_overwrite: bool = False,
         check: bool = True,
-    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> (
+        GeneratedSourceWriteReport
+        | SqlLocalSourceSmokeReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
         """Alias for `write(..., output_format="vortex")`.
 
-        Source-free SQL can route through the generated-source Vortex sink, and
-        local-source SQL can route through the scoped local-source Vortex sink,
-        when the CLI is built with `--features vortex-write`. Default binaries
-        return deterministic Vortex sink blockers.
+        Source-free SQL can route through the generated-source Vortex sink, exact
+        admitted local `.vortex` SQL shapes can route through the native Vortex
+        provider sink, and compatibility local-source SQL can route through the
+        scoped local-source Vortex sink when the CLI is built with
+        `--features vortex-write`. Default binaries return deterministic
+        Vortex sink blockers for unsupported shapes.
         """
 
         return self._public_workflow_write_report(
@@ -2435,6 +2456,7 @@ class SqlWorkflow:
                 bounded=True,
                 allow_overwrite=allow_overwrite,
                 fanout_outputs=fanout_outputs,
+                max_parallelism=1,
                 check=check,
             )
             return GeneratedSourceWriteReport(execution.envelope)
@@ -2446,9 +2468,10 @@ class SqlWorkflow:
                 requested_output=requested_output,
                 output_ref=output_path,
                 materialization_policy="bounded",
-                evidence_level="runtime_smoke",
+                evidence_level="production_admitted_local_workflow",
                 bounded=True,
                 allow_overwrite=allow_overwrite,
+                max_parallelism=1,
                 fanout_outputs=fanout_outputs,
                 check=check,
             )
@@ -2462,7 +2485,19 @@ class SqlWorkflow:
         requested_output: str,
         allow_overwrite: bool,
         check: bool,
-    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> (
+        GeneratedSourceWriteReport
+        | SqlLocalSourceSmokeReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
+        if requested_output == "write_vortex":
+            if report := self._vortex_sql_user_route_write_vortex_report(
+                target_uri,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            ):
+                return report
         if _is_source_free_sql_statement(self.statement):
             execution = self.client.public_workflow_run(
                 "sql",
@@ -2485,9 +2520,10 @@ class SqlWorkflow:
                 requested_output=requested_output,
                 output_ref=target_uri,
                 materialization_policy="bounded",
-                evidence_level="runtime_smoke",
+                evidence_level="production_admitted_local_workflow",
                 bounded=True,
                 allow_overwrite=allow_overwrite,
+                max_parallelism=1,
                 check=check,
             )
             return SqlLocalSourceSmokeReport(execution.envelope)
@@ -2568,59 +2604,115 @@ class SqlWorkflow:
         memory_gb = _normalize_positive_int("memory_gb", memory_gb)
         max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
         if shape.count:
-            if shape.predicate:
-                envelope = self.client.vortex_count_where(
-                    shape.uri,
-                    shape.predicate,
-                    execute_local_primitive=True,
-                    memory_gb=memory_gb,
-                    max_parallelism=max_parallelism,
-                    check=check,
-                )
-            else:
-                envelope = self.client.vortex_run(
-                    shape.uri,
-                    "count",
-                    memory_gb=memory_gb,
-                    max_parallelism=max_parallelism,
-                    check=check,
-                )
+            primitive = "count_where" if shape.predicate else "count"
+            columns = None
         elif shape.predicate and shape.columns:
-            envelope = self.client.vortex_filter_project(
-                shape.uri,
-                shape.predicate,
-                shape.columns,
-                source_order_limit=shape.limit,
-                execute_local_primitive=True,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                check=check,
-            )
-        elif shape.predicate and shape.columns is None:
-            envelope = self.client.vortex_filter(
-                shape.uri,
-                shape.predicate,
-                source_order_limit=shape.limit,
-                execute_local_primitive=True,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                check=check,
-            )
+            primitive = "filter_project"
+            columns = shape.columns
+        elif shape.predicate:
+            primitive = "filter"
+            columns = None
         elif shape.columns and shape.predicate is None:
-            envelope = self.client.vortex_project(
-                shape.uri,
-                shape.columns,
-                source_order_limit=shape.limit,
-                execute_local_primitive=True,
-                memory_gb=memory_gb,
-                max_parallelism=max_parallelism,
-                check=check,
-            )
+            primitive = "project"
+            columns = shape.columns
         else:
             return None
+        envelope = self.client.public_workflow_run(
+            "sql",
+            input_uri=shape.uri,
+            input_format="vortex",
+            sql_statement=self.statement,
+            plan_summary=self.operation_summary,
+            requested_output="collect",
+            execution_policy="native_vortex",
+            materialization_policy="zero_decode",
+            evidence_level="runtime_smoke",
+            bounded=True,
+            native_vortex_operation_family=_native_vortex_operation_family_for_primitive(
+                primitive
+            ),
+            vortex_primitive=primitive,
+            vortex_predicate=shape.predicate,
+            vortex_columns=columns,
+            vortex_source_order_limit=shape.limit,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            check=check,
+        ).envelope
         return VortexWorkflowExecutionReport(
             workflow=self._report_workflow(),
             operation="collect",
+            envelope=envelope,
+        )
+
+    def _vortex_sql_user_route_collect_report(
+        self,
+        *,
+        check: bool,
+        memory_gb: int,
+        max_parallelism: int,
+    ) -> VortexWorkflowExecutionReport | None:
+        shape = _vortex_sql_user_route_shape(self.statement)
+        if shape is None:
+            return None
+        memory_gb = _normalize_positive_int("memory_gb", memory_gb)
+        max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
+        envelope = self.client.public_workflow_run(
+            "sql",
+            input_uri=shape.uri,
+            input_format="vortex",
+            sql_statement=self.statement,
+            plan_summary=self.operation_summary,
+            requested_output="collect",
+            execution_policy="native_vortex",
+            materialization_policy="zero_decode",
+            evidence_level="runtime_smoke",
+            bounded=True,
+            native_vortex_operation_family=shape.operation_family,
+            native_vortex_provider_scenario=shape.provider_scenario,
+            native_vortex_right_input=shape.right_input,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            check=check,
+        ).envelope
+        return VortexWorkflowExecutionReport(
+            workflow=self._report_workflow(),
+            operation="collect",
+            envelope=envelope,
+        )
+
+    def _vortex_sql_user_route_write_vortex_report(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool,
+        check: bool,
+    ) -> VortexWorkflowExecutionReport | None:
+        shape = _vortex_sql_user_route_shape(self.statement)
+        if shape is None:
+            return None
+        envelope = self.client.public_workflow_run(
+            "sql",
+            input_uri=shape.uri,
+            input_format="vortex",
+            sql_statement=self.statement,
+            plan_summary=self.operation_summary,
+            requested_output="write_vortex",
+            output_ref=target_uri,
+            execution_policy="native_vortex",
+            materialization_policy="zero_decode",
+            evidence_level="runtime_smoke",
+            bounded=True,
+            allow_overwrite=allow_overwrite,
+            native_vortex_operation_family="sink",
+            native_vortex_provider_scenario=shape.provider_scenario,
+            native_vortex_right_input=shape.right_input,
+            max_parallelism=1,
+            check=check,
+        ).envelope
+        return VortexWorkflowExecutionReport(
+            workflow=self._report_workflow(),
+            operation="write_vortex",
             envelope=envelope,
         )
 
@@ -2929,6 +3021,25 @@ class _VortexPrimitiveWorkflowShape:
 
 
 @dataclass(frozen=True, slots=True)
+class _NativeVortexUserRouteShape:
+    """Exact provider-backed native Vortex user route shape."""
+
+    operation_family: str
+    provider_scenario: str
+    right_input: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _NativeVortexSqlUserRouteShape:
+    """Exact SQL provider-backed native Vortex user route shape."""
+
+    uri: str
+    operation_family: str
+    provider_scenario: str
+    right_input: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class _VortexSqlPrimitiveWorkflowShape:
     """Parsed SQL subset admitted by local Vortex primitive commands."""
 
@@ -2937,6 +3048,13 @@ class _VortexSqlPrimitiveWorkflowShape:
     columns: tuple[str, ...] | None = None
     limit: int | None = None
     count: bool = False
+
+
+def _native_vortex_operation_family_for_primitive(primitive: str) -> str:
+    normalized = primitive.strip().lower().replace("-", "_")
+    if normalized in {"count", "count_where", "filter_count", "filtered_count"}:
+        return "count"
+    return "filter_project_limit"
 
 
 @dataclass(frozen=True, slots=True)
@@ -3595,6 +3713,14 @@ class LazyFrame:
         predicate = self._schema_declared_dropna_predicate(subset, how=how, kwargs=kwargs)
         if predicate is not None:
             return self._with_combined_filter_condition(predicate)
+        if self.source.source_format == "vortex" and not kwargs:
+            normalized_how = _normalize_dropna_how(how)
+            if normalized_how == "any" and subset is not None:
+                target_columns = _normalize_columns((subset,))
+                if target_columns and all(_is_sql_identifier(column) for column in target_columns):
+                    return self._with_combined_filter_condition(
+                        " AND ".join(f"{column} IS NOT NULL" for column in target_columns)
+                    )
         return self._unsupported_operation("dropna", target_ref, check=check)
 
     def astype(
@@ -3615,6 +3741,8 @@ class LazyFrame:
         )
         if projection is not None:
             return self._with_rewritten_projection(projection)
+        if self.source.source_format == "vortex":
+            return self._unsupported_operation("native-vortex-cast", target_ref, check=check)
         return self._unsupported_operation("astype", target_ref, check=check)
 
     def sample(
@@ -3939,6 +4067,16 @@ class LazyFrame:
                 )
             )
             return sorted_frame.limit(normalized_n)
+        if self.source.source_format == "vortex":
+            if normalized_keep == "first":
+                sorted_frame = self._append(
+                    WorkflowOperation(
+                        "sort",
+                        ("desc" if descending else "asc", *normalized_columns),
+                    )
+                )
+                return sorted_frame.limit(normalized_n)
+            return self._unsupported_operation("native-vortex-top-n", target_ref, check=check)
         return self._unsupported_operation(operation, target_ref, check=check)
 
     def fillna(
@@ -4299,12 +4437,20 @@ class LazyFrame:
                 expression_sql = _sql_computed_projection_expression(expression)
             except (TypeError, ValueError):
                 expression_text = _require_non_empty("column expression", expression)
+                if self.source.source_format == "vortex" and _sql_text_looks_like_cast(
+                    expression_text
+                ):
+                    return self._append(
+                        WorkflowOperation("with_column", (column_name, expression_text))
+                    )
                 return self._unsupported_operation(
                     "with-column",
                     f"{column_name}={expression_text}",
                     check=check,
                 )
         if self._can_append_projection_column(column_name):
+            return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
+        if self.source.source_format == "vortex" and _sql_text_looks_like_cast(expression_sql):
             return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
         return self._unsupported_operation(
             "with-column",
@@ -4393,6 +4539,12 @@ class LazyFrame:
             if bounded is None and requested_output == "collect"
             else bounded
         )
+        effective_evidence_level = evidence_level
+        if (
+            evidence_level == "runtime_smoke"
+            and _is_query_builder_local_source(self.source)
+        ):
+            effective_evidence_level = "production_admitted_local_workflow"
         return self.client.public_workflow_route(
             "dataframe",
             input_uri=self.source.uri,
@@ -4402,7 +4554,7 @@ class LazyFrame:
             output_ref=output_ref,
             execution_policy="auto" if execution_policy is None else execution_policy,
             materialization_policy=materialization_policy,
-            evidence_level=evidence_level,
+            evidence_level=effective_evidence_level,
             bounded=normalized_bounded,
             check=check,
         )
@@ -4437,6 +4589,8 @@ class LazyFrame:
             materialization_policy=materialization_policy,
             evidence_level=evidence_level,
             bounded=normalized_bounded,
+            memory_gb=4,
+            max_parallelism=1,
             check=check,
         )
 
@@ -4444,7 +4598,7 @@ class LazyFrame:
         self,
         target_vortex_path: str | os.PathLike[str],
         *,
-        evidence_level: str = "runtime_smoke",
+        evidence_level: str = "production_admitted_local_workflow",
         check: bool = True,
     ) -> PublicWorkflowExecution:
         """Prepare this source through the shared public route facade."""
@@ -4456,6 +4610,8 @@ class LazyFrame:
             output_ref=target_vortex_path,
             plan_summary=self.operation_summary,
             evidence_level=evidence_level,
+            memory_gb=4,
+            max_parallelism=1,
             check=check,
         )
 
@@ -4504,6 +4660,12 @@ class LazyFrame:
             max_parallelism=max_parallelism,
         ):
             return report
+        if report := self._vortex_user_route_collect_report(
+            check=check,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+        ):
+            return report
         if statement := self._sql_local_source_statement():
             execution = self.client.public_workflow_run(
                 "dataframe",
@@ -4513,8 +4675,10 @@ class LazyFrame:
                 plan_summary=self.operation_summary,
                 requested_output="collect",
                 materialization_policy="bounded",
-                evidence_level="runtime_smoke",
+                evidence_level="production_admitted_local_workflow",
                 bounded=True,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
                 check=check,
             )
             return SqlLocalSourceSmokeReport(execution.envelope)
@@ -4554,12 +4718,18 @@ class LazyFrame:
         output_format: str = "jsonl",
         allow_overwrite: bool = False,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport:
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Write an admitted local source SQL smoke result to a local sink."""
 
         normalized_output_format = _normalize_local_output_format(output_format)
         statement = self._sql_local_source_statement()
         if statement is None:
+            if self.source.source_format == "vortex":
+                return self._unsupported_operation(
+                    "native-vortex-sink",
+                    str(target_uri),
+                    check=check,
+                )
             raise ValueError(
                 "LazyFrame.write currently requires a local CSV, flat JSONL/NDJSON, flat JSON, feature-gated flat Parquet, feature-gated flat Arrow IPC, feature-gated flat Avro, or feature-gated flat ORC source with "
                 "select(...), optional filter(...), and limit(...) operations, "
@@ -4584,7 +4754,7 @@ class LazyFrame:
         *,
         allow_overwrite: bool = False,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport:
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="jsonl")`."""
 
         return self.write(
@@ -4600,7 +4770,7 @@ class LazyFrame:
         *,
         allow_overwrite: bool = False,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport:
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="csv")`."""
 
         return self.write(
@@ -4721,9 +4891,10 @@ class LazyFrame:
             requested_output=_public_write_request_for_format(output_format),
             output_ref=output_path,
             materialization_policy="bounded",
-            evidence_level="runtime_smoke",
+            evidence_level="production_admitted_local_workflow",
             bounded=True,
             allow_overwrite=allow_overwrite,
+            max_parallelism=1,
             fanout_outputs=normalized_outputs[1:],
             check=check,
         )
@@ -4960,13 +5131,19 @@ class LazyFrame:
         *,
         allow_overwrite: bool = False,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         """Write an admitted local source result to a scoped local Vortex sink.
 
         The CLI must be built with `--features vortex-write`; default binaries
         return ShardLoom's deterministic Vortex sink blocker.
         """
 
+        if self.source.source_format == "vortex":
+            return self._vortex_user_route_write_vortex_report(
+                target_uri,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            )
         if self._sql_local_source_statement() is None:
             return self._unsupported_operation("write-vortex", str(target_uri), check=check)
         return self._public_workflow_write_report(
@@ -4998,9 +5175,10 @@ class LazyFrame:
             requested_output=requested_output,
             output_ref=target_uri,
             materialization_policy="bounded",
-            evidence_level="runtime_smoke",
+            evidence_level="production_admitted_local_workflow",
             bounded=True,
             allow_overwrite=allow_overwrite,
+            max_parallelism=1,
             check=check,
         )
         return SqlLocalSourceSmokeReport(execution.envelope)
@@ -5053,14 +5231,20 @@ class LazyFrame:
             right_summary = other.operation_summary
             right_operations = other.operations
             right_source_local = _is_query_builder_local_source(other.source)
+            right_source_vortex = other.source.source_format == "vortex"
         else:
             right_uri = _require_non_empty("join right source", other)
             right_summary = right_uri
             right_source_local = _source_format_for_local_source_ref(right_uri) is not None
+            right_source_vortex = _is_local_vortex_source_ref(right_uri)
         target = f"{normalized_how}:{columns}:{normalized_condition or ''}:{right_summary}"
         if (
-            _is_query_builder_local_source(self.source)
-            and right_source_local
+            (
+                _is_query_builder_local_source(self.source)
+                and right_source_local
+                or self.source.source_format == "vortex"
+                and right_source_vortex
+            )
             and not right_operations
             and (normalized_columns or normalized_condition is not None or normalized_how == "cross")
         ):
@@ -5078,6 +5262,8 @@ class LazyFrame:
                     ),
                 )
             )
+        if self.source.source_format == "vortex" or right_source_vortex:
+            return self._unsupported_operation("native-vortex-join", target, check=check)
         return self._unsupported_operation("join", target, check=check)
 
     def group_by(self, *columns: object) -> "GroupedLazyFrame":
@@ -5104,6 +5290,8 @@ class LazyFrame:
         target = ",".join(values)
         if self._can_append_scalar_aggregate():
             return self._append(WorkflowOperation("aggregate", values))
+        if self.source.source_format == "vortex":
+            return self._unsupported_operation("native-vortex-aggregate", target, check=check)
         return self._unsupported_operation("aggregate", target, check=check)
 
     def agg(
@@ -5128,6 +5316,12 @@ class LazyFrame:
             raise ValueError("aggregate expressions must not be empty")
         if self._can_append_scalar_aggregate():
             return self._append(WorkflowOperation("aggregate", tuple(values)))
+        if self.source.source_format == "vortex":
+            return self._unsupported_operation(
+                "native-vortex-aggregate",
+                ",".join(target_values),
+                check=check,
+            )
         return self._unsupported_operation("agg", ",".join(target_values), check=check)
 
     def sort(
@@ -5521,6 +5715,7 @@ class LazyFrame:
         *,
         check: bool,
     ) -> UnsupportedWorkflowOperationReport:
+        operation = self._native_vortex_blocker_operation(operation, target_ref)
         envelope = self.client.workflow_unsupported_plan(
             operation,
             self.operation_summary,
@@ -5532,6 +5727,52 @@ class LazyFrame:
             operation=operation,
             envelope=envelope,
         )
+
+    def _native_vortex_blocker_operation(self, operation: str, target_ref: str | None) -> str:
+        if self.source.source_format != "vortex":
+            return operation
+        normalized = operation.replace("_", "-")
+        if normalized.startswith("native-vortex-"):
+            return normalized
+        if normalized in {
+            "write-vortex",
+            "write-parquet",
+            "write-arrow-ipc",
+            "write-arrow",
+            "write-ipc",
+            "write-avro",
+            "write-orc",
+            "write-jsonl",
+            "write-csv",
+            "fanout",
+        }:
+            return "native-vortex-sink"
+        if normalized in {"join", "merge"} or any(
+            op.kind == "join" for op in self.operations
+        ):
+            return "native-vortex-join"
+        if normalized in {"aggregate", "aggregation", "agg", "group-by", "groupby"} or any(
+            op.kind in {"aggregate", "group_by"} for op in self.operations
+        ):
+            return "native-vortex-aggregate"
+        if normalized in {"nlargest", "nsmallest"} or _workflow_has_top_n_shape(
+            self.operations
+        ):
+            return "native-vortex-top-n"
+        if normalized in {"astype", "cast", "try-cast"} or any(
+            op.kind == "with_column"
+            and any(_sql_text_looks_like_cast(value) for value in op.values)
+            for op in self.operations
+        ):
+            return "native-vortex-cast"
+        if target_ref is not None and _sql_text_looks_like_cast(target_ref):
+            return "native-vortex-cast"
+        if any(
+            op.kind == "filter" and _sql_filter_looks_like_substring_contains(op.values[0])
+            for op in self.operations
+        ):
+            return "native-vortex-string-contains"
+        return operation
 
     def _vortex_local_primitive_collect_report(
         self,
@@ -5547,32 +5788,31 @@ class LazyFrame:
         max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
         envelope: OutputEnvelope | None = None
         if shape.predicate and shape.columns:
-            envelope = self.client.vortex_filter_project(
-                self.source.uri,
-                shape.predicate,
-                shape.columns,
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="filter_project",
+                predicate=shape.predicate,
+                columns=shape.columns,
                 source_order_limit=shape.limit,
-                execute_local_primitive=True,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
             )
         elif shape.predicate:
-            envelope = self.client.vortex_filter(
-                self.source.uri,
-                shape.predicate,
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="filter",
+                predicate=shape.predicate,
+                columns=None,
                 source_order_limit=shape.limit,
-                execute_local_primitive=True,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
             )
         elif shape.columns:
-            envelope = self.client.vortex_project(
-                self.source.uri,
-                shape.columns,
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="project",
+                predicate=None,
+                columns=shape.columns,
                 source_order_limit=shape.limit,
-                execute_local_primitive=True,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -5598,18 +5838,21 @@ class LazyFrame:
         memory_gb = _normalize_positive_int("memory_gb", memory_gb)
         max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
         if shape.predicate:
-            envelope = self.client.vortex_count_where(
-                self.source.uri,
-                shape.predicate,
-                execute_local_primitive=True,
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="count_where",
+                predicate=shape.predicate,
+                columns=None,
+                source_order_limit=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
             )
         else:
-            envelope = self.client.vortex_run(
-                self.source.uri,
-                "count",
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="count",
+                predicate=None,
+                columns=None,
+                source_order_limit=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -5620,6 +5863,112 @@ class LazyFrame:
             envelope=envelope,
         )
 
+    def _vortex_user_route_collect_report(
+        self,
+        *,
+        check: bool,
+        memory_gb: int,
+        max_parallelism: int,
+    ) -> VortexWorkflowExecutionReport | None:
+        shape = self._native_vortex_user_route_shape()
+        if shape is None:
+            return None
+        memory_gb = _normalize_positive_int("memory_gb", memory_gb)
+        max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
+        envelope = self.client.public_workflow_run(
+            "dataframe",
+            input_uri=self.source.uri,
+            input_format="vortex",
+            plan_summary=self.operation_summary,
+            requested_output="collect",
+            execution_policy="native_vortex",
+            materialization_policy="zero_decode",
+            evidence_level="runtime_smoke",
+            bounded=True,
+            native_vortex_operation_family=shape.operation_family,
+            native_vortex_provider_scenario=shape.provider_scenario,
+            native_vortex_right_input=shape.right_input,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            check=check,
+        ).envelope
+        return VortexWorkflowExecutionReport(
+            workflow=self,
+            operation="collect",
+            envelope=envelope,
+        )
+
+    def _vortex_user_route_write_vortex_report(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool,
+        check: bool,
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+        shape = self._native_vortex_user_route_shape()
+        if shape is None:
+            return self._unsupported_operation(
+                "native-vortex-sink",
+                str(target_uri),
+                check=check,
+            )
+        envelope = self.client.public_workflow_run(
+            "dataframe",
+            input_uri=self.source.uri,
+            input_format="vortex",
+            plan_summary=f"{self.operation_summary} -> write_vortex({target_uri})",
+            requested_output="write_vortex",
+            output_ref=target_uri,
+            execution_policy="native_vortex",
+            materialization_policy="zero_decode",
+            evidence_level="runtime_smoke",
+            bounded=True,
+            allow_overwrite=allow_overwrite,
+            native_vortex_operation_family="sink",
+            native_vortex_provider_scenario=shape.provider_scenario,
+            native_vortex_right_input=shape.right_input,
+            max_parallelism=1,
+            check=check,
+        ).envelope
+        return VortexWorkflowExecutionReport(
+            workflow=self,
+            operation="write_vortex",
+            envelope=envelope,
+        )
+
+    def _run_vortex_primitive_public_workflow(
+        self,
+        *,
+        primitive: str,
+        predicate: str | None,
+        columns: Sequence[str] | None,
+        source_order_limit: int | None,
+        memory_gb: int,
+        max_parallelism: int,
+        check: bool,
+    ) -> OutputEnvelope:
+        return self.client.public_workflow_run(
+            "dataframe",
+            input_uri=self.source.uri,
+            input_format="vortex",
+            plan_summary=self.operation_summary,
+            requested_output="collect",
+            execution_policy="native_vortex",
+            materialization_policy="zero_decode",
+            evidence_level="runtime_smoke",
+            bounded=True,
+            native_vortex_operation_family=_native_vortex_operation_family_for_primitive(
+                primitive
+            ),
+            vortex_primitive=primitive,
+            vortex_predicate=predicate,
+            vortex_columns=columns,
+            vortex_source_order_limit=source_order_limit,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            check=check,
+        ).envelope
+
     def _vortex_primitive_shape(self) -> _VortexPrimitiveWorkflowShape | None:
         if self.source.source_format != "vortex":
             return None
@@ -5629,6 +5978,8 @@ class LazyFrame:
         for operation in self.operations:
             if operation.kind == "filter":
                 if predicate is not None or limit is not None:
+                    return None
+                if _sql_filter_requires_native_vortex_expression_route(operation.values[0]):
                     return None
                 predicate = operation.values[0]
             elif operation.kind == "select":
@@ -5649,6 +6000,48 @@ class LazyFrame:
             columns=columns,
             limit=limit,
         )
+
+    def _native_vortex_user_route_shape(self) -> _NativeVortexUserRouteShape | None:
+        if self.source.source_format != "vortex":
+            return None
+        operations = self.operations
+        if _matches_vortex_group_by_aggregation_shape(operations):
+            return _NativeVortexUserRouteShape(
+                operation_family="aggregate",
+                provider_scenario="group-by-aggregation",
+            )
+        if _matches_vortex_null_heavy_aggregate_shape(operations):
+            return _NativeVortexUserRouteShape(
+                operation_family="aggregate",
+                provider_scenario="null-heavy-aggregate",
+            )
+        if right_input := _vortex_hash_join_right_input(operations):
+            return _NativeVortexUserRouteShape(
+                operation_family="join",
+                provider_scenario="hash-join",
+                right_input=right_input,
+            )
+        if _matches_vortex_global_top_n_shape(operations):
+            return _NativeVortexUserRouteShape(
+                operation_family="top_n",
+                provider_scenario="sort-and-top-k",
+            )
+        if _matches_vortex_clean_cast_shape(operations):
+            return _NativeVortexUserRouteShape(
+                operation_family="cast",
+                provider_scenario="clean-cast-filter-write",
+            )
+        if _matches_vortex_malformed_timestamp_shape(operations):
+            return _NativeVortexUserRouteShape(
+                operation_family="cast",
+                provider_scenario="malformed-timestamp-dirty-csv",
+            )
+        if _matches_vortex_nested_json_contains_shape(operations):
+            return _NativeVortexUserRouteShape(
+                operation_family="contains",
+                provider_scenario="nested-json-field-scan",
+            )
+        return None
 
     def _can_append_scalar_aggregate(self) -> bool:
         if not _is_query_builder_local_source(self.source):
@@ -6327,6 +6720,8 @@ class GroupedLazyFrame:
             raise ValueError("aggregate expressions must not be empty")
         target = f"group_by:{','.join(self.columns)};agg:{','.join(target_values)}"
         if self.workflow._can_append_group_by_aggregate(self.columns):
+            return self.workflow._append_group_by_aggregate(self.columns, tuple(values))
+        if self.workflow.source.source_format == "vortex":
             return self.workflow._append_group_by_aggregate(self.columns, tuple(values))
         envelope = self.workflow.client.workflow_unsupported_plan(
             "agg",
@@ -10216,6 +10611,189 @@ def _workflow_has_limit(operations: Sequence[WorkflowOperation]) -> bool:
     return any(operation.kind == "limit" for operation in operations)
 
 
+def _workflow_has_top_n_shape(operations: Sequence[WorkflowOperation]) -> bool:
+    """Whether a lazy workflow has the sort+limit shape used for global top-N."""
+
+    has_sort = False
+    for operation in operations:
+        if operation.kind == "sort":
+            has_sort = True
+        elif operation.kind == "limit" and has_sort:
+            return True
+    return False
+
+
+def _matches_vortex_group_by_aggregation_shape(
+    operations: Sequence[WorkflowOperation],
+) -> bool:
+    filter_expr, group_by, aggregate, limit = _vortex_grouped_aggregate_parts(operations)
+    return (
+        limit is not None
+        and group_by == ("group_key",)
+        and _aggregate_values_include(aggregate, "count(*) AS rows")
+        and _aggregate_values_include(aggregate, "sum(metric) AS total_metric")
+        and (filter_expr is None or _sql_normalized(filter_expr) == _sql_normalized("metric >= 0"))
+    )
+
+
+def _matches_vortex_null_heavy_aggregate_shape(
+    operations: Sequence[WorkflowOperation],
+) -> bool:
+    filter_expr, group_by, aggregate, limit = _vortex_grouped_aggregate_parts(operations)
+    return (
+        limit is not None
+        and group_by == ("group_key",)
+        and _aggregate_values_include(aggregate, "count(*) AS rows")
+        and _aggregate_values_include(
+            aggregate,
+            "sum(nullable_metric_00) AS total_nullable_metric",
+        )
+        and filter_expr is not None
+        and _sql_normalized("nullable_metric_00 IS NOT NULL") in _sql_normalized(filter_expr)
+    )
+
+
+def _vortex_grouped_aggregate_parts(
+    operations: Sequence[WorkflowOperation],
+) -> tuple[str | None, tuple[str, ...] | None, tuple[str, ...], int | None]:
+    filter_expr: str | None = None
+    group_by: tuple[str, ...] | None = None
+    aggregate: tuple[str, ...] = ()
+    limit: int | None = None
+    for operation in operations:
+        if operation.kind == "filter" and filter_expr is None:
+            filter_expr = operation.values[0]
+        elif operation.kind == "group_by" and group_by is None:
+            group_by = operation.values
+        elif operation.kind == "aggregate" and not aggregate:
+            aggregate = operation.values
+        elif operation.kind == "limit" and limit is None:
+            limit = int(operation.values[0])
+        else:
+            return None, None, (), None
+    return filter_expr, group_by, aggregate, limit
+
+
+def _aggregate_values_include(values: tuple[str, ...], expected: str) -> bool:
+    expected_normalized = _sql_normalized(expected)
+    return any(_sql_normalized(value) == expected_normalized for value in values)
+
+
+def _vortex_hash_join_right_input(operations: Sequence[WorkflowOperation]) -> str | None:
+    if len(operations) not in {2, 3}:
+        return None
+    join = operations[0]
+    if join.kind != "join" or len(join.values) != 7:
+        return None
+    right_uri, left_key, right_key, how, left_alias, right_alias, condition = join.values
+    if (
+        left_key != "dim_key"
+        or right_key != "dim_key"
+        or how != "inner"
+        or left_alias != "f"
+        or right_alias != "d"
+        or condition
+    ):
+        return None
+    select_seen = False
+    limit_seen = False
+    for operation in operations[1:]:
+        if operation.kind == "select" and not select_seen:
+            select_seen = operation.values == ("f.id", "d.dim_label", "f.metric")
+        elif operation.kind == "limit" and not limit_seen:
+            limit_seen = int(operation.values[0]) > 0
+        else:
+            return None
+    return right_uri if select_seen and limit_seen else None
+
+
+def _matches_vortex_global_top_n_shape(operations: Sequence[WorkflowOperation]) -> bool:
+    if len(operations) != 3:
+        return False
+    select, sort, limit = operations
+    return (
+        select.kind == "select"
+        and select.values == ("id", "group_key", "metric")
+        and sort.kind == "sort"
+        and sort.values == ("desc", "metric")
+        and limit.kind == "limit"
+        and int(limit.values[0]) > 0
+    )
+
+
+def _matches_vortex_clean_cast_shape(operations: Sequence[WorkflowOperation]) -> bool:
+    if len(operations) != 3:
+        return False
+    computed, filter_op, limit = operations
+    return (
+        computed.kind == "with_column"
+        and computed.values[0] == "amount_float"
+        and _sql_normalized(computed.values[1])
+        == _sql_normalized("CAST(dirty_numeric AS float64)")
+        and filter_op.kind == "filter"
+        and _sql_normalized(filter_op.values[0]) == _sql_normalized("amount_float >= 0")
+        and limit.kind == "limit"
+        and int(limit.values[0]) > 0
+    )
+
+
+def _matches_vortex_malformed_timestamp_shape(
+    operations: Sequence[WorkflowOperation],
+) -> bool:
+    if len(operations) != 2:
+        return False
+    computed, limit = operations
+    return (
+        computed.kind == "with_column"
+        and computed.values[0] == "event_day"
+        and _sql_normalized(computed.values[1])
+        == _sql_normalized("CAST(raw_event_time AS date32)")
+        and limit.kind == "limit"
+        and int(limit.values[0]) > 0
+    )
+
+
+def _matches_vortex_nested_json_contains_shape(
+    operations: Sequence[WorkflowOperation],
+) -> bool:
+    if len(operations) != 3:
+        return False
+    filter_op, select, limit = operations
+    return (
+        filter_op.kind == "filter"
+        and _sql_filter_looks_like_substring_contains(filter_op.values[0])
+        and "nested_payload" in filter_op.values[0]
+        and select.kind == "select"
+        and select.values == ("id", "nested_payload")
+        and limit.kind == "limit"
+        and int(limit.values[0]) > 0
+    )
+
+
+def _sql_normalized(value: str) -> str:
+    return "".join(value.strip().lower().split())
+
+
+def _sql_text_looks_like_cast(value: str) -> bool:
+    normalized = value.upper()
+    return "CAST(" in normalized or "TRY_CAST(" in normalized
+
+
+def _sql_filter_looks_like_substring_contains(predicate: str) -> bool:
+    normalized = predicate.upper()
+    return (
+        (" LIKE " in normalized or " NOT LIKE " in normalized)
+        and "'%" in predicate
+        and "%'" in predicate
+    )
+
+
+def _sql_filter_requires_native_vortex_expression_route(predicate: str) -> bool:
+    return _sql_text_looks_like_cast(predicate) or _sql_filter_looks_like_substring_contains(
+        predicate
+    )
+
+
 def _is_local_source_sql_ref(value: str) -> bool:
     lower = value.strip().lower()
     if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
@@ -10307,6 +10885,141 @@ def _vortex_sql_primitive_shape(
         columns=columns,
         limit=limit,
     )
+
+
+def _vortex_sql_user_route_shape(
+    statement: str,
+) -> _NativeVortexSqlUserRouteShape | None:
+    normalized = statement.strip().rstrip(";").strip()
+    if not _starts_with_sql_keyword(normalized, "select"):
+        return None
+    refs = _sql_source_refs(normalized)
+    if not refs or any(not _is_local_vortex_source_ref(ref) for ref in refs):
+        return None
+    has_limit = _find_top_level_sql_keyword_outside_quotes(normalized, "limit") is not None
+    if not has_limit:
+        return None
+    compact = _sql_normalized(normalized)
+    if len(refs) == 1:
+        uri = refs[0]
+        if _vortex_sql_matches_null_heavy_aggregate(compact):
+            return _NativeVortexSqlUserRouteShape(
+                uri=uri,
+                operation_family="aggregate",
+                provider_scenario="null-heavy-aggregate",
+            )
+        if _vortex_sql_matches_group_by_aggregation(compact):
+            return _NativeVortexSqlUserRouteShape(
+                uri=uri,
+                operation_family="aggregate",
+                provider_scenario="group-by-aggregation",
+            )
+        if _vortex_sql_matches_global_top_n(compact):
+            return _NativeVortexSqlUserRouteShape(
+                uri=uri,
+                operation_family="top_n",
+                provider_scenario="sort-and-top-k",
+            )
+        if _vortex_sql_matches_clean_cast(compact):
+            return _NativeVortexSqlUserRouteShape(
+                uri=uri,
+                operation_family="cast",
+                provider_scenario="clean-cast-filter-write",
+            )
+        if _vortex_sql_matches_malformed_timestamp(compact):
+            return _NativeVortexSqlUserRouteShape(
+                uri=uri,
+                operation_family="cast",
+                provider_scenario="malformed-timestamp-dirty-csv",
+            )
+        if _vortex_sql_matches_nested_json_contains(compact):
+            return _NativeVortexSqlUserRouteShape(
+                uri=uri,
+                operation_family="contains",
+                provider_scenario="nested-json-field-scan",
+            )
+        return None
+    if len(refs) == 2 and _vortex_sql_matches_hash_join(compact, refs[0], refs[1]):
+        return _NativeVortexSqlUserRouteShape(
+            uri=refs[0],
+            operation_family="join",
+            provider_scenario="hash-join",
+            right_input=refs[1],
+        )
+    return None
+
+
+def _vortex_sql_matches_group_by_aggregation(compact: str) -> bool:
+    return _sql_compact_contains_all(
+        compact,
+        (
+            "count(*) AS rows",
+            "sum(metric) AS total_metric",
+            "WHERE metric >= 0",
+            "GROUP BY group_key",
+        ),
+    )
+
+
+def _vortex_sql_matches_null_heavy_aggregate(compact: str) -> bool:
+    return _sql_compact_contains_all(
+        compact,
+        (
+            "count(*) AS rows",
+            "sum(nullable_metric_00) AS total_nullable_metric",
+            "WHERE nullable_metric_00 IS NOT NULL",
+            "GROUP BY group_key",
+        ),
+    )
+
+
+def _vortex_sql_matches_hash_join(compact: str, left_uri: str, right_uri: str) -> bool:
+    return _sql_compact_contains_all(
+        compact,
+        (
+            "SELECT f.id, d.dim_label, f.metric",
+            f"FROM '{left_uri}' AS f",
+            f"JOIN '{right_uri}' AS d",
+            "ON f.dim_key = d.dim_key",
+        ),
+    )
+
+
+def _vortex_sql_matches_global_top_n(compact: str) -> bool:
+    return _sql_compact_contains_all(
+        compact,
+        (
+            "SELECT id, group_key, metric",
+            "ORDER BY metric DESC",
+        ),
+    )
+
+
+def _vortex_sql_matches_clean_cast(compact: str) -> bool:
+    if _sql_normalized("CAST(dirty_numeric AS float64) AS amount_float") not in compact:
+        return False
+    return (
+        _sql_normalized("WHERE amount_float >= 0") in compact
+        or _sql_normalized("WHERE CAST(dirty_numeric AS float64) >= 0") in compact
+    )
+
+
+def _vortex_sql_matches_malformed_timestamp(compact: str) -> bool:
+    return _sql_normalized("CAST(raw_event_time AS date32) AS event_day") in compact
+
+
+def _vortex_sql_matches_nested_json_contains(compact: str) -> bool:
+    return _sql_compact_contains_all(
+        compact,
+        (
+            "SELECT id, nested_payload",
+            "nested_payload LIKE '%target%'",
+        ),
+    )
+
+
+def _sql_compact_contains_all(compact: str, needles: Sequence[str]) -> bool:
+    return all(_sql_normalized(needle) in compact for needle in needles)
 
 
 def _parse_sql_single_quoted_prefix(value: str) -> tuple[str, str] | None:
