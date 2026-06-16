@@ -10783,10 +10783,11 @@ def _matches_vortex_group_by_aggregation_shape(
     filter_expr, group_by, aggregate, limit = _vortex_grouped_aggregate_parts(operations)
     return (
         limit is not None
+        and limit == 100
         and group_by == ("group_key",)
         and _aggregate_values_include(aggregate, "count(*) AS rows")
         and _aggregate_values_include(aggregate, "sum(metric) AS total_metric")
-        and (filter_expr is None or _sql_normalized(filter_expr) == _sql_normalized("metric >= 0"))
+        and filter_expr is None
     )
 
 
@@ -10871,7 +10872,7 @@ def _matches_vortex_global_top_n_shape(operations: Sequence[WorkflowOperation]) 
         and sort.kind == "sort"
         and sort.values == ("desc", "metric")
         and limit.kind == "limit"
-        and int(limit.values[0]) > 0
+        and int(limit.values[0]) == 10
     )
 
 
@@ -11218,9 +11219,10 @@ def _vortex_sql_matches_group_by_aggregation(
                 "sum(metric) AS total_metric",
             ),
         )
-        and _sql_clause_equals(parsed.clauses.where, "metric >= 0")
+        and parsed.clauses.where is None
         and _sql_clause_equals(parsed.clauses.group_by, "group_key")
         and parsed.clauses.order_by is None
+        and parsed.clauses.limit == 100
     )
 
 
@@ -11282,6 +11284,7 @@ def _vortex_sql_matches_global_top_n(
         and parsed.clauses.where is None
         and parsed.clauses.group_by is None
         and _sql_clause_equals(parsed.clauses.order_by, "metric DESC")
+        and parsed.clauses.limit == 10
     )
 
 

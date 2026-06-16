@@ -15648,8 +15648,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         events = sl.read_vortex("events.vortex", client=client)
 
         reports = (
-            fact.filter(sl.col("metric") >= 0)
-            .group_by("group_key")
+            fact.group_by("group_key")
             .agg(rows="count(*)", total_metric="sum(metric)")
             .limit(100)
             .collect(),
@@ -15799,7 +15798,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
         group_sql = (
             "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
-            "FROM 'fact.vortex' WHERE metric >= 0 GROUP BY group_key LIMIT 100"
+            "FROM 'fact.vortex' GROUP BY group_key LIMIT 100"
         )
         clean_sql = (
             "SELECT id, group_key, metric, CAST(dirty_numeric AS float64) AS amount_float "
@@ -15950,6 +15949,34 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             {},
         )
 
+    def test_sql_vortex_provider_shape_rejects_filtered_group_by(self) -> None:
+        filtered_group_sql = (
+            "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
+            "FROM 'fact.vortex' WHERE metric >= 0 GROUP BY group_key LIMIT 100"
+        )
+
+        self.assertEqual(
+            _sql_native_vortex_public_workflow_kwargs(
+                filtered_group_sql,
+                requested_output="collect",
+            ),
+            {},
+        )
+
+    def test_sql_vortex_provider_shape_rejects_noncanonical_top_n_limit(self) -> None:
+        top_one_sql = (
+            "SELECT id, group_key, metric FROM 'fact.vortex' "
+            "ORDER BY metric DESC LIMIT 1"
+        )
+
+        self.assertEqual(
+            _sql_native_vortex_public_workflow_kwargs(
+                top_one_sql,
+                requested_output="collect",
+            ),
+            {},
+        )
+
     def test_sql_vortex_provider_shape_limit_zero_fails_closed(self) -> None:
         limit_zero_sql = (
             "SELECT group_key, COUNT(*) AS rows, SUM(metric) AS total_metric "
@@ -16025,13 +16052,25 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         reports = (
             fact.group_by("other_key").agg(rows="count(*)").limit(100).collect(),
+            fact.filter(sl.col("metric") >= 0)
+            .group_by("group_key")
+            .agg(rows="count(*)", total_metric="sum(metric)")
+            .limit(100)
+            .collect(),
             fact.filter(sl.col("metric") >= 0).write_jsonl("target/out.jsonl", check=False),
         )
         expected = {
             "native-vortex-aggregate": "py-vortex-route-unify-1.native_vortex_aggregate_route_missing",
             "native-vortex-sink": "py-vortex-route-unify-1.native_vortex_sink_contract_missing",
         }
-        self.assertEqual(tuple(report.operation for report in reports), tuple(expected))
+        self.assertEqual(
+            tuple(report.operation for report in reports),
+            (
+                "native-vortex-aggregate",
+                "native-vortex-aggregate",
+                "native-vortex-sink",
+            ),
+        )
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.blocker_id, expected[report.operation])

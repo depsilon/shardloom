@@ -1375,14 +1375,13 @@ fn summary_read_vortex_matches_input(operations: &[SummaryOperation<'_>], input_
 fn summary_matches_group_by_aggregation(operations: &[SummaryOperation<'_>]) -> bool {
     matches_summary_kinds(
         operations,
-        &["read_vortex", "filter", "group_by", "aggregate", "limit"],
-    ) && summary_arg_eq(operations[1].arg, "metric >= 0")
-        && summary_arg_eq(operations[2].arg, "group_key")
+        &["read_vortex", "group_by", "aggregate", "limit"],
+    ) && summary_arg_eq(operations[1].arg, "group_key")
         && summary_arg_eq(
-            operations[3].arg,
+            operations[2].arg,
             "count(*) AS rows,sum(metric) AS total_metric",
         )
-        && summary_positive_limit(operations[4].arg)
+        && summary_limit_eq(operations[3].arg, 100)
 }
 
 fn summary_matches_null_heavy_aggregate(operations: &[SummaryOperation<'_>]) -> bool {
@@ -1409,7 +1408,7 @@ fn summary_matches_global_top_n(operations: &[SummaryOperation<'_>]) -> bool {
     matches_summary_kinds(operations, &["read_vortex", "select", "sort", "limit"])
         && summary_arg_eq(operations[1].arg, "id,group_key,metric")
         && summary_arg_eq(operations[2].arg, "desc,metric")
-        && summary_positive_limit(operations[3].arg)
+        && summary_limit_eq(operations[3].arg, 10)
 }
 
 fn summary_matches_clean_cast(operations: &[SummaryOperation<'_>]) -> bool {
@@ -1453,6 +1452,10 @@ fn summary_arg_eq(actual: &str, expected: &str) -> bool {
 
 fn summary_positive_limit(value: &str) -> bool {
     value.trim().parse::<usize>().is_ok_and(|parsed| parsed > 0)
+}
+
+fn summary_limit_eq(value: &str, expected: usize) -> bool {
+    value.trim().parse::<usize>() == Ok(expected)
 }
 
 fn summary_arg_matches_hash_join(value: &str) -> bool {
@@ -4092,7 +4095,7 @@ mod tests {
                 "--input-format",
                 "vortex",
                 "--plan",
-                "read_vortex(fact.vortex) -> filter(metric >= 0) -> group_by(group_key) -> aggregate(count(*) AS rows,sum(metric) AS total_metric) -> limit(100)",
+                "read_vortex(fact.vortex) -> group_by(group_key) -> aggregate(count(*) AS rows,sum(metric) AS total_metric) -> limit(100)",
                 "--request",
                 "collect",
                 "--bounded",
@@ -4126,6 +4129,82 @@ mod tests {
             ),
             "group-by-aggregation"
         );
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn route_planner_does_not_infer_filtered_group_by_provider_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "fact.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(fact.vortex) -> filter(metric >= 0) -> group_by(group_key) -> aggregate(count(*) AS rows,sum(metric) AS total_metric) -> limit(100)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("filtered group-by provider route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn route_planner_does_not_infer_top_n_provider_with_noncanonical_limit() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "fact.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(fact.vortex) -> select(id,group_key,metric) -> sort(desc,metric) -> limit(1)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("top-N provider route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_general_route_missing"
+        );
+        assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
+        assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
