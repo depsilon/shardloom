@@ -4,8 +4,8 @@
 # Install this only for local benchmark artifact generation. Website rendering
 # consumes committed artifacts and does not need these packages.
 -r requirements-full-local.txt
-clickhouse-connect
-daft
-ibis-framework
-pyarrow
-ray[data]
+clickhouse-connect==1.3.0
+daft==0.7.15
+ibis-framework==12.0.0
+pyarrow==24.0.0
+ray[data]==2.55.1

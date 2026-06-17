@@ -23,6 +23,14 @@ else:
         arch = platform.machine().strip().lower() or "unknown"
         return _ARCH_ALIASES.get(arch, arch).replace("-", "_")
 
+    def _normalized_macos_arch() -> str:
+        arch = platform.machine().strip().lower() or "unknown"
+        if arch in {"amd64", "x64"}:
+            return "x86_64"
+        if arch in {"aarch64", "arm64"}:
+            return "arm64"
+        return arch.replace("-", "_")
+
     def _manylinux_platform_tag() -> str | None:
         if platform.system().strip().lower() != "linux":
             return None
@@ -34,6 +42,16 @@ else:
             return None
         major, minor = match.groups()
         return f"manylinux_{major}_{minor}_{_normalized_arch()}"
+
+    def _macos_platform_tag() -> str | None:
+        if platform.system().strip().lower() != "darwin":
+            return None
+        version = os.environ.get("MACOSX_DEPLOYMENT_TARGET") or platform.mac_ver()[0]
+        match = re.match(r"^(\d+)(?:\.(\d+))?", version or "")
+        if match is None:
+            return None
+        major, minor = match.group(1), match.group(2) or "0"
+        return f"macosx_{major}_{minor}_{_normalized_macos_arch()}"
 
     class bdist_wheel(_bdist_wheel):
         """Mark wheels as platform-specific when a bundled CLI binary is present."""
@@ -48,5 +66,9 @@ else:
             manylinux_tag = _manylinux_platform_tag()
             if manylinux_tag is not None:
                 self.plat_name = manylinux_tag
+                return
+            macos_tag = _macos_platform_tag()
+            if macos_tag is not None:
+                self.plat_name = macos_tag
 
     setup(cmdclass={"bdist_wheel": bdist_wheel})

@@ -14,7 +14,9 @@ Future supported versions will be listed here by release series.
 
 Preferred reporting channel:
 
-- Open a private security advisory on GitHub when available.
+- Open a private security advisory through
+  [GitHub Security Advisories](https://github.com/depsilon/shardloom/security/advisories/new)
+  when available.
 - If private advisories are unavailable, contact the maintainers through the project's listed
   security contact or repository owner channel.
 
@@ -99,8 +101,9 @@ evidence exists.
 
 ## Related Documents
 
-- `docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md`
-- `docs/security/threat-model.md`
-- `docs/security/supply-chain-response.md`
-- `docs/legal/dependency-audit.md`
-- `docs/release/sbom-generation-plan.md`
+- [Security vulnerability, exploit, and supply-chain hardening RFC](docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md)
+- [Threat model](docs/security/threat-model.md)
+- [Supply-chain response](docs/security/supply-chain-response.md)
+- [OpenSSF Scorecard alert triage](docs/security/scorecard-alert-triage.md)
+- [Dependency audit](docs/legal/dependency-audit.md)
+- [SBOM generation plan](docs/release/sbom-generation-plan.md)

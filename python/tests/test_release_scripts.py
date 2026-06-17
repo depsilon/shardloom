@@ -8048,6 +8048,33 @@ class ReleaseScriptTests(unittest.TestCase):
             with self._temporary_env(PYTHONPATH=str(root / "fake-site")):
                 self.assertTrue(module.pip_audit_module_available(str(symlinked_python)))
 
+    def test_dependency_audit_reports_all_benchmark_requirement_profiles(self) -> None:
+        module = self._load_script_module(
+            "check_dependency_audit.py",
+            "check_dependency_audit_benchmark_profiles_for_test",
+        )
+
+        report = module.check_benchmark_dependency_scope()
+        profile_files = {
+            row["requirements_file"]
+            for row in report["profiles"]
+        }
+
+        self.assertEqual(report["profile_count"], 4)
+        self.assertIn("benchmarks/traditional_analytics/requirements.txt", profile_files)
+        self.assertIn(
+            "benchmarks/traditional_analytics/requirements-extended-local.txt",
+            profile_files,
+        )
+        self.assertIn("benchmarks/traditional_analytics/requirements-spark.txt", profile_files)
+        self.assertIn(
+            "benchmarks/traditional_analytics/requirements-gpu-optional.txt",
+            profile_files,
+        )
+        self.assertIn("pandas", report["external_baseline_dependencies"])
+        self.assertIn("pyspark", report["external_baseline_dependencies"])
+        self.assertIn("ray", report["external_baseline_dependencies"])
+
     def test_release_validation_evidence_uses_configured_python_and_conda(self) -> None:
         module = self._load_script_module(
             "run_release_validation_evidence.py",

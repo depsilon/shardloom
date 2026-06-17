@@ -1014,10 +1014,7 @@ fn native_vortex_provider_route(
     request: &PublicWorkflowRouteRequest,
     requested_family: Option<NativeVortexOperationFamily>,
 ) -> PublicWorkflowRoutePlan {
-    if !cfg!(any(
-        feature = "vortex-production-runtime",
-        feature = "vortex-traditional-analytics-benchmark"
-    )) {
+    if !cfg!(feature = "vortex-production-runtime") {
         return native_vortex_provider_feature_gated_route();
     }
     if request.vortex_primitive.is_some() {
@@ -4075,7 +4072,7 @@ mod tests {
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
-    #[cfg(not(feature = "vortex-traditional-analytics-benchmark"))]
+    #[cfg(not(feature = "vortex-production-runtime"))]
     #[test]
     fn route_planner_feature_gates_native_vortex_provider_routes() {
         let request = PublicWorkflowRouteRequest::parse(
@@ -4125,7 +4122,7 @@ mod tests {
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[cfg(feature = "vortex-production-runtime")]
     #[test]
     fn route_planner_admits_native_vortex_provider_operator_routes() {
         let aggregate = PublicWorkflowRouteRequest::parse(
@@ -4244,7 +4241,7 @@ mod tests {
         assert_eq!(field(&sink_fields, "external_engine_invoked"), "false");
     }
 
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[cfg(feature = "vortex-production-runtime")]
     #[test]
     fn route_planner_infers_payloadless_native_vortex_provider_facade_route() {
         let request = PublicWorkflowRouteRequest::parse(
@@ -4291,7 +4288,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[cfg(feature = "vortex-production-runtime")]
     #[test]
     fn route_planner_does_not_infer_filtered_group_by_provider_route() {
         let request = PublicWorkflowRouteRequest::parse(
@@ -4325,7 +4322,7 @@ mod tests {
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[cfg(feature = "vortex-production-runtime")]
     #[test]
     fn route_planner_does_not_infer_top_n_provider_with_noncanonical_limit() {
         let request = PublicWorkflowRouteRequest::parse(
@@ -4359,7 +4356,7 @@ mod tests {
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[cfg(feature = "vortex-production-runtime")]
     #[test]
     fn route_planner_does_not_infer_provider_from_sql_literals() {
         let request = PublicWorkflowRouteRequest::parse(
@@ -4395,7 +4392,7 @@ mod tests {
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[cfg(feature = "vortex-production-runtime")]
     #[test]
     fn route_planner_does_not_infer_provider_for_report_requests() {
         let request = PublicWorkflowRouteRequest::parse(
@@ -4433,7 +4430,7 @@ mod tests {
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[cfg(feature = "vortex-production-runtime")]
     #[test]
     fn route_planner_does_not_infer_provider_from_quoted_plan_arguments() {
         let request = PublicWorkflowRouteRequest::parse(

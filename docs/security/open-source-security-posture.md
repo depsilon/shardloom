@@ -15,6 +15,8 @@ Primary references:
 - GitHub CodeQL code scanning: <https://docs.github.com/en/code-security/concepts/code-scanning/codeql/about-code-scanning-with-codeql>
 - CodeQL supported languages, including Rust and Python: <https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/>
 - OpenSSF Scorecard action: <https://github.com/ossf/scorecard-action>
+- Current OpenSSF Scorecard alert disposition:
+  [`docs/security/scorecard-alert-triage.md`](scorecard-alert-triage.md)
 
 ## Configured Checks
 
@@ -78,6 +80,13 @@ Cargo updates for `vortex` and `vortex-*` are grouped as `vortex-upstream` and m
 `docs/dependencies/vortex-upstream-release-intake-runbook.md`. Dependabot may propose those updates,
 but it must not auto-merge them or replace the ShardLoom-specific release-note/API inventory,
 feature-gated compile proof, dependency-footprint review, and no-fallback evidence checks.
+
+### Website Dependency Advisory Gate
+
+The website/docs CI lane runs `npm audit --audit-level=low` after `npm ci`. The website source is
+not a ShardLoom runtime dependency, but the committed `website-src/package-lock.json` is still a
+repository manifest that Scorecard and GitHub advisory scanners inspect. Website dependency updates
+must keep the lockfile audit clean or carry an explicit maintainer-approved advisory disposition.
 
 ## Maintainer Settings
 

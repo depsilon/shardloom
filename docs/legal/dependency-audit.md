@@ -18,6 +18,10 @@ external engines only as comparison baselines or correctness oracles. Benchmark
 dependencies must stay out of runtime package metadata and runtime lockfile
 claims unless separately approved.
 
+Committed benchmark profile requirement files should pin direct dependencies to audited versions.
+Those pins are reproducibility and repository-advisory hygiene for optional benchmark
+environments; they do not add runtime dependencies or authorize fallback execution.
+
 ## Vortex Dependency Boundaries
 
 Upstream Vortex crates are native provider candidates, not fallback engines.
@@ -66,7 +70,8 @@ python scripts/check_dependency_audit.py --release-gate
 
 `--release-gate` is the hard P8.0C release gate. It implies strict missing-tool behavior,
 `cargo-deny`, `cargo audit`, packaging/dev `pip-audit` against the ShardLoom Python project,
-runtime no-fallback dependency checks, benchmark-only dependency classification checks, and JSON
+runtime no-fallback dependency checks, benchmark-only dependency classification checks across the
+traditional analytics base, extended, Spark, and GPU-optional profile requirement files, and JSON
 `DependencyAuditReport` emission under `target/dependency-audit-report.json`. Missing audit tools
 are allowed only outside release-gate mode.
 
