@@ -12745,9 +12745,20 @@ jobs:
                         emit("capabilities", [{"key": "scope", "value": "deployment"}])
                     if args == ["input-adapters", "--format", "json"]:
                         emit("input-adapters", [{"key": "plan_only", "value": "true"}])
+                    if args[0] == "vortex-ingest-smoke":
+                        target_path = Path(args[2])
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                        target_path.write_text("vortex-prepared\\n", encoding="utf-8")
+                        emit("vortex-ingest-smoke", [
+                            {"key": "vortex_ingest_performed", "value": "true"},
+                            {"key": "target_vortex_path", "value": str(target_path)},
+                            {"key": "prepared_state_created", "value": "true"},
+                            {"key": "source_format", "value": "csv"},
+                            {"key": "claim_gate_status", "value": "not_claim_grade"},
+                        ])
                     if args[0] == "run":
-                        output_path = Path(args[args.index("--output") + 1])
                         if "--generated-source-kind" in args:
+                            output_path = Path(args[args.index("--output") + 1])
                             output_path.parent.mkdir(parents=True, exist_ok=True)
                             output_path.write_text('{"id":1,"label":"alpha","batch_id":1}\\n', encoding="utf-8")
                             emit("run", [
@@ -12763,6 +12774,26 @@ jobs:
                                 {"key": "generated_source_certificate_status", "value": "certified"},
                                 {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
                                 {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                            ])
+                        if "--input-format" in args and args[args.index("--input-format") + 1] == "vortex":
+                            emit("run", [
+                                {"key": "public_workflow_route_attached", "value": "true"},
+                                {"key": "public_workflow_route_id", "value": "native_vortex_filter_project"},
+                                {"key": "public_workflow_resolved_internal_command", "value": "vortex-filter-project"},
+                                {"key": "public_workflow_runtime_execution", "value": "true"},
+                                {"key": "public_workflow_status", "value": "executed"},
+                                {"key": "source_format", "value": "vortex"},
+                                {"key": "mode", "value": "vortex_filter_project"},
+                                {"key": "primitive", "value": "filter_and_project"},
+                                {"key": "data_read", "value": "true"},
+                                {"key": "write_io", "value": "false"},
+                                {"key": "filter_project_local_execution_result_known", "value": "true"},
+                                {"key": "filter_project_local_execution_rows_selected", "value": "2"},
+                                {"key": "filter_project_local_execution_rows_projected", "value": "2"},
+                                {"key": "filter_project_local_execution_data_read", "value": "true"},
+                                {"key": "filter_project_local_execution_fallback_attempted", "value": "false"},
+                                {"key": "filter_project_local_execution_projected_columns", "value": "id,label,amount"},
+                                {"key": "claim_gate_status", "value": "not_claim_grade"},
                             ])
                         emit("run", [
                             {"key": "public_workflow_route_attached", "value": "true"},
@@ -12782,20 +12813,7 @@ jobs:
                             "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                         }], returncode=1)
                     if args[0] == "sql-local-source-smoke":
-                        output_path = Path(args[args.index("--output") + 1])
-                        output_path.parent.mkdir(parents=True, exist_ok=True)
-                        output_path.write_text('{"id":2,"label":"beta","amount":15}\\n', encoding="utf-8")
-                        emit("sql-local-source-smoke", [
-                            {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\",\\"amount\\":15}\\n"},
-                            {"key": "source_format", "value": "csv"},
-                            {"key": "execution_mode", "value": "batch"},
-                            {"key": "operator_family", "value": "filter_project_limit"},
-                            {"key": "output_path", "value": str(output_path)},
-                            {"key": "output_row_count", "value": "1"},
-                            {"key": "output_io_performed", "value": "true"},
-                            {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
-                            {"key": "claim_gate_status", "value": "fixture_smoke_only"},
-                        ])
+                        raise AssertionError("public local quickstart must not use sql-local-source-smoke")
                     if args[0] == "generated-source-user-rows-smoke":
                         output_path = Path(args[1])
                         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -12840,11 +12858,10 @@ jobs:
             output = stdout.getvalue()
             self.assertEqual(returncode, 0, output)
             self.assertIn("quickstart_user_surface_status=passed", output)
-            self.assertIn(
-                "quickstart_local_file_blocker_id=cg21.route.local_file_vortex_middle_required",
-                output,
-            )
-            self.assertIn("quickstart_local_file_runtime_execution=false", output)
+            self.assertIn("quickstart_local_file_blocker_id=none", output)
+            self.assertIn("quickstart_local_file_route_status=passed", output)
+            self.assertIn("quickstart_local_file_runtime_execution=true", output)
+            self.assertIn("quickstart_local_file_vortex_ingest_performed=true", output)
             self.assertIn("quickstart_generated_source_row_count=1", output)
             self.assertIn("quickstart_generated_output_row_count=1", output)
             self.assertIn(
@@ -12881,8 +12898,10 @@ jobs:
                     "stdout": "\n".join(
                         [
                             "quickstart_user_surface_status=passed",
-                            "quickstart_local_file_blocker_id=cg21.route.local_file_vortex_middle_required",
-                            "quickstart_local_file_runtime_execution=false",
+                            "quickstart_local_file_blocker_id=none",
+                            "quickstart_local_file_route_status=passed",
+                            "quickstart_local_file_runtime_execution=true",
+                            "quickstart_local_file_vortex_ingest_performed=true",
                             "quickstart_local_file_fallback_attempted=false",
                             "quickstart_local_file_external_engine_invoked=false",
                             "quickstart_generated_source_row_count=1",
@@ -13478,7 +13497,7 @@ jobs:
         self.assertEqual(by_method["from_rows"]["support_status"], "fixture_smoke_supported")
         self.assertEqual(
             by_method["to_pandas"]["support_status"],
-            "optional_dependency_runtime_supported",
+            "runtime_expansion_pending",
         )
         self.assertEqual(
             by_method["rename"]["support_status"],
@@ -13566,7 +13585,10 @@ jobs:
         self.assertIn("unpivot_semantics", by_method["melt"]["required_evidence"])
         self.assertFalse(by_method["rolling"]["write_io"])
         self.assertTrue(by_method["to_pandas"]["materialization_required"])
-        self.assertIsNone(by_method["to_pandas"]["blocker_id"])
+        self.assertEqual(
+            by_method["to_pandas"]["blocker_id"],
+            "cg21.workflow.to-pandas.native_vortex_materialization_contract_missing",
+        )
         self.assertFalse(any(row["fallback_attempted"] for row in rows))
         self.assertFalse(any(row["external_engine_invoked"] for row in rows))
 

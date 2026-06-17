@@ -23,7 +23,6 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     import shardloom as sl
     from shardloom import ShardLoomClient
-    from shardloom.errors import ShardLoomCommandError
 
     client = (
         ShardLoomClient(binary=args.shardloom_bin)
@@ -53,13 +52,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         .select("id", "label", "amount")
         .limit(2)
     )
-    try:
-        workflow.write_jsonl(quickstart_dir / "orders-out.jsonl", allow_overwrite=True)
-    except ShardLoomCommandError as exc:
-        local_file_envelope = exc.envelope
-    else:
-        print("quickstart_local_file_route_status=unexpected_executable")
-        return 1
+    local_file = workflow.collect()
 
     generated = (
         ctx.from_rows([{"id": 1, "label": "alpha"}])
@@ -69,21 +62,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     unsupported = ctx.read(source_path).select("id").to_pandas()
     generated_evidence = generated.evidence_summary
     generated_claim = generated.claim_summary
-    local_file_blocker_id = local_file_envelope.field(
-        "public_workflow_blocker_id"
-    ) or local_file_envelope.field("blocker_id")
-    local_file_runtime_execution = (
-        local_file_envelope.field_bool("public_workflow_runtime_execution", False)
-        is True
-        or local_file_envelope.field_bool("runtime_execution", False) is True
+    local_file_blocker_id = getattr(local_file, "blocker_id", None)
+    local_file_runtime_execution = bool(getattr(local_file, "runtime_execution", False))
+    local_file_fallback_attempted = bool(getattr(local_file, "fallback_attempted", False))
+    local_file_external_engine_invoked = bool(
+        getattr(local_file, "external_engine_invoked", False)
     )
-    local_file_fallback_attempted = (
-        local_file_envelope.fallback.attempted
-        or local_file_envelope.field_bool("fallback_attempted", False) is True
+    local_file_vortex_ingest_performed = bool(
+        getattr(local_file, "vortex_ingest_performed", False)
     )
-    local_file_external_engine_invoked = (
-        local_file_envelope.field_bool("external_engine_invoked", False) is True
-    )
+    local_file_prepared_vortex_path = getattr(local_file, "prepared_vortex_path", None)
+    local_file_rows_projected = getattr(local_file, "rows_projected", None)
 
     print(f"status: {status.status}")
     print(f"protocol: {smoke.protocol_version}")
@@ -91,12 +80,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"capabilities command: {capabilities.command}")
     print(f"fallback attempted: {smoke.fallback_attempted}")
     print("quickstart_user_surface_status=passed")
-    print(f"quickstart_local_file_blocker_id={local_file_blocker_id}")
-    print("quickstart_local_file_route_status=blocked")
+    print(f"quickstart_local_file_blocker_id={local_file_blocker_id or 'none'}")
+    print("quickstart_local_file_route_status=passed")
     print(
         "quickstart_local_file_runtime_execution="
         f"{str(local_file_runtime_execution).lower()}"
     )
+    print(
+        "quickstart_local_file_vortex_ingest_performed="
+        f"{str(local_file_vortex_ingest_performed).lower()}"
+    )
+    print(f"quickstart_local_file_prepared_vortex_path={local_file_prepared_vortex_path}")
+    print(f"quickstart_local_file_rows_projected={local_file_rows_projected}")
     print(
         "quickstart_local_file_fallback_attempted="
         f"{str(local_file_fallback_attempted).lower()}"
@@ -144,8 +139,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         smoke.fallback_attempted
         or generated.fallback_attempted
         or generated.external_engine_invoked
-        or local_file_blocker_id != "cg21.route.local_file_vortex_middle_required"
-        or local_file_runtime_execution
+        or local_file_blocker_id is not None
+        or not local_file_runtime_execution
+        or not local_file_vortex_ingest_performed
         or local_file_fallback_attempted
         or local_file_external_engine_invoked
         or unsupported.fallback_attempted

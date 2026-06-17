@@ -106,14 +106,19 @@ print(preview.output_row_count)
 <!-- stable_v1_example_local_output_write -->
 
 ```python
-written = (
+blocked_write = (
     ctx.read_csv("target/orders.csv")
     .filter(sl.col("amount") >= 10)
     .select("id", "amount")
-    .write_jsonl("target/orders-filtered.jsonl", allow_overwrite=True)
+    .write_jsonl("target/orders-filtered.jsonl", allow_overwrite=True, check=False)
 )
-print(written.output_row_count, written.evidence_summary.output_path)
+print(blocked_write.blocker_id)
+print(blocked_write.fallback_attempted, blocked_write.external_engine_invoked)
 ```
+
+Compatibility exports such as JSONL/CSV require a native Vortex-derived export contract before
+they are product routes. Use source-free/generated local writes or native Vortex sinks where the
+route report says the shape is admitted.
 
 <!-- stable_v1_example_evidence_inspection -->
 

@@ -3943,6 +3943,12 @@ enum VortexIngestOutcome {
     Refined(Box<VortexPreparedStateRefinementCliReport>),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PublicWorkflowVortexPreparation {
+    pub(crate) target_path: PathBuf,
+    pub(crate) fields: Vec<(String, String)>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct VortexPreparedStateReuseCliReport {
     request: VortexIngestRequest,
@@ -4486,6 +4492,104 @@ fn fields_with_extra(
 ) -> Vec<(String, String)> {
     fields.extend(extra_fields.iter().cloned());
     fields
+}
+
+pub(crate) fn prepare_local_source_as_vortex_for_public_workflow(
+    source_path: impl AsRef<Path>,
+    target_path: impl AsRef<Path>,
+    source_format: Option<&str>,
+    allow_overwrite: bool,
+) -> Result<PublicWorkflowVortexPreparation, ShardLoomError> {
+    if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
+        return Err(ShardLoomError::NotImplemented(
+            "vortex_ingest feature gate is not enabled".to_string(),
+        ));
+    }
+    let source_format_override = match source_format {
+        Some(value) => Some(LocalSourceFormat::parse(value).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "unsupported vortex_ingest input format: {value}; no fallback execution was attempted"
+            ))
+        })?),
+        None => None,
+    };
+    let target_path =
+        normalize_local_vortex_ingest_target_path(&target_path.as_ref().display().to_string())?;
+    if let Some(parent) = target_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create prepared Vortex directory '{}': {error}; no fallback execution was attempted",
+                parent.display()
+            ))
+        })?;
+    }
+    let request = VortexIngestRequest {
+        source_path: source_path.as_ref().to_path_buf(),
+        source_format_override,
+        target_path: target_path.clone(),
+        allow_overwrite,
+        certification_level: shardloom_vortex::VortexIngestCertificationLevel::IngestCertified,
+        delta: None,
+    };
+    let raw_fields = match run_vortex_ingest_smoke(request)? {
+        VortexIngestOutcome::Prepared(report) => {
+            if report.differential_preparation_blocked() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "prepared Vortex lifecycle for '{}' was blocked by differential preparation policy; no fallback execution was attempted",
+                    report.request.source_path.display()
+                )));
+            }
+            report.fields()
+        }
+        VortexIngestOutcome::Reused(report) => report.fields(),
+        VortexIngestOutcome::Refined(report) => {
+            if !report.differential_preparation.is_admitted() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "prepared Vortex refinement for '{}' was blocked by differential preparation policy; no fallback execution was attempted",
+                    report.request.source_path.display()
+                )));
+            }
+            report.fields()
+        }
+    };
+    Ok(PublicWorkflowVortexPreparation {
+        target_path,
+        fields: public_workflow_preparation_fields(raw_fields),
+    })
+}
+
+fn public_workflow_preparation_fields(raw_fields: Vec<(String, String)>) -> Vec<(String, String)> {
+    const SELECTED_FIELDS: &[&str] = &[
+        "vortex_ingest_performed",
+        "vortex_ingest_status",
+        "source_format",
+        "source_adapter_id",
+        "source_adapter_boundary",
+        "source_state_id",
+        "source_state_digest",
+        "source_state_contract_schema_version",
+        "source_state_read_plan",
+        "source_state_projection_pushdown_status",
+        "prepared_state_id",
+        "prepared_state_digest",
+        "prepared_state_created",
+        "prepared_state_reused",
+        "prepared_state_reuse_hit",
+        "target_vortex_path",
+        "prepared_artifact_ref",
+        "prepared_artifact_digest",
+        "prepare_once_millis",
+        "vortex_write_millis",
+        "vortex_reopen_verify_millis",
+        "query_timing_starts_after_preparation",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ];
+    raw_fields
+        .into_iter()
+        .filter(|(key, _)| SELECTED_FIELDS.contains(&key.as_str()))
+        .map(|(key, value)| (format!("public_workflow_preparation_{key}"), value))
+        .collect()
 }
 
 fn validate_sql_local_source_output_request(

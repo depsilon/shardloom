@@ -108,6 +108,21 @@ REQUIRED_MATERIALIZATION_METHODS = [
     "display",
 ]
 
+DECODED_OUTPUT_MATERIALIZATION_METHODS = {
+    "to_pandas",
+    "to_arrow",
+    "to_arrow_table",
+    "to_arrow_ipc",
+    "to_numpy",
+    "display",
+}
+
+MATERIALIZED_INPUT_REENTRY_METHODS = {
+    "from_pandas",
+    "from_arrow_table",
+    "from_arrow_ipc",
+}
+
 REQUIRED_TRANSFORM_RUNTIME_METHODS = [
     "rename",
     "rename_columns",
@@ -697,10 +712,22 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         if not row:
             continue
         support_status = str(row.get("support_status", ""))
-        if "unsupported" in support_status:
-            blockers.append(f"{method}: scoped materialization row must not be unsupported")
-        if row.get("blocker_id"):
-            blockers.append(f"{method}: scoped materialization row must not carry blocker_id")
+        if method in DECODED_OUTPUT_MATERIALIZATION_METHODS:
+            if support_status != "runtime_expansion_pending":
+                blockers.append(
+                    f"{method}: decoded output materialization must remain runtime_expansion_pending until native Vortex materialization evidence exists"
+                )
+            if not row.get("blocker_id"):
+                blockers.append(
+                    f"{method}: decoded output materialization must carry native-contract blocker_id"
+                )
+        elif method in MATERIALIZED_INPUT_REENTRY_METHODS:
+            if "unsupported" in support_status or support_status == "runtime_expansion_pending":
+                blockers.append(
+                    f"{method}: materialized input re-entry row must be scoped supported"
+                )
+            if row.get("blocker_id"):
+                blockers.append(f"{method}: materialized input re-entry row must not carry blocker_id")
         if row.get("materialization_required") is not True:
             blockers.append(f"{method}: materialization_required must be true")
         if not row.get("required_evidence"):
