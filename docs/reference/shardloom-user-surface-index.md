@@ -32,7 +32,7 @@ Use this order before executing or documenting a workflow:
 7. Use `ctx.user_surface_graduation_matrix()` and `ctx.front_door_parity_matrix()` before
    treating a Python, SQL, DataFrame-style, or CLI surface as promoted user workflow support.
 
-The CLI command list is intentionally not hand-copied here. The exhaustive registry has 212 rows
+The CLI command list is intentionally not hand-copied here. The exhaustive registry has 213 rows
 and lives in `shardloom-cli/src/command_registry.rs`; the side-effect-free command
 `shardloom command-metadata --format json` renders those rows for agents without scraping Rust
 source or human text.
