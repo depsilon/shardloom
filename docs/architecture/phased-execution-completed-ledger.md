@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: feasible Python runtime-surface status alignment
+  - Date: 2026-06-17
+  - Source:
+    - Maintainer direction to keep existing universal ingest and user-surface capabilities actually
+      connected to released/runtime surfaces and to avoid stale blocked rows after the Vortex-middle
+      promotion in PR #1294.
+  - Scope:
+    - Updated the `runs-today` source row for `python_local_query_builder` so it now reflects the
+      scoped local Python/SQL/DataFrame Vortex-prepared/native execution path instead of the old
+      `cg21.route.local_file_vortex_middle_required` blocker. Direct decoded local-source
+      compatibility remains `internal_smoke_only`.
+    - Regenerated `docs/status/runs-today-support-matrix.json` from the current CLI, reducing
+      blocked current-support rows from five to four while keeping no-fallback and no-external-engine
+      evidence true for all rows.
+    - Rechecked already-implemented row-level `distinct()`, no-argument `drop_duplicates()`,
+      `unique()`, bounded `profile()`, and JSONL sink flows against the release-feature Python
+      front door. The real route now performs Vortex preparation before the product-local runtime
+      boundary, but these shapes still compute through `sql-local-source-smoke`; their capability
+      rows therefore remain `runtime_expansion_pending` instead of being overpromoted.
+    - Promoted `materialized_python_interop_boundaries` in the user-surface graduation matrix from
+      diagnostic-only to a high-level scoped runtime boundary for bounded `to_*` containers and
+      explicit `from_*` generated-source re-entry. pandas, Arrow, and NumPy remain optional
+      containers, not execution engines.
+    - Added `PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1` to the phase plan for the residual native-route
+      work exposed by UAT: row-level deduplication, bounded profile/statistics, and
+      Vortex-derived compatibility exports must either gain real native/export routes or keep
+      deterministic blockers.
+  - Evidence:
+    - `cargo build -p shardloom-cli` passed.
+    - `python3 scripts/export_runs_today_support_matrix.py --binary target/debug/shardloom` wrote
+      the refreshed status matrix.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands -q`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_user_surface_graduation_matrix.UserSurfaceGraduationMatrixTests.test_current_repo_graduation_matrix_covers_cli_and_python_surfaces -q`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion-current.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-current.json`
+      passed with 41 true runtime-expansion rows; row-level deduplication and profile remain in the
+      inventory until native Vortex routes exist.
+    - `PYTHONPATH=python/src python3 scripts/check_v1_front_door_runtime_scope.py --output target/v1-front-door-runtime-scope-current.json`
+      passed.
+    - Release-feature Python UAT passed for inferred read/filter/project native primitive routing
+      and exposed the remaining residual post-prepare product-local routes for distinct/profile and
+      JSONL sink flows.
+  - Claim boundary:
+    - This is capability/status alignment for scoped local v1 runtime surfaces that already have
+      runtime evidence. It does not claim native Vortex middle execution for row-level
+      distinct/drop-duplicates/unique, bounded profile, compatibility JSONL/CSV exports, arbitrary
+      SQL/DataFrame parity, broad native Vortex planning, object-store/table/Foundry production
+      support, unbounded materialization, performance superiority, or Spark displacement.
+  - Fallback boundary:
+    - Successful and blocked paths continue to report `fallback_attempted=false` and
+      `external_engine_invoked=false`; no pandas, Polars, DuckDB, Spark, DataFusion, or Vortex
+      query-engine fallback was added.
+
 - [x] Session label: Python/local workflow Vortex-middle promotion
   - Date: 2026-06-17
   - Source:

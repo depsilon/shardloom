@@ -178,6 +178,94 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
+- [ ] `PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1` Promote residual prepared-local Python/SQL
+  operators from product-local SQL runtime to native Vortex middle routes.
+  - Source: June 17, 2026 local release-feature Python UAT showing
+    `ctx.read(...).filter(...).select(...).limit(...).collect()` now performs Vortex preparation
+    and native primitive execution, while row-level `distinct()`, `drop_duplicates()`, `unique()`,
+    bounded `profile()`, and compatibility JSONL/CSV sinks still prepare Vortex and then execute
+    through the scoped product-local `sql-local-source-smoke` runtime.
+  - Current state: universal ingest, Vortex preparation, release-user-surface feature gates, native
+    primitive routes, and exact provider-backed aggregate/join/top-N/cast/contains/`write_vortex`
+    routes are connected. The remaining scoped product-local operators are not external fallback
+    and now carry preparation evidence, but they are not yet native Vortex middle/operator routes
+    and must not be presented as production-admitted native runtime claims.
+  - Intake review: accepted the UAT finding as a real v1 readiness gap because ShardLoom's public
+    surface should not require users to distinguish input normalization from actual runtime middle
+    execution. Already-addressed candidates: direct local one-shot auto routing is blocked for
+    public collect; native primitive filter/project/limit and exact benchmark-family provider routes
+    are already admitted. Merged candidate: compatibility sinks must share this route-promotion
+    work because their current post-prepare product-local sink boundary has the same evidence issue.
+  - V1 scope classification: `required_for_v1` for any feasible local residual route; if a route
+    cannot be implemented without a missing upstream Vortex provider or unsafe materialization
+    contract, keep it explicitly blocked with stable diagnostics and record the blocker.
+  - ShardLoom technique review: metadata-first execution applies to `profile()` via Vortex metadata,
+    schema, and statistics before row materialization; dynamic admission applies to selecting native
+    primitive/provider/residual-native routes versus deterministic blockers; capillary work units
+    apply to splitting Vortex preparation, operator execution, and compatibility export tasks while
+    preserving sequential `max_parallelism=1` defaults; PulseWeave applies to future larger local
+    data shapes where prepared-state reuse, partition sizing, and export tasks can be scheduled
+    without changing Python APIs; evidence-tier controls must distinguish native runtime,
+    product-local post-prepare compatibility, and internal smoke-only routes.
+  - Execution checklist:
+    - [ ] Inventory all public Python/SQL/DataFrame methods whose real UAT route has
+      `vortex_ingest_performed=true` but `activation_summary.command=sql-local-source-smoke`, and
+      classify each as native-route feasible, decode/export feasible, or deterministic blocker.
+    - [ ] Add route-facade diagnostics so post-prepare product-local SQL execution cannot be
+      mistaken for native Vortex middle execution in activation summaries, capability rows, or
+      generated docs.
+    - [ ] Implement or wrap a native Vortex row-level distinct/deduplication route for the admitted
+      no-subset/no-keep Python aliases, including null/equality semantics and bounded collect
+      evidence.
+    - [ ] Implement or wrap a native Vortex bounded profile/schema/statistics route that uses
+      metadata-first evidence where possible and reports any decode/materialization boundary
+      explicitly.
+    - [ ] Implement Vortex-derived compatibility export routes for JSONL/CSV outputs, or keep those
+      sinks blocked when a safe decode/export contract is missing; `write_vortex` remains the
+      highest-fidelity native sink.
+    - [ ] Add Python UAT-style fixtures that sequentially exercise inferred `ctx.read(...)`,
+      explicit readers, SQL, and DataFrame aliases across the promoted residual operators and assert
+      `fallback_attempted=false`, `external_engine_invoked=false`, and native/runtime-middle
+      evidence.
+    - [ ] Add Rust route/admission tests proving residual operators either select a real native
+      Vortex route or fail with stable blocker IDs; no public path may silently execute
+      product-local SQL as a native claim.
+    - [ ] Refresh capability/status/generated docs so `production_admitted_local_workflow`,
+      `scoped_runtime_supported`, `runtime_expansion_pending`, `internal_smoke_only`, and
+      `feature_gated` remain distinct and source-grounded.
+    - [ ] Move completed detail to the phased execution completed ledger after validation and PR
+      handling.
+  - Next outcome: a cohesive runtime PR/session that either promotes the remaining feasible
+    prepared-local residual operators to native Vortex middle routes or leaves them blocked with
+    deterministic diagnostics and no overclaiming.
+  - User-visible surface: `ctx.read(...)`, explicit local readers, `LazyFrame.collect`,
+    `LazyFrame.write_*`, SQL facade routes, `activation_summary`, capability reports, user-surface
+    docs, and UAT scripts.
+  - Implementation scope: `python/src/shardloom/query.py`, `python/src/shardloom/context.py`,
+    `python/tests/*`, `shardloom-cli/src/public_workflow_route.rs`,
+    `shardloom-cli/src/sql_local_source_runtime.rs`, `shardloom-vortex/*` provider wrappers where
+    applicable, status/capability generators, and generated docs/status artifacts.
+  - Evidence required: UAT transcript or test output for promoted methods; route certificates or
+    native runtime envelopes; decode/materialization/export contracts for compatibility outputs;
+    no-fallback and no-external-engine assertions; deterministic blocker rows for anything not
+    feasible.
+  - Acceptance: promoted residual methods no longer run `sql-local-source-smoke` as their runtime
+    middle; compatibility sinks either write from Vortex-derived results with explicit
+    materialization/export evidence or block; public status rows do not claim production/native
+    support for product-local post-prepare execution.
+  - Verification: focused Python UAT/unit tests; focused Rust route tests; capability/status
+    validators; `cargo fmt --all -- --check`; relevant clippy/test gates for touched crates.
+  - Non-goals: arbitrary SQL/DataFrame parity, object-store/table/Foundry/runtime distribution,
+    external engine fallback, or broad performance claims.
+  - Claim boundary: completion may claim only the named residual local routes with their exact
+    native/export evidence. It does not imply performance superiority, unbounded materialization,
+    arbitrary Vortex SQL/DataFrame planning, or production platform support.
+  - Fallback boundary: every successful and blocked route must continue to report
+    `fallback_attempted=false` and `external_engine_invoked=false`; pandas, Polars, DuckDB, Spark,
+    DataFusion, and Vortex query-engine integrations remain disallowed as execution fallbacks.
+  - Ledger rule: move completed detail to
+    `docs/architecture/phased-execution-completed-ledger.md`.
+
 - [x] `PY-RUNTIME-ACTIVATION-PROVIDER-PROMOTION-1` Make normal Python runtime activation and
   provider-backed Vortex execution unambiguous.
   - Source: maintainer June 17, 2026 runtime activation gap note and follow-up observation that the

@@ -4630,9 +4630,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
         blocker_id="cg21.workflow.distinct.native_vortex_operator_missing",
         claim_boundary=(
-            "distinct remains blocked for public local compatibility workflows until a native "
-            "Vortex operator route is admitted. Direct local-source smoke evidence is internal-only "
-            "and no external fallback is used."
+            "Row-level distinct has scoped SQL local-source runtime evidence and now requires "
+            "Vortex preparation before that product-local compatibility boundary, but it is not "
+            "yet a native Vortex middle/operator route. Direct local-source smoke evidence is "
+            "internal-only and no external fallback is used."
         ),
     ),
     _df_method(
@@ -4647,9 +4648,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
         blocker_id="cg21.workflow.drop-duplicates.native_vortex_operator_missing",
         claim_boundary=(
-            "drop_duplicates remains blocked for public local compatibility workflows until a native "
-            "Vortex operator route is admitted. Direct local-source smoke evidence is internal-only "
-            "and no external fallback is used."
+            "No-argument row-level drop_duplicates lowers to the same scoped distinct front-door "
+            "shape after Vortex preparation, but it is not yet a native Vortex middle/operator "
+            "route. subset/keep variants and duplicate mask semantics remain deterministic "
+            "blockers until they have explicit semantics and runtime evidence."
         ),
     ),
     _df_method(
@@ -4664,9 +4666,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
         blocker_id="cg21.workflow.unique.native_vortex_operator_missing",
         claim_boundary=(
-            "unique remains blocked for public local compatibility workflows until a native "
-            "Vortex operator route is admitted. Direct local-source smoke evidence is internal-only "
-            "and no external fallback is used."
+            "unique lowers to the row-level distinct front-door shape after Vortex preparation, "
+            "but it is not yet a native Vortex middle/operator route. Column-specific unique "
+            "semantics remain outside this v1 claim unless expressed through admitted "
+            "grouped/count-distinct routes."
         ),
     ),
     _df_method(
@@ -5388,14 +5391,17 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         required_evidence=(
             "native_vortex_profile_runtime",
             "native_vortex_schema_observability",
+            "vortex_prepared_state_or_native_vortex_input",
             "bounded_materialization_contract",
             "no_fallback_evidence",
         ),
         materialization_required=False,
         claim_boundary=(
-            "Public local-source profile remains blocked until it has a native Vortex runtime "
-            "profile/materialization contract. Broad runtime profiling, resource tracing, "
-            "quarantine output, production observability, and performance claims remain blocked."
+            "Public local-source profile can currently produce a bounded product-local summary "
+            "after Vortex preparation, but it remains blocked as a production-admitted native "
+            "Vortex runtime profile until schema/statistics observability and materialization "
+            "evidence are attached to a native route. Broad runtime profiling, resource tracing, "
+            "production observability, and performance claims remain blocked."
         ),
     ),
 )
@@ -5896,13 +5902,26 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "materialized_python_interop_boundaries",
         "python_context",
         "Pandas, Arrow, IPC, and decoded materialized input boundaries",
-        "diagnostic_only",
-        "deterministic_boundary_diagnostic",
+        "high_level_context",
+        "scoped_runtime_supported",
         context_methods=("from_pandas", "from_arrow_table", "from_arrow_ipc"),
-        runtime_route="workflow-unsupported-plan_or_generated_rows_reentry_boundary",
-        promotion_criteria="decoded/materialized boundaries must re-enter through explicit ShardLoom routes",
-        evidence_refs=("decoded_materialization_interop", "workflow_unsupported_plan", "no_fallback_evidence"),
-        claim_boundary="Boundary diagnostics and scoped re-entry only; no hidden pandas/Arrow execution fallback.",
+        runtime_route="bounded_materialization_container_boundary|generated_rows_reentry_boundary",
+        promotion_criteria=(
+            "bounded to_* helpers are explicit decoded container boundaries after Vortex "
+            "preparation/native input, and from_* helpers re-enter through generated-source routes"
+        ),
+        evidence_refs=(
+            "decoded_materialization_interop",
+            "bounded_materialization_contract",
+            "optional_dependency_policy",
+            "generated_source_user_rows",
+            "no_fallback_evidence",
+        ),
+        claim_boundary=(
+            "Scoped materialization and re-entry boundaries only; pandas, Arrow, and NumPy are "
+            "optional containers, not execution engines. No hidden external-engine fallback, "
+            "unbounded materialization, object-store/table materialization, or performance claim."
+        ),
     ),
     _graduation_row(
         "benchmark_release_and_claim_planning",

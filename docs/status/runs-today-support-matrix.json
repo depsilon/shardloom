@@ -65,12 +65,12 @@
   ],
   "row_count": 40,
   "support_state_counts": {
-    "executable": 24,
+    "executable": 25,
     "feature_gated": 5,
     "internal_smoke_only": 1,
     "diagnostic_only": 3,
     "report_only": 1,
-    "blocked": 5,
+    "blocked": 4,
     "future": 1
   },
   "family_counts": {
@@ -83,7 +83,6 @@
   },
   "blocker_ids": [
     "feature.vortex_write_required_for_default_build",
-    "cg21.route.local_file_vortex_middle_required",
     "feature.universal_format_io_required_for_default_build",
     "review-p0-3.object_store_runtime_and_path_safety_required",
     "cg21.route.direct_local_file_blocked",
@@ -131,6 +130,7 @@
     "traditional_direct_transient_tests",
     "python.tests.test_quickstart_proof",
     "python.tests.test_query_builder",
+    "sql_python_dataframe_vortex_middle_gate",
     "public_workflow_direct_policy_block_tests",
     "vortex_count_tests",
     "vortex_filter_project_tests",
@@ -218,8 +218,8 @@
       "support_status": "unsupported_boundary",
       "diagnostic_code": "SL_UNSUPPORTED_PRODUCTION_SQL_DATAFRAME",
       "blocker_id": "cg21.workflow.sql.frontend_unsupported",
-      "message": "Broad production SQL/DataFrame execution is not admitted; scoped local-source/source-free smokes remain fixture evidence only.",
-      "next_action": "Use capabilities sql,dataframe and workflow-unsupported-plan to inspect supported local shapes before requesting execution.",
+      "message": "Broad production SQL/DataFrame execution is not admitted; scoped local Python/SQL/DataFrame workflows must use Vortex preparation/native input and deterministic route evidence.",
+      "next_action": "Use ctx.read(...), ctx.sql(...), route/run, capabilities sql,dataframe, and workflow-unsupported-plan to inspect supported local Vortex-prepared/native shapes before requesting broader execution.",
       "required_evidence": [
         "sql_parser",
         "binder",
@@ -818,23 +818,30 @@
       "id": "python_local_query_builder",
       "family": "python_api",
       "surface": [
+        "ctx.read",
         "read_csv",
         "read_json",
+        "read_parquet",
+        "read_arrow_ipc",
+        "read_avro",
+        "read_orc",
         "sql",
-        "LazyFrame.collect local-file auto route"
+        "LazyFrame.collect/write local-file auto route"
       ],
-      "support_state": "blocked",
-      "feature_gate": "default",
+      "support_state": "executable",
+      "feature_gate": "release-user-surfaces for Vortex preparation/provider execution; default builds fail closed with deterministic feature-gate diagnostics",
       "evidence_refs": [
         "python.tests.test_query_builder",
+        "python.tests.test_cli_client",
+        "sql_python_dataframe_vortex_middle_gate",
         "public_workflow_direct_policy_block_tests"
       ],
-      "blocker_id": "cg21.route.local_file_vortex_middle_required",
+      "blocker_id": "none",
       "claim_gate_status": "not_claim_grade",
-      "claim_boundary": "public local-file Python workflows require Vortex preparation or native Vortex input; decoded direct local-source smoke is internal-only",
-      "runtime_execution": false,
-      "data_read": false,
-      "write_io": false,
+      "claim_boundary": "scoped local Python/SQL/DataFrame workflows normalize through Vortex preparation or native Vortex input before admitted native primitive/provider execution where those routes exist; remaining scoped product-local operators require Vortex preparation but are not native Vortex middle claims. Direct decoded local-source smoke remains internal-only; no arbitrary SQL/DataFrame, object-store/table, fallback, or performance claim",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": true,
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
