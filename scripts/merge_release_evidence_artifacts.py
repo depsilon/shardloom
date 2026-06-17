@@ -4,8 +4,9 @@
 
 GitHub upload-artifact can expose different roots depending on the uploaded path
 set. Release validators, however, read fixed repo-relative paths such as
-``target/release-dry-run-proof`` and ``python/dist``. This script makes that
-merge explicit so downstream jobs do not depend on artifact path-shaping quirks.
+``target/release-dry-run-proof/transcript.json`` and release evidence reports.
+This script makes that merge explicit so downstream jobs do not depend on
+artifact path-shaping quirks.
 """
 
 from __future__ import annotations

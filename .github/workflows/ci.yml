@@ -262,10 +262,7 @@ jobs:
         with:
           name: release-local-smoke-evidence
           path: |
-            python/dist
-            target/debug/shardloom
-            target/release-dry-run-proof
-            target/release-provenance-dry-run
+            target/release-dry-run-proof/transcript.json
           if-no-files-found: ignore
           retention-days: 14
 
@@ -360,12 +357,6 @@ jobs:
           test -f target/dependency-audit-report.json
           test -f target/release-dry-run-proof/transcript.json
           test -f target/release-provenance-dry-run/supply-chain-release-evidence.json
-          python - <<'PY'
-          from pathlib import Path
-          assert Path("target/debug/shardloom").is_file()
-          assert list(Path("python/dist").glob("shardloom-*.whl"))
-          assert list(Path("python/dist").glob("shardloom-*.tar.gz"))
-          PY
       - name: Contribution governance
         run: python scripts/check_contribution_governance.py
       - name: Workspace version source contract
@@ -591,12 +582,6 @@ jobs:
           test -f target/release-dry-run-proof/transcript.json
           test -f target/release-provenance-dry-run/manifest.json
           test -f target/release-provenance-dry-run/supply-chain-release-evidence.json
-          python - <<'PY'
-          from pathlib import Path
-          assert Path("target/debug/shardloom").is_file()
-          assert list(Path("python/dist").glob("shardloom-*.whl"))
-          assert list(Path("python/dist").glob("shardloom-*.tar.gz"))
-          PY
           test -f target/release-security-gate-report.json
           test -f target/golden-workflow-report.json
           test -d target/golden-workflows
