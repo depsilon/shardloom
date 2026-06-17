@@ -178,6 +178,88 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
+- [x] `PY-RUNTIME-ACTIVATION-PROVIDER-PROMOTION-1` Make normal Python runtime activation and
+  provider-backed Vortex execution unambiguous.
+  - Source: maintainer June 17, 2026 runtime activation gap note and follow-up observation that the
+    traditional analytics native provider appears to contain the production operator behavior but is
+    still exposed through benchmark/smoke naming and package feature gates.
+  - Current state: direct `.vortex` primitive and exact benchmark-family native operator shapes can
+    route through the shared public workflow facade, and the provider-backed aggregate, join,
+    top-N, cast/try-cast, contains, and native `write_vortex` paths reuse
+    `vortex-production-runtime-run`. Normal local CSV/JSONL Python workflows are admitted through
+    the product-local route but still disclose
+    `pending_native_vortex_middle_unification`. Package/release builds now use the
+    `release-user-surfaces` feature set, which enables `vortex-production-runtime` and the promoted
+    provider lane; the benchmark-named `vortex-traditional-analytics-benchmark` feature remains only
+    a legacy/internal compatibility alias for benchmark harness code.
+  - Intake review: accepted runtime activation visibility and provider promotion as one cohesive
+    readiness item because both problems share the same user-facing confusion: a successful Python
+    workflow does not currently make it obvious whether ShardLoom used product-local compatibility
+    execution, native Vortex primitive execution, or the provider-backed traditional analytics
+    runtime. The fix must not copy benchmark harness code blindly or rebrand smoke caps as
+    production behavior; reusable provider runtime pieces should be extracted, wrapped, or
+    re-feature-gated behind a production runtime boundary with unchanged no-fallback evidence.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: metadata-first evidence summary applies to every Python result;
+    dynamic admission applies to choosing product-local, native primitive, promoted provider, or
+    deterministic blocker; capillary extraction applies to splitting reusable provider runtime
+    kernels/contracts away from benchmark publication harness code; PulseWeave applies where the
+    provider already owns parallelism, split planning, source-state reuse, and build/probe state.
+    Do not introduce a new per-format compute stack; CSV/JSONL/Parquet/Arrow/Avro/ORC/JSON should
+    remain input adapters that normalize into the shared ShardLoom logical/runtime contract.
+  - Execution checklist:
+    - [x] Add a compact Python `activation_summary` surface derived from the existing
+      `OutputEnvelope`, covering route ID/status, execution mode, native Vortex activation status,
+      required feature gate, source format, Vortex read path, scan/pushdown signals,
+      source-state reuse, parallelism, decode/materialization, sink status, fallback/external
+      engine flags, claim gate, and unsupported diagnostics.
+    - [x] Expose `activation_summary` on normal result wrappers returned by route inspection,
+      public workflow execution, local Python collect/write, direct Vortex collect/write, and
+      unsupported workflow reports.
+    - [x] Add a first-class public route field for `native_vortex_required_feature_gate` and label
+      provider-route missing-feature blockers as `feature_gated` instead of generic missing runtime
+      support.
+    - [x] Update README/Python/user-surface docs so normal examples show
+      `result.activation_summary.as_dict()` or selected activation fields instead of implying users
+      must inspect large raw envelopes or internal benchmark commands.
+    - [x] Extract or promote the reusable traditional analytics provider runtime into a
+      production-named provider boundary such as `vortex-production-runtime`, leaving benchmark
+      harness/publication timing logic under benchmark-specific commands.
+    - [x] Decide and implement package/Homebrew/PyPI feature posture for the promoted provider so
+      installed binaries either support the advertised provider lane or emit a clear
+      `feature_gated` activation summary with exact installation/build next action.
+    - [x] Add route-certificate and Python UAT coverage proving the normal Python benchmark/product
+      surface can activate the same promoted provider route as the benchmark lane when the source is
+      already Vortex or explicitly prepared.
+    - [x] Promote admitted provider-backed native Vortex user routes
+      (`native_vortex_user_aggregate`, `native_vortex_user_join`, `native_vortex_user_top_n`,
+      `native_vortex_user_cast`, `native_vortex_user_contains`, `native_vortex_user_sink`) from
+      benchmark/smoke wording to `production_admitted_local_workflow` release-surface evidence while
+      retaining benchmark command aliases for benchmark harnesses.
+    - [x] Add schema-shape diagnostics so benchmark-specific provider assumptions are reported as
+      deterministic input/schema blockers instead of surprising users during normal Python runs.
+    - [x] Move completed detail to the phased execution completed ledger after validation and PR
+      handling.
+  - User-visible surface: `result.activation_summary`, `route.activation_summary`,
+    `ctx.read(...)`, `ctx.read_csv(...)`, `ctx.read_json(...)`, `ctx.read_vortex(...)`,
+    DataFrame-style lazy chains, SQL facade routes, package/Homebrew capability messages, README,
+    Python README, user-surface index, and v1 runtime-scope docs.
+  - Evidence required: Python activation-summary tests; Rust route-field tests; no-fallback
+    assertions; package feature-gate diagnostics; route-certificate proof for promoted providers;
+    docs updated to distinguish product-local, native primitive, provider-backed native Vortex, and
+    benchmark publication surfaces.
+  - Acceptance: every normal Python result can explain what actually ran without envelope scraping;
+    package/default binary native-provider blockers name the missing feature gate and next action;
+    product-local compatibility workflows are not falsely described as native Vortex middle
+    execution; traditional analytics runtime reuse is promoted through a production boundary rather
+    than copied as benchmark harness code.
+  - Verification: focused Python model/query tests; focused `shardloom-cli` public route tests;
+    `cargo fmt --all -- --check`; relevant package/readiness validators before release packaging.
+  - Fallback boundary: all successful and blocked paths must keep `fallback_attempted=false` and
+    `external_engine_invoked=false`.
+  - Ledger rule: completed detail moves to
+    `docs/architecture/phased-execution-completed-ledger.md`.
+
 - [x] `PY-LOCAL-WORKFLOW-1M-PRODUCT-ROUTE-1` Promote released Python local CSV/JSONL
   workflows out of smoke-only caps.
   - Source: maintainer request on June 16, 2026 to remove synthetic caps from the released Python
@@ -356,7 +438,7 @@ Current autonomous execution order:
       - [x] Promote exact benchmark-family Python/DataFrame and SQL shapes for grouped count/sum,
         null-heavy aggregate, hash join, global top-N, clean/cast/filter, malformed timestamp
         cast, substring contains, and `write_vortex` result sinks to real native Vortex
-        provider-backed routes via `traditional-analytics-vortex-run`, with provider
+        provider-backed routes via `vortex-production-runtime-run`, with provider
         scenario/right-input evidence in public run envelopes.
         - Evidence note: route support/status fields now classify admitted provider routes
           (`native_vortex_user_aggregate`, `native_vortex_user_join`, `native_vortex_user_top_n`,
@@ -371,7 +453,7 @@ Current autonomous execution order:
       execution instead of compatibility fallback.
       - Evidence note: exact hash-join Python/DataFrame and SQL shapes now pass
         `native_vortex_right_input` through the public workflow facade to
-        `traditional-analytics-vortex-run`, with route certificate rows proving
+        `vortex-production-runtime-run`, with route certificate rows proving
         `native_vortex_user_join`, provider scenario `hash-join`, `fallback_attempted=false`, and
         `external_engine_invoked=false`. Arbitrary multi-input native Vortex joins remain outside
         the v1 claim and continue to block deterministically.
@@ -451,7 +533,7 @@ Current autonomous execution order:
   - Ledger rule: completed details move to
     `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] `RELEASE-PACKAGE-0.1X-BUNDLED-CLI-1` Python package bundled CLI binary resolution for
+- [x] `RELEASE-PACKAGE-0.1X-BUNDLED-CLI-1` Python package bundled CLI binary resolution for
   managed development environments.
   - Source: June 16, 2026 package/UAT feedback after live package simulation showed normal
     `sl.context()` works when `shardloom` is on `PATH`, but PyPI-only managed environments such as
@@ -514,7 +596,7 @@ Current autonomous execution order:
         `wheel_import_and_client_smoke_without_shardloom_bin`, and
         `wheel_client_resolved_bundled_cli`; channel matrices remain publication records and do not
         claim package publication for unreleased future wheels.
-    - [ ] Move completed details to the ledger after implementation, validation, and patch-release
+    - [x] Move completed details to the ledger after implementation, validation, and patch-release
       PR handling.
   - Next outcome: a cohesive patch-release packaging PR that makes `sl.context()` usable from a
     Python-only managed environment on supported wheel platforms without `SHARDLOOM_BIN`.

@@ -28,7 +28,13 @@ from .client import (
     SqlLocalSourceSmokeReport,
     VortexIngestSmokeReport,
 )
-from .models import ClaimSummary, Diagnostic, EvidenceSummary, OutputEnvelope
+from .models import (
+    ClaimSummary,
+    Diagnostic,
+    EvidenceSummary,
+    OutputEnvelope,
+    RuntimeActivationSummary,
+)
 from .prepared_route import CompatibilityPreparedVortexRoute
 
 SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet", "arrow-ipc", "avro", "orc")
@@ -2801,6 +2807,12 @@ class UnsupportedWorkflowOperationReport:
         return self.envelope.evidence_summary
 
     @property
+    def activation_summary(self) -> RuntimeActivationSummary:
+        """Return compact runtime activation evidence for this unsupported diagnostic."""
+
+        return self.envelope.activation_summary
+
+    @property
     def claim_summary(self) -> ClaimSummary:
         """Return the compact claim summary for this unsupported diagnostic."""
 
@@ -3013,6 +3025,12 @@ class VortexWorkflowExecutionReport:
         """Return compact evidence from the backing Vortex primitive."""
 
         return self.envelope.evidence_summary
+
+    @property
+    def activation_summary(self) -> RuntimeActivationSummary:
+        """Return compact runtime activation evidence for this Vortex workflow."""
+
+        return self.envelope.activation_summary
 
     @property
     def claim_summary(self) -> ClaimSummary:

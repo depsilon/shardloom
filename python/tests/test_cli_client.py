@@ -68,6 +68,7 @@ from shardloom import (
     SessionSqlResult,
     SessionSqlWorkflow,
     OutputEnvelope,
+    RuntimeActivationSummary,
     PreparedVortexArtifacts,
     PreparedVortexBatchResult,
     PreparedVortexQuery,
@@ -517,7 +518,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     ["runs_today_future_row_count", "0"],
                     ["runs_today_all_rows_no_fallback_no_external_engine", "true"],
                     ["runs_today_performance_claim_allowed", "false"],
-                    ["runs_today_package_publication_allowed", "false"],
+                    ["runs_today_package_publication_allowed", "true"],
                     ["production_unsupported_diagnostic_schema_version", "shardloom.production_unsupported_diagnostics.v1"],
                     ["production_unsupported_diagnostic_row_count", "2"],
                     ["production_unsupported_diagnostic_row_order", "broad_sql_dataframe_runtime,object_store_runtime"],
@@ -613,7 +614,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(matrix.blocked_row_count, 1)
         self.assertTrue(matrix.all_rows_no_fallback_no_external_engine)
         self.assertFalse(matrix.performance_claim_allowed)
-        self.assertFalse(matrix.package_publication_allowed)
+        self.assertTrue(matrix.package_publication_allowed)
         self.assertEqual(
             matrix.production_unsupported_diagnostic_schema_version,
             "shardloom.production_unsupported_diagnostics.v1",
@@ -1145,6 +1146,157 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertTrue(explicit_view.no_runtime)
         self.assertTrue(explicit_view.no_fallback)
+
+    def test_runtime_activation_summary_labels_product_local_middle(self) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "run",
+                "status": "success",
+                "summary": "local product workflow",
+                "human_text": "local product workflow",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {"fields": []},
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {"fields": []},
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [
+                    {"key": "public_workflow_route_id", "value": "local_file_product_query"},
+                    {
+                        "key": "public_workflow_route_runtime_status",
+                        "value": "production_admitted_local_workflow",
+                    },
+                    {
+                        "key": "public_workflow_route_support_status",
+                        "value": "production_admitted_local_workflow",
+                    },
+                    {"key": "public_workflow_execution_mode", "value": "product_local"},
+                    {
+                        "key": "public_workflow_vortex_normalization_point",
+                        "value": "compatibility_source_state_pre_vortex_unification",
+                    },
+                    {
+                        "key": "public_workflow_vortex_middle_status",
+                        "value": "pending_native_vortex_middle_unification",
+                    },
+                    {"key": "source_format", "value": "csv"},
+                    {"key": "runtime_execution", "value": "true"},
+                    {"key": "source_state_reuse_allowed", "value": "false"},
+                    {"key": "source_state_reuse_hit", "value": "false"},
+                    {"key": "public_workflow_max_parallelism", "value": "1"},
+                    {"key": "data_decoded", "value": "true"},
+                    {"key": "data_materialized", "value": "true"},
+                    {"key": "fallback_attempted", "value": "false"},
+                    {"key": "external_engine_invoked", "value": "false"},
+                    {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                ],
+            }
+        )
+
+        summary = envelope.activation_summary
+
+        self.assertIsInstance(summary, RuntimeActivationSummary)
+        self.assertEqual(summary.route_id, "local_file_product_query")
+        self.assertEqual(summary.execution_mode, "product_local")
+        self.assertEqual(summary.native_vortex_status, "pending_middle_unification")
+        self.assertFalse(summary.native_vortex_enabled)
+        self.assertEqual(summary.applied_parallelism, 1)
+        self.assertEqual(
+            summary.vortex_read_path,
+            "compatibility_source_state_pre_vortex_unification",
+        )
+        self.assertFalse(summary.fallback_attempted)
+        self.assertFalse(summary.external_engine_invoked)
+
+    def test_runtime_activation_summary_labels_native_provider_feature_gate(self) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "run",
+                "status": "unsupported",
+                "summary": "blocked",
+                "human_text": "blocked",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [
+                    {
+                        "code": "not_implemented",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "native Vortex provider-backed user routes are feature-gated",
+                        "feature": "public_workflow_route.native_vortex_provider_scenario",
+                        "reason": "compiled_without=vortex-production-runtime",
+                        "suggested_next_step": "build with the provider feature",
+                        "fallback": {
+                            "attempted": False,
+                            "allowed": False,
+                            "engine": None,
+                            "reason": "disabled",
+                        },
+                    }
+                ],
+                "result": {"fields": []},
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {"fields": []},
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [
+                    {"key": "public_workflow_route_id", "value": "unsupported"},
+                    {
+                        "key": "public_workflow_blocker_id",
+                        "value": "py-vortex-route-unify-1.native_vortex_provider_feature_gated",
+                    },
+                    {
+                        "key": "public_workflow_blocker_reason",
+                        "value": "native Vortex provider route requires the feature",
+                    },
+                    {
+                        "key": "public_workflow_native_vortex_required_feature_gate",
+                        "value": "vortex-production-runtime",
+                    },
+                    {"key": "source_format", "value": "vortex"},
+                    {"key": "runtime_execution", "value": "false"},
+                    {"key": "fallback_attempted", "value": "false"},
+                    {"key": "external_engine_invoked", "value": "false"},
+                    {"key": "claim_gate_status", "value": "not_claim_grade"},
+                ],
+            }
+        )
+
+        summary = envelope.activation_summary
+
+        self.assertEqual(summary.native_vortex_status, "feature_gated")
+        self.assertFalse(summary.native_vortex_enabled)
+        self.assertEqual(
+            summary.native_vortex_required_feature_gate,
+            "vortex-production-runtime",
+        )
+        self.assertEqual(
+            summary.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_provider_feature_gated",
+        )
+        self.assertEqual(len(summary.unsupported_diagnostics), 1)
+        self.assertEqual(
+            summary.unsupported_diagnostics[0]["reason"],
+            "compiled_without=vortex-production-runtime",
+        )
 
     def test_execution_result_view_preserves_artifact_rich_slots(self) -> None:
         envelope = OutputEnvelope.from_json(
@@ -10791,6 +10943,53 @@ class ShardLoomClientTests(unittest.TestCase):
         )
 
         self.assertEqual(result.field_int("rows_scanned"), 42)
+
+    def test_vortex_production_runtime_run_passes_explicit_inputs(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "vortex-production-runtime-run",
+                    "group-by-aggregation",
+                    "fact.vortex",
+                    "dim.vortex",
+                    "--execution-mode",
+                    "native_vortex",
+                    "--max-parallelism",
+                    "1",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "vortex-production-runtime-run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "execution", "value": "native_vortex_user_operator_provider_performed"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).vortex_production_runtime_run(
+            "group-by-aggregation",
+            "fact.vortex",
+            "dim.vortex",
+            execution_mode="native_vortex",
+            max_parallelism=1,
+        )
+
+        self.assertEqual(result.command, "vortex-production-runtime-run")
+        self.assertFalse(result.fallback.attempted)
+        self.assertFalse(result.field_bool("external_engine_invoked", True))
 
     def test_traditional_analytics_vortex_run_can_request_result_sink(self) -> None:
         binary = self.fake_cli(

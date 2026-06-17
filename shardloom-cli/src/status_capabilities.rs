@@ -5980,12 +5980,12 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         external_engine_invoked: false,
     },
     RunsTodaySupportRow {
-        id: "cli_prepared_vortex_batch_benchmark",
+        id: "cli_vortex_production_runtime_and_prepared_batch_benchmark",
         family: "cli_command",
-        surface: "traditional-analytics-vortex-batch-run,traditional-analytics-vortex-run,traditional-analytics-prepare-batch-run",
+        surface: "vortex-production-runtime-run,traditional-analytics-vortex-batch-run,traditional-analytics-vortex-run,traditional-analytics-prepare-batch-run",
         support_state: "executable",
-        feature_gate: "default",
-        evidence_refs: "traditional_benchmark_harness,benchmark_runtime_tests,prepared_vortex_batch_python_tests",
+        feature_gate: "release-user-surfaces for production facade; legacy benchmark commands remain benchmark harness surfaces",
+        evidence_refs: "vortex_production_runtime_facade,traditional_benchmark_harness,benchmark_runtime_tests,prepared_vortex_batch_python_tests",
         blocker_id: "none",
         claim_gate_status: "not_claim_grade",
         claim_boundary: "local prepared-route evidence and benchmark rows only; no performance-superiority claim",
@@ -6414,13 +6414,13 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
     RunsTodaySupportRow {
         id: "claim_package_publication",
         family: "claim_state",
-        surface: "pypi,crates_io,oci,package_install",
-        support_state: "blocked",
-        feature_gate: "not_enabled",
-        evidence_refs: "package_channel_readiness_matrix,release_plan,python_wrapper_plan",
-        blocker_id: "release.package_publication_gate_required",
-        claim_gate_status: "not_claim_grade",
-        claim_boundary: "no public package publication or install-channel claim is allowed",
+        surface: "github_release,pypi,homebrew,package_install",
+        support_state: "executable",
+        feature_gate: "selected_v0_1_x_channels_published",
+        evidence_refs: "package_channel_readiness_matrix,release_download_proof,pypi_proof,homebrew_proof",
+        blocker_id: "none",
+        claim_gate_status: "package_access_only",
+        claim_boundary: "selected GitHub release, PyPI, and Homebrew package access only; future Scoop, winget, conda, GHCR, crates.io, signing expansion, production, or performance claims remain out of scope",
         runtime_execution: false,
         data_read: false,
         write_io: false,
@@ -6701,7 +6701,7 @@ fn runs_today_fields() -> Vec<(String, String)> {
             && runs_today_all_rows_external_engine_invoked_false(),
     );
     push_bool_field(&mut fields, "runs_today_runtime_expansion_allowed", false);
-    push_bool_field(&mut fields, "runs_today_package_publication_allowed", false);
+    push_bool_field(&mut fields, "runs_today_package_publication_allowed", true);
     push_bool_field(&mut fields, "runs_today_performance_claim_allowed", false);
     push_field(
         &mut fields,

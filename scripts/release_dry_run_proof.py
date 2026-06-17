@@ -674,7 +674,16 @@ def main() -> int:
     steps.append(
         run_step(
             name="build_cli_binary",
-            command=["cargo", "build", "-p", "shardloom-cli", "--bin", "shardloom"],
+            command=[
+                "cargo",
+                "build",
+                "-p",
+                "shardloom-cli",
+                "--bin",
+                "shardloom",
+                "--features",
+                "release-user-surfaces",
+            ],
             cwd=repo_root,
         )
     )

@@ -171,10 +171,18 @@ result = (
 
 print(result.output_row_count)
 print(result.first_result_row)
+print(result.activation_summary.native_vortex_status)
+print(result.activation_summary.execution_mode, result.activation_summary.applied_parallelism)
 print(result.evidence_summary.output_path)
 print(result.claim_summary.claim_gate_status)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
+
+Every normal execution result exposes `activation_summary`, a compact view of route ID/status,
+execution mode, native Vortex activation, required feature gate if any, parallelism,
+pushdown/source-state signals when available, decode/materialization status, sink status,
+fallback/external-engine flags, and claim-gate posture. Agents and notebooks should prefer this
+summary before inspecting the full evidence envelope.
 
 The same query shape can read admitted local formats through `ctx.read(...)` or the explicit
 format helpers and write to `write(...)`, `write_jsonl(...)`, `write_csv(...)`, or feature-gated
@@ -443,9 +451,11 @@ print(result.fallback.attempted)
 `read_vortex(...).count/filter/select/limit/collect`, admitted grouped aggregate/join/top-N/cast/
 contains chains, and native `write_vortex` sinks route through the public native Vortex facade when
 their shape has a certificate-backed provider route. `native_vortex_route(...)` remains the
-explicit route-comparable surface for `traditional-analytics-vortex-run` /
-`traditional-analytics-vortex-batch-run`; it keeps source, execution mode, scenario/operator,
-memory/parallelism hints, result sink, and no-fallback evidence visible.
+explicit route-comparable surface for the production provider facade
+(`vortex-production-runtime-run`) and the lower-level benchmark-compatible helpers
+(`traditional-analytics-vortex-run` / `traditional-analytics-vortex-batch-run`); it keeps source,
+execution mode, scenario/operator, memory/parallelism hints, result sink, and no-fallback evidence
+visible.
 
 Engine intent is explicit. `engine="auto"` selects the current bounded snapshot
 batch path when allowed; `live` selects the CG-22 in-memory fixture path for
@@ -2399,7 +2409,8 @@ The current live ETL surface is intentionally narrow and explicit.
 Compatibility-file mode runs `traditional-analytics-run`, which imports CSV,
 JSON/JSONL/NDJSON, Parquet, Arrow IPC, Avro, or ORC inputs into temporary local
 Vortex files before running the temporary benchmark operator. Native Vortex mode
-runs `traditional-analytics-vortex-run` from existing `.vortex` inputs. The
+runs the same provider runtime exposed to release routes as
+`vortex-production-runtime-run` from existing `.vortex` inputs. The
 low-level `traditional_analytics_vortex_run` helper can also pass an explicit
 `cdc_delta_vortex` artifact for the scoped prepared/native CDC overlay row; that
 does not imply broad table CDC or transaction support.

@@ -3029,11 +3029,11 @@ fn assert_runs_today_summary_fields(output: &str) {
             "cli_command,python_api,input_format,output_format,execution_mode,claim_state",
         ),
         ("runs_today_row_count", "39"),
-        ("runs_today_executable_row_count", "24"),
+        ("runs_today_executable_row_count", "25"),
         ("runs_today_feature_gated_row_count", "5"),
         ("runs_today_diagnostic_only_row_count", "3"),
         ("runs_today_report_only_row_count", "1"),
-        ("runs_today_blocked_row_count", "5"),
+        ("runs_today_blocked_row_count", "4"),
         ("runs_today_future_row_count", "1"),
         ("runs_today_cli_command_row_count", "12"),
         ("runs_today_python_api_row_count", "5"),
@@ -3055,7 +3055,6 @@ fn assert_runs_today_effect_fields(output: &str) {
         "fallback_attempted",
         "external_engine_invoked",
         "runs_today_runtime_expansion_allowed",
-        "runs_today_package_publication_allowed",
         "runs_today_performance_claim_allowed",
     ] {
         assert!(
@@ -3066,6 +3065,7 @@ fn assert_runs_today_effect_fields(output: &str) {
     for key in [
         "side_effect_free",
         "runtime_discovery_side_effect_free",
+        "runs_today_package_publication_allowed",
         "runs_today_all_rows_fallback_attempted_false",
         "runs_today_all_rows_external_engine_invoked_false",
         "runs_today_all_rows_no_fallback_no_external_engine",

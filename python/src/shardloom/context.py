@@ -1270,7 +1270,10 @@ class UserRouteCapabilityRow:
     def runtime_supported(self) -> bool:
         """Whether the route is admitted for scoped runtime use."""
 
-        return self.route_runtime_status == "scoped_runtime_supported"
+        return self.route_runtime_status in {
+            "scoped_runtime_supported",
+            "production_admitted_local_workflow",
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -1698,7 +1701,10 @@ class LocalVortexPrimitiveRouteRow:
     def runtime_supported(self) -> bool:
         """Whether this primitive route is admitted for scoped runtime use."""
 
-        return self.route_runtime_status == "scoped_runtime_supported"
+        return self.route_runtime_status in {
+            "scoped_runtime_supported",
+            "production_admitted_local_workflow",
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -1844,9 +1850,12 @@ class NativeVortexProviderRouteCertificateRow:
 
     @property
     def runtime_supported(self) -> bool:
-        """Whether the exact provider route is admitted for v1 scoped runtime use."""
+        """Whether the exact provider route is admitted for v1 runtime use."""
 
-        return self.route_runtime_status == "scoped_runtime_supported"
+        return self.route_runtime_status in {
+            "scoped_runtime_supported",
+            "production_admitted_local_workflow",
+        }
 
     @property
     def route_certificate_current(self) -> bool:
@@ -1907,7 +1916,7 @@ class NativeVortexProviderRouteCertificateReport:
     def feature_gate(self) -> str:
         """Return the shared provider-route feature gate."""
 
-        return "vortex-traditional-analytics-benchmark"
+        return "vortex-production-runtime"
 
     @property
     def all_runtime_supported(self) -> bool:
@@ -3356,8 +3365,8 @@ def _native_vortex_provider_route(
             if required_right_input
             else "not_applicable_single_input"
         ),
-        resolved_internal_command="traditional-analytics-vortex-run",
-        feature_gate="vortex-traditional-analytics-benchmark",
+        resolved_internal_command="vortex-production-runtime-run",
+        feature_gate="vortex-production-runtime",
         start_state="native_vortex_file",
         vortex_normalization_point="native_vortex_boundary",
         execution_policy="native_vortex",
@@ -3375,7 +3384,7 @@ def _native_vortex_provider_route(
         benchmark_route_equivalence=(
             "matches_named_traditional_analytics_vortex_provider_scenario"
         ),
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="production_admitted_local_workflow",
         fallback_attempted=False,
         external_engine_invoked=False,
         required_evidence=tuple(required_evidence),
@@ -5521,6 +5530,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "scoped_runtime_supported",
         cli_commands=(
             "vortex-ingest-smoke",
+            "vortex-production-runtime-run",
             "session-cache-smoke",
             "traditional-analytics-vortex-run",
             "traditional-analytics-vortex-batch-run",
@@ -5551,6 +5561,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "vortex_project",
             "vortex_filter_project",
             "local_vortex_primitive_smoke",
+            "vortex_production_runtime_run",
             "traditional_analytics_vortex_run",
             "traditional_analytics_vortex_batch_run",
             "traditional_analytics_prepare_batch_run",
@@ -5558,7 +5569,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "prepare_and_run_traditional_analytics_vortex_batch",
             "session_cache_smoke",
         ),
-        runtime_route="vortex-ingest-smoke|prepared_vortex|native_vortex_primitive",
+        runtime_route="vortex-ingest-smoke|prepared_vortex|native_vortex_primitive|vortex-production-runtime-run",
         promotion_criteria="routes normalize into Vortex-prepared or Vortex-native state with reuse/no-fallback evidence",
         evidence_refs=(
             "prepared_state_reuse_manifest",
@@ -6958,7 +6969,7 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         execution_mode="native_vortex",
         execution_route="ShardLoom local Vortex primitive runtime family",
         output_route="machine-readable native route report, bounded scoped collect output, or Vortex result sink",
-        evidence_route="traditional-analytics-vortex-run/vortex-batch envelope, Native I/O, execution mode, resource policy, and no-fallback evidence",
+        evidence_route="vortex-production-runtime-run/vortex-batch envelope, Native I/O, execution mode, resource policy, and no-fallback evidence",
         materialization_decode_boundary="Vortex metadata/encoded boundary; decoded output only when requested by result/report boundary",
         route_runtime_status="scoped_runtime_supported",
         benchmark_range=True,

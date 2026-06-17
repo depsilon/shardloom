@@ -525,11 +525,11 @@ def validate_runs_today(runs_today: dict[str, Any] | None) -> tuple[dict[str, An
         "cli_status_capability_reports",
         "python_status_capabilities",
         "python_generated_source_helpers",
-        "cli_prepared_vortex_batch_benchmark",
+        "cli_vortex_production_runtime_and_prepared_batch_benchmark",
     ]:
         if row_id not in by_id:
             blockers.append(f"runs-today missing supported learning row: {row_id}")
-    for row_id in ["claim_production_readiness", "claim_future_package_channels"]:
+    for row_id in ["claim_production_readiness", "claim_object_store_lakehouse_foundry_production"]:
         row = by_id.get(row_id)
         if not isinstance(row, dict):
             blockers.append(f"runs-today missing blocked claim row: {row_id}")

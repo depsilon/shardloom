@@ -80,6 +80,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "cargo check -p shardloom-vortex --features vortex-file-io",
             "cargo check -p shardloom-vortex --features vortex-local-primitives",
             "cargo check -p shardloom-vortex --features vortex-encoded-read-spike",
+            "cargo check -p shardloom-vortex --features release-user-surfaces",
             "cargo test -p shardloom-contract-tests --test conda_packaging_recipes",
             "cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark",
         ),

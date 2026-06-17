@@ -70,15 +70,19 @@ public_package_claim_allowed=false
 
 ## Runtime Feature-Gate Packaging Note
 
-The selected GitHub, PyPI, and Homebrew channels expose the default v0.1.3 package/CLI posture.
-Feature gates remain runtime/build-scope qualifiers and do not become package-channel readiness
-claims by being named in the public surface:
+The selected GitHub, PyPI, and Homebrew channels expose the v0.1.x package/CLI posture selected by
+the release build. Going forward, release-user packages build the CLI with
+`--features release-user-surfaces`, which enables the modular user-facing runtime capabilities that
+are already part of the release surface. Feature gates remain runtime/build-scope qualifiers and do
+not become production, object-store, platform, or performance claims by being enabled in a package:
 
 | Feature gate | Package/Homebrew posture | Claim boundary |
 | --- | --- | --- |
-| `universal-format-io` | Feature-gated local flat-scalar structured input/output support; not a default broad-format production claim. | Parquet, Arrow IPC, Avro, and ORC remain scoped local adapter/sink evidence surfaces until their feature-gated build and tests are explicitly selected. |
-| `vortex-write` | Feature-gated local Vortex output support; default builds must fail closed with a deterministic sink blocker when disabled. | Vortex output is the highest-fidelity target, but broad native write/commit/object-store behavior requires separate write-intent, recovery, and Native I/O evidence. |
-| `vortex-traditional-analytics-benchmark` | Feature-gated benchmark/runtime evidence path; not part of package installation proof by itself. | Benchmark-family prepared/native routes can support local evidence rows, but package availability does not imply performance superiority or production runtime scope. |
+| `release-user-surfaces` | Selected package build feature set for release user surfaces. | Enables scoped local adapters, Vortex writes, local primitives, and the production-named provider runtime; does not imply production/platform or performance superiority. |
+| `universal-format-io` | Included in `release-user-surfaces` for scoped local flat-scalar structured input/output support. | Parquet, Arrow IPC, Avro, and ORC remain scoped local adapter/sink evidence surfaces, not broad production table/lakehouse support. |
+| `vortex-write` | Included in `release-user-surfaces` for scoped local Vortex output support. | Vortex output is the highest-fidelity target, but broad native write/commit/object-store behavior requires separate write-intent, recovery, and Native I/O evidence. |
+| `vortex-production-runtime` | Included in `release-user-surfaces` for promoted provider-backed native Vortex operator routes. | Benchmark-family prepared/native routes can support local evidence rows, but package availability does not imply performance superiority, arbitrary Vortex SQL/DataFrame support, or production runtime scope. |
+| `vortex-traditional-analytics-benchmark` | Legacy/internal compatibility alias for benchmark harness and provider implementation code. | Do not present this as the release user-surface gate; use `vortex-production-runtime` or `release-user-surfaces` in public package guidance. |
 
 Package-channel proofs must state which binary/build profile was smoked. If a future channel ships
 with any of these gates enabled by default, the channel proof must include the matching route,

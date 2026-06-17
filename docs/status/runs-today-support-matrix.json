@@ -31,7 +31,7 @@
     "cli_pre_oom_memory_guard_smoke",
     "cli_object_store_write_recovery_smoke",
     "cli_local_table_commit_recovery_smoke",
-    "cli_prepared_vortex_batch_benchmark",
+    "cli_vortex_production_runtime_and_prepared_batch_benchmark",
     "cli_direct_transient_local_adapter_benchmark",
     "python_status_capabilities",
     "python_local_query_builder",
@@ -59,16 +59,15 @@
     "claim_production_readiness",
     "claim_performance_superiority",
     "claim_package_publication",
-    "claim_future_package_channels",
     "claim_object_store_lakehouse_foundry_production"
   ],
-  "row_count": 40,
+  "row_count": 39,
   "support_state_counts": {
     "executable": 25,
     "feature_gated": 5,
     "diagnostic_only": 3,
     "report_only": 1,
-    "blocked": 5,
+    "blocked": 4,
     "future": 1
   },
   "family_counts": {
@@ -77,7 +76,7 @@
     "input_format": 6,
     "output_format": 3,
     "execution_mode": 8,
-    "claim_state": 6
+    "claim_state": 5
   },
   "blocker_ids": [
     "feature.vortex_write_required_for_default_build",
@@ -89,7 +88,6 @@
     "cg22.cg23.object_store_runtime_evidence_required",
     "release.production_readiness_gate_required",
     "cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required",
-    "release.package_publication_gate_required",
     "platform.production_integration_evidence_required"
   ],
   "evidence_refs": [
@@ -121,6 +119,7 @@
     "cg10_object_store_runtime_gate",
     "local_table_append_commit_rehearsal_smoke",
     "commit_execution_promotion_gate",
+    "vortex_production_runtime_facade",
     "traditional_benchmark_harness",
     "benchmark_runtime_tests",
     "prepared_vortex_batch_python_tests",
@@ -166,8 +165,9 @@
     "global_architecture_gate",
     "benchmark_claim_evidence_plan",
     "benchmark_constitution_required",
-    "release_plan",
-    "python_wrapper_plan",
+    "release_download_proof",
+    "pypi_proof",
+    "homebrew_proof",
     "table_compat_plan",
     "foundry_readiness"
   ],
@@ -175,10 +175,10 @@
   "all_rows_external_engine_invoked_false": true,
   "all_rows_no_fallback_no_external_engine": true,
   "runtime_expansion_allowed": false,
-  "package_publication_allowed": false,
+  "package_publication_allowed": true,
   "performance_claim_allowed": false,
   "claim_gate_status": "not_claim_grade",
-  "claim_boundary": "current-state discoverability only; selected v0.1.3 package channels are published, but this matrix does not expand runtime support or authorize production, performance, object-store, lakehouse, Foundry, REST, broad package-channel, or Spark-replacement claims",
+  "claim_boundary": "current-state discoverability only; this matrix does not expand runtime support or authorize production, package, performance, object-store, lakehouse, Foundry, REST, or Spark-replacement claims",
   "production_unsupported_diagnostic_schema_version": "shardloom.production_unsupported_diagnostics.v1",
   "production_unsupported_diagnostic_docs_ref": "docs/release/known-unsupported-paths.md#production-family-diagnostic-catalog",
   "production_unsupported_diagnostic_row_order": [
@@ -412,8 +412,11 @@
     },
     {
       "id": "public_package_publication",
-      "production_family": "future_package_channels",
+      "production_family": "package_publication",
       "user_surface": [
+        "TestPyPI",
+        "PyPI",
+        "Homebrew",
         "Scoop",
         "winget",
         "conda-forge",
@@ -421,13 +424,15 @@
         "crates.io"
       ],
       "entrypoint_kind": "release_gate",
-      "support_status": "blocked_future_channels",
+      "support_status": "blocked",
       "diagnostic_code": "SL_UNSUPPORTED_PUBLIC_PACKAGE_PUBLICATION",
       "blocker_id": "release.package_publication_gate_required",
-      "message": "Selected v0.1.3 GitHub/TestPyPI/PyPI/Homebrew channels are published and proof-backed; future package channels, signing expansion, containers, feedstocks, and public Rust crates remain blocked.",
-      "next_action": "Use package-channel readiness reports for selected v0.1.3 installs; add separate channel proof before advertising future package channels.",
+      "message": "Public package publication, release tags, signing, uploads, and channel install claims require maintainer approval and channel proof.",
+      "next_action": "Use package-channel readiness reports and local dry-run proof until explicit maintainer approval exists.",
       "required_evidence": [
-        "future_channel_approval",
+        "maintainer_approval",
+        "testpypi_proof",
+        "pypi_proof",
         "channel_install_smoke",
         "sbom",
         "checksums",
@@ -734,16 +739,18 @@
       "external_engine_invoked": false
     },
     {
-      "id": "cli_prepared_vortex_batch_benchmark",
+      "id": "cli_vortex_production_runtime_and_prepared_batch_benchmark",
       "family": "cli_command",
       "surface": [
+        "vortex-production-runtime-run",
         "traditional-analytics-vortex-batch-run",
         "traditional-analytics-vortex-run",
         "traditional-analytics-prepare-batch-run"
       ],
       "support_state": "executable",
-      "feature_gate": "default",
+      "feature_gate": "release-user-surfaces for production facade; legacy benchmark commands remain benchmark harness surfaces",
       "evidence_refs": [
+        "vortex_production_runtime_facade",
         "traditional_benchmark_harness",
         "benchmark_runtime_tests",
         "prepared_vortex_batch_python_tests"
@@ -1197,20 +1204,18 @@
         "native_vortex"
       ],
       "support_state": "executable",
-      "feature_gate": "default plus vortex-traditional-analytics-benchmark for promoted provider routes",
+      "feature_gate": "default",
       "evidence_refs": [
         "vortex_count_tests",
         "vortex_filter_project_tests",
-        "vortex_query_trace_tests",
-        "native_vortex_provider_route_certificate_report",
-        "python.tests.test_query_builder"
+        "vortex_query_trace_tests"
       ],
       "blocker_id": "none",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "scoped local count/filter/project primitives plus exact grouped aggregate, hash join, global top-N, cast/try-cast, substring contains, and native Vortex sink routes; arbitrary Vortex SQL/DataFrame plans still require explicit route certificates",
+      "claim_boundary": "scoped local count/filter/project primitive coverage only",
       "runtime_execution": true,
       "data_read": true,
-      "write_io": true,
+      "write_io": false,
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
@@ -1392,45 +1397,22 @@
       "id": "claim_package_publication",
       "family": "claim_state",
       "surface": [
+        "github_release",
         "pypi",
+        "homebrew",
         "package_install"
       ],
       "support_state": "executable",
-      "feature_gate": "selected v0.1.3 channels",
+      "feature_gate": "selected_v0_1_x_channels_published",
       "evidence_refs": [
         "package_channel_readiness_matrix",
-        "github_prerelease_v0_1_3_transcript",
-        "testpypi_v0_1_3_transcript",
-        "pypi_v0_1_3_transcript",
-        "homebrew_v0_1_3_transcript"
+        "release_download_proof",
+        "pypi_proof",
+        "homebrew_proof"
       ],
       "blocker_id": "none",
       "claim_gate_status": "package_access_only",
-      "claim_boundary": "GitHub/TestPyPI/PyPI/Homebrew selected channels are proof-backed package access only; production, performance, broad runtime, and future channel claims remain blocked",
-      "runtime_execution": true,
-      "data_read": false,
-      "write_io": false,
-      "fallback_attempted": false,
-      "external_engine_invoked": false
-    },
-    {
-      "id": "claim_future_package_channels",
-      "family": "claim_state",
-      "surface": [
-        "crates_io",
-        "oci",
-        "future_package_channels"
-      ],
-      "support_state": "blocked",
-      "feature_gate": "not_enabled",
-      "evidence_refs": [
-        "package_channel_readiness_matrix",
-        "release_plan",
-        "python_wrapper_plan"
-      ],
-      "blocker_id": "release.package_publication_gate_required",
-      "claim_gate_status": "not_claim_grade",
-      "claim_boundary": "no public Rust crate, container, Scoop, winget, or conda-forge claim is allowed without separate channel proof",
+      "claim_boundary": "selected GitHub release, PyPI, and Homebrew package access only; future Scoop, winget, conda, GHCR, crates.io, signing expansion, production, or performance claims remain out of scope",
       "runtime_execution": false,
       "data_read": false,
       "write_io": false,

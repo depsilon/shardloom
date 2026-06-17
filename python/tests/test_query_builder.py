@@ -15624,11 +15624,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fields": [
                         {"key": "public_workflow_route_attached", "value": "true"},
                         {"key": "public_workflow_route_id", "value": route_id},
-                        {"key": "public_workflow_resolved_internal_command", "value": "traditional-analytics-vortex-run"},
+                        {"key": "public_workflow_resolved_internal_command", "value": "vortex-production-runtime-run"},
                         {"key": "public_workflow_native_vortex_operation_family", "value": family},
                         {"key": "public_workflow_native_vortex_provider_scenario", "value": scenario},
                         {"key": "public_workflow_native_vortex_right_input", "value": right_input},
-                        {"key": "mode", "value": "traditional_analytics_vortex_run"},
+                        {"key": "mode", "value": "vortex_production_runtime_run"},
                         {"key": "execution", "value": "native_vortex_user_operator_provider_performed"},
                         {"key": "data_read", "value": "true"},
                         {"key": "data_decoded", "value": "false"},
@@ -15692,7 +15692,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         for report, (family, scenario) in zip(reports, expected):
             self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
             self.assertEqual(report.envelope.command, "run")
-            self.assertEqual(report.command, "traditional-analytics-vortex-run")
+            self.assertEqual(report.command, "vortex-production-runtime-run")
             self.assertEqual(
                 report.envelope.field("public_workflow_native_vortex_operation_family"),
                 family,
@@ -15777,11 +15777,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fields": [
                         {"key": "public_workflow_route_attached", "value": "true"},
                         {"key": "public_workflow_route_id", "value": route_id},
-                        {"key": "public_workflow_resolved_internal_command", "value": "traditional-analytics-vortex-run"},
+                        {"key": "public_workflow_resolved_internal_command", "value": "vortex-production-runtime-run"},
                         {"key": "public_workflow_native_vortex_operation_family", "value": family},
                         {"key": "public_workflow_native_vortex_provider_scenario", "value": scenario},
                         {"key": "public_workflow_native_vortex_right_input", "value": right_input},
-                        {"key": "mode", "value": "traditional_analytics_vortex_run"},
+                        {"key": "mode", "value": "vortex_production_runtime_run"},
                         {"key": "execution", "value": "native_vortex_user_operator_provider_performed"},
                         {"key": "data_read", "value": "true"},
                         {"key": "data_decoded", "value": "false"},
@@ -15848,7 +15848,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         for report, (family, scenario) in zip(reports, expected):
             self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
             self.assertEqual(report.envelope.command, "run")
-            self.assertEqual(report.command, "traditional-analytics-vortex-run")
+            self.assertEqual(report.command, "vortex-production-runtime-run")
             self.assertEqual(
                 report.envelope.field("public_workflow_native_vortex_operation_family"),
                 family,

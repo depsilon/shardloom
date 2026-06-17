@@ -20,7 +20,13 @@ from .errors import (
     ShardLoomCommandError,
     ShardLoomProtocolError,
 )
-from .models import ClaimSummary, Diagnostic, EvidenceSummary, OutputEnvelope
+from .models import (
+    ClaimSummary,
+    Diagnostic,
+    EvidenceSummary,
+    OutputEnvelope,
+    RuntimeActivationSummary,
+)
 
 CommandPart = Union[str, os.PathLike[str]]
 Binary = Union[CommandPart, Sequence[CommandPart]]
@@ -2130,6 +2136,12 @@ class SqlLocalSourceSmokeReport:
         """Return deterministic runtime diagnostics emitted by the SQL smoke command."""
 
         return self.envelope.diagnostics
+
+    @property
+    def activation_summary(self) -> RuntimeActivationSummary:
+        """Return compact runtime activation evidence for this local workflow."""
+
+        return self.envelope.activation_summary
 
     @property
     def unsupported_reasons(self) -> tuple[str, ...]:
@@ -6758,6 +6770,12 @@ class PublicWorkflowRoute:
         return value
 
     @property
+    def activation_summary(self) -> RuntimeActivationSummary:
+        """Return compact runtime activation evidence for this route inspection."""
+
+        return self.envelope.activation_summary
+
+    @property
     def side_effect_free(self) -> bool:
         """Whether the route command reports side-effect-free planning."""
 
@@ -6786,6 +6804,7 @@ class PublicWorkflowRoute:
             "external_engine_invoked": self.external_engine_invoked,
             "blocker_id": self.blocker_id,
             "side_effect_free": self.side_effect_free,
+            "activation_summary": self.activation_summary.as_dict(),
         }
 
 
@@ -6931,6 +6950,12 @@ class PublicWorkflowExecution:
             return None
         return value
 
+    @property
+    def activation_summary(self) -> RuntimeActivationSummary:
+        """Return compact runtime activation evidence for this public workflow."""
+
+        return self.envelope.activation_summary
+
     def as_dict(self) -> dict[str, Any]:
         """Return a compact dictionary for notebooks and simple integrations."""
 
@@ -6957,6 +6982,7 @@ class PublicWorkflowExecution:
                 self.public_workflow_external_engine_invoked
             ),
             "blocker_id": self.blocker_id,
+            "activation_summary": self.activation_summary.as_dict(),
         }
 
 
@@ -12111,6 +12137,42 @@ class ShardLoomClient:
 
         args = [
             "traditional-analytics-vortex-run",
+            scenario,
+            str(fact_vortex),
+            str(dim_vortex),
+        ]
+        if cdc_delta_vortex is not None:
+            args.extend(["--cdc-delta-vortex", str(cdc_delta_vortex)])
+        if workspace is not None:
+            args.extend(["--workspace", str(workspace)])
+        if write_result_vortex:
+            args.append("--write-result-vortex")
+        if execution_mode is not None:
+            args.extend(["--execution-mode", execution_mode])
+        if memory_gb is not None:
+            args.extend(["--memory-gb", str(memory_gb)])
+        if max_parallelism is not None:
+            args.extend(["--max-parallelism", str(max_parallelism)])
+        return self.run(args, check=check)
+
+    def vortex_production_runtime_run(
+        self,
+        scenario: str,
+        fact_vortex: str | os.PathLike[str],
+        dim_vortex: str | os.PathLike[str],
+        *,
+        cdc_delta_vortex: str | os.PathLike[str] | None = None,
+        workspace: str | os.PathLike[str] | None = None,
+        write_result_vortex: bool = False,
+        execution_mode: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the production-named native Vortex provider runtime facade."""
+
+        args = [
+            "vortex-production-runtime-run",
             scenario,
             str(fact_vortex),
             str(dim_vortex),

@@ -6,7 +6,7 @@ Source: `shardloom-cli/src/command_registry.rs`
 
 Report id: `review-p1-1.command_registry`
 
-Registered command count: 212
+Registered command count: 213
 
 Support-state vocabulary: executable, feature_gated, diagnostic_only, report_only, blocked, future
 

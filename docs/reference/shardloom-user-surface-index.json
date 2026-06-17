@@ -1,7 +1,7 @@
 {
   "schema_version": "shardloom.user_surface_index.v1",
   "status": "canonical_agent_reference",
-  "claim_boundary": "Scoped v0.1.0 local user-surface reference only; runtime support, production readiness, broad SQL/DataFrame parity, performance claims, and package-channel claims remain governed by dynamic capability reports and release gates.",
+  "claim_boundary": "Scoped v0.1.x local user-surface reference only; runtime support, production readiness, broad SQL/DataFrame parity, performance claims, and package-channel claims remain governed by dynamic capability reports and release gates.",
   "fallback_attempted": false,
   "external_engine_invoked": false,
   "canonical_human_reference": "docs/reference/shardloom-user-surface-index.md",
@@ -14,7 +14,7 @@
     "python_package_readme": "python/README.md"
   },
   "cli": {
-    "registered_command_count": 212,
+    "registered_command_count": 213,
     "exhaustive_inventory_command": "shardloom command-metadata --format json",
     "single_command_metadata_command": "shardloom command-metadata <command> --format json",
     "single_command_help_command": "shardloom help <command> --format json",
@@ -43,6 +43,7 @@
       "shardloom generated-source-sql-smoke --format json",
       "shardloom sql-local-source-smoke --format json",
       "shardloom vortex-ingest-smoke --format json",
+      "shardloom vortex-production-runtime-run <scenario> <fact.vortex> <dim.vortex> --format json",
       "shardloom sqlite-local-import-export-smoke --format json"
     ]
   },

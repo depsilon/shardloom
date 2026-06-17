@@ -68,10 +68,10 @@ Python/DataFrame-style and SQL front doors: filter, projection, source-order lim
 filter-project chains enter the public workflow facade with the real calling surface and attached
 plan/SQL evidence before dispatching to the scoped local Vortex primitive commands. Post-shaped
 Python/DataFrame-style operators for the benchmark-family shapes are also admitted when the CLI is
-built with `vortex-traditional-analytics-benchmark`: grouped count/sum, null-heavy aggregate, hash
+built with `vortex-production-runtime` or `release-user-surfaces`: grouped count/sum, null-heavy aggregate, hash
 join with a declared right Vortex input, global top-N, clean/cast/filter, malformed timestamp cast,
 substring contains, and native `write_vortex` result sinks lower through
-`traditional-analytics-vortex-run` with provider scenario evidence. General Vortex SQL/DataFrame
+`vortex-production-runtime-run` with provider scenario evidence. General Vortex SQL/DataFrame
 planning and compatibility exports such as `write_jsonl()` from direct Vortex workflows remain
 explicitly blocked until their own native route and decode/export contracts exist. The route report
 and run envelope identify all of this with `native_vortex_operation_family`,
@@ -87,7 +87,7 @@ certificate inventory for those exact provider-backed Python and SQL shapes.
 | --- | --- |
 | `smoke_supported` / `smoke-supported` | Narrow fixture or smoke route; synthetic safeguards such as row, byte, or output caps may be intentional. |
 | `scoped_runtime_supported` / `runtime-supported` | Runtime-backed scoped capability with explicit claim boundary; not automatically broad product workflow support. |
-| `feature_gated` | Requires an explicit build/runtime gate such as `universal-format-io`, `vortex-write`, or `vortex-traditional-analytics-benchmark`. |
+| `feature_gated` | Requires an explicit build/runtime gate such as `universal-format-io`, `vortex-write`, `vortex-production-runtime`, or the aggregate release set `release-user-surfaces`. |
 | `production_admitted_local_workflow` | Product local workflow route admitted for normal local Python/SQL/DataFrame-facing usage without smoke-only synthetic caps, while still bounded by local v1 scope and no-fallback evidence. |
 
 ## Unsupported V1 Forms

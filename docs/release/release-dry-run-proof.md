@@ -100,13 +100,12 @@ python scripts\release_dry_run_proof.py --conda-executable target\release-tools\
 
 The clean venv proof installs only the exact ShardLoom wheel built during the current dry run. It
 removes `SHARDLOOM_BIN` and `SHARDLOOM_REPO_ROOT` before client smoke so the installed package must
-resolve its bundled CLI resource. Benchmark comparison engines remain optional benchmark/dev
-dependencies and are not installed by this proof. The package proof does not compile the benchmark-only
-`vortex-traditional-analytics-benchmark` feature lane by default because package-channel evidence
-must stay focused on install, CLI/Python smoke, generated-source local output, SBOM/checksum, and
-provenance. Run `python scripts\release_dry_run_proof.py --include-benchmark-smoke --rows 64
---iterations 1` only when you intentionally want the optional local benchmark smoke in the same
-transcript.
+resolve its bundled CLI resource. Release package proof builds the bundled CLI with
+`--features release-user-surfaces` so promoted local adapters, Vortex writes, local primitives, and
+provider-backed native Vortex user routes are present in release artifacts. Benchmark comparison
+engines remain optional benchmark/dev dependencies and are not installed by this proof. Run
+`python scripts\release_dry_run_proof.py --include-benchmark-smoke --rows 64 --iterations 1` only
+when you intentionally want the optional local benchmark smoke in the same transcript.
 
 The local Python smoke is no longer only import/status evidence. It creates a tiny local CSV,
 runs the first user-facing `ctx.read(...).filter(...).select(...).write_jsonl(...)` workflow,

@@ -294,7 +294,7 @@ def validate_provider_route_report(
         blockers.append("native Vortex provider route id contract mismatch")
     if tuple(report.v1_provider_scenario_ids) != constants["provider_scenario_ids"]:
         blockers.append("native Vortex provider scenario id contract mismatch")
-    if report.feature_gate != "vortex-traditional-analytics-benchmark":
+    if report.feature_gate != "vortex-production-runtime":
         blockers.append("native Vortex provider feature gate mismatch")
     if report.v1_scope_ready is not True:
         blockers.append("native Vortex provider v1_scope_ready must be true")
@@ -336,10 +336,12 @@ def validate_provider_route_report(
             blockers.append(f"{row_id}: must start at native_vortex_boundary")
         if row.execution_policy != "native_vortex":
             blockers.append(f"{row_id}: execution_policy must be native_vortex")
-        if row.resolved_internal_command != "traditional-analytics-vortex-run":
+        if row.resolved_internal_command != "vortex-production-runtime-run":
             blockers.append(f"{row_id}: resolved_internal_command mismatch")
-        if row.route_runtime_status != "scoped_runtime_supported":
-            blockers.append(f"{row_id}: route_runtime_status must be scoped_runtime_supported")
+        if row.route_runtime_status != "production_admitted_local_workflow":
+            blockers.append(
+                f"{row_id}: route_runtime_status must be production_admitted_local_workflow"
+            )
         if row.route_certificate_status != "current":
             blockers.append(f"{row_id}: route_certificate_status must be current")
         if row.fallback_attempted is not False:

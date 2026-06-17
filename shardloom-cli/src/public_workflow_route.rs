@@ -26,6 +26,7 @@ const NATIVE_VORTEX_USER_ROUTE_CONTRACT_SCHEMA_VERSION: &str =
 const TYPED_RESULT_SINK_CONTRACT_SCHEMA_VERSION: &str = "shardloom.typed_result_sink_contract.v1";
 const ROUTE_REPORT_ID: &str = "gar-runtime-impl-6d.public_workflow_route_facade";
 const ROUTE_DOCS_REF: &str = "docs/status/cli-command-registry.md#public-route-facade-command";
+const VORTEX_PRODUCTION_RUNTIME_COMMAND: &str = "vortex-production-runtime-run";
 const FALLBACK_BOUNDARY: &str =
     "route inspection is side-effect-free and never invokes fallback or external engines";
 const CLAIM_BOUNDARY: &str = "simplified public facade over admitted ShardLoom routes only; not broad SQL/DataFrame support, production readiness, or performance superiority";
@@ -928,6 +929,9 @@ fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRo
                 "use count, count_where, filter, project, or filter_project",
             );
         }
+        if let Some(plan) = native_vortex_provider_schema_shape_blocker(&effective_request) {
+            return plan;
+        }
         return native_vortex_operation_blocked_route(
             requested_family.unwrap_or(NativeVortexOperationFamily::GeneralQuery),
         );
@@ -1010,7 +1014,10 @@ fn native_vortex_provider_route(
     request: &PublicWorkflowRouteRequest,
     requested_family: Option<NativeVortexOperationFamily>,
 ) -> PublicWorkflowRoutePlan {
-    if !cfg!(feature = "vortex-traditional-analytics-benchmark") {
+    if !cfg!(any(
+        feature = "vortex-production-runtime",
+        feature = "vortex-traditional-analytics-benchmark"
+    )) {
         return native_vortex_provider_feature_gated_route();
     }
     if request.vortex_primitive.is_some() {
@@ -1073,7 +1080,7 @@ fn native_vortex_provider_route(
     }
     admitted_route(
         native_vortex_provider_route_id(effective_family),
-        "traditional-analytics-vortex-run",
+        VORTEX_PRODUCTION_RUNTIME_COMMAND,
         "native_vortex_file",
         "native_vortex_user_operator_provider",
         "native_vortex",
@@ -1085,15 +1092,15 @@ fn native_vortex_provider_route(
 fn native_vortex_provider_feature_gated_route() -> PublicWorkflowRoutePlan {
     blocked_route(
         "py-vortex-route-unify-1.native_vortex_provider_feature_gated",
-        "native Vortex provider route requires the vortex-traditional-analytics-benchmark feature",
+        "native Vortex provider route requires the vortex-production-runtime feature",
         Diagnostic::new(
             DiagnosticCode::NotImplemented,
             DiagnosticSeverity::Error,
             DiagnosticCategory::UnsupportedFeature,
             "native Vortex provider-backed user routes are feature-gated in this binary".to_string(),
             Some("public_workflow_route.native_vortex_provider_scenario".to_string()),
-            Some("compiled_without=vortex-traditional-analytics-benchmark".to_string()),
-            Some("build the release binary with --features vortex-traditional-analytics-benchmark to execute promoted native Vortex operator routes".to_string()),
+            Some("compiled_without=vortex-production-runtime".to_string()),
+            Some("build the release binary with --features release-user-surfaces or vortex-production-runtime to execute promoted native Vortex operator routes".to_string()),
             FallbackStatus::disabled_by_policy(),
         ),
     )
@@ -1188,6 +1195,83 @@ fn native_vortex_operation_blocked_route(
             FallbackStatus::disabled_by_policy(),
         ),
     )
+}
+
+fn native_vortex_provider_schema_shape_blocker(
+    request: &PublicWorkflowRouteRequest,
+) -> Option<PublicWorkflowRoutePlan> {
+    if !matches!(
+        request.requested_output.as_str(),
+        "collect" | "write_vortex"
+    ) {
+        return None;
+    }
+    let operations = parse_plan_summary_operations(request.plan_summary.as_deref()?)?;
+    if !summary_read_vortex_matches_input(&operations, request.input_uri.as_deref()?) {
+        return None;
+    }
+    let family = provider_like_operation_family(request, &operations)?;
+    let plan_shape = operations
+        .iter()
+        .map(|operation| operation.kind)
+        .collect::<Vec<_>>()
+        .join("->");
+    Some(blocked_route(
+        "py-vortex-route-unify-1.native_vortex_provider_schema_shape_not_admitted",
+        "native Vortex provider plan shape does not match an admitted schema contract",
+        Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::UnsupportedFeature,
+            "native Vortex provider route requires an exact admitted schema/operator shape"
+                .to_string(),
+            Some("public_workflow_route.plan_summary".to_string()),
+            Some(format!(
+                "operation_family={} plan_shape={} required_evidence={}",
+                family.as_str(),
+                plan_shape,
+                family.required_evidence()
+            )),
+            Some(
+                "use an admitted provider scenario shape or keep the workflow on the product-local route until a native Vortex provider contract is added".to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    ))
+}
+
+fn provider_like_operation_family(
+    request: &PublicWorkflowRouteRequest,
+    operations: &[SummaryOperation<'_>],
+) -> Option<NativeVortexOperationFamily> {
+    if request.requested_output == "write_vortex" {
+        return Some(NativeVortexOperationFamily::Sink);
+    }
+    if operations.iter().any(|operation| operation.kind == "join") {
+        return Some(NativeVortexOperationFamily::Join);
+    }
+    if operations
+        .iter()
+        .any(|operation| matches!(operation.kind, "group_by" | "aggregate"))
+    {
+        return Some(NativeVortexOperationFamily::Aggregate);
+    }
+    if operations.iter().any(|operation| operation.kind == "sort") {
+        return Some(NativeVortexOperationFamily::TopN);
+    }
+    if operations
+        .iter()
+        .any(|operation| operation.kind == "with_column")
+    {
+        return Some(NativeVortexOperationFamily::Cast);
+    }
+    if operations.iter().any(|operation| {
+        let arg = compact_ascii_lower(operation.arg);
+        arg.contains("nested_payload") && arg.contains("target")
+    }) {
+        return Some(NativeVortexOperationFamily::Contains);
+    }
+    None
 }
 
 fn normalized_native_vortex_operation_family(
@@ -1656,7 +1740,7 @@ fn local_file_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoute
     } else if request.execution_policy == "prepare_once" {
         admitted_route(
             "local_file_prepare_once_first_query",
-            "vortex-ingest-smoke->traditional-analytics-vortex-run",
+            "vortex-ingest-smoke->vortex-production-runtime-run",
             "compatibility_local_source",
             "VortexPreparedState",
             "prepared_vortex",
@@ -2169,6 +2253,11 @@ fn push_native_vortex_contract_fields(
     );
     push_field(
         fields,
+        format!("{prefix}native_vortex_required_feature_gate"),
+        native_vortex_required_feature_gate(request, plan),
+    );
+    push_field(
+        fields,
         format!("{prefix}native_vortex_required_evidence"),
         native_vortex_required_evidence(request, plan),
     );
@@ -2217,6 +2306,45 @@ fn native_vortex_operation_family_field(
     "not_applicable"
 }
 
+fn native_vortex_required_feature_gate(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> &'static str {
+    if !is_native_vortex_route(request) {
+        return match plan.route_id {
+            "local_file_product_query" | "local_file_product_sink" => {
+                "not_applicable_compatibility_source_pending_vortex_middle_unification"
+            }
+            _ => "not_applicable",
+        };
+    }
+    if request.native_vortex_provider_scenario.is_some()
+        || matches!(
+            plan.route_id,
+            "native_vortex_user_aggregate"
+                | "native_vortex_user_join"
+                | "native_vortex_user_top_n"
+                | "native_vortex_user_cast"
+                | "native_vortex_user_contains"
+                | "native_vortex_user_sink"
+        )
+        || plan.blocker_id == "py-vortex-route-unify-1.native_vortex_provider_feature_gated"
+    {
+        return "vortex-production-runtime";
+    }
+    if matches!(
+        plan.route_id,
+        "native_vortex_count_all"
+            | "native_vortex_count_where"
+            | "native_vortex_filter"
+            | "native_vortex_project"
+            | "native_vortex_filter_project"
+    ) {
+        return "default";
+    }
+    "not_applicable"
+}
+
 fn native_vortex_capability_status(
     request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
@@ -2236,6 +2364,8 @@ fn native_vortex_capability_status(
             }
             _ => "supported",
         }
+    } else if plan.blocker_id == "py-vortex-route-unify-1.native_vortex_provider_feature_gated" {
+        "feature_gated"
     } else if plan.blocker_id.starts_with("py-vortex-route-unify-1.") {
         "blocked_until_native_route_admitted"
     } else {
@@ -2440,9 +2570,14 @@ fn add_route_boundary_fields(fields: &mut Vec<(String, String)>, plan: &PublicWo
 
 fn route_support_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
     match plan.route_id {
-        "local_file_product_query" | "local_file_product_sink" => {
-            "production_admitted_local_workflow"
-        }
+        "local_file_product_query"
+        | "local_file_product_sink"
+        | "native_vortex_user_aggregate"
+        | "native_vortex_user_join"
+        | "native_vortex_user_top_n"
+        | "native_vortex_user_cast"
+        | "native_vortex_user_contains"
+        | "native_vortex_user_sink" => "production_admitted_local_workflow",
         "local_file_prepare_once"
         | "local_file_prepare_once_first_query"
         | "native_vortex_count_all"
@@ -2450,12 +2585,6 @@ fn route_support_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
         | "native_vortex_filter"
         | "native_vortex_project"
         | "native_vortex_filter_project"
-        | "native_vortex_user_aggregate"
-        | "native_vortex_user_join"
-        | "native_vortex_user_top_n"
-        | "native_vortex_user_cast"
-        | "native_vortex_user_contains"
-        | "native_vortex_user_sink"
         | "source_free_generated_output"
         | "generated_user_rows_direct_output"
         | "generated_range_direct_output"
@@ -2656,6 +2785,13 @@ fn execution_attachment_fields(
         (
             "public_workflow_resolved_internal_command".to_string(),
             plan.resolved_internal_command.to_string(),
+        ),
+        (
+            "public_workflow_source_format".to_string(),
+            effective_request
+                .input_format
+                .clone()
+                .unwrap_or_else(|| "not_declared".to_string()),
         ),
         (
             "public_workflow_start_state".to_string(),
@@ -3443,6 +3579,18 @@ mod tests {
             .unwrap_or_else(|| panic!("missing route field: {key}"))
     }
 
+    fn assert_provider_schema_shape_blocked(plan: &PublicWorkflowRoutePlan) {
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(
+            plan.blocker_id,
+            "py-vortex-route-unify-1.native_vortex_provider_schema_shape_not_admitted"
+        );
+        assert_eq!(
+            plan.blocker_reason,
+            "native Vortex provider plan shape does not match an admitted schema contract"
+        );
+    }
+
     #[test]
     fn route_planner_admits_equivalent_sql_and_dataframe_local_file_routes() {
         let sql = PublicWorkflowRouteRequest::parse(
@@ -3814,6 +3962,10 @@ mod tests {
             "supported_with_materialization_boundary"
         );
         assert_eq!(
+            field(&fields, "native_vortex_required_feature_gate"),
+            "default"
+        );
+        assert_eq!(
             field(&fields, "typed_result_contract"),
             "bounded_python_rows_with_explicit_materialization_boundary"
         );
@@ -3827,6 +3979,10 @@ mod tests {
                 "public_workflow_native_vortex_operation_family"
             ),
             "filter_project_limit"
+        );
+        assert_eq!(
+            field(&attachments, "public_workflow_source_format"),
+            "vortex"
         );
     }
 
@@ -3912,11 +4068,7 @@ mod tests {
         let plan = plan_public_workflow_route(&request);
         let fields = route_fields(&request, &plan);
 
-        assert_eq!(plan.status, CommandStatus::Unsupported);
-        assert_eq!(
-            plan.blocker_id,
-            "py-vortex-route-unify-1.native_vortex_general_route_missing"
-        );
+        assert_provider_schema_shape_blocked(&plan);
         assert_eq!(field(&fields, "vortex_primitive"), "none");
         assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
         assert_eq!(field(&fields, "fallback_attempted"), "false");
@@ -3963,7 +4115,11 @@ mod tests {
         );
         assert_eq!(
             field(&fields, "native_vortex_capability_status"),
-            "blocked_until_native_route_admitted"
+            "feature_gated"
+        );
+        assert_eq!(
+            field(&fields, "native_vortex_required_feature_gate"),
+            "vortex-production-runtime"
         );
         assert_eq!(field(&fields, "fallback_attempted"), "false");
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
@@ -4054,15 +4210,19 @@ mod tests {
         assert_eq!(aggregate_plan.route_id, "native_vortex_user_aggregate");
         assert_eq!(
             field(&aggregate_fields, "route_runtime_status"),
-            "scoped_runtime_supported"
+            "production_admitted_local_workflow"
         );
         assert_eq!(
             field(&aggregate_fields, "vortex_middle_status"),
             "native_vortex_user_operator_provider"
         );
         assert_eq!(
+            field(&aggregate_fields, "native_vortex_required_feature_gate"),
+            "vortex-production-runtime"
+        );
+        assert_eq!(
             aggregate_plan.resolved_internal_command,
-            "traditional-analytics-vortex-run"
+            "vortex-production-runtime-run"
         );
         assert_eq!(
             field(&aggregate_fields, "typed_result_contract"),
@@ -4116,7 +4276,7 @@ mod tests {
         assert_eq!(plan.route_id, "native_vortex_user_aggregate");
         assert_eq!(
             field(&fields, "route_runtime_status"),
-            "scoped_runtime_supported"
+            "production_admitted_local_workflow"
         );
         assert_eq!(
             field(&fields, "native_vortex_provider_scenario"),
@@ -4158,11 +4318,7 @@ mod tests {
         let plan = plan_public_workflow_route(&request);
         let fields = route_fields(&request, &plan);
 
-        assert_eq!(plan.status, CommandStatus::Unsupported);
-        assert_eq!(
-            plan.blocker_id,
-            "py-vortex-route-unify-1.native_vortex_general_route_missing"
-        );
+        assert_provider_schema_shape_blocked(&plan);
         assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
         assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
         assert_eq!(field(&fields, "fallback_attempted"), "false");
@@ -4196,11 +4352,7 @@ mod tests {
         let plan = plan_public_workflow_route(&request);
         let fields = route_fields(&request, &plan);
 
-        assert_eq!(plan.status, CommandStatus::Unsupported);
-        assert_eq!(
-            plan.blocker_id,
-            "py-vortex-route-unify-1.native_vortex_general_route_missing"
-        );
+        assert_provider_schema_shape_blocked(&plan);
         assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
         assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
         assert_eq!(field(&fields, "fallback_attempted"), "false");
@@ -4236,11 +4388,7 @@ mod tests {
         let plan = plan_public_workflow_route(&request);
         let fields = route_fields(&request, &plan);
 
-        assert_eq!(plan.status, CommandStatus::Unsupported);
-        assert_eq!(
-            plan.blocker_id,
-            "py-vortex-route-unify-1.native_vortex_general_route_missing"
-        );
+        assert_provider_schema_shape_blocked(&plan);
         assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
         assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
         assert_eq!(field(&fields, "fallback_attempted"), "false");
@@ -4312,11 +4460,7 @@ mod tests {
         let plan = plan_public_workflow_route(&request);
         let fields = route_fields(&request, &plan);
 
-        assert_eq!(plan.status, CommandStatus::Unsupported);
-        assert_eq!(
-            plan.blocker_id,
-            "py-vortex-route-unify-1.native_vortex_general_route_missing"
-        );
+        assert_provider_schema_shape_blocked(&plan);
         assert_eq!(field(&fields, "native_vortex_provider_scenario"), "none");
         assert_eq!(field(&fields, "resolved_internal_command"), "not_resolved");
         assert_eq!(field(&fields, "fallback_attempted"), "false");

@@ -78,8 +78,13 @@ Explicit helpers remain available when an agent needs a pinned adapter:
 Feature-gated readers return deterministic adapter blockers when unavailable. They must not invoke
 another engine as a fallback.
 
+Every normal Python execution or route result exposes `activation_summary`. Use it before scraping
+raw envelopes when checking route ID/status, execution mode, native Vortex activation, required
+feature gate, parallelism, scan/pushdown signals, source-state reuse, decode/materialization,
+sink/write status, fallback/external-engine flags, claim gate, and unsupported diagnostics.
+
 For direct `.vortex` inputs, use
-`ctx.native_vortex_provider_route_certificate_report()` to inspect the exact feature-gated
+`ctx.native_vortex_provider_route_certificate_report()` to inspect the exact release-feature-backed
 Python/SQL provider routes for grouped aggregation, hash join, global top-N, cast/try-cast,
 substring contains, and native `write_vortex` sink shapes. This report is route evidence, not a
 broad arbitrary Vortex SQL/DataFrame parity or performance claim.
@@ -227,6 +232,7 @@ shardloom generated-source-sequence-smoke --format json
 shardloom generated-source-sql-smoke --format json
 shardloom sql-local-source-smoke --format json
 shardloom vortex-ingest-smoke --format json
+shardloom vortex-production-runtime-run <scenario> <fact.vortex> <dim.vortex> --format json
 shardloom sqlite-local-import-export-smoke --format json
 ```
 
