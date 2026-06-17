@@ -4,8 +4,9 @@
 
 GitHub upload-artifact can expose different roots depending on the uploaded path
 set. Release validators, however, read fixed repo-relative paths such as
-``target/release-dry-run-proof`` and ``python/dist``. This script makes that
-merge explicit so downstream jobs do not depend on artifact path-shaping quirks.
+``target/release-dry-run-proof/transcript.json`` and release evidence reports.
+This script makes that merge explicit so downstream jobs do not depend on
+artifact path-shaping quirks.
 """
 
 from __future__ import annotations
@@ -26,6 +27,17 @@ KNOWN_EXECUTABLE_REFS = (
     "target/debug/shardloom",
     "target/release/shardloom",
 )
+COMPACT_ROOT_FILE_DESTINATIONS = {
+    "transcript.json": Path("target/release-dry-run-proof/transcript.json"),
+    "manifest.json": Path("target/release-provenance-dry-run/manifest.json"),
+    "supply-chain-release-evidence.json": Path(
+        "target/release-provenance-dry-run/supply-chain-release-evidence.json"
+    ),
+    "checksums.sha256": Path("target/release-provenance-dry-run/checksums.sha256"),
+    "workflow-policy-snapshot.json": Path(
+        "target/release-provenance-dry-run/workflow-policy-snapshot.json"
+    ),
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -186,6 +198,10 @@ def merge_artifact(repo_root: Path, artifact_dir: Path) -> dict[str, Any]:
         elif child.name == "debug":
             copy_path(child, repo_root / "target" / "debug")
             copied.append(path_ref(repo_root, repo_root / "target" / "debug"))
+        elif child.name in COMPACT_ROOT_FILE_DESTINATIONS and child.is_file():
+            destination = repo_root / COMPACT_ROOT_FILE_DESTINATIONS[child.name]
+            copy_path(child, destination)
+            copied.append(path_ref(repo_root, destination))
         else:
             destination = repo_root / "target" / child.name
             copy_path(child, destination)

@@ -12588,6 +12588,32 @@ jobs:
             sdist = repo_root / "python" / "dist" / "shardloom-0.1.0.tar.gz"
             self.assertTrue(sdist.is_file())
 
+    def test_release_evidence_artifact_merge_restores_compact_transcript(self) -> None:
+        module = self._load_script_module(
+            "merge_release_evidence_artifacts.py",
+            "merge_release_evidence_artifacts_compact_transcript_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            artifact = repo_root / "target" / "downloads" / "release-local-smoke-evidence"
+            artifact.mkdir(parents=True)
+            (artifact / "transcript.json").write_text('{"proof_status":"passed"}\n', encoding="utf-8")
+
+            report = module.merge_artifact(repo_root, artifact)
+
+            self.assertEqual(report["status"], "passed", report["blockers"])
+            self.assertEqual(report["artifact_file_count"], 1)
+            self.assertEqual(
+                report["copied_paths"],
+                ["target/release-dry-run-proof/transcript.json"],
+            )
+            transcript = repo_root / "target" / "release-dry-run-proof" / "transcript.json"
+            self.assertEqual(
+                json.loads(transcript.read_text(encoding="utf-8"))["proof_status"],
+                "passed",
+            )
+
     def test_release_evidence_artifact_merge_rejects_symlinked_entries(self) -> None:
         module = self._load_script_module(
             "merge_release_evidence_artifacts.py",
@@ -13237,6 +13263,36 @@ jobs:
             self.assertFalse(report["public_release_claim_allowed"])
             self.assertFalse(report["public_package_claim_allowed"])
             self.assertIn("GAR-RUNTIME-IMPL-4S", report["covered_phase_items"])
+
+    def test_production_usability_gate_accepts_compact_ci_package_artifacts(self) -> None:
+        module = self._load_script_module(
+            "check_production_usability_gate.py",
+            "check_production_usability_gate_compact_ci_artifacts_for_test",
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            payloads = self._production_usability_payloads(module, repo_root)
+            wheel_name = "shardloom-0.1.0-py3-none-any.whl"
+            payloads["dry_run"][
+                "local_wheel"
+            ] = f"target/release-dry-run-proof/python-package-stage/dist/{wheel_name}"
+            nested_wheel = (
+                repo_root
+                / "target"
+                / "release-dry-run-proof"
+                / "python-package-stage"
+                / "dist"
+                / wheel_name
+            )
+            self.assertFalse(nested_wheel.exists())
+
+            summary, blockers = module.validate_release_dry_run(repo_root, payloads["dry_run"])
+
+            self.assertEqual(blockers, [])
+            self.assertEqual(
+                summary["resolved_artifacts"]["local_wheel"],
+                f"python/dist/{wheel_name}",
+            )
 
     def test_production_usability_gate_accepts_precomputed_benchmark_report(self) -> None:
         module = self._load_script_module(

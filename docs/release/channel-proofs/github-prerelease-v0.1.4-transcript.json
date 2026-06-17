@@ -1,0 +1,104 @@
+{
+  "asset_count": 12,
+  "asset_names": [
+    "asset-manifest.json",
+    "checksums.sha256",
+    "github-prerelease-release-notes.md",
+    "shardloom",
+    "shardloom-0.1.4-cp313-cp313-macosx_26_0_arm64.whl",
+    "shardloom-0.1.4.tar.gz",
+    "shardloom-184ce3161f3a-source.tar.gz",
+    "shardloom-cli-binary.cdx.json",
+    "shardloom-python-artifacts.cdx.json",
+    "shardloom-rust-workspace.cdx.json",
+    "supply-chain-release-evidence.json",
+    "workflow-policy-snapshot.json"
+  ],
+  "blockers": [],
+  "channel_id": "github_prerelease",
+  "checksum_mismatch": [],
+  "checksum_missing": [],
+  "clean_download_dir": "target/github-prerelease-channel-proof-v0.1.4",
+  "cli_smoke_stdout": "ShardLoom workspace initialized (native Vortex-first execution facade)\nfallback execution: disabled\n",
+  "cli_version_stdout": "shardloom 0.1.4\n",
+  "display_name": "GitHub pre-release",
+  "download_command": "gh release download v0.1.4 --repo depsilon/shardloom --pattern '*' --dir target/github-prerelease-channel-proof-v0.1.4",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "github_asset_mismatch": [],
+  "install_transcript_status": "passed",
+  "package_channel_submission_attempted_by_this_tool": false,
+  "package_upload_attempted_by_this_tool": false,
+  "proof_status": "passed",
+  "publication_attempted_by_this_tool": false,
+  "release_published_at": "2026-06-17T08:11:12Z",
+  "release_tag": "v0.1.4",
+  "release_url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.4",
+  "schema_version": "shardloom.github_prerelease_channel_proof.v1",
+  "secrets_required": false,
+  "smoke_check_status": "passed",
+  "source_archive_sha256": "47d9a0fa4e1deeb45d226beed01716420a1e9e58976824795bbea115b92fa5da",
+  "steps": [
+    {
+      "command": [
+        "gh",
+        "release",
+        "view",
+        "v0.1.4",
+        "--repo",
+        "depsilon/shardloom",
+        "--json",
+        "tagName,url,isPrerelease,isDraft,publishedAt,targetCommitish,name,assets"
+      ],
+      "elapsed_millis": 301.7127,
+      "name": "view_release",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "\"name\":\"shardloom-0.1.4-cp313-cp313-macosx_26_0_arm64.whl\",\"size\":281319,\"state\":\"uploaded\",\"updatedAt\":\"2026-06-17T08:11:04Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.1.4/shardloom-0.1.4-cp313-cp313-macosx_26_0_arm64.whl\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/450022537\",\"contentType\":\"application/x-gtar\",\"createdAt\":\"2026-06-17T08:11:04Z\",\"digest\":\"sha256:130f23f1be2bbd107658c1ae51a237eacac76f92fc0d81721d381dbb6f7a7b04\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4a0syJ\",\"label\":\"\",\"name\":\"shardloom-0.1.4.tar.gz\",\"size\":598774,\"state\":\"uploaded\",\"updatedAt\":\"2026-06-17T08:11:05Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.1.4/shardloom-0.1.4.tar.gz\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/450022540\",\"contentType\":\"application/x-gtar\",\"createdAt\":\"2026-06-17T08:11:04Z\",\"digest\":\"sha256:47d9a0fa4e1deeb45d226beed01716420a1e9e58976824795bbea115b92fa5da\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4a0syM\",\"label\":\"\",\"name\":\"shardloom-184ce3161f3a-source.tar.gz\",\"size\":71610122,\"state\":\"uploaded\",\"updatedAt\":\"2026-06-17T08:11:12Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.1.4/shardloom-184ce3161f3a-source.tar.gz\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/450022539\",\"contentType\":\"application/json\",\"createdAt\":\"2026-06-17T08:11:04Z\",\"digest\":\"sha256:c83b5124e0d69278201d311d2f343b54e4bd8dbe59787c0299d1887adce20958\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4a0syL\",\"label\":\"\",\"name\":\"shardloom-cli-binary.cdx.json\",\"size\":843,\"state\":\"uploaded\",\"updatedAt\":\"2026-06-17T08:11:05Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.1.4/shardloom-cli-binary.cdx.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/450022543\",\"contentType\":\"application/json\",\"createdAt\":\"2026-06-17T08:11:04Z\",\"digest\":\"sha256:9e959f808ba9cc75e02d1db7f8fb6bff5d18ac684a1fa4a0bc1a96cba4d12e71\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4a0syP\",\"label\":\"\",\"name\":\"shardloom-python-artifacts.cdx.json\",\"size\":837,\"state\":\"uploaded\",\"updatedAt\":\"2026-06-17T08:11:05Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.1.4/shardloom-python-artifacts.cdx.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/450022553\",\"contentType\":\"application/json\",\"createdAt\":\"2026-06-17T08:11:05Z\",\"digest\":\"sha256:909e6df28ff853133a658d57b7f199df7ea553c6faaa478e06fa9a760fba4b6b\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4a0syZ\",\"label\":\"\",\"name\":\"shardloom-rust-workspace.cdx.json\",\"size\":48261,\"state\":\"uploaded\",\"updatedAt\":\"2026-06-17T08:11:05Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.1.4/shardloom-rust-workspace.cdx.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/450022554\",\"contentType\":\"application/json\",\"createdAt\":\"2026-06-17T08:11:05Z\",\"digest\":\"sha256:5afebfdb60aeaff6a755eddd57840c1a8832c1123b19ba2361d39fae28345bbb\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4a0sya\",\"label\":\"\",\"name\":\"supply-chain-release-evidence.json\",\"size\":12486,\"state\":\"uploaded\",\"updatedAt\":\"2026-06-17T08:11:05Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.1.4/supply-chain-release-evidence.json\"},{\"apiUrl\":\"https://api.github.com/repos/depsilon/shardloom/releases/assets/450022555\",\"contentType\":\"application/json\",\"createdAt\":\"2026-06-17T08:11:05Z\",\"digest\":\"sha256:44ffda9bc48bdd72592e533851b809e6c1e57cd7099d245d61606f40d9d1cae1\",\"downloadCount\":0,\"id\":\"RA_kwDOSScs_c4a0syb\",\"label\":\"\",\"name\":\"workflow-policy-snapshot.json\",\"size\":1442,\"state\":\"uploaded\",\"updatedAt\":\"2026-06-17T08:11:05Z\",\"url\":\"https://github.com/depsilon/shardloom/releases/download/v0.1.4/workflow-policy-snapshot.json\"}],\"isDraft\":false,\"isPrerelease\":true,\"name\":\"ShardLoom v0.1.4\",\"publishedAt\":\"2026-06-17T08:11:12Z\",\"tagName\":\"v0.1.4\",\"targetCommitish\":\"main\",\"url\":\"https://github.com/depsilon/shardloom/releases/tag/v0.1.4\"}\n"
+    },
+    {
+      "command": [
+        "gh",
+        "release",
+        "download",
+        "v0.1.4",
+        "--repo",
+        "depsilon/shardloom",
+        "--pattern",
+        "*",
+        "--dir",
+        "/Users/dylan/Documents/shardloom-local-repo/target/github-prerelease-channel-proof-v0.1.4"
+      ],
+      "elapsed_millis": 1214.7106,
+      "name": "download_release",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": [
+        "/Users/dylan/Documents/shardloom-local-repo/target/github-prerelease-channel-proof-v0.1.4/shardloom",
+        "status"
+      ],
+      "elapsed_millis": 368.1169,
+      "name": "cli_status_smoke",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "ShardLoom workspace initialized (native Vortex-first execution facade)\nfallback execution: disabled\n"
+    },
+    {
+      "command": [
+        "/Users/dylan/Documents/shardloom-local-repo/target/github-prerelease-channel-proof-v0.1.4/shardloom",
+        "--version"
+      ],
+      "elapsed_millis": 4.7925,
+      "name": "cli_version_smoke",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "shardloom 0.1.4\n"
+    }
+  ],
+  "tag_created_by_this_tool": true,
+  "target_commit": "main",
+  "uninstall_transcript_status": "not_applicable_clean_download_directory_removed_by_user"
+}

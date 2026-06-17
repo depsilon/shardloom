@@ -187,10 +187,10 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda",
         ),
         artifact_refs=(
-            "python/dist",
+            "target/release-dry-run-proof/transcript.json",
             "target/debug/shardloom",
-            "target/release-dry-run-proof",
-            "target/release-provenance-dry-run",
+            "python/dist/*.whl",
+            "python/dist/*.tar.gz",
             "release-local-smoke-evidence",
         ),
         release_blocker_refs=("package/install smoke", "local provenance dry run"),

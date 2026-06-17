@@ -260,23 +260,12 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: python-package-smoke-evidence
-          path: |
-            python/dist
-            target/debug/shardloom
-            target/release-dry-run-proof
-            target/release-provenance-dry-run
-          if-no-files-found: ignore
-          retention-days: 14
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
           name: release-local-smoke-evidence
           path: |
-            python/dist
+            target/release-dry-run-proof/transcript.json
             target/debug/shardloom
-            target/release-dry-run-proof
-            target/release-provenance-dry-run
+            python/dist/*.whl
+            python/dist/*.tar.gz
           if-no-files-found: ignore
           retention-days: 14
 
@@ -371,12 +360,6 @@ jobs:
           test -f target/dependency-audit-report.json
           test -f target/release-dry-run-proof/transcript.json
           test -f target/release-provenance-dry-run/supply-chain-release-evidence.json
-          python - <<'PY'
-          from pathlib import Path
-          assert Path("target/debug/shardloom").is_file()
-          assert list(Path("python/dist").glob("shardloom-*.whl"))
-          assert list(Path("python/dist").glob("shardloom-*.tar.gz"))
-          PY
       - name: Contribution governance
         run: python scripts/check_contribution_governance.py
       - name: Workspace version source contract
@@ -602,12 +585,6 @@ jobs:
           test -f target/release-dry-run-proof/transcript.json
           test -f target/release-provenance-dry-run/manifest.json
           test -f target/release-provenance-dry-run/supply-chain-release-evidence.json
-          python - <<'PY'
-          from pathlib import Path
-          assert Path("target/debug/shardloom").is_file()
-          assert list(Path("python/dist").glob("shardloom-*.whl"))
-          assert list(Path("python/dist").glob("shardloom-*.tar.gz"))
-          PY
           test -f target/release-security-gate-report.json
           test -f target/golden-workflow-report.json
           test -d target/golden-workflows
@@ -668,6 +645,8 @@ jobs:
             target/security-posture-report.json
             target/release-dry-run-proof
             target/release-provenance-dry-run
+            target/debug/shardloom
+            python/dist
             target/release-security-gate-report.json
             target/contribution-governance-report.json
             target/package-channel-readiness-report.json

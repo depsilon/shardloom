@@ -60,6 +60,9 @@ The gate requires:
   first user-surface result/evidence markers, deterministic unsupported-path evidence,
   generated-source local output smokes, `benchmark_smoke_required_for_package_release=false`,
   SBOM/checksum/provenance dry run, and no-publication/no-fallback fields.
+  In CI, the transcript may retain the original local package-stage paths while the compact
+  evidence artifact restores the provenance-referenced wheel/sdist under `python/dist` and the CLI
+  under `target/debug`; the gate resolves only those declared compact locations.
 - `target/package-channel-readiness-report.json` generated with `--require-local-evidence`, while
   every real package channel remains blocked until channel-specific proof exists.
 - release security and contribution-governance reports with fallback and external-engine fields

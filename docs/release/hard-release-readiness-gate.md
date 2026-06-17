@@ -31,9 +31,10 @@ parallel where possible, then the final `release-readiness` job downloads those 
 
 Producer evidence artifacts:
 
-- `release-local-smoke-evidence`: local package smoke, dry-run transcript, local provenance,
-  `target/debug/shardloom`, and `python/dist` from `python-package`; this carries every local
-  artifact path referenced by the provenance report.
+- `release-local-smoke-evidence`: local package smoke proof from `python-package`, centered on
+  `target/release-dry-run-proof/transcript.json` plus the provenance-referenced wheel, sdist, and
+  local CLI binary. The package-stage venv and full local provenance directories are not uploaded
+  into downstream release aggregate jobs.
 - `dependency-security-evidence`: dependency audit, security posture, provenance dry run, and
   release security gate from `dependency-security`.
 - `release-runtime-core-evidence`: golden workflow, admitted semantics, and release architecture
