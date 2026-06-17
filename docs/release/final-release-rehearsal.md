@@ -90,7 +90,7 @@ The current local attestation plan records
 `publication_authorization_status=approved_channel_proof_passed`,
 `publication_human_approved=true`, and
 `slsa_attestation_status=not_generated_for_technical_preview_selected_channels`. The selected
-v0.1.3 GitHub/TestPyPI/PyPI/Homebrew channels are published unsigned for the technical preview.
+v0.1.4 GitHub/TestPyPI/PyPI/Homebrew channels are published unsigned for the technical preview.
 Future signing and artifact attestations remain separate release-channel actions, not autonomous
 Codex actions.
 

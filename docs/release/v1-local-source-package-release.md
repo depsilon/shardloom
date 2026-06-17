@@ -2,9 +2,8 @@
 
 # V1 Local Source And Package Release Track
 
-Status: selected local/source/package v1 release track with v0.1.3 GitHub pre-release, TestPyPI,
-PyPI, and Homebrew channel proof complete; v0.1.4 source/package metadata is prepared for the next
-compatible patch publication.
+Status: selected local/source/package v1 release track with v0.1.4 GitHub pre-release, TestPyPI,
+PyPI, and Homebrew channel proof complete.
 
 Schema marker: `shardloom.v1_local_source_package_release.v1`.
 
@@ -15,27 +14,17 @@ python scripts\check_v1_local_source_package_release.py
 ```
 
 This page narrows the feasible v1 release after excluding real production environments. Maintainer
-approval and channel proof now exist for the v0.1.3 GitHub pre-release, TestPyPI, PyPI, and
+approval and channel proof now exist for the v0.1.4 GitHub pre-release, TestPyPI, PyPI, and
 Homebrew sequence. This page does not itself publish additional packages, create new tags, create
 new GitHub releases, upload new artifacts, sign artifacts, add secrets, run production services, or
 authorize fallback execution.
 
-## v0.1.4 Release-Prep Addendum
+## v0.1.4 Publication Addendum
 
-The source tree now carries v0.1.4 package metadata for the runtime activation and package resolver
-closeout patch. Until v0.1.4 channel proofs are checked in, all public install commands and
-package-channel readiness rows remain pinned to the latest proof-backed v0.1.3 publication.
-
-Expected v0.1.4 publication order remains:
-
-1. Merge the v0.1.4 release-prep source revision.
-2. Create the GitHub v0.1.4 release and attach source, wheel, sdist, CLI, checksums, SBOM, and
-   provenance assets.
-3. Publish TestPyPI through Trusted Publisher/OIDC and record the clean registry proof.
-4. Publish PyPI through Trusted Publisher/OIDC using the v0.1.4 TestPyPI proof reference.
-5. Update the Homebrew tap formula against the immutable GitHub v0.1.4 source archive and record
-   install/status/uninstall proof.
-6. Commit the v0.1.4 proof transcripts and promote selected-channel docs from v0.1.3 to v0.1.4.
+The source tree, public package channels, and checked-in channel proofs now point at v0.1.4 for the
+runtime activation and bundled CLI package resolver patch. Public install commands remain scoped to
+technical-preview install access and do not authorize production, performance, broad runtime,
+object-store/lakehouse, Foundry, or fallback-execution claims.
 
 ## Selected V1 Track
 
@@ -47,31 +36,31 @@ Expected v0.1.4 publication order remains:
 | API/schema stability | Stable local v1 machine-readable contract. | `docs/release/v1-api-schema-stability.md`, `docs/release/schemas/v1/*`, `scripts/check_v1_api_schema_stability.py` |
 | Local benchmark publication | Scoped full-local evidence only. | `website/assets/benchmarks/latest/manifest.json` |
 | Docs/website/readme | Claim-safe public interpretation layer. | `README.md`, `docs/release/public-status-matrix.md`, `website-src/` |
-| GitHub pre-release | Published v0.1.3 release assets with channel proof. | `docs/release/channel-proofs/github-prerelease-v0.1.3-transcript.json` |
-| TestPyPI | Published v0.1.3 rehearsal package with Trusted Publisher proof. | `docs/release/channel-proofs/testpypi-v0.1.3-transcript.json` |
-| PyPI | Published v0.1.3 public Python package with prior TestPyPI proof. | `docs/release/channel-proofs/pypi-v0.1.3-transcript.json` |
-| Homebrew tap | Published v0.1.3 public CLI formula against the GitHub source archive. | `docs/release/channel-proofs/homebrew-v0.1.3-transcript.json` |
+| GitHub pre-release | Published v0.1.4 release assets with channel proof. | `docs/release/channel-proofs/github-prerelease-v0.1.4-transcript.json` |
+| TestPyPI | Published v0.1.4 rehearsal package with Trusted Publisher proof. | `docs/release/channel-proofs/testpypi-v0.1.4-transcript.json` |
+| PyPI | Published v0.1.4 public Python package with prior TestPyPI proof. | `docs/release/channel-proofs/pypi-v0.1.4-transcript.json` |
+| Homebrew tap | Published v0.1.4 public CLI formula against the GitHub source archive. | `docs/release/channel-proofs/homebrew-v0.1.4-transcript.json` |
 
 ## Publication Sequence Completed For Selected Channels
 
-The selected v0.1.3 channel order was:
+The selected v0.1.4 channel order was:
 
-1. Merge the v0.1.3 release-prep source revision.
-2. Create the GitHub v0.1.3 release and attach source, wheel, sdist, CLI, checksums, SBOM, and
+1. Merge the v0.1.4 release-prep source revision.
+2. Create the GitHub v0.1.4 release and attach source, wheel, sdist, CLI, checksums, SBOM, and
    provenance assets.
 3. Publish TestPyPI through Trusted Publisher/OIDC and run the clean registry install/uninstall
    smoke transcript.
 4. Commit or otherwise attach the TestPyPI proof reference required by the PyPI workflow.
 5. Publish PyPI through Trusted Publisher/OIDC and run the clean registry install/uninstall smoke
    transcript.
-6. Publish the Homebrew tap formula against the immutable GitHub v0.1.3 source archive and run
+6. Publish the Homebrew tap formula against the immutable GitHub v0.1.4 source archive and run
    `brew install`, `shardloom status --format json`, and `brew uninstall` proof.
 
 The completed publication proof records:
 
-- release version and tag: `v0.1.3`
+- release version and tag: `v0.1.4`
 - selected channels: GitHub pre-release, TestPyPI, PyPI, Homebrew
-- exact source revision: `c44a0a9da3f6981518753ca53e5412708c2af03c`
+- exact source revision: `184ce3161f3ae280e7b17bcfc5bf2d647d6fb8b8`
 - release notes
 - checksum, SBOM, provenance, and signing/attestation policy
 - rollback, yank, delete, or advisory plan per channel
@@ -80,7 +69,7 @@ The completed publication proof records:
 The package publication state is:
 
 ```text
-package_channel_status=published_v0.1.3_selected_channels
+package_channel_status=published_v0.1.4_selected_channels
 package_install_commands_visible=true
 public_release_claim_allowed=false
 public_package_claim_allowed=false
