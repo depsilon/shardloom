@@ -81,7 +81,7 @@
     "source_invalidation_cases": 9,
     "output_formats": 7,
     "output_write_methods": 9,
-    "output_routes": 8,
+    "output_routes": 7,
     "python_user_surface_method_rows": 113,
     "example_replay_doc_sources": 6,
     "example_replay_runtime_commands": 3,
