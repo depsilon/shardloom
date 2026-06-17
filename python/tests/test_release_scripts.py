@@ -6146,10 +6146,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn(
-            "RELEASE-PACKAGE-0.1X-BUNDLED-CLI-1",
-            packet["next_implementation_slice"],
-        )
+        self.assertEqual(packet["next_implementation_slice"], "none")
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def _optimization_target_rows(self) -> list[dict[str, object]]:
@@ -10152,7 +10149,7 @@ class ReleaseScriptTests(unittest.TestCase):
             root / "docs" / "status" / "runs-today-support-matrix.json",
             {
                 "performance_claim_allowed": False,
-                "package_publication_allowed": False,
+                "package_publication_allowed": True,
                 "row_order": ["claim_production_readiness"],
             },
         )
