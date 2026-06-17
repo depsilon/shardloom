@@ -240,8 +240,11 @@ def main() -> int:
         global_review_mapping_status = "blocked_unmapped_or_invalid"
     elif global_unchecked:
         global_review_mapping_status = "mapped_to_runtime_gap_family_claim_boundaries"
-    if phase_unchecked:
-        blockers.append(f"phased execution plan has unchecked items: {len(phase_unchecked)}")
+    phase_plan_queue_status = (
+        "open_development_queue_blocks_release_claims"
+        if phase_unchecked
+        else "no_unchecked_phase_plan_rows"
+    )
     if mirrored_missing:
         blockers.append("unchecked GAR ids missing from phase plan or completed ledger: " + ",".join(mirrored_missing))
 
@@ -315,12 +318,11 @@ def main() -> int:
 
     traceability_rfc_mentions = rfc_mentions(traceability)
     passed = not blockers
+    claim_grade = passed and not global_unchecked and not phase_unchecked
     report: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "status": "passed" if passed else "blocked",
-        "claim_gate_status": "claim_grade"
-        if passed and not global_unchecked
-        else "not_claim_grade",
+        "claim_gate_status": "claim_grade" if claim_grade else "not_claim_grade",
         "public_release_claim_allowed": False,
         "public_package_claim_allowed": False,
         "architecture_tracker_status": "passed" if passed else "blocked",
@@ -335,6 +337,8 @@ def main() -> int:
         "unchecked_phase_plan_count": len(phase_unchecked),
         "global_review_mapping_status": global_review_mapping_status,
         "global_review_unchecked_rows_block_release": bool(runtime_gap_family_blockers),
+        "phase_plan_queue_status": phase_plan_queue_status,
+        "phase_plan_unchecked_rows_block_release_claims": bool(phase_unchecked),
         "runtime_gap_family_burn_down_schema_version": runtime_gap_family_burn_down.get(
             "schema_version"
         ),
