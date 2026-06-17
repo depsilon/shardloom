@@ -11,8 +11,9 @@
 repository. The repo remains the source of truth for code, architecture docs, phase plans, use
 cases, benchmarks, and release evidence.
 
-ShardLoom v0.1.3 is a source-track technical preview with proof-backed GitHub, TestPyPI, PyPI, and
-Homebrew package channels. It is a Vortex-first, no-fallback local compute engine
+ShardLoom main is on the v0.1.4 source/package patch train. The latest proof-backed published
+package channels remain v0.1.3 until the v0.1.4 GitHub, TestPyPI, PyPI, and Homebrew proofs are
+recorded. ShardLoom is a Vortex-first, no-fallback local compute engine
 foundation built around explicit routes and evidence fields that show what ran: source admission,
 Vortex preparation, execution mode, output planning, certificates, fallback status, and claim-gate
 status.
