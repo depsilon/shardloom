@@ -55,7 +55,10 @@ jobs:
           python -m pip install --upgrade pip build
           python scripts/sync_workspace_package_versions.py --check
           python scripts/check_workspace_version_sources.py
-          cargo build -p shardloom-cli --bin shardloom --features release-user-surfaces
+          cargo build --release -p shardloom-cli --bin shardloom --features release-user-surfaces
+          if [[ "$RUNNER_OS" != "Windows" ]]; then
+            strip target/release/shardloom || true
+          fi
           python - <<'PY'
           from pathlib import Path
           import sys
@@ -64,18 +67,20 @@ jobs:
           sys.path.insert(0, "scripts")
           from release_dry_run_proof import (
               build_python_artifacts,
-              shardloom_binary,
               stage_python_package_with_bundled_cli,
           )
 
           repo_root = Path(".").resolve()
           stage_dir = repo_root / "target" / "pypi-python-package-stage"
           dist_dir = stage_dir / "dist"
+          release_binary = repo_root / "target" / "release" / (
+              "shardloom.exe" if sys.platform == "win32" else "shardloom"
+          )
           steps = [
               stage_python_package_with_bundled_cli(
                   repo_root,
                   stage_dir,
-                  shardloom_binary(repo_root),
+                  release_binary,
               ),
           ]
           if steps[0]["returncode"] == 0:
@@ -139,6 +144,7 @@ jobs:
         with:
           packages-dir: python/dist
           repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
 
   validate-pypi-prior-proof:
     needs: build
