@@ -149,6 +149,8 @@ result = (
 
 print(result.output_row_count)
 print(result.first_result_row)
+print(result.activation_summary.native_vortex_status)
+print(result.activation_summary.execution_mode, result.activation_summary.applied_parallelism)
 print(result.claim_summary.claim_gate_status)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
@@ -156,6 +158,10 @@ print(result.fallback_attempted, result.external_engine_invoked)
 `sl.context()` is the ordinary user-facing entry point. `repo_root`, `profile_order`, explicit
 schemas, and format-specific helpers such as `read_csv(...)` remain useful for source-checkout,
 CI, benchmark, and reproducibility flows, but they are not required for normal local package code.
+Every normal result exposes `activation_summary` so users can see which route ran, whether native
+Vortex was active, requested/applied parallelism, pushdown and materialization signals when
+available, fallback/external-engine status, and claim-gate posture without scraping the full
+envelope.
 
 `ctx.read(path)` infers the local source adapter for `.csv`, `.json`, `.jsonl`, `.ndjson`,
 `.parquet`, `.arrow`, `.ipc`, `.feather`, `.avro`, `.orc`, and `.vortex` paths. CSV, flat

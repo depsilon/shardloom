@@ -55,7 +55,7 @@ jobs:
           python -m pip install --upgrade pip build
           python scripts/sync_workspace_package_versions.py --check
           python scripts/check_workspace_version_sources.py
-          cargo build -p shardloom-cli --bin shardloom
+          cargo build -p shardloom-cli --bin shardloom --features release-user-surfaces
           python - <<'PY'
           from pathlib import Path
           import sys

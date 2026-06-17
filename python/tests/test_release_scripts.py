@@ -6146,10 +6146,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertIn(
-            "RELEASE-PACKAGE-0.1X-BUNDLED-CLI-1",
-            packet["next_implementation_slice"],
-        )
+        self.assertEqual(packet["next_implementation_slice"], "none")
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def _optimization_target_rows(self) -> list[dict[str, object]]:
@@ -10152,7 +10149,7 @@ class ReleaseScriptTests(unittest.TestCase):
             root / "docs" / "status" / "runs-today-support-matrix.json",
             {
                 "performance_claim_allowed": False,
-                "package_publication_allowed": False,
+                "package_publication_allowed": True,
                 "row_order": ["claim_production_readiness"],
             },
         )
@@ -11168,8 +11165,8 @@ jobs:
                                 if required_right_input
                                 else "not_applicable_single_input"
                             ),
-                            resolved_internal_command="traditional-analytics-vortex-run",
-                            feature_gate="vortex-traditional-analytics-benchmark",
+                            resolved_internal_command="vortex-production-runtime-run",
+                            feature_gate="vortex-production-runtime",
                             start_state="native_vortex_file",
                             vortex_normalization_point="native_vortex_boundary",
                             execution_policy="native_vortex",
@@ -11187,7 +11184,7 @@ jobs:
                             benchmark_route_equivalence=(
                                 "matches_named_traditional_analytics_vortex_provider_scenario"
                             ),
-                            route_runtime_status="scoped_runtime_supported",
+                            route_runtime_status="production_admitted_local_workflow",
                             fallback_attempted=False,
                             external_engine_invoked=False,
                             required_evidence=(
@@ -11210,8 +11207,8 @@ jobs:
                         sql_surface="ctx.sql.write_vortex",
                         required_right_input=False,
                         right_input_contract="not_applicable_single_input",
-                        resolved_internal_command="traditional-analytics-vortex-run",
-                        feature_gate="vortex-traditional-analytics-benchmark",
+                        resolved_internal_command="vortex-production-runtime-run",
+                        feature_gate="vortex-production-runtime",
                         start_state="native_vortex_file",
                         vortex_normalization_point="native_vortex_boundary",
                         execution_policy="native_vortex",
@@ -11227,7 +11224,7 @@ jobs:
                         benchmark_route_equivalence=(
                             "matches_named_traditional_analytics_vortex_provider_scenario"
                         ),
-                        route_runtime_status="scoped_runtime_supported",
+                        route_runtime_status="production_admitted_local_workflow",
                         fallback_attempted=False,
                         external_engine_invoked=False,
                         required_evidence=(
@@ -11253,7 +11250,7 @@ jobs:
                     v1_scope_document = "docs/architecture/v1-vortex-runtime-scope.md"
                     v1_provider_route_ids = V1_VORTEX_PROVIDER_ROUTE_IDS
                     v1_provider_scenario_ids = V1_VORTEX_PROVIDER_SCENARIO_IDS
-                    feature_gate = "vortex-traditional-analytics-benchmark"
+                    feature_gate = "vortex-production-runtime"
                     v1_scope_ready = True
                     all_runtime_supported = True
                     all_route_certificates_current = True
@@ -13077,7 +13074,7 @@ jobs:
                 "cli_status_capability_reports",
                 "python_status_capabilities",
                 "python_generated_source_helpers",
-                "cli_prepared_vortex_batch_benchmark",
+                "cli_vortex_production_runtime_and_prepared_batch_benchmark",
             ]
         ]
         rows.extend(
@@ -13089,7 +13086,10 @@ jobs:
                     "fallback_attempted": False,
                     "external_engine_invoked": False,
                 }
-                for row_id in ["claim_production_readiness", "claim_future_package_channels"]
+                for row_id in [
+                    "claim_production_readiness",
+                    "claim_object_store_lakehouse_foundry_production",
+                ]
             ]
         )
         rows.append(

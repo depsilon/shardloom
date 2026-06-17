@@ -9,6 +9,7 @@ pub(crate) enum CommandFamily {
     StatusCapabilities,
     VortexPrimitiveExecution,
     PreparedSourceBackedExecution,
+    VortexProductionRuntime,
     VortexPlanning,
     VortexRuntimePlanning,
     VortexOutputCommit,
@@ -35,6 +36,7 @@ impl CommandFamily {
             Self::StatusCapabilities => "status_capabilities",
             Self::VortexPrimitiveExecution => "vortex_primitive_execution",
             Self::PreparedSourceBackedExecution => "prepared_source_backed_execution",
+            Self::VortexProductionRuntime => "vortex_production_runtime",
             Self::VortexPlanning => "vortex_planning",
             Self::VortexRuntimePlanning => "vortex_runtime_planning",
             Self::VortexOutputCommit => "vortex_output_commit",
@@ -64,6 +66,8 @@ pub(crate) fn classify_command(command: &str) -> CommandFamily {
         CommandFamily::VortexPrimitiveExecution
     } else if is_prepared_source_backed_command(command) {
         CommandFamily::PreparedSourceBackedExecution
+    } else if is_vortex_production_runtime_command(command) {
+        CommandFamily::VortexProductionRuntime
     } else if is_vortex_output_commit_command(command) {
         CommandFamily::VortexOutputCommit
     } else if is_vortex_runtime_planning_command(command) {
@@ -139,6 +143,10 @@ fn is_vortex_primitive_command(command: &str) -> bool {
             | "vortex-local-exec"
             | "vortex-bounded-local-exec"
     )
+}
+
+fn is_vortex_production_runtime_command(command: &str) -> bool {
+    matches!(command, "vortex-production-runtime-run")
 }
 
 fn is_prepared_source_backed_command(command: &str) -> bool {
@@ -507,6 +515,10 @@ mod tests {
         assert_eq!(
             classify_command("traditional-analytics-vortex-batch-run"),
             CommandFamily::Benchmarks
+        );
+        assert_eq!(
+            classify_command("vortex-production-runtime-run"),
+            CommandFamily::VortexProductionRuntime
         );
         assert_eq!(
             classify_command("traditional-analytics-prepare-batch-run"),

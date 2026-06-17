@@ -1335,6 +1335,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("traditional-analytics-vortex-run") => {
             benchmark_runtime::handle_traditional_analytics_vortex_run(args, format)
         }
+        Some("vortex-production-runtime-run") => {
+            benchmark_runtime::handle_vortex_production_runtime_run(args, format)
+        }
         Some("traditional-analytics-vortex-batch-run") => {
             benchmark_runtime::handle_traditional_analytics_vortex_batch_run(args, format)
         }

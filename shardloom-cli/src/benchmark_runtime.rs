@@ -499,28 +499,38 @@ pub(crate) fn handle_traditional_analytics_vortex_run(
 }
 
 #[allow(clippy::too_many_lines)]
+pub(crate) fn handle_vortex_production_runtime_run(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_traditional_analytics_vortex_run_with_facade(
+        args,
+        format,
+        "vortex-production-runtime-run",
+        Vec::new(),
+    )
+}
+
+#[allow(clippy::too_many_lines)]
 pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
     emit_command: &'static str,
     extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
+    let usage = format!(
+        "usage: shardloom {emit_command} <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
+    );
     let Some(scenario_text) = args.next() else {
-        eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
-        );
+        eprintln!("{usage}");
         return ExitCode::from(2);
     };
     let Some(fact_vortex) = args.next() else {
-        eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
-        );
+        eprintln!("{usage}");
         return ExitCode::from(2);
     };
     let Some(dim_vortex) = args.next() else {
-        eprintln!(
-            "usage: shardloom traditional-analytics-vortex-run <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
-        );
+        eprintln!("{usage}");
         return ExitCode::from(2);
     };
     let mut requested_execution_mode = ShardLoomExecutionMode::NativeVortex;
@@ -533,18 +543,14 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
         match arg.as_str() {
             "--cdc-delta-vortex" => {
                 let Some(path) = args.next() else {
-                    eprintln!(
-                        "usage: shardloom traditional-analytics-vortex-run ... --cdc-delta-vortex <path>"
-                    );
+                    eprintln!("usage: shardloom {emit_command} ... --cdc-delta-vortex <path>");
                     return ExitCode::from(2);
                 };
                 cdc_delta_vortex = Some(PathBuf::from(path));
             }
             "--workspace" => {
                 let Some(path) = args.next() else {
-                    eprintln!(
-                        "usage: shardloom traditional-analytics-vortex-run ... --workspace <dir>"
-                    );
+                    eprintln!("usage: shardloom {emit_command} ... --workspace <dir>");
                     return ExitCode::from(2);
                 };
                 workspace_dir = Some(PathBuf::from(path));
@@ -554,9 +560,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
             }
             "--execution-mode" => {
                 let Some(value) = args.next() else {
-                    eprintln!(
-                        "usage: shardloom traditional-analytics-vortex-run ... [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
-                    );
+                    eprintln!("{usage}");
                     return ExitCode::from(2);
                 };
                 match ShardLoomExecutionMode::parse(&value) {
@@ -572,9 +576,9 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
                         return emit_error(
                             emit_command,
                             format,
-                            "traditional analytics native Vortex run failed",
+                            "native Vortex provider runtime failed",
                             &ShardLoomError::InvalidOperation(format!(
-                                "traditional-analytics-vortex-run does not support execution mode {}; fallback execution was not attempted",
+                                "{emit_command} does not support execution mode {}; fallback execution was not attempted",
                                 mode.as_str()
                             )),
                         );
@@ -583,7 +587,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
                         return emit_error(
                             emit_command,
                             format,
-                            "traditional analytics native Vortex run failed",
+                            "native Vortex provider runtime failed",
                             &error,
                         );
                     }
@@ -591,9 +595,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
             }
             "--memory-gb" => {
                 let Some(value) = args.next() else {
-                    eprintln!(
-                        "usage: shardloom traditional-analytics-vortex-run ... --memory-gb <cap>"
-                    );
+                    eprintln!("usage: shardloom {emit_command} ... --memory-gb <cap>");
                     return ExitCode::from(2);
                 };
                 match value.parse::<u32>() {
@@ -602,9 +604,9 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
                         return emit_error(
                             emit_command,
                             format,
-                            "traditional analytics native Vortex run failed",
+                            "native Vortex provider runtime failed",
                             &ShardLoomError::InvalidOperation(format!(
-                                "traditional-analytics-vortex-run invalid --memory-gb value: {value}"
+                                "{emit_command} invalid --memory-gb value: {value}"
                             )),
                         );
                     }
@@ -612,9 +614,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
             }
             "--max-parallelism" => {
                 let Some(value) = args.next() else {
-                    eprintln!(
-                        "usage: shardloom traditional-analytics-vortex-run ... --max-parallelism <cap>"
-                    );
+                    eprintln!("usage: shardloom {emit_command} ... --max-parallelism <cap>");
                     return ExitCode::from(2);
                 };
                 match value.parse::<usize>() {
@@ -623,9 +623,9 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
                         return emit_error(
                             emit_command,
                             format,
-                            "traditional analytics native Vortex run failed",
+                            "native Vortex provider runtime failed",
                             &ShardLoomError::InvalidOperation(format!(
-                                "traditional-analytics-vortex-run invalid --max-parallelism value: {value}"
+                                "{emit_command} invalid --max-parallelism value: {value}"
                             )),
                         );
                     }
@@ -635,8 +635,8 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
                 return emit_error(
                     emit_command,
                     format,
-                    "traditional analytics native Vortex run failed",
-                    &cli_unknown_arg_error("traditional-analytics-vortex-run", extra),
+                    "native Vortex provider runtime failed",
+                    &cli_unknown_arg_error(emit_command, extra),
                 );
             }
         }
@@ -648,7 +648,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
             return emit_error(
                 emit_command,
                 format,
-                "traditional analytics native Vortex run failed",
+                "native Vortex provider runtime failed",
                 &error,
             );
         }
@@ -674,7 +674,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
             return emit_error(
                 emit_command,
                 format,
-                "traditional analytics native Vortex run failed",
+                "native Vortex provider runtime failed",
                 &error,
             );
         }
@@ -691,7 +691,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
         emit_command,
         format,
         CommandStatus::Success,
-        "traditional analytics native Vortex smoke".to_string(),
+        "native Vortex provider runtime".to_string(),
         human_text,
         report.diagnostics.clone(),
         fields,

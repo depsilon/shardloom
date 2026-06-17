@@ -855,7 +855,7 @@ def validate_runs_today(runs_today: dict[str, Any] | None) -> tuple[dict[str, An
             blockers.append(f"runs-today missing Python surface row: {row_id}")
     for row_id in [
         "claim_production_readiness",
-        "claim_future_package_channels",
+        "claim_object_store_lakehouse_foundry_production",
         "claim_performance_superiority",
     ]:
         row = by_id.get(row_id)

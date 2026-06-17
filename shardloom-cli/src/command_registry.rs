@@ -230,6 +230,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "vortex-projection-readiness-plan",
     "traditional-analytics-run",
     "traditional-analytics-vortex-run",
+    "vortex-production-runtime-run",
     "traditional-analytics-vortex-batch-run",
     "traditional-analytics-prepare-batch-run",
     "vortex-count",
@@ -896,6 +897,9 @@ fn command_usage_fragment(command: &str) -> String {
         }
         "traditional-analytics-prepare-batch-run" => {
             format!("{command} <scenario_csv> <fact_input> <dim_input> --workspace <dir>")
+        }
+        "vortex-production-runtime-run" => {
+            format!("{command} <scenario> <fact_vortex> <dim_vortex> [--workspace <dir>] [--write-result-vortex]")
         }
         "workflow-unsupported-plan" => {
             format!(

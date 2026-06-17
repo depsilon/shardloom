@@ -29,10 +29,17 @@ serde_json = { workspace = true }
 
 [features]
 default = []
+release-user-surfaces = [
+    "universal-format-io",
+    "vortex-write",
+    "vortex-local-primitives",
+    "vortex-production-runtime",
+]
 universal-format-io = ["dep:arrow-array", "shardloom-vortex/universal-format-io"]
 vortex-write = ["shardloom-vortex/vortex-write"]
 vortex-encoded-read-spike = ["shardloom-vortex/vortex-encoded-read-spike"]
 vortex-local-primitives = ["shardloom-vortex/vortex-local-primitives"]
+vortex-production-runtime = ["vortex-traditional-analytics-benchmark"]
 vortex-traditional-analytics-benchmark = [
     "shardloom-vortex/vortex-traditional-analytics-benchmark",
     "shardloom-vortex/vortex-staged-output-fs",

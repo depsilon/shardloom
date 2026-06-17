@@ -141,7 +141,7 @@ CLAIM_SURFACE_REFS = {
     ),
     "docs/status/runs-today-support-matrix.json": (
         '"performance_claim_allowed": false',
-        '"package_publication_allowed": false',
+        '"package_publication_allowed": true',
         '"claim_production_readiness"',
     ),
     "python/pyproject.toml": (

@@ -74,9 +74,13 @@ Python/DataFrame-style chains and equivalent exact SQL statements that match the
 traditional-analytics scenario families enter through the same `public_workflow_run` facade with
 `execution_policy=native_vortex`, `materialization_policy=zero_decode`,
 `native_vortex_provider_scenario`, and optional `native_vortex_right_input` evidence. When the CLI
-is built with `vortex-traditional-analytics-benchmark`, the facade dispatches these exact shapes to
-`traditional-analytics-vortex-run` instead of returning the older route-missing blockers. This is a
-real ShardLoom-native provider route, but it is not broad arbitrary Vortex SQL/DataFrame planning.
+is built with `vortex-production-runtime` or the release package feature set
+`release-user-surfaces`, the facade dispatches these exact shapes to the promoted provider runtime
+through `vortex-production-runtime-run` instead of returning route-missing
+blockers. This is a real ShardLoom-native provider route, but it is not broad arbitrary Vortex
+SQL/DataFrame planning. The legacy `vortex-traditional-analytics-benchmark` feature remains an
+internal compatibility alias for benchmark harness code; public release guidance should use the
+production feature names.
 
 Every native Vortex public route also emits the route-unification contract fields
 `native_vortex_user_route_contract_schema_version`, `native_vortex_operation_family`,
@@ -147,7 +151,7 @@ emit the provider payload.
 `ShardLoomContext.native_vortex_provider_route_certificate_report()` is the machine-readable
 certificate surface for these exact routes. It records the route id, operation family, provider
 scenario, benchmark scenario id, Python and SQL surfaces, `native_vortex_right_input` requirement,
-`traditional-analytics-vortex-run` provider command, feature gate, typed result/sink contract,
+`vortex-production-runtime-run` provider command, feature gate, typed result/sink contract,
 decode/materialization boundary, route certificate source, `claim_gate_status=not_claim_grade`,
 `fallback_attempted=false`, and `external_engine_invoked=false`. The report deliberately keeps
 `general_multi_input_join_claim_allowed=false`, `performance_claim_allowed=false`, and

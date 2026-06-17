@@ -12,6 +12,7 @@ OUTPUT_ENVELOPE_SCHEMA_VERSION = "shardloom.output.v2"
 RUNTIME_EXECUTION_ENVELOPE_VALIDATION_SCHEMA_VERSION = (
     "shardloom.runtime_execution_envelope_validation.v1"
 )
+RUNTIME_ACTIVATION_SUMMARY_SCHEMA_VERSION = "shardloom.runtime_activation_summary.v1"
 RUNTIME_ROUTE_STATE_REF_FIELDS = (
     "source_state_id",
     "source_state_digest",
@@ -401,6 +402,86 @@ class EvidenceSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class RuntimeActivationSummary:
+    """Compact user-facing summary of which runtime features were active."""
+
+    schema_version: str
+    command: str
+    status: str
+    runtime_execution: bool
+    route_id: str | None
+    route_runtime_status: str | None
+    route_support_status: str | None
+    execution_mode: str | None
+    native_vortex_status: str
+    native_vortex_enabled: bool
+    native_vortex_required_feature_gate: str | None
+    source_format: str | None
+    vortex_read_path: str | None
+    upstream_vortex_scan_called: bool | None
+    filter_pushdown: bool | None
+    projection_pushdown: bool | None
+    limit_pushdown: bool | None
+    pushdown_status: str | None
+    source_state_reuse_allowed: bool | None
+    source_state_reuse_hit: bool | None
+    source_state_reuse_reason: str | None
+    requested_parallelism: str | None
+    detected_parallelism: int | None
+    applied_parallelism: int | None
+    data_decoded: bool | None
+    data_materialized: bool | None
+    write_io: bool | None
+    sink_status: str | None
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    claim_gate_status: str | None
+    blocker_id: str | None
+    blocker_reason: str | None
+    unsupported_diagnostics: tuple[Mapping[str, str | None], ...]
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return this summary as a JSON-serializable mapping."""
+
+        return {
+            "schema_version": self.schema_version,
+            "command": self.command,
+            "status": self.status,
+            "runtime_execution": self.runtime_execution,
+            "route_id": self.route_id,
+            "route_runtime_status": self.route_runtime_status,
+            "route_support_status": self.route_support_status,
+            "execution_mode": self.execution_mode,
+            "native_vortex_status": self.native_vortex_status,
+            "native_vortex_enabled": self.native_vortex_enabled,
+            "native_vortex_required_feature_gate": self.native_vortex_required_feature_gate,
+            "source_format": self.source_format,
+            "vortex_read_path": self.vortex_read_path,
+            "upstream_vortex_scan_called": self.upstream_vortex_scan_called,
+            "filter_pushdown": self.filter_pushdown,
+            "projection_pushdown": self.projection_pushdown,
+            "limit_pushdown": self.limit_pushdown,
+            "pushdown_status": self.pushdown_status,
+            "source_state_reuse_allowed": self.source_state_reuse_allowed,
+            "source_state_reuse_hit": self.source_state_reuse_hit,
+            "source_state_reuse_reason": self.source_state_reuse_reason,
+            "requested_parallelism": self.requested_parallelism,
+            "detected_parallelism": self.detected_parallelism,
+            "applied_parallelism": self.applied_parallelism,
+            "data_decoded": self.data_decoded,
+            "data_materialized": self.data_materialized,
+            "write_io": self.write_io,
+            "sink_status": self.sink_status,
+            "fallback_attempted": self.fallback_attempted,
+            "external_engine_invoked": self.external_engine_invoked,
+            "claim_gate_status": self.claim_gate_status,
+            "blocker_id": self.blocker_id,
+            "blocker_reason": self.blocker_reason,
+            "unsupported_diagnostics": [dict(item) for item in self.unsupported_diagnostics],
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ClaimSummary:
     """Compact user-facing summary of what may and may not be claimed."""
 
@@ -751,6 +832,12 @@ class OutputEnvelope:
             public_performance_claim_allowed=claim_gate_status == "claim_grade",
         )
 
+    @property
+    def activation_summary(self) -> RuntimeActivationSummary:
+        """Return compact runtime-feature activation evidence for this envelope."""
+
+        return runtime_activation_summary(self)
+
     def runtime_execution_validation(
         self,
         *,
@@ -1038,6 +1125,151 @@ def validate_runtime_execution_fields(
     )
 
 
+def runtime_activation_summary(envelope: OutputEnvelope) -> RuntimeActivationSummary:
+    """Return compact runtime activation evidence derived from stable envelope fields."""
+
+    route_id = _first_runtime_field(
+        envelope, "public_workflow_route_id", "route_id", "route_lane_id"
+    )
+    route_runtime_status = _first_runtime_field(
+        envelope, "public_workflow_route_runtime_status", "route_runtime_status"
+    )
+    route_support_status = _first_runtime_field(
+        envelope,
+        "public_workflow_route_support_status",
+        "route_support_status",
+        "support_status",
+    )
+    vortex_middle_status = _first_runtime_field(
+        envelope, "public_workflow_vortex_middle_status", "vortex_middle_status"
+    )
+    blocker_id = _first_runtime_field(
+        envelope, "public_workflow_blocker_id", "blocker_id"
+    )
+    blocker_reason = _first_runtime_field(
+        envelope, "public_workflow_blocker_reason", "blocker_reason"
+    )
+    native_vortex_required_feature_gate = _native_vortex_required_feature_gate(
+        envelope, route_id, blocker_id
+    )
+    native_vortex_status = _native_vortex_activation_status(
+        route_id=route_id,
+        vortex_middle_status=vortex_middle_status,
+        blocker_id=blocker_id,
+        required_feature_gate=native_vortex_required_feature_gate,
+    )
+    return RuntimeActivationSummary(
+        schema_version=RUNTIME_ACTIVATION_SUMMARY_SCHEMA_VERSION,
+        command=envelope.command,
+        status=envelope.status,
+        runtime_execution=_first_runtime_bool(envelope, "runtime_execution") is True,
+        route_id=route_id,
+        route_runtime_status=route_runtime_status,
+        route_support_status=route_support_status,
+        execution_mode=_first_runtime_field(
+            envelope,
+            "public_workflow_execution_mode",
+            "selected_execution_mode",
+            "execution_mode",
+            "engine_mode",
+        ),
+        native_vortex_status=native_vortex_status,
+        native_vortex_enabled=native_vortex_status == "active",
+        native_vortex_required_feature_gate=native_vortex_required_feature_gate,
+        source_format=_first_runtime_field(
+            envelope, "public_workflow_source_format", "source_format", "input_format"
+        ),
+        vortex_read_path=_first_runtime_field(
+            envelope,
+            "public_workflow_vortex_normalization_point",
+            "vortex_normalization_point",
+            "prepared_vortex_scan_path",
+            "vortex_scan_path",
+            "start_state",
+            "public_workflow_start_state",
+        ),
+        upstream_vortex_scan_called=_first_runtime_bool(
+            envelope,
+            "upstream_vortex_scan_called",
+            "local_primitive_upstream_scan_called",
+            "prepared_vortex_scan_called",
+        ),
+        filter_pushdown=_first_runtime_bool(
+            envelope,
+            "filter_pushdown_applied",
+            "local_primitive_filter_pushdown_applied",
+            "scan_filter_pushed_down",
+            "filter_pushed_down",
+        ),
+        projection_pushdown=_first_runtime_bool(
+            envelope,
+            "projection_pushdown_applied",
+            "local_primitive_projection_pushdown_applied",
+            "scan_projection_pushed_down",
+            "projection_pushed_down",
+            "source_state_column_pruning_applied",
+        ),
+        limit_pushdown=_first_runtime_bool(
+            envelope, "limit_pushdown_applied", "scan_limit_pushed_down", "limit_pushed_down"
+        ),
+        pushdown_status=_first_runtime_field(
+            envelope,
+            "pushdown_status",
+            "scan_pushdown_status",
+            "source_state_projection_pushdown_status",
+            "prepared_vortex_scan_pushdown_status",
+        ),
+        source_state_reuse_allowed=_first_runtime_bool(
+            envelope, "source_state_reuse_allowed"
+        ),
+        source_state_reuse_hit=_first_runtime_bool(
+            envelope, "source_state_reuse_hit", "source_state_reused"
+        ),
+        source_state_reuse_reason=_first_runtime_field(
+            envelope, "source_state_reuse_reason", "source_state_reuse_status"
+        ),
+        requested_parallelism=_first_runtime_field(
+            envelope,
+            "requested_max_parallelism",
+            "local_primitive_max_parallelism_requested",
+            "public_workflow_max_parallelism",
+            "max_parallelism",
+        ),
+        detected_parallelism=_first_runtime_int(
+            envelope, "detected_parallelism", "detected_max_parallelism"
+        ),
+        applied_parallelism=_first_runtime_int(
+            envelope,
+            "applied_max_parallelism",
+            "runtime_max_parallelism",
+            "local_primitive_max_parallelism_requested",
+            "public_workflow_max_parallelism",
+            "max_parallelism",
+        ),
+        data_decoded=_first_runtime_bool(envelope, "data_decoded"),
+        data_materialized=_first_runtime_bool(envelope, "data_materialized"),
+        write_io=_first_runtime_bool(
+            envelope, "write_io", "output_io_performed", "sink_io_performed"
+        ),
+        sink_status=_first_runtime_field(
+            envelope,
+            "output_plan_status",
+            "output_route",
+            "typed_sink_contract",
+            "public_workflow_typed_sink_contract",
+            "output_format",
+        ),
+        fallback_attempted=envelope.fallback.attempted
+        or _first_runtime_bool(envelope, "fallback_attempted") is True,
+        external_engine_invoked=_first_runtime_bool(envelope, "external_engine_invoked")
+        is True,
+        claim_gate_status=_first_runtime_field(envelope, "claim_gate_status"),
+        blocker_id=blocker_id,
+        blocker_reason=blocker_reason,
+        unsupported_diagnostics=_unsupported_diagnostics(envelope),
+    )
+
+
 def parse_field_bool_value(value: Any, *, default: bool | None = None) -> bool | None:
     if value is None:
         return default
@@ -1069,6 +1301,120 @@ def _safe_field_bool(envelope: OutputEnvelope, key: str) -> bool | None:
     if value is None:
         return None
     return parse_field_bool_value(value)
+
+
+def _first_runtime_field(envelope: OutputEnvelope, *keys: str) -> str | None:
+    for key in keys:
+        value = _runtime_field(envelope, key)
+        if _usable_field_value(value):
+            return value
+    return None
+
+
+def _first_runtime_bool(envelope: OutputEnvelope, *keys: str) -> bool | None:
+    for key in keys:
+        value = _runtime_field(envelope, key)
+        parsed = parse_field_bool_value(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _first_runtime_int(envelope: OutputEnvelope, *keys: str) -> int | None:
+    for key in keys:
+        value = _runtime_field(envelope, key)
+        if not _usable_field_value(value):
+            continue
+        try:
+            return int(value)
+        except ValueError:
+            continue
+    return None
+
+
+def _usable_field_value(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() not in {
+        "",
+        "none",
+        "not_applicable",
+        "missing",
+        "[]",
+        "{}",
+        "()",
+    }
+
+
+def _native_vortex_required_feature_gate(
+    envelope: OutputEnvelope,
+    route_id: str | None,
+    blocker_id: str | None,
+) -> str | None:
+    explicit = _first_runtime_field(
+        envelope,
+        "public_workflow_native_vortex_required_feature_gate",
+        "native_vortex_required_feature_gate",
+        "required_feature_gate",
+        "feature_gate",
+    )
+    if explicit is not None:
+        return explicit
+    for diagnostic in envelope.diagnostics:
+        reason = diagnostic.reason or diagnostic.message
+        if reason and "compiled_without=" in reason:
+            return reason.split("compiled_without=", 1)[1].split()[0].strip(".,;")
+    if blocker_id == "py-vortex-route-unify-1.native_vortex_provider_feature_gated":
+        return "vortex-production-runtime"
+    if route_id and route_id.startswith("native_vortex_user_"):
+        return "vortex-production-runtime"
+    if route_id and route_id.startswith("native_vortex_"):
+        return "default"
+    return None
+
+
+def _native_vortex_activation_status(
+    *,
+    route_id: str | None,
+    vortex_middle_status: str | None,
+    blocker_id: str | None,
+    required_feature_gate: str | None,
+) -> str:
+    if blocker_id == "py-vortex-route-unify-1.native_vortex_provider_feature_gated":
+        return "feature_gated"
+    if blocker_id and blocker_id.startswith("py-vortex-route-unify-1.native_vortex"):
+        return "blocked"
+    if vortex_middle_status in {
+        "native_vortex_boundary",
+        "native_vortex_primitive",
+        "native_vortex_user_operator_provider",
+    }:
+        return "active"
+    if vortex_middle_status == "pending_native_vortex_middle_unification":
+        return "pending_middle_unification"
+    if route_id and route_id.startswith("native_vortex_user_") and required_feature_gate:
+        return "active"
+    if route_id and route_id.startswith("native_vortex_"):
+        return "active"
+    return "not_applicable"
+
+
+def _unsupported_diagnostics(
+    envelope: OutputEnvelope,
+) -> tuple[Mapping[str, str | None], ...]:
+    rows: list[Mapping[str, str | None]] = []
+    for diagnostic in envelope.diagnostics:
+        if diagnostic.severity not in {"error", "fatal", "warning"}:
+            continue
+        rows.append(
+            {
+                "code": diagnostic.code,
+                "feature": diagnostic.feature,
+                "reason": diagnostic.reason or diagnostic.message,
+                "suggested_next_step": diagnostic.suggested_next_step,
+            }
+        )
+    return tuple(rows)
 
 
 def _require_any_field(

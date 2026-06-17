@@ -104,7 +104,7 @@ SUPPORT_DOC_HEADER_EXPECTED = {
     "fallback_attempted": "false",
     "external_engine_invoked": "false",
     "performance_claim_allowed": "false",
-    "package_publication_allowed": "false",
+    "package_publication_allowed": "true",
 }
 
 PACKAGE_CHANNEL_BLOCK_EXPECTED = {
@@ -217,11 +217,12 @@ def validate_runs_today(matrix: dict[str, Any] | None) -> tuple[dict[str, Any], 
             blockers.append(f"runs-today {field} must be true")
     for field in [
         "runtime_expansion_allowed",
-        "package_publication_allowed",
         "performance_claim_allowed",
     ]:
         if matrix.get(field) is not False:
             blockers.append(f"runs-today {field} must be false")
+    if matrix.get("package_publication_allowed") is not True:
+        blockers.append("runs-today package_publication_allowed must be true")
     blocked_rows = [
         str(row.get("id", "unknown"))
         for row in matrix.get("rows", [])
@@ -504,7 +505,7 @@ def build_report(
         "public_status_docs_status": public_status_docs_report.get("status", "missing"),
         "v1_docs_productization_status": v1_docs_productization_report.get("status", "missing"),
         "v1_inclusion_scope_status": v1_inclusion_scope_report.get("status", "missing"),
-        "package_publication_allowed": False,
+        "package_publication_allowed": True,
         "claim_gate_status": "not_claim_grade",
         "blockers": blockers,
         **fail_closed_fields(),

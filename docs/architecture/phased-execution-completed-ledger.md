@@ -16,6 +16,77 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Python runtime activation and Vortex provider promotion
+  - Date: 2026-06-17
+  - Source:
+    - `PY-RUNTIME-ACTIVATION-PROVIDER-PROMOTION-1` in
+      `docs/architecture/phased-execution-plan.md`.
+    - Maintainer direction to stop exposing benchmark/smoke naming as the normal Python Vortex
+      runtime surface and to make release user surfaces use ShardLoom-native provider capabilities
+      with deterministic blockers rather than discarded/unsupported routes.
+  - Scope:
+    - Added compact Python `RuntimeActivationSummary` evidence on normal result wrappers, route
+      inspection, public workflow execution, Vortex workflow execution, and unsupported workflow
+      reports.
+    - Promoted the reusable native Vortex provider lane behind the production-named
+      `vortex-production-runtime` feature and `vortex-production-runtime-run` command while keeping
+      the benchmark-named command/feature as internal compatibility aliases for benchmark harness
+      code.
+    - Updated route certificates, Python client/context surfaces, package feature sets, release
+      build wiring, README/Python docs, v1 runtime-scope docs, and user-surface references so
+      product-local, native primitive, provider-backed native Vortex, and benchmark-publication
+      surfaces are distinguishable.
+    - Added deterministic schema-shape blockers for provider-looking Vortex plans that do not
+      match an admitted schema/operator contract, preserving report-only and unshaped-query
+      blockers.
+  - Evidence:
+    - Focused Python activation-summary/query-builder/client tests passed.
+    - Focused Rust route tests passed for feature-gated provider routes, admitted promoted
+      provider routes, payloadless provider inference, and non-admitted provider-shape blockers.
+    - `cargo check -p shardloom-cli --features release-user-surfaces` and
+      `cargo check -p shardloom-vortex --features release-user-surfaces` passed during the session.
+    - Release/user-surface validators were updated and passed during the session before broad
+      workspace validation.
+  - Claim boundary:
+    - This closes runtime activation visibility and promoted provider route naming only. It does
+      not broaden SQL/DataFrame parity, production object-store/lakehouse/Foundry support, or
+      performance-superiority claims.
+  - Fallback boundary:
+    - Successful and blocked paths continue to report `fallback_attempted=false` and
+      `external_engine_invoked=false`; no DuckDB, Polars, pandas, Spark, DataFusion, or Vortex
+      query-engine fallback was added.
+
+- [x] Session label: bundled CLI Python package resolver
+  - Date: 2026-06-17
+  - Source:
+    - `RELEASE-PACKAGE-0.1X-BUNDLED-CLI-1` in
+      `docs/architecture/phased-execution-plan.md`.
+    - Maintainer feedback that managed Python/dev environments should not require application code
+      to wire `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, Homebrew, or a source checkout when a
+      supported ShardLoom wheel is installed.
+  - Scope:
+    - `ShardLoomClient` now resolves explicit binary, `SHARDLOOM_BIN`, source-checkout binaries,
+      bundled wheel CLI resources under `shardloom/bin/<platform-tag>/`, then `shardloom` on
+      `PATH`, with deterministic missing-binary diagnostics and no runtime binary download.
+    - Release dry-run and PyPI draft workflow staging now build platform wheels from a staged
+      package tree containing the ShardLoom CLI binary resource and keep sdist/universal package
+      behavior separate.
+    - README, Python README, release docs, package-channel validators, and dry-run proof fields now
+      distinguish published external-CLI installs from the next bundled-wheel patch path.
+  - Evidence:
+    - Focused resolver tests passed for bundled-before-`PATH`, `SHARDLOOM_BIN` override
+      precedence, non-executable bundled-resource handling, dynamic-version PyPI workflow wiring,
+      and local-source package release gate contract.
+    - Release dry-run transcript fields include bundled CLI staging, platform tag/resource,
+      clean-venv smoke without `SHARDLOOM_BIN`, and `wheel_client_resolved_bundled_cli`.
+  - Claim boundary:
+    - This is package ergonomics and local/dev-env usability only. It does not claim production
+      Foundry support, object-store/table/live/distributed production readiness, or performance
+      superiority.
+  - Fallback boundary:
+    - The bundled binary is ShardLoom's own CLI, not an execution fallback; no external engine or
+      runtime network download is introduced.
+
 - [x] Session label: CI-WORK-SHAPING-1 metadata-first CI/check overhaul
   - Date: 2026-06-15
   - Source:
