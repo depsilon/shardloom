@@ -12588,6 +12588,32 @@ jobs:
             sdist = repo_root / "python" / "dist" / "shardloom-0.1.0.tar.gz"
             self.assertTrue(sdist.is_file())
 
+    def test_release_evidence_artifact_merge_restores_compact_transcript(self) -> None:
+        module = self._load_script_module(
+            "merge_release_evidence_artifacts.py",
+            "merge_release_evidence_artifacts_compact_transcript_for_test",
+        )
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            repo_root = Path(tempdir)
+            artifact = repo_root / "target" / "downloads" / "release-local-smoke-evidence"
+            artifact.mkdir(parents=True)
+            (artifact / "transcript.json").write_text('{"proof_status":"passed"}\n', encoding="utf-8")
+
+            report = module.merge_artifact(repo_root, artifact)
+
+            self.assertEqual(report["status"], "passed", report["blockers"])
+            self.assertEqual(report["artifact_file_count"], 1)
+            self.assertEqual(
+                report["copied_paths"],
+                ["target/release-dry-run-proof/transcript.json"],
+            )
+            transcript = repo_root / "target" / "release-dry-run-proof" / "transcript.json"
+            self.assertEqual(
+                json.loads(transcript.read_text(encoding="utf-8"))["proof_status"],
+                "passed",
+            )
+
     def test_release_evidence_artifact_merge_rejects_symlinked_entries(self) -> None:
         module = self._load_script_module(
             "merge_release_evidence_artifacts.py",
