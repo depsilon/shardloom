@@ -98,9 +98,9 @@
     "slug": "direct-compatibility-transient",
     "title": "direct_compatibility_transient",
     "category": "Execution Routes",
-    "status": "smoke_supported",
-    "summary": "A scoped one-shot local route without persistent Vortex preparation.",
-    "route": "Direct one-shot route",
+    "status": "internal_smoke_only",
+    "summary": "An internal smoke-only route; public local-file workflows must use Vortex preparation or native Vortex input.",
+    "route": "Direct one-shot smoke route",
     "evidence_fields": [
       "execution_mode",
       "source_format",

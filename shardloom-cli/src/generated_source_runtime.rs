@@ -1344,6 +1344,7 @@ impl GeneratedUserRowsSmokeReport {
                 "output_path".to_string(),
                 self.output_path.display().to_string(),
             ),
+            ("output_row_count".to_string(), self.rows.len().to_string()),
             ("output_bytes".to_string(), self.output_bytes.to_string()),
             ("output_digest".to_string(), self.output_digest.clone()),
             (
@@ -1572,6 +1573,7 @@ impl GeneratedRangeSmokeReport {
                 "output_path".to_string(),
                 self.output_path.display().to_string(),
             ),
+            ("output_row_count".to_string(), self.rows.len().to_string()),
             ("output_bytes".to_string(), self.output_bytes.to_string()),
             ("output_digest".to_string(), self.output_digest.clone()),
             (
@@ -1786,6 +1788,7 @@ impl GeneratedSqlSmokeReport {
                 "output_path".to_string(),
                 self.output_path.display().to_string(),
             ),
+            ("output_row_count".to_string(), self.rows.len().to_string()),
             ("output_bytes".to_string(), self.output_bytes.to_string()),
             ("output_digest".to_string(), self.output_digest.clone()),
             (

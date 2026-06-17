@@ -4204,9 +4204,12 @@ phase plan first.
     - Removed `PERF-DESIGN-6` from the active phase-plan queue; the next autonomous item is
       `PERF-DESIGN-4`.
   - Local evidence:
-    - Local Python scenario simulation produced 9 snippets: 8 successful ETL paths and 1 intentional
-      fail-closed malformed timestamp cast, all with `fallback_attempted=false` and
-      `external_engine_invoked=false`. Representative one-shot Python wall timings were about
+    - Historical local Python scenario simulation produced 9 snippets: 8 successful ETL paths and
+      1 intentional fail-closed malformed timestamp cast. This expected-error posture was later
+      superseded by prepared Vortex route replay where the dirty timestamp scenario reports valid
+      row behavior as a successful ShardLoom workflow. All historical rows still carried
+      `fallback_attempted=false` and `external_engine_invoked=false`. Representative one-shot Python
+      wall timings were about
       `5.38-6.53 ms` for collect routes, `11.95 ms` for `write_vortex`, and `4.25 ms` for the
       expected malformed timestamp error.
     - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark avro_provider_batch_ -- --nocapture`
@@ -45675,11 +45678,14 @@ the current queue; promote any actionable unfinished work into Planned before im
       fallback.
 - [x] GAR-USER-SURFACE-1C local Python/SQL/DataFrame quickstart and evidence ergonomics closeout
       closes the first-run user-surface gap without running benchmarks. The local Python smoke now
-      creates `target/local-python-smoke/orders.csv`, runs the normal `ctx.read(...).filter(...)
-      .select(...).write_jsonl(...)` path, prints `quickstart_result_row_id`,
-      `quickstart_output_row_count`, compact evidence/claim fields, and no-fallback/
-      no-external-engine markers, then runs a scoped `ctx.from_rows(...).with_column(...)
-      .write_jsonl(...)` generated-source path. Unsupported materialization now exposes
+      creates `target/local-python-smoke/orders.csv`; as superseded by the Vortex-middle public
+      route policy, the normal `ctx.read(...).filter(...).select(...).write_jsonl(...)` path must
+      block before execution until Vortex preparation/native routing is available, and the smoke
+      prints `quickstart_local_file_blocker_id` plus no-runtime/no-fallback/no-external-engine
+      markers. It then runs a scoped `ctx.from_rows(...).with_column(...).write_jsonl(...)`
+      generated-source path and prints `quickstart_generated_output_row_count`,
+      compact evidence/claim fields, and no-fallback/no-external-engine markers. Unsupported
+      materialization now exposes
       `UnsupportedWorkflowOperationReport.external_engine_invoked`, and the smoke prints
       `quickstart_unsupported_blocker_id` plus runtime/data/write/fallback/external-engine false
       markers instead of silently routing to pandas or another engine. The release dry-run

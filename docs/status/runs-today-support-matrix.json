@@ -7,6 +7,7 @@
   "support_state_vocabulary": [
     "executable",
     "feature_gated",
+    "internal_smoke_only",
     "diagnostic_only",
     "report_only",
     "blocked",
@@ -35,6 +36,7 @@
     "cli_direct_transient_local_adapter_benchmark",
     "python_status_capabilities",
     "python_local_query_builder",
+    "python_native_vortex_query_builder",
     "python_generated_source_helpers",
     "python_prepared_vortex_batch",
     "python_effectful_fixture_helpers",
@@ -61,18 +63,19 @@
     "claim_package_publication",
     "claim_object_store_lakehouse_foundry_production"
   ],
-  "row_count": 39,
+  "row_count": 40,
   "support_state_counts": {
-    "executable": 25,
+    "executable": 24,
     "feature_gated": 5,
+    "internal_smoke_only": 1,
     "diagnostic_only": 3,
     "report_only": 1,
-    "blocked": 4,
+    "blocked": 5,
     "future": 1
   },
   "family_counts": {
     "cli_command": 12,
-    "python_api": 5,
+    "python_api": 6,
     "input_format": 6,
     "output_format": 3,
     "execution_mode": 8,
@@ -80,8 +83,10 @@
   },
   "blocker_ids": [
     "feature.vortex_write_required_for_default_build",
+    "cg21.route.local_file_vortex_middle_required",
     "feature.universal_format_io_required_for_default_build",
     "review-p0-3.object_store_runtime_and_path_safety_required",
+    "cg21.route.direct_local_file_blocked",
     "runtime.evidence_required_before_execution_admission",
     "prod-ready-1d.remote_worker_remote_shuffle_spill_benchmark_blocked",
     "prod-ready-1e.production_state_store_broker_object_store_exactly_once_blocked",
@@ -126,9 +131,10 @@
     "traditional_direct_transient_tests",
     "python.tests.test_quickstart_proof",
     "python.tests.test_query_builder",
-    "vortex_ingest_smoke_text_adapter_tests",
+    "public_workflow_direct_policy_block_tests",
     "vortex_count_tests",
     "vortex_filter_project_tests",
+    "vortex_ingest_smoke_text_adapter_tests",
     "prepared_vortex_batch_tests",
     "input_adapters_snapshots",
     "feature_gated_sql_local_source_tests",
@@ -814,20 +820,41 @@
       "surface": [
         "read_csv",
         "read_json",
-        "read_vortex",
         "sql",
-        "from_rows",
-        "LazyFrame.collect"
+        "LazyFrame.collect local-file auto route"
+      ],
+      "support_state": "blocked",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "python.tests.test_query_builder",
+        "public_workflow_direct_policy_block_tests"
+      ],
+      "blocker_id": "cg21.route.local_file_vortex_middle_required",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "public local-file Python workflows require Vortex preparation or native Vortex input; decoded direct local-source smoke is internal-only",
+      "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "python_native_vortex_query_builder",
+      "family": "python_api",
+      "surface": [
+        "read_vortex",
+        "LazyFrame.collect native Vortex primitives"
       ],
       "support_state": "executable",
       "feature_gate": "default",
       "evidence_refs": [
         "python.tests.test_query_builder",
-        "sql_local_source_runtime_smoke"
+        "vortex_count_tests",
+        "vortex_filter_project_tests"
       ],
       "blocker_id": "none",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "scoped local query-builder lowering to admitted CLI smokes only",
+      "claim_boundary": "scoped local Vortex count/filter/project primitives only; broader Vortex operator families require admitted native provider evidence",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,
@@ -930,7 +957,7 @@
       ],
       "blocker_id": "none",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "flat local text SourceState, direct-transient, and vortex_ingest fixture coverage only; not object-store/table connector coverage",
+      "claim_boundary": "flat local text SourceState, internal direct-transient smoke, and vortex_ingest fixture coverage only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,
@@ -1007,7 +1034,7 @@
       ],
       "blocker_id": "feature.universal_format_io_required_for_default_build",
       "claim_gate_status": "not_claim_grade",
-      "claim_boundary": "local flat-scalar feature-gated SourceState, direct-transient, and vortex_ingest adapters only; object-store/table connector coverage remains separate",
+      "claim_boundary": "local flat-scalar feature-gated SourceState, internal direct-transient smoke, and vortex_ingest adapters only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,
@@ -1139,15 +1166,15 @@
       "surface": [
         "direct_compatibility_transient"
       ],
-      "support_state": "executable",
+      "support_state": "internal_smoke_only",
       "feature_gate": "default",
       "evidence_refs": [
         "sql_local_source_runtime_smoke",
-        "python_query_builder_tests"
+        "public_workflow_direct_policy_block_tests"
       ],
-      "blocker_id": "none",
+      "blocker_id": "cg21.route.direct_local_file_blocked",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "scoped local source-backed execution only",
+      "claim_boundary": "lower-level local smoke safeguard only; public local-file workflow routes require Vortex preparation or native Vortex input",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,

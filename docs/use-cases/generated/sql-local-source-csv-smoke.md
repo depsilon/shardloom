@@ -312,4 +312,4 @@ A JSON envelope and typed Python report with inline JSONL helpers; optional JSON
 
 ## Related Field Guide Terms
 
-- [direct_compatibility_transient](https://shardloom.io/field-guide/direct-compatibility-transient) (`Execution Routes` / `smoke_supported`)
+- [direct_compatibility_transient](https://shardloom.io/field-guide/direct-compatibility-transient) (`Execution Routes` / `internal_smoke_only`)

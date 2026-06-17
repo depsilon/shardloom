@@ -122,24 +122,6 @@ pub(crate) fn handle_public_workflow_run(
     }
 
     match plan.route_id {
-        "local_file_product_query" | "local_file_product_sink" => {
-            let Some(statement) = request.sql_statement.clone() else {
-                let blocked = executable_sql_required_route("run");
-                return emit_blocked_facade("run", format, &request, &blocked);
-            };
-            let runtime_args = match sql_local_source_runtime_args(&request, &plan, statement) {
-                Ok(args) => args,
-                Err(error) => {
-                    return emit_error("run", format, "public workflow run failed", &error);
-                }
-            };
-            sql_local_source_runtime::handle_sql_local_source_smoke_with_facade(
-                runtime_args.into_iter(),
-                format,
-                "run",
-                execution_attachment_fields("run", &request, &plan),
-            )
-        }
         "source_free_generated_output"
         | "generated_user_rows_direct_output"
         | "generated_range_direct_output"
@@ -1165,7 +1147,7 @@ fn native_vortex_input_required_route() -> PublicWorkflowRoutePlan {
             "native Vortex public routes require input_format=vortex".to_string(),
             Some("public_workflow_route.input_format".to_string()),
             Some("execution_policy=native_vortex was requested for a non-Vortex input".to_string()),
-            Some("prepare compatibility input first or use a direct compatibility route without native_vortex policy".to_string()),
+            Some("prepare compatibility input into Vortex first, or pass input_format=vortex with an admitted native Vortex route".to_string()),
             FallbackStatus::disabled_by_policy(),
         ),
     )
@@ -1230,7 +1212,7 @@ fn native_vortex_provider_schema_shape_blocker(
                 family.required_evidence()
             )),
             Some(
-                "use an admitted provider scenario shape or keep the workflow on the product-local route until a native Vortex provider contract is added".to_string(),
+                "use an admitted provider scenario shape or prepare the workflow into a Vortex-backed route before requesting provider execution".to_string(),
             ),
             FallbackStatus::disabled_by_policy(),
         ),
@@ -1744,27 +1726,66 @@ fn local_file_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoute
             true,
             true,
         )
-    } else if is_write_request(request) {
-        admitted_route(
-            "local_file_product_sink",
-            "local-workflow-run",
-            "compatibility_local_source",
-            "compatibility_source_state_pre_vortex_unification",
-            "product_local",
-            false,
-            false,
-        )
+    } else if request.execution_policy == "direct" {
+        direct_local_file_route_blocked(request)
     } else {
-        admitted_route(
-            "local_file_product_query",
-            "local-workflow-run",
-            "compatibility_local_source",
-            "compatibility_source_state_pre_vortex_unification",
-            "product_local",
-            false,
-            false,
-        )
+        local_file_vortex_middle_required_route(request)
     }
+}
+
+fn direct_local_file_route_blocked(
+    request: &PublicWorkflowRouteRequest,
+) -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "cg21.route.direct_local_file_blocked",
+        "direct local-file compatibility execution is not admitted as a public workflow route",
+        Diagnostic::new(
+            DiagnosticCode::InvalidInput,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::UnsupportedFeature,
+            "public local-file workflows require a Vortex normalization or native Vortex execution layer"
+                .to_string(),
+            Some("public_workflow_route.execution_policy".to_string()),
+            Some(format!(
+                "execution_policy=direct input_format={} requested_output={} direct_compatibility_runtime=disabled_for_public_workflows",
+                request.input_format.as_deref().unwrap_or("not_declared"),
+                request.requested_output
+            )),
+            Some(
+                "use prepare dataframe to create VortexPreparedState, then run an admitted prepared/native Vortex route; direct compatibility remains an internal smoke safeguard only"
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    )
+}
+
+fn local_file_vortex_middle_required_route(
+    request: &PublicWorkflowRouteRequest,
+) -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "cg21.route.local_file_vortex_middle_required",
+        "local-file public workflow requires Vortex preparation/runtime before execution",
+        Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::UnsupportedFeature,
+            "public local-file workflows cannot execute through a direct decoded compatibility middle"
+                .to_string(),
+            Some("public_workflow_route.vortex_normalization_point".to_string()),
+            Some(format!(
+                "execution_policy={} input_format={} requested_output={} required_middle=VortexPreparedState_or_native_vortex",
+                request.execution_policy,
+                request.input_format.as_deref().unwrap_or("not_declared"),
+                request.requested_output
+            )),
+            Some(
+                "run prepare dataframe with Vortex ingest enabled or pass input_format=vortex with an admitted native Vortex route; no public workflow may execute sql-local-source-smoke as its runtime middle"
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        )
+    )
 }
 
 fn is_write_request(request: &PublicWorkflowRouteRequest) -> bool {
@@ -2308,12 +2329,7 @@ fn native_vortex_required_feature_gate(
     plan: &PublicWorkflowRoutePlan,
 ) -> &'static str {
     if !is_native_vortex_route(request) {
-        return match plan.route_id {
-            "local_file_product_query" | "local_file_product_sink" => {
-                "not_applicable_compatibility_source_pending_vortex_middle_unification"
-            }
-            _ => "not_applicable",
-        };
+        return "not_applicable";
     }
     if request.native_vortex_provider_scenario.is_some()
         || matches!(
@@ -2347,12 +2363,7 @@ fn native_vortex_capability_status(
     plan: &PublicWorkflowRoutePlan,
 ) -> &'static str {
     if !is_native_vortex_route(request) {
-        return match plan.route_id {
-            "local_file_product_query" | "local_file_product_sink" => {
-                "not_applicable_compatibility_source_pending_vortex_middle_unification"
-            }
-            _ => "not_applicable",
-        };
+        return "not_applicable";
     }
     if plan.status == CommandStatus::Success {
         match plan.route_id {
@@ -2387,12 +2398,7 @@ fn native_vortex_required_evidence(
         return NativeVortexOperationFamily::from_primitive(primitive).required_evidence();
     }
     if !is_native_vortex_route(request) {
-        return match plan.route_id {
-            "local_file_product_query" | "local_file_product_sink" => {
-                "product_local_route_evidence;compatibility_source_state;materialization_boundary;fallback_disabled"
-            }
-            _ => "not_applicable",
-        };
+        return "not_applicable";
     }
     NativeVortexOperationFamily::GeneralQuery.required_evidence()
 }
@@ -2414,18 +2420,13 @@ fn native_vortex_next_action(
         return NativeVortexOperationFamily::from_primitive(primitive).next_action();
     }
     if !is_native_vortex_route(request) {
-        return match plan.route_id {
-            "local_file_product_query" | "local_file_product_sink" => {
-                "continue through product local workflow until native Vortex middle is unified"
-            }
-            _ => "not_applicable",
-        };
+        return "not_applicable";
     }
     NativeVortexOperationFamily::GeneralQuery.next_action()
 }
 
 fn typed_result_contract(
-    request: &PublicWorkflowRouteRequest,
+    _request: &PublicWorkflowRouteRequest,
     plan: &PublicWorkflowRoutePlan,
 ) -> &'static str {
     if plan.status != CommandStatus::Success {
@@ -2446,10 +2447,6 @@ fn typed_result_contract(
             "provider_backed_native_vortex_result_summary_with_route_certificate"
         }
         "native_vortex_user_sink" => "native_vortex_result_sink_with_replay_certificate",
-        "local_file_product_query" if request.requested_output == "collect" => {
-            "bounded_python_rows_json_envelope_with_product_local_evidence"
-        }
-        "local_file_product_sink" => "declared_sink_result_with_product_local_evidence",
         _ => "route_metadata_only",
     }
 }
@@ -2470,7 +2467,6 @@ fn typed_sink_contract(
         return "not_applicable_collect";
     }
     match plan.route_id {
-        "local_file_product_sink" => "declared_compatibility_sink_with_format_specific_output",
         "native_vortex_user_sink" => "native_vortex_result_sink_with_replay_verified_artifact",
         _ => "not_admitted",
     }
@@ -2487,9 +2483,6 @@ fn decode_materialization_boundary(
         return "native_vortex_zero_decode_runtime_with_bounded_python_materialization_boundary";
     }
     match plan.route_id {
-        "local_file_product_query" | "local_file_product_sink" => {
-            "compatibility_source_runtime_materialization_boundary_pre_vortex_middle_unification"
-        }
         "local_file_prepare_once" | "local_file_prepare_once_first_query" => {
             "prepared_vortex_state_boundary"
         }
@@ -2544,17 +2537,9 @@ fn add_route_execution_fields(fields: &mut Vec<(String, String)>, plan: &PublicW
 
 fn effective_evidence_level<'a>(
     request: &'a PublicWorkflowRouteRequest,
-    plan: &PublicWorkflowRoutePlan,
+    _plan: &PublicWorkflowRoutePlan,
 ) -> &'a str {
-    if matches!(
-        plan.route_id,
-        "local_file_product_query" | "local_file_product_sink"
-    ) && request.evidence_level == "runtime_smoke"
-    {
-        "production_admitted_local_workflow"
-    } else {
-        request.evidence_level.as_str()
-    }
+    request.evidence_level.as_str()
 }
 
 fn add_route_boundary_fields(fields: &mut Vec<(String, String)>, plan: &PublicWorkflowRoutePlan) {
@@ -2567,9 +2552,7 @@ fn add_route_boundary_fields(fields: &mut Vec<(String, String)>, plan: &PublicWo
 
 fn route_support_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
     match plan.route_id {
-        "local_file_product_query"
-        | "local_file_product_sink"
-        | "native_vortex_user_aggregate"
+        "native_vortex_user_aggregate"
         | "native_vortex_user_join"
         | "native_vortex_user_top_n"
         | "native_vortex_user_cast"
@@ -2600,9 +2583,6 @@ fn route_runtime_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
 
 fn vortex_middle_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
     match plan.route_id {
-        "local_file_product_query" | "local_file_product_sink" => {
-            "pending_native_vortex_middle_unification"
-        }
         "local_file_prepare_once" | "local_file_prepare_once_first_query" => {
             "prepared_vortex_state"
         }
@@ -2626,17 +2606,12 @@ fn vortex_middle_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
 }
 
 fn underlying_runtime_command(plan: &PublicWorkflowRoutePlan) -> &'static str {
-    match plan.route_id {
-        "local_file_product_query" | "local_file_product_sink" => "sql-local-source-smoke",
-        _ => plan.resolved_internal_command,
-    }
+    plan.resolved_internal_command
 }
 
 fn local_workflow_runtime_profile(plan: &PublicWorkflowRoutePlan) -> &'static str {
-    match plan.route_id {
-        "local_file_product_query" | "local_file_product_sink" => "product_local_workflow",
-        _ => "not_applicable",
-    }
+    let _ = plan;
+    "not_applicable"
 }
 
 fn push_field(
@@ -2925,9 +2900,10 @@ fn execution_attachment_fields(
     fields
 }
 
+#[cfg(test)]
 fn sql_local_source_runtime_args(
     request: &PublicWorkflowRouteRequest,
-    plan: &PublicWorkflowRoutePlan,
+    _plan: &PublicWorkflowRoutePlan,
     statement: String,
 ) -> Result<Vec<String>, ShardLoomError> {
     let mut args = vec![statement];
@@ -2943,12 +2919,6 @@ fn sql_local_source_runtime_args(
     append_fanout_args(&mut args, request);
     if request.allow_overwrite {
         args.push("--allow-overwrite".to_string());
-    }
-    if matches!(
-        plan.route_id,
-        "local_file_product_query" | "local_file_product_sink"
-    ) {
-        args.push("--product-local-workflow".to_string());
     }
     Ok(args)
 }
@@ -3589,7 +3559,7 @@ mod tests {
     }
 
     #[test]
-    fn route_planner_admits_equivalent_sql_and_dataframe_local_file_routes() {
+    fn route_planner_blocks_equivalent_sql_and_dataframe_local_file_routes_without_vortex_middle() {
         let sql = PublicWorkflowRouteRequest::parse(
             [
                 "sql",
@@ -3622,23 +3592,23 @@ mod tests {
         let sql_plan = plan_public_workflow_route(&sql);
         let dataframe_plan = plan_public_workflow_route(&dataframe);
 
-        assert_eq!(sql_plan.route_id, "local_file_product_query");
+        assert_eq!(sql_plan.status, CommandStatus::Unsupported);
+        assert_eq!(sql_plan.route_id, "blocked");
+        assert_eq!(
+            sql_plan.blocker_id,
+            "cg21.route.local_file_vortex_middle_required"
+        );
         assert_eq!(dataframe_plan.route_id, sql_plan.route_id);
-        assert_eq!(
-            dataframe_plan.resolved_internal_command,
-            "local-workflow-run"
-        );
-        assert_eq!(
-            dataframe_plan.vortex_normalization_point,
-            "compatibility_source_state_pre_vortex_unification"
-        );
-        assert_eq!(dataframe_plan.execution_mode, "product_local");
+        assert_eq!(dataframe_plan.blocker_id, sql_plan.blocker_id);
+        assert_eq!(dataframe_plan.resolved_internal_command, "not_resolved");
+        assert_eq!(dataframe_plan.vortex_normalization_point, "not_applicable");
+        assert_eq!(dataframe_plan.execution_mode, "blocked");
         assert!(!dataframe_plan.preparation_included);
         assert!(!dataframe_plan.query_timing_starts_after_preparation);
     }
 
     #[test]
-    fn product_local_file_route_appends_product_runtime_profile_flag() {
+    fn route_planner_blocks_explicit_direct_local_file_policy() {
         let request = PublicWorkflowRouteRequest::parse(
             [
                 "dataframe",
@@ -3652,35 +3622,34 @@ mod tests {
                 "read_csv(target/input.csv) -> select(id) -> limit(10)",
                 "--request",
                 "collect",
+                "--execution-policy",
+                "direct",
             ]
             .into_iter()
             .map(str::to_string),
         )
         .expect("dataframe run request");
         let plan = plan_public_workflow_route(&request);
-        let args =
-            sql_local_source_runtime_args(&request, &plan, request.sql_statement.clone().unwrap())
-                .expect("runtime args");
         let fields = route_fields(&request, &plan);
 
-        assert_eq!(plan.route_id, "local_file_product_query");
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(plan.route_id, "blocked");
+        assert_eq!(plan.blocker_id, "cg21.route.direct_local_file_blocked");
         assert_eq!(
             field(&fields, "route_support_status"),
-            "production_admitted_local_workflow"
+            "unsupported_boundary"
         );
         assert_eq!(
             field(&fields, "vortex_middle_status"),
-            "pending_native_vortex_middle_unification"
+            "blocked_or_unsupported"
         );
-        assert_eq!(
-            field(&fields, "underlying_runtime_command"),
-            "sql-local-source-smoke"
-        );
+        assert_eq!(field(&fields, "underlying_runtime_command"), "not_resolved");
         assert_eq!(
             field(&fields, "local_workflow_runtime_profile"),
-            "product_local_workflow"
+            "not_applicable"
         );
-        assert!(args.iter().any(|arg| arg == "--product-local-workflow"));
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
     #[test]
@@ -3743,9 +3712,10 @@ mod tests {
         )
         .expect("quoted sql route request");
 
+        assert_eq!(plan_public_workflow_route(&limited).route_id, "blocked");
         assert_eq!(
-            plan_public_workflow_route(&limited).route_id,
-            "local_file_product_query"
+            plan_public_workflow_route(&limited).blocker_id,
+            "cg21.route.local_file_vortex_middle_required"
         );
         assert_eq!(plan_public_workflow_route(&blocked).route_id, "blocked");
     }
@@ -4583,7 +4553,6 @@ mod tests {
                 "SELECT id FROM 'target/input' LIMIT 1".to_string(),
                 "--input-format".to_string(),
                 "csv".to_string(),
-                "--product-local-workflow".to_string(),
             ]
         );
     }

@@ -167,10 +167,7 @@ class V1FrontDoorRuntimeScopeTests(unittest.TestCase):
         self.assertTrue(report["all_no_fallback_no_external_engine"])
         self.assertFalse(report["performance_equivalence_claim_allowed"])
         self.assertIn("selective_filter", report["example_scenario_ids"])
-        self.assertEqual(
-            report["expected_error_scenario_ids"],
-            ["malformed_timestamp_cast"],
-        )
+        self.assertEqual(report["expected_error_scenario_ids"], [])
 
     def test_documented_benchmark_scenarios_execute_sequentially_through_python_surface(self) -> None:
         scenario_support = load_scenario_support_module()
@@ -201,7 +198,7 @@ class V1FrontDoorRuntimeScopeTests(unittest.TestCase):
                 "nested_json_field_scan",
             },
         )
-        self.assertTrue(by_name["malformed_timestamp_cast"]["expected_error"])
+        self.assertFalse(by_name["malformed_timestamp_cast"]["expected_error"])
         for result in payload["results"]:
             self.assertFalse(result["fallback_attempted"], result)
             self.assertFalse(result["external_engine_invoked"], result)

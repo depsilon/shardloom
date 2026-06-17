@@ -24,7 +24,7 @@ from release_report_utils import fail_closed_fields, load_json, read_text, resol
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.v1_example_replay_report.v1"
-DEFAULT_FEATURES = "vortex-write,vortex-local-primitives"
+DEFAULT_FEATURES = "release-user-surfaces"
 
 EXPECTED_GOLDEN_WORKFLOWS = {
     "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
@@ -42,7 +42,7 @@ EXPECTED_SCENARIOS = {
     "null_heavy_aggregate",
     "nested_json_field_scan",
 }
-EXPECTED_ERROR_SCENARIOS = {"malformed_timestamp_cast"}
+EXPECTED_ERROR_SCENARIOS: set[str] = set()
 EXPECTED_RUNTIME_COMMANDS = 3
 EXPECTED_UNSUPPORTED_FAILURE_FIXTURES = 2
 
@@ -53,10 +53,12 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
         "python examples\\local-python-benchmark-scenarios\\timing_review.py --repo-root .",
         "import shardloom as sl",
         'ctx = sl.context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))',
+        "prepared = ctx.prepare_vortex(",
         "# selective filter",
+        "clean/cast/filter/write",
         "# malformed timestamp / dirty CSV",
         "# nested JSON field scan",
-        "target/clean-cast-filter-write.jsonl",
+        "scenario_selective-filter_fallback_attempted",
     ),
     "python/README.md": (
         "from shardloom import context",
@@ -82,16 +84,17 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
     ),
     "website-src/src/components/BenchmarkDashboard.astro": (
         "import shardloom as sl",
-        'ctx.read("data/fact.csv"',
+        "prepared = ctx.prepare_vortex(",
         "# selective filter",
+        "clean/cast/filter/write",
         "# malformed timestamp / dirty CSV",
         "# nested JSON field scan",
-        "target/clean-cast-filter-write.jsonl",
+        "scenario_selective-filter_fallback_attempted",
     ),
     "website-src/src/content/docs/field-guide/python-surface.mdx": (
         "import shardloom as sl",
-        'ctx.read("data/fact.csv"',
-        'events = ctx.read("data/events.jsonl"',
+        "prepared = ctx.prepare_vortex(",
+        "clean/cast/filter/write",
         "fallback execution",
     ),
 }
@@ -452,8 +455,11 @@ def validate_quickstart(result: dict[str, Any]) -> tuple[dict[str, Any], list[st
     blockers: list[str] = []
     for marker in [
         "quickstart_user_surface_status=passed",
-        "quickstart_evidence_fallback_attempted=false",
-        "quickstart_evidence_external_engine_invoked=false",
+        "quickstart_local_file_blocker_id=cg21.route.local_file_vortex_middle_required",
+        "quickstart_local_file_runtime_execution=false",
+        "quickstart_local_file_fallback_attempted=false",
+        "quickstart_local_file_external_engine_invoked=false",
+        "quickstart_generated_output_row_count=",
         "quickstart_generated_evidence_fallback_attempted=false",
         "quickstart_generated_evidence_external_engine_invoked=false",
         "quickstart_unsupported_runtime_execution=false",
@@ -470,6 +476,10 @@ def validate_quickstart(result: dict[str, Any]) -> tuple[dict[str, Any], list[st
         blockers.append("quickstart: command failed")
     return {
         "status": "passed" if not blockers else "failed",
+        "local_file_blocker_present": (
+            "quickstart_local_file_blocker_id=cg21.route.local_file_vortex_middle_required"
+            in stdout
+        ),
         "unsupported_fixture_present": (
             "quickstart_unsupported_blocker_id=" in stdout
             and "quickstart_unsupported_blocker_id=None" not in stdout
@@ -677,9 +687,11 @@ def build_report(
         if all(row.get("status") == "passed" for row in runtime_commands.values())
         else "failed"
     )
-    unsupported_failure_fixture_count = int(
-        bool(quickstart_summary.get("unsupported_fixture_present"))
-    ) + len(EXPECTED_ERROR_SCENARIOS)
+    unsupported_failure_fixture_count = (
+        int(bool(quickstart_summary.get("local_file_blocker_present")))
+        + int(bool(quickstart_summary.get("unsupported_fixture_present")))
+        + len(EXPECTED_ERROR_SCENARIOS)
+    )
     all_no_fallback = (
         not blockers
         and scenario_summary.get("no_fallback_scenario_count") == len(EXPECTED_SCENARIOS)

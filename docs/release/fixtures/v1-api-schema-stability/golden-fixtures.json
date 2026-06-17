@@ -40,7 +40,7 @@
       "reason": "ShardLoom prohibits fallback execution engines."
     },
     "route_fields": {
-      "route_id": "local_file_product_query",
+      "route_id": "native_vortex_filter_project",
       "route_lane_id": "warm_native",
       "timing_surface": "hot_runtime",
       "actual_evidence_tier": "metadata_sink",

@@ -120,7 +120,7 @@ V1_FRONT_DOOR_EXAMPLE_SCENARIO_IDS = (
     "null_heavy_aggregate",
     "nested_json_field_scan",
 )
-V1_FRONT_DOOR_EXPECTED_ERROR_SCENARIO_IDS = ("malformed_timestamp_cast",)
+V1_FRONT_DOOR_EXPECTED_ERROR_SCENARIO_IDS: tuple[str, ...] = ()
 V1_VORTEX_RUNTIME_SCOPE_DOCUMENT = "docs/architecture/v1-vortex-runtime-scope.md"
 V1_VORTEX_SUPPORTED_STARTING_STATES = (
     "native_local_vortex_file",
@@ -194,7 +194,8 @@ V1_SOURCE_PREPARED_CANONICAL_ROUTE = (
     "VortexPreparedState -> prepared_vortex"
 )
 V1_SOURCE_PREPARED_DIRECT_TRANSIENT_ROUTE = (
-    "UniversalIngress -> SourceState -> direct_compatibility_transient"
+    "UniversalIngress -> SourceState -> direct_compatibility_transient "
+    "(internal smoke-only; blocked for public workflow execution)"
 )
 V1_SOURCE_PREPARED_SUPPORTED_INPUT_FORMATS = (
     "csv",
@@ -283,7 +284,6 @@ V1_LOCAL_OUTPUT_SINK_USER_WRITE_METHODS = (
     "fanout",
 )
 V1_LOCAL_OUTPUT_SINK_ROUTE_IDS = (
-    "local_file_direct_transient_route",
     "local_file_cold_certified_route",
     "local_file_prepare_once_first_query",
     "local_file_prepare_once_batch",
@@ -2303,12 +2303,13 @@ class SourcePreparedStateScopeReport:
 
     @property
     def all_direct_transient_routes_are_labeled_non_persistent(self) -> bool:
-        """Whether direct transient routes avoid implying prepared-state reuse."""
+        """Whether direct transient rows are labeled internal and non-persistent."""
 
         return all(
             row.prepared_state_reuse_scope == "not_applicable_no_prepared_state"
             and "direct_compatibility_transient" in row.preparation_route
-            and "no persistent VortexPreparedState" in row.vortex_normalization_point
+            and row.route_runtime_status == "internal_smoke_only"
+            and "internal smoke" in row.claim_boundary.lower()
             for row in self.direct_transient_user_route_rows
         )
 
@@ -2742,7 +2743,7 @@ def _route_diagnostic_packet(
     }
     nearest_by_route = {
         "quarantine_output_route": "local_file_prepare_once_first_query",
-        "broad_sql_python_dataframe_runtime": "local_file_direct_transient_route",
+        "broad_sql_python_dataframe_runtime": "local_file_prepare_once_first_query",
         "object_store_lakehouse_runtime": "local_file_cold_certified_route",
         "performance_equivalence_evidence": "local_file_prepare_once_batch",
     }
@@ -2818,7 +2819,7 @@ def _route_diagnostic_packet(
         ),
         **reuse_packet,
         "nearest_runnable_route": (
-            route_id if runnable else nearest_by_route.get(route_id, "local_file_direct_transient_route")
+            route_id if runnable else nearest_by_route.get(route_id, "local_file_prepare_once_first_query")
         ),
         "required_feature_gate": feature_gate,
         "runtime_blocker_code": blocker_id or "none",
@@ -6182,9 +6183,10 @@ _LOCAL_FILE_PREPARED_BENCHMARK_BOUNDARY = (
     "superiority, or Spark replacement."
 )
 _LOCAL_FILE_DIRECT_BENCHMARK_BOUNDARY = (
-    "Scoped direct local compatibility-file route: raw local CSV/JSONL and feature-gated flat "
-    "scalar compatibility formats enter SourceState and execute through ShardLoom's local-source "
-    "runtime with transient Vortex-preparable arrays. This is not Vortex-native persistence, broad "
+    "Internal smoke-only direct local compatibility-file route: raw local CSV/JSONL and feature-gated "
+    "flat scalar compatibility formats may exercise ShardLoom's lower-level local-source smoke runtime "
+    "with transient Vortex-preparable arrays, but public workflow routes must use Vortex preparation or "
+    "native Vortex input. This is not a public runtime route, Vortex-native persistence, broad "
     "SQL/Python/DataFrame support, production readiness, performance superiority, or fallback."
 )
 
@@ -6204,7 +6206,7 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
             "poorly_clustered",
         ),
         route_id="local_file_direct_transient_route",
-        route_display_name="ShardLoom Direct Transient Route",
+        route_display_name="ShardLoom Direct Transient Internal Smoke Route",
         alternate_route_ids=(
             "local_file_prepare_once_first_query",
             "local_file_prepare_once_batch",
@@ -6221,10 +6223,11 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
         output_route="bounded report, local compatibility output, or feature-gated local Vortex sink",
         evidence_route="sql-local-source-smoke envelope, execution certificate, Native I/O, and no-fallback evidence",
         materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="internal_smoke_only",
         owner="GAR-RUNTIME-IMPL-6D-3.selective_filter",
         required_evidence=(
-            "sql_local_source_smoke",
+            "sql_local_source_smoke_internal_only",
+            "public_workflow_direct_policy_block_tests",
             "traditional_analytics.direct_compatibility_transient.selective_filter",
             "no_fallback_evidence",
         ),
@@ -6252,7 +6255,7 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
             "poorly_clustered",
         ),
         route_id="local_file_direct_transient_route",
-        route_display_name="ShardLoom Direct Transient Route",
+        route_display_name="ShardLoom Direct Transient Internal Smoke Route",
         alternate_route_ids=(
             "local_file_prepare_once_first_query",
             "local_file_prepare_once_batch",
@@ -6269,10 +6272,11 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
         output_route="bounded report, local compatibility output, or feature-gated local Vortex sink",
         evidence_route="sql-local-source-smoke envelope, execution certificate, Native I/O, and no-fallback evidence",
         materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="internal_smoke_only",
         owner="GAR-RUNTIME-IMPL-6D-3.filter_projection_limit",
         required_evidence=(
-            "sql_local_source_smoke",
+            "sql_local_source_smoke_internal_only",
+            "public_workflow_direct_policy_block_tests",
             "traditional_analytics.direct_compatibility_transient.filter_projection_limit",
             "no_fallback_evidence",
         ),
@@ -6758,7 +6762,7 @@ LOCAL_FILE_BENCHMARK_ROUTE_ROWS: tuple[LocalFileBenchmarkRouteRow, ...] = (
 USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
     _user_route(
         "local_file_direct_transient_route",
-        "ShardLoom Direct Transient Route",
+        "ShardLoom Direct Transient Internal Smoke Route",
         "local_compat_file",
         input_examples=("orders.csv", "events.jsonl", "flat.json", "local.parquet"),
         front_doors=_ALL_USER_FRONT_DOORS,
@@ -6768,31 +6772,32 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "local_compat_output",
             "feature_gated_local_vortex_output",
         ),
-        recommended_user_surface="ctx.read(path).filter(...).select(...).limit(...).collect()/write_*",
+        recommended_user_surface="internal: shardloom sql-local-source-smoke; public ctx.read(path) routes require Vortex preparation/native input",
         start_state="raw_compat_source",
         vortex_normalization_point=(
             "local compatibility source -> SourceState -> transient Vortex-preparable arrays; "
-            "no persistent VortexPreparedState is created on this route"
+            "internal smoke-only, no persistent VortexPreparedState is created on this route"
         ),
         source_route="UniversalIngress/InputAdapter local compatibility source",
         preparation_route="direct_compatibility_transient_no_persistent_preparation",
         execution_mode="direct_compatibility_transient",
         execution_route="sql-local-source-smoke local-source ShardLoom runtime",
-        output_route="bounded report, local JSONL/CSV, feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex sink",
-        evidence_route="OutputEnvelope fields plus execution, Native I/O, replay, and no-fallback evidence",
+        output_route="internal lower-level smoke report or sink only; not admitted through public workflow route/run",
+        evidence_route="sql-local-source-smoke internal envelope plus public direct-policy block evidence",
         materialization_decode_boundary="bounded decoded preview or explicit local sink boundary only",
-        route_runtime_status="scoped_runtime_supported",
+        route_runtime_status="internal_smoke_only",
         benchmark_range=True,
-        route_comparable_to_external_end_to_end=True,
+        route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D.local_file_direct_transient_route",
         required_evidence=(
-            "sql_local_source_smoke",
+            "sql_local_source_smoke_internal_only",
+            "public_workflow_direct_policy_block_tests",
             "execution_certificate",
             "native_io_certificate",
             "output_fidelity_report_status",
             "no_fallback_evidence",
         ),
-        claim_boundary=_LOCAL_QUERY_BUILDER_RUNTIME_BOUNDARY,
+        claim_boundary=_LOCAL_FILE_DIRECT_BENCHMARK_BOUNDARY,
     ),
     _user_route(
         "local_file_cold_certified_route",

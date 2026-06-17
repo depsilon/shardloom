@@ -472,42 +472,34 @@ import shardloom as sl
 
 ctx = sl.context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
 
-fact = ctx.read("data/fact.csv", schema={
-    "id": "int64",
-    "group_key": "int64",
-    "dim_key": "int64",
-    "value": "int64",
-    "metric": "float64",
-    "flag": "boolean",
-    "category": "utf8",
-    "event_date": "utf8",
-    "nullable_metric_00": "float64",
-    "raw_event_time": "utf8",
-    "dirty_numeric": "utf8",
-})
-dim = ctx.read("data/dim.csv", schema={
-    "dim_key": "int64",
-    "dim_label": "utf8",
-    "weight": "float64",
-})
-events = ctx.read("data/events.jsonl", schema={
-    "id": "int64",
-    "nested_payload": "utf8",
-})
+prepared = ctx.prepare_vortex(
+    "data/fact.csv",
+    dim="data/dim.csv",
+    workspace="target/shardloom-prepared",
+    input_format="csv",
+    result_workspace="target/shardloom-results",
+    evidence_level="certified",
+    max_parallelism=1,
+)
 
-fact.filter(sl.col("flag") == True).select("id", "group_key", "value").limit(1000).collect()
-fact.filter(sl.col("metric") >= 0).group_by("group_key").agg(
-    rows="count(*)",
-    total_metric="sum(metric)",
-).limit(100).collect()
-fact.join(dim, on="dim_key", how="inner").select("f.id", "d.dim_label", "f.metric").limit(100).collect()
-fact.select("id", "group_key", "metric").nlargest(10, "metric").collect()
-events.filter(sl.col("nested_payload").contains("target")).select("id", "nested_payload").limit(100).collect()
+# selective filter
+result = prepared.query("selective filter").collect()
+prepared.query("filter + projection + limit").collect()
+prepared.query("group by aggregation").collect()
+prepared.query("hash join").collect()
+prepared.query("sort and top-k").collect()
+prepared.query("clean/cast/filter/write").collect()
+prepared.query("malformed timestamp / dirty CSV").collect()
+prepared.query("null-heavy aggregate").collect()
+prepared.query("nested JSON field scan").collect()
+
+print(result.batch.field("scenario_selective-filter_fallback_attempted"))
+print(result.batch.field("scenario_selective-filter_external_engine_invoked"))
 \`\`\`
 
 ## Boundary
 
-The primary route must emit ShardLoom evidence. Unsupported casts, effects, or data paths fail closed unless the current runtime admits them.`,
+The primary route must emit ShardLoom evidence. Direct local-file execution is an internal smoke path; public scenario execution uses Vortex-prepared or native Vortex routes unless the current runtime returns a deterministic blocker.`,
     }),
   },
   {

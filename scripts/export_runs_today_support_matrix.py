@@ -17,6 +17,7 @@ DEFAULT_WEBSITE_DATA_REF = "not_published_to_clean_slate_website"
 SUPPORT_STATES = (
     "executable",
     "feature_gated",
+    "internal_smoke_only",
     "diagnostic_only",
     "report_only",
     "blocked",

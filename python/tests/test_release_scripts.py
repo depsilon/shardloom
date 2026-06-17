@@ -10935,7 +10935,7 @@ jobs:
 
                 from typing import Any, Callable, Sequence
 
-                EXPECTED_ERROR_SCENARIOS = frozenset({{"malformed_timestamp_cast"}})
+                EXPECTED_ERROR_SCENARIOS = frozenset()
                 profile_order: Sequence[str] = ("release", "debug")
                 fallback_attempted = False
                 external_engine_invoked = False
@@ -12747,8 +12747,8 @@ jobs:
                         emit("input-adapters", [{"key": "plan_only", "value": "true"}])
                     if args[0] == "run":
                         output_path = Path(args[args.index("--output") + 1])
-                        output_path.parent.mkdir(parents=True, exist_ok=True)
                         if "--generated-source-kind" in args:
+                            output_path.parent.mkdir(parents=True, exist_ok=True)
                             output_path.write_text('{"id":1,"label":"alpha","batch_id":1}\\n', encoding="utf-8")
                             emit("run", [
                                 {"key": "public_workflow_route_attached", "value": "true"},
@@ -12764,22 +12764,23 @@ jobs:
                                 {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
                                 {"key": "claim_gate_status", "value": "fixture_smoke_only"},
                             ])
-                        output_path.write_text('{"id":2,"label":"beta","amount":15}\\n', encoding="utf-8")
                         emit("run", [
                             {"key": "public_workflow_route_attached", "value": "true"},
-                            {"key": "public_workflow_route_id", "value": "local_file_direct_sink"},
-                            {"key": "public_workflow_resolved_internal_command", "value": "sql-local-source-smoke"},
-                            {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\",\\"amount\\":15}\\n"},
+                            {"key": "public_workflow_route_id", "value": "local_file_vortex_middle_required"},
+                            {"key": "public_workflow_route_executable", "value": "false"},
+                            {"key": "public_workflow_blocker_id", "value": "cg21.route.local_file_vortex_middle_required"},
+                            {"key": "public_workflow_runtime_execution", "value": "false"},
+                            {"key": "public_workflow_status", "value": "blocked"},
                             {"key": "source_format", "value": "csv"},
-                            {"key": "execution_mode", "value": "batch"},
-                            {"key": "operator_family", "value": "filter_project_limit"},
-                            {"key": "output_path", "value": str(output_path)},
-                            {"key": "output_format", "value": "jsonl"},
-                            {"key": "output_row_count", "value": "1"},
-                            {"key": "output_io_performed", "value": "true"},
-                            {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
-                            {"key": "claim_gate_status", "value": "fixture_smoke_only"},
-                        ])
+                            {"key": "output_io_performed", "value": "false"},
+                            {"key": "claim_gate_status", "value": "not_claim_grade"},
+                        ], status="unsupported", diagnostics=[{
+                            "code": "SL_UNSUPPORTED_PUBLIC_WORKFLOW_ROUTE",
+                            "severity": "error",
+                            "category": "unsupported_feature",
+                            "message": "local file workflow requires Vortex preparation",
+                            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        }], returncode=1)
                     if args[0] == "sql-local-source-smoke":
                         output_path = Path(args[args.index("--output") + 1])
                         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -12839,16 +12840,31 @@ jobs:
             output = stdout.getvalue()
             self.assertEqual(returncode, 0, output)
             self.assertIn("quickstart_user_surface_status=passed", output)
-            self.assertIn("quickstart_result_row_id=2", output)
-            self.assertIn("quickstart_claim_gate_status=fixture_smoke_only", output)
+            self.assertIn(
+                "quickstart_local_file_blocker_id=cg21.route.local_file_vortex_middle_required",
+                output,
+            )
+            self.assertIn("quickstart_local_file_runtime_execution=false", output)
             self.assertIn("quickstart_generated_source_row_count=1", output)
+            self.assertIn("quickstart_generated_output_row_count=1", output)
+            self.assertIn(
+                "quickstart_generated_claim_gate_status=fixture_smoke_only", output
+            )
             self.assertIn(
                 "quickstart_unsupported_blocker_id=cg21.workflow.to_pandas.decoded_dataframe_unsupported",
                 output,
             )
             self.assertIn("quickstart_unsupported_external_engine_invoked=false", output)
-            self.assertTrue(
+            self.assertFalse(
                 (repo_root / "target" / "local-python-smoke" / "orders-out.jsonl").exists()
+            )
+            self.assertTrue(
+                (
+                    repo_root
+                    / "target"
+                    / "local-python-smoke"
+                    / "generated-reference.jsonl"
+                ).exists()
             )
 
     def test_release_dry_run_transcript_records_user_surface_quickstart_markers(self) -> None:
@@ -12865,11 +12881,13 @@ jobs:
                     "stdout": "\n".join(
                         [
                             "quickstart_user_surface_status=passed",
-                            "quickstart_result_row_id=2",
-                            "quickstart_output_row_count=1",
-                            "quickstart_evidence_fallback_attempted=false",
-                            "quickstart_claim_gate_status=fixture_smoke_only",
+                            "quickstart_local_file_blocker_id=cg21.route.local_file_vortex_middle_required",
+                            "quickstart_local_file_runtime_execution=false",
+                            "quickstart_local_file_fallback_attempted=false",
+                            "quickstart_local_file_external_engine_invoked=false",
                             "quickstart_generated_source_row_count=1",
+                            "quickstart_generated_output_row_count=1",
+                            "quickstart_generated_evidence_fallback_attempted=false",
                             "quickstart_generated_claim_gate_status=fixture_smoke_only",
                             "quickstart_unsupported_blocker_id=cg21.workflow.to_pandas.decoded_dataframe_unsupported",
                             "quickstart_unsupported_runtime_execution=false",
@@ -13065,7 +13083,8 @@ jobs:
             ),
             "docs/getting-started/first-10-minutes.md": (
                 "python scripts\\release_dry_run_proof.py --rows 64 --iterations 1\n"
-                "ctx.from_rows\nctx.read\nquickstart_result_row_id\nctx.range\n"
+                "ctx.from_rows\nctx.read\nquickstart_local_file_blocker_id\n"
+                "quickstart_generated_output_row_count\nctx.range\n"
                 "public package release\n"
             ),
             "docs/release/release-dry-run-proof.md": (

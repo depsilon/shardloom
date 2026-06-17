@@ -37,7 +37,7 @@ EXPECTED_EXAMPLE_SCENARIOS = {
     "null_heavy_aggregate",
     "nested_json_field_scan",
 }
-EXPECTED_ERROR_SCENARIOS = {"malformed_timestamp_cast"}
+EXPECTED_ERROR_SCENARIOS: set[str] = set()
 
 EXPECTED_VORTEX_PRIMITIVE_ROUTES = 9
 EXPECTED_VORTEX_LOCAL_FILE_ROUTES = 15

@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import os
+import shutil
 import sys
 import time
 from datetime import datetime, timezone
@@ -18,12 +20,16 @@ FACT_SCHEMA = {
     "dim_key": "int64",
     "value": "int64",
     "metric": "float64",
-    "flag": "boolean",
+    "flag": "int64",
     "category": "utf8",
     "event_date": "utf8",
     "nullable_metric_00": "float64",
+    "nested_payload": "utf8",
+    "nested_group": "utf8",
+    "nested_score": "float64",
     "raw_event_time": "utf8",
     "dirty_numeric": "utf8",
+    "dirty_flag": "utf8",
 }
 DIM_SCHEMA = {
     "dim_key": "int64",
@@ -34,7 +40,22 @@ EVENTS_SCHEMA = {
     "id": "int64",
     "nested_payload": "utf8",
 }
-EXPECTED_ERROR_SCENARIOS = frozenset({"malformed_timestamp_cast"})
+SCENARIO_ROUTES: tuple[tuple[str, str, str], ...] = (
+    ("selective_filter", "selective filter", "selective-filter"),
+    ("filter_projection_limit", "filter + projection + limit", "filter---projection---limit"),
+    ("group_by_aggregation", "group by aggregation", "group-by-aggregation"),
+    ("hash_join", "hash join", "hash-join"),
+    ("global_top_n", "sort and top-k", "sort-and-top-k"),
+    ("clean_cast_filter_write", "clean/cast/filter/write", "clean-cast-filter-write"),
+    (
+        "malformed_timestamp_cast",
+        "malformed timestamp / dirty CSV",
+        "malformed-timestamp---dirty-CSV",
+    ),
+    ("null_heavy_aggregate", "null-heavy aggregate", "null-heavy-aggregate"),
+    ("nested_json_field_scan", "nested JSON field scan", "nested-JSON-field-scan"),
+)
+EXPECTED_ERROR_SCENARIOS = frozenset()
 TIMING_FIELD_TOKENS = (
     "millis",
     "timing",
@@ -84,26 +105,63 @@ def build_run_paths(
 
 
 def write_fixture_data(run_dir: Path) -> None:
+    if run_dir.exists():
+        shutil.rmtree(run_dir)
     data_dir = run_dir / "data"
     target_dir = run_dir / "target"
     data_dir.mkdir(parents=True, exist_ok=True)
     target_dir.mkdir(parents=True, exist_ok=True)
-    (data_dir / "fact.csv").write_text(
-        "id,group_key,dim_key,value,metric,flag,category,event_date,nullable_metric_00,raw_event_time,dirty_numeric\n"
-        "1,10,100,90,1.5,true,A,2026-01-01,4.0,2026-01-01,12.5\n"
-        "2,10,101,120,2.5,true,B,2026-01-02,,2026-01-02,-3.0\n"
-        "3,20,100,150,3.0,false,A,2026-01-03,7.5,not-a-timestamp,5.25\n"
-        "4,20,102,210,-1.0,true,C,2026-01-04,9.0,2026-01-04,0.0\n"
-        "5,30,101,300,8.5,true,D,2026-01-05,11.0,2026-01-05,42.0\n",
-        encoding="utf-8",
-    )
-    (data_dir / "dim.csv").write_text(
-        "dim_key,dim_label,weight\n"
-        "100,alpha,1.0\n"
-        "101,beta,2.0\n"
-        "102,gamma,3.0\n",
-        encoding="utf-8",
-    )
+    fact_columns = tuple(FACT_SCHEMA)
+    with (data_dir / "fact.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(fact_columns)
+        for idx in range(1, 21):
+            group_key = (idx % 3 + 1) * 10
+            dim_key = 100 + (idx % 3)
+            value = 4_800 + idx * 250
+            metric = float(idx) * 1.5
+            flag = 1 if idx % 2 else 0
+            category = chr(ord("A") + (idx % 4))
+            event_date = f"2026-01-{(idx % 28) + 1:02d}"
+            nested_payload = json.dumps(
+                {
+                    "event": {"date": event_date, "flag": bool(flag)},
+                    "metrics": {"value": value, "score": round(metric / 10.0, 4)},
+                    "labels": [category, f"g{group_key % 5}"],
+                },
+                separators=(",", ":"),
+            )
+            writer.writerow(
+                [
+                    idx,
+                    group_key,
+                    dim_key,
+                    value,
+                    f"{metric:.2f}",
+                    flag,
+                    category,
+                    event_date,
+                    "" if idx % 4 == 0 else f"{metric + 2.0:.2f}",
+                    nested_payload,
+                    f"g{group_key % 5}",
+                    f"{metric / 10.0:.4f}",
+                    "not-a-timestamp"
+                    if idx % 7 == 0
+                    else f"{event_date}T00:00:00Z",
+                    "bad-number" if idx % 9 == 0 else str(value),
+                    "Y" if flag else "N",
+                ]
+            )
+    with (data_dir / "dim.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(tuple(DIM_SCHEMA))
+        writer.writerows(
+            [
+                [100, "alpha", 1.0],
+                [101, "beta", 2.0],
+                [102, "gamma", 3.0],
+            ]
+        )
     (data_dir / "events.jsonl").write_text(
         '{"id":1,"nested_payload":"alpha target payload"}\n'
         '{"id":2,"nested_payload":"ordinary payload"}\n'
@@ -123,127 +181,63 @@ def load_local_shardloom(repo_root: Path) -> tuple[Any, Callable[..., Any]]:
 
 
 def scenario_actions(ctx: Any, sl: Any) -> list[tuple[str, Callable[[], Any]]]:
-    fact = ctx.read_csv("data/fact.csv", schema=FACT_SCHEMA)
-    dim = ctx.read_csv("data/dim.csv", schema=DIM_SCHEMA)
-    events = ctx.read_json("data/events.jsonl", schema=EVENTS_SCHEMA)
-    return [
-        (
-            "selective_filter",
-            lambda: fact.filter(sl.col("flag") == True)
-            .select("id", "group_key", "value")
-            .limit(1000)
-            .collect(),
-        ),
-        (
-            "filter_projection_limit",
-            lambda: fact.filter(sl.col("value") >= 100)
-            .select("id", "group_key", "metric")
-            .limit(100)
-            .collect(),
-        ),
-        (
-            "group_by_aggregation",
-            lambda: fact.filter(sl.col("metric") >= 0)
-            .group_by("group_key")
-            .agg(rows="count(*)", total_metric="sum(metric)")
-            .limit(100)
-            .collect(),
-        ),
-        (
-            "hash_join",
-            lambda: fact.join(dim, on="dim_key", how="inner")
-            .select("f.id", "d.dim_label", "f.metric")
-            .limit(100)
-            .collect(),
-        ),
-        (
-            "global_top_n",
-            lambda: fact.select("id", "group_key", "metric")
-            .nlargest(10, "metric")
-            .collect(),
-        ),
-        (
-            "clean_cast_filter_write",
-            lambda: fact.with_column(
-                "amount_float",
-                sl.col("dirty_numeric").cast("float64"),
-            )
-            .filter(sl.col("amount_float") >= 0)
-            .limit(1000)
-            .write_jsonl(
-                "target/clean-cast-filter-write.jsonl",
-                allow_overwrite=True,
-            ),
-        ),
-        (
-            "malformed_timestamp_cast",
-            lambda: fact.with_column(
-                "event_day",
-                sl.col("raw_event_time").cast("date32"),
-            )
-            .limit(1000)
-            .collect(),
-        ),
-        (
-            "null_heavy_aggregate",
-            lambda: fact.dropna(subset=["nullable_metric_00"])
-            .group_by("group_key")
-            .agg(
-                rows="count(*)",
-                total_nullable_metric="sum(nullable_metric_00)",
-            )
-            .limit(100)
-            .collect(),
-        ),
-        (
-            "nested_json_field_scan",
-            lambda: events.filter(sl.col("nested_payload").contains("target"))
-            .select("id", "nested_payload")
-            .limit(100)
-            .collect(),
-        ),
-    ]
+    del ctx, sl
+    return [(scenario_id, lambda: None) for scenario_id, _, _ in SCENARIO_ROUTES]
 
 
 def run_scenarios(
     *,
     repo_root: Path,
     run_dir: Path,
-    binary: str | None = None,
+    binary: str | os.PathLike[str] | Sequence[str] | None = None,
     profile_order: Sequence[str] = ("release", "debug"),
 ) -> dict[str, Any]:
     write_fixture_data(run_dir)
-    sl, context = load_local_shardloom(repo_root)
+    _, context = load_local_shardloom(repo_root)
+    resolved_binary = binary
+    if isinstance(binary, (str, os.PathLike)):
+        resolved_binary = str(resolve_under_repo(repo_root, Path(binary)))
     previous_cwd = Path.cwd()
     os.chdir(run_dir)
     try:
         ctx = context(
             repo_root=str(repo_root),
-            binary=binary,
+            binary=resolved_binary,
             profile_order=tuple(profile_order),
         )
-        scenario_results = []
-        for name, action in scenario_actions(ctx, sl):
-            started = time.perf_counter()
-            try:
-                report = action()
-                elapsed = (time.perf_counter() - started) * 1000.0
-                scenario_results.append(
-                    summarize_report(
-                        name,
-                        report,
-                        python_wall_millis=round(elapsed, 4),
-                    )
+        route = ctx.prepare_vortex(
+            "data/fact.csv",
+            dim="data/dim.csv",
+            workspace="target/prepared-vortex",
+            input_format="csv",
+            result_workspace="target/prepared-vortex-results",
+            evidence_level="certified",
+            max_parallelism=1,
+        )
+        started = time.perf_counter()
+        try:
+            report = route.run_batch(
+                [scenario for _, scenario, _ in SCENARIO_ROUTES],
+                result_workspace="target/prepared-vortex-batch",
+                evidence_level="certified",
+                max_parallelism=1,
+                check=False,
+            )
+            elapsed = (time.perf_counter() - started) * 1000.0
+            scenario_results = summarize_prepared_batch(
+                report,
+                python_wall_millis=round(elapsed, 4),
+            )
+        except Exception as exc:  # noqa: BLE001 - surfaced in JSON for local diagnosis.
+            elapsed = (time.perf_counter() - started) * 1000.0
+            scenario_results = [
+                summarize_exception(
+                    scenario_id,
+                    exc,
+                    python_wall_millis=round(elapsed, 4),
                 )
-            except Exception as exc:  # noqa: BLE001 - surfaced in JSON for local diagnosis.
-                elapsed = (time.perf_counter() - started) * 1000.0
-                scenario_results.append(
-                    summarize_exception(
-                        name,
-                        exc,
-                        python_wall_millis=round(elapsed, 4),
-                    )
-                )
+                for scenario_id, _, _ in SCENARIO_ROUTES
+            ]
     finally:
         os.chdir(previous_cwd)
     return {
@@ -254,6 +248,108 @@ def run_scenarios(
         "scenario_count": len(scenario_results),
         "passed": all(result["ok"] for result in scenario_results),
         "results": scenario_results,
+    }
+
+
+def summarize_prepared_batch(
+    report: Any,
+    *,
+    python_wall_millis: float,
+) -> list[dict[str, Any]]:
+    envelope = getattr(report, "batch", getattr(report, "envelope", report))
+    fields = envelope_fields(envelope)
+    return [
+        summarize_prepared_scenario(
+            scenario_id,
+            slug,
+            report,
+            envelope,
+            fields,
+            python_wall_millis=python_wall_millis,
+        )
+        for scenario_id, _, slug in SCENARIO_ROUTES
+    ]
+
+
+def summarize_prepared_scenario(
+    name: str,
+    slug: str,
+    report: Any,
+    envelope: Any,
+    fields: Mapping[str, str],
+    *,
+    python_wall_millis: float,
+) -> dict[str, Any]:
+    scenario_fields = scenario_field_subset(fields, slug)
+    status = safe_attr(envelope, "status", "unknown")
+    support_status = scenario_fields.get(f"scenario_{slug}_support_status")
+    lifecycle_status = scenario_fields.get(
+        f"scenario_{slug}_prepared_native_vortex_lifecycle_status"
+    )
+    expected_error = name in EXPECTED_ERROR_SCENARIOS
+    fallback_attempted = bool_field(
+        scenario_fields,
+        f"scenario_{slug}_fallback_attempted",
+        "fallback_attempted",
+        default=False,
+    )
+    external_engine_invoked = bool_field(
+        scenario_fields,
+        f"scenario_{slug}_external_engine_invoked",
+        "external_engine_invoked",
+        default=False,
+    )
+    is_error = bool(safe_attr(envelope, "is_error", status != "success"))
+    scenario_supported = support_status in {None, "supported"}
+    ok = (
+        not fallback_attempted
+        and not external_engine_invoked
+        and scenario_supported
+        and ((is_error and expected_error) or (not is_error and not expected_error))
+    )
+    output_row_count = prepared_output_row_count(slug, scenario_fields)
+    diagnostics = [
+        {
+            "code": diagnostic.code,
+            "severity": diagnostic.severity,
+            "reason": diagnostic.reason,
+            "message": diagnostic.message,
+        }
+        for diagnostic in getattr(envelope, "diagnostics", ())
+    ]
+    return {
+        "name": name,
+        "ok": ok,
+        "expected_error": expected_error,
+        "report_type": type(report).__name__,
+        "command": getattr(envelope, "command", None),
+        "status": support_status or status,
+        "is_error": is_error,
+        "python_wall_millis": python_wall_millis,
+        "output_row_count": output_row_count,
+        "fallback_attempted": fallback_attempted,
+        "external_engine_invoked": external_engine_invoked,
+        "claim_gate_status": scenario_fields.get(
+            f"scenario_{slug}_claim_gate_status",
+            fields.get("claim_gate_status"),
+        ),
+        "timing_scope": scenario_fields.get(f"scenario_{slug}_timing_scope")
+        or fields.get("timing_scope")
+        or "prepared_vortex_batch",
+        "source_format": fields.get("source_format") or "csv",
+        "output_format": scenario_fields.get(f"scenario_{slug}_output_format")
+        or fields.get("output_format"),
+        "output_path": scenario_fields.get(f"scenario_{slug}_output_path")
+        or fields.get("output_path"),
+        "vortex_output_row_count": scenario_fields.get(
+            f"scenario_{slug}_vortex_output_row_count"
+        ),
+        "lifecycle_status": lifecycle_status,
+        "execution_mode": scenario_fields.get(f"scenario_{slug}_execution_mode"),
+        "diagnostics": diagnostics,
+        "result_sample": prepared_result_sample(slug, scenario_fields),
+        "fields": scenario_fields,
+        "timing_components": timing_components(scenario_fields, python_wall_millis),
     }
 
 
@@ -343,6 +439,9 @@ def summarize_exception(
 def envelope_fields(envelope: Any) -> dict[str, str]:
     if envelope is None:
         return {}
+    field_map = getattr(envelope, "field_map", None)
+    if isinstance(field_map, Mapping):
+        return {str(key): str(value) for key, value in field_map.items()}
     return {entry.key: entry.value for entry in getattr(envelope, "fields", ())}
 
 
@@ -367,6 +466,88 @@ def timing_components(fields: Mapping[str, str], python_wall_millis: float) -> d
         if any(token in key for token in TIMING_FIELD_TOKENS):
             components[key] = value
     return components
+
+
+def scenario_field_subset(fields: Mapping[str, str], slug: str) -> dict[str, str]:
+    prefix = f"scenario_{slug}_"
+    shared_keys = {
+        "runner_kind",
+        "scenario_order",
+        "prepare_batch_schema_version",
+        "prepare_batch_lifecycle_schema_version",
+        "prepare_batch_lifecycle_status",
+        "prepare_batch_lifecycle_no_standalone_lane",
+        "prepare_batch_scale_runtime_status",
+        "prepare_batch_scale_route",
+        "source_format",
+        "fallback_attempted",
+        "external_engine_invoked",
+    }
+    return {
+        key: value
+        for key, value in fields.items()
+        if key.startswith(prefix) or key in shared_keys
+    }
+
+
+def bool_field(
+    fields: Mapping[str, str],
+    *keys: str,
+    default: bool,
+) -> bool:
+    for key in keys:
+        value = fields.get(key)
+        if value is None:
+            continue
+        lowered = str(value).strip().lower()
+        if lowered == "true":
+            return True
+        if lowered == "false":
+            return False
+    return default
+
+
+def prepared_output_row_count(slug: str, fields: Mapping[str, str]) -> int | None:
+    result_json = fields.get(f"scenario_{slug}_result_json")
+    if result_json:
+        try:
+            decoded = json.loads(result_json)
+        except json.JSONDecodeError:
+            decoded = None
+        if isinstance(decoded, list):
+            return len(decoded)
+        if isinstance(decoded, dict):
+            for key in ("row_count", "rows", "count"):
+                value = decoded.get(key)
+                if isinstance(value, int):
+                    return value
+    for key in (
+        f"scenario_{slug}_streaming_result_row_count",
+        f"scenario_{slug}_computed_result_sink_rows",
+        "output_row_count",
+    ):
+        value = fields.get(key)
+        if value not in {None, "", "none"}:
+            try:
+                return int(str(value))
+            except ValueError:
+                continue
+    return None
+
+
+def prepared_result_sample(slug: str, fields: Mapping[str, str]) -> list[Any]:
+    result_json = fields.get(f"scenario_{slug}_result_json")
+    if not result_json:
+        return []
+    try:
+        decoded = json.loads(result_json)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(decoded, list):
+        return decoded[:3]
+    if isinstance(decoded, dict):
+        return [decoded]
+    return []
 
 
 def write_json(path: Path, payload: Mapping[str, Any]) -> None:

@@ -23,6 +23,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     import shardloom as sl
     from shardloom import ShardLoomClient
+    from shardloom.errors import ShardLoomCommandError
 
     client = (
         ShardLoomClient(binary=args.shardloom_bin)
@@ -37,7 +38,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     quickstart_dir = repo_root / "target" / "local-python-smoke"
     quickstart_dir.mkdir(parents=True, exist_ok=True)
     source_path = quickstart_dir / "orders.csv"
-    output_path = quickstart_dir / "orders-out.jsonl"
     generated_output_path = quickstart_dir / "generated-reference.jsonl"
     source_path.write_text(
         "id,label,amount\n"
@@ -53,18 +53,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         .select("id", "label", "amount")
         .limit(2)
     )
-    result = workflow.write_jsonl(output_path, allow_overwrite=True)
+    try:
+        workflow.write_jsonl(quickstart_dir / "orders-out.jsonl", allow_overwrite=True)
+    except ShardLoomCommandError as exc:
+        local_file_envelope = exc.envelope
+    else:
+        print("quickstart_local_file_route_status=unexpected_executable")
+        return 1
+
     generated = (
         ctx.from_rows([{"id": 1, "label": "alpha"}])
         .with_column("batch_id", 1)
         .write_jsonl(generated_output_path, allow_overwrite=True)
     )
     unsupported = ctx.read(source_path).select("id").to_pandas()
-    first_row = result.first_result_row or {}
-    result_evidence = result.evidence_summary
-    result_claim = result.claim_summary
     generated_evidence = generated.evidence_summary
     generated_claim = generated.claim_summary
+    local_file_blocker_id = local_file_envelope.field(
+        "public_workflow_blocker_id"
+    ) or local_file_envelope.field("blocker_id")
+    local_file_runtime_execution = (
+        local_file_envelope.field_bool("public_workflow_runtime_execution", False)
+        is True
+        or local_file_envelope.field_bool("runtime_execution", False) is True
+    )
+    local_file_fallback_attempted = (
+        local_file_envelope.fallback.attempted
+        or local_file_envelope.field_bool("fallback_attempted", False) is True
+    )
+    local_file_external_engine_invoked = (
+        local_file_envelope.field_bool("external_engine_invoked", False) is True
+    )
 
     print(f"status: {status.status}")
     print(f"protocol: {smoke.protocol_version}")
@@ -72,22 +91,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"capabilities command: {capabilities.command}")
     print(f"fallback attempted: {smoke.fallback_attempted}")
     print("quickstart_user_surface_status=passed")
-    print(f"quickstart_result_row_id={first_row.get('id')}")
-    print(f"quickstart_output_row_count={result.output_row_count}")
-    print(f"quickstart_output_path={result.output_path}")
-    print(f"quickstart_evidence_output_row_count={result_evidence.output_row_count}")
-    print(f"quickstart_evidence_output_path={result_evidence.output_path}")
+    print(f"quickstart_local_file_blocker_id={local_file_blocker_id}")
+    print("quickstart_local_file_route_status=blocked")
     print(
-        "quickstart_evidence_fallback_attempted="
-        f"{str(result_evidence.fallback_attempted).lower()}"
+        "quickstart_local_file_runtime_execution="
+        f"{str(local_file_runtime_execution).lower()}"
     )
     print(
-        "quickstart_evidence_external_engine_invoked="
-        f"{str(result_evidence.external_engine_invoked).lower()}"
+        "quickstart_local_file_fallback_attempted="
+        f"{str(local_file_fallback_attempted).lower()}"
     )
-    print(f"quickstart_claim_gate_status={result_claim.claim_gate_status}")
+    print(
+        "quickstart_local_file_external_engine_invoked="
+        f"{str(local_file_external_engine_invoked).lower()}"
+    )
     print(f"quickstart_generated_source_kind={generated.generated_source_kind}")
     print(f"quickstart_generated_source_row_count={generated.generated_source_row_count}")
+    print(f"quickstart_generated_output_path={generated.output_path}")
+    print(
+        "quickstart_generated_output_row_count="
+        f"{generated_evidence.output_row_count}"
+    )
     print(
         "quickstart_generated_evidence_output_row_count="
         f"{generated_evidence.output_row_count}"
@@ -118,18 +142,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     failed = (
         smoke.fallback_attempted
-        or result.fallback_attempted
-        or result.external_engine_invoked
         or generated.fallback_attempted
         or generated.external_engine_invoked
+        or local_file_blocker_id != "cg21.route.local_file_vortex_middle_required"
+        or local_file_runtime_execution
+        or local_file_fallback_attempted
+        or local_file_external_engine_invoked
         or unsupported.fallback_attempted
         or unsupported.external_engine_invoked
         or unsupported.runtime_execution
         or unsupported.data_read
         or unsupported.write_io
-        or result.output_row_count <= 0
-        or first_row.get("id") is None
         or generated.generated_source_row_count <= 0
+        or (generated_evidence.output_row_count or 0) <= 0
         or unsupported.blocker_id is None
     )
     return 1 if failed else 0

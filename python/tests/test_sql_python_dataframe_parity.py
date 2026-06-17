@@ -43,10 +43,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertIn("local_file_filter_project_limit", report["v1_supported_row_ids"])
         self.assertIn("performance_equivalence", report["v1_pending_row_ids"])
         self.assertIn("selective_filter", report["v1_example_scenario_ids"])
-        self.assertEqual(
-            report["v1_expected_error_scenario_ids"],
-            ["malformed_timestamp_cast"],
-        )
+        self.assertEqual(report["v1_expected_error_scenario_ids"], [])
         self.assertFalse(report["flexible_anything_claim_allowed"])
         self.assertFalse(report["performance_equivalence_claim_allowed"])
         self.assertEqual(report["admitted_row_count"], 7)

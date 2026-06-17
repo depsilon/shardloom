@@ -38,10 +38,10 @@ The v1 front-door scope is local and bounded by default.
 | Surface | Supported v1 forms | Runtime boundary |
 | --- | --- | --- |
 | Python context | `context()`, `context(repo_root=...)`, `ctx.read(...)`, `ctx.read_csv(...)`, `ctx.read_json(...)`, `ctx.read_parquet(...)`, `ctx.read_arrow_ipc(...)`, `ctx.read_avro(...)`, `ctx.read_orc(...)`, `ctx.read_vortex(...)`, source-free helpers such as `ctx.from_rows(...)`, `ctx.range(...)`, `ctx.sequence(...)`, and `ctx.calendar(...)`. `ctx.read(...)` infers `.csv`, `.json`, `.jsonl`, `.ndjson`, `.parquet`, `.arrow`, `.ipc`, `.feather`, `.avro`, `.orc`, and `.vortex` local adapters. | ShardLoom CLI JSON commands through `ShardLoomClient`; no native Python execution engine. Format-specific readers are input adapters only, not separate execution engines. Feature-gated structured readers return deterministic blockers when their adapter is not enabled. |
-| Query builder | `filter`, `where`, `select`, `project`, `limit`, bounded `collect`, `group_by(...).agg(...)`, scoped `join(..., on=..., how="inner")`, `sort`/`order_by`, `nlargest`, `dropna`, `astype`, `with_column`, and local writes such as `write_jsonl`, `write_csv`, and feature-gated `write_vortex`. | Product local workflow route, prepared route, generated-source route, or local Vortex primitive route as reported by the capability matrices. Runtime support is selected from the normalized ShardLoom plan, not from independent CSV/JSON/DataFrame execution stacks. |
+| Query builder | `filter`, `where`, `select`, `project`, `limit`, bounded `collect`, `group_by(...).agg(...)`, scoped `join(..., on=..., how="inner")`, `sort`/`order_by`, `nlargest`, `dropna`, `astype`, `with_column`, and local writes such as `write_jsonl`, `write_csv`, and feature-gated `write_vortex`. | Prepared route, generated-source route, local Vortex primitive route, or deterministic blocker as reported by the capability matrices. Direct decoded local-source smoke is not a public product route. Runtime support is selected from the normalized ShardLoom plan, not from independent CSV/JSON/DataFrame execution stacks. |
 | SQL frontend | Scoped local-source SQL over local file references, source-free literal/VALUES output, and scoped local `.vortex` primitive SQL shapes. | SQL is a frontend into ShardLoom planning and execution, not DataFusion, DuckDB, Spark, pandas, Polars, or another engine. |
 | DataFrame-style aliases | Familiar aliases such as `where`, `groupby`, `sort_values`, `head`, `take`, `query` without unsupported keyword arguments, bounded display/materialization helpers, and explicit unsupported reports for non-admitted methods. | Same ShardLoom route as the corresponding SQL/Python workflow or deterministic unsupported report. |
-| Benchmark ETL snippets | `selective_filter`, `filter_projection_limit`, `group_by_aggregation`, `hash_join`, `global_top_n`, `clean_cast_filter_write`, `malformed_timestamp_cast`, `null_heavy_aggregate`, and `nested_json_field_scan` in `examples/local-python-benchmark-scenarios`. | Sequential local Python execution through the same product local workflow facade as normal user snippets. Timing claims come only from promoted benchmark artifacts. |
+| Benchmark ETL snippets | `selective_filter`, `filter_projection_limit`, `group_by_aggregation`, `hash_join`, `global_top_n`, `clean_cast_filter_write`, `malformed_timestamp_cast`, `null_heavy_aggregate`, and `nested_json_field_scan` in `examples/local-python-benchmark-scenarios`. | Sequential local Python execution must use an admitted Vortex-prepared/native route or fail closed with deterministic diagnostics. Timing claims come only from promoted benchmark artifacts. |
 
 ## Format-Neutral Route Model
 
@@ -56,12 +56,12 @@ adapter step. Python, SQL, and DataFrame-style builders should lower to the same
 the adapter has produced an admitted source state. Output formats should be unique only in sink
 translation and metadata-preservation evidence.
 
-`sql-local-source-smoke` remains a capped smoke safeguard. Normal user-facing local workflows route
-through product-local or native Vortex routes and must not inherit smoke-only synthetic row, byte,
-output, or join-candidate caps. The product-local compatibility-source route is the cap-removal
-boundary; native Vortex-middle convergence for all compatibility inputs remains tracked separately
-under `PY-VORTEX-ROUTE-UNIFY-1`. Unsupported shapes must fail deterministically instead of routing
-to an external engine.
+`sql-local-source-smoke` remains a capped internal smoke safeguard. Normal user-facing local
+workflows must route through Vortex preparation/prepared execution or native Vortex input, and must
+not execute a decoded direct compatibility middle as the public route. If the required Vortex
+preparation/runtime feature is unavailable, `auto` fails closed with deterministic diagnostics, and
+`direct` is blocked for public local-file workflows. Unsupported shapes must fail deterministically
+instead of routing to an external engine.
 
 For direct `.vortex` input, the currently admitted primitive path is already shared across
 Python/DataFrame-style and SQL front doors: filter, projection, source-order limit, count, and
@@ -156,9 +156,10 @@ null_heavy_aggregate
 nested_json_field_scan
 ```
 
-`malformed_timestamp_cast` is intentionally expected to fail closed when the current cast path
-rejects the data. That expected failure is still successful v1 behavior when the evidence shows no
-fallback or external engine invocation.
+`malformed_timestamp_cast` now runs through the prepared Vortex replay fixture as an admitted
+scenario with valid-row evidence. If a future source contains values outside the admitted cast
+contract, that path must fail closed with deterministic diagnostics and no fallback or external
+engine invocation.
 
 ## Claim Boundary
 

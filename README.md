@@ -208,72 +208,52 @@ import shardloom as sl
 
 ctx = sl.context(repo_root="/path/to/shardloom", profile_order=("release", "debug"))
 
-fact = ctx.read("data/fact.csv", schema={
-    "id": "int64",
-    "group_key": "int64",
-    "dim_key": "int64",
-    "value": "int64",
-    "metric": "float64",
-    "flag": "boolean",
-    "category": "utf8",
-    "event_date": "utf8",
-    "nullable_metric_00": "float64",
-    "raw_event_time": "utf8",
-    "dirty_numeric": "utf8",
-})
-dim = ctx.read("data/dim.csv", schema={
-    "dim_key": "int64",
-    "dim_label": "utf8",
-    "weight": "float64",
-})
-events = ctx.read("data/events.jsonl", schema={
-    "id": "int64",
-    "nested_payload": "utf8",
-})
+prepared = ctx.prepare_vortex(
+    "data/fact.csv",
+    dim="data/dim.csv",
+    workspace="target/shardloom-prepared",
+    input_format="csv",
+    result_workspace="target/shardloom-results",
+    evidence_level="certified",
+    max_parallelism=1,
+)
 
 # selective filter
-fact.filter(sl.col("flag") == True).select("id", "group_key", "value").limit(1000).collect()
+result = prepared.query("selective filter").collect()
 
 # filter + projection + limit
-fact.filter(sl.col("value") >= 100).select("id", "group_key", "metric").limit(100).collect()
+prepared.query("filter + projection + limit").collect()
 
 # group by aggregation
-fact.filter(sl.col("metric") >= 0).group_by("group_key").agg(
-    rows="count(*)",
-    total_metric="sum(metric)",
-).limit(100).collect()
+prepared.query("group by aggregation").collect()
 
 # hash join
-fact.join(dim, on="dim_key", how="inner").select(
-    "f.id", "d.dim_label", "f.metric"
-).limit(100).collect()
+prepared.query("hash join").collect()
 
-# global top-N; benchmark route owns the current top-N-per-group scenario
-fact.select("id", "group_key", "metric").nlargest(10, "metric").collect()
+# global top-N
+prepared.query("sort and top-k").collect()
 
-# clean/cast/filter/write through the default local JSONL sink.
-# Use write_vortex only when the CLI is built with the vortex-write feature gate.
-fact.with_column("amount_float", sl.col("dirty_numeric").cast("float64")).filter(
-    sl.col("amount_float") >= 0
-).limit(1000).write_jsonl("target/clean-cast-filter-write.jsonl", allow_overwrite=True)
+# clean/cast/filter/write
+prepared.query("clean/cast/filter/write").collect()
 
-# malformed timestamp / dirty CSV, fail-closed unless cast path is admitted by current data
-fact.with_column("event_day", sl.col("raw_event_time").cast("date32")).limit(1000).collect()
+# malformed timestamp / dirty CSV
+prepared.query("malformed timestamp / dirty CSV").collect()
 
 # null-heavy aggregate
-fact.dropna(subset=["nullable_metric_00"]).group_by("group_key").agg(
-    rows="count(*)",
-    total_nullable_metric="sum(nullable_metric_00)",
-).limit(100).collect()
+prepared.query("null-heavy aggregate").collect()
 
 # nested JSON field scan
-events.filter(sl.col("nested_payload").contains("target")).select(
-    "id", "nested_payload"
-).limit(100).collect()
+prepared.query("nested JSON field scan").collect()
+
+print(result.batch.field("scenario_selective-filter_fallback_attempted"))
+print(result.batch.field("scenario_selective-filter_external_engine_invoked"))
 ```
 
-Bounded local-source workflows can collect or write through admitted ShardLoom paths. Unbounded
-convenience materialization returns deterministic evidence rather than invoking another engine:
+Raw compatibility sources are normalized into VortexPreparedState before these scenarios execute.
+Direct one-shot local CSV/JSON execution is an internal smoke route only; normal public workflows
+use Vortex-prepared or native Vortex routes, or fail closed with deterministic diagnostics.
+Unbounded convenience materialization returns deterministic evidence rather than invoking another
+engine:
 
 ```python
 materialization_report = ctx.read("data/orders.csv", schema={"id": "int64"}).select("id").to_pandas()

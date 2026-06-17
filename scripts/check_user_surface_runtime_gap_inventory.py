@@ -169,6 +169,19 @@ DATAFRAME_METHOD_GAP_ROUTES.update(
 )
 
 RUNS_TODAY_GAP_ROUTES: dict[str, dict[str, str]] = {
+    "python_local_query_builder": {
+        "classification": "true_runtime_expansion_item",
+        "vortex_normalization_point": "local_compat_source_to_vortex_prepared_state_pending",
+        "runtime_route": (
+            "public local-file Python LazyFrame auto route is blocked until it can run through "
+            "Vortex preparation or native Vortex input instead of the internal direct smoke route"
+        ),
+        "output_or_evidence_route": (
+            "deterministic local-file Vortex-middle blocker today; prepared/native Vortex route "
+            "certificate and typed collect/write evidence required before runtime admission"
+        ),
+        "owner": "GAR-RUNTIME-IMPL-6D:vortex_middle_public_local_workflow",
+    },
     "input_object_store_cloud": {
         "classification": "true_runtime_expansion_item",
         "vortex_normalization_point": "credentialed_object_store_source_to_vortex_pending",

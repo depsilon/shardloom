@@ -494,7 +494,7 @@ const COMPUTE_CAPABILITY_COMMAND: &str = "compute-capability-matrix";
 const COMPUTE_CAPABILITY_USAGE: &str = "usage: shardloom compute-capability-matrix";
 const GLOBAL_ARCHITECTURE_GATE_COMMAND: &str = "global-architecture-gate";
 const GLOBAL_ARCHITECTURE_GATE_USAGE: &str = "usage: shardloom global-architecture-gate";
-const COMPUTE_SUPPORT_STATUS_VOCABULARY: &str = "unsupported,planned,report_only,executable_uncertified,fixture_certified,workload_certified,production_certified";
+const COMPUTE_SUPPORT_STATUS_VOCABULARY: &str = "unsupported,planned,report_only,internal_smoke_only,executable_uncertified,fixture_certified,workload_certified,production_certified";
 const COMPUTE_PROVIDER_KIND_VOCABULARY: &str = "shardloom_kernel,vortex_array_kernel,vortex_scan,vortex_source,vortex_sink,compatibility_boundary,external_baseline_only";
 const COMPUTE_ENGINE_MODE_VOCABULARY: &str = "batch,live,hybrid,auto";
 const COMPUTE_EXECUTION_MODE_VOCABULARY: &str = "compatibility_import_certified,prepared_vortex,native_vortex,direct_compatibility_transient,auto";
@@ -701,7 +701,7 @@ const UNIVERSAL_COMPATIBILITY_ROWS: &[UniversalCompatibilityRow] = &[
         blocker_id: "none_local_csv_adapter_runtime_supported",
         required_future_evidence: "object_store_table_production_claim_evidence",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "local CSV SourceState, direct-transient, vortex_ingest, and local-output runtime for admitted flat schemas only; no object-store/table or production claim",
+        claim_boundary: "local CSV SourceState, vortex_ingest, and local-output runtime for admitted flat schemas only; direct transient is internal smoke-only and not a public workflow route; no object-store/table or production claim",
     },
     UniversalCompatibilityRow {
         id: "jsonl_ndjson",
@@ -721,7 +721,7 @@ const UNIVERSAL_COMPATIBILITY_ROWS: &[UniversalCompatibilityRow] = &[
         blocker_id: "none_local_jsonl_adapter_runtime_supported",
         required_future_evidence: "nested_json_jsonpath_object_store_table_production_evidence",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "local flat JSONL/NDJSON SourceState, direct-transient, vortex_ingest, and JSONL-output runtime only; no nested JSON, JSONPath, object-store/table, or production claim",
+        claim_boundary: "local flat JSONL/NDJSON SourceState, vortex_ingest, and JSONL-output runtime only; direct transient is internal smoke-only and not a public workflow route; no nested JSON, JSONPath, object-store/table, or production claim",
     },
     UniversalCompatibilityRow {
         id: "json",
@@ -2435,20 +2435,20 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         id: "direct_compatibility_transient",
         surface: "direct_compatibility_transient_query",
         family: "compatibility_transient",
-        support_status: "fixture_certified",
+        support_status: "internal_smoke_only",
         engine_mode: "batch",
         provider_kind: "shardloom_kernel",
         operator_execution_class: "residual_native",
-        semantic_profile: "ShardLoomNative",
-        materialization_decode_requirement: "direct_local_source_state_materialization_boundary_reported",
-        memory_spill_requirement: "bounded_local_direct_transient_no_spill_claim",
-        correctness_refs: "traditional_direct_transient_tests,benchmark_harness_direct_transient",
-        benchmark_refs: "direct_transient_csv_jsonl_structured_smoke_rows",
-        execution_certificate_refs: "traditional_analytics.direct_transient.runtime",
+        semantic_profile: "InternalSmokeOnly",
+        materialization_decode_requirement: "internal_smoke_direct_local_source_state_materialization_boundary_reported_public_workflow_blocked",
+        memory_spill_requirement: "bounded_internal_smoke_no_public_runtime_claim",
+        correctness_refs: "traditional_direct_transient_tests,benchmark_harness_direct_transient,public_workflow_direct_policy_block_tests",
+        benchmark_refs: "direct_transient_csv_jsonl_structured_smoke_rows_not_public_workflow",
+        execution_certificate_refs: "traditional_analytics.direct_transient.runtime_internal_smoke_only",
         native_io_refs: "not_vortex_native; local SourceState Native I/O evidence only",
-        unsupported_diagnostic_code: "none",
-        blocker_id: "p75.direct_transient.not_vortex_native_claim",
-        required_future_evidence: "broader_operator_coverage,result_sink_replay,claim_grade_benchmark_rows",
+        unsupported_diagnostic_code: "SL_DIRECT_LOCAL_FILE_PUBLIC_ROUTE_BLOCKED",
+        blocker_id: "cg21.route.direct_local_file_blocked",
+        required_future_evidence: "vortex_middle_public_workflow_route_certificate,prepared_or_native_vortex_execution_evidence",
     },
     ComputeCapabilityRow {
         id: "sort_topn_limit",
@@ -4295,6 +4295,11 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
     );
     push_count_field(
         &mut fields,
+        "internal_smoke_only_count",
+        compute_support_status_count("internal_smoke_only"),
+    );
+    push_count_field(
+        &mut fields,
         "executable_uncertified_count",
         compute_support_status_count("executable_uncertified"),
     );
@@ -5801,9 +5806,10 @@ const PRODUCTION_UNSUPPORTED_DIAGNOSTIC_SCHEMA_VERSION: &str =
     "shardloom.production_unsupported_diagnostics.v1";
 const PRODUCTION_UNSUPPORTED_DIAGNOSTIC_DOCS_REF: &str =
     "docs/release/known-unsupported-paths.md#production-family-diagnostic-catalog";
-const RUNS_TODAY_SUPPORT_STATE_VOCABULARY: [&str; 6] = [
+const RUNS_TODAY_SUPPORT_STATE_VOCABULARY: [&str; 7] = [
     "executable",
     "feature_gated",
+    "internal_smoke_only",
     "diagnostic_only",
     "report_only",
     "blocked",
@@ -6030,13 +6036,29 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
     RunsTodaySupportRow {
         id: "python_local_query_builder",
         family: "python_api",
-        surface: "read_csv,read_json,read_vortex,sql,from_rows,LazyFrame.collect",
+        surface: "read_csv,read_json,sql,LazyFrame.collect local-file auto route",
+        support_state: "blocked",
+        feature_gate: "default",
+        evidence_refs: "python.tests.test_query_builder,public_workflow_direct_policy_block_tests",
+        blocker_id: "cg21.route.local_file_vortex_middle_required",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "public local-file Python workflows require Vortex preparation or native Vortex input; decoded direct local-source smoke is internal-only",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "python_native_vortex_query_builder",
+        family: "python_api",
+        surface: "read_vortex,LazyFrame.collect native Vortex primitives",
         support_state: "executable",
         feature_gate: "default",
-        evidence_refs: "python.tests.test_query_builder,sql_local_source_runtime_smoke",
+        evidence_refs: "python.tests.test_query_builder,vortex_count_tests,vortex_filter_project_tests",
         blocker_id: "none",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "scoped local query-builder lowering to admitted CLI smokes only",
+        claim_boundary: "scoped local Vortex count/filter/project primitives only; broader Vortex operator families require admitted native provider evidence",
         runtime_execution: true,
         data_read: true,
         write_io: false,
@@ -6100,7 +6122,7 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         evidence_refs: "sql_local_source_runtime_smoke,vortex_ingest_smoke_text_adapter_tests,traditional_direct_transient_tests,python_query_builder_tests,universal_ingress_route_taxonomy",
         blocker_id: "none",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "flat local text SourceState, direct-transient, and vortex_ingest fixture coverage only; not object-store/table connector coverage",
+        claim_boundary: "flat local text SourceState, internal direct-transient smoke, and vortex_ingest fixture coverage only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input",
         runtime_execution: true,
         data_read: true,
         write_io: false,
@@ -6148,7 +6170,7 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         evidence_refs: "feature_gated_sql_local_source_tests,vortex_ingest_smoke_structured_adapter_tests,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields,traditional_direct_transient_structured_tests,universal_ingress_route_taxonomy",
         blocker_id: "feature.universal_format_io_required_for_default_build",
         claim_gate_status: "not_claim_grade",
-        claim_boundary: "local flat-scalar feature-gated SourceState, direct-transient, and vortex_ingest adapters only; object-store/table connector coverage remains separate",
+        claim_boundary: "local flat-scalar feature-gated SourceState, internal direct-transient smoke, and vortex_ingest adapters only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input",
         runtime_execution: true,
         data_read: true,
         write_io: false,
@@ -6239,12 +6261,12 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         id: "execution_direct_compatibility_transient",
         family: "execution_mode",
         surface: "direct_compatibility_transient",
-        support_state: "executable",
+        support_state: "internal_smoke_only",
         feature_gate: "default",
-        evidence_refs: "sql_local_source_runtime_smoke,python_query_builder_tests",
-        blocker_id: "none",
+        evidence_refs: "sql_local_source_runtime_smoke,public_workflow_direct_policy_block_tests",
+        blocker_id: "cg21.route.direct_local_file_blocked",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "scoped local source-backed execution only",
+        claim_boundary: "lower-level local smoke safeguard only; public local-file workflow routes require Vortex preparation or native Vortex input",
         runtime_execution: true,
         data_read: true,
         write_io: false,
@@ -6603,10 +6625,11 @@ pub(crate) fn handle_runs_today(format: OutputFormat) -> ExitCode {
 
 fn runs_today_human_text() -> String {
     format!(
-        "runs_today rows={} executable={} feature_gated={} diagnostic_only={} report_only={} blocked={} future={} fallback_execution=disabled external_engine_invoked=false",
+        "runs_today rows={} executable={} feature_gated={} internal_smoke_only={} diagnostic_only={} report_only={} blocked={} future={} fallback_execution=disabled external_engine_invoked=false",
         RUNS_TODAY_SUPPORT_ROWS.len(),
         runs_today_count_by_support_state("executable"),
         runs_today_count_by_support_state("feature_gated"),
+        runs_today_count_by_support_state("internal_smoke_only"),
         runs_today_count_by_support_state("diagnostic_only"),
         runs_today_count_by_support_state("report_only"),
         runs_today_count_by_support_state("blocked"),
