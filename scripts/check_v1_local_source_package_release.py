@@ -22,6 +22,7 @@ from release_channel_contract import (
     SELECTED_V0_1_0_FEASIBILITY_STATUS,
     SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
     SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
+    SELECTED_PACKAGE_CHANNEL_STATUS_MARKER,
 )
 from release_report_utils import (
     fail_closed_fields,
@@ -231,7 +232,7 @@ def build_report(
         ],
         "docs/getting-started/package-user-install.md": [
             "selected_publication_channels=github_prerelease,testpypi,pypi,homebrew_tap",
-            "package_channel_status=published_v0.1.1_selected_channels",
+            f"package_channel_status={SELECTED_PACKAGE_CHANNEL_STATUS_MARKER}",
             "brew install depsilon/tap/shardloom",
         ],
         "docs/release/public-status-matrix.md": [

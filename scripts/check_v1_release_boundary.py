@@ -3,7 +3,7 @@
 """Validate the finished-product v1 release boundary firewall.
 
 This gate is intentionally claim-safe: it proves the current support envelope,
-package dry-run evidence, selected v0.1.1 package-channel proof, public docs,
+package dry-run evidence, selected package-channel proof, public docs,
 and package metadata do not imply production platform support, performance
 superiority, future package-channel availability, or external-engine fallback.
 It does not publish packages or create releases.
@@ -30,6 +30,7 @@ from check_v1_inclusion_scope import build_report as build_v1_inclusion_scope_re
 from release_channel_contract import (
     SELECTED_V0_1_0_INSTALL_ACCESS_BOUNDARY,
     SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
+    SELECTED_PACKAGE_RELEASE_TAG,
 )
 from release_report_utils import fail_closed_fields, load_json, read_text, resolve_path, write_json
 
@@ -396,7 +397,10 @@ def validate_package_channel_report(
     if int(payload.get("ready_channel_count") or 0) < len(
         SELECTED_V0_1_0_RELEASE_CHANNEL_IDS
     ):
-        blockers.append("package-channel ready_channel_count must include selected v0.1.1 channels")
+        blockers.append(
+            "package-channel ready_channel_count must include selected "
+            f"{SELECTED_PACKAGE_RELEASE_TAG} channels"
+        )
     if payload.get("public_package_release_claim_allowed") is not True:
         blockers.append(
             "package-channel report public_package_release_claim_allowed must be true for "

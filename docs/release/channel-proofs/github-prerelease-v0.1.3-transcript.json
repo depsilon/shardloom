@@ -1,0 +1,104 @@
+{
+  "asset_count": 12,
+  "asset_names": [
+    "asset-manifest.json",
+    "checksums.sha256",
+    "github-prerelease-release-notes.md",
+    "shardloom",
+    "shardloom-0.1.3-cp313-cp313-macosx_26_0_arm64.whl",
+    "shardloom-0.1.3.tar.gz",
+    "shardloom-c44a0a9da3f6-source.tar.gz",
+    "shardloom-cli-binary.cdx.json",
+    "shardloom-python-artifacts.cdx.json",
+    "shardloom-rust-workspace.cdx.json",
+    "supply-chain-release-evidence.json",
+    "workflow-policy-snapshot.json"
+  ],
+  "blockers": [],
+  "channel_id": "github_prerelease",
+  "checksum_mismatch": [],
+  "checksum_missing": [],
+  "clean_download_dir": "target/github-prerelease-channel-proof-v0.1.3",
+  "cli_smoke_stdout": "ShardLoom workspace initialized (native Vortex-first execution facade)\nfallback execution: disabled\n",
+  "cli_version_stdout": "shardloom 0.1.3\n",
+  "display_name": "GitHub pre-release",
+  "download_command": "gh release download v0.1.3 --repo depsilon/shardloom --pattern '*' --dir target/github-prerelease-channel-proof-v0.1.3",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "github_asset_mismatch": [],
+  "install_transcript_status": "passed",
+  "package_channel_submission_attempted_by_this_tool": false,
+  "package_upload_attempted_by_this_tool": false,
+  "proof_status": "passed",
+  "publication_attempted_by_this_tool": false,
+  "release_published_at": "2026-06-16T23:47:30Z",
+  "release_tag": "v0.1.3",
+  "release_url": "https://github.com/depsilon/shardloom/releases/tag/v0.1.3",
+  "schema_version": "shardloom.github_prerelease_channel_proof.v1",
+  "secrets_required": false,
+  "smoke_check_status": "passed",
+  "source_archive_sha256": "270c2a53e02a8bae039e9eab064d1cc560018cb2fdf8aaff05844898eb2e53f8",
+  "steps": [
+    {
+      "command": [
+        "gh",
+        "release",
+        "view",
+        "v0.1.3",
+        "--repo",
+        "depsilon/shardloom",
+        "--json",
+        "tagName,url,isPrerelease,isDraft,publishedAt,targetCommitish,name"
+      ],
+      "elapsed_millis": 404.0873,
+      "name": "view_release",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\"isDraft\":false,\"isPrerelease\":true,\"name\":\"ShardLoom v0.1.3\",\"publishedAt\":\"2026-06-16T23:47:30Z\",\"tagName\":\"v0.1.3\",\"targetCommitish\":\"main\",\"url\":\"https://github.com/depsilon/shardloom/releases/tag/v0.1.3\"}\n"
+    },
+    {
+      "command": [
+        "gh",
+        "release",
+        "download",
+        "v0.1.3",
+        "--repo",
+        "depsilon/shardloom",
+        "--pattern",
+        "*",
+        "--dir",
+        "/Users/dylan/Documents/shardloom-local-repo/target/github-prerelease-channel-proof-v0.1.3"
+      ],
+      "elapsed_millis": 2028.7289,
+      "name": "download_release",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": [
+        "/Users/dylan/Documents/shardloom-local-repo/target/github-prerelease-channel-proof-v0.1.3/shardloom",
+        "status"
+      ],
+      "elapsed_millis": 212.2145,
+      "name": "cli_status_smoke",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "ShardLoom workspace initialized (native Vortex-first execution facade)\nfallback execution: disabled\n"
+    },
+    {
+      "command": [
+        "/Users/dylan/Documents/shardloom-local-repo/target/github-prerelease-channel-proof-v0.1.3/shardloom",
+        "--version"
+      ],
+      "elapsed_millis": 5.9075,
+      "name": "cli_version_smoke",
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "shardloom 0.1.3\n"
+    }
+  ],
+  "tag_created_by_this_tool": true,
+  "target_commit": "main",
+  "uninstall_transcript_status": "not_applicable_clean_download_directory_removed_by_user"
+}

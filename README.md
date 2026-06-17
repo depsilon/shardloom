@@ -11,8 +11,8 @@
 repository. The repo remains the source of truth for code, architecture docs, phase plans, use
 cases, benchmarks, and release evidence.
 
-ShardLoom is a v0.1.3 source-track technical preview and a v0.1.1 proof-backed package-channel
-release until v0.1.3 channel proofs land. It is a Vortex-first, no-fallback local compute engine
+ShardLoom v0.1.3 is a source-track technical preview with proof-backed GitHub, TestPyPI, PyPI, and
+Homebrew package channels. It is a Vortex-first, no-fallback local compute engine
 foundation built around explicit routes and evidence fields that show what ran: source admission,
 Vortex preparation, execution mode, output planning, certificates, fallback status, and claim-gate
 status.
@@ -89,7 +89,7 @@ This table is a README summary; the canonical public status matrix and claim bou
 | Local output/sink scope | Scoped `write(...)`, `write_jsonl(...)`, `write_csv(...)`, feature-gated `write_parquet(...)`, `write_arrow_ipc(...)`, `write_avro(...)`, `write_orc(...)`, `write_vortex(...)`, and fanout helpers are defined by [docs/architecture/v1-local-output-sink-scope.md](docs/architecture/v1-local-output-sink-scope.md). | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
 | Prepared/native benchmark routes | Local benchmark artifacts expose cold, prepare-once, warm prepared, native Vortex, direct transient, and external-baseline lanes. | Claims depend on the selected timing surface and claim gate. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly fixture-scoped with report-only or blocked status for broader platform routes. | No production platform claim. |
-| Package/release status | v0.1.1 is published through GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula with checked-in channel proof. | No production/platform, performance, or broad runtime claim. |
+| Package/release status | v0.1.3 is published through GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula with checked-in channel proof. | No production/platform, performance, or broad runtime claim. |
 
 User surface graduation is tracked separately from runtime breadth. Public CLI/Python surfaces are
 classified as `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
@@ -119,21 +119,20 @@ python examples\local-python-smoke\run.py --repo-root .
 
 The selected local/source/package v1 release track is source checkout plus GitHub pre-release,
 TestPyPI, PyPI, and Homebrew. GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for
-v0.1.1; Scoop/winget/conda are feasible later channels, while real production object-store,
+v0.1.3; Scoop/winget/conda are feasible later channels, while real production object-store,
 lakehouse, distributed, live/hybrid, and Foundry claims stay fail-closed without environments.
 
 Package installs:
 
 ```sh
-python -m pip install shardloom==0.1.1
+python -m pip install shardloom==0.1.3
 brew install depsilon/tap/shardloom
 ```
 
-The Python package is a thin client surface over the ShardLoom CLI. Published v0.1.1 resolves the
-CLI from `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, a source checkout build, or `shardloom` on `PATH`.
-The v0.1.3 source track stages the CLI inside supported platform wheels so managed Python
-environments can use `sl.context()` without passing binary paths once the patch release is
-published; explicit binary/env/source configuration still takes precedence.
+The Python package is a thin client surface over the ShardLoom CLI. Published v0.1.3 resolves the
+CLI from explicit binary/env/source configuration first, then from bundled resources in supported
+platform wheels, and finally from `shardloom` on `PATH`. Managed Python environments can use
+`sl.context()` without passing binary paths when they install a supported bundled wheel.
 
 Normal Python use:
 

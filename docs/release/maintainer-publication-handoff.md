@@ -49,10 +49,10 @@ Publication completion addendum, 2026-06-16:
 
 Patch train addendum, 2026-06-16:
 
-- v0.1.3 is prepared as the next compatible post-v0.1.2 patch train for native Vortex facade route
-  hardening, structural SQL/Python provider inference, exact provider-shape gating, and the
-  release workflow sdist/wheel split. It must receive its own GitHub, TestPyPI, PyPI, and Homebrew
-  channel proofs before public install docs or package-channel matrices mark v0.1.3 published.
+- v0.1.3 is published and proof-backed through GitHub pre-release assets, TestPyPI, PyPI, and
+  Homebrew. It is the compatible post-v0.1.2 patch train for native Vortex facade route hardening,
+  structural SQL/Python provider inference, exact provider-shape gating, and the release workflow
+  sdist/wheel split.
 - Patch release notes live in `docs/release/v0.1.3-release-notes.md`.
 - v0.1.2 is prepared as the next compatible post-v0.1.1 patch train for native Vortex route
   unification, product local workflow cap removal, and bundled CLI package resolution. It must
@@ -73,6 +73,23 @@ Patch train addendum, 2026-06-16:
   source of truth; run `python3 scripts/sync_workspace_package_versions.py --check` before package
   build/publish and `python3 scripts/sync_workspace_package_versions.py` after changing the root
   version.
+
+v0.1.3 publication completion addendum, 2026-06-16:
+
+- v0.1.3 is published and proof-backed through the selected channels: GitHub pre-release assets,
+  TestPyPI, PyPI, and Homebrew.
+- The release tag is `v0.1.3` at source revision
+  `c44a0a9da3f6981518753ca53e5412708c2af03c`.
+- Channel proofs are checked in as
+  `docs/release/channel-proofs/github-prerelease-v0.1.3-transcript.json`,
+  `docs/release/channel-proofs/testpypi-v0.1.3-transcript.json`,
+  `docs/release/channel-proofs/pypi-v0.1.3-transcript.json`, and
+  `docs/release/channel-proofs/homebrew-v0.1.3-transcript.json`.
+- The Homebrew tap formula update is published in `depsilon/homebrew-tap` at
+  `6f981df273770095bb2f7dccb3fd25c09a11f8b2`.
+- v0.1.3 remains technical-preview install access only. It does not authorize production,
+  performance superiority, Spark replacement, broad runtime, object-store/lakehouse, Foundry,
+  future package-channel, or fallback-execution claims.
 
 v0.1.1 publication completion addendum, 2026-06-16:
 

@@ -47,6 +47,10 @@ from check_v1_docs_productization import (
     SCHEMA_VERSION as V1_DOCS_PRODUCTIZATION_SCHEMA_VERSION,
 )
 from check_v1_docs_productization import build_report as build_v1_docs_productization_report
+from release_channel_contract import (
+    SELECTED_PACKAGE_CHANNEL_STATUS_MARKER,
+    SELECTED_PACKAGE_INSTALL_SPEC,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -99,9 +103,9 @@ PUBLIC_DOC_MARKERS = {
         "fallback_attempted=false",
     ),
     "docs/getting-started/package-user-install.md": (
-        "package_channel_status=published_v0.1.1_selected_channels",
+        f"package_channel_status={SELECTED_PACKAGE_CHANNEL_STATUS_MARKER}",
         "package_install_commands_visible=true",
-        "python -m pip install shardloom==0.1.1",
+        f"python -m pip install {SELECTED_PACKAGE_INSTALL_SPEC}",
         "brew install depsilon/tap/shardloom",
         "public_package_claim_allowed=false",
     ),

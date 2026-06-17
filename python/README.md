@@ -12,7 +12,7 @@ a caller explicitly invokes a CLI command through `ShardLoomClient` or one of th
 helpers that wraps an evidence-backed CLI smoke.
 
 Public status is owned by `docs/release/public-status-matrix.md`. This README may describe scoped
-local Python surfaces, the v0.1.3 source track, and the approved v0.1.1 package track, but it does
+local Python surfaces, the v0.1.3 source track, and the approved v0.1.3 package track, but it does
 not authorize production support, performance claims, Spark displacement, or hidden external
 execution.
 
@@ -33,21 +33,18 @@ python -m pip install -e python
 ```
 
 The source package exposes the v0.1.3 technical-preview version through
-`shardloom.__version__`; the selected published package channels remain proof-backed at v0.1.1
-until v0.1.3 publication proofs are recorded.
-The PyPI package is published as `shardloom==0.1.1`; GitHub release assets and the
-`depsilon/tap/shardloom` Homebrew formula are also published for v0.1.1. These channels are install
+`shardloom.__version__`; the selected published package channels are proof-backed at v0.1.3.
+The PyPI package is published as `shardloom==0.1.3`; GitHub release assets and the
+`depsilon/tap/shardloom` Homebrew formula are also published for v0.1.3. These channels are install
 access only and do not imply production readiness, broad runtime support, or performance claims.
 
 ```sh
-python -m pip install shardloom==0.1.1
+python -m pip install shardloom==0.1.3
 ```
 
-Published v0.1.1 wheels require a CLI binary from Homebrew, source checkout, `PATH`,
-`SHARDLOOM_BIN`, or `SHARDLOOM_REPO_ROOT`. The v0.1.3 source track resolves the CLI from installed
-package resources before falling back to `PATH` for supported platform wheels; explicit
-binary/env/source configuration still wins. Use `SHARDLOOM_BIN` only when you want to pin a
-specific CLI binary:
+Published v0.1.3 supported-platform wheels resolve the packaged CLI before falling back to `PATH`.
+Explicit binary/env/source configuration still wins. Use `SHARDLOOM_BIN` only when you want to pin a
+specific CLI binary or when installing from a source distribution without a bundled platform CLI:
 
 ```powershell
 $env:SHARDLOOM_BIN = "target\release\shardloom.exe"
@@ -2354,8 +2351,9 @@ report-only surfaces into runtime support.
 
 ## Package Build Smoke
 
-The current published v0.1.1 package is a Python client surface over an external CLI installation.
-Bundled platform-wheel readiness can be checked locally without publishing:
+The current published v0.1.3 package is a Python client surface over ShardLoom's CLI, with bundled
+CLI resources in supported platform wheels. Bundled platform-wheel readiness can be checked locally
+without publishing:
 
 ```powershell
 python -m pip install build

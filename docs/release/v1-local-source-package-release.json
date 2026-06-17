@@ -31,7 +31,7 @@
   "release_dry_run_command": "python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
   "python_scenario_command": "python examples/local-python-benchmark-scenarios/run.py --repo-root .",
   "timing_review_command": "python examples/local-python-benchmark-scenarios/timing_review.py --repo-root .",
-  "claim_boundary": "This contract narrows v1 release readiness to source checkout, local wheel/sdist proof, GitHub pre-release assets, TestPyPI rehearsal, PyPI package path, Homebrew CLI tap path, stable local v1 schemas, local Python user-surface proof, and local benchmark evidence. GitHub v0.1.1, TestPyPI, PyPI, and Homebrew are published and proof-backed, but package access is not production readiness, performance superiority, Spark replacement, broad SQL/DataFrame support, object-store/lakehouse support, Foundry support, or fallback execution.",
+  "claim_boundary": "This contract narrows v1 release readiness to source checkout, local wheel/sdist proof, GitHub pre-release assets, TestPyPI rehearsal, PyPI package path, Homebrew CLI tap path, stable local v1 schemas, local Python user-surface proof, and local benchmark evidence. GitHub v0.1.3, TestPyPI, PyPI, and Homebrew are published and proof-backed, but package access is not production readiness, performance superiority, Spark replacement, broad SQL/DataFrame support, object-store/lakehouse support, Foundry support, or fallback execution.",
   "fallback_boundary": "All selected release paths must preserve fallback_attempted=false and external_engine_invoked=false. Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or another external query engine as ShardLoom runtime fallback.",
   "public_release_claim_allowed": false,
   "public_package_claim_allowed": false,
@@ -44,10 +44,10 @@
   "fallback_attempted": false,
   "external_engine_invoked": false,
   "public_package_release_claim_allowed": true,
-  "selected_v0_1_0_release_tag": "v0.1.1",
-  "selected_v0_1_0_release_commit": "99093904d923d275072456512627110b4c0862d2",
-  "github_prerelease_proof_ref": "docs/release/channel-proofs/github-prerelease-v0.1.1-transcript.json",
-  "testpypi_proof_ref": "docs/release/channel-proofs/testpypi-v0.1.1-transcript.json",
-  "pypi_proof_ref": "docs/release/channel-proofs/pypi-v0.1.1-transcript.json",
-  "homebrew_proof_ref": "docs/release/channel-proofs/homebrew-v0.1.1-transcript.json"
+  "selected_v0_1_0_release_tag": "v0.1.3",
+  "selected_v0_1_0_release_commit": "c44a0a9da3f6981518753ca53e5412708c2af03c",
+  "github_prerelease_proof_ref": "docs/release/channel-proofs/github-prerelease-v0.1.3-transcript.json",
+  "testpypi_proof_ref": "docs/release/channel-proofs/testpypi-v0.1.3-transcript.json",
+  "pypi_proof_ref": "docs/release/channel-proofs/pypi-v0.1.3-transcript.json",
+  "homebrew_proof_ref": "docs/release/channel-proofs/homebrew-v0.1.3-transcript.json"
 }
