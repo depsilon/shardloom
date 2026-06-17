@@ -185,7 +185,7 @@ def resolve(repo_root: Path, path: Path) -> Path:
 
 def rel(repo_root: Path, path: Path) -> str:
     try:
-        return path.resolve().relative_to(repo_root).as_posix()
+        return path.resolve().relative_to(repo_root.resolve()).as_posix()
     except ValueError:
         return path.resolve().as_posix()
 
@@ -200,11 +200,37 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8") if path.exists() else ""
 
 
-def path_exists(repo_root: Path, path_text: str | None) -> bool:
+def resolved_release_artifact_path(
+    repo_root: Path,
+    path_text: str | None,
+    *,
+    artifact_kind: str,
+) -> Path | None:
+    """Resolve local release proof artifacts after CI evidence compaction.
+
+    The release dry-run transcript records the original local build paths. CI
+    intentionally uploads a compact package artifact containing the transcript
+    plus the provenance-referenced package files under ``python/dist`` instead
+    of the full package-stage directory. Keep that compaction explicit here so
+    production-usability validation remains strict without requiring the large
+    local build tree to be rehydrated.
+    """
+
     if not path_text:
-        return False
+        return None
     path = Path(path_text)
-    return (path if path.is_absolute() else repo_root / path).exists()
+    primary = path if path.is_absolute() else repo_root / path
+    candidates = [primary]
+    if artifact_kind == "local_wheel":
+        candidates.append(repo_root / "python" / "dist" / path.name)
+    elif artifact_kind == "local_sdist":
+        candidates.append(repo_root / "python" / "dist" / path.name)
+    elif artifact_kind == "local_cli_binary":
+        candidates.append(repo_root / "target" / "debug" / path.name)
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
 
 
 def file_sha256(path: Path) -> str | None:
@@ -301,12 +327,20 @@ def validate_release_dry_run(
     for step_name in DRY_RUN_REQUIRED_STEPS:
         if not step_passed(steps, step_name):
             blockers.append(f"release dry-run step did not pass: {step_name}")
-    for label, field in [
-        ("local wheel", "local_wheel"),
-        ("local CLI binary", "local_cli_binary"),
+    resolved_artifacts: dict[str, str] = {}
+    for label, field, artifact_kind in [
+        ("local wheel", "local_wheel", "local_wheel"),
+        ("local CLI binary", "local_cli_binary", "local_cli_binary"),
     ]:
-        if not path_exists(repo_root, dry_run.get(field)):
+        resolved_artifact = resolved_release_artifact_path(
+            repo_root,
+            dry_run.get(field),
+            artifact_kind=artifact_kind,
+        )
+        if resolved_artifact is None:
             blockers.append(f"release dry-run missing {label} artifact: {dry_run.get(field)}")
+        else:
+            resolved_artifacts[field] = rel(repo_root, resolved_artifact)
     return (
         {
             "status": "passed" if not blockers else "blocked",
@@ -320,6 +354,7 @@ def validate_release_dry_run(
             "required_step_count": len(DRY_RUN_REQUIRED_STEPS),
             "local_wheel": dry_run.get("local_wheel"),
             "local_cli_binary": dry_run.get("local_cli_binary"),
+            "resolved_artifacts": resolved_artifacts,
         },
         blockers,
     )
