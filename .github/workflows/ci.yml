@@ -263,6 +263,9 @@ jobs:
           name: release-local-smoke-evidence
           path: |
             target/release-dry-run-proof/transcript.json
+            target/debug/shardloom
+            python/dist/*.whl
+            python/dist/*.tar.gz
           if-no-files-found: ignore
           retention-days: 14
 
@@ -642,6 +645,8 @@ jobs:
             target/security-posture-report.json
             target/release-dry-run-proof
             target/release-provenance-dry-run
+            target/debug/shardloom
+            python/dist
             target/release-security-gate-report.json
             target/contribution-governance-report.json
             target/package-channel-readiness-report.json

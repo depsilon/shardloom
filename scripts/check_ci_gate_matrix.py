@@ -188,6 +188,9 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
         ),
         artifact_refs=(
             "target/release-dry-run-proof/transcript.json",
+            "target/debug/shardloom",
+            "python/dist/*.whl",
+            "python/dist/*.tar.gz",
             "release-local-smoke-evidence",
         ),
         release_blocker_refs=("package/install smoke", "local provenance dry run"),
@@ -371,6 +374,8 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "target/security-posture-report.json",
             "target/release-dry-run-proof",
             "target/release-provenance-dry-run",
+            "target/debug/shardloom",
+            "python/dist",
             "target/python-test-evidence.json",
             "target/release-security-gate-report.json",
             "target/contribution-governance-report.json",
