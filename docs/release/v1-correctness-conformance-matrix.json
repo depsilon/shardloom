@@ -71,7 +71,7 @@
     "front_door_supported_rows": 7,
     "front_door_pending_rows": 4,
     "front_door_example_scenarios": 9,
-    "front_door_expected_error_scenarios": 1,
+    "front_door_expected_error_scenarios": 0,
     "vortex_primitive_routes": 9,
     "vortex_local_file_routes": 15,
     "source_input_formats": 6,
@@ -81,12 +81,12 @@
     "source_invalidation_cases": 9,
     "output_formats": 7,
     "output_write_methods": 9,
-    "output_routes": 8,
+    "output_routes": 7,
     "python_user_surface_method_rows": 113,
     "example_replay_doc_sources": 6,
     "example_replay_runtime_commands": 3,
     "example_replay_scenarios": 9,
-    "example_replay_expected_error_scenarios": 1,
+    "example_replay_expected_error_scenarios": 0,
     "example_replay_unsupported_failure_fixtures": 2,
     "golden_workflows": 3,
     "golden_stage_count_min": 9,
@@ -114,9 +114,7 @@
     "null_heavy_aggregate",
     "selective_filter"
   ],
-  "front_door_expected_error_scenario_ids": [
-    "malformed_timestamp_cast"
-  ],
+  "front_door_expected_error_scenario_ids": [],
   "golden_workflow_ids": [
     "generated_source_to_local_vortex_output_replay_fidelity",
     "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",

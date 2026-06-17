@@ -60,7 +60,7 @@ Patch train addendum, 2026-06-16:
   sdist/wheel split.
 - Patch release notes live in `docs/release/v0.1.3-release-notes.md`.
 - v0.1.2 is prepared as the next compatible post-v0.1.1 patch train for native Vortex route
-  unification, product local workflow cap removal, and bundled CLI package resolution. It must
+  unification, local workflow cap removal, and bundled CLI package resolution. It must
   receive its own GitHub, TestPyPI, PyPI, and Homebrew channel proofs before public install docs or
   package-channel matrices mark v0.1.2 published.
 - For v0.1.2 and later bundled-CLI wheel releases, the PyPI/TestPyPI Trusted Publisher workflow must

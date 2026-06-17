@@ -58,7 +58,7 @@ EXPECTED_EXAMPLE_SCENARIOS = {
     "nested_json_field_scan",
 }
 
-EXPECTED_ERROR_SCENARIOS = {"malformed_timestamp_cast"}
+EXPECTED_ERROR_SCENARIOS: set[str] = set()
 
 DOC_MARKERS = (
     "shardloom.v1_front_door_runtime_scope.v1",

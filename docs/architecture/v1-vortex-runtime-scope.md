@@ -55,9 +55,11 @@ CSV/JSON/Parquet/Arrow/Avro/ORC/Vortex adapter
 
 `ctx.read_vortex(...)` should be the direct native starting state. `ctx.read(...)` and explicit
 compatibility readers should normalize internally when the route requires Vortex. That lifecycle is
-not a user-facing benchmark preparation step. The current product-local compatibility-source route
-removes smoke-only caps but still reports `pending_native_vortex_middle_unification` until that
-normalization lifecycle is implemented. If a format, operator, join state, or sink is not admitted
+not a user-facing benchmark preparation step. Public local-file workflows no longer admit the
+decoded direct compatibility-source route as a product runtime: `auto` must use native Vortex or an
+admitted Vortex preparation/prepared-state route, and otherwise fails closed with
+`cg21.route.local_file_vortex_middle_required`; explicit `direct` fails with
+`cg21.route.direct_local_file_blocked`. If a format, operator, join state, or sink is not admitted
 by the native route contract, the public surface must return a deterministic blocker with
 `fallback_attempted=false` and `external_engine_invoked=false`.
 

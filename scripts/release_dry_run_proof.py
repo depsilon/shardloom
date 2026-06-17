@@ -974,11 +974,13 @@ def write_transcript(
     local_python_result_and_evidence_printed = all(
         step_stdout_contains("example_local_python_smoke", marker)
         for marker in [
-            "quickstart_result_row_id=",
-            "quickstart_output_row_count=",
-            "quickstart_evidence_fallback_attempted=false",
-            "quickstart_claim_gate_status=",
+            "quickstart_local_file_blocker_id=cg21.route.local_file_vortex_middle_required",
+            "quickstart_local_file_runtime_execution=false",
+            "quickstart_local_file_fallback_attempted=false",
+            "quickstart_local_file_external_engine_invoked=false",
             "quickstart_generated_source_row_count=",
+            "quickstart_generated_output_row_count=",
+            "quickstart_generated_evidence_fallback_attempted=false",
             "quickstart_generated_claim_gate_status=",
         ]
     )

@@ -65,7 +65,12 @@ RUNTIME_CARGO_MANIFESTS = (
     "shardloom-vortex/Cargo.toml",
     "shardloom-cli/Cargo.toml",
 )
-BENCHMARK_REQUIREMENTS = ROOT / "benchmarks" / "traditional_analytics" / "requirements.txt"
+BENCHMARK_REQUIREMENTS_FILES = (
+    ROOT / "benchmarks" / "traditional_analytics" / "requirements.txt",
+    ROOT / "benchmarks" / "traditional_analytics" / "requirements-extended-local.txt",
+    ROOT / "benchmarks" / "traditional_analytics" / "requirements-spark.txt",
+    ROOT / "benchmarks" / "traditional_analytics" / "requirements-gpu-optional.txt",
+)
 
 
 @dataclass
@@ -416,19 +421,35 @@ def check_runtime_dependency_scope() -> dict[str, Any]:
 
 
 def check_benchmark_dependency_scope() -> dict[str, Any]:
-    benchmark_dependencies = read_requirements(BENCHMARK_REQUIREMENTS)
-    external_baselines = sorted(
-        dependency
-        for dependency in benchmark_dependencies
-        if canonical_dependency_name(dependency) in FORBIDDEN_FALLBACK_DEPENDENCIES
-    )
+    profiles: list[dict[str, Any]] = []
+    all_dependencies: set[str] = set()
+    all_external_baselines: set[str] = set()
+    for requirements_file in BENCHMARK_REQUIREMENTS_FILES:
+        benchmark_dependencies = read_requirements(requirements_file)
+        external_baselines = sorted(
+            dependency
+            for dependency in benchmark_dependencies
+            if canonical_dependency_name(dependency) in FORBIDDEN_FALLBACK_DEPENDENCIES
+        )
+        all_dependencies.update(benchmark_dependencies)
+        all_external_baselines.update(external_baselines)
+        profiles.append(
+            {
+                "requirements_file": str(requirements_file.relative_to(ROOT)),
+                "benchmark_dependency_count": len(benchmark_dependencies),
+                "external_baseline_dependencies": external_baselines,
+                "scope": "benchmark_only_external_baselines",
+            }
+        )
     return {
-        "requirements_file": str(BENCHMARK_REQUIREMENTS.relative_to(ROOT)),
-        "benchmark_dependency_count": len(benchmark_dependencies),
-        "external_baseline_dependencies": external_baselines,
+        "profile_count": len(profiles),
+        "profiles": profiles,
+        "benchmark_dependency_count": len(all_dependencies),
+        "external_baseline_dependencies": sorted(all_external_baselines),
         "scope": "benchmark_only_external_baselines",
         "diagnostics": [
-            "benchmark external engines are comparison baselines only, never runtime fallback"
+            "benchmark external engines are comparison baselines only, never runtime fallback",
+            "benchmark profile requirements are audited separately from release runtime package metadata",
         ],
     }
 

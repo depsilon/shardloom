@@ -11,7 +11,7 @@ This page is generated from `docs/status/runs-today-support-matrix.json` and `do
 
 ```text
 runs_today_schema_version=shardloom.runs_today_support_matrix.v1
-runs_today_row_count=39
+runs_today_row_count=40
 production_unsupported_diagnostic_schema_version=shardloom.production_unsupported_diagnostics.v1
 production_unsupported_diagnostic_row_count=10
 package_channel_schema_version=shardloom.package_channel_readiness_matrix.v1
@@ -46,7 +46,8 @@ Use this page to decide what can be run locally today and what must return a det
 | --- | --- | --- | --- | --- | --- | --- |
 | ShardLoomClient.sqlite_local_import_export_smoke, ShardLoomClient.udf_local_scalar_fixture_smoke, ShardLoomClient.embedding_vector_local_fixture_smoke, ShardLoomClient.extension_registry, ShardLoomClient.extension_inspect, ShardLoomClient.udf_runtime_plan | executable | default | true | true | fixture_smoke_only | thin Python CLI helpers for local SQLite fixture, extension metadata, built-in deterministic UDF fixture, and deterministic embedding/vector fixture only; no native binding, arbitrary UDF, plugin, network connector, real model/vector service, or fallback claim |
 | range, sequence, from_rows, sql_literal_select, sql_values, GeneratedSqlSource | executable | default | true | true | fixture_smoke_only | local generated-source helper execution only; no source connector expansion |
-| read_csv, read_json, read_vortex, sql, from_rows, LazyFrame.collect | executable | default | true | false | fixture_smoke_only | scoped local query-builder lowering to admitted CLI smokes only |
+| read_csv, read_json, sql, LazyFrame.collect local-file auto route | blocked | default | false | false | not_claim_grade | public local-file Python workflows require Vortex preparation or native Vortex input; decoded direct local-source smoke is internal-only |
+| read_vortex, LazyFrame.collect native Vortex primitives | executable | default | true | false | fixture_smoke_only | scoped local Vortex count/filter/project primitives only; broader Vortex operator families require admitted native provider evidence |
 | PreparedVortexArtifacts.run_batch, ShardLoomClient.traditional_analytics_vortex_batch_run, ShardLoomClient.traditional_analytics_prepare_batch_run | executable | default | true | false | not_claim_grade | local prepared Vortex batch workflow only; not a package or production API claim |
 | ShardLoomClient.status, ShardLoomClient.capabilities, ShardLoomContext.capabilities | diagnostic_only | default | false | false | not_claim_grade | thin CLI JSON protocol discovery only; not a native binding |
 
@@ -54,10 +55,10 @@ Use this page to decide what can be run locally today and what must return a det
 
 | Surface | State | Feature gate | Runtime | Write | Claim gate | Boundary |
 | --- | --- | --- | --- | --- | --- | --- |
-| csv, json, jsonl, ndjson | executable | default | true | false | fixture_smoke_only | flat local text SourceState, direct-transient, and vortex_ingest fixture coverage only; not object-store/table connector coverage |
+| csv, json, jsonl, ndjson | executable | default | true | false | fixture_smoke_only | flat local text SourceState, internal direct-transient smoke, and vortex_ingest fixture coverage only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input |
 | s3, gcs, adls, http_range | blocked | not_enabled | false | false | not_claim_grade | cloud object-store runtime and credentialed network reads are blocked |
 | s3, gcs, adls, public_fixture_local_file | executable | default | true | false | public_fixture_smoke_only | explicit public no-credential fixture read smoke only; parses provider URIs and reads caller-supplied local fixture bytes without credentials, network probes, cache writes, cloud writes, table commits, production, or performance claims |
-| parquet, arrow_ipc, avro, orc | feature_gated | universal-format-io | true | false | not_claim_grade | local flat-scalar feature-gated SourceState, direct-transient, and vortex_ingest adapters only; object-store/table connector coverage remains separate |
+| parquet, arrow_ipc, avro, orc | feature_gated | universal-format-io | true | false | not_claim_grade | local flat-scalar feature-gated SourceState, internal direct-transient smoke, and vortex_ingest adapters only; public Python/DataFrame runtime requires Vortex preparation or native Vortex input |
 | sqlite, local_database_file | executable | default | true | true | fixture_smoke_only | local SQLite file table-scan import/export smoke only; Vortex ingest, arbitrary SQL, network databases, warehouses, credentials, production connectors, fallback, and performance claims remain blocked |
 | vortex | executable | default | true | false | fixture_smoke_only | scoped local Vortex input primitives and prepared-route workflows only |
 
@@ -74,7 +75,7 @@ Use this page to decide what can be run locally today and what must return a det
 | Surface | State | Feature gate | Runtime | Write | Claim gate | Boundary |
 | --- | --- | --- | --- | --- | --- | --- |
 | compatibility_import_certified | executable | default | true | true | fixture_smoke_only | certified local cold-route fixture evidence only |
-| direct_compatibility_transient | executable | default | true | false | fixture_smoke_only | scoped local source-backed execution only |
+| direct_compatibility_transient | internal_smoke_only | default | true | false | fixture_smoke_only | lower-level local smoke safeguard only; public local-file workflow routes require Vortex preparation or native Vortex input |
 | distributed-local-fixture-run, local coordinator, local workers, split fragments, deterministic merge | executable | default | true | false | not_claim_grade | scoped in-process local distributed fixture with local hash repartition/local combine/global merge only; no remote worker, object-store, remote shuffle, spill IO, production, performance, or Spark-displacement claim |
 | live-hybrid-durable-checkpoint-smoke, local checkpoint JSON, local changelog JSONL, local state-store JSON, Vortex microsegment manifest, cold-promotion manifest, partial-checkpoint cleanup, idempotent replay evidence, restore digest | executable | default | true | true | not_claim_grade | scoped local filesystem checkpoint/changelog/state-store plus Vortex microsegment and cold-promotion manifest fixture only; no broker, object-store checkpoint, upstream Vortex file write, exactly-once, public production streaming, performance, or Spark-displacement claim |
 | live, hybrid, remote, distributed | future | not_enabled | false | false | not_claim_grade | future execution fabric; no remote/distributed runtime claim |

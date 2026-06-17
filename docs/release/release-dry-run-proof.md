@@ -108,10 +108,11 @@ engines remain optional benchmark/dev dependencies and are not installed by this
 when you intentionally want the optional local benchmark smoke in the same transcript.
 
 The local Python smoke is no longer only import/status evidence. It creates a tiny local CSV,
-runs the first user-facing `ctx.read(...).filter(...).select(...).write_jsonl(...)` workflow,
-prints one result row plus compact evidence/claim fields, runs a scoped generated-source write, and
-prints a deterministic unsupported materialization blocker with
-`fallback_attempted=false` and `external_engine_invoked=false`.
+proves the user-facing `ctx.read(...).filter(...).select(...).write_jsonl(...)` route blocks
+before execution until Vortex preparation/native routing is available, runs a scoped
+generated-source write, prints generated-output evidence/claim fields, and prints deterministic
+blockers for both the local-file route and unsupported materialization with `fallback_attempted=false`
+and `external_engine_invoked=false`.
 
 The generated-source output smokes are deliberately distinct from no-dataset smoke. They write
 local JSONL files under `target/release-dry-run-proof/`, emit

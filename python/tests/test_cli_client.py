@@ -506,12 +506,13 @@ class ShardLoomClientTests(unittest.TestCase):
                 fields = [
                     ["runs_today_schema_version", "shardloom.runs_today_support_matrix.v1"],
                     ["runs_today_matrix_id", "review-p0-1.current-support"],
-                    ["runs_today_support_state_vocabulary", "executable,feature_gated,diagnostic_only,report_only,blocked,future"],
+                    ["runs_today_support_state_vocabulary", "executable,feature_gated,internal_smoke_only,diagnostic_only,report_only,blocked,future"],
                     ["runs_today_family_order", "cli_command,claim_state"],
                     ["runs_today_row_order", "cli_sql_local_source_smoke,claim_performance_superiority"],
                     ["runs_today_row_count", "2"],
                     ["runs_today_executable_row_count", "1"],
                     ["runs_today_feature_gated_row_count", "0"],
+                    ["runs_today_internal_smoke_only_row_count", "0"],
                     ["runs_today_diagnostic_only_row_count", "0"],
                     ["runs_today_report_only_row_count", "0"],
                     ["runs_today_blocked_row_count", "1"],
@@ -604,6 +605,7 @@ class ShardLoomClientTests(unittest.TestCase):
             (
                 "executable",
                 "feature_gated",
+                "internal_smoke_only",
                 "diagnostic_only",
                 "report_only",
                 "blocked",
@@ -1147,14 +1149,14 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(explicit_view.no_runtime)
         self.assertTrue(explicit_view.no_fallback)
 
-    def test_runtime_activation_summary_labels_product_local_middle(self) -> None:
+    def test_runtime_activation_summary_labels_blocked_local_file_middle(self) -> None:
         envelope = OutputEnvelope.from_json(
             {
                 "schema_version": "shardloom.output.v2",
                 "command": "run",
-                "status": "success",
-                "summary": "local product workflow",
-                "human_text": "local product workflow",
+                "status": "unsupported",
+                "summary": "public workflow run blocked before execution",
+                "human_text": "public workflow run blocked before execution",
                 "fallback": {
                     "attempted": False,
                     "allowed": False,
@@ -1171,34 +1173,38 @@ class ShardLoomClientTests(unittest.TestCase):
                 "lifecycle": {"fields": []},
                 "capability_snapshot": {"fields": []},
                 "fields": [
-                    {"key": "public_workflow_route_id", "value": "local_file_product_query"},
+                    {"key": "public_workflow_route_id", "value": "blocked"},
                     {
                         "key": "public_workflow_route_runtime_status",
-                        "value": "production_admitted_local_workflow",
+                        "value": "blocked_before_execution",
                     },
                     {
                         "key": "public_workflow_route_support_status",
-                        "value": "production_admitted_local_workflow",
+                        "value": "unsupported_boundary",
                     },
-                    {"key": "public_workflow_execution_mode", "value": "product_local"},
+                    {"key": "public_workflow_execution_mode", "value": "blocked"},
                     {
                         "key": "public_workflow_vortex_normalization_point",
-                        "value": "compatibility_source_state_pre_vortex_unification",
+                        "value": "not_applicable",
                     },
                     {
                         "key": "public_workflow_vortex_middle_status",
-                        "value": "pending_native_vortex_middle_unification",
+                        "value": "blocked_or_unsupported",
+                    },
+                    {
+                        "key": "public_workflow_blocker_id",
+                        "value": "cg21.route.local_file_vortex_middle_required",
                     },
                     {"key": "source_format", "value": "csv"},
-                    {"key": "runtime_execution", "value": "true"},
+                    {"key": "runtime_execution", "value": "false"},
                     {"key": "source_state_reuse_allowed", "value": "false"},
                     {"key": "source_state_reuse_hit", "value": "false"},
                     {"key": "public_workflow_max_parallelism", "value": "1"},
-                    {"key": "data_decoded", "value": "true"},
-                    {"key": "data_materialized", "value": "true"},
+                    {"key": "data_decoded", "value": "false"},
+                    {"key": "data_materialized", "value": "false"},
                     {"key": "fallback_attempted", "value": "false"},
                     {"key": "external_engine_invoked", "value": "false"},
-                    {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                    {"key": "claim_gate_status", "value": "not_claim_grade"},
                 ],
             }
         )
@@ -1206,15 +1212,13 @@ class ShardLoomClientTests(unittest.TestCase):
         summary = envelope.activation_summary
 
         self.assertIsInstance(summary, RuntimeActivationSummary)
-        self.assertEqual(summary.route_id, "local_file_product_query")
-        self.assertEqual(summary.execution_mode, "product_local")
-        self.assertEqual(summary.native_vortex_status, "pending_middle_unification")
+        self.assertEqual(summary.route_id, "blocked")
+        self.assertEqual(summary.execution_mode, "blocked")
+        self.assertEqual(summary.native_vortex_status, "not_applicable")
         self.assertFalse(summary.native_vortex_enabled)
+        self.assertFalse(summary.runtime_execution)
         self.assertEqual(summary.applied_parallelism, 1)
-        self.assertEqual(
-            summary.vortex_read_path,
-            "compatibility_source_state_pre_vortex_unification",
-        )
+        self.assertIsNone(summary.vortex_read_path)
         self.assertFalse(summary.fallback_attempted)
         self.assertFalse(summary.external_engine_invoked)
 
@@ -10051,21 +10055,21 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "compute_row_local_vortex_count_external_engine_invoked", "value": "false"},
                         {"key": "compute_row_direct_compatibility_transient_surface", "value": "direct_compatibility_transient_query"},
                         {"key": "compute_row_direct_compatibility_transient_family", "value": "compatibility_transient"},
-                        {"key": "compute_row_direct_compatibility_transient_support_status", "value": "fixture_certified"},
+                        {"key": "compute_row_direct_compatibility_transient_support_status", "value": "internal_smoke_only"},
                         {"key": "compute_row_direct_compatibility_transient_engine_mode", "value": "batch"},
                         {"key": "compute_row_direct_compatibility_transient_execution_mode", "value": "direct_compatibility_transient"},
                         {"key": "compute_row_direct_compatibility_transient_provider_kind", "value": "shardloom_kernel"},
-                        {"key": "compute_row_direct_compatibility_transient_semantic_profile", "value": "ShardLoomNative"},
-                        {"key": "compute_row_direct_compatibility_transient_materialization_decode_requirement", "value": "direct_local_source_state_materialization_boundary_reported"},
-                        {"key": "compute_row_direct_compatibility_transient_memory_spill_requirement", "value": "bounded_local_direct_transient_no_spill_claim"},
-                        {"key": "compute_row_direct_compatibility_transient_correctness_refs", "value": "traditional_direct_transient_tests,benchmark_harness_direct_transient"},
-                        {"key": "compute_row_direct_compatibility_transient_benchmark_refs", "value": "direct_transient_csv_jsonl_structured_smoke_rows"},
-                        {"key": "compute_row_direct_compatibility_transient_execution_certificate_refs", "value": "traditional_analytics.direct_transient.runtime"},
+                        {"key": "compute_row_direct_compatibility_transient_semantic_profile", "value": "InternalSmokeOnly"},
+                        {"key": "compute_row_direct_compatibility_transient_materialization_decode_requirement", "value": "internal_smoke_direct_local_source_state_materialization_boundary_reported_public_workflow_blocked"},
+                        {"key": "compute_row_direct_compatibility_transient_memory_spill_requirement", "value": "bounded_internal_smoke_no_public_runtime_claim"},
+                        {"key": "compute_row_direct_compatibility_transient_correctness_refs", "value": "traditional_direct_transient_tests,benchmark_harness_direct_transient,public_workflow_direct_policy_block_tests"},
+                        {"key": "compute_row_direct_compatibility_transient_benchmark_refs", "value": "direct_transient_csv_jsonl_structured_smoke_rows_not_public_workflow"},
+                        {"key": "compute_row_direct_compatibility_transient_execution_certificate_refs", "value": "traditional_analytics.direct_transient.runtime_internal_smoke_only"},
                         {"key": "compute_row_direct_compatibility_transient_native_io_refs", "value": "not_vortex_native; local SourceState Native I/O evidence only"},
-                        {"key": "compute_row_direct_compatibility_transient_unsupported_diagnostic_code", "value": "none"},
-                        {"key": "compute_row_direct_compatibility_transient_blocker_id", "value": "p75.direct_transient.not_vortex_native_claim"},
-                        {"key": "compute_row_direct_compatibility_transient_required_future_evidence", "value": "broader_operator_coverage,result_sink_replay,claim_grade_benchmark_rows"},
-                        {"key": "compute_row_direct_compatibility_transient_claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "compute_row_direct_compatibility_transient_unsupported_diagnostic_code", "value": "SL_DIRECT_LOCAL_FILE_PUBLIC_ROUTE_BLOCKED"},
+                        {"key": "compute_row_direct_compatibility_transient_blocker_id", "value": "cg21.route.direct_local_file_blocked"},
+                        {"key": "compute_row_direct_compatibility_transient_required_future_evidence", "value": "vortex_middle_public_workflow_route_certificate,prepared_or_native_vortex_execution_evidence"},
+                        {"key": "compute_row_direct_compatibility_transient_claim_gate_status", "value": "not_claim_grade"},
                         {"key": "compute_row_direct_compatibility_transient_vortex_native_claim_allowed", "value": "false"},
                         {"key": "compute_row_direct_compatibility_transient_fallback_attempted", "value": "false"},
                         {"key": "compute_row_direct_compatibility_transient_external_engine_invoked", "value": "false"},
@@ -10181,11 +10185,11 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             rows["direct_compatibility_transient"].support_status,
-            "fixture_certified",
+            "internal_smoke_only",
         )
         self.assertEqual(
             rows["direct_compatibility_transient"].unsupported_diagnostic_code,
-            "none",
+            "SL_DIRECT_LOCAL_FILE_PUBLIC_ROUTE_BLOCKED",
         )
         self.assertFalse(rows["direct_compatibility_transient"].vortex_native_claim_allowed)
         self.assertEqual(rows["sql_frontend"].unsupported_diagnostic_code, "SL_UNSUPPORTED_SQL")

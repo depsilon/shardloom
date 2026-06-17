@@ -42,17 +42,20 @@ The canonical non-Vortex local compatibility route is:
 UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex
 ```
 
-The direct transient compatibility route boundary is:
+The direct transient compatibility route boundary is internal smoke-only:
 
 ```text
 UniversalIngress -> SourceState -> direct_compatibility_transient
 ```
 
-The direct transient path remains supported only when evidence proves that it is not persistent,
-not Vortex-native, and not a prepared-state reuse path. Its row must report:
+The direct transient path is not an admitted public workflow runtime route. Public local-file
+`auto` workflows must prepare into Vortex or run from native Vortex input; explicit `direct` public
+workflow requests fail closed. Direct transient rows remain only as lower-level smoke safeguards and
+must report:
 
 ```text
 prepared_state_reuse_scope=not_applicable_no_prepared_state
+route_runtime_status=internal_smoke_only
 ```
 
 ## Supported Local Compatibility Formats

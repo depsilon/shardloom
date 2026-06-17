@@ -167,10 +167,10 @@ REQUIRED_UNSUPPORTED_METHODS = [
 
 REQUIRED_DOC_MARKERS = {
     "README.md": [
-        "ctx.read(\"data/fact.csv\", schema={",
-        "fact.filter(sl.col(\"flag\") == True)",
-        ".select(\"id\", \"group_key\", \"value\")",
-        ".write_jsonl(\"target/clean-cast-filter-write.jsonl\", allow_overwrite=True)",
+        "prepared = ctx.prepare_vortex(",
+        "prepared.query(\"selective filter\").collect()",
+        "prepared.query(\"clean/cast/filter/write\").collect()",
+        "scenario_selective-filter_fallback_attempted",
         "materialization_report.blocker_id",
         "fallback_attempted, result.external_engine_invoked",
     ],
@@ -192,8 +192,9 @@ REQUIRED_DOC_MARKERS = {
     ],
     "docs/getting-started/first-10-minutes.md": [
         "python examples\\local-python-smoke\\run.py --repo-root .",
-        "ctx.read(...).filter(...).select(...).write_jsonl(...)",
-        "quickstart_result_row_id",
+        "ctx.read(...).filter(...).select(...).write_jsonl(...)` path blocks",
+        "quickstart_local_file_blocker_id",
+        "quickstart_generated_output_row_count",
         "quickstart_unsupported_blocker_id",
     ],
     "website-src/src/pages/start.astro": [
@@ -208,8 +209,9 @@ REQUIRED_DOC_MARKERS = {
 REQUIRED_SOURCE_MARKERS = {
     "examples/local-python-smoke/run.py": [
         "quickstart_user_surface_status=passed",
-        "quickstart_result_row_id=",
-        "quickstart_output_row_count=",
+        "quickstart_local_file_blocker_id=",
+        "quickstart_local_file_runtime_execution=",
+        "quickstart_generated_output_row_count=",
         "quickstart_unsupported_blocker_id=",
         "quickstart_unsupported_external_engine_invoked=",
         ".filter(",

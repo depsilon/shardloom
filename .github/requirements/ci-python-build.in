@@ -1,0 +1,6 @@
+build
+# Conditional build dependencies needed by the GitHub Actions Python/platform matrix.
+# pip-compile on local macOS/Python 3.13 may omit these from the output, so keep
+# the matching hash-pinned rows in ci-python-build.txt.
+colorama==0.4.6; sys_platform == "win32"
+tomli==2.4.1; python_version < "3.11"

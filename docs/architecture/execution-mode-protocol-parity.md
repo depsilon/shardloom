@@ -22,9 +22,11 @@ native_vortex
 direct_compatibility_transient
 ```
 
-`direct_compatibility_transient` is supported only for scoped local adapter smoke paths with
-ShardLoom-native direct-mode evidence. It must not satisfy Vortex-native claim gates, broad
-SQL/DataFrame claims, object-store/table claims, or performance claims.
+`direct_compatibility_transient` is internal smoke-only for scoped local adapter safeguards. It is
+not an admitted public workflow route: public local-file `auto` requests must route through Vortex
+preparation/native input or fail closed, and explicit public `direct` requests are blocked. It must
+not satisfy Vortex-native claim gates, broad SQL/DataFrame claims, object-store/table claims, or
+performance claims.
 
 ## Shared Selection Report Fields
 

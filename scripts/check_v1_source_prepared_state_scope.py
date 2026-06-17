@@ -12,6 +12,10 @@ from typing import Any, Iterable
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
+ROOT = Path(__file__).resolve().parents[1]
+PYTHON_SRC = ROOT / "python" / "src"
+if str(PYTHON_SRC) not in sys.path:
+    sys.path.insert(0, str(PYTHON_SRC))
 
 from release_report_utils import (
     fail_closed_fields,
@@ -23,7 +27,6 @@ from release_report_utils import (
 )
 
 
-ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "shardloom.v1_source_prepared_state_scope_report.v1"
 DOC_PATH = Path("docs/architecture/v1-source-prepared-state-scope.md")
 LATEST_BENCHMARK_ARTIFACT = Path(

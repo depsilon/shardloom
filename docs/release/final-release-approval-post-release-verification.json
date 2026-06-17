@@ -36,7 +36,8 @@
       "row_id": "golden_workflow_public_smoke",
       "verification_status": "passed",
       "required_evidence": "golden workflow validator transcript over the public package or approved release artifact",
-      "evidence_ref": "docs/release/channel-proofs/github-prerelease-v0.1.4-transcript.json",
+      "evidence_ref": "target/golden-workflow-report.json",
+      "approved_release_artifact_ref": "docs/release/channel-proofs/github-prerelease-v0.1.4-transcript.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     },

@@ -74,6 +74,7 @@ STATUS_VOCABULARY = {
     "runtime_supported",
     "scoped_runtime_supported",
     "smoke_supported",
+    "internal_smoke_only",
     "fixture_smoke_only",
     "ready_local",
     "report_only",

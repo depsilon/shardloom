@@ -60,7 +60,7 @@ fn assert_matrix_summary_fields(output: &str) {
     assert!(output.contains(&field("operator_family_count", "14")));
     assert!(output.contains(&field(
         "support_status_vocabulary",
-        "unsupported,planned,report_only,executable_uncertified,fixture_certified,workload_certified,production_certified"
+        "unsupported,planned,report_only,internal_smoke_only,executable_uncertified,fixture_certified,workload_certified,production_certified"
     )));
     assert!(output.contains(&field(
         "provider_kind_vocabulary",
@@ -74,7 +74,8 @@ fn assert_matrix_summary_fields(output: &str) {
 }
 
 fn assert_matrix_claim_counts(output: &str) {
-    assert!(output.contains(&field("fixture_certified_count", "8")));
+    assert!(output.contains(&field("fixture_certified_count", "7")));
+    assert!(output.contains(&field("internal_smoke_only_count", "1")));
     assert!(output.contains(&field("executable_uncertified_count", "5")));
     assert!(output.contains(&field("report_only_count", "1")));
     assert!(output.contains(&field("planned_count", "0")));
@@ -452,15 +453,15 @@ fn assert_local_vortex_count_row_fields(output: &str) {
 fn assert_direct_transient_and_sql_fields(output: &str) {
     assert!(output.contains(&field(
         "compute_row_direct_compatibility_transient_support_status",
-        "fixture_certified"
+        "internal_smoke_only"
     )));
     assert!(output.contains(&field(
         "compute_row_direct_compatibility_transient_unsupported_diagnostic_code",
-        "none"
+        "SL_DIRECT_LOCAL_FILE_PUBLIC_ROUTE_BLOCKED"
     )));
     assert!(output.contains(&field(
         "compute_row_direct_compatibility_transient_claim_gate_status",
-        "fixture_smoke_only"
+        "not_claim_grade"
     )));
     assert!(output.contains(&field(
         "compute_row_direct_compatibility_transient_vortex_native_claim_allowed",

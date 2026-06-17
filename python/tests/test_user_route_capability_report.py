@@ -41,10 +41,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
             "docs/architecture/v1-front-door-runtime-scope.md",
         )
         self.assertIn("selective_filter", report["v1_example_scenario_ids"])
-        self.assertEqual(
-            report["v1_expected_error_scenario_ids"],
-            ["malformed_timestamp_cast"],
-        )
+        self.assertEqual(report["v1_expected_error_scenario_ids"], [])
         self.assertEqual(
             set(report["v1_public_front_door_ids"]),
             {
@@ -240,7 +237,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         broad = by_id["broad_sql_python_dataframe_runtime"]
         self.assertEqual(
             broad["nearest_runnable_route"],
-            "local_file_direct_transient_route",
+            "local_file_prepare_once_first_query",
         )
         self.assertEqual(
             broad["runtime_blocker_code"],
@@ -283,7 +280,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         self.assertEqual(len(scenarios), 15)
         self.assertEqual(
             scenarios["selective_filter"]["route_runtime_status"],
-            "scoped_runtime_supported",
+            "internal_smoke_only",
         )
         self.assertEqual(
             scenarios["selective_filter"]["selected_execution_mode"],

@@ -25,6 +25,7 @@ GATE_ID = "gar-runtime-impl-6d.user_route_capability_report"
 PUBLIC_FRONT_DOOR_ROUTE_SCHEMA_VERSION = "shardloom.public_front_door_route_rows.v1"
 
 ROUTE_RUNTIME_STATUSES = {
+    "internal_smoke_only",
     "scoped_runtime_supported",
     "output_route_pending",
     "runtime_expansion_pending",
@@ -33,6 +34,7 @@ ROUTE_RUNTIME_STATUSES = {
 }
 
 LOCAL_FILE_BENCHMARK_ROUTE_RUNTIME_STATUSES = {
+    "internal_smoke_only",
     "scoped_runtime_supported",
     "prepared_route_supported",
     "front_door_connection_pending",

@@ -43,7 +43,7 @@ fn run_facade(args: &[&str]) -> (bool, String) {
 }
 
 #[test]
-fn public_route_emits_side_effect_free_local_file_route() {
+fn public_route_blocks_local_file_auto_without_vortex_middle() {
     let stdout = run_route(&[
         "route",
         "dataframe",
@@ -60,38 +60,61 @@ fn public_route_emits_side_effect_free_local_file_route() {
     ]);
 
     assert!(stdout.contains("\"command\":\"route\""));
-    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
     assert!(stdout.contains(&field(
         "public_workflow_route_schema_version",
         "shardloom.public_workflow_route.v1"
     )));
-    assert!(stdout.contains(&field("route_id", "local_file_product_query")));
+    assert!(stdout.contains(&field("route_id", "blocked")));
     assert!(stdout.contains(&field(
-        "route_support_status",
-        "production_admitted_local_workflow"
+        "blocker_id",
+        "cg21.route.local_file_vortex_middle_required"
     )));
-    assert!(stdout.contains(&field("resolved_internal_command", "local-workflow-run")));
-    assert!(stdout.contains(&field(
-        "underlying_runtime_command",
-        "sql-local-source-smoke"
-    )));
-    assert!(stdout.contains(&field(
-        "local_workflow_runtime_profile",
-        "product_local_workflow"
-    )));
+    assert!(stdout.contains(&field("route_support_status", "unsupported_boundary")));
+    assert!(stdout.contains(&field("resolved_internal_command", "not_resolved")));
+    assert!(stdout.contains(&field("underlying_runtime_command", "not_resolved")));
+    assert!(stdout.contains(&field("local_workflow_runtime_profile", "not_applicable")));
     assert!(stdout.contains(&field("surface", "dataframe")));
     assert!(stdout.contains(&field("source_format", "csv")));
-    assert!(stdout.contains(&field("start_state", "compatibility_local_source")));
-    assert!(stdout.contains(&field(
-        "vortex_normalization_point",
-        "compatibility_source_state_pre_vortex_unification"
-    )));
-    assert!(stdout.contains(&field("execution_mode", "product_local")));
+    assert!(stdout.contains(&field("start_state", "blocked")));
+    assert!(stdout.contains(&field("vortex_normalization_point", "not_applicable")));
+    assert!(stdout.contains(&field("vortex_middle_status", "blocked_or_unsupported")));
+    assert!(stdout.contains(&field("execution_mode", "blocked")));
     assert!(stdout.contains(&field("preparation_included", "false")));
     assert!(stdout.contains(&field("query_timing_starts_after_preparation", "false")));
     assert!(stdout.contains(&field("runtime_execution", "false")));
     assert!(stdout.contains(&field("source_io_performed", "false")));
     assert!(stdout.contains(&field("output_io_performed", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_blocks_explicit_direct_local_file_policy() {
+    let stdout = run_route(&[
+        "route",
+        "dataframe",
+        "--input",
+        "target/input.csv",
+        "--input-format",
+        "csv",
+        "--plan",
+        "read_csv(target/input.csv) -> select(id) -> limit(10)",
+        "--request",
+        "collect",
+        "--execution-policy",
+        "direct",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("route_id", "blocked")));
+    assert!(stdout.contains(&field("blocker_id", "cg21.route.direct_local_file_blocked")));
+    assert!(stdout.contains(&field("resolved_internal_command", "not_resolved")));
+    assert!(stdout.contains(&field("underlying_runtime_command", "not_resolved")));
+    assert!(stdout.contains(&field("runtime_execution", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
@@ -285,13 +308,13 @@ fn public_route_blocks_native_vortex_write_payloads() {
 }
 
 #[test]
-fn public_run_executes_local_sql_with_attached_route_envelope() {
+fn public_run_blocks_local_sql_auto_without_vortex_middle() {
     let workspace = std::path::Path::new("target/public-workflow-run-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact.csv");
     std::fs::write(&input, "id,label\n1,alpha\n2,beta\n3,gamma\n").expect("write csv");
     let statement = format!("SELECT id,label FROM '{}' LIMIT 2", input.display());
-    let stdout = run_route(&[
+    let (success, stdout) = run_facade(&[
         "run",
         "sql",
         "--sql",
@@ -302,42 +325,44 @@ fn public_run_executes_local_sql_with_attached_route_envelope() {
         "json",
     ]);
 
+    assert!(!success);
     assert!(stdout.contains("\"command\":\"run\""));
-    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
     assert!(stdout.contains(&field(
         "public_workflow_facade_schema_version",
         "shardloom.public_workflow_execution_facade.v1"
     )));
     assert!(stdout.contains(&field("public_workflow_route_attached", "true")));
+    assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
     assert!(stdout.contains(&field(
-        "public_workflow_route_id",
-        "local_file_product_query"
+        "public_workflow_blocker_id",
+        "cg21.route.local_file_vortex_middle_required"
     )));
     assert!(stdout.contains(&field(
         "public_workflow_resolved_internal_command",
-        "local-workflow-run"
+        "not_resolved"
     )));
     assert!(stdout.contains(&field(
         "public_workflow_underlying_runtime_command",
-        "sql-local-source-smoke"
+        "not_resolved"
     )));
     assert!(stdout.contains(&field(
         "public_workflow_local_workflow_runtime_profile",
-        "product_local_workflow"
+        "not_applicable"
     )));
-    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("runtime_execution", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
 #[test]
-fn public_run_forwards_declared_input_format_for_extensionless_sql_source() {
+fn public_run_blocks_extensionless_local_sql_source_but_preserves_declared_format() {
     let workspace = std::path::Path::new("target/public-workflow-extensionless-source");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact");
     std::fs::write(&input, "id,label\n1,alpha\n2,beta\n").expect("write extensionless csv");
     let statement = format!("SELECT id,label FROM '{}' LIMIT 1", input.display());
-    let stdout = run_route(&[
+    let (success, stdout) = run_facade(&[
         "run",
         "sql",
         "--sql",
@@ -350,29 +375,22 @@ fn public_run_forwards_declared_input_format_for_extensionless_sql_source() {
         "json",
     ]);
 
+    assert!(!success);
     assert!(stdout.contains("\"command\":\"run\""));
-    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
     assert!(stdout.contains(&field(
-        "public_workflow_route_id",
-        "local_file_product_query"
+        "public_workflow_blocker_id",
+        "cg21.route.local_file_vortex_middle_required"
     )));
-    assert!(stdout.contains(&field("source_format", "csv")));
-    assert!(stdout.contains(&field("source_format_inferred", "false")));
-    assert!(stdout.contains(&field(
-        "source_format_inference_kind",
-        "declared_input_format"
-    )));
-    assert!(stdout.contains(&field(
-        "source_format_inference_extension",
-        "not_applicable"
-    )));
-    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("public_workflow_source_format", "csv")));
+    assert!(stdout.contains(&field("runtime_execution", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
 #[test]
-fn public_run_forwards_local_write_output_and_overwrite_intent() {
+fn public_run_blocks_local_write_without_vortex_middle_but_preserves_intent() {
     let workspace = std::path::Path::new("target/public-workflow-write-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact.csv");
@@ -380,7 +398,7 @@ fn public_run_forwards_local_write_output_and_overwrite_intent() {
     let _ = std::fs::remove_file(&output);
     std::fs::write(&input, "id,label\n1,alpha\n2,beta\n").expect("write csv");
     let statement = format!("SELECT id,label FROM '{}' LIMIT 2", input.display());
-    let stdout = run_route(&[
+    let (success, stdout) = run_facade(&[
         "run",
         "dataframe",
         "--input",
@@ -400,31 +418,28 @@ fn public_run_forwards_local_write_output_and_overwrite_intent() {
         "json",
     ]);
 
+    assert!(!success);
     assert!(stdout.contains("\"command\":\"run\""));
-    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
     assert!(stdout.contains(&field(
-        "public_workflow_route_id",
-        "local_file_product_sink"
-    )));
-    assert!(stdout.contains(&field(
-        "public_workflow_local_workflow_runtime_profile",
-        "product_local_workflow"
+        "public_workflow_blocker_id",
+        "cg21.route.local_file_vortex_middle_required"
     )));
     assert!(stdout.contains(&field("public_workflow_requested_output", "write_csv")));
     assert!(stdout.contains(&field("public_workflow_allow_overwrite", "true")));
-    assert!(stdout.contains(&field("output_format", "csv")));
     assert!(stdout.contains(&field(
-        "output_path",
+        "public_workflow_output_ref",
         output.to_str().expect("utf8 output path")
     )));
-    assert!(stdout.contains(&field("runtime_execution", "true")));
-    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("runtime_execution", "false")));
+    assert!(stdout.contains(&field("output_io_performed", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
 #[test]
-fn public_run_forwards_local_fanout_payload_with_attached_route_envelope() {
+fn public_run_blocks_local_fanout_without_vortex_middle_but_preserves_intent() {
     let workspace = std::path::Path::new("target/public-workflow-fanout-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact.csv");
@@ -435,7 +450,7 @@ fn public_run_forwards_local_fanout_payload_with_attached_route_envelope() {
     std::fs::write(&input, "id,label\n1,alpha\n2,beta\n").expect("write csv");
     let statement = format!("SELECT id,label FROM '{}' LIMIT 2", input.display());
     let fanout_arg = format!("csv={}", fanout.to_str().expect("utf8 fanout path"));
-    let stdout = run_route(&[
+    let (success, stdout) = run_facade(&[
         "run",
         "dataframe",
         "--input",
@@ -457,33 +472,23 @@ fn public_run_forwards_local_fanout_payload_with_attached_route_envelope() {
         "json",
     ]);
 
+    assert!(!success);
     assert!(stdout.contains("\"command\":\"run\""));
-    assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field(
-        "public_workflow_route_id",
-        "local_file_product_sink"
-    )));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
     assert!(stdout.contains(&field(
         "public_workflow_resolved_internal_command",
-        "local-workflow-run"
+        "not_resolved"
     )));
     assert!(stdout.contains(&field(
         "public_workflow_underlying_runtime_command",
-        "sql-local-source-smoke"
+        "not_resolved"
     )));
     assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));
     assert!(stdout.contains(&field("public_workflow_fanout_output_count", "1")));
     assert!(stdout.contains(&field("public_workflow_fanout_outputs", &fanout_arg)));
-    assert!(stdout.contains(&field("output_format", "jsonl")));
-    assert!(stdout.contains(&field("output_fanout_performed", "true")));
-    assert!(stdout.contains(&field("fanout_output_count", "1")));
-    assert!(stdout.contains(&field("fanout_output_formats", "csv")));
-    assert!(stdout.contains(&field(
-        "fanout_output_paths",
-        fanout.to_str().expect("utf8 fanout path")
-    )));
-    assert!(stdout.contains(&field("runtime_execution", "true")));
-    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("runtime_execution", "false")));
+    assert!(stdout.contains(&field("output_io_performed", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }

@@ -128,7 +128,7 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
                 ),
                 (
                     "runs_today_support_state_vocabulary",
-                    "executable,feature_gated,diagnostic_only,report_only,blocked,future",
+                    "executable,feature_gated,internal_smoke_only,diagnostic_only,report_only,blocked,future",
                 ),
                 ("runs_today_all_rows_no_fallback_no_external_engine", "true"),
             ],

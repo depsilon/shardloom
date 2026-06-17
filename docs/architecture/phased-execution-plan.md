@@ -186,9 +186,11 @@ Current autonomous execution order:
   - Current state: direct `.vortex` primitive and exact benchmark-family native operator shapes can
     route through the shared public workflow facade, and the provider-backed aggregate, join,
     top-N, cast/try-cast, contains, and native `write_vortex` paths reuse
-    `vortex-production-runtime-run`. Normal local CSV/JSONL Python workflows are admitted through
-    the product-local route but still disclose
-    `pending_native_vortex_middle_unification`. Package/release builds now use the
+    `vortex-production-runtime-run`. Normal local CSV/JSONL Python workflows are no longer
+    admitted through a decoded direct local-source route; `auto` fails closed with
+    `cg21.route.local_file_vortex_middle_required` unless the workflow starts from native Vortex or
+    uses an admitted Vortex preparation/prepared-state route, and explicit `direct` fails with
+    `cg21.route.direct_local_file_blocked`. Package/release builds now use the
     `release-user-surfaces` feature set, which enables `vortex-production-runtime` and the promoted
     provider lane; the benchmark-named `vortex-traditional-analytics-benchmark` feature remains only
     a legacy/internal compatibility alias for benchmark harness code.
@@ -300,9 +302,11 @@ Current autonomous execution order:
   - Execution checklist:
     - [x] Add a product-grade local workflow route distinct from `sql-local-source-smoke`; keep the
       smoke command and `MAX_INPUT_ROWS` cap intact for smoke-route safeguards.
-    - [x] Route admitted Python `ctx.read(...)`/`ctx.read_csv(...)`/`ctx.read_json(...)`
-      `LazyFrame.collect()` and `write_jsonl()` workflows to the product local route for large local
-      CSV/JSONL inputs, with `max_parallelism=1` default unless explicitly overridden.
+    - [x] Route Python `ctx.read(...)`/`ctx.read_csv(...)`/`ctx.read_json(...)`
+      `LazyFrame.collect()` and `write_jsonl()` workflows through the public facade without
+      admitting the direct decoded local-source smoke route as a product runtime; successful public
+      local-file execution must use native Vortex or an admitted Vortex preparation/prepared-state
+      route, with `max_parallelism=1` default unless explicitly overridden.
     - [x] Admit the listed local workflow shapes by removing production-route synthetic caps
       without adding or changing benchmark/test scenario definitions: selective filter; filter +
       projection + limit; group by count/sum aggregation; hash join; global top-N;
@@ -315,8 +319,8 @@ Current autonomous execution order:
     - [x] Expand `ctx.read_vortex(...)` only where existing ShardLoom-native benchmark-family
       operators have evidence; otherwise emit deterministic blockers with stable blocker IDs and
       concrete `next_action`.
-    - [x] Emit machine-readable evidence for product local workflows, including route ID,
-      support status, source format, row-count posture, `fallback_attempted=false`,
+    - [x] Emit machine-readable evidence for public local-file workflows and blockers, including
+      route ID, support status, source format, row-count posture, `fallback_attempted=false`,
       `external_engine_invoked=false`, normalization point, materialization/decode boundary,
       `max_parallelism`, and route claim boundary.
     - [x] Update capability reports/docs so `smoke-supported`, `scoped runtime supported`,
@@ -325,9 +329,10 @@ Current autonomous execution order:
     - [x] Add a release/package/Homebrew readiness note for feature gates:
       `universal-format-io`, `vortex-write`, and `vortex-traditional-analytics-benchmark`.
       Do not publish.
-    - [x] Keep validation focused on route/runtime contracts: product route has no synthetic
-      source-row, source-byte, or join-candidate caps; smoke route still enforces its safeguards;
-      fail-closed errors preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+    - [x] Keep validation focused on route/runtime contracts: direct decoded local-source smoke
+      remains internal-only and capped; public local-file facade routes fail closed unless they use
+      Vortex preparation/prepared-state or native Vortex input; fail-closed errors preserve
+      `fallback_attempted=false` and `external_engine_invoked=false`.
     - [x] Add minimal Rust/Python regression coverage only where needed for route admission,
       evidence fields, and preserved smoke-route cap boundaries.
     - [x] Update `docs/architecture/v1-front-door-runtime-scope.md` and
@@ -336,8 +341,9 @@ Current autonomous execution order:
     - [x] Move completed detail to the phased execution completed ledger after merge/session
       completion.
   - Next outcome: a cohesive runtime/docs/tests PR where normal released Python local CSV/JSONL
-    workflows can exercise the listed 1M-row scenarios through a product local route without
-    touching external engines or removing the smoke route.
+    workflows either exercise listed scenarios through an admitted Vortex-prepared/native route or
+    fail closed with deterministic Vortex-middle diagnostics, without touching external engines or
+    removing the internal smoke route.
   - User-visible surface: Python `ctx.read_csv`, `ctx.read_json`, `LazyFrame.collect`,
     `LazyFrame.write_jsonl`, capability reports, docs, and machine-readable execution evidence.
   - Implementation scope: `python/src/shardloom/query.py`, `python/src/shardloom/client.py`,
@@ -358,9 +364,10 @@ Current autonomous execution order:
   - Non-goals: no package publication; no object-store/table/distributed/Foundry proof; no
     hidden pandas/Polars/DuckDB/Spark/DataFusion fallback; no broad arbitrary SQL/DataFrame parity
     claim; no increase-only patch to `MAX_INPUT_ROWS`.
-  - Claim boundary: local 1M-row Python CSV/JSONL workflow support only for the admitted scenario
-    set with recorded evidence; no production object-store, lakehouse, Foundry, or superiority
-    claim without separate benchmark/release evidence.
+  - Claim boundary: public local-file Python CSV/JSONL workflow support only when the route includes
+    Vortex preparation/prepared-state or native Vortex input with recorded evidence; no production
+    object-store, lakehouse, Foundry, or superiority claim without separate benchmark/release
+    evidence.
   - Fallback boundary: all successful and blocked paths must report `fallback_attempted=false` and
     `external_engine_invoked=false`.
   - Ledger rule: completed detail moves to
@@ -409,8 +416,8 @@ Current autonomous execution order:
     - [x] Define a single user-surface lowering path where `ctx.read(...)`, explicit format readers,
       SQL, and DataFrame-style lazy chains produce the same logical plan after source-adapter
       normalization; keep format-specific code at input adapters and output sinks.
-      - Evidence note: product local workflows, direct `.vortex` primitives, exact native Vortex
-        provider-backed shapes, and SQL/DataFrame-style surfaces now enter the same
+      - Evidence note: public local-file workflows, direct `.vortex` primitives, exact native
+        Vortex provider-backed shapes, and SQL/DataFrame-style surfaces now enter the same
         `public_workflow_route`/`public_workflow_run` facade with source/format-specific handling
         kept at adapter and sink boundaries. Broad arbitrary Vortex SQL/DataFrame planning remains
         explicitly blocked outside the exact admitted shapes.

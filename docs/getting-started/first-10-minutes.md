@@ -56,13 +56,15 @@ python examples\local-python-smoke\run.py --repo-root .
 ```
 
 The script imports the Python wrapper, runs status, smoke, and capability
-checks, creates `target/local-python-smoke/orders.csv`, runs a scoped
-`ctx.read(...).filter(...).select(...).write_jsonl(...)` workflow, runs a
-scoped generated-source write, and prints result plus evidence markers such as
-`quickstart_result_row_id`, `quickstart_output_row_count`,
-`quickstart_claim_gate_status`, and `quickstart_unsupported_blocker_id`. It
-exits nonzero if fallback or external-engine execution is attempted, if the
-admitted workflow emits no row, or if the unsupported path lacks a blocker.
+checks, creates `target/local-python-smoke/orders.csv`, proves the normal
+`ctx.read(...).filter(...).select(...).write_jsonl(...)` path blocks before
+execution until a Vortex-middle route is available, runs a scoped
+generated-source write, and prints evidence markers such as
+`quickstart_local_file_blocker_id`, `quickstart_generated_output_row_count`,
+`quickstart_generated_claim_gate_status`, and `quickstart_unsupported_blocker_id`.
+It exits nonzero if fallback or external-engine execution is attempted, if the
+generated workflow emits no row, or if diagnostic-only paths lack stable
+blockers.
 
 ## 4. Inspect The Current Certified Slice
 

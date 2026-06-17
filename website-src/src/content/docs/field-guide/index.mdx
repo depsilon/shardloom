@@ -36,7 +36,7 @@ exact route and evidence terms.
 ## Execution Routes
 
 - [compatibility_import_certified](/field-guide/compatibility-import-certified/) - The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs, including source-state layout and digest attribution.
-- [direct_compatibility_transient](/field-guide/direct-compatibility-transient/) - A scoped one-shot local route without persistent Vortex preparation.
+- [direct_compatibility_transient](/field-guide/direct-compatibility-transient/) - An internal smoke-only route; public local-file workflows must use Vortex preparation or native Vortex input.
 - [Generated source route](/field-guide/generated-source-route/) - No input dataset is read; ShardLoom creates deterministic rows and writes local outputs with evidence.
 
 ## UniversalIngress

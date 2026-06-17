@@ -4008,7 +4008,8 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         "Python surface",
         "sl.context",
         "ctx.read",
-        "nested_payload",
+        "prepare_vortex",
+        "scenario_selective-filter_fallback_attempted",
         "fallback execution",
     ] {
         assert!(
@@ -4228,7 +4229,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "Python surface",
         "ctx = sl.context",
         "ctx.read",
-        "nested_payload",
+        "prepare_vortex",
+        "scenario_selective-filter_fallback_attempted",
     ] {
         assert!(
             python_surface.contains(required),

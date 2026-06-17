@@ -1299,6 +1299,7 @@ p {
 .status-not-claim-grade,
 .status-planned,
 .status-feature-gated,
+.status-internal-smoke-only,
 .status-diagnostic-only,
 .status-not-reported,
 .status-stale-or-dirty,
