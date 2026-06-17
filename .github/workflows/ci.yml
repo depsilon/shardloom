@@ -260,17 +260,6 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: python-package-smoke-evidence
-          path: |
-            python/dist
-            target/debug/shardloom
-            target/release-dry-run-proof
-            target/release-provenance-dry-run
-          if-no-files-found: ignore
-          retention-days: 14
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
           name: release-local-smoke-evidence
           path: |
             python/dist
