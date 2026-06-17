@@ -5,7 +5,7 @@
 This gate is intentionally narrower than the hard public-release gate. It proves that a local
 local/source/package rehearsal gives a user a clean install path, admitted smokes,
 docs/status/website learning path, benchmark evidence attachment, and explicit
-unsupported production blockers. Selected v0.1.1 GitHub/TestPyPI/PyPI/Homebrew
+unsupported production blockers. Selected GitHub/TestPyPI/PyPI/Homebrew
 install access is allowed only as package access; it must not become a
 production, performance, or Spark-replacement claim.
 """

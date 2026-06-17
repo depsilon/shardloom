@@ -2,7 +2,7 @@
 
 # Install ShardLoom
 
-ShardLoom v0.1.1 is a technical preview. You can use the source checkout path, the PyPI Python
+ShardLoom v0.1.3 is a technical preview. You can use the source checkout path, the PyPI Python
 package, the GitHub release assets, or the `depsilon/tap` Homebrew CLI formula.
 
 Public status is owned by `docs/release/public-status-matrix.md`. This page routes install
@@ -13,7 +13,7 @@ questions; it is not a production, performance, broad SQL/DataFrame, or Spark-re
 | Need | Page | Current status |
 | --- | --- | --- |
 | Build and run from a clone | [Source Checkout Install](source-checkout-install.md) | Supported local proof path |
-| Install from published packages | [Package User Install Status](package-user-install.md) | v0.1.1 selected package channels are published and proof-backed |
+| Install from published packages | [Package User Install Status](package-user-install.md) | v0.1.3 selected package channels are published and proof-backed |
 | Run first commands | [First 10 Minutes](first-10-minutes.md) | Supported local proof path |
 | Inspect support state | [V1 Supported And Unsupported Surface](v1-supported-unsupported.md) | Generated from matrices |
 | Diagnose failures | [Troubleshooting And Support Bundle](troubleshooting-support.md) | Local/redacted support only |
@@ -30,7 +30,7 @@ external_engine_invoked=false
 Python package:
 
 ```sh
-python -m pip install shardloom==0.1.1
+python -m pip install shardloom==0.1.3
 ```
 
 Homebrew CLI formula:
@@ -40,8 +40,9 @@ brew install depsilon/tap/shardloom
 shardloom status
 ```
 
-The PyPI package is a thin client and needs an explicit CLI binary for CLI-backed commands. Use
-`SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, or the source checkout path when invoking those commands.
+The PyPI package is a thin client over ShardLoom's CLI. Supported platform wheels include a bundled
+CLI resource; explicit `SHARDLOOM_BIN`, `SHARDLOOM_REPO_ROOT`, source checkout binaries, and
+`shardloom` on `PATH` remain supported when you want to pin or override the binary.
 
 ## Source Checkout Quickstart
 
@@ -86,10 +87,10 @@ local proof.
 
 ## Package Boundary
 
-GitHub release assets, PyPI, TestPyPI, and Homebrew are live for v0.1.1. That package access is not
+GitHub release assets, PyPI, TestPyPI, and Homebrew are live for v0.1.3. That package access is not
 a production, performance, broad SQL/DataFrame, or Spark-replacement claim.
 
-The selected v0.1.1 package path is GitHub pre-release plus TestPyPI/PyPI and Homebrew. Scoop,
+The selected v0.1.3 package path is GitHub pre-release plus TestPyPI/PyPI and Homebrew. Scoop,
 winget, and conda-forge remain later feasible channels; GHCR and crates.io are outside v1. The
 canonical track is
 [`docs/release/v1-local-source-package-release.md`](../release/v1-local-source-package-release.md).

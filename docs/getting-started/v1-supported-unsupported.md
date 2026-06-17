@@ -89,7 +89,7 @@ Use this page to decide what can be run locally today and what must return a det
 | what_runs_today | diagnostic_only | default | false | false | claim_safe_discovery | current-state discoverability only; not runtime expansion |
 | crates_io, oci, future_package_channels | blocked | not_enabled | false | false | not_claim_grade | no public Rust crate, container, Scoop, winget, or conda-forge claim is allowed without separate channel proof |
 | object_store, lakehouse, foundry, rest_api | blocked | not_enabled | false | false | not_claim_grade | integration/platform production support remains blocked or report-only |
-| pypi, package_install | executable | selected v0.1.1 channels | true | false | package_access_only | GitHub/TestPyPI/PyPI/Homebrew selected channels are proof-backed package access only; production, performance, broad runtime, and future channel claims remain blocked |
+| pypi, package_install | executable | selected v0.1.3 channels | true | false | package_access_only | GitHub/TestPyPI/PyPI/Homebrew selected channels are proof-backed package access only; production, performance, broad runtime, and future channel claims remain blocked |
 | performance_superiority, spark_replacement | blocked | not_enabled | false | false | not_claim_grade | no faster-than or replacement claim is allowed |
 | production_readiness | blocked | not_enabled | false | false | not_claim_grade | no production-readiness claim is allowed |
 
@@ -114,14 +114,14 @@ production_unsupported_diagnostic_side_effects_performed=false
 | live_hybrid_remote_distributed | live, hybrid, remote, distributed, rest-api-event-stream, certified-live-fixture | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_EXECUTION_FABRIC | cg22.cg23.object_store_runtime_evidence_required | Use engine capability and remote API plan reports for discovery; do not request production fabric execution. |
 | rest_event_remote_api | rest-api-contract-plan, rest-api-plan-preview, remote_result_delivery, event_stream | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_REMOTE_API | cg23.remote_api.lifecycle.uncertified_blocked | Use REST/API contract plan outputs for schema review; do not treat plan previews as remote runtime support. |
 | extensions_udfs_effects | extension-registry, extension-inspect, udf-runtime-plan, api_call, embedding_generation, sqlite_effects | unsupported_boundary | SL_UNSUPPORTED_PRODUCTION_EXTENSION_EFFECT | gar-0032-d.effectful_runtime_blocked | Use extension inspection and effect admission matrices; production effectful execution requires separate policy and certificate evidence. |
-| future_package_channels | Scoop, winget, conda-forge, GHCR, crates.io | blocked_future_channels | SL_UNSUPPORTED_PUBLIC_PACKAGE_PUBLICATION | release.package_publication_gate_required | Use package-channel readiness reports for selected v0.1.1 installs; add separate channel proof before advertising future package channels. |
+| future_package_channels | Scoop, winget, conda-forge, GHCR, crates.io | blocked_future_channels | SL_UNSUPPORTED_PUBLIC_PACKAGE_PUBLICATION | release.package_publication_gate_required | Use package-channel readiness reports for selected v0.1.3 installs; add separate channel proof before advertising future package channels. |
 | public_claims | performance_superiority, spark_replacement, engine_replacement | blocked | SL_UNSUPPORTED_PERFORMANCE_SUPERIORITY_CLAIM | cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required | Attach the selected timing surface, evidence tier, benchmark artifact, and correctness report before making a public performance claim. |
 | production_readiness | production_ready, finished_product, public_release_ready | blocked | SL_UNSUPPORTED_PRODUCTION_READINESS_CLAIM | release.production_readiness_gate_required | Use finished-product readiness and hard release-readiness reports; do not claim production support from local fixtures alone. |
 
 ## Package Channels
 
 Package channel rows are generated from `docs/release/package-channel-readiness-matrix.json`.
-Selected v0.1.1 package channels expose install commands. Future package channels remain blocked until their channel-specific proof exists.
+Selected v0.1.3 package channels expose install commands. Future package channels remain blocked until their channel-specific proof exists.
 
 ```text
 package_install_commands_visible=true
@@ -133,9 +133,9 @@ package_upload_attempted=false
 
 | Ready channel | Install command | Uninstall command |
 | --- | --- | --- |
-| GitHub pre-release | gh release download v0.1.1 --repo depsilon/shardloom --pattern '*' --dir <install-dir> | rm -rf <install-dir> |
-| TestPyPI | python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.1 | python -m pip uninstall -y shardloom |
-| PyPI | python -m pip install shardloom==0.1.1 | python -m pip uninstall -y shardloom |
+| GitHub pre-release | gh release download v0.1.3 --repo depsilon/shardloom --pattern '*' --dir <install-dir> | rm -rf <install-dir> |
+| TestPyPI | python -m pip install --index-url https://test.pypi.org/simple/ --no-deps shardloom==0.1.3 | python -m pip uninstall -y shardloom |
+| PyPI | python -m pip install shardloom==0.1.3 | python -m pip uninstall -y shardloom |
 | Homebrew tap | brew install depsilon/tap/shardloom | brew uninstall shardloom |
 
 | Channel | Status | Ready | Current blockers |

@@ -1,0 +1,184 @@
+{
+  "blockers": [],
+  "build_dependency_install_status": "passed",
+  "channel_id": "homebrew_tap",
+  "clean_install_proof_status": "passed",
+  "display_name": "Homebrew tap",
+  "external_engine_invoked": false,
+  "fallback_attempted": false,
+  "formula_audit_status": "passed",
+  "formula_ref": "https://github.com/depsilon/homebrew-tap/blob/main/Formula/shardloom.rb",
+  "formula_style_status": "passed",
+  "formula_test_status": "passed",
+  "homebrew_info_status": "passed",
+  "install_command": "HOMEBREW_NO_AUTO_UPDATE=1 brew install --build-from-source depsilon/tap/shardloom",
+  "install_transcript_status": "passed",
+  "installed_version": "0.1.3",
+  "package_channel_submission_attempted_by_this_tool": false,
+  "package_upload_attempted_by_this_tool": false,
+  "post_push_tap_publication_status": "passed",
+  "proof_status": "passed",
+  "publication_attempted_by_this_tool": false,
+  "release_tag": "v0.1.3",
+  "schema_version": "shardloom.homebrew_tap_package_proof.v1",
+  "secrets_required": false,
+  "smoke_check_status": "passed",
+  "smoke_stdout": "shardloom 0.1.3\n\nShardLoom workspace initialized (native Vortex-first execution facade)\nfallback execution: disabled\n\n==> Testing depsilon/tap/shardloom\n==> /opt/homebrew/Cellar/shardloom/0.1.3/bin/shardloom status\n",
+  "source_archive_sha256": "270c2a53e02a8bae039e9eab064d1cc560018cb2fdf8aaff05844898eb2e53f8",
+  "source_archive_url": "https://github.com/depsilon/shardloom/releases/download/v0.1.3/shardloom-c44a0a9da3f6-source.tar.gz",
+  "steps": [
+    {
+      "command": [
+        "brew",
+        "uninstall",
+        "shardloom"
+      ],
+      "elapsed_millis": 0.0,
+      "name": "brew_uninstall_existing",
+      "raw_returncode": 1,
+      "returncode": 0,
+      "stderr": "Error: No such keg: /opt/homebrew/Cellar/shardloom\n",
+      "stdout": "shardloom was not installed before proof run"
+    },
+    {
+      "command": [
+        "brew",
+        "style",
+        "depsilon/tap/shardloom"
+      ],
+      "elapsed_millis": 1737.8899,
+      "name": "formula_style",
+      "raw_returncode": 0,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "\n1 file inspected, no offenses detected\n"
+    },
+    {
+      "command": [
+        "brew",
+        "audit",
+        "--formula",
+        "depsilon/tap/shardloom"
+      ],
+      "elapsed_millis": 1711.1241,
+      "name": "formula_audit",
+      "raw_returncode": 0,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "command": [
+        "brew",
+        "install",
+        "--build-from-source",
+        "depsilon/tap/shardloom"
+      ],
+      "elapsed_millis": 74196.9919,
+      "name": "brew_install",
+      "raw_returncode": 0,
+      "returncode": 0,
+      "stderr": "==> Trusted formula depsilon/tap/shardloom\n\u2714\ufe0e Formula shardloom (0.1.3)\n",
+      "stdout": "==> Would install 1 formula:\nshardloom\n==> Fetching downloads for: shardloom\n==> Installing shardloom from depsilon/tap\n==> cargo install --path=shardloom-cli\n\ud83c\udf7a  /opt/homebrew/Cellar/shardloom/0.1.3: 8 files, 14.5MB, built in 1 minute 11 seconds\n"
+    },
+    {
+      "command": [
+        "brew",
+        "info",
+        "--json=v2",
+        "depsilon/tap/shardloom"
+      ],
+      "elapsed_millis": 866.597,
+      "name": "brew_info_json",
+      "raw_returncode": 0,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\n  \"formulae\": [\n    {\n      \"name\": \"shardloom\",\n      \"full_name\": \"depsilon/tap/shardloom\",\n      \"tap\": \"depsilon/tap\",\n      \"oldnames\": [],\n      \"aliases\": [],\n      \"versioned_formulae\": [],\n      \"desc\": \"Vortex-first no-fallback local compute engine technical preview\",\n      \"license\": \"Apache-2.0\",\n      \"homepage\": \"https://shardloom.io\",\n      \"versions\": {\n        \"stable\": \"0.1.3\",\n        \"head\": \"HEAD\",\n        \"bottle\": false\n      },\n      \"urls\": {\n        \"stable\": {\n          \"url\": \"https://github.com/depsilon/shardloom/releases/download/v0.1.3/shardloom-c44a0a9da3f6-source.tar.gz\",\n          \"tag\": null,\n          \"revision\": null,\n          \"using\": null,\n          \"checksum\": \"270c2a53e02a8bae039e9eab064d1cc560018cb2fdf8aaff05844898eb2e53f8\"\n        },\n        \"head\": {\n          \"url\": \"https://github.com/depsilon/shardloom.git\",\n          \"branch\": \"main\",\n          \"using\": null\n        }\n      },\n      \"patches\": [],\n      \"revision\": 0,\n      \"version_scheme\": 0,\n      \"compatibility_version\": null,\n      \"autobump\": true,\n      \"no_autobump_message\": null,\n      \"skip_livecheck\": false,\n      \"bottle\": {},\n      \"pour_bottle_only_if\": null,\n      \"keg_only\": false,\n      \"keg_only_reason\": null,\n      \"options\": [],\n      \"build_dependencies\": [\n        \"rust\"\n      ],\n      \"dependencies\": [],\n      \"test_dependencies\": [],\n      \"recommended_dependencies\": [],\n      \"optional_dependencies\": [],\n      \"uses_from_macos\": [],\n      \"uses_from_macos_bounds\": [],\n      \"requirements\": [],\n      \"conflicts_with\": [],\n      \"conflicts_with_reasons\": [],\n      \"link_overwrite\": [],\n      \"caveats\": null,\n      \"installed\": [\n        {\n          \"version\": \"0.1.3\",\n          \"used_options\": [],\n          \"built_as_bottle\": false,\n          \"poured_from_bottle\": false,\n          \"time\": 1781654887,\n          \"runtime_dependencies\": [],\n          \"installed_on_request\": true\n        }\n      ],\n      \"linked_keg\": \"0.1.3\",\n      \"pinned\": false,\n      \"outdated\": false,\n      \"deprecated\": false,\n      \"deprecation_date\": null,\n      \"deprecation_reason\": null,\n      \"deprecation_replacement_formula\": null,\n      \"deprecation_replacement_cask\": null,\n      \"deprecate_args\": null,\n      \"disabled\": false,\n      \"disable_date\": null,\n      \"disable_reason\": null,\n      \"disable_replacement_formula\": null,\n      \"disable_replacement_cask\": null,\n      \"disable_args\": null,\n      \"post_install_steps\": [],\n      \"post_install_defined\": false,\n      \"service\": null,\n      \"tap_git_head\": \"3030e23afa866eea77543150753fef54f9b9e338\",\n      \"ruby_source_path\": \"Formula/shardloom.rb\",\n      \"ruby_source_checksum\": {\n        \"sha256\": \"19471ab71baa2ea870e169276f0110f99b8c6ece695280164271afea2485c1c7\"\n      }\n    }\n  ],\n  \"casks\": []\n}\n"
+    },
+    {
+      "command": [
+        "shardloom",
+        "--version"
+      ],
+      "elapsed_millis": 236.4639,
+      "name": "cli_version_smoke",
+      "raw_returncode": 0,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "shardloom 0.1.3\n"
+    },
+    {
+      "command": [
+        "shardloom",
+        "status"
+      ],
+      "elapsed_millis": 4.8072,
+      "name": "cli_status_smoke",
+      "raw_returncode": 0,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "ShardLoom workspace initialized (native Vortex-first execution facade)\nfallback execution: disabled\n"
+    },
+    {
+      "command": [
+        "brew",
+        "test",
+        "depsilon/tap/shardloom"
+      ],
+      "elapsed_millis": 1544.001,
+      "name": "formula_test",
+      "raw_returncode": 0,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "==> Testing depsilon/tap/shardloom\n==> /opt/homebrew/Cellar/shardloom/0.1.3/bin/shardloom status\n"
+    },
+    {
+      "command": [
+        "brew",
+        "uninstall",
+        "shardloom"
+      ],
+      "elapsed_millis": 800.0147,
+      "name": "brew_uninstall",
+      "raw_returncode": 0,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "Uninstalling /opt/homebrew/Cellar/shardloom/0.1.3... (8 files, 14.5MB)\n"
+    },
+    {
+      "command": [
+        "brew",
+        "info",
+        "--json=v2",
+        "depsilon/tap/shardloom"
+      ],
+      "elapsed_millis": 0.0,
+      "name": "post_push_brew_info_json",
+      "raw_returncode": 0,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\n  \"formulae\": [\n    {\n      \"name\": \"shardloom\",\n      \"full_name\": \"depsilon/tap/shardloom\",\n      \"tap\": \"depsilon/tap\",\n      \"oldnames\": [],\n      \"aliases\": [],\n      \"versioned_formulae\": [],\n      \"desc\": \"Vortex-first no-fallback local compute engine technical preview\",\n      \"license\": \"Apache-2.0\",\n      \"homepage\": \"https://shardloom.io\",\n      \"versions\": {\n        \"stable\": \"0.1.3\",\n        \"head\": \"HEAD\",\n        \"bottle\": false\n      },\n      \"urls\": {\n        \"stable\": {\n          \"url\": \"https://github.com/depsilon/shardloom/releases/download/v0.1.3/shardloom-c44a0a9da3f6-source.tar.gz\",\n          \"tag\": null,\n          \"revision\": null,\n          \"using\": null,\n          \"checksum\": \"270c2a53e02a8bae039e9eab064d1cc560018cb2fdf8aaff05844898eb2e53f8\"\n        },\n        \"head\": {\n          \"url\": \"https://github.com/depsilon/shardloom.git\",\n          \"branch\": \"main\",\n          \"using\": null\n        }\n      },\n      \"patches\": [],\n      \"revision\": 0,\n      \"version_scheme\": 0,\n      \"compatibility_version\": null,\n      \"autobump\": true,\n      \"no_autobump_message\": null,\n      \"skip_livecheck\": false,\n      \"bottle\": {},\n      \"pour_bottle_only_if\": null,\n      \"keg_only\": false,\n      \"keg_only_reason\": null,\n      \"options\": [],\n      \"build_dependencies\": [\n        \"rust\"\n      ],\n      \"dependencies\": [],\n      \"test_dependencies\": [],\n      \"recommended_dependencies\": [],\n      \"optional_dependencies\": [],\n      \"uses_from_macos\": [],\n      \"uses_from_macos_bounds\": [],\n      \"requirements\": [],\n      \"conflicts_with\": [],\n      \"conflicts_with_reasons\": [],\n      \"link_overwrite\": [],\n      \"caveats\": null,\n      \"installed\": [],\n      \"linked_keg\": null,\n      \"pinned\": false,\n      \"outdated\": false,\n      \"deprecated\": false,\n      \"deprecation_date\": null,\n      \"deprecation_reason\": null,\n      \"deprecation_replacement_formula\": null,\n      \"deprecation_replacement_cask\": null,\n      \"deprecate_args\": null,\n      \"disabled\": false,\n      \"disable_date\": null,\n      \"disable_reason\": null,\n      \"disable_replacement_formula\": null,\n      \"disable_replacement_cask\": null,\n      \"disable_args\": null,\n      \"post_install_steps\": [],\n      \"post_install_defined\": false,\n      \"service\": null,\n      \"tap_git_head\": \"6f981df273770095bb2f7dccb3fd25c09a11f8b2\",\n      \"ruby_source_path\": \"Formula/shardloom.rb\",\n      \"ruby_source_checksum\": {\n        \"sha256\": \"19471ab71baa2ea870e169276f0110f99b8c6ece695280164271afea2485c1c7\"\n      }\n    }\n  ],\n  \"casks\": []\n}\n"
+    },
+    {
+      "command": [
+        "git",
+        "-C",
+        "/opt/homebrew/Library/Taps/depsilon/homebrew-tap",
+        "ls-remote",
+        "origin",
+        "refs/heads/main"
+      ],
+      "elapsed_millis": 0.0,
+      "name": "post_push_tap_remote_head",
+      "raw_returncode": 0,
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "6f981df273770095bb2f7dccb3fd25c09a11f8b2\trefs/heads/main\n"
+    }
+  ],
+  "tap_git_head": "6f981df273770095bb2f7dccb3fd25c09a11f8b2",
+  "tap_remote_head": "6f981df273770095bb2f7dccb3fd25c09a11f8b2",
+  "tap_repo": "https://github.com/depsilon/homebrew-tap",
+  "uninstall_command": "HOMEBREW_NO_AUTO_UPDATE=1 brew uninstall shardloom",
+  "uninstall_transcript_status": "passed"
+}
