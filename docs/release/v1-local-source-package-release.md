@@ -3,7 +3,8 @@
 # V1 Local Source And Package Release Track
 
 Status: selected local/source/package v1 release track with v0.1.3 GitHub pre-release, TestPyPI,
-PyPI, and Homebrew channel proof complete.
+PyPI, and Homebrew channel proof complete; v0.1.4 source/package metadata is prepared for the next
+compatible patch publication.
 
 Schema marker: `shardloom.v1_local_source_package_release.v1`.
 
@@ -18,6 +19,23 @@ approval and channel proof now exist for the v0.1.3 GitHub pre-release, TestPyPI
 Homebrew sequence. This page does not itself publish additional packages, create new tags, create
 new GitHub releases, upload new artifacts, sign artifacts, add secrets, run production services, or
 authorize fallback execution.
+
+## v0.1.4 Release-Prep Addendum
+
+The source tree now carries v0.1.4 package metadata for the runtime activation and package resolver
+closeout patch. Until v0.1.4 channel proofs are checked in, all public install commands and
+package-channel readiness rows remain pinned to the latest proof-backed v0.1.3 publication.
+
+Expected v0.1.4 publication order remains:
+
+1. Merge the v0.1.4 release-prep source revision.
+2. Create the GitHub v0.1.4 release and attach source, wheel, sdist, CLI, checksums, SBOM, and
+   provenance assets.
+3. Publish TestPyPI through Trusted Publisher/OIDC and record the clean registry proof.
+4. Publish PyPI through Trusted Publisher/OIDC using the v0.1.4 TestPyPI proof reference.
+5. Update the Homebrew tap formula against the immutable GitHub v0.1.4 source archive and record
+   install/status/uninstall proof.
+6. Commit the v0.1.4 proof transcripts and promote selected-channel docs from v0.1.3 to v0.1.4.
 
 ## Selected V1 Track
 

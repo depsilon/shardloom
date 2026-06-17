@@ -12,7 +12,7 @@ a caller explicitly invokes a CLI command through `ShardLoomClient` or one of th
 helpers that wraps an evidence-backed CLI smoke.
 
 Public status is owned by `docs/release/public-status-matrix.md`. This README may describe scoped
-local Python surfaces, the v0.1.3 source track, and the approved v0.1.3 package track, but it does
+local Python surfaces, the v0.1.4 source track, and the approved v0.1.3 package track, but it does
 not authorize production support, performance claims, Spark displacement, or hidden external
 execution.
 
@@ -32,8 +32,9 @@ Foundry-style imports:
 python -m pip install -e python
 ```
 
-The source package exposes the v0.1.3 technical-preview version through
-`shardloom.__version__`; the selected published package channels are proof-backed at v0.1.3.
+The source package exposes the v0.1.4 technical-preview version through
+`shardloom.__version__`; the selected published package channels remain proof-backed at v0.1.3
+until v0.1.4 channel proofs are recorded.
 The PyPI package is published as `shardloom==0.1.3`; GitHub release assets and the
 `depsilon/tap/shardloom` Homebrew formula are also published for v0.1.3. These channels are install
 access only and do not imply production readiness, broad runtime support, or performance claims.

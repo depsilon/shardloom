@@ -2,8 +2,9 @@
 
 # Install ShardLoom
 
-ShardLoom v0.1.3 is a technical preview. You can use the source checkout path, the PyPI Python
-package, the GitHub release assets, or the `depsilon/tap` Homebrew CLI formula.
+ShardLoom main is on the v0.1.4 technical-preview source/package patch train. You can use the
+source checkout path immediately. The latest proof-backed published package commands remain
+v0.1.3 until matching v0.1.4 GitHub, TestPyPI, PyPI, and Homebrew proofs are recorded.
 
 Public status is owned by `docs/release/public-status-matrix.md`. This page routes install
 questions; it is not a production, performance, broad SQL/DataFrame, or Spark-replacement claim.

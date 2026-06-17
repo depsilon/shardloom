@@ -49,6 +49,12 @@ Publication completion addendum, 2026-06-16:
 
 Patch train addendum, 2026-06-16:
 
+- v0.1.4 is prepared as the next compatible post-v0.1.3 patch train for runtime activation
+  summaries, bundled CLI package resolution, provider runtime feature wiring, and release-user
+  surface documentation. It must receive its own GitHub, TestPyPI, PyPI, and Homebrew channel
+  proofs before public install docs or package-channel matrices mark v0.1.4 published.
+- Patch release notes live in `docs/release/v0.1.4-release-notes.md`.
+
 - v0.1.3 is published and proof-backed through GitHub pre-release assets, TestPyPI, PyPI, and
   Homebrew. It is the compatible post-v0.1.2 patch train for native Vortex facade route hardening,
   structural SQL/Python provider inference, exact provider-shape gating, and the release workflow
