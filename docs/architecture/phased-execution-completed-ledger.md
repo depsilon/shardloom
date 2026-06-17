@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: Python/local workflow Vortex-middle promotion
+  - Date: 2026-06-17
+  - Source:
+    - `PY-RUNTIME-PROMOTION-VORTEX-MIDDLE-1` in
+      `docs/architecture/phased-execution-plan.md`.
+    - Maintainer UAT evidence that public `ctx.read_csv(...).collect()` and Homebrew/direct probes
+      could still expose decoded local-source smoke as a product-looking runtime middle.
+  - Scope:
+    - Public local-file `execution_policy=auto` now plans through Vortex preparation plus the
+      admitted native Vortex primitive/provider route when the workflow shape is supported; explicit
+      `execution_policy=direct` remains blocked with `cg21.route.direct_local_file_blocked`.
+    - Python local-source collect/count and admitted native Vortex sinks now normalize
+      compatibility inputs into caller-local `.vortex` state before executing shared
+      `read_vortex(...)` primitive/provider routes.
+    - The route layer reuses universal ingest/source-state preparation for local CSV/JSON-family
+      inputs and preserves the format-neutral contract: input formats are adapters, not separate
+      compute surfaces.
+    - Compatibility sinks and decoded materialization helpers now return deterministic blockers
+      until native Vortex-derived export/materialization contracts exist; lower-level
+      `sql-local-source-smoke` remains available only as an internal/dev smoke safeguard.
+    - Native route attachments now expose preparation, prepared Vortex path, local-source route ID,
+      Vortex ingest status, materialization/decode boundary, and no-fallback/external-engine fields
+      on successful prepared-local executions.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy --workspace --all-targets -- -D warnings` passed.
+    - `cargo test --workspace --all-targets` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client` passed.
+    - Focused release-feature public workflow test passed for local CSV auto route executing through
+      `local_file_prepare_once_first_query` plus `native_vortex_filter_project`.
+  - Claim boundary:
+    - This closes public local-source direct-smoke leakage and promotes feasible local workflows
+      into Vortex-middle/native execution. It does not claim arbitrary SQL/DataFrame parity,
+      compatibility export parity, decoded pandas/Arrow/NumPy materialization, production
+      object-store/table/Foundry support, or performance superiority.
+  - Fallback boundary:
+    - Successful and blocked paths continue to report `fallback_attempted=false` and
+      `external_engine_invoked=false`; no DuckDB, Polars, pandas, Spark, DataFusion, Vortex
+      query-engine integration, or other external engine fallback was added.
+
 - [x] Session label: Python runtime activation and Vortex provider promotion
   - Date: 2026-06-17
   - Source:

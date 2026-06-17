@@ -2112,6 +2112,7 @@ class SqlLocalSourceSmokeReport:
     """Typed view over scoped local-source SQL smoke reports."""
 
     envelope: OutputEnvelope
+    preparation_envelope: OutputEnvelope | None = None
 
     @property
     def status(self) -> str:
@@ -2180,7 +2181,9 @@ class SqlLocalSourceSmokeReport:
     def source_state_id(self) -> str | None:
         """Return the local SourceState identifier emitted by the smoke."""
 
-        value = self.envelope.field("source_state_id")
+        value = self.envelope.field("source_state_id") or self._preparation_field(
+            "source_state_id"
+        )
         if value in {None, "", "not_applicable", "none"}:
             return None
         return value
@@ -2189,7 +2192,9 @@ class SqlLocalSourceSmokeReport:
     def source_state_digest(self) -> str | None:
         """Return the local SourceState digest emitted by the smoke."""
 
-        value = self.envelope.field("source_state_digest")
+        value = self.envelope.field("source_state_digest") or self._preparation_field(
+            "source_state_digest"
+        )
         if value in {None, "", "not_applicable", "none"}:
             return None
         return value
@@ -5604,6 +5609,30 @@ class SqlLocalSourceSmokeReport:
         """Return the compact claim summary for this scoped SQL smoke."""
 
         return self.envelope.claim_summary
+
+    @property
+    def vortex_ingest_performed(self) -> bool:
+        """Whether a compatibility source was prepared through Vortex first."""
+
+        return self.preparation_envelope is not None and (
+            self.preparation_envelope.field_bool("vortex_ingest_performed", False) is True
+            or self.preparation_envelope.field_bool("prepared_state_created", False) is True
+            or self.preparation_envelope.field_bool("prepared_state_reused", False) is True
+        )
+
+    @property
+    def prepared_vortex_path(self) -> str | None:
+        """Return the prepared Vortex artifact path used before local workflow execution."""
+
+        return self._preparation_field("target_vortex_path")
+
+    def _preparation_field(self, key: str) -> str | None:
+        if self.preparation_envelope is None:
+            return None
+        value = self.preparation_envelope.field(key)
+        if value in {None, "", "not_applicable", "none"}:
+            return None
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -11695,6 +11724,7 @@ class ShardLoomClient:
         output_format: str = "inline-jsonl",
         fanout_outputs: FanoutOutputs | None = None,
         allow_overwrite: bool = False,
+        product_local_workflow: bool = False,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport:
         """Run the scoped local-source SQL smoke command."""
@@ -11705,6 +11735,8 @@ class ShardLoomClient:
             "--output-format",
             output_format,
         ]
+        if product_local_workflow:
+            command.append("--product-local-workflow")
         if output_path is not None:
             command.extend(["--output", str(output_path)])
         for fanout_format, fanout_path in _iter_fanout_outputs(fanout_outputs):

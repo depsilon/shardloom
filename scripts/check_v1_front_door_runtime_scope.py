@@ -184,10 +184,18 @@ def validate_parity_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]
         row = by_id.get(row_id)
         if not row:
             continue
-        if row.get("parity_status") != "front_door_gap":
-            blockers.append(f"{row_id}: pending row must remain front_door_gap")
-        if not row.get("blocker_id"):
-            blockers.append(f"{row_id}: pending row must expose blocker_id")
+        if row.get("parity_status") == "equivalent_admitted_scope":
+            blockers.append(f"{row_id}: pending row must not be equivalent_admitted_scope")
+        if row_id in {
+            "native_vortex_general_runtime",
+            "object_store_lakehouse_catalog",
+            "arbitrary_sql_python_dataframe_breadth",
+            "performance_equivalence",
+        }:
+            if row.get("parity_status") != "front_door_gap":
+                blockers.append(f"{row_id}: broad pending row must remain front_door_gap")
+            if not row.get("blocker_id"):
+                blockers.append(f"{row_id}: broad pending row must expose blocker_id")
         if str(row.get("runtime_gap_status", "")) in {"unsupported", "blocked", ""}:
             blockers.append(f"{row_id}: pending row must use a precise runtime_gap_status")
 

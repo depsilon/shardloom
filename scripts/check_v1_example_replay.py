@@ -44,7 +44,7 @@ EXPECTED_SCENARIOS = {
 }
 EXPECTED_ERROR_SCENARIOS: set[str] = set()
 EXPECTED_RUNTIME_COMMANDS = 3
-EXPECTED_UNSUPPORTED_FAILURE_FIXTURES = 2
+EXPECTED_UNSUPPORTED_FAILURE_FIXTURES = 1
 
 DOC_MARKERS: dict[str, tuple[str, ...]] = {
     "README.md": (
@@ -63,7 +63,9 @@ DOC_MARKERS: dict[str, tuple[str, ...]] = {
     "python/README.md": (
         "from shardloom import context",
         "import shardloom as sl",
-        'ctx.read_csv("target/sql-local-source-smoke.csv")',
+        'ctx.read("target/orders.csv")',
+        "print(result.prepared_vortex_path)",
+        "print(result.vortex_ingest_performed)",
         ".filter(sl.col(\"amount\") >= 10)",
         ".collect()",
         "fallback_attempted",
@@ -455,8 +457,10 @@ def validate_quickstart(result: dict[str, Any]) -> tuple[dict[str, Any], list[st
     blockers: list[str] = []
     for marker in [
         "quickstart_user_surface_status=passed",
-        "quickstart_local_file_blocker_id=cg21.route.local_file_vortex_middle_required",
-        "quickstart_local_file_runtime_execution=false",
+        "quickstart_local_file_blocker_id=none",
+        "quickstart_local_file_route_status=passed",
+        "quickstart_local_file_runtime_execution=true",
+        "quickstart_local_file_vortex_ingest_performed=true",
         "quickstart_local_file_fallback_attempted=false",
         "quickstart_local_file_external_engine_invoked=false",
         "quickstart_generated_output_row_count=",
@@ -476,9 +480,9 @@ def validate_quickstart(result: dict[str, Any]) -> tuple[dict[str, Any], list[st
         blockers.append("quickstart: command failed")
     return {
         "status": "passed" if not blockers else "failed",
-        "local_file_blocker_present": (
-            "quickstart_local_file_blocker_id=cg21.route.local_file_vortex_middle_required"
-            in stdout
+        "local_file_vortex_collect_present": (
+            "quickstart_local_file_route_status=passed" in stdout
+            and "quickstart_local_file_vortex_ingest_performed=true" in stdout
         ),
         "unsupported_fixture_present": (
             "quickstart_unsupported_blocker_id=" in stdout
@@ -688,8 +692,7 @@ def build_report(
         else "failed"
     )
     unsupported_failure_fixture_count = (
-        int(bool(quickstart_summary.get("local_file_blocker_present")))
-        + int(bool(quickstart_summary.get("unsupported_fixture_present")))
+        int(bool(quickstart_summary.get("unsupported_fixture_present")))
         + len(EXPECTED_ERROR_SCENARIOS)
     )
     all_no_fallback = (

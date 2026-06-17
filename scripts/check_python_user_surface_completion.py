@@ -108,6 +108,24 @@ REQUIRED_MATERIALIZATION_METHODS = [
     "display",
 ]
 
+OPTIONAL_DECODED_OUTPUT_CONTAINER_METHODS = {
+    "to_pandas",
+    "to_arrow",
+    "to_arrow_table",
+    "to_arrow_ipc",
+    "to_numpy",
+}
+
+DISPLAY_MATERIALIZATION_METHODS = {
+    "display",
+}
+
+MATERIALIZED_INPUT_REENTRY_METHODS = {
+    "from_pandas",
+    "from_arrow_table",
+    "from_arrow_ipc",
+}
+
 REQUIRED_TRANSFORM_RUNTIME_METHODS = [
     "rename",
     "rename_columns",
@@ -697,10 +715,57 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         if not row:
             continue
         support_status = str(row.get("support_status", ""))
-        if "unsupported" in support_status:
-            blockers.append(f"{method}: scoped materialization row must not be unsupported")
-        if row.get("blocker_id"):
-            blockers.append(f"{method}: scoped materialization row must not carry blocker_id")
+        if method in OPTIONAL_DECODED_OUTPUT_CONTAINER_METHODS:
+            if support_status != "optional_dependency_container_supported":
+                blockers.append(
+                    f"{method}: optional decoded output materialization must be optional_dependency_container_supported"
+                )
+            if row.get("blocker_id"):
+                blockers.append(
+                    f"{method}: optional decoded output materialization must not carry blocker_id"
+                )
+            required_evidence = set(row.get("required_evidence") or [])
+            for evidence in [
+                "vortex_prepared_state_or_native_vortex_input",
+                "bounded_materialization_contract",
+                "decoded_materialization_policy",
+                "optional_dependency_policy",
+                "no_fallback_evidence",
+            ]:
+                if evidence not in required_evidence:
+                    blockers.append(f"{method}: optional materialization row missing {evidence}")
+            if row.get("runtime_execution") is not True:
+                blockers.append(f"{method}: optional materialization requires runtime_execution true")
+            if row.get("data_read") is not True:
+                blockers.append(f"{method}: optional materialization requires data_read true")
+        elif method in DISPLAY_MATERIALIZATION_METHODS:
+            if support_status != "production_admitted_local_workflow":
+                blockers.append(
+                    f"{method}: display materialization must be production_admitted_local_workflow"
+                )
+            if row.get("blocker_id"):
+                blockers.append(f"{method}: display materialization must not carry blocker_id")
+            required_evidence = set(row.get("required_evidence") or [])
+            for evidence in [
+                "vortex_prepared_state_or_native_vortex_input",
+                "bounded_materialization_contract",
+                "decoded_materialization_policy",
+                "notebook_display_contract",
+                "no_fallback_evidence",
+            ]:
+                if evidence not in required_evidence:
+                    blockers.append(f"{method}: display materialization row missing {evidence}")
+            if row.get("runtime_execution") is not True:
+                blockers.append(f"{method}: display materialization requires runtime_execution true")
+            if row.get("data_read") is not True:
+                blockers.append(f"{method}: display materialization requires data_read true")
+        elif method in MATERIALIZED_INPUT_REENTRY_METHODS:
+            if "unsupported" in support_status or support_status == "runtime_expansion_pending":
+                blockers.append(
+                    f"{method}: materialized input re-entry row must be scoped supported"
+                )
+            if row.get("blocker_id"):
+                blockers.append(f"{method}: materialized input re-entry row must not carry blocker_id")
         if row.get("materialization_required") is not True:
             blockers.append(f"{method}: materialization_required must be true")
         if not row.get("required_evidence"):

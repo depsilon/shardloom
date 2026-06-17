@@ -87,7 +87,7 @@
     "example_replay_runtime_commands": 3,
     "example_replay_scenarios": 9,
     "example_replay_expected_error_scenarios": 0,
-    "example_replay_unsupported_failure_fixtures": 2,
+    "example_replay_unsupported_failure_fixtures": 1,
     "golden_workflows": 3,
     "golden_stage_count_min": 9,
     "executable_fixtures": 117,

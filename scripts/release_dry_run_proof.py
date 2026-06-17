@@ -974,8 +974,10 @@ def write_transcript(
     local_python_result_and_evidence_printed = all(
         step_stdout_contains("example_local_python_smoke", marker)
         for marker in [
-            "quickstart_local_file_blocker_id=cg21.route.local_file_vortex_middle_required",
-            "quickstart_local_file_runtime_execution=false",
+            "quickstart_local_file_blocker_id=none",
+            "quickstart_local_file_route_status=passed",
+            "quickstart_local_file_runtime_execution=true",
+            "quickstart_local_file_vortex_ingest_performed=true",
             "quickstart_local_file_fallback_attempted=false",
             "quickstart_local_file_external_engine_invoked=false",
             "quickstart_generated_source_row_count=",

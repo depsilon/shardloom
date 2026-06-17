@@ -165,14 +165,15 @@ result = (
     .filter(sl.col("amount") >= 10)
     .select("id", "amount")
     .limit(100)
-    .write_jsonl("target/orders-out.jsonl", allow_overwrite=True)
+    .collect()
 )
 
 print(result.output_row_count)
 print(result.first_result_row)
 print(result.activation_summary.native_vortex_status)
 print(result.activation_summary.execution_mode, result.activation_summary.applied_parallelism)
-print(result.evidence_summary.output_path)
+print(result.prepared_vortex_path)
+print(result.vortex_ingest_performed)
 print(result.claim_summary.claim_gate_status)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
@@ -184,13 +185,16 @@ fallback/external-engine flags, and claim-gate posture. Agents and notebooks sho
 summary before inspecting the full evidence envelope.
 
 The same query shape can read admitted local formats through `ctx.read(...)` or the explicit
-format helpers and write to `write(...)`, `write_jsonl(...)`, `write_csv(...)`, or feature-gated
-structured sinks. CSV, flat JSON/JSONL/NDJSON, generated rows, and scoped local Vortex inputs are
+format helpers. CSV, flat JSON/JSONL/NDJSON, generated rows, and scoped local Vortex inputs are
 the default public examples. Parquet, Arrow IPC/Feather, Avro, and ORC are admitted scoped
 local-format surfaces when the matching feature-gated build is present; builds without those
-readers return deterministic adapter blockers instead of invoking another engine. Format-specific
-behavior belongs at read/ingest and write/sink boundaries only; compute semantics should lower
-through the shared ShardLoom SQL/Python runtime or return a deterministic unsupported report.
+readers return deterministic adapter blockers instead of invoking another engine. Compatibility
+exports such as `write_jsonl(...)`, `write_csv(...)`, Parquet/Arrow IPC/Avro/ORC writers, fanout,
+and quarantine sinks are admitted only when the workflow first carries Vortex preparation or native
+Vortex-input evidence and the sink emits replay evidence such as `result_replay_verified`.
+Format-specific behavior belongs at read/ingest and write/sink boundaries only; compute semantics
+should lower through the shared ShardLoom/Vortex runtime or return a deterministic unsupported
+report.
 Agents and automation should use `docs/reference/shardloom-user-surface-index.md` and
 `docs/reference/shardloom-user-surface-index.json` as the canonical map of Python, SQL, CLI,
 generated-source, materialization, and deterministic blocker surfaces.
@@ -200,38 +204,25 @@ scoped local evidence.
 
 Bounded materialization is explicit. Local-source workflows can carry a `limit(...)` or pass
 `collect(limit=...)`; SQL workflows can also pass `collect(limit=...)` or chain
-`.limit(...).collect()`. Those bounded routes can decode ShardLoom's inline JSONL result into
-Python objects, a notebook preview, or optional pandas/Arrow/NumPy containers. Those optional
-packages are not execution engines:
+`.limit(...).collect()`. Those admitted routes return typed report rows from the ShardLoom CLI
+envelope. Decoded Python-object, pandas, Arrow, NumPy, and notebook materialization helpers are
+bounded container/output boundaries over the admitted ShardLoom result; optional packages are never
+used as execution engines and missing packages return deterministic diagnostics:
 
 ```python
-preview = (
+preview_report = (
     ctx.read("target/orders.csv")
     .select("id", "amount")
     .limit(20)
-    .display()
+    .collect()
 )
-print(preview.row_count)
-print(preview.to_python_objects())
+print(preview_report.result_rows)
 
-df = (
-    ctx.read("target/orders.csv")
-    .select("id", "amount")
-    .limit(20)
-    .to_pandas()
-)
-```
+rows = ctx.read("target/orders.csv").select("id").limit(20).to_python_objects()
+print(rows)
 
-Install the optional conversion containers with `shardloom[materialization]` when pandas, PyArrow,
-or NumPy objects are needed. Without the optional package, the corresponding conversion returns a
-deterministic unsupported report. Unbounded materialization conveniences still expose blockers and
-no-fallback evidence rather than silently invoking another Python or query engine:
-
-```python
-blocked = ctx.read("target/orders.csv").select("id").to_pandas()
-print(blocked.blocker_id)
-print(blocked.required_evidence)
-print(blocked.fallback_attempted, blocked.external_engine_invoked)
+pandas_view = ctx.read("target/orders.csv").select("id").limit(20).to_pandas(check=False)
+print(getattr(pandas_view, "blocker_id", None))
 ```
 
 For workflows that need caller-scoped reuse evidence, `ctx.session(...)` and `sl.session(...)` expose
@@ -243,15 +234,16 @@ with ctx.session(session_id="orders-run") as sess:
         sess.read_csv("target/orders.csv")
         .select("id", "amount")
         .limit(100)
-        .write_jsonl("target/orders-out.jsonl", allow_overwrite=True)
+        .collect()
     )
     repeat = sess.sql("SELECT id FROM 'target/orders.csv' LIMIT 100").collect()
     print(result.reuse_hit, repeat.source_state_reuse_hit)
 ```
 
 The session is explicit, in-process, caller-owned, and closeable. It can reuse admitted local
-`vortex_ingest` prepared-state reports plus admitted local `collect`/`write`/`fanout` reports when
-source, prepared artifact, and output artifact fingerprints still match. `ctx.prepare_vortex(...)`,
+`vortex_ingest` prepared-state reports plus admitted local collect reports when source and prepared
+artifact fingerprints still match. Compatibility writes/fanout still require their native Vortex
+export contracts before they are product routes. `ctx.prepare_vortex(...)`,
 `ShardLoomClient.vortex_ingest_smoke(...)`, and raw runtime-envelope inspection remain lower-level
 diagnostic surfaces. Session reuse is not a daemon, remote server, hidden global cache,
 object-store/table cache, broad DataFrame/SQL runtime, or performance claim.
@@ -372,12 +364,13 @@ envelope. The equivalent CLI surfaces are
 `shardloom route <sql|python|dataframe|cli> --format json`,
 `shardloom run <sql|python|dataframe|cli> --format json`, and
 `shardloom prepare <sql|python|dataframe|cli> --format json`.
-Lazy DataFrame bounded `collect()`, general `write(...)`, `write_jsonl(...)`, `write_csv(...)`,
-structured write aliases, generated-source direct writes, source-free SQL writes, and admitted
-local/generated fanout helpers route through the same public `run` facade and return existing typed
-reports with attached `public_workflow_*` route fields. Native Vortex primitive and promoted
-provider helpers now attach the inferred route payloads to the same facade rather than relying on a
-separate payload-only path.
+Lazy DataFrame bounded `collect()` and admitted generated-source/source-free writes route through
+the public `run` facade and return existing typed reports with attached `public_workflow_*` route
+fields. Compatibility writes such as `write(...)`, `write_jsonl(...)`, `write_csv(...)`,
+structured write aliases, and compatibility fanout return deterministic blockers unless an admitted
+native Vortex sink/export route exists for the normalized plan. Native Vortex primitive and
+promoted provider helpers attach the inferred route payloads to the same facade rather than relying
+on a separate payload-only path.
 
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and
@@ -649,919 +642,122 @@ still declare sources and transformations only. `plan()`, `explain()`,
 not read input files, infer schemas, materialize rows, probe object stores,
 write output, or invoke fallback engines.
 
-One scoped local CSV plus flat JSON/JSONL/NDJSON and feature-gated flat scalar
-Parquet/Arrow IPC/Avro/ORC query-builder workflow family is
-executable through the same typed CLI bridge. A workflow shaped as
-`read_csv(...).select(...).limit(...)`, with an optional `filter(...)`, lowers
-to ShardLoom's `sql-local-source-smoke` path, runs ShardLoom-owned
-projection/optional-filter/limit semantics, and returns a typed evidence
-report. `preview(limit=n)`, `head(limit=n)`, and `take(n)` use the same bounded
-local path with `SELECT *`. `ctx.sql("SELECT ... FROM 'local.csv' ...")` exposes
-the same bounded schema, validation, data-quality, preview, head, and take
-helpers over admitted local-source SQL statements. The same
-projection/optional-filter/limit shape is admitted for `read_json(...)` when the
-source path is a local flat `.json`, `.jsonl`, or `.ndjson` file; nested JSON
-expansion and JSONPath remain deterministic unsupported surfaces. The same shape is admitted for
-`read_parquet(...)` over local flat scalar `.parquet` files when the CLI is built
-with `--features universal-format-io`; default binaries return an explicit
-Parquet adapter blocker. `read_arrow_ipc(...)` admits the same scoped shape for
-local flat scalar `.arrow`, `.ipc`, or `.feather` files under the same feature
-gate; default binaries return an explicit Arrow IPC adapter blocker. This is a
-file-backed local source adapter, not an in-memory Arrow table fallback,
-zero-copy Arrow runtime, or Arrow IPC output surface. `read_avro(...)` and
-`read_orc(...)` admit the same scoped shape for local flat scalar `.avro` and
-`.orc` files under the same feature gate; default binaries return explicit Avro
-or ORC adapter blockers. These are decoded local file smoke adapters, not Avro
-schema-evolution support, ORC stripe/statistics runtime support, or Avro/ORC
-output surfaces. Filters admit scoped comparison,
-cast, date-literal, scoped UTC-or-fixed-offset `TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)(Z|+HH:MM|-HH:MM)'` literals,
-Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
-`DATE_DAY(...)`, UTC-or-fixed-offset timestamp extract predicates with
-`TIMESTAMP_YEAR(...)` / `TIMESTAMP_MONTH(...)` / `TIMESTAMP_DAY(...)` /
-`TIMESTAMP_HOUR(...)` / `TIMESTAMP_MINUTE(...)` / `TIMESTAMP_SECOND(...)`,
-Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
-scoped temporal-difference expressions with `DATE_DIFF_DAYS(...)` and
-`TIMESTAMP_DIFF_SECONDS(...)` compared against numeric literals,
-scoped numeric arithmetic predicates such as `<column> + 5 >= 20` and
-`<column> * 2.0 > 1.0`,
-bounded `IN (...)` / `NOT IN (...)`, scoped literal row-value
-`(<column>,...) IN ((...),...)` / `NOT IN` predicates, scoped local
-`IN (SELECT <column> FROM '<local-source>')` / `NOT IN (...)` scalar subquery predicates,
-scoped row-value `IN (SELECT <column>,...)` / `NOT IN (...)` subquery predicates, direct SQL
-`EXISTS (SELECT <projection> FROM '<local-source>' ...)` / `NOT EXISTS (...)` subquery
-predicates, direct SQL scoped quantified `ANY` / `ALL (SELECT <column> FROM '<local-source>' ...)`
-subquery predicates, direct SQL `BETWEEN` / `NOT BETWEEN`, inclusive Python `between(...)` range predicates, UTF-8
-`LENGTH(column)` comparisons against integer literals, string `LIKE` / `NOT LIKE`, null, logical
-`AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted leaves. `where(...)` is a
-familiar alias for `filter(...)`. `IN` lists admit up to 32 literal values from one scalar family,
-including `DATE 'YYYY-MM-DD'` lists and `NULL` literals with SQL three-valued `WHERE`-filter
-semantics. Row-value literal predicates admit up to 32 literal tuples with arity/type checks and
-SQL three-valued row comparison semantics. Scoped local `IN`/`NOT IN` subqueries materialize a
-bounded scalar column or row-value tuple set from another admitted local source. Scoped local
-`EXISTS`/`NOT EXISTS` subqueries evaluate a two-valued bounded presence test over another admitted
-local source. Scoped local
-quantified `ANY` / `ALL` subqueries materialize a bounded scalar set from another admitted local
-source and apply SQL three-valued comparison semantics. Source-qualified scalar IN/NOT IN,
-row-value IN/NOT IN, EXISTS, NOT EXISTS, and quantified local subquery references are admitted when they bind to an
-explicit subquery `AS <alias>` or SQL-identifier file stem; Python helpers can set that binding with
-`source_alias=` and render the qualified column with `sl.col("alias.column")`. Scoped correlated `outer.<column>`
-subquery filters are admitted for scalar `IN`/`NOT IN`, row-value `IN`/`NOT IN`,
-`EXISTS`/`NOT EXISTS`, and quantified `ANY` / `ALL` predicates through the reserved outer-row alias.
-Direct SQL predicate projections and CASE
-predicates can now reuse admitted scalar `IN` subqueries, including scoped correlated
-`outer.<column>` filters, over bounded local sources. Scalar-left multi-column,
-unbound qualified, broad projected correlated joins/aggregates, and broader arbitrary subquery
-shapes remain deterministic blockers.
-Typed reports expose `in_predicate_runtime_execution`,
-`in_list_value_count`, `in_list_null_value_count`, `row_value_in_predicate_runtime_execution`,
-`row_value_in_source_columns`, `row_value_in_tuple_count`, `row_value_in_null_semantics`,
-`in_predicate_null_semantics`,
-`in_subquery_runtime_execution`, `in_subquery_source_columns`, `in_subquery_source_formats`,
-`in_subquery_materialized_value_count`, `in_subquery_materialized_null_value_count`,
-`exists_subquery_runtime_execution`, `exists_subquery_projection_kind`,
-`exists_subquery_source_formats`, `exists_subquery_bounded_row_count`, and
-`exists_subquery_result`, `quantified_subquery_runtime_execution`,
-`quantified_subquery_quantifiers`, `quantified_subquery_source_columns`,
-`quantified_subquery_materialized_value_count`, `quantified_subquery_null_semantics`,
-`source_qualified_subquery_runtime_execution`, `source_qualified_subquery_source_qualifiers`,
-`source_qualified_subquery_operator_families`, `source_qualified_subquery_source_columns`,
-`correlated_subquery_runtime_execution`, `correlated_subquery_outer_aliases`,
-`correlated_subquery_outer_columns`, `correlated_subquery_evaluation_strategy`, and
-`correlated_subquery_outer_row_evaluation_count`, plus
-`numeric_arithmetic_runtime_execution`,
-`numeric_arithmetic_operator`, `numeric_arithmetic_source_column`, and
-`numeric_arithmetic_rhs_dtype` when arithmetic predicates are used, plus
-`numeric_abs_runtime_execution`, `numeric_abs_source_column`, and
-`numeric_abs_rhs_dtype` when `ABS(column)` predicates are used, plus
-`numeric_rounding_runtime_execution`, `numeric_rounding_operator`,
-`numeric_rounding_source_column`, and `numeric_rounding_rhs_dtype` when
-`FLOOR`/`CEIL`/`ROUND` predicates are used, plus
-`generic_expression_predicate_runtime_execution`,
-`generic_expression_predicate_source_columns`,
-`generic_expression_predicate_operator_families`,
-`generic_expression_predicate_binary_operator_count`, and
-`generic_expression_predicate_comparison_operators` when generalized numeric expression-tree or
-temporal-difference predicates are used, plus
-`string_length_runtime_execution`, `string_length_source_column`, and `string_length_rhs_dtype`
-when UTF-8 length predicates are used.
-The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
-runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
-`not_contains()`, `startswith()`, `not_startswith()`, `endswith()`, `not_endswith()`, `like(...)`,
-`not_like(...)`, `between(...)`, bounded `isin(...)` / `not_in(...)`, `sl.row_in(...)` /
-`sl.row_not_in(...)`, local source-backed
-`isin_source(source, column)` / `not_in_source(source, column)`, row-value source-backed
-`sl.row_in_source(columns, source, source_columns)` /
-`sl.row_not_in_source(columns, source, source_columns)`, source-backed
-`sl.exists_source(source, where=..., group_by=..., having=..., order_by=..., limit=...)` /
-`sl.not_exists_source(source, ...)`, source-backed `sl.any_source(...)` / `sl.all_source(...)`
-and `sl.col(...).any_source(...)` / `.all_source(...)` with the same grouped/HAVING tail
-parameters, `sl.outer(column)` for the reserved
-correlated outer-row alias, `cast(dtype)`,
-`is_true()`, `is_false()`, `is_not_true()`, `is_not_false()`,
-`date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
-`date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
-`timestamp_hour()`, `timestamp_minute()`, `timestamp_second()`,
-`timestamp_add_seconds(seconds)`, `timestamp_sub_seconds(seconds)`,
-`date_diff_days(other)`, and `timestamp_diff_seconds(other)` comparisons, and the scoped
-UTF-8 `length()` helper, numeric `abs()` / `floor()` / `ceil()` / `round()` helpers, and numeric `+`, `-`, `*`, and `/` operators for arithmetic predicates, including scoped generalized numeric expression-tree filters such as `(sl.col("amount") + sl.col("tax")) * 2 >= 40`, into the same
-ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
-Input-backed computed `with_column(...)` is also admitted with or without an explicit `select(...)`
-for local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
-projection/filter/sort/limit workflows. Without an explicit projection it lowers to ShardLoom-native
-`SELECT *, <computed> AS <column>` over the shared local-source runtime path. The current slice
-accepts deterministic `lit(...)` values,
-direct bool/int/float literals, scoped numeric arithmetic expressions shaped as
-`sl.col("amount") + 5`, `-`, `*`, or `/` with an int/finite-float literal, scoped
-generalized numeric expression-tree projections such as
-`(sl.col("amount") + sl.col("tax")) * 2`, `sl.abs(sl.col("amount") - sl.col("tax"))`,
-and `sl.round((sl.col("amount") + sl.col("tax")) / 2.0)` over admitted numeric local
-columns and finite numeric literals, scoped
-`sl.col("amount").abs()` / `sl.abs(sl.col("amount"))` numeric absolute-value projections, scoped
-`sl.col("amount").floor()` / `.ceil()` / `.round()` or `sl.floor(...)` / `sl.ceil(...)` /
-`sl.round(...)` numeric rounding projections, plus scoped UTF-8
-`sl.col("label").lower()`, `.upper()`, and `.trim()` projections, scoped
-`sl.col("label").length()` / `sl.length(sl.col("label"))` projections, scoped
-`sl.col("amount").cast("float64")` / `.cast("date32")` / `.cast("timestamp_micros")` /
-`.cast("decimal128(10,2)")` / `.try_cast("numeric(10,2)")` / `.cast("binary")`
-projections, and scoped Date32/UTC-or-fixed-offset timestamp extract projections such as
-`sl.col("event_date").cast("date32").date_year()` or
-`sl.col("event_ts").cast("timestamp_micros").timestamp_hour()`, plus scoped Date32 day arithmetic
-projections such as `sl.col("event_date").cast("date32").date_add_days(7)` or
-`.date_sub_days(1)`, scoped UTC-or-fixed-offset timestamp second arithmetic projections such as
-`sl.col("event_ts").cast("timestamp_micros").timestamp_add_seconds(60)` or
-`.timestamp_sub_seconds(45)`, scoped temporal-difference projections such as
-`sl.col("end_date").cast("date32").date_diff_days(sl.col("start_date"))` or
-`sl.col("end_ts").cast("timestamp_micros").timestamp_diff_seconds(sl.col("start_ts"))`, and
-scoped null-cleanup projections such as
-`sl.col("label").fill_null("unknown")` or
-`sl.col("event_date").cast("date32").fill_null(date(2026, 1, 1))`, scoped null-sentinel
-cleanup projections such as `sl.col("label").null_if("missing")` or
-`sl.col("event_date").cast("date32").null_if(date(2026, 1, 1))`, plus scoped single-branch
-conditional projections such as
-`sl.case_when(sl.col("amount") >= 10, "large", "small")`, scoped binary cast projections such as
-`sl.col("payload").cast("binary")` / `.cast("blob")` / `.cast("varbinary")`, and scoped binary
-helper projections such as `sl.col("hex_payload").unhex()` / `sl.unhex(sl.col("hex_payload"))` and
-`sl.col("b64_payload").from_base64()` / `sl.from_base64(sl.col("b64_payload"))` over direct UTF-8
-source columns, plus scoped complex projection helpers such as
-`sl.array(1, 2, None)` and `sl.struct("label", "amount")` through the JSONL/result boundary only.
-Literal projections emit
-`literal_projection_*` evidence; cast projections emit `cast_projection_*` evidence; numeric
-arithmetic projections emit `numeric_arithmetic_projection_*` evidence; numeric absolute-value
-projections emit `numeric_abs_projection_*` evidence; numeric rounding projections emit
-`numeric_rounding_projection_*` evidence; generalized numeric expression-tree and
-temporal-difference projections emit `generic_expression_projection_*` evidence; generalized
-numeric expression-tree and temporal-difference predicates emit `generic_expression_predicate_*` evidence; string transform
-projections emit `string_transform_projection_*` evidence; string length projections emit
-`string_length_projection_*` evidence; date/time extract projections emit
-`date_extract_projection_*` and `timestamp_extract_projection_*` evidence; date arithmetic
-projections emit `date_arithmetic_projection_*` evidence; UTC-or-fixed-offset timestamp arithmetic predicates and
-projections emit `timestamp_arithmetic_*` and `timestamp_arithmetic_projection_*` evidence; null coalesce projections emit
-`null_coalesce_projection_*` evidence; nullif projections emit `nullif_projection_*` evidence;
-conditional projections emit
-`conditional_projection_*` evidence; decimal cast projections/predicates emit `decimal_cast_*`
-precision, scale, mode, and exact-output-boundary evidence while preserving generic
-`cast_projection_*` / `cast_*` fields; binary cast projections emit `cast_projection_*` evidence with
-`binary` target dtypes; binary helper projections emit
-`binary_helper_projection_*` evidence; scoped complex projections emit
-`complex_projection_*` evidence. Scoped decimal cast-plus-arithmetic projections use the generic
-expression projection surface and emit `generic_expression_projection_*` evidence with exact
-decimal string result rows. Sorting after an input-backed computed projection is admitted
-for bounded top-N workflows when the sort key resolves to a projected computed alias or a source
-column; those workflows emit `computed_projection_top_n_runtime_execution=true`,
-`computed_projection_operator_family=computed_projection_topn`, and the ordinary `sort_*` and
-`top_n_*` evidence fields. Mixed `int64`/`float64` arithmetic promotes to `float64`
-only when the `int64` operand is exactly representable as `float64`; lossy mixed coercions,
-generic expression missing-source-column and division-by-zero cases, `COALESCE(..., NULL)`,
-`NULLIF(..., NULL)`, non-null source/fallback dtype mismatches, and non-null source/sentinel dtype
-mismatches block deterministically before fallback. `CASE WHEN` projections currently admit one
-branch, admitted predicate leaves, non-NULL literal branches, and matching branch dtypes only.
-Binary helper projections admit direct source columns only, with strict even-length hexadecimal or
-standard padded base64 decoding, null propagation, and deterministic invalid-input blockers.
-Scoped SQL `BINARY '<utf8>'` / `BLOB '<utf8>'` byte literal projections and scoped binary cast
-equality/inequality and bytewise lexicographic ordering predicates are admitted through the SQL
-local-source runtime; broad binary source dtype decoding, SQL source-column binary ordering without
-explicit cast, and nested binary helper expressions still block before fallback. Scoped decimal casts
-are admitted for fixed-scale projection and predicate fixtures with
-exact JSONL string and CSV text output; scoped `decimal128` add/subtract/multiply projections over
-same-scale and mixed-scale decimal operands plus integer operands are admitted through the generic
-expression route, and exact division emits a bounded `decimal128(38,max(input_scales,6))` result
-when the quotient is exact at that scale. Feature-gated Parquet/Arrow IPC/Avro compatibility sinks
-and local Vortex output preserve scoped decimal columns as typed `decimal128(p,s)`. ORC typed
-decimal sinks still block before fallback because the pinned ORC writer provider does not preserve
-decimal128 columns; non-exact decimal division and broad ANSI decimal coercion also remain
-deterministic blockers.
-Scoped SQL `ARRAY[...]` and `STRUCT(<source column>, ...)` projections are admitted for
-bounded local-source JSONL/result rows; complex equality, DISTINCT, subquery membership, accessors,
-casts, nested source decoding, and flat compatibility sinks still block before fallback.
-Unsupported computed-column expressions still block before fallback.
-For familiar Python/DataFrame call sites, `.project(...)` is an alias for `.select(...)`,
-`.with_columns(...)` and `.assign(...)` are aliases over repeated admitted `with_column(...)`
-projections, `.groupby(...)` is an alias for `.group_by(...)`, and `.order_by(...)`,
-`.sort_by(...)`, and `.sort_values(...)` are aliases for `.sort(...)`. Row-level duplicate removal
-is admitted for bounded local-source projection, aggregate/HAVING, join, and window output rows
-through SQL `SELECT DISTINCT` and Python/DataFrame `.distinct()`, `.drop_duplicates()`, and
-`.unique()` aliases; LIMIT is applied after duplicate removal and reports `distinct_projection_*`
-evidence. Scoped local-source `UNION` / `UNION ALL` / `INTERSECT` / `EXCEPT` is admitted over
-already-admitted branch `SELECT` plans through raw SQL or Python/DataFrame `.union(...)`,
-`.union_all(...)`, `.intersect(...)`, `.except_(...)`, `.except_rows(...)`, and `.subtract(...)`;
-branch output columns and non-null dtypes must match, branch-local `ORDER BY` / `LIMIT` remains
-blocked, and the result emits `sql_set_operation_*` no-fallback evidence plus `sql_union_*`
-compatibility aliases for the original union route fields. These aliases do not widen the expression
-registry or execution providers; they lower to the same scoped ShardLoom runtime routes and evidence
-fields as the canonical methods.
-CSV, local flat
-JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are admitted for scoped scalar aggregates shaped as
-`aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
-`MIN`, and `MAX`. The convenience `count()` method lowers to the same
-`COUNT(*)` scalar aggregate smoke with a bounded `LIMIT 1`. Multi-key grouped aggregates shaped as
-`group_by(...).agg(...).limit(n)` with an optional filter are supported, including named
-aggregate aliases such as `agg(rows="count(*)", total="sum(amount)")`; those grouped aggregate
-rows can also use scalar top-N ordering over aggregate output aliases and group keys via
-`group_by(...).agg(...).sort(...).limit(n)`. Post-aggregate filtering is admitted through
-explicit `having(...)` or through `filter(...)` after `agg(...)`, and binds only to aggregate
-output aliases and selected group keys before optional `sort(...).limit(n)`. A multi-key
-scalar top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
-over non-null numeric or UTF-8 sort
-keys. Scoped local-source ranking windows are admitted through
-`.window(sl.row_number(...), sl.rank(...), sl.dense_rank(...))`, lowering to
-`ROW_NUMBER()`, `RANK()`, and `DENSE_RANK()` `OVER (...) AS <alias>` projections with
-deterministic partition/order evidence and `window_*` typed report fields. Local-source joins also
-admit scalar and grouped aggregates, including scalar top-N
-ordering over aggregate output aliases and group keys, when the workflow keeps the
-same explicit aliases, qualified join-side columns, optional pre-aggregate filter, and bounded
-`limit(...)`; joined aggregate rows can use the same aggregate-output `HAVING` filter before
-ordering/limit. `collect()` returns bounded inline JSONL through the public workflow `run` facade;
-`write()` writes a local JSONL/CSV file through that same facade
-by default, and local-source workflows can use `write(..., output_format="csv")`
-or `write_csv(...)` for the scoped local CSV sink. They can also use
-`write_parquet(...)` or `write(..., output_format="parquet")` for the scoped
-feature-gated flat scalar Parquet sink when the CLI is built with
-`--features universal-format-io`; default binaries return ShardLoom's
-deterministic Parquet sink blocker. The structured write aliases attach route metadata to the
-returned sink report.
-`write_vortex(...)` writes a scoped local flat scalar `.vortex` result when the CLI is built with
-`--features vortex-write`; default binaries return a deterministic Vortex sink blocker. The scoped
-`.fanout(...)` helper can reuse one computed result for multiple admitted local
-compatibility sinks such as JSONL and CSV, feature-gated flat scalar
-Parquet/Arrow IPC/Avro/ORC when the CLI is built with `--features universal-format-io`,
-and feature-gated local Vortex when built with `--features vortex-write`; fanout now passes an
-explicit primary output plus `--fanout-output` payload through the public workflow `run` facade.
-Written local sinks emit
-format-specific output Native I/O certificate fields plus scoped local replay/fidelity fields such
-as `result_replay_verified`, `output_replay_status`, `output_fidelity_report_status`, and
-`output_fidelity_loss`. Generated-source helpers use the same format-neutral rule: SQL/Python
-expressions are planned before the write boundary, and `.fanout(...)` treats the first requested
-sink as the primary output while writing remaining sinks from the same computed generated rows:
+## Public Local Runtime: Universal Ingest Into A Vortex Middle
 
-```powershell
-New-Item -ItemType Directory -Force target | Out-Null
-@"
-id,label,amount
-1,alpha,8
-2,beta,15
-3,gamma,
-"@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv
-@"
-id,active,score
-1,true,30
-3,true,20
-NULL,false,10
-"@ | Set-Content -Encoding utf8 target\sql-local-source-allowed.csv
-@'
-{"id":1,"label":"alpha","amount":8}
-{"id":2,"label":"beta","amount":15}
-{"id":3,"label":"gamma","amount":21}
-'@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.jsonl
-$env:PYTHONPATH = "python\src"
-@'
+ShardLoom's Python front door is format-neutral at the execution boundary. `ctx.read(path)` and
+the explicit `ctx.read_csv(...)`, `ctx.read_json(...)`, `ctx.read_parquet(...)`,
+`ctx.read_arrow_ipc(...)`, `ctx.read_avro(...)`, `ctx.read_orc(...)`, and
+`ctx.read_vortex(...)` helpers are input adapters. They do not create separate CSV, JSON,
+Parquet, Arrow, Avro, ORC, SQL, or DataFrame execution stacks.
+
+For local compatibility inputs, admitted public workflows now normalize through a caller-local
+Vortex prepared artifact under `.shardloom/prepared/*.vortex`, then execute the admitted native
+Vortex primitive/provider route. Direct decoded `sql-local-source-smoke` remains available only as
+an internal/dev smoke safeguard. Public `collect()`, `count()`, `preview()`, `head()`, `take()`, and
+admitted `ctx.sql(...)` local-source reads must either enter the Vortex-prepared/native path or
+return a deterministic unsupported report. They must not silently decode or materialize local
+compatibility files as the runtime middle.
+
+The invariant on admitted public local workflows is:
+
+```text
+input adapter -> SourceState -> VortexPreparedState or native Vortex input -> ShardLoom native route -> typed result/sink evidence
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Feature-gated structured adapters such as Parquet, Arrow IPC, Avro, and ORC still require the
+matching build/runtime feature. When an adapter, operator, or sink is not enabled or not admitted,
+the Python client returns the CLI unsupported envelope with a stable blocker id and next action.
+That is intentional: unsupported work fails closed instead of using pandas, Polars, DuckDB, Spark,
+DataFusion, or another engine.
+
+A normal local Python use looks like this:
+
+```python
 import shardloom as sl
 
 ctx = sl.context()
-workflow = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .limit(1)
-)
-preview = ctx.read_csv("target/sql-local-source-smoke.csv").preview(limit=2)
-head = ctx.read_csv("target/sql-local-source-smoke.csv").head(limit=2)
-take = ctx.read_csv("target/sql-local-source-smoke.csv").take(2)
-filtered = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .filter("amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%')")
-    .limit(1)
-    .collect()
-)
-predicate_builder_filtered = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .where(sl.col("amount").between(10, 25) & sl.col("label").contains("ta"))
-    .limit(10)
-    .collect()
-)
-literal_column = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .with_column("segment", "lit('north')")
-    .filter(sl.col("amount") >= 10)
-    .limit(10)
-    .collect()
-)
-arithmetic_column = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id")
-    .with_column("adjusted", sl.col("amount") + 5)
-    .filter(sl.col("amount") >= 10)
-    .limit(10)
-    .collect()
-)
-abs_column = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id")
-    .with_column("magnitude", sl.abs(sl.col("amount")))
-    .filter(sl.col("amount").abs() >= 10)
-    .limit(10)
-    .collect()
-)
-rounding_column = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id")
-    .with_column("amount_floor", sl.floor(sl.col("amount")))
-    .filter(sl.col("amount").round() >= 10)
-    .limit(10)
-    .collect()
-)
-ranked = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label", "amount")
-    .filter(sl.col("amount") >= 10)
-    .window(sl.row_number(order_by="amount", descending=True, alias="rn"))
-    .limit(10)
-    .collect()
-)
-ranked_with_ties = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label", "amount")
-    .window(
-        sl.rank(order_by="amount", descending=True, alias="rank"),
-        sl.dense_rank(order_by="amount", descending=True, alias="dense_rank"),
-    )
-    .limit(10)
-    .collect()
-)
-in_filtered = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .filter("label IN ('alpha','gamma')")
-    .limit(10)
-    .collect()
-)
-row_value_filtered = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .filter(sl.row_in(["id", "label"], [(1, "alpha"), (3, "gamma"), (5, None)]))
-    .limit(10)
-    .collect()
-)
-allowed_ids = ctx.read_csv("target/sql-local-source-allowed.csv")
-source_subquery_filtered = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .filter(sl.col("id").isin_source(allowed_ids, "id"))
-    .limit(10)
-    .collect()
-)
-correlated_source_subquery_filtered = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .filter(
-        sl.col("id").isin_source(
-            allowed_ids,
-            "allowed.id",
-            source_alias="allowed",
-            where=sl.col("allowed.id") == sl.outer("id"),
-        )
-    )
-    .limit(10)
-    .collect()
-)
-grouped_source_subquery_filtered = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .filter(
-        sl.col("id").isin_source(
-            ctx.read_csv("target/sql-local-source-grouped.csv"),
-            "id",
-            group_by="id",
-            having="count(*) >= 2 AND id = outer.id",
-            order_by="id",
-            limit=10,
-        )
-    )
-    .limit(10)
-    .collect()
-)
-allowed_pairs = ctx.read_csv("target/sql-local-source-allowed-pairs.csv")
-row_source_subquery_filtered = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .filter(sl.row_in_source(["id", "label"], allowed_pairs, ["allowed_id", "allowed_label"]))
-    .limit(10)
-    .collect()
-)
-active_allowed = ctx.read_csv("target/sql-local-source-allowed.csv")
-exists_subquery_filtered = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .filter(
-        sl.exists_source(
-            active_allowed,
-            where=sl.col("active").is_true(),
-            order_by="score",
-            descending=True,
-            limit=1,
-        )
-    )
-    .limit(10)
-    .collect()
-)
-thresholds = ctx.read_csv("target/sql-local-source-thresholds.csv")
-quantified_subquery_filtered = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id", "label")
-    .filter(
-        sl.col("amount").all_source(
-            ">",
-            thresholds,
-            "threshold",
-            where=sl.col("active").is_true(),
-            order_by="score",
-            descending=True,
-            limit=2,
-        )
-    )
-    .limit(10)
-    .collect()
-)
-unioned = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
-    .select("id")
-    .union_all(ctx.read_csv("target/sql-local-source-allowed.csv").select("id"))
-    .collect(limit=10)
-)
-json_rows = (
-    ctx.read_json("target/sql-local-source-smoke.jsonl")
-    .select("id", "label")
-    .limit(2)
-    .write("target/sql-local-source-json-result.jsonl", allow_overwrite=True)
-)
+orders = ctx.read("target/orders.csv")
 
-collected = workflow.collect()
-python_objects = workflow.to_python_objects()
-schema_report = workflow.schema()
-schema_validation = workflow.validate_schema({"id": "int64", "label": "string"})
-schema_contract = workflow.schema_contract({"id": "int64", "label": "string"})
-quality_report = workflow.data_quality_check("not_null:id", "unique:id")
-profile_report = workflow.profile()
-quarantine_report = workflow.quarantine(
-    "target/sql-local-source-quarantine.jsonl",
-    "not_null:label",
-    output_format="jsonl",
-    allow_overwrite=True,
-)
-sql_workflow = ctx.sql("SELECT id,label,amount FROM 'target/sql-local-source-smoke.csv'")
-sql_schema = sql_workflow.schema()
-sql_contract = sql_workflow.schema_contract({"id": "int64", "label": "string"})
-sql_quality = sql_workflow.data_quality_summary()
-sql_profile = sql_workflow.profile(limit=100)
-sql_preview = sql_workflow.preview(limit=2)
-sql_rows = sql_workflow.collect(limit=2)
-sql_rows_from_chain = sql_workflow.limit(2).collect()
-written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
-csv_written = workflow.write_csv("target/sql-local-source-result.csv", allow_overwrite=True)
-fanout_written = workflow.fanout(
-    {
-        "jsonl": "target/sql-local-source-fanout.jsonl",
-        "csv": "target/sql-local-source-fanout.csv",
-    },
-    allow_overwrite=True,
-)
-aggregate = (
-    ctx.read_json("target/sql-local-source-smoke.jsonl")
-    .aggregate("count(*)", "sum(amount)", "avg(amount)", "min(amount)", "max(amount)")
-    .limit(1)
-    .collect()
-)
-row_count = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
+result = (
+    orders
     .filter(sl.col("amount") >= 10)
-    .count()
-)
-grouped = (
-    ctx.read_json("target/sql-local-source-smoke.jsonl")
-    .group_by("label")
-    .agg("count(*)", "sum(amount)")
-    .limit(10)
-    .collect()
-)
-grouped_having = (
-    ctx.read_json("target/sql-local-source-smoke.jsonl")
-    .group_by("label")
-    .agg(rows="count(*)", total_amount="sum(amount)")
-    .having((sl.col("total_amount") >= 10) & (sl.col("rows") >= 2))
-    .sort("total_amount", descending=True)
-    .limit(10)
-    .collect()
-)
-topn = (
-    ctx.read_json("target/sql-local-source-smoke.jsonl")
-    .select("id", "label")
-    .sort("amount", "id", descending=True)
-    .limit(2)
-    .collect()
-)
-joined = (
-    ctx.read_csv("target/sql-local-source-join-fact.csv")
-    .join(ctx.read_csv("target/sql-local-source-join-dim.csv"), on="customer_id")
-    .select("f.id", "d.segment")
-    .filter("f.amount >= 10")
+    .select("id", "amount", "status")
     .limit(10)
     .collect()
 )
 
-print(collected.result_rows)
-print(python_objects)
-print(schema_report.schema_map)
-print(schema_validation.valid)
-print(quality_report.passed)
-print(sql_schema.schema_map)
-print(sql_quality.null_counts)
-print(sql_preview.result_rows)
-print(written.output_path)
-print(written.output_native_io_certificate_status)
-print(csv_written.output_path)
-print(csv_written.output_format)
-print(csv_written.output_native_io_certificate_status)
-print(fanout_written.fanout_output_count)
-print(fanout_written.fanout_output_formats)
-print(fanout_written.fanout_result_reuse_hit)
-print(written.fallback_attempted, written.external_engine_invoked)
-print(written.evidence_summary.output_native_io_certificate_status)
-print(written.claim_summary.claim_gate_status)
-print(preview.result_rows)
-print(head.result_rows)
-print(take.result_rows)
-print(filtered.logical_predicate_operator, filtered.logical_predicate_leaf_count)
-print(
-    arithmetic_column.result_rows,
-    arithmetic_column.numeric_arithmetic_projection_operator,
-    arithmetic_column.numeric_arithmetic_projection_output_columns,
-)
-print(
-    abs_column.result_rows,
-    abs_column.numeric_abs_projection_runtime_execution,
-    abs_column.numeric_abs_projection_output_columns,
-)
-print(
-    rounding_column.result_rows,
-    rounding_column.numeric_rounding_projection_operators,
-    rounding_column.numeric_rounding_projection_output_columns,
-)
-print(
-    in_filtered.in_predicate_runtime_execution,
-    in_filtered.in_list_value_count,
-    in_filtered.in_list_null_value_count,
-    in_filtered.in_predicate_null_semantics,
-)
-print(
-    row_value_filtered.row_value_in_predicate_runtime_execution,
-    row_value_filtered.row_value_in_source_columns,
-    row_value_filtered.row_value_in_tuple_count,
-    row_value_filtered.row_value_in_null_semantics,
-)
-print(
-    source_subquery_filtered.in_subquery_runtime_execution,
-    source_subquery_filtered.in_subquery_source_columns,
-    source_subquery_filtered.in_subquery_materialized_value_count,
-    source_subquery_filtered.in_subquery_materialized_null_value_count,
-)
-print(
-    correlated_source_subquery_filtered.correlated_subquery_runtime_execution,
-    correlated_source_subquery_filtered.correlated_subquery_outer_columns,
-    correlated_source_subquery_filtered.correlated_subquery_evaluation_strategy,
-)
-print(
-    exists_subquery_filtered.exists_subquery_runtime_execution,
-    exists_subquery_filtered.exists_subquery_projection_kind,
-    exists_subquery_filtered.exists_subquery_bounded_row_count,
-    exists_subquery_filtered.exists_subquery_result,
-)
-print(
-    quantified_subquery_filtered.quantified_subquery_runtime_execution,
-    quantified_subquery_filtered.quantified_subquery_quantifiers,
-    quantified_subquery_filtered.quantified_subquery_materialized_value_count,
-    quantified_subquery_filtered.quantified_subquery_null_semantics,
-)
-print(json_rows.output_path, json_rows.envelope.field("source_format"))
-print(aggregate.first_result_row)
-print(aggregate.aggregate_operator_family)
-print(aggregate.aggregate_functions)
-print(row_count.first_result_row)
-print(row_count.aggregate_functions)
-print(grouped.result_rows)
-print(grouped.aggregate_operator_family)
-print(grouped.group_by_columns)
-print(grouped_having.result_rows)
-print(grouped_having.having_runtime_execution, grouped_having.having_source_columns)
-print(topn.result_rows)
-print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
-print(joined.result_rows)
-print(joined.join_runtime_execution, joined.join_type)
-print(joined.evidence_summary.command)
-print(joined.claim_summary.public_performance_claim_allowed)
-'@ | python -
+print(result.output_row_count)
+print(result.first_result_row)
+print(result.prepared_vortex_path)
+print(result.vortex_ingest_performed)
+print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
-The same admitted local-source SQL can also be entered through `ctx.sql(...)`
-when a user wants the PySpark-like "one SQL string" shape. The broad SQL engine
-remains gated, but admitted statements dispatch to ShardLoom's scoped SQL smoke
-instead of returning report-only by default:
+The equivalent scoped SQL front door uses the same lifecycle after source parsing:
 
 ```python
-sql_rows = ctx.sql(
-    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%') LIMIT 2"
+sql_result = ctx.sql(
+    "SELECT id, amount, status FROM 'target/orders.csv' "
+    "WHERE amount >= 10 LIMIT 10"
 ).collect()
 
-sql_in_rows = ctx.sql(
-    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE label IN ('alpha','gamma') LIMIT 10"
-).collect()
-
-sql_row_value_rows = ctx.sql(
-    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE (id,label) IN ((1,'alpha'),(3,'gamma'),(5,NULL)) LIMIT 10"
-).collect()
-
-sql_in_subquery_rows = ctx.sql(
-    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE id IN (SELECT id FROM 'target/sql-local-source-allowed.csv') LIMIT 10"
-).collect()
-
-sql_exists_rows = ctx.sql(
-    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE EXISTS (SELECT * FROM 'target/sql-local-source-allowed.csv' "
-    "WHERE active IS TRUE ORDER BY score DESC LIMIT 1) LIMIT 10"
-).collect()
-
-sql_quantified_rows = ctx.sql(
-    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE amount > ALL (SELECT threshold FROM 'target/sql-local-source-thresholds.csv' "
-    "WHERE active IS TRUE ORDER BY score DESC LIMIT 2) LIMIT 10"
-).collect()
-
-sql_written = ctx.sql(
-    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE amount >= 10 LIMIT 2"
-).write("target/sql-local-source-from-sql.jsonl", allow_overwrite=True)
-
-print(sql_rows.result_rows)
-print(
-    sql_in_rows.in_predicate_runtime_execution,
-    sql_in_rows.in_list_value_count,
-    sql_in_rows.in_list_null_value_count,
-    sql_in_rows.in_predicate_null_semantics,
-)
-print(
-    sql_row_value_rows.row_value_in_predicate_runtime_execution,
-    sql_row_value_rows.row_value_in_tuple_count,
-    sql_row_value_rows.row_value_in_null_semantics,
-)
-print(
-    sql_in_subquery_rows.in_subquery_runtime_execution,
-    sql_in_subquery_rows.in_subquery_source_formats,
-    sql_in_subquery_rows.in_subquery_materialized_value_count,
-)
-print(
-    sql_exists_rows.exists_subquery_runtime_execution,
-    sql_exists_rows.exists_subquery_source_formats,
-    sql_exists_rows.exists_subquery_result,
-)
-print(
-    sql_quantified_rows.quantified_subquery_runtime_execution,
-    sql_quantified_rows.quantified_subquery_source_formats,
-    sql_quantified_rows.quantified_subquery_materialized_value_count,
-)
-print(sql_written.output_path)
-print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
+print(sql_result.prepared_vortex_path)
+print(sql_result.fallback_attempted, sql_result.external_engine_invoked)
 ```
 
-This is a fixture-smoke local CSV plus flat JSON/JSONL/NDJSON and feature-gated flat scalar
-Parquet/Arrow IPC/Avro/ORC bridge for the scoped
-projection/optional-filter/limit, scalar aggregate, scalar aggregate-output top-N,
-multi-key grouped aggregate, grouped aggregate-output top-N,
-preview/head/take select-star, input-backed literal, scoped numeric arithmetic, scoped numeric
-ABS, scoped numeric rounding, and scoped UTF-8 string length `with_column`,
-multi-key scalar top-N, and scoped local-source join shapes covering inner, left/right/full outer,
-left semi/anti, cross joins, and scoped expression-condition joins.
-Joined workflows also admit scoped computed projections over qualified columns plus multi-key
-scalar top-N over joined rows. Scoped scalar/grouped join aggregates over those same join shapes
-lower through the same runtime, may filter aggregate output rows with `HAVING`, and may order by
-numeric aggregate output aliases or UTF-8 group keys before a bounded `limit(...)`.
-Schema-declared local-source `fillna(...)` / `fill_null(...)` now rewrite selected or declared
-columns to scoped `COALESCE(column, literal)` projections, and schema-declared
-`isna(...)` / `isnull(...)` / `notna(...)` / `notnull(...)` rewrite explicit or declared columns to
-`IS NULL` / `IS NOT NULL` boolean projections. Broad pandas null-fill options, inferred schemas,
-unsafe expression/join/aggregate/window shapes, and full mask result-shape parity remain gated.
-It does not make the Python client a
-pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
-expression-backed `with_column` beyond the admitted numeric/string/null/temporal/predicate and
-scoped JSONL/result-boundary complex projection families,
-generalized grouped aggregation or HAVING expressions beyond emitted aggregate output columns,
-ordering/collation parity, nested JSON source decoding, complex equality/accessors/casts,
-broader binary source decoding, broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
-production claim.
-
-The Python query builder admits scoped local-source joins through the same scoped SQL local-source
-smoke. Both sides must be admitted local sources such as CSV or flat JSON/JSONL/NDJSON, with
-feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC using the same deterministic adapter gates as
-other local-source smokes. Use `join(..., on="key")` or
-`join(..., on=("customer_id", "region"))` for inner, left/right/full outer, left semi, or left
-anti joins over matching same-named key columns on both sides. Use `join(..., how="cross")`
-without `on` for a scoped cross join and place filters in `filter(...)` / SQL `WHERE`. Qualified
-expression joins use `join(..., condition="f.amount > d.threshold")`, predicate objects such as
-`join(..., condition=(sl.col("f.customer_id") == sl.col("d.customer_id")) | (sl.col("f.region") == sl.col("d.region")))`,
-or direct SQL `ON` predicates. The condition must bind qualified columns from both sides, may use
-scoped logical `OR` over admitted scalar leaves, and remains independent of the source file format.
-Qualified
-projection columns such as `f.id` and `d.segment`, a qualified predicate such as `f.amount >= 10`,
-and an explicit `limit(...)` are required. Left semi and left anti joins emit the left source only;
-right-side projections outside the `ON` clause fail closed. A joined workflow can add admitted
-`with_column(...)` expressions over
-qualified columns and may use `sort("f.amount", "f.id", descending=True).limit(n)` for the scoped
-multi-key scalar joined top-N path. A joined workflow can also end in `agg(...).limit(...)` or
-`group_by(...).agg(...).limit(...)` for the admitted scalar/grouped join-aggregate subset, and can
-place `having(...)` or post-aggregate `filter(...)` before
-`sort("total_amount", descending=True).limit(n)` when the HAVING predicate binds only emitted
-aggregate output aliases or group keys. Broad
-DataFrame joins remain blocked: arbitrary join predicate trees beyond the admitted expression ON
-families, unqualified join predicates, complex equality/accessor/cast semantics, nested source
-decoding, and
-object-store/table joins still return deterministic unsupported diagnostics or
-fail closed through the scoped SQL binder.
-
-Typed runtime reports expose `result_rows` and `first_result_row` helpers plus compact evidence and
-claim helpers so examples do not need to parse raw JSONL or scrape raw envelope fields. The
-`to_python_objects()` convenience returns the same validated bounded row objects directly for
-admitted local-source workflows. Schema and data-quality helpers use the same bounded
-`sql-local-source-smoke` path, so format-specific behavior remains isolated to read adapters and
-write sinks:
+Direct native Vortex input skips compatibility preparation and starts at the Vortex boundary:
 
 ```python
-summary = written.evidence_summary
-claim = written.claim_summary
+vortex_result = (
+    ctx.read_vortex("target/orders.vortex")
+    .filter(sl.col("amount") >= 10)
+    .select("id", "amount", "status")
+    .limit(10)
+    .collect()
+)
 
-print(collected.first_result_row)
-print(workflow.schema().schema_map)
-print(workflow.validate_schema({"id": "int64", "label": "string"}).valid)
-print(workflow.schema_contract({"id": "int64", "label": "string"}).valid)
-print(workflow.data_quality_summary().null_counts)
-print(workflow.data_quality_check("not_null:id", "unique:id").passed)
-print(summary.output_path)
-print(summary.output_io_performed)
-print(summary.fallback_attempted, summary.external_engine_invoked)
-print(claim.claim_gate_status)
-print(claim.public_performance_claim_allowed)
+print(vortex_result.native_vortex_capability_status)
+print(vortex_result.fallback_attempted, vortex_result.external_engine_invoked)
 ```
 
-The lower-level `client.sql_local_source_smoke(...)` helper can also call the
-scoped local CSV scalar aggregate, grouped aggregate, aggregate-output order/top-N, projection
-order/top-N, explicit local-source joins, joined row top-N, and joined aggregate-output order/top-N
-smokes directly. Direct client calls are only a typed wrapper around the CLI fixture-smoke evidence:
+Exact benchmark-family provider shapes are admitted through the same public facade when the native
+provider route is available: grouped count/sum, null-heavy grouped count/sum, hash join with a
+declared right Vortex input, global top-N, clean/cast/filter, malformed timestamp cast, substring
+contains, and native Vortex result sinks. The current exact-route inventory lives in
+`docs/architecture/v1-vortex-runtime-scope.md` and the machine-readable capability reports.
+General SQL/DataFrame parity, arbitrary expression trees, arbitrary joins, broad schema/profile
+materialization, and broad remote/table exports are not implied by those exact routes.
+
+Compatibility sinks such as JSONL/CSV/Parquet/Arrow IPC/Avro/ORC are admitted for scoped local
+workflows after Vortex preparation or native Vortex input and declared output replay evidence.
+`write_vortex(...)` remains the highest-fidelity local Vortex sink route for admitted native-provider
+workflows. If a sink shape is not admitted, call it with `check=False` to inspect the deterministic
+blocker without raising:
 
 ```python
-report = client.sql_local_source_smoke(
-    "SELECT count(*),sum(amount),avg(amount) "
-    "FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE amount >= 10 LIMIT 1",
-)
-print(report.first_result_row)
-print(report.claim_gate_status)
-
-grouped = client.sql_local_source_smoke(
-    "SELECT region,segment,count(*) AS rows,sum(amount) AS total_amount "
-    "FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE amount >= 10 GROUP BY region,segment LIMIT 10",
-)
-print(grouped.group_by_columns)
-print(grouped.group_by_key_arity)
-print(grouped.group_by_multi_key_runtime_execution)
-print(grouped.aggregate_output_columns)
-print(grouped.aggregate_aliases)
-print(grouped.group_by_group_count)
-
-grouped_topn = client.sql_local_source_smoke(
-    "SELECT region,count(*) AS rows,sum(amount) AS total_amount "
-    "FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE amount >= 10 GROUP BY region "
-    "ORDER BY total_amount DESC,rows DESC LIMIT 2",
-)
-print(grouped_topn.sort_keys)
-print(grouped_topn.sort_direction)
-print(grouped_topn.top_n_limit)
-
-grouped_having = client.sql_local_source_smoke(
-    "SELECT region,count(*) AS rows,sum(amount) AS total_amount "
-    "FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE amount >= 0 GROUP BY region "
-    "HAVING total_amount >= 10 AND rows >= 2 "
-    "ORDER BY total_amount DESC LIMIT 10",
-)
-print(grouped_having.having_runtime_execution)
-print(grouped_having.having_operator_family)
-print(grouped_having.having_source_columns)
-print(grouped_having.having_input_row_count, grouped_having.having_selected_row_count)
-
-topn = client.sql_local_source_smoke(
-    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE amount >= 0 ORDER BY amount DESC LIMIT 2",
-)
-print(topn.sort_keys)
-print(topn.top_n_limit)
-
-join = client.sql_local_source_smoke(
-    "SELECT f.id,d.segment "
-    "FROM 'target/sql-local-source-join-fact.csv' AS f "
-    "INNER JOIN 'target/sql-local-source-join-dim.csv' AS d "
-    "ON f.customer_id = d.customer_id AND f.region = d.region "
-    "WHERE f.amount >= 10 LIMIT 10",
-)
-print(join.join_runtime_execution)
-print(join.join_type)
-print(join.join_left_keys, join.join_right_keys)
-print(join.join_key_arity, join.join_multi_key_runtime_execution)
-print(join.join_matched_row_count, join.join_rows_output)
-
-join_topn = client.sql_local_source_smoke(
-    "SELECT f.id,d.segment,f.amount + d.discount AS adjusted "
-    "FROM 'target/sql-local-source-join-fact.csv' AS f "
-    "INNER JOIN 'target/sql-local-source-join-dim.csv' AS d "
-    "ON f.customer_id = d.customer_id AND f.region = d.region "
-    "WHERE f.amount >= 10 ORDER BY f.amount DESC LIMIT 3",
-)
-print(join_topn.join_computed_projection_runtime_execution)
-print(join_topn.join_order_by_top_n_runtime_execution)
-print(join_topn.join_projection_operator_family)
-
-join_grouped = client.sql_local_source_smoke(
-    "SELECT d.segment,count(*) AS rows,sum(f.amount) AS total_amount "
-    "FROM 'target/sql-local-source-join-fact.csv' AS f "
-    "INNER JOIN 'target/sql-local-source-join-dim.csv' AS d "
-    "ON f.customer_id = d.customer_id AND f.region = d.region "
-    "WHERE f.amount >= 10 GROUP BY d.segment LIMIT 10",
-)
-print(join_grouped.join_aggregate_runtime_execution)
-print(join_grouped.join_aggregate_operator_family)
-print(join_grouped.join_aggregate_group_count)
-
-join_grouped_topn = client.sql_local_source_smoke(
-    "SELECT d.segment,count(*) AS rows,sum(f.amount) AS total_amount "
-    "FROM 'target/sql-local-source-join-fact.csv' AS f "
-    "INNER JOIN 'target/sql-local-source-join-dim.csv' AS d "
-    "ON f.customer_id = d.customer_id AND f.region = d.region "
-    "WHERE f.amount >= 10 GROUP BY d.segment "
-    "ORDER BY total_amount DESC,rows DESC LIMIT 2",
-)
-print(join_grouped_topn.sort_keys)
-print(join_grouped_topn.top_n_limit)
+result = orders.write_jsonl("target/orders.jsonl", allow_overwrite=True, check=False)
+print(result.output_path)
+print(result.result_replay_verified)
+print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
-That path is still fixture-smoke evidence only. Broader grouped aggregate generality,
-null ordering, collation parity,
-broad ANSI subquery parity beyond admitted bounded local scalar IN-subqueries, row-value
-IN-subqueries, scoped local EXISTS predicates, scoped quantified ANY/ALL predicates, scoped
-source-qualified scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and quantified local subquery refs, scoped
-correlated `outer.<column>` source-subquery filters, scoped subquery-backed predicate/CASE
-projections, and grouped/HAVING projected source-subquery tails for those families, arbitrary
-predicate-tree completeness beyond the admitted
-parenthesized leaves, Python/DataFrame joins beyond
-the scoped local-source query-builder bridge, broad expression-backed input-backed `with_column`,
-arbitrary expression/non-equi join predicates beyond the admitted expression ON families, broad
-HAVING over non-output source columns or aggregate-function expressions not emitted as aliases,
-broad SQL/DataFrame planning, and
-production query support remain blocked until later runtime slices.
+The lower-level `client.sql_local_source_smoke(...)` helper remains documented only for internal
+fixture-smoke and regression work. It is not the public product route and should not be used in
+normal application examples.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A
 future Python `explain()` trace should expose optimizer rule status, before/after plan digests,
 rewrite safety, evidence preservation, no-fallback fields, and claim gates without implying broad
 SQL/DataFrame execution or Polars/DataFusion optimizer parity.
 
-Reusable I/O state and broad cross-format fanout are planned as `GAR-IOREUSE-1`. The current Python
-runtime exposes scoped local-source `.fanout(...)` smokes over admitted local compatibility sinks and
-feature-gated local Vortex output/fanout with local artifact replay/fidelity reporting, routed
-through the public workflow `run` facade where the local output payload is admitted. Generated
-source-free helpers also expose `.fanout(...)` over admitted generated rows and source-free SQL
-through the same public facade.
+Reusable I/O state and broad cross-format fanout are planned as `GAR-IOREUSE-1`. Public local
+compatibility workflows no longer use a direct local-source fanout/write route as a product runtime:
+they prepare through Vortex first, then emit declared local sink replay evidence. Generated-source
+helpers keep their separate local-output fanout surfaces because those rows are produced by explicit
+source-free/generated-source commands, not by decoding a local compatibility file as the runtime
+middle.
 Current typed result objects expose scoped `SourceState`, `VortexPreparedState`, and `OutputPlan`
 evidence where the CLI emits it; future Python capability/write views may broaden cache
 invalidation, reuse levels, persistent OutputPlan reuse, and claim-grade replay/fidelity evidence.
@@ -1569,8 +765,11 @@ Input and output formats remain decoupled, and reuse evidence will not imply per
 production, object-store/lakehouse, Foundry, or SQL/DataFrame support.
 
 Unsupported workflow affordances are explicit report surfaces too. These calls show how familiar
-pandas/Arrow/DataFrame/notebook methods fail closed when they are outside the admitted bounded
-local-source or materialized-input shapes:
+pandas/Arrow/DataFrame/notebook methods either use admitted bounded local-source/materialized-input
+shapes or fail closed when the requested operation is outside that scope:
+
+Unsupported rows expose stable evidence fields such as `blocked.required_evidence`,
+`blocker_id`, `required_evidence`, and `suggested_next_action` for agents.
 
 ```python
 import shardloom as sl
@@ -1601,15 +800,20 @@ reports = [
 ]
 
 for report in reports:
-    print(report.operation)
-    print(report.blocker_id)
-    print(report.required_evidence)
-    print(report.suggested_next_action)
-    print(report.runtime_execution, report.data_read, report.write_io)
+    print(getattr(report, "operation", type(report).__name__))
+    print(getattr(report, "blocker_id", None))
+    print(getattr(report, "required_evidence", ()))
+    print(getattr(report, "suggested_next_action", None))
+    print(
+        getattr(report, "runtime_execution", None),
+        getattr(report, "data_read", None),
+        getattr(report, "write_io", None),
+    )
 ```
 
-Every report above is generated through `workflow-unsupported-plan` and returns
-`status="unsupported"` with `fallback_attempted=false`. The methods do not
+Unsupported reports above are generated through `workflow-unsupported-plan` and return
+`status="unsupported"` with `fallback_attempted=false`; admitted reports preserve the same
+no-fallback fields on their success evidence. The methods do not
 use pandas, pyarrow, or numpy as execution engines, parse SQL, execute
 unsupported DataFrame expressions, render broad notebook runtime output, invoke Foundry/model
 services, or use another engine as fallback. Valid pandas/Arrow inputs are treated as explicit
@@ -1638,65 +842,33 @@ print(join.required_evidence)
 print(join.claim_boundary)
 ```
 
-This matrix is still claim-safe, but it now distinguishes scoped runnable rows from broad
-unsupported rows. The scoped local CSV `collect` and `write` rows plus the flat
-JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
-projection/optional-filter/limit bridges are marked as
-fixture-smoke-supported only for the admitted projection/optional-filter/limit,
-preview/select-star, scalar aggregate, multi-key grouped aggregate, join, sort, computed-column,
-JSONL/result-boundary complex projection, and scoped ranking-window shapes described above.
-Alias rows such as `project`, `with_columns`, `assign`, `groupby`, `order_by`, `sort_by`,
-`sort_values`, `distinct`, `drop_duplicates`, and `unique` are included in the matrix so wrappers
-and agents can distinguish familiar method names that lower to existing runtime evidence from
-genuinely unsupported DataFrame requests. Schema-declared local-source `rename` /
-`rename_columns` and `drop` / `drop_columns` are also fixture-smoke-supported: they rewrite the
-declared projection to ShardLoom SQL aliases or column exclusion before an admitted terminal
-collect/write route runs. Inferred-schema, join, aggregate, window, expression, unknown-column,
-duplicate-output, and drop-all-column shapes still fail closed without invoking pandas, Polars, or
-another DataFrame backend.
-`ctx.sql(...)` is also fixture-smoke-supported only for scoped local-source
-collect/write and source-free generated-output writes covered by the SQL ladder. Broad SQL
-parse/bind/plan/execute, catalogs, object-store/table SQL, and generalized DataFrame runtime still
-return deterministic blockers. The `dataframe_generated_with_column` row is fixture-smoke-supported
-for the scoped literal helper and for concrete generated builders such as
-`ctx.from_rows(...).with_column(...)` and `ctx.range(...).with_column(...)`; broad generated
-DataFrame expression runtime still uses deterministic unsupported diagnostics.
-It does not use DataFrame libraries as execution engines, invoke external engines, or upgrade
-DataFrame/notebook support to claim-grade status. Other lazy source, `filter`, `select`/`project`,
-`limit`, and `group_by`/`groupby` helpers remain side-effect-free declarations unless an admitted
-terminal method is called. Joins, aggregations, windows, schema/data-quality helpers, bounded
-runtime profile, scoped local-source quarantine, scoped `value_counts` grouped-count lowering,
-scoped row-wise `concat` over two explicitly matching projected local-source branches, bounded
-explicit-key `merge` over the admitted join route, scoped one-column `nunique` over
-`count(DISTINCT ...)`, bounded Python-object materialization, optional pandas/Arrow/NumPy
-conversion, and notebook preview remain fixture-scoped; broad pandas summary parity,
-implicit/suffix merge, schema-union concat, axis=1 concat, unbounded materialization, production
-observability, production quarantine governance, and production notebook display remain
-deterministic unsupported surfaces unless later evidence-backed slices promote them.
-`value_counts(...)` is supported only as a local-source `group_by(...).count(rows)` rewrite with
-optional `IS NOT NULL` dropna filtering and rows-desc ordering; normalize/bin/axis behavior and
-unsafe plan shapes remain blockers.
-`concat(...)` is supported only as row-wise `UNION ALL` for two local-source branches that already
-project the same bare columns explicitly; implicit schema alignment, path targets, multi-branch
-concat, and column-wise concat remain blockers.
-`merge(...)` is supported only as an explicit `on=...` alias to the admitted ShardLoom `join(...)`
-route; implicit key inference, `left_on`/`right_on`, suffix handling, and right-side operations
-remain blockers.
-`nunique(...)` is supported only as one bare column with `dropna=True`, lowering to SQL
-`count(DISTINCT column)`; multi-column result shapes, `dropna=False`, and axis semantics remain
-blockers.
-`schema_contract(...)` is supported as the exact bounded `validate_schema(...)` contract over the
-same admitted local-source rows; it is not a broad schema registry, table constraint manager, or
-object-store/lakehouse enforcement surface.
-`profile(...)` is supported as a bounded local-source runtime profile over the same
-`sql-local-source-smoke` path, reporting row count, field count, null counts, inline JSONL
-materialization, and no-fallback evidence. It is not a hidden pandas/Polars profiler, resource
-tracer, performance claim, or production observability surface.
-`quarantine(...)` is supported for scoped local-source bounded classification; pushdownable
-`not_null:column` quarantine rows can write to admitted local sinks through
-`sql-local-source-smoke`, while non-pushdown checks remain explicit report-only bounded
-classification. It is not object-store/table quarantine, production remediation, or a broad
-data-governance engine.
+This matrix is still claim-safe, but its statuses should be read through the Vortex-middle contract.
+Local compatibility rows are not successful public runtime routes merely because a lower-level smoke
+command exists. Terminal methods are one of: side-effect-free lazy declarations, production-admitted
+local workflows that normalize through Vortex preparation or native Vortex input, source-free
+GeneratedSource local-output rows, internal smoke safeguards, or deterministic unsupported reports.
+
+For local compatibility inputs, admitted `collect()`, `count()`, `preview()`, `head()`, `take()`,
+schema/data-quality summaries, bounded decoded materialization, local compatibility writes,
+compatibility fanout, quarantine sinks, and exact benchmark-family provider shapes enter the same
+Vortex-prepared/native route described above. Profile summaries and broad production/export
+semantics remain blocked unless a later native Vortex materialization or export contract admits
+them. Alias rows such as `project`, `where`, `groupby`, `order_by`,
+`sort_values`, `merge`, and `nlargest` are useful only when their normalized operation shape maps to
+an admitted native route; otherwise they return the matching unsupported report before data is read.
+
+Generated-source rows such as `ctx.from_rows(...)`, `ctx.range(...)`, `ctx.sequence(...)`, and
+source-free SQL have their own local output contracts. Those are not proof that local CSV/JSON/etc.
+compatibility files can use direct decoded sinks as a product runtime.
+
+`schema_contract(...)` and `validate_schema(...)` are bounded local schema evidence surfaces after
+Vortex preparation. They are not broad schema registry, table constraint manager, or object-store/
+lakehouse enforcement surfaces.
+`profile(...)` remains blocked until it has a native Vortex runtime profile/materialization
+contract. It is not a hidden pandas/Polars profiler, resource tracer, performance claim, or
+production observability surface.
+`quarantine(...)` is admitted for bounded local checks and optional local sink replay evidence. It is
+not object-store/table quarantine, production remediation, or a broad data-governance engine.
 
 When the question is broader than one DataFrame method, use the front-door parity matrix. It
 separates workflows that already lower SQL, Python, and DataFrame-style code to the same ShardLoom
@@ -1714,12 +886,14 @@ print(parity.row("local_file_filter_project_limit").shared_runtime_path)
 print(parity.row("arbitrary_sql_python_dataframe_breadth").blocker_id)
 ```
 
-The scoped local file, generated-output, bounded schema/data-quality/preview, and bounded decoded
-materialization rows are admitted. General Vortex workflows, broad unbounded decoded
-pandas/Arrow/NumPy materialization, object-store/lakehouse/table I/O, arbitrary
-SQL/Python/DataFrame breadth, and cross-front-door performance equivalence remain explicit gap rows
-until correctness, Native I/O, execution-certificate, no-fallback, and benchmark evidence closes
-them.
+Scoped local-file rows are admitted only when they normalize through Vortex preparation or start
+from native Vortex input and then match an admitted primitive/provider route. Generated-output rows
+remain separate source-free local-output contracts. Bounded schema/data-quality previews and decoded
+Python/pandas/Arrow/NumPy materialization are explicit gap rows until native Vortex-derived evidence
+and export/materialization contracts close them. General Vortex workflows, object-store/lakehouse/
+table I/O, arbitrary SQL/Python/DataFrame breadth, and cross-front-door performance equivalence
+remain explicit gap rows until correctness, Native I/O, execution-certificate, no-fallback, and
+benchmark evidence closes them.
 
 The v1 Vortex runtime scope is owned by `docs/architecture/v1-vortex-runtime-scope.md`. Use
 `ctx.local_vortex_primitive_route_report()` for the feature-gated local Vortex primitive route
