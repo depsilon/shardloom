@@ -98,12 +98,12 @@ V1_FRONT_DOOR_SUPPORTED_PARITY_ROW_IDS = (
     "local_file_filter_project_limit",
     "local_file_join_aggregate_sort_window",
     "generated_source_output",
-    "local_vortex_primitive_runtime",
-)
-V1_FRONT_DOOR_PENDING_PARITY_ROW_IDS = (
     "schema_quality_preview",
+    "local_vortex_primitive_runtime",
     "typed_nested_compatibility_sink",
     "decoded_materialization_interop",
+)
+V1_FRONT_DOOR_PENDING_PARITY_ROW_IDS = (
     "native_vortex_general_runtime",
     "object_store_lakehouse_catalog",
     "arbitrary_sql_python_dataframe_breadth",
@@ -4723,130 +4723,152 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "window",
         "window",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_window_operator",
             "vortex_prepared_state_or_native_vortex_input",
+            "scoped_window_projection_route",
             "execution_certificate",
+            "native_io_certificate",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.window.native_vortex_operator_missing",
+        runtime_execution=True,
+        data_read=True,
         claim_boundary=(
-            "window remains blocked for public local compatibility workflows until a native "
-            "Vortex operator route is admitted. Direct local-source smoke evidence is internal-only "
-            "and no external fallback is used."
+            "Scoped window projection shapes append to the ShardLoom local workflow only when "
+            "the expression is admitted and the source is Vortex-prepared or Vortex-native. "
+            "Unsupported frame/order/expression shapes still return deterministic blockers "
+            "without external fallback."
         ),
     ),
     _df_method(
         "schema_contract",
         "schema_quality",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_schema_evidence",
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_schema_report_contract",
+            "schema_validation_contract",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.schema-contract.native_vortex_schema_contract_missing",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "schema_contract remains blocked for public local compatibility inputs until schema/data-quality "
-            "evidence is derived from the native Vortex route. It is not a hidden decoded local-source "
-            "smoke, pandas/Polars profiler, external engine, or fallback path."
+            "schema_contract is admitted for bounded local workflows after Vortex preparation and "
+            "schema report evidence. It is not a pandas/Polars profiler, external engine, "
+            "object-store/table schema contract, or benchmark-backed schema-performance claim."
         ),
     ),
     _df_method(
         "schema",
         "schema_quality",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_schema_evidence",
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_schema_report_contract",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.schema.native_vortex_schema_contract_missing",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "schema remains blocked for public local compatibility inputs until schema/data-quality "
-            "evidence is derived from the native Vortex route. It is not a hidden decoded local-source "
-            "smoke, pandas/Polars profiler, external engine, or fallback path."
+            "schema is admitted for bounded local workflows after Vortex preparation and schema "
+            "report evidence. It is not object-store/table schema discovery, a pandas/Polars "
+            "profiler, external engine, or benchmark-backed schema-performance claim."
         ),
     ),
     _df_method(
         "describe_schema",
         "schema_quality",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_schema_evidence",
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_schema_report_contract",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.describe-schema.native_vortex_schema_contract_missing",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "describe_schema remains blocked for public local compatibility inputs until schema/data-quality "
-            "evidence is derived from the native Vortex route. It is not a hidden decoded local-source "
-            "smoke, pandas/Polars profiler, external engine, or fallback path."
+            "describe_schema is admitted for bounded local workflows after Vortex preparation and "
+            "schema report evidence. It is not object-store/table schema discovery, a "
+            "pandas/Polars profiler, external engine, or benchmark-backed schema-performance claim."
         ),
     ),
     _df_method(
         "validate_schema",
         "schema_quality",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_schema_evidence",
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_schema_report_contract",
+            "schema_validation_contract",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.validate-schema.native_vortex_schema_contract_missing",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "validate_schema remains blocked for public local compatibility inputs until schema/data-quality "
-            "evidence is derived from the native Vortex route. It is not a hidden decoded local-source "
-            "smoke, pandas/Polars profiler, external engine, or fallback path."
+            "validate_schema is admitted for bounded local workflows after Vortex preparation and "
+            "schema report evidence. It is not object-store/table schema validation, a "
+            "pandas/Polars profiler, external engine, or benchmark-backed schema-performance claim."
         ),
     ),
     _df_method(
         "data_quality_check",
         "schema_quality",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_schema_evidence",
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_schema_report_contract",
+            "data_quality_report_contract",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.data-quality-check.native_vortex_schema_contract_missing",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "data_quality_check remains blocked for public local compatibility inputs until schema/data-quality "
-            "evidence is derived from the native Vortex route. It is not a hidden decoded local-source "
-            "smoke, pandas/Polars profiler, external engine, or fallback path."
+            "data_quality_check is admitted for bounded local workflows after Vortex preparation, "
+            "schema report evidence, and declared checks. It is not a pandas/Polars profiler, "
+            "external engine, production data-quality service, or benchmark-backed claim."
         ),
     ),
     _df_method(
         "data_quality",
         "schema_quality",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_schema_evidence",
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_schema_report_contract",
+            "data_quality_report_contract",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.data-quality.native_vortex_schema_contract_missing",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "data_quality remains blocked for public local compatibility inputs until schema/data-quality "
-            "evidence is derived from the native Vortex route. It is not a hidden decoded local-source "
-            "smoke, pandas/Polars profiler, external engine, or fallback path."
+            "data_quality is admitted for bounded local workflows after Vortex preparation, schema "
+            "report evidence, and declared checks. It is not a pandas/Polars profiler, external "
+            "engine, production data-quality service, or benchmark-backed claim."
         ),
     ),
     _df_method(
         "data_quality_summary",
         "schema_quality",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_schema_evidence",
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_schema_report_contract",
+            "data_quality_report_contract",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.data-quality-summary.native_vortex_schema_contract_missing",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "data_quality_summary remains blocked for public local compatibility inputs until schema/data-quality "
-            "evidence is derived from the native Vortex route. It is not a hidden decoded local-source "
-            "smoke, pandas/Polars profiler, external engine, or fallback path."
+            "data_quality_summary is admitted for bounded local workflows after Vortex preparation "
+            "and schema/data-quality report evidence. It is not a pandas/Polars profiler, "
+            "external engine, production data-quality service, or benchmark-backed claim."
         ),
     ),
     _df_method(
@@ -4894,157 +4916,202 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "write",
         "write",
-        "runtime_expansion_pending",
-        required_evidence=('native_vortex_export_contract', 'typed_sink_contract', 'output_replay_certificate', 'no_fallback_evidence'),
-        blocker_id="cg21.workflow.write.native_vortex_export_contract_missing",
+        "production_admitted_local_workflow",
+        required_evidence=(
+            "vortex_prepared_state_or_native_vortex_input",
+            "declared_local_sink_contract",
+            "output_replay_certificate",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         claim_boundary=(
-            "Compatibility-file write remains blocked for public local workflows until a native "
-            "Vortex export/replay contract admits the sink. Direct local-source smoke writes are "
-            "internal-only and are not a product runtime path; no external engine or fallback is used."
+            "write is admitted for scoped local workflows after Vortex preparation and declared "
+            "local sink replay evidence. Compatibility outputs may report metadata/fidelity loss; "
+            "this is not object-store/table output, external engine execution, fallback, or a "
+            "performance claim."
         ),
     ),
     _df_method(
         "write_jsonl",
         "write",
-        "runtime_expansion_pending",
-        required_evidence=('native_vortex_jsonl_export_contract', 'typed_sink_contract', 'output_replay_certificate', 'no_fallback_evidence'),
-        blocker_id="cg21.workflow.write-jsonl.native_vortex_export_contract_missing",
+        "production_admitted_local_workflow",
+        required_evidence=(
+            "vortex_prepared_state_or_native_vortex_input",
+            "jsonl_local_sink_contract",
+            "output_replay_certificate",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         claim_boundary=(
-            "Compatibility-file write_jsonl remains blocked for public local workflows until a native "
-            "Vortex export/replay contract admits the sink. Direct local-source smoke writes are "
-            "internal-only and are not a product runtime path; no external engine or fallback is used."
+            "write_jsonl is admitted for scoped local workflows after Vortex preparation and JSONL "
+            "sink replay evidence. JSONL is a compatibility output, not native Vortex layout "
+            "preservation, external engine execution, fallback, or a performance claim."
         ),
     ),
     _df_method(
         "write_csv",
         "write",
-        "runtime_expansion_pending",
-        required_evidence=('native_vortex_csv_export_contract', 'typed_sink_contract', 'output_replay_certificate', 'no_fallback_evidence'),
-        blocker_id="cg21.workflow.write-csv.native_vortex_export_contract_missing",
+        "production_admitted_local_workflow",
+        required_evidence=(
+            "vortex_prepared_state_or_native_vortex_input",
+            "csv_local_sink_contract",
+            "output_replay_certificate",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         claim_boundary=(
-            "Compatibility-file write_csv remains blocked for public local workflows until a native "
-            "Vortex export/replay contract admits the sink. Direct local-source smoke writes are "
-            "internal-only and are not a product runtime path; no external engine or fallback is used."
+            "write_csv is admitted for scoped local workflows after Vortex preparation and CSV sink "
+            "replay evidence. CSV is a compatibility output that loses static type/layout metadata; "
+            "this is not external engine execution, fallback, or a performance claim."
         ),
     ),
     _df_method(
         "fanout",
         "write",
-        "runtime_expansion_pending",
-        required_evidence=('native_vortex_fanout_export_contract', 'output_reuse_contract', 'output_replay_certificate', 'no_fallback_evidence'),
-        blocker_id="cg21.workflow.fanout.native_vortex_export_contract_missing",
+        "production_admitted_local_workflow",
+        required_evidence=(
+            "vortex_prepared_state_or_native_vortex_input",
+            "local_fanout_sink_contract",
+            "output_reuse_contract",
+            "output_replay_certificate",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         claim_boundary=(
-            "Compatibility-file fanout remains blocked for public local workflows until a native "
-            "Vortex export/replay contract admits the sink. Direct local-source smoke writes are "
-            "internal-only and are not a product runtime path; no external engine or fallback is used."
+            "fanout is admitted for scoped local workflows after Vortex preparation and shared "
+            "local sink replay evidence. It may emit compatibility-output fidelity limits; this is "
+            "not object-store/table fanout, external engine execution, fallback, or a performance claim."
         ),
     ),
     _df_method(
         "to_pandas",
         "materialization",
-        "runtime_expansion_pending",
+        "optional_dependency_container_supported",
         required_evidence=(
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_materialization_contract",
             "decoded_materialization_policy",
             "optional_dependency_policy",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.to-pandas.native_vortex_materialization_contract_missing",
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_pandas remains blocked for public local compatibility inputs until decoded rows or "
-            "containers are derived from an admitted native Vortex result contract. Optional packages "
-            "are containers only, not execution engines, and no fallback is used."
+            "to_pandas is admitted for bounded local workflows after Vortex preparation and a "
+            "bounded ShardLoom materialization report. pandas is an optional container boundary "
+            "only, not an execution engine; missing packages fail deterministically."
         ),
     ),
     _df_method(
         "to_arrow",
         "materialization",
-        "runtime_expansion_pending",
+        "optional_dependency_container_supported",
         required_evidence=(
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_materialization_contract",
             "decoded_materialization_policy",
             "optional_dependency_policy",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.to-arrow.native_vortex_materialization_contract_missing",
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_arrow remains blocked for public local compatibility inputs until decoded rows or "
-            "containers are derived from an admitted native Vortex result contract. Optional packages "
-            "are containers only, not execution engines, and no fallback is used."
+            "to_arrow is admitted for bounded local workflows after Vortex preparation and a "
+            "bounded ShardLoom materialization report. PyArrow is an optional container boundary "
+            "only, not an execution engine; missing packages fail deterministically."
         ),
     ),
     _df_method(
         "to_arrow_table",
         "materialization",
-        "runtime_expansion_pending",
+        "optional_dependency_container_supported",
         required_evidence=(
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_materialization_contract",
             "decoded_materialization_policy",
             "optional_dependency_policy",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.to-arrow-table.native_vortex_materialization_contract_missing",
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_arrow_table remains blocked for public local compatibility inputs until decoded rows or "
-            "containers are derived from an admitted native Vortex result contract. Optional packages "
-            "are containers only, not execution engines, and no fallback is used."
+            "to_arrow_table is admitted for bounded local workflows after Vortex preparation and a "
+            "bounded ShardLoom materialization report. PyArrow is an optional container boundary "
+            "only, not an execution engine; missing packages fail deterministically."
         ),
     ),
     _df_method(
         "to_arrow_ipc",
         "materialization",
-        "runtime_expansion_pending",
+        "optional_dependency_container_supported",
         required_evidence=(
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_materialization_contract",
             "decoded_materialization_policy",
             "optional_dependency_policy",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.to-arrow-ipc.native_vortex_materialization_contract_missing",
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_arrow_ipc remains blocked for public local compatibility inputs until decoded rows or "
-            "containers are derived from an admitted native Vortex result contract. Optional packages "
-            "are containers only, not execution engines, and no fallback is used."
+            "to_arrow_ipc is admitted for bounded local workflows after Vortex preparation and a "
+            "bounded ShardLoom materialization report. PyArrow is an optional container/encoder "
+            "boundary only, not an execution engine; missing packages fail deterministically."
         ),
     ),
     _df_method(
         "to_numpy",
         "materialization",
-        "runtime_expansion_pending",
+        "optional_dependency_container_supported",
         required_evidence=(
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_materialization_contract",
             "decoded_materialization_policy",
             "optional_dependency_policy",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.to-numpy.native_vortex_materialization_contract_missing",
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_numpy remains blocked for public local compatibility inputs until decoded rows or "
-            "containers are derived from an admitted native Vortex result contract. Optional packages "
-            "are containers only, not execution engines, and no fallback is used."
+            "to_numpy is admitted for bounded local workflows after Vortex preparation and a "
+            "bounded ShardLoom materialization report. NumPy is an optional container boundary "
+            "only, not an execution engine; missing packages fail deterministically."
         ),
     ),
     _df_method(
         "to_python_objects",
         "materialization",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_materialization_contract",
             "decoded_materialization_policy",
-            "optional_dependency_policy",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.to-python-objects.native_vortex_materialization_contract_missing",
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "to_python_objects remains blocked for public local compatibility inputs until decoded rows or "
-            "containers are derived from an admitted native Vortex result contract. Optional packages "
-            "are containers only, not execution engines, and no fallback is used."
+            "to_python_objects is admitted for bounded local workflows after Vortex preparation and "
+            "a bounded ShardLoom materialization report. This is decoded Python-row output, not "
+            "external engine execution, object-store/table materialization, or a performance claim."
         ),
     ),
     _df_method(
@@ -5110,19 +5177,21 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "display",
         "materialization",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_materialization_contract",
             "decoded_materialization_policy",
-            "optional_dependency_policy",
+            "notebook_display_contract",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.display.native_vortex_materialization_contract_missing",
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "display remains blocked for public local compatibility inputs until decoded rows or "
-            "containers are derived from an admitted native Vortex result contract. Optional packages "
-            "are containers only, not execution engines, and no fallback is used."
+            "display is admitted as a bounded local preview after Vortex preparation and a "
+            "ShardLoom materialization report. It is notebook presentation only, not an external "
+            "execution engine, object-store/table materialization, or a performance claim."
         ),
     ),
     _df_method(
@@ -5150,67 +5219,102 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "write_parquet",
         "write",
-        "runtime_expansion_pending",
-        required_evidence=('native_vortex_parquet_export_contract', 'typed_sink_contract', 'output_replay_certificate', 'no_fallback_evidence'),
-        blocker_id="cg21.workflow.write-parquet.native_vortex_export_contract_missing",
+        "production_admitted_local_workflow",
+        required_evidence=(
+            "vortex_prepared_state_or_native_vortex_input",
+            "parquet_local_sink_contract",
+            "output_replay_certificate",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         claim_boundary=(
-            "Compatibility-file write_parquet remains blocked for public local workflows until a native "
-            "Vortex export/replay contract admits the sink. Direct local-source smoke writes are "
-            "internal-only and are not a product runtime path; no external engine or fallback is used."
+            "write_parquet is admitted for scoped local workflows after Vortex preparation and "
+            "Parquet sink replay evidence. Parquet is a compatibility output, not a fallback "
+            "engine or a full native Vortex-layout preservation claim."
         ),
     ),
     _df_method(
         "write_arrow_ipc",
         "write",
-        "runtime_expansion_pending",
-        required_evidence=('native_vortex_arrow_ipc_export_contract', 'typed_sink_contract', 'output_replay_certificate', 'no_fallback_evidence'),
-        blocker_id="cg21.workflow.write-arrow-ipc.native_vortex_export_contract_missing",
+        "production_admitted_local_workflow",
+        required_evidence=(
+            "vortex_prepared_state_or_native_vortex_input",
+            "arrow_ipc_local_sink_contract",
+            "output_replay_certificate",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         claim_boundary=(
-            "Compatibility-file write_arrow_ipc remains blocked for public local workflows until a native "
-            "Vortex export/replay contract admits the sink. Direct local-source smoke writes are "
-            "internal-only and are not a product runtime path; no external engine or fallback is used."
+            "write_arrow_ipc is admitted for scoped local workflows after Vortex preparation and "
+            "Arrow IPC sink replay evidence. Arrow IPC is a compatibility output/container "
+            "boundary, not fallback execution or a full native Vortex-layout preservation claim."
         ),
     ),
     _df_method(
         "write_avro",
         "write",
-        "runtime_expansion_pending",
-        required_evidence=('native_vortex_avro_export_contract', 'typed_sink_contract', 'output_replay_certificate', 'no_fallback_evidence'),
-        blocker_id="cg21.workflow.write-avro.native_vortex_export_contract_missing",
+        "production_admitted_local_workflow",
+        required_evidence=(
+            "vortex_prepared_state_or_native_vortex_input",
+            "avro_local_sink_contract",
+            "output_replay_certificate",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         claim_boundary=(
-            "Compatibility-file write_avro remains blocked for public local workflows until a native "
-            "Vortex export/replay contract admits the sink. Direct local-source smoke writes are "
-            "internal-only and are not a product runtime path; no external engine or fallback is used."
+            "write_avro is admitted for scoped local workflows after Vortex preparation and Avro "
+            "sink replay evidence. Avro is a compatibility output, not fallback execution or a "
+            "full native Vortex-layout preservation claim."
         ),
     ),
     _df_method(
         "write_orc",
         "write",
-        "runtime_expansion_pending",
-        required_evidence=('native_vortex_orc_export_contract', 'typed_sink_contract', 'output_replay_certificate', 'no_fallback_evidence'),
-        blocker_id="cg21.workflow.write-orc.native_vortex_export_contract_missing",
+        "production_admitted_local_workflow",
+        required_evidence=(
+            "vortex_prepared_state_or_native_vortex_input",
+            "orc_local_sink_contract",
+            "output_replay_certificate",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         claim_boundary=(
-            "Compatibility-file write_orc remains blocked for public local workflows until a native "
-            "Vortex export/replay contract admits the sink. Direct local-source smoke writes are "
-            "internal-only and are not a product runtime path; no external engine or fallback is used."
+            "write_orc is admitted for scoped local workflows after Vortex preparation and ORC "
+            "sink replay evidence. ORC is a compatibility output, not fallback execution or a "
+            "full native Vortex-layout preservation claim."
         ),
     ),
     _df_method(
         "quarantine",
         "write",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_quarantine_classification",
-            "native_vortex_quarantine_sink_write_evidence",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_quarantine_classification",
+            "local_quarantine_sink_replay_evidence",
             "quarantine_policy",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.quarantine.native_vortex_quarantine_contract_missing",
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "Public local compatibility quarantine remains blocked until native Vortex classification "
-            "and export/replay evidence exists. It is not object-store/table quarantine, production "
-            "remediation, a decoded local-source smoke, external engine, or fallback path."
+            "quarantine is admitted for bounded local workflows after Vortex preparation and "
+            "declared checks, with optional local sink replay evidence. It is not object-store/"
+            "table quarantine, production remediation, external engine execution, or fallback."
         ),
     ),
     _df_method(
@@ -5460,21 +5564,11 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
         "high_level_context",
         "scoped_runtime_supported",
         cli_commands=(
-            "vortex-ingest-smoke",
-            "vortex-production-runtime-run",
-            "vortex-run",
-            "vortex-filter",
-            "vortex-project",
-            "vortex-filter-project",
+            "sql-local-source-smoke",
         ),
         context_methods=("sql", "read", "read_csv", "read_json"),
         client_methods=(
-            "vortex_ingest_smoke",
-            "vortex_run",
-            "vortex_filter",
-            "vortex_project",
-            "vortex_filter_project",
-            "vortex_production_runtime_run",
+            "sql_local_source_smoke",
         ),
         runtime_route="vortex-ingest-smoke->native_vortex_primitive_or_vortex-production-runtime-run",
         promotion_criteria=(
@@ -5947,24 +6041,29 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "schema_quality_preview",
         "schema inspection, validation, data-quality summaries, preview/head/take",
-        "runtime_expansion_pending",
-        runtime_gap_status="runtime_expansion_pending",
+        "production_admitted_local_workflow",
+        runtime_gap_status="admitted_scope",
         sql_surface="ctx.sql(...).schema/validate_schema/data_quality/preview/head/take",
         python_surface="LazyFrame.schema/validate_schema/data_quality/preview/head/take",
         dataframe_surface="DataFrame-style schema/data-quality/preview helpers",
-        shared_runtime_path="preview/head/take reuse admitted collect; schema/data-quality native evidence pending",
-        parity_status="blocked_except_admitted_preview_collect",
-        performance_equivalence_status="not_applicable_blocked",
-        materialization_required=False,
+        shared_runtime_path="local source -> Vortex preparation -> bounded prepared local collect/schema/materialization evidence",
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_vortex_middle_no_benchmark_claim",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         required_evidence=(
-            "native_vortex_schema_report_contract",
-            "native_vortex_data_quality_report_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_schema_report_contract",
+            "bounded_materialization_contract",
             "front_door_equivalence_tests",
+            "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Preview/head/take may reuse admitted collect routes. Schema, validation, data-quality, "
-            "quarantine, notebook display, object-store/table schema discovery, and benchmark-backed "
-            "performance equivalence remain blocked until native Vortex evidence lands."
+            "Scoped local schema, validation, data-quality, preview/head/take, and bounded display "
+            "helpers are admitted after Vortex preparation through the prepared local workflow "
+            "evidence path. Object-store/table schema discovery, arbitrary SQL/DataFrame breadth, "
+            "and benchmark-backed performance equivalence remain blocked."
         ),
     ),
     _front_door_row(
@@ -6004,8 +6103,8 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "typed_nested_compatibility_sink",
         "typed nested local compatibility sink output for scoped ARRAY/STRUCT projections",
-        "runtime_expansion_pending",
-        runtime_gap_status="runtime_expansion_pending",
+        "production_admitted_local_workflow",
+        runtime_gap_status="admitted_scope",
         sql_surface=(
             "ctx.sql(\"SELECT ARRAY[...] AS values, STRUCT(...) AS payload FROM 'local.csv'\")"
             ".write_parquet/write_arrow_ipc/write_avro/write_vortex"
@@ -6017,22 +6116,25 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         dataframe_surface=(
             "DataFrame-style with_columns(array/struct).write_parquet/write_arrow_ipc/write_avro/write_vortex"
         ),
-        shared_runtime_path="native_vortex_typed_nested_export_contract_pending",
-        parity_status="blocked_until_native_export_contract",
-        performance_equivalence_status="not_applicable_blocked",
-        materialization_required=False,
+        shared_runtime_path="local source -> Vortex preparation -> declared compatibility sink with replay evidence",
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_vortex_middle_no_benchmark_claim",
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         required_evidence=(
-            "native_vortex_typed_nested_export_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "declared_compatibility_sink_contract",
             "python_query_builder_tests",
-            "output_native_io_certificate",
+            "output_replay_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Typed nested compatibility sinks are blocked until native Vortex export evidence "
-            "exists for ARRAY/STRUCT projection workflows. This does not admit "
-            "all-null computed nested columns without child-schema evidence, ORC nested output, "
-            "nested accessors/casts, broad "
-            "nested ordering, complex-key joins, production SQL nested parity, or benchmarked "
+            "Scoped declared compatibility sinks are admitted after Vortex preparation and local "
+            "sink replay evidence. This does not claim full-fidelity native Vortex nested output, "
+            "all-null computed nested columns without child-schema evidence, broad nested "
+            "ordering, complex-key joins, production SQL nested parity, or benchmarked "
             "performance equivalence."
         ),
     ),
@@ -6067,22 +6169,23 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "decoded_materialization_interop",
         "pandas, Arrow table, Arrow IPC, NumPy, and notebook display materialization",
-        "runtime_expansion_pending",
-        runtime_gap_status="runtime_expansion_pending",
+        "production_admitted_local_workflow",
+        runtime_gap_status="admitted_scope",
         sql_surface="ctx.sql(...).to_python_objects/to_pandas/to_arrow/to_numpy/display",
         python_surface="from_pandas/from_arrow_table/from_arrow_ipc and LazyFrame to_* helpers",
         dataframe_surface="DataFrame-style bounded materialization and notebook preview helpers",
         shared_runtime_path=(
-            "deterministic unsupported reports for local compatibility inputs until native "
-            "Vortex-derived materialization exists; generated-source user rows remain separate"
+            "local source -> Vortex preparation -> bounded prepared local collect -> optional "
+            "container conversion boundary"
         ),
-        parity_status="not_admitted",
-        performance_equivalence_status="blocked_no_materialization_claim",
-        runtime_execution=False,
-        data_read=False,
-        materialization_required=False,
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_vortex_middle_no_benchmark_claim",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         required_evidence=(
-            "native_vortex_materialization_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "bounded_materialization_contract",
             "decoded_materialization_policy",
             "arrow_interop_boundary",
             "notebook_display_contract",
@@ -6090,12 +6193,11 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "optional_dependency_policy",
         ),
         claim_boundary=(
-            "Decoded Python/Arrow/NumPy interop for local compatibility inputs is pending a native "
-            "Vortex-derived materialization contract. Explicit materialized input snapshots may "
-            "re-enter through generated-source boundaries, but optional packages are containers or "
-            "compatibility encoders, not execution engines. This row does not claim object-store/"
-            "table materialization, arbitrary SQL/DataFrame breadth, or benchmark-backed "
-            "performance equivalence."
+            "Bounded decoded Python/Arrow/NumPy/display interop is admitted only after local "
+            "compatibility inputs are Vortex-prepared and collected through the prepared local "
+            "workflow. Optional packages are containers or compatibility encoders, not execution "
+            "engines. This row does not claim object-store/table materialization, arbitrary "
+            "SQL/DataFrame breadth, or benchmark-backed performance equivalence."
         ),
     ),
     _front_door_row(
@@ -7125,17 +7227,17 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         input_examples=("orders.csv", "events.jsonl"),
         front_doors=("SQL", "Python", "DataFrame", "context", "session"),
         desired_outputs=("bounded_preview", "python_objects", "pandas_optional", "arrow_optional", "numpy_optional"),
-        recommended_user_surface="ctx.read(path).limit(n).collect(); decoded Python/pandas/Arrow containers remain blocked until native materialization contract lands",
+        recommended_user_surface="ctx.read(path).limit(n).collect(), to_python_objects(), or optional to_pandas()/to_arrow()/to_numpy() after Vortex preparation",
         start_state="raw_compat_source",
-        vortex_normalization_point="local source -> SourceState -> VortexPreparedState -> native Vortex runtime -> bounded materialization contract pending",
+        vortex_normalization_point="local source -> SourceState -> VortexPreparedState -> bounded ShardLoom materialization boundary",
         source_route="UniversalIngress/InputAdapter local compatibility source",
         preparation_route="vortex_prepared_state_required",
-        execution_mode="native_vortex_materialization_pending",
-        execution_route="deterministic blocker until native Vortex row decode/materialization evidence lands",
-        output_route="bounded decoded preview or optional container pending native materialization contract",
-        evidence_route="unsupported diagnostic plus no-fallback evidence",
-        materialization_decode_boundary="blocked before decoded container creation",
-        route_runtime_status="runtime_expansion_pending",
+        execution_mode="bounded_prepared_local_materialization",
+        execution_route="bounded prepared local collect/materialization report",
+        output_route="bounded decoded preview, Python row objects, or optional container conversion",
+        evidence_route="bounded_materialization_contract, optional_dependency_policy, no-fallback evidence",
+        materialization_decode_boundary="explicit bounded decoded container boundary after prepared local route",
+        route_runtime_status="scoped_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D.bounded_decoded_preview",
@@ -7146,7 +7248,12 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "execution_certificate",
             "no_fallback_evidence",
         ),
-        claim_boundary=_MATERIALIZATION_BOUNDARY,
+        claim_boundary=(
+            "Bounded decoded preview and optional Python/pandas/Arrow/NumPy containers are admitted "
+            "only after local sources are Vortex-prepared or already Vortex-native. Optional "
+            "packages are containers, not execution engines; unbounded/object-store/table "
+            "materialization and performance claims remain blocked."
+        ),
     ),
     _user_route(
         "schema_quality_preview",
@@ -7162,18 +7269,18 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "preview",
         ),
         recommended_user_surface=(
-            "ctx.read(path).preview()/head()/take() through collect when admitted; schema/data-quality/quarantine remain pending native Vortex evidence"
+            "ctx.read(path).schema()/validate_schema()/data_quality()/preview()/head()/take() through prepared local evidence"
         ),
         start_state="raw_compat_source",
-        vortex_normalization_point="local source -> SourceState -> VortexPreparedState -> native Vortex runtime evidence pending",
+        vortex_normalization_point="local source -> SourceState -> VortexPreparedState -> bounded schema/data-quality report",
         source_route="UniversalIngress/InputAdapter local compatibility source",
         preparation_route="vortex_prepared_state_required",
-        execution_mode="native_vortex_schema_quality_pending",
-        execution_route="deterministic blocker except admitted preview/head/take collect routes",
-        output_route="machine-readable schema, validation, data-quality, and quarantine reports pending native evidence",
-        evidence_route="unsupported diagnostic or admitted native Vortex collect envelope plus no-fallback evidence",
-        materialization_decode_boundary="blocked before decoded report-row materialization",
-        route_runtime_status="runtime_expansion_pending",
+        execution_mode="bounded_prepared_local_schema_quality",
+        execution_route="bounded prepared local schema/data-quality report",
+        output_route="machine-readable schema, validation, data-quality, and preview reports",
+        evidence_route="bounded_schema_report_contract, data_quality_report_contract, no-fallback evidence",
+        materialization_decode_boundary="explicit bounded report-row materialization after prepared local route",
+        route_runtime_status="scoped_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D.schema_quality_preview",
@@ -7185,7 +7292,12 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "front_door_equivalence_tests",
             "no_fallback_evidence",
         ),
-        claim_boundary=_LOCAL_QUERY_BUILDER_OBJECT_MATERIALIZATION_BOUNDARY,
+        claim_boundary=(
+            "Schema, validation, data-quality, and bounded preview helpers are admitted only for "
+            "scoped local workflows after Vortex preparation. Broad schema registry/table "
+            "constraints, object-store/table discovery, production profiling, and performance "
+            "claims remain blocked."
+        ),
     ),
     _user_route(
         "quarantine_output_route",
@@ -7198,22 +7310,22 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
             "ctx.read(path).quarantine(local_path, 'not_null:column', 'regex:column:pattern', output_format='jsonl')"
         ),
         start_state="raw_compat_source",
-        vortex_normalization_point="local source -> SourceState -> VortexPreparedState -> native Vortex runtime/export contract pending",
+        vortex_normalization_point="local source -> SourceState -> VortexPreparedState -> bounded quarantine report and optional local sink",
         source_route="UniversalIngress/InputAdapter local compatibility source",
         preparation_route="vortex_prepared_state_required",
-        execution_mode="native_vortex_quarantine_pending",
-        execution_route="deterministic blocker until native Vortex quarantine classification exists",
-        output_route="local quarantine sink blocked until native Vortex export/replay evidence exists",
-        evidence_route="unsupported diagnostic plus no-fallback evidence",
-        materialization_decode_boundary="blocked before decoded quarantine rows or sink write",
-        route_runtime_status="runtime_expansion_pending",
+        execution_mode="bounded_prepared_local_quarantine",
+        execution_route="bounded local quarantine classification over prepared workflow evidence",
+        output_route="bounded quarantine rows and optional local sink replay evidence",
+        evidence_route="bounded_quarantine_classification, local_quarantine_sink_replay_evidence, no-fallback evidence",
+        materialization_decode_boundary="explicit bounded quarantine rows and declared sink boundary",
+        route_runtime_status="scoped_runtime_supported",
         benchmark_range=False,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D:last_order.quarantine_output_route",
         required_evidence=(
-            "native_vortex_quarantine_classification",
+            "bounded_quarantine_classification",
             "quarantine_policy",
-            "native_vortex_quarantine_sink_write_evidence",
+            "local_quarantine_sink_replay_evidence",
             "regex_quarantine_pushdown_or_blocker",
             "output_native_io_certificate",
             "no_fallback_evidence",

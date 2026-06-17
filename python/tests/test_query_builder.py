@@ -81,6 +81,151 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 index += 1
         return values
 
+    def _shardloom_emit_vortex_ingest_smoke_if_needed():
+        args = _shardloom_sys.argv[1:]
+        if not args or args[0] != "vortex-ingest-smoke":
+            return
+        source = args[1] if len(args) > 1 else "missing-source"
+        target = args[2] if len(args) > 2 else "target/shardloom-prepared.vortex"
+        if ".shardloom/prepared/" not in target:
+            return
+        input_format = _shardloom_take_flag(args, "--input-format") or "not_declared"
+        print(_shardloom_json.dumps({
+            "schema_version": "shardloom.output.v2",
+            "command": "vortex-ingest-smoke",
+            "status": "success",
+            "summary": "fake Vortex ingest smoke",
+            "human_text": "fake Vortex ingest smoke",
+            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+            "diagnostics": [],
+            "fields": [
+                {"key": "source_path", "value": source},
+                {"key": "source_format", "value": input_format},
+                {"key": "target_vortex_path", "value": target},
+                {"key": "vortex_ingest_performed", "value": "true"},
+                {"key": "vortex_ingest_status", "value": "prepared_state_written"},
+                {"key": "prepared_state_created", "value": "true"},
+                {"key": "prepared_state_reused", "value": "false"},
+                {"key": "source_state_id", "value": "fake-source-state"},
+                {"key": "source_state_digest", "value": "fake-source-digest"},
+                {"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"},
+                {"key": "source_state_read_plan", "value": "full_columnar_source_state_default"},
+                {"key": "source_state_projection_pushdown_status", "value": "not_requested_full_read"},
+                {"key": "fallback_attempted", "value": "false"},
+                {"key": "external_engine_invoked", "value": "false"},
+                {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+            ],
+        }))
+        raise SystemExit(0)
+
+    def _shardloom_strip_product_local_workflow_flag():
+        args = _shardloom_sys.argv[1:]
+        if not args or args[0] != "sql-local-source-smoke":
+            return
+        if "--product-local-workflow" not in args:
+            return
+        rewritten = [arg for arg in args if arg != "--product-local-workflow"]
+        _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten]
+
+    def _shardloom_emit_prepared_native_vortex_probe_if_needed():
+        args = _shardloom_sys.argv[1:]
+        if len(args) < 2 or args[0] != "run":
+            return
+        if _shardloom_take_flag(args, "--execution-policy") != "native_vortex":
+            return
+        input_uri = _shardloom_take_flag(args, "--input") or ""
+        if ".shardloom/prepared/" not in input_uri:
+            return
+        surface = args[1]
+        print(_shardloom_json.dumps({
+            "schema_version": "shardloom.output.v2",
+            "command": "run",
+            "status": "unsupported",
+            "summary": "prepared native Vortex probe unsupported in fake CLI",
+            "human_text": "prepared native Vortex probe unsupported in fake CLI",
+            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+            "diagnostics": [],
+            "fields": [
+                {"key": "facade_command", "value": "run"},
+                {"key": "facade_surface", "value": surface},
+                {"key": "public_workflow_resolved_internal_command", "value": "workflow-unsupported-plan"},
+                {"key": "route_id", "value": "blocked"},
+                {"key": "route_status", "value": "blocked"},
+                {"key": "blocker_id", "value": "fake.native_vortex_probe_unavailable"},
+                {"key": "fallback_attempted", "value": "false"},
+                {"key": "external_engine_invoked", "value": "false"},
+                {"key": "runtime_execution", "value": "false"},
+                {"key": "claim_gate_status", "value": "not_claim_grade"}
+            ],
+        }))
+        raise SystemExit(0)
+
+    def _shardloom_emit_legacy_disabled_public_run_fixture_if_needed():
+        if not globals().get("_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE", False):
+            return
+        args = _shardloom_sys.argv[1:]
+        if not args or args[0] != "sql-local-source-smoke":
+            return
+        if "--product-local-workflow" not in args:
+            return
+        output_format = _shardloom_take_flag(args, "--output-format") or "inline-jsonl"
+        statement = args[1] if len(args) > 1 else ""
+        requested_output = {
+            "inline-jsonl": "collect",
+            "jsonl": "write_jsonl",
+            "csv": "write_csv",
+            "parquet": "write_parquet",
+            "arrow-ipc": "write_arrow_ipc",
+            "avro": "write_avro",
+            "orc": "write_orc",
+            "vortex": "write_vortex",
+        }.get(output_format, "collect")
+        output_ref = _shardloom_take_flag(args, "--output")
+        fields = [
+            ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
+            ["public_workflow_route_attached", "true"],
+            ["public_workflow_facade_command", "run"],
+            ["public_workflow_route_id", "blocked"],
+            ["public_workflow_route_status", "blocked"],
+            ["public_workflow_resolved_internal_command", "not_resolved"],
+            ["public_workflow_vortex_normalization_point", "not_applicable"],
+            ["public_workflow_vortex_middle_status", "blocked_or_unsupported"],
+            ["public_workflow_execution_mode", "blocked"],
+            ["public_workflow_preparation_included", "false"],
+            ["public_workflow_requested_output", requested_output],
+            ["runtime_execution", "false"],
+            ["output_io_performed", "false"],
+            ["fallback_attempted", "false"],
+            ["external_engine_invoked", "false"],
+            ["public_workflow_fallback_attempted", "false"],
+            ["public_workflow_external_engine_invoked", "false"],
+            ["public_workflow_blocker_id", "cg21.route.local_file_vortex_middle_required"],
+            ["claim_gate_status", "not_claim_grade"],
+        ]
+        if ".jsonl'" in statement or ".ndjson'" in statement:
+            fields.append(["source_format", "jsonl"])
+        elif ".csv'" in statement:
+            fields.append(["source_format", "csv"])
+        if output_ref is not None:
+            fields.append(["public_workflow_output_ref", output_ref])
+        fanout_outputs = _shardloom_values_after_flag(args, "--fanout-output")
+        if fanout_outputs:
+            fields.extend([
+                ["public_workflow_fanout_output_count", str(len(fanout_outputs))],
+                ["public_workflow_fanout_outputs", ";".join(fanout_outputs)],
+            ])
+        print(_shardloom_json.dumps({
+            "schema_version": "shardloom.output.v2",
+            "command": "run",
+            "status": "unsupported",
+            "summary": "legacy disabled public-run fixture blocked before execution",
+            "human_text": "legacy disabled public-run fixture blocked before execution",
+            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+            "diagnostics": [],
+            "fields": [{"key": key, "value": value} for key, value in fields],
+        }))
+        raise SystemExit(1)
+
     def _shardloom_append_fanout_outputs(rewritten, args):
         for fanout_output in _shardloom_values_after_flag(args, "--fanout-output"):
             rewritten.extend(["--fanout-output", fanout_output])
@@ -178,8 +323,15 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 rewritten.append("--allow-overwrite")
             _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
 
+    _shardloom_emit_vortex_ingest_smoke_if_needed()
+    _shardloom_emit_legacy_disabled_public_run_fixture_if_needed()
+    _shardloom_strip_product_local_workflow_flag()
+    _shardloom_emit_prepared_native_vortex_probe_if_needed()
+
     if not globals().get("_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE", False):
         _shardloom_rewrite_public_run_argv()
+        _shardloom_strip_product_local_workflow_flag()
+        _shardloom_emit_prepared_native_vortex_probe_if_needed()
     """
 )
 

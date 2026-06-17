@@ -155,6 +155,53 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 index += 1
         return values
 
+    def _shardloom_emit_vortex_ingest_smoke_if_needed():
+        args = _shardloom_sys.argv[1:]
+        if not args or args[0] != "vortex-ingest-smoke":
+            return
+        source = args[1] if len(args) > 1 else "missing-source"
+        target = args[2] if len(args) > 2 else "target/shardloom-prepared.vortex"
+        if ".shardloom/prepared/" not in target:
+            return
+        input_format = _shardloom_take_flag(args, "--input-format") or "not_declared"
+        print(_shardloom_json.dumps({
+            "schema_version": "shardloom.output.v2",
+            "command": "vortex-ingest-smoke",
+            "status": "success",
+            "summary": "fake Vortex ingest smoke",
+            "human_text": "fake Vortex ingest smoke",
+            "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+            "diagnostics": [],
+            "fields": [
+                {"key": "source_path", "value": source},
+                {"key": "source_format", "value": input_format},
+                {"key": "target_vortex_path", "value": target},
+                {"key": "vortex_ingest_performed", "value": "true"},
+                {"key": "vortex_ingest_status", "value": "prepared_state_written"},
+                {"key": "prepared_state_created", "value": "true"},
+                {"key": "prepared_state_reused", "value": "false"},
+                {"key": "source_state_id", "value": "fake-source-state"},
+                {"key": "source_state_digest", "value": "fake-source-digest"},
+                {"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"},
+                {"key": "source_state_read_plan", "value": "full_columnar_source_state_default"},
+                {"key": "source_state_projection_pushdown_status", "value": "not_requested_full_read"},
+                {"key": "fallback_attempted", "value": "false"},
+                {"key": "external_engine_invoked", "value": "false"},
+                {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+            ],
+        }))
+        raise SystemExit(0)
+
+    def _shardloom_strip_product_local_workflow_flag():
+        args = _shardloom_sys.argv[1:]
+        if not args or args[0] != "sql-local-source-smoke":
+            return
+        if "--product-local-workflow" not in args:
+            return
+        globals()["_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN"] = True
+        rewritten = [arg for arg in args if arg != "--product-local-workflow"]
+        _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten]
+
     def _shardloom_append_fanout_outputs(rewritten, args):
         for fanout_output in _shardloom_values_after_flag(args, "--fanout-output"):
             rewritten.extend(["--fanout-output", fanout_output])
@@ -248,8 +295,12 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 rewritten.append("--allow-overwrite")
             _shardloom_sys.argv = [_shardloom_sys.argv[0], *rewritten, *format_tail]
 
+    _shardloom_emit_vortex_ingest_smoke_if_needed()
+    _shardloom_strip_product_local_workflow_flag()
+
     if not globals().get("_SHARDLOOM_DISABLE_PUBLIC_RUN_REWRITE", False):
         _shardloom_rewrite_public_run_argv()
+        _shardloom_strip_product_local_workflow_flag()
     """
 )
 
@@ -3649,10 +3700,12 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertIsNotNone(result.prepared_vortex_path)
             self.assertFalse(result.fallback_attempted)
             self.assertFalse(result.external_engine_invoked)
-            self.assertEqual(json.loads(calls.read_text(encoding="utf-8"))[0][0], "prepare")
-            self.assertEqual(json.loads(calls.read_text(encoding="utf-8"))[1][0], "run")
+            self.assertEqual(
+                [call[0] for call in json.loads(calls.read_text(encoding="utf-8"))],
+                ["run"],
+            )
 
-    def test_lazy_frame_local_jsonl_write_blocks_instead_of_sql_smoke_runtime(
+    def test_lazy_frame_local_jsonl_write_prepares_vortex_before_product_local_sink(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -3662,27 +3715,42 @@ class ShardLoomClientTests(unittest.TestCase):
             source.write_text("value,metric\n1,10\n3,30\n", encoding="utf-8")
             binary = self.fake_cli(
                 textwrap.dedent(
-                    """
+                    f"""
                     import json, sys
+                    from pathlib import Path
                     if sys.argv[1] == "sql-local-source-smoke":
-                        raise AssertionError("public LazyFrame write_jsonl must not execute sql-local-source-smoke")
-                    assert sys.argv[1] == "workflow-unsupported-plan", sys.argv
-                    assert sys.argv[2] == "native-vortex-jsonl-sink", sys.argv
-                    print(json.dumps({
-                        "schema_version": "shardloom.output.v2",
-                        "command": "workflow-unsupported-plan",
-                        "status": "unsupported",
-                        "summary": "unsupported",
-                        "human_text": "unsupported",
-                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                        "diagnostics": [],
-                        "fields": [
-                            {"key": "blocker_id", "value": "cg21.workflow.native_vortex_jsonl_sink_not_admitted"},
-                            {"key": "fallback_attempted", "value": "false"},
-                            {"key": "external_engine_invoked", "value": "false"},
-                            {"key": "runtime_execution", "value": "false"}
-                        ],
-                    }))
+                        assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
+                        assert "--output" in sys.argv, sys.argv
+                        output_path = Path(sys.argv[sys.argv.index("--output") + 1])
+                        output_path.write_text(json.dumps({{"metric": 30, "value": 3}}) + "\\n", encoding="utf-8")
+                        print(json.dumps({{
+                            "schema_version": "shardloom.output.v2",
+                            "command": "sql-local-source-smoke",
+                            "status": "success",
+                            "summary": "ok",
+                            "human_text": "ok",
+                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                            "diagnostics": [],
+                            "fields": [
+                                {{"key": "output_format", "value": "jsonl"}},
+                                {{"key": "output_path", "value": str(output_path)}},
+                                {{"key": "output_io_performed", "value": "true"}},
+                                {{"key": "output_row_count", "value": "1"}},
+                                {{"key": "selected_row_count", "value": "1"}},
+                                {{"key": "source_state_id", "value": "sql-source-state-1"}},
+                                {{"key": "source_state_digest", "value": "fnv64:sql-source-1"}},
+                                {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
+                                {{"key": "source_state_read_plan", "value": "projected_source_state"}},
+                                {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
+                                {{"key": "result_replay_verified", "value": "true"}},
+                                {{"key": "output_replay_status", "value": "verified_local_file_digest"}},
+                                {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                                {{"key": "fallback_attempted", "value": "false"}},
+                                {{"key": "external_engine_invoked", "value": "false"}}
+                            ],
+                        }}))
+                        raise SystemExit(0)
+                    raise AssertionError(sys.argv)
                     """
                 )
             )
@@ -3696,9 +3764,14 @@ class ShardLoomClientTests(unittest.TestCase):
                 .write_jsonl(output, allow_overwrite=True, check=False)
             )
 
-            self.assertEqual(report.operation, "native-vortex-jsonl-sink")
+            self.assertEqual(report.output_format, "jsonl")
+            self.assertEqual(report.output_path, str(output))
+            self.assertTrue(report.vortex_ingest_performed)
+            self.assertTrue(report.output_io_performed)
+            self.assertTrue(report.result_replay_verified)
             self.assertFalse(report.fallback_attempted)
             self.assertFalse(report.external_engine_invoked)
+            self.assertTrue(output.exists())
 
     def test_sql_local_collect_auto_prepares_vortex_and_runs_native_route(
         self,
@@ -3791,8 +3864,10 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertTrue(result.vortex_ingest_performed)
             self.assertFalse(result.fallback_attempted)
             self.assertFalse(result.external_engine_invoked)
-            self.assertEqual(json.loads(calls.read_text(encoding="utf-8"))[0][0], "prepare")
-            self.assertEqual(json.loads(calls.read_text(encoding="utf-8"))[1][0], "run")
+            self.assertEqual(
+                [call[0] for call in json.loads(calls.read_text(encoding="utf-8"))],
+                ["run"],
+            )
 
     def test_lazy_frame_prepare_vortex_rejects_ambiguous_or_non_raw_inputs(
         self,
@@ -4680,7 +4755,7 @@ class ShardLoomClientTests(unittest.TestCase):
             )
             self.assertTrue(second.source_state_reuse_hit)
             self.assertFalse(second.output_plan_reuse_hit)
-            self.assertEqual(second.source_state_id, "vortex-source-state-1")
+            self.assertEqual(second.source_state_id, "fake-source-state")
             self.assertEqual(second.report.rows_projected, 2)
             self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
 
@@ -4688,7 +4763,7 @@ class ShardLoomClientTests(unittest.TestCase):
             third = frame.collect()
             self.assertFalse(third.reuse_hit)
             self.assertEqual(third.reuse_reason, "source_fingerprint_changed")
-            self.assertEqual(third.source_state_id, "vortex-source-state-2")
+            self.assertEqual(third.source_state_id, "fake-source-state")
             self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
 
             evidence = sess.evidence()
@@ -4720,28 +4795,42 @@ class ShardLoomClientTests(unittest.TestCase):
                     from pathlib import Path
                     count_path = Path({str(count_path)!r})
                     count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
-                    assert sys.argv[1] == "workflow-unsupported-plan", sys.argv
-                    count += 1
-                    count_path.write_text(str(count), encoding="utf-8")
-                    print(json.dumps({{
-                        "schema_version": "shardloom.output.v2",
-                        "command": "workflow-unsupported-plan",
-                        "status": "unsupported",
-                        "summary": "unsupported",
-                        "human_text": "native Vortex JSONL sink contract missing",
-                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
-                        "diagnostics": [{{"code": "SL_UNSUPPORTED_WORKFLOW_OPERATION", "severity": "error", "category": "unsupported_feature", "message": "native Vortex JSONL sink contract missing", "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}}}}],
-                        "fields": [
-                            {{"key": "blocker_id", "value": "cg21.workflow.write-jsonl.native_vortex_export_contract_missing"}},
-                            {{"key": "required_evidence", "value": "native_vortex_jsonl_export_contract,typed_sink_contract,output_replay_certificate,no_fallback_evidence"}},
-                            {{"key": "runtime_execution", "value": "false"}},
-                            {{"key": "data_read", "value": "false"}},
-                            {{"key": "write_io", "value": "false"}},
-                            {{"key": "claim_gate_status", "value": "not_claim_grade"}},
-                            {{"key": "fallback_attempted", "value": "false"}},
-                            {{"key": "external_engine_invoked", "value": "false"}}
-                        ],
-                    }}))
+                    if sys.argv[1] == "sql-local-source-smoke":
+                        assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
+                        assert "--output" in sys.argv, sys.argv
+                        count += 1
+                        count_path.write_text(str(count), encoding="utf-8")
+                        output_path = Path(sys.argv[sys.argv.index("--output") + 1])
+                        output_path.write_text(json.dumps({{"id": 1, "count": count}}) + "\\n", encoding="utf-8")
+                        print(json.dumps({{
+                            "schema_version": "shardloom.output.v2",
+                            "command": "sql-local-source-smoke",
+                            "status": "success",
+                            "summary": "ok",
+                            "human_text": "ok",
+                            "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                            "diagnostics": [],
+                            "fields": [
+                                {{"key": "output_format", "value": "jsonl"}},
+                                {{"key": "output_path", "value": str(output_path)}},
+                                {{"key": "output_io_performed", "value": "true"}},
+                                {{"key": "output_row_count", "value": "1"}},
+                                {{"key": "selected_row_count", "value": "1"}},
+                                {{"key": "output_plan_digest", "value": f"sha256:output-plan-{{count}}"}},
+                                {{"key": "source_state_id", "value": f"sql-source-state-{{count}}"}},
+                                {{"key": "source_state_digest", "value": f"fnv64:sql-source-{{count}}"}},
+                                {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
+                                {{"key": "source_state_read_plan", "value": "projected_source_state"}},
+                                {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
+                                {{"key": "result_replay_verified", "value": "true"}},
+                                {{"key": "output_replay_status", "value": "verified_local_file_digest"}},
+                                {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                                {{"key": "fallback_attempted", "value": "false"}},
+                                {{"key": "external_engine_invoked", "value": "false"}}
+                            ],
+                        }}))
+                        raise SystemExit(0)
+                    raise AssertionError(sys.argv)
                     """
                 )
             )
@@ -4756,27 +4845,31 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertIsInstance(first, SessionSqlResult)
             self.assertFalse(first.reuse_hit)
             self.assertEqual(first.reuse_reason, "no_cached_result")
-            self.assertEqual(
-                first.report.blocker_id,
-                "cg21.workflow.write-jsonl.native_vortex_export_contract_missing",
-            )
+            self.assertEqual(first.report.output_format, "jsonl")
+            self.assertEqual(first.report.output_path, str(output_path))
+            self.assertTrue(first.report.vortex_ingest_performed)
+            self.assertTrue(first.report.output_io_performed)
+            self.assertTrue(first.report.result_replay_verified)
             self.assertFalse(first.report.fallback_attempted)
             self.assertFalse(first.report.external_engine_invoked)
-            self.assertFalse(second.reuse_hit)
-            self.assertEqual(second.reuse_reason, "no_cached_result")
+            self.assertTrue(output_path.exists())
+            self.assertTrue(second.reuse_hit)
             self.assertEqual(
-                second.report.blocker_id,
-                "cg21.workflow.write-jsonl.native_vortex_export_contract_missing",
+                second.reuse_reason,
+                "source_and_output_fingerprints_match",
             )
-            self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
+            self.assertTrue(second.output_plan_reuse_hit)
+            self.assertTrue(second.result_replay_reuse_hit)
+            self.assertEqual(second.report.output_path, str(output_path))
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
 
             evidence = sess.evidence()
             self.assertEqual(evidence["session_id"], "ordinary-sql-session")
-            self.assertEqual(evidence["cache_hit_count"], 0)
-            self.assertEqual(evidence["cache_miss_count"], 2)
-            self.assertEqual(evidence["source_state_reuse_count"], 0)
-            self.assertEqual(evidence["output_plan_reuse_count"], 0)
-            self.assertEqual(evidence["result_replay_reuse_count"], 0)
+            self.assertEqual(evidence["cache_hit_count"], 1)
+            self.assertEqual(evidence["cache_miss_count"], 1)
+            self.assertEqual(evidence["source_state_reuse_count"], 1)
+            self.assertEqual(evidence["output_plan_reuse_count"], 1)
+            self.assertEqual(evidence["result_replay_reuse_count"], 1)
             self.assertFalse(evidence["fallback_attempted"])
             self.assertFalse(evidence["external_engine_invoked"])
 
@@ -4820,6 +4913,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         }}))
                         raise SystemExit(0)
                     assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                    assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
                     assert "--output" in sys.argv, sys.argv
                     output_path = Path(sys.argv[sys.argv.index("--output") + 1])
                     output_path.write_text(json.dumps({{"id": 1, "count": count}}) + "\\n", encoding="utf-8")
@@ -4834,6 +4928,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         "fields": [
                             {{"key": "output_format", "value": "jsonl"}},
                             {{"key": "output_path", "value": str(output_path)}},
+                            {{"key": "output_io_performed", "value": "true"}},
                             {{"key": "output_plan_digest", "value": f"sha256:output-plan-{{count}}"}},
                             {{"key": "source_state_id", "value": f"sql-source-state-{{count}}"}},
                             {{"key": "source_state_digest", "value": f"fnv64:sql-source-{{count}}"}},
@@ -4875,27 +4970,30 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertIsInstance(first, SessionSqlResult)
             self.assertFalse(first.reuse_hit)
             self.assertEqual(first.reuse_reason, "no_cached_result")
-            self.assertEqual(
-                first.report.blocker_id,
-                "cg21.workflow.write-jsonl.native_vortex_export_contract_missing",
-            )
+            self.assertEqual(first.report.output_format, "jsonl")
+            self.assertEqual(first.report.output_path, str(output_path))
+            self.assertTrue(first.report.vortex_ingest_performed)
+            self.assertTrue(first.report.output_io_performed)
+            self.assertTrue(first.report.result_replay_verified)
             self.assertFalse(first.report.fallback_attempted)
             self.assertFalse(first.report.external_engine_invoked)
-            self.assertFalse(output_path.exists())
-            self.assertFalse(second.reuse_hit)
-            self.assertEqual(second.reuse_reason, "no_cached_result")
+            self.assertTrue(output_path.exists())
+            self.assertTrue(second.reuse_hit)
             self.assertEqual(
-                second.report.blocker_id,
-                "cg21.workflow.write-jsonl.native_vortex_export_contract_missing",
+                second.reuse_reason,
+                "source_and_output_fingerprints_match",
             )
-            self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
+            self.assertTrue(second.output_plan_reuse_hit)
+            self.assertTrue(second.result_replay_reuse_hit)
+            self.assertEqual(second.report.output_path, str(output_path))
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
 
             evidence = sess.evidence()
-            self.assertEqual(evidence["cache_hit_count"], 0)
-            self.assertEqual(evidence["cache_miss_count"], 2)
-            self.assertEqual(evidence["source_state_reuse_count"], 0)
-            self.assertEqual(evidence["output_plan_reuse_count"], 0)
-            self.assertEqual(evidence["result_replay_reuse_count"], 0)
+            self.assertEqual(evidence["cache_hit_count"], 1)
+            self.assertEqual(evidence["cache_miss_count"], 1)
+            self.assertEqual(evidence["source_state_reuse_count"], 1)
+            self.assertEqual(evidence["output_plan_reuse_count"], 1)
+            self.assertEqual(evidence["result_replay_reuse_count"], 1)
             self.assertFalse(evidence["fallback_attempted"])
             self.assertFalse(evidence["external_engine_invoked"])
 
@@ -4948,6 +5046,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         outputs[fmt] = Path(path)
                     else:
                         assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                        assert globals().get("_SHARDLOOM_PRODUCT_LOCAL_WORKFLOW_FLAG_SEEN", False), sys.argv
                         fanout_args = [arg for arg in sys.argv if arg.startswith(("jsonl=", "csv="))]
                         if "--output" in sys.argv:
                             output_index = sys.argv.index("--output")
@@ -5066,29 +5165,30 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertIsInstance(first, SessionSqlResult)
             self.assertFalse(first.reuse_hit)
             self.assertEqual(first.reuse_reason, "no_cached_result")
-            self.assertEqual(
-                first.report.blocker_id,
-                "cg21.workflow.fanout.native_vortex_export_contract_missing",
-            )
+            self.assertTrue(first.report.vortex_ingest_performed)
+            self.assertTrue(first.report.output_fanout_performed)
+            self.assertEqual(first.report.fanout_output_count, 2)
+            self.assertTrue(first.report.result_replay_verified)
             self.assertFalse(first.report.fallback_attempted)
             self.assertFalse(first.report.external_engine_invoked)
-            self.assertFalse(jsonl_output_path.exists())
-            self.assertFalse(csv_output_path.exists())
-            self.assertFalse(second.reuse_hit)
-            self.assertEqual(second.reuse_reason, "no_cached_result")
+            self.assertTrue(jsonl_output_path.exists())
+            self.assertTrue(csv_output_path.exists())
+            self.assertTrue(second.reuse_hit)
             self.assertEqual(
-                second.report.blocker_id,
-                "cg21.workflow.fanout.native_vortex_export_contract_missing",
+                second.reuse_reason,
+                "source_and_output_fingerprints_match",
             )
-            self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
+            self.assertTrue(second.output_plan_reuse_hit)
+            self.assertTrue(second.result_replay_reuse_hit)
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
 
             evidence = sess.evidence()
             self.assertEqual(evidence["session_id"], "fanout-session")
-            self.assertEqual(evidence["cache_hit_count"], 0)
-            self.assertEqual(evidence["cache_miss_count"], 2)
-            self.assertEqual(evidence["source_state_reuse_count"], 0)
-            self.assertEqual(evidence["output_plan_reuse_count"], 0)
-            self.assertEqual(evidence["result_replay_reuse_count"], 0)
+            self.assertEqual(evidence["cache_hit_count"], 1)
+            self.assertEqual(evidence["cache_miss_count"], 1)
+            self.assertEqual(evidence["source_state_reuse_count"], 1)
+            self.assertEqual(evidence["output_plan_reuse_count"], 1)
+            self.assertEqual(evidence["result_replay_reuse_count"], 1)
             self.assertFalse(evidence["fallback_attempted"])
             self.assertFalse(evidence["external_engine_invoked"])
 
@@ -6958,40 +7058,40 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("window").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
-        self.assertFalse(dataframe_methods.row("window").runtime_execution)
-        self.assertIn("native_vortex_window_operator", dataframe_methods.row("window").required_evidence)
+        self.assertTrue(dataframe_methods.row("window").runtime_execution)
+        self.assertIn("scoped_window_projection_route", dataframe_methods.row("window").required_evidence)
         self.assertEqual(
             dataframe_methods.row("to_python_objects").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
-        self.assertFalse(dataframe_methods.row("to_python_objects").runtime_execution)
+        self.assertTrue(dataframe_methods.row("to_python_objects").runtime_execution)
         self.assertTrue(dataframe_methods.row("to_python_objects").materialization_required)
         self.assertEqual(
             dataframe_methods.row("schema").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
         self.assertEqual(
             dataframe_methods.row("describe_schema").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
         self.assertEqual(
             dataframe_methods.row("validate_schema").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
         self.assertEqual(
             dataframe_methods.row("schema_contract").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
-        self.assertFalse(dataframe_methods.row("schema").runtime_execution)
-        self.assertFalse(dataframe_methods.row("validate_schema").materialization_required)
-        self.assertFalse(dataframe_methods.row("schema_contract").materialization_required)
+        self.assertTrue(dataframe_methods.row("schema").runtime_execution)
+        self.assertTrue(dataframe_methods.row("validate_schema").materialization_required)
+        self.assertTrue(dataframe_methods.row("schema_contract").materialization_required)
         self.assertEqual(
             dataframe_methods.row("data_quality_summary").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
-        self.assertFalse(dataframe_methods.row("data_quality_check").runtime_execution)
+        self.assertTrue(dataframe_methods.row("data_quality_check").runtime_execution)
         self.assertEqual(
             dataframe_methods.row("profile").support_status,
             "runtime_expansion_pending",
@@ -7002,11 +7102,11 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn("native_vortex_profile_runtime", dataframe_methods.row("profile").required_evidence)
         self.assertEqual(
             dataframe_methods.row("quarantine").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
-        self.assertFalse(dataframe_methods.row("quarantine").runtime_execution)
-        self.assertFalse(dataframe_methods.row("quarantine").data_read)
-        self.assertFalse(dataframe_methods.row("quarantine").write_io)
+        self.assertTrue(dataframe_methods.row("quarantine").runtime_execution)
+        self.assertTrue(dataframe_methods.row("quarantine").data_read)
+        self.assertTrue(dataframe_methods.row("quarantine").write_io)
         self.assertEqual(
             dataframe_methods.row("object_store_generated_output").support_status,
             "fixture_smoke_supported",
@@ -7039,14 +7139,14 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertTrue(dataframe_methods.row("quarantine").materialization_required)
         self.assertIn(
-            "native_vortex_quarantine_sink_write_evidence",
+            "local_quarantine_sink_replay_evidence",
             dataframe_methods.row("quarantine").required_evidence,
         )
         self.assertEqual(
             dataframe_methods.row("write").required_evidence,
             (
-                "native_vortex_export_contract",
-                "typed_sink_contract",
+                "vortex_prepared_state_or_native_vortex_input",
+                "declared_local_sink_contract",
                 "output_replay_certificate",
                 "no_fallback_evidence",
             ),
@@ -7054,8 +7154,8 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(
             dataframe_methods.row("write_jsonl").required_evidence,
             (
-                "native_vortex_jsonl_export_contract",
-                "typed_sink_contract",
+                "vortex_prepared_state_or_native_vortex_input",
+                "jsonl_local_sink_contract",
                 "output_replay_certificate",
                 "no_fallback_evidence",
             ),
@@ -7063,29 +7163,30 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(
             dataframe_methods.row("write_csv").required_evidence,
             (
-                "native_vortex_csv_export_contract",
-                "typed_sink_contract",
+                "vortex_prepared_state_or_native_vortex_input",
+                "csv_local_sink_contract",
                 "output_replay_certificate",
                 "no_fallback_evidence",
             ),
         )
         self.assertEqual(
             dataframe_methods.row("write_jsonl").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
-        self.assertFalse(dataframe_methods.row("write_csv").runtime_execution)
-        self.assertFalse(dataframe_methods.row("write_jsonl").write_io)
+        self.assertTrue(dataframe_methods.row("write_csv").runtime_execution)
+        self.assertTrue(dataframe_methods.row("write_jsonl").write_io)
         self.assertEqual(
             dataframe_methods.row("fanout").required_evidence,
             (
-                "native_vortex_fanout_export_contract",
+                "vortex_prepared_state_or_native_vortex_input",
+                "local_fanout_sink_contract",
                 "output_reuse_contract",
                 "output_replay_certificate",
                 "no_fallback_evidence",
             ),
         )
-        self.assertFalse(dataframe_methods.row("fanout").runtime_execution)
-        self.assertFalse(dataframe_methods.row("fanout").write_io)
+        self.assertTrue(dataframe_methods.row("fanout").runtime_execution)
+        self.assertTrue(dataframe_methods.row("fanout").write_io)
         self.assertEqual(
             dataframe_methods.row("write_vortex").required_evidence,
             (
@@ -7103,10 +7204,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(dataframe_methods.row("to_pandas").materialization_required)
         self.assertEqual(
             dataframe_methods.row("to_pandas").support_status,
-            "runtime_expansion_pending",
+            "optional_dependency_container_supported",
         )
-        self.assertFalse(dataframe_methods.row("to_pandas").runtime_execution)
-        self.assertFalse(dataframe_methods.row("to_arrow_ipc").data_read)
+        self.assertTrue(dataframe_methods.row("to_pandas").runtime_execution)
+        self.assertTrue(dataframe_methods.row("to_arrow_ipc").data_read)
         self.assertEqual(
             dataframe_methods.row("from_pandas").support_status,
             "materialized_input_boundary_supported",
@@ -7114,15 +7215,16 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsNone(dataframe_methods.row("from_pandas").blocker_id)
         self.assertEqual(
             dataframe_methods.row("display").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
-        self.assertFalse(dataframe_methods.row("display").runtime_execution)
+        self.assertTrue(dataframe_methods.row("display").runtime_execution)
         self.assertEqual(
             dataframe_methods.row("display").required_evidence,
             (
-                "native_vortex_materialization_contract",
+                "vortex_prepared_state_or_native_vortex_input",
+                "bounded_materialization_contract",
                 "decoded_materialization_policy",
-                "optional_dependency_policy",
+                "notebook_display_contract",
                 "no_fallback_evidence",
             ),
         )
@@ -7268,7 +7370,7 @@ class ShardLoomClientTests(unittest.TestCase):
             matrix.runtime_gap_status_counts["front_door_connection_pending"],
             2,
         )
-        self.assertEqual(matrix.runtime_gap_status_counts["runtime_expansion_pending"], 4)
+        self.assertEqual(matrix.runtime_gap_status_counts["runtime_expansion_pending"], 1)
         self.assertIn("local_file_filter_project_limit", matrix.row_order)
         self.assertIn("arbitrary_sql_python_dataframe_breadth", matrix.row_order)
         local = matrix.row("local_file_filter_project_limit")
@@ -7284,14 +7386,14 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(generated.equivalent_admitted_scope)
         self.assertTrue(generated.write_io)
         schema_quality = matrix.row("schema_quality_preview")
-        self.assertFalse(schema_quality.equivalent_admitted_scope)
-        self.assertEqual(schema_quality.runtime_gap_status, "runtime_expansion_pending")
+        self.assertTrue(schema_quality.equivalent_admitted_scope)
+        self.assertEqual(schema_quality.runtime_gap_status, "admitted_scope")
         self.assertIn("ctx.sql", schema_quality.sql_surface)
         self.assertIsNone(schema_quality.blocker_id)
         materialization = matrix.row("decoded_materialization_interop")
-        self.assertFalse(materialization.equivalent_admitted_scope)
-        self.assertEqual(materialization.runtime_gap_status, "runtime_expansion_pending")
-        self.assertFalse(materialization.materialization_required)
+        self.assertTrue(materialization.equivalent_admitted_scope)
+        self.assertEqual(materialization.runtime_gap_status, "admitted_scope")
+        self.assertTrue(materialization.materialization_required)
         self.assertIsNone(materialization.blocker_id)
         self.assertIn("to_pandas", materialization.sql_surface)
         vortex = matrix.row("local_vortex_primitive_runtime")
@@ -7305,12 +7407,12 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsNone(vortex.blocker_id)
         self.assertIn("Vortex-normalized", vortex.claim_boundary)
         typed_nested = matrix.row("typed_nested_compatibility_sink")
-        self.assertFalse(typed_nested.equivalent_admitted_scope)
-        self.assertEqual(typed_nested.runtime_gap_status, "runtime_expansion_pending")
-        self.assertFalse(typed_nested.write_io)
-        self.assertFalse(typed_nested.materialization_required)
+        self.assertTrue(typed_nested.equivalent_admitted_scope)
+        self.assertEqual(typed_nested.runtime_gap_status, "admitted_scope")
+        self.assertTrue(typed_nested.write_io)
+        self.assertTrue(typed_nested.materialization_required)
         self.assertIsNone(typed_nested.blocker_id)
-        self.assertIn("native Vortex export evidence", typed_nested.claim_boundary)
+        self.assertIn("local sink replay evidence", typed_nested.claim_boundary)
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
         self.assertTrue(broad.broad_gap)
         self.assertEqual(broad.parity_status, "front_door_gap")
@@ -7323,7 +7425,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(performance.support_status, "benchmark_publication_pending")
         self.assertEqual(performance.runtime_gap_status, "benchmark_publication_pending")
         self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
-        self.assertEqual(len(matrix.admitted_rows), 4)
+        self.assertEqual(len(matrix.admitted_rows), 7)
         self.assertGreaterEqual(len(matrix.broad_gap_rows), 4)
 
     def test_engine_capability_matrix_streaming_capability_view(self) -> None:

@@ -67,7 +67,10 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             for row in report["rows"]
             if row["row_id"] == "local_file_filter_project_limit"
         )
-        self.assertEqual(local["shared_runtime_path"], "sql-local-source-smoke")
+        self.assertEqual(
+            local["shared_runtime_path"],
+            "vortex-ingest-smoke->native_vortex_primitive_or_provider",
+        )
         self.assertIn("no_benchmark_claim", local["performance_equivalence_status"])
         schema_quality = next(
             row
@@ -103,7 +106,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         )
         self.assertEqual(nested_sink["runtime_gap_status"], "admitted_scope")
         self.assertIn(
-            "Parquet, Arrow IPC, Avro, and local Vortex",
+            "local sink replay evidence",
             nested_sink["claim_boundary"],
         )
         native = next(

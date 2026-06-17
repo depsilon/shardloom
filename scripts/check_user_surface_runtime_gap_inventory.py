@@ -153,7 +153,37 @@ DATAFRAME_METHOD_GAP_ROUTES: dict[str, dict[str, str]] = {
 }
 DATAFRAME_METHOD_GAP_ROUTES.update(
     {
+        "distinct": {
+            "classification": "true_runtime_expansion_item",
+            "vortex_normalization_point": "dataframe_distinct_to_vortex_operator_pending",
+            "runtime_route": "native distinct/deduplication operator route pending",
+            "output_or_evidence_route": (
+                "workflow-unsupported-plan diagnostic until distinct semantics and "
+                "execution evidence land"
+            ),
+            "owner": "GAR-RUNTIME-IMPL-6D:last_order.deduplication_runtime",
+        },
+        "drop_duplicates": {
+            "classification": "true_runtime_expansion_item",
+            "vortex_normalization_point": "dataframe_distinct_to_vortex_operator_pending",
+            "runtime_route": "native drop-duplicates operator route pending",
+            "output_or_evidence_route": (
+                "workflow-unsupported-plan diagnostic until duplicate-row semantics and "
+                "execution evidence land"
+            ),
+            "owner": "GAR-RUNTIME-IMPL-6D:last_order.deduplication_runtime",
+        },
         "eval": DATAFRAME_METHOD_EXPRESSION_ROUTE,
+        "unique": {
+            "classification": "true_runtime_expansion_item",
+            "vortex_normalization_point": "dataframe_unique_to_vortex_operator_pending",
+            "runtime_route": "native unique operator route pending",
+            "output_or_evidence_route": (
+                "workflow-unsupported-plan diagnostic until one-column unique semantics and "
+                "execution evidence land"
+            ),
+            "owner": "GAR-RUNTIME-IMPL-6D:last_order.deduplication_runtime",
+        },
         "schema_contract": {
             "classification": "true_runtime_expansion_item",
             "vortex_normalization_point": (

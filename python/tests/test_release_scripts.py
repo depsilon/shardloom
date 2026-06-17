@@ -13497,7 +13497,11 @@ jobs:
         self.assertEqual(by_method["from_rows"]["support_status"], "fixture_smoke_supported")
         self.assertEqual(
             by_method["to_pandas"]["support_status"],
-            "runtime_expansion_pending",
+            "optional_dependency_container_supported",
+        )
+        self.assertIn(
+            "optional_dependency_policy",
+            by_method["to_pandas"]["required_evidence"],
         )
         self.assertEqual(
             by_method["rename"]["support_status"],
@@ -13585,10 +13589,13 @@ jobs:
         self.assertIn("unpivot_semantics", by_method["melt"]["required_evidence"])
         self.assertFalse(by_method["rolling"]["write_io"])
         self.assertTrue(by_method["to_pandas"]["materialization_required"])
+        self.assertIsNone(by_method["to_pandas"]["blocker_id"])
         self.assertEqual(
-            by_method["to_pandas"]["blocker_id"],
-            "cg21.workflow.to-pandas.native_vortex_materialization_contract_missing",
+            by_method["display"]["support_status"],
+            "production_admitted_local_workflow",
         )
+        self.assertIn("notebook_display_contract", by_method["display"]["required_evidence"])
+        self.assertIsNone(by_method["display"]["blocker_id"])
         self.assertFalse(any(row["fallback_attempted"] for row in rows))
         self.assertFalse(any(row["external_engine_invoked"] for row in rows))
 

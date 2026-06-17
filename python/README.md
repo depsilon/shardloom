@@ -189,10 +189,12 @@ format helpers. CSV, flat JSON/JSONL/NDJSON, generated rows, and scoped local Vo
 the default public examples. Parquet, Arrow IPC/Feather, Avro, and ORC are admitted scoped
 local-format surfaces when the matching feature-gated build is present; builds without those
 readers return deterministic adapter blockers instead of invoking another engine. Compatibility
-exports such as `write_jsonl(...)`, `write_csv(...)`, and structured compatibility sinks require a
-native Vortex export contract before they are product routes. Format-specific behavior belongs at
-read/ingest and write/sink boundaries only; compute semantics should lower through the shared
-ShardLoom/Vortex runtime or return a deterministic unsupported report.
+exports such as `write_jsonl(...)`, `write_csv(...)`, Parquet/Arrow IPC/Avro/ORC writers, fanout,
+and quarantine sinks are admitted only when the workflow first carries Vortex preparation or native
+Vortex-input evidence and the sink emits replay evidence such as `result_replay_verified`.
+Format-specific behavior belongs at read/ingest and write/sink boundaries only; compute semantics
+should lower through the shared ShardLoom/Vortex runtime or return a deterministic unsupported
+report.
 Agents and automation should use `docs/reference/shardloom-user-surface-index.md` and
 `docs/reference/shardloom-user-surface-index.json` as the canonical map of Python, SQL, CLI,
 generated-source, materialization, and deterministic blocker surfaces.
@@ -203,9 +205,9 @@ scoped local evidence.
 Bounded materialization is explicit. Local-source workflows can carry a `limit(...)` or pass
 `collect(limit=...)`; SQL workflows can also pass `collect(limit=...)` or chain
 `.limit(...).collect()`. Those admitted routes return typed report rows from the ShardLoom CLI
-envelope. Broader decoded Python-object, pandas, Arrow, NumPy, and notebook materialization helpers
-remain explicit blockers for local compatibility inputs until they have a native Vortex-derived
-materialization contract:
+envelope. Decoded Python-object, pandas, Arrow, NumPy, and notebook materialization helpers are
+bounded container/output boundaries over the admitted ShardLoom result; optional packages are never
+used as execution engines and missing packages return deterministic diagnostics:
 
 ```python
 preview_report = (
@@ -216,10 +218,11 @@ preview_report = (
 )
 print(preview_report.result_rows)
 
-blocked = ctx.read("target/orders.csv").select("id").to_pandas()
-print(blocked.blocker_id)
-print(blocked.required_evidence)
-print(blocked.fallback_attempted, blocked.external_engine_invoked)
+rows = ctx.read("target/orders.csv").select("id").limit(20).to_python_objects()
+print(rows)
+
+pandas_view = ctx.read("target/orders.csv").select("id").limit(20).to_pandas(check=False)
+print(getattr(pandas_view, "blocker_id", None))
 ```
 
 For workflows that need caller-scoped reuse evidence, `ctx.session(...)` and `sl.session(...)` expose
@@ -725,17 +728,19 @@ declared right Vortex input, global top-N, clean/cast/filter, malformed timestam
 contains, and native Vortex result sinks. The current exact-route inventory lives in
 `docs/architecture/v1-vortex-runtime-scope.md` and the machine-readable capability reports.
 General SQL/DataFrame parity, arbitrary expression trees, arbitrary joins, broad schema/profile
-materialization, and compatibility exports are not implied by those exact routes.
+materialization, and broad remote/table exports are not implied by those exact routes.
 
-Compatibility sinks such as JSONL/CSV/Parquet/Arrow IPC/Avro/ORC from native Vortex routes are
-blocked until their own decode/export contracts exist. `write_vortex(...)` is the current native
-sink route for admitted native-provider workflows. If a sink is not admitted, call it with
-`check=False` to inspect the deterministic blocker without raising:
+Compatibility sinks such as JSONL/CSV/Parquet/Arrow IPC/Avro/ORC are admitted for scoped local
+workflows after Vortex preparation or native Vortex input and declared output replay evidence.
+`write_vortex(...)` remains the highest-fidelity local Vortex sink route for admitted native-provider
+workflows. If a sink shape is not admitted, call it with `check=False` to inspect the deterministic
+blocker without raising:
 
 ```python
-blocked = orders.write_jsonl("target/orders.jsonl", allow_overwrite=True, check=False)
-print(blocked.blocker_id)
-print(blocked.fallback_attempted, blocked.external_engine_invoked)
+result = orders.write_jsonl("target/orders.jsonl", allow_overwrite=True, check=False)
+print(result.output_path)
+print(result.result_replay_verified)
+print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
 The lower-level `client.sql_local_source_smoke(...)` helper remains documented only for internal
@@ -748,10 +753,9 @@ rewrite safety, evidence preservation, no-fallback fields, and claim gates witho
 SQL/DataFrame execution or Polars/DataFusion optimizer parity.
 
 Reusable I/O state and broad cross-format fanout are planned as `GAR-IOREUSE-1`. Public local
-compatibility workflows no longer use a direct local-source fanout/write route as a product runtime.
-Compatibility fanout and compatibility sinks require native Vortex export/replay contracts before
-promotion; until then they return unsupported reports with no fallback. Generated-source helpers keep
-their separate local-output fanout surfaces because those rows are produced by explicit
+compatibility workflows no longer use a direct local-source fanout/write route as a product runtime:
+they prepare through Vortex first, then emit declared local sink replay evidence. Generated-source
+helpers keep their separate local-output fanout surfaces because those rows are produced by explicit
 source-free/generated-source commands, not by decoding a local compatibility file as the runtime
 middle.
 Current typed result objects expose scoped `SourceState`, `VortexPreparedState`, and `OutputPlan`
@@ -761,8 +765,11 @@ Input and output formats remain decoupled, and reuse evidence will not imply per
 production, object-store/lakehouse, Foundry, or SQL/DataFrame support.
 
 Unsupported workflow affordances are explicit report surfaces too. These calls show how familiar
-pandas/Arrow/DataFrame/notebook methods fail closed when they are outside the admitted bounded
-local-source or materialized-input shapes:
+pandas/Arrow/DataFrame/notebook methods either use admitted bounded local-source/materialized-input
+shapes or fail closed when the requested operation is outside that scope:
+
+Unsupported rows expose stable evidence fields such as `blocked.required_evidence`,
+`blocker_id`, `required_evidence`, and `suggested_next_action` for agents.
 
 ```python
 import shardloom as sl
@@ -793,15 +800,20 @@ reports = [
 ]
 
 for report in reports:
-    print(report.operation)
-    print(report.blocker_id)
-    print(report.required_evidence)
-    print(report.suggested_next_action)
-    print(report.runtime_execution, report.data_read, report.write_io)
+    print(getattr(report, "operation", type(report).__name__))
+    print(getattr(report, "blocker_id", None))
+    print(getattr(report, "required_evidence", ()))
+    print(getattr(report, "suggested_next_action", None))
+    print(
+        getattr(report, "runtime_execution", None),
+        getattr(report, "data_read", None),
+        getattr(report, "write_io", None),
+    )
 ```
 
-Every report above is generated through `workflow-unsupported-plan` and returns
-`status="unsupported"` with `fallback_attempted=false`. The methods do not
+Unsupported reports above are generated through `workflow-unsupported-plan` and return
+`status="unsupported"` with `fallback_attempted=false`; admitted reports preserve the same
+no-fallback fields on their success evidence. The methods do not
 use pandas, pyarrow, or numpy as execution engines, parse SQL, execute
 unsupported DataFrame expressions, render broad notebook runtime output, invoke Foundry/model
 services, or use another engine as fallback. Valid pandas/Arrow inputs are treated as explicit
@@ -836,12 +848,12 @@ command exists. Terminal methods are one of: side-effect-free lazy declarations,
 local workflows that normalize through Vortex preparation or native Vortex input, source-free
 GeneratedSource local-output rows, internal smoke safeguards, or deterministic unsupported reports.
 
-For local compatibility inputs, admitted `collect()`, `count()`, `preview()`, `head()`, `take()`, and
-exact benchmark-family provider shapes enter the same Vortex-prepared/native route described above.
-Compatibility writes such as `write_jsonl(...)`, `write_csv(...)`, Parquet/Arrow/Avro/ORC exports,
-compatibility fanout, decoded Python-object/pandas/Arrow/NumPy materialization, schema summaries,
-profile summaries, and quarantine sinks remain blockers unless a later native Vortex materialization
-or export contract admits them. Alias rows such as `project`, `where`, `groupby`, `order_by`,
+For local compatibility inputs, admitted `collect()`, `count()`, `preview()`, `head()`, `take()`,
+schema/data-quality summaries, bounded decoded materialization, local compatibility writes,
+compatibility fanout, quarantine sinks, and exact benchmark-family provider shapes enter the same
+Vortex-prepared/native route described above. Profile summaries and broad production/export
+semantics remain blocked unless a later native Vortex materialization or export contract admits
+them. Alias rows such as `project`, `where`, `groupby`, `order_by`,
 `sort_values`, `merge`, and `nlargest` are useful only when their normalized operation shape maps to
 an admitted native route; otherwise they return the matching unsupported report before data is read.
 
@@ -849,15 +861,14 @@ Generated-source rows such as `ctx.from_rows(...)`, `ctx.range(...)`, `ctx.seque
 source-free SQL have their own local output contracts. Those are not proof that local CSV/JSON/etc.
 compatibility files can use direct decoded sinks as a product runtime.
 
-`schema_contract(...)` and `validate_schema(...)` remain deterministic blocker surfaces for local
-compatibility inputs until schema evidence is derived from the native Vortex route. They are not
-broad schema registry, table constraint manager, or object-store/lakehouse enforcement surfaces.
+`schema_contract(...)` and `validate_schema(...)` are bounded local schema evidence surfaces after
+Vortex preparation. They are not broad schema registry, table constraint manager, or object-store/
+lakehouse enforcement surfaces.
 `profile(...)` remains blocked until it has a native Vortex runtime profile/materialization
 contract. It is not a hidden pandas/Polars profiler, resource tracer, performance claim, or
 production observability surface.
-`quarantine(...)` remains blocked for public local compatibility inputs until native Vortex
-classification and export/replay evidence exists. It is not object-store/table quarantine,
-production remediation, or a broad data-governance engine.
+`quarantine(...)` is admitted for bounded local checks and optional local sink replay evidence. It is
+not object-store/table quarantine, production remediation, or a broad data-governance engine.
 
 When the question is broader than one DataFrame method, use the front-door parity matrix. It
 separates workflows that already lower SQL, Python, and DataFrame-style code to the same ShardLoom

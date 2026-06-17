@@ -33,13 +33,13 @@ SUPPORTED_PARITY_ROWS = {
     "local_file_filter_project_limit",
     "local_file_join_aggregate_sort_window",
     "generated_source_output",
+    "schema_quality_preview",
     "local_vortex_primitive_runtime",
+    "typed_nested_compatibility_sink",
+    "decoded_materialization_interop",
 }
 
 BROAD_PENDING_PARITY_ROWS = {
-    "schema_quality_preview",
-    "typed_nested_compatibility_sink",
-    "decoded_materialization_interop",
     "native_vortex_general_runtime",
     "object_store_lakehouse_catalog",
     "arbitrary_sql_python_dataframe_breadth",

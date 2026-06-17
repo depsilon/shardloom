@@ -1922,10 +1922,23 @@ class SqlWorkflow:
             max_parallelism=max_parallelism,
         ):
             return report
+        if (
+            _is_local_source_sql_statement(self.statement)
+            and self._bounded_local_source_statement(default_limit=None) is None
+        ):
+            return self._unsupported_operation(
+                "sql-local-source-collect",
+                "local_source_sql_collect_requires_explicit_limit",
+                check=check,
+            )
         if report := self._local_source_auto_vortex_sql_collect_report(
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
+        ):
+            return report
+        if report := self._local_source_prepared_sql_compatibility_collect_report(
+            check=check
         ):
             return report
         if _is_local_source_sql_statement(self.statement):
@@ -2296,6 +2309,13 @@ class SqlWorkflow:
 
         normalized_output_format = _normalize_local_output_format(output_format)
         if _is_local_source_sql_statement(self.statement) and normalized_output_format != "vortex":
+            if report := self._local_source_prepared_sql_compatibility_write_report(
+                target_uri,
+                output_format=normalized_output_format,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            ):
+                return report
             return self._unsupported_operation(
                 f"native-vortex-{normalized_output_format}-sql-sink",
                 str(target_uri),
@@ -2579,12 +2599,76 @@ class SqlWorkflow:
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
             )
-        if report is None:
+        if report is None or report.envelope.status != "success":
             return None
         return VortexWorkflowExecutionReport(
             workflow=self._report_workflow(),
             operation=report.operation,
             envelope=report.envelope,
+            preparation_envelope=preparation,
+        )
+
+    def _local_source_prepared_sql_compatibility_collect_report(
+        self,
+        *,
+        check: bool,
+    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | None:
+        candidate = _local_source_auto_vortex_sql_candidate(
+            self.statement,
+            client=self.client,
+        )
+        if candidate is None:
+            return None
+        preparation = self._prepare_local_sql_vortex_sources(candidate, check=check)
+        if preparation is not None and preparation.status != "success":
+            return VortexWorkflowExecutionReport(
+                workflow=self._report_workflow(),
+                operation="prepare_vortex",
+                envelope=preparation,
+                preparation_envelope=preparation,
+            )
+        report = self.client.sql_local_source_smoke(
+            self.statement,
+            product_local_workflow=True,
+            check=check,
+        )
+        return SqlLocalSourceSmokeReport(
+            report.envelope,
+            preparation_envelope=preparation,
+        )
+
+    def _local_source_prepared_sql_compatibility_write_report(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        output_format: str,
+        allow_overwrite: bool,
+        check: bool,
+    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | None:
+        candidate = _local_source_auto_vortex_sql_candidate(
+            self.statement,
+            client=self.client,
+        )
+        if candidate is None:
+            return None
+        preparation = self._prepare_local_sql_vortex_sources(candidate, check=check)
+        if preparation is not None and preparation.status != "success":
+            return VortexWorkflowExecutionReport(
+                workflow=self._report_workflow(),
+                operation="prepare_vortex",
+                envelope=preparation,
+                preparation_envelope=preparation,
+            )
+        report = self.client.sql_local_source_smoke(
+            self.statement,
+            output_path=target_uri,
+            output_format=output_format,
+            allow_overwrite=allow_overwrite,
+            product_local_workflow=True,
+            check=check,
+        )
+        return SqlLocalSourceSmokeReport(
+            report.envelope,
             preparation_envelope=preparation,
         )
 
@@ -2674,7 +2758,13 @@ class SqlWorkflow:
         statement = self._bounded_local_source_statement(default_limit=100)
         if statement is None:
             return None
-        return None
+        report = SqlWorkflow(
+            statement=statement,
+            client=self.client,
+        )._local_source_prepared_sql_compatibility_collect_report(check=check)
+        if not isinstance(report, SqlLocalSourceSmokeReport) or report.status != "success":
+            return None
+        return _workflow_schema_report(self._report_workflow(), report)
 
     def _bounded_materialization_report(
         self,
@@ -2685,7 +2775,13 @@ class SqlWorkflow:
         statement = self._bounded_local_source_statement(default_limit=limit)
         if statement is None:
             return None
-        return None
+        report = SqlWorkflow(
+            statement=statement,
+            client=self.client,
+        )._local_source_prepared_sql_compatibility_collect_report(check=check)
+        if not isinstance(report, SqlLocalSourceSmokeReport):
+            return None
+        return report if report.status == "success" else None
 
     def _bounded_local_source_statement(self, *, default_limit: int | None) -> str | None:
         if default_limit is not None:
@@ -5021,9 +5117,13 @@ class LazyFrame:
             max_parallelism=max_parallelism,
         ):
             return report
+        if report := self._local_source_prepared_sql_compatibility_collect_report(
+            check=check
+        ):
+            return report
         if _is_query_builder_local_source(self.source):
             return self._unsupported_operation(
-                "native-vortex-local-workflow",
+                "collect",
                 check=check,
             )
         return self._unsupported_operation("collect", check=check)
@@ -5083,6 +5183,13 @@ class LazyFrame:
                 check=check,
             )
         if _is_query_builder_local_source(self.source):
+            if report := self._local_source_prepared_sql_compatibility_write_report(
+                target_uri,
+                output_format=normalized_output_format,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            ):
+                return report
             return self._unsupported_operation(
                 f"native-vortex-{normalized_output_format}-sink",
                 str(target_uri),
@@ -5237,6 +5344,13 @@ class LazyFrame:
 
         normalized_outputs = _normalize_fanout_outputs(outputs)
         _output_format, output_path = normalized_outputs[0]
+        if _is_query_builder_local_source(self.source):
+            if report := self._local_source_prepared_sql_compatibility_fanout_report(
+                normalized_outputs,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            ):
+                return report
         return self._unsupported_operation(
             "native-vortex-fanout-sink",
             str(output_path),
@@ -5494,7 +5608,15 @@ class LazyFrame:
         ):
             return report
         if _is_query_builder_local_source(self.source):
-            return self._unsupported_operation("native-vortex-sink", str(target_uri), check=check)
+            if report := self._local_source_prepared_sql_compatibility_write_report(
+                target_uri,
+                output_format="vortex",
+                allow_overwrite=allow_overwrite,
+                check=check,
+            ):
+                return report
+        if _is_query_builder_local_source(self.source):
+            return self._unsupported_operation("write-vortex", str(target_uri), check=check)
         if self._sql_local_source_statement() is None:
             return self._unsupported_operation("write-vortex", str(target_uri), check=check)
         return self._public_workflow_write_report(
@@ -5872,6 +5994,23 @@ class LazyFrame:
                 output_format,
             )
             sink_report: SqlLocalSourceSmokeReport | None = None
+            if target_uri is not None and rows:
+                pushdown_statement = self._quarantine_pushdown_statement(
+                    parsed_checks,
+                    limit=limit,
+                )
+                if pushdown_statement is not None and normalized_output_format is not None:
+                    sink = SqlWorkflow(
+                        statement=pushdown_statement,
+                        client=self.client,
+                    )._local_source_prepared_sql_compatibility_write_report(
+                        target_uri,
+                        output_format=normalized_output_format,
+                        allow_overwrite=allow_overwrite,
+                        check=check,
+                    )
+                    if isinstance(sink, SqlLocalSourceSmokeReport) and sink.status == "success":
+                        sink_report = sink
             return WorkflowQuarantineReport(
                 workflow=self,
                 quality_report=quality_report,
@@ -6154,7 +6293,7 @@ class LazyFrame:
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
             )
-        if report is None:
+        if report is None or report.envelope.status != "success":
             return None
         return VortexWorkflowExecutionReport(
             workflow=self,
@@ -6186,7 +6325,7 @@ class LazyFrame:
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
-        if report is None:
+        if report is None or report.envelope.status != "success":
             return None
         return VortexWorkflowExecutionReport(
             workflow=self,
@@ -6218,12 +6357,116 @@ class LazyFrame:
             allow_overwrite=allow_overwrite,
             check=check,
         )
-        if isinstance(report, UnsupportedWorkflowOperationReport):
+        if report is None or isinstance(report, UnsupportedWorkflowOperationReport):
+            return None
+        if report.envelope.status != "success":
             return None
         return VortexWorkflowExecutionReport(
             workflow=self,
             operation=report.operation,
             envelope=report.envelope,
+            preparation_envelope=preparation.envelope,
+        )
+
+    def _local_source_prepared_sql_compatibility_collect_report(
+        self,
+        *,
+        check: bool,
+    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | None:
+        statement = self._sql_local_source_statement()
+        if statement is None:
+            return None
+        candidate = self._prepared_vortex_candidate_for_admitted_runtime()
+        if candidate is None:
+            return None
+        preparation = self._prepare_vortex_candidate(candidate, check=check)
+        if preparation.envelope.status != "success":
+            return VortexWorkflowExecutionReport(
+                workflow=self,
+                operation="prepare_vortex",
+                envelope=preparation.envelope,
+                preparation_envelope=preparation.envelope,
+            )
+        report = self.client.sql_local_source_smoke(
+            statement,
+            product_local_workflow=True,
+            check=check,
+        )
+        return SqlLocalSourceSmokeReport(
+            report.envelope,
+            preparation_envelope=preparation.envelope,
+        )
+
+    def _local_source_prepared_sql_compatibility_write_report(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        output_format: str,
+        allow_overwrite: bool,
+        check: bool,
+    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | None:
+        statement = self._sql_local_source_statement()
+        if statement is None:
+            return None
+        candidate = self._prepared_vortex_candidate_for_admitted_runtime()
+        if candidate is None:
+            return None
+        preparation = self._prepare_vortex_candidate(candidate, check=check)
+        if preparation.envelope.status != "success":
+            return VortexWorkflowExecutionReport(
+                workflow=self,
+                operation="prepare_vortex",
+                envelope=preparation.envelope,
+                preparation_envelope=preparation.envelope,
+            )
+        report = self.client.sql_local_source_smoke(
+            statement,
+            output_path=target_uri,
+            output_format=output_format,
+            allow_overwrite=allow_overwrite,
+            product_local_workflow=True,
+            check=check,
+        )
+        return SqlLocalSourceSmokeReport(
+            report.envelope,
+            preparation_envelope=preparation.envelope,
+        )
+
+    def _local_source_prepared_sql_compatibility_fanout_report(
+        self,
+        outputs: Sequence[tuple[str, CommandPart]],
+        *,
+        allow_overwrite: bool,
+        check: bool,
+    ) -> SqlLocalSourceSmokeReport | VortexWorkflowExecutionReport | None:
+        if not outputs:
+            return None
+        statement = self._sql_local_source_statement()
+        if statement is None:
+            return None
+        candidate = self._prepared_vortex_candidate_for_admitted_runtime()
+        if candidate is None:
+            return None
+        preparation = self._prepare_vortex_candidate(candidate, check=check)
+        if preparation.envelope.status != "success":
+            return VortexWorkflowExecutionReport(
+                workflow=self,
+                operation="prepare_vortex",
+                envelope=preparation.envelope,
+                preparation_envelope=preparation.envelope,
+            )
+        output_format, output_path = outputs[0]
+        report = self.client.sql_local_source_smoke(
+            statement,
+            output_path=output_path,
+            output_format=output_format,
+            fanout_outputs=outputs[1:],
+            allow_overwrite=allow_overwrite,
+            product_local_workflow=True,
+            check=check,
+        )
+        return SqlLocalSourceSmokeReport(
+            report.envelope,
             preparation_envelope=preparation.envelope,
         )
 
@@ -6879,12 +7122,14 @@ class LazyFrame:
         )
 
     def _bounded_schema_report(self, *, check: bool) -> WorkflowSchemaReport | None:
-        if _is_query_builder_local_source(self.source):
-            return None
         statement = self._sql_local_source_statement(default_limit=100)
         if statement is None:
             return None
-        return None
+        frame = self if _workflow_has_limit(self.operations) else self.limit(100)
+        report = frame._local_source_prepared_sql_compatibility_collect_report(check=check)
+        if not isinstance(report, SqlLocalSourceSmokeReport) or report.status != "success":
+            return None
+        return _workflow_schema_report(frame, report)
 
     def _bounded_materialization_report(
         self,
@@ -6894,12 +7139,16 @@ class LazyFrame:
     ) -> SqlLocalSourceSmokeReport | None:
         if limit is not None:
             _validate_positive_row_count("materialization limit", limit)
-        if _is_query_builder_local_source(self.source):
-            return None
         statement = self._sql_local_source_statement(default_limit=limit)
         if statement is None:
             return None
-        return None
+        frame = self
+        if limit is not None and not _workflow_has_limit(self.operations):
+            frame = self.limit(limit)
+        report = frame._local_source_prepared_sql_compatibility_collect_report(check=check)
+        if not isinstance(report, SqlLocalSourceSmokeReport):
+            return None
+        return report if report.status == "success" else None
 
     def _quarantine_pushdown_statement(
         self,
