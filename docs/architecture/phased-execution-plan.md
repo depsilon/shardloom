@@ -20,6 +20,12 @@
   surface separation, or evidence-tier controls apply. If none apply, say why. This prevents net
   new features from being designed in a generic way that later needs avoidable refactoring to use
   ShardLoom's own performance and evidence techniques.
+- Prefer a small number of reusable Vortex-normalized execution families over route proliferation.
+  Public method names, SQL spellings, and CLI aliases may keep distinct labels for user clarity, but
+  implementation should collapse aliases into shared planner/runtime/sink contracts whenever the
+  source state, operator semantics, materialization boundary, and evidence fields are the same.
+  Because ShardLoom is pre-public-use, do not preserve awkward legacy route splits for compatibility
+  alone; preserve only the boundaries that make correctness, diagnostics, or evidence clearer.
 - When a maintainer-provided list, audit, attachment, benchmark finding, or review packet proposes
   new work, review each candidate before adding it here. Classify it as already addressed,
   accepted into a new checklist, merged into an existing checklist, v1 candidate pending
@@ -178,6 +184,196 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
+- [ ] `PY-VORTEX-LOCAL-EXPORT-DISTINCT-CLOSEOUT-1` Retire remaining locally solvable Python
+  front-door runtime blockers for row-level distinct and Vortex-derived compatibility exports.
+  - Source: June 18, 2026 post-#1296 user-surface audit. Initial reports showed 11 v1 front-door
+    parity rows: 6 admitted, 1 local output-route contract blocker, 2 broad front-door connection
+    gaps, 1 object-store/lakehouse runtime expansion, and 1 benchmark-publication/equivalence gap.
+    The Python method matrix now has 113 rows: 93 available, boundary-supported, or
+    production-admitted rows and 20 deterministic blocker rows. The locally solvable subset in this
+    item is row-level `distinct`/`drop_duplicates`/`unique`
+    plus public local-source `write`/`write_jsonl`/`write_csv`/JSONL+CSV `fanout` where the workflow
+    can be normalized to Vortex and exported through a certified row/result contract.
+  - Current state: scoped native Vortex primitive filter/project/filter-project/distinct/tail/sample
+    JSONL/CSV row export and JSONL+CSV fanout exist through `native_vortex_primitive_row_export`. Exact
+    provider-backed result summaries can export JSONL/CSV. No-argument row-level
+    `distinct`/`drop_duplicates`/`unique` aliases are admitted for native/prepared Vortex primitive
+    scalar, boolean, and UTF-8 row streams with explicit decode/materialization evidence. The
+    former broad typed nested compatibility sink blocker is narrowed to computed `ARRAY`/`STRUCT`
+    Parquet/Arrow IPC/Avro outputs that still need typed expression lowering and structured sink
+    replay evidence.
+  - V1 scope classification: `required_for_v1` for the locally solvable subset. Broad arbitrary
+    SQL/DataFrame parity, object-store/lakehouse production runtime, Python callable/effect
+    methods, and performance-equivalence claims remain outside this item.
+  - ShardLoom technique review: Vortex-first provider review applies to using the existing
+    primitive row-export path before adding a parallel sink. Capillary work units apply to splitting
+    Vortex preparation, row de-duplication/export, and sink replay evidence while preserving
+    sequential local defaults. Dynamic admission applies to admitting only distinct/export shapes
+    that can be represented by the normalized Vortex plan and blocking unsafe formats or fanout
+    targets. Metadata-first controls do not solve row-level distinct by themselves, but schema and
+    projection metadata should narrow columns before row materialization. Evidence-tier controls
+    must keep scoped row-stream export distinct from broad production sink claims.
+  - Execution checklist:
+    - [x] Add a native/prepared Vortex row-level distinct route contract for no-argument
+      `distinct()`, `drop_duplicates()`, and `unique()` over admitted projected/filter/project
+      local or native Vortex shapes, with explicit decode/materialization evidence and no external
+      engine invocation.
+    - [x] Promote public local-source `write_jsonl`, `write_csv`, and JSONL+CSV `fanout` when the
+      normalized plan can use the existing native/prepared Vortex primitive row-export contract;
+      keep `write(...)` admitted only when it resolves to JSONL/CSV/Vortex and blocks otherwise.
+    - [x] Resolve `typed_nested_compatibility_sink` by deriving JSONL/CSV output from an admitted
+      Vortex-prepared/native export path, or keep only the nested shapes that still lack child-schema
+      evidence blocked with narrower diagnostics.
+    - [x] Update Python method capability rows, front-door parity rows, user-route capability
+      reports, README/Python README, user-surface index, and generated supported/unsupported docs so
+      supported versus broad blocked export/distinct surfaces are unambiguous.
+    - [x] Add focused Python and Rust regression tests proving admitted distinct/export/fanout paths
+      do not execute `sql-local-source-smoke` as the public runtime middle and keep
+      `fallback_attempted=false` / `external_engine_invoked=false`.
+    - [x] Run focused user-surface validators, focused Python/Rust regression tests, and
+      `cargo fmt --all -- --check` before PR/merge.
+      Current focused evidence covers `cargo test -p shardloom-cli --features release-user-surfaces
+      --test public_workflow_route -- --nocapture`, `cargo check -p shardloom-cli --features
+      release-user-surfaces`, `cargo check -p shardloom-vortex --features vortex-local-primitives`,
+      `cargo test -p shardloom-vortex --features vortex-local-primitives row_export -- --nocapture`,
+      focused Python query-builder/report tests, user-surface/runtime-scope validators,
+      `cargo fmt --all -- --check`, and `git diff --check`.
+    - [ ] Run the broad workspace gates after the remaining requested runtime/docs work is complete:
+      `cargo clippy --workspace --all-targets -- -D warnings` and
+      `cargo test --workspace --all-targets`.
+    - [ ] Move completed detail to the ledger after validation and PR handling.
+  - Next outcome: a cohesive runtime/docs/tests PR that reduces the remaining locally solvable
+    front-door blockers without weakening deterministic blockers for broad/external-gated work.
+  - User-visible surface: `ctx.read(...).select/filter/limit.distinct().collect()`,
+    `drop_duplicates()`, `unique()`, `write_jsonl`, `write_csv`, `fanout`, `route/run` facade
+    evidence, capability reports, README/Python README, and user-surface index.
+  - Implementation scope: `python/src/shardloom/query.py`, `python/src/shardloom/context.py`,
+    `shardloom-cli/src/public_workflow_route.rs`, `shardloom-vortex/src/local_primitives.rs`,
+    focused Python/Rust tests, status validators, generated docs/status artifacts.
+  - Evidence required: route/admission tests, correctness fixtures for duplicate/null row
+    handling, output replay/fidelity evidence for JSONL/CSV, deterministic blockers for unsupported
+    formats/shapes, no-fallback/no-external-engine fields.
+  - Acceptance: the v1 front-door report no longer treats admitted JSONL/CSV/fanout/provider
+    outputs as part of the typed nested local output-route blocker; Python method matrix no longer
+    marks no-argument row-level distinct aliases or scoped JSONL/CSV/fanout exports as
+    runtime-expansion pending; broad/export-unsafe and computed typed-nested structured sink shapes
+    remain explicit blockers.
+  - Non-goals: arbitrary ANSI SQL/DataFrame parity, Python callable UDFs/effects, object-store or
+    table/lakehouse production output, unbounded materialization, performance superiority claims,
+    external engine execution, or changing benchmark scenarios.
+  - Fallback boundary: every admitted and blocked path must report `fallback_attempted=false` and
+    `external_engine_invoked=false`.
+  - Ledger rule: completed detail moves to
+    `docs/architecture/phased-execution-completed-ledger.md`.
+
+- [ ] `PY-DATAFRAME-DETERMINISTIC-BLOCKER-COVERAGE-1` Give every remaining deterministic
+  Python/DataFrame blocker an explicit implementation track, not just the 7 locally solvable
+  closeout rows.
+  - Source: June 18, 2026 user-surface audit follow-up. The Python method matrix now reports 113
+    method rows: 98 available, boundary-supported, or production-admitted rows and 15 deterministic
+    unsupported diagnostic rows. The earlier 7 current-state solvable runtime expansion rows are
+    covered by `PY-VORTEX-LOCAL-EXPORT-DISTINCT-CLOSEOUT-1`; this pass also promoted scoped
+    `describe` through the existing metadata-first profile route and scoped bounded `tail(limit)`
+    through a native/prepared Vortex source-order tail primitive, and scoped
+    deterministic `sample(n=..., seed=...)` through a native/prepared Vortex sample primitive with
+    explicit bounded materialization, plus scoped `reset_index(drop=True)` /
+    `sort_index(ascending=True)` through index-state-free source-order preservation, and scoped
+    `set_index(keys, drop=False)` through explicit index-state metadata. The remaining
+    15 rows must not
+    remain as an unowned "intentional blocker" bucket.
+  - V1 scope classification: `required_for_v1`, with implementation priority after
+    the Vortex/export/distinct closeout. Each method below must either become an admitted native or
+    prepared Vortex route, or be narrowed to a more precise sub-shape blocker with the missing
+    semantic/runtime evidence recorded. Generic "unsupported" wording is not acceptable.
+  - Blocked method coverage map:
+    - [ ] Sampling/order/index track: scoped deterministic `sample(n=..., seed=...)` is admitted;
+      fraction/weighted/random-state sample variants and `duplicated` remain open.
+      Scoped `set_index(keys, drop=False)`, `reset_index(drop=True)`, and
+      `sort_index(ascending=True)` are admitted as explicit/index-state-free
+      source-order-preserving shapes.
+    - [ ] Reshape/nested-expansion track: `explode`, `pivot`, `pivot_table`, `melt`.
+    - [ ] Window/summary track: `rolling`; scoped no-kwargs `describe` is admitted through the
+      metadata-first profile route, while pandas-style percentile/options semantics remain outside
+      the claim.
+    - [ ] Conditional/value rewrite track: `mask`, `replace`.
+    - [ ] Callable/expression track: `apply`, `pipe`, `transform`, `applymap`, `map`,
+      `map_rows`, `eval`.
+  - ShardLoom technique review: Vortex-first provider review applies before adding any new
+    operator surface. Dynamic admission should split methods into admitted safe shapes and precise
+    blockers instead of method-wide yes/no gates. Capillary work units should break complex
+    operations into source scan, expression/kernel evaluation, stateful operator work, and sink or
+    bounded collect boundaries. PulseWeave controls apply to sampling, rolling/window state,
+    reshape fanout, and index/order-sensitive operators once partitioning or bounded-memory state
+    is required. Metadata-first planning now answers scoped `describe` through the native/prepared
+    profile route and should also answer duplicate/index/order checks from schema/statistics where
+    possible before row reads.
+  - Execution checklist:
+    - [x] Add a design section or architecture note for the 21-method coverage map describing
+      semantics, ordering/null behavior, bounded-memory expectations, and Vortex-native provider
+      candidates for each track.
+    - [x] Promote scoped no-kwargs `describe(...)` with optional column projection to the existing
+      metadata-first native/prepared Vortex profile route; keep pandas-style percentile/options
+      semantics outside the scoped claim.
+    - [x] Promote scoped bounded `tail(limit)` over native/prepared Vortex read/select shapes with
+      source-order final-row window evidence, explicit decode/materialization fields, and no
+      fallback or external engine invocation.
+    - [x] Promote scoped index metadata shapes: `set_index(keys, drop=False)` records explicit
+      ShardLoom index metadata while preserving encoded row data; `reset_index(drop=True)` and
+      `sort_index(ascending=True)` preserve the normalized ShardLoom plan when no hidden
+      pandas-style index state exists. Default/drop=True set-index, materialized reset-index,
+      descending index sort, and index-value output remain deterministic blockers.
+    - [x] Implement scoped deterministic `sample(n=..., seed=...)` through native/prepared Vortex
+      scan plus ShardLoom seeded bounded row selection, with explicit decode/materialization
+      evidence and no fallback or external engine invocation.
+    - [ ] Implement remaining deterministic sampling/order/index sub-shapes where semantics are
+      explicit: fraction/weighted/random-state sample variants if feasible, row-mask `duplicated`,
+      and explicit index-state creation/materialization if it can be represented without hidden
+      pandas-style state.
+    - [ ] Implement reshape/nested-expansion routes for feasible flat/nested Vortex shapes:
+      `explode`, `pivot`, `pivot_table`, and `melt`, with explicit cardinality expansion,
+      memory/spill diagnostics, and no external engine execution.
+    - [ ] Implement rolling/window routes for feasible scalar columns using native stateful kernels
+      where row windows are required.
+    - [ ] Implement conditional/value rewrite routes for `mask` and `replace` through the native
+      expression/kernel registry with explicit null/type semantics and materialization evidence.
+    - [ ] Implement callable/expression surfaces through typed ShardLoom UDF/expression registry
+      contracts rather than arbitrary Python execution: `apply`, `pipe`, `transform`, `applymap`,
+      `map`, `map_rows`, and `eval`.
+    - [ ] For every method still not broadly admitted after its track lands, replace the current
+      broad blocker with sub-shape-specific stable blocker IDs, required evidence, and concrete
+      `next_action` diagnostics.
+    - [ ] Add Python and Rust tests for each promoted method shape and each remaining sub-shape
+      blocker, asserting `fallback_attempted=false` and `external_engine_invoked=false`.
+    - [ ] Update `python/src/shardloom/context.py`, user-route capability reports, user-surface
+      reference index, README/Python README, and docs generated from capability matrices so these
+      remaining methods are no longer described as an unowned unsupported bucket.
+    - [ ] Move completed detail to the ledger after validation and PR handling.
+  - User-visible surface: `LazyFrame.sample`, `explode`, `pivot`, `pivot_table`, `melt`,
+    `rolling`, `duplicated`, scoped `tail`, scoped `describe`, `mask`, `replace`, `apply`, `pipe`,
+    `transform`, `applymap`, `map`, `map_rows`, `eval`, `set_index`, `reset_index`, and
+    `sort_index`; matching SQL/expression front doors where relevant; capability reports and
+    machine-readable diagnostics.
+  - Evidence required: method-by-method capability rows, positive fixtures for admitted sub-shapes,
+    negative fixtures for unsupported sub-shapes, Vortex-native provider or ShardLoom-native kernel
+    evidence, memory/spill/order/null semantics where applicable, and no-fallback/no-external-engine
+    proof.
+  - Acceptance: all 28 blocked/pending Python method rows are owned by explicit planned or
+    completed phase items; the 7 locally solvable rows are closed by
+    `PY-VORTEX-LOCAL-EXPORT-DISTINCT-CLOSEOUT-1`, scoped `describe` is admitted through the
+    profile family, scoped bounded `tail(limit)` is admitted through the native/prepared Vortex
+    tail primitive, scoped deterministic `sample(n=..., seed=...)` is admitted through the
+    native/prepared Vortex sample primitive, scoped index metadata no-op shapes are admitted, and
+    the other 16 have
+    track-level implementation checklists with no generic
+    unowned blocker bucket.
+  - Non-goals: hidden pandas/Polars/DuckDB/DataFusion/Spark fallback, arbitrary unsafe Python
+    callable execution, broad production claims without fixtures, object-store/table output, or
+    performance superiority claims.
+  - Fallback boundary: every admitted and blocked path must report `fallback_attempted=false` and
+    `external_engine_invoked=false`.
+  - Ledger rule: completed detail moves to
+    `docs/architecture/phased-execution-completed-ledger.md`.
+
 - [x] `PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1` Promote residual prepared-local Python/SQL
   operators from product-local SQL runtime to native Vortex middle routes.
   - Source: June 17, 2026 local release-feature Python UAT showing
@@ -226,16 +422,18 @@ Current autonomous execution order:
       mistaken for native Vortex middle execution in activation summaries, capability rows, or
       generated docs.
       The public facade now blocks residual local-source Python/SQL collect/write/profile/fanout
-      paths instead of invoking `sql-local-source-smoke`, native Vortex route fields classify
-      payload-less `distinct` as an explicit missing native-route family, and metadata-first
-      `profile` now has an admitted native Vortex route.
+      paths instead of invoking `sql-local-source-smoke`; native Vortex route fields admit
+      payload-less no-argument `distinct` when it maps to the scoped primitive row-stream contract
+      and keep broader distinct/dedup shapes explicitly blocked; metadata-first `profile` now has
+      an admitted native Vortex route.
     - [x] Classify row-level `distinct()`/`drop_duplicates()`/`unique()` aliases at the public
       native Vortex boundary instead of routing them through product-local SQL smoke execution.
-      Current state keeps generic row-level dedup blocked with
-      `py-vortex-route-unify-1.native_vortex_distinct_route_missing` because the reusable native
-      provider evidence covers distinct-count/high-cardinality grouped state, not a general
-      row-level distinct result contract with null/equality semantics and bounded typed collect
-      evidence.
+      Current state admits no-argument row-level dedup over supported scalar, boolean, and UTF-8
+      native/prepared Vortex row streams with explicit decode/materialization evidence. Broader
+      subset/keep variants, nested equality, nullable equality, and arbitrary SQL/DataFrame
+      distinct semantics remain blocked with
+      `py-vortex-route-unify-1.native_vortex_distinct_route_missing` until their own evidence
+      exists.
     - [x] Implement or wrap a native Vortex bounded profile/schema/statistics route that uses
       metadata-first evidence where possible and reports any decode/materialization boundary
       explicitly.
@@ -247,7 +445,7 @@ Current autonomous execution order:
       highest-fidelity native sink.
       Current state admits exact provider-backed native Vortex `result_json` exports to
       workspace-safe JSONL/CSV sinks after Vortex execution, plus scoped primitive
-      filter/project/filter-project row-stream exports and JSONL+CSV fanout through
+      filter/project/filter-project/distinct/tail/sample row-stream exports and JSONL+CSV fanout through
       `native_vortex_primitive_row_export` with explicit selected-column decode/materialization
       evidence. Broader local-source compatibility writes, unsupported fanout formats, invalid or
       duplicate fanout targets, and non-JSONL/CSV provider exports still block until their own
@@ -610,9 +808,10 @@ Current autonomous execution order:
         `native_vortex_result_sink_with_replay_verified_artifact`, while provider-backed
         `write_jsonl`/`write_csv` chains expose
         `native_vortex_provider_result_json_export_with_workspace_safe_sink`. Scoped primitive
-        filter/project/filter-project row-stream `write_jsonl`/`write_csv` and JSONL+CSV fanout
-        chains expose `native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink` with
-        explicit selected-column decode/materialization evidence.
+        filter/project/filter-project/distinct/tail/sample row-stream `write_jsonl`/`write_csv`
+        and JSONL+CSV fanout chains expose
+        `native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink` with explicit
+        selected-column decode/materialization evidence.
     - [x] Add minimal Python/SQL contract fixtures, not new benchmark scenario definitions,
       covering single input, multiple inputs, multiple outputs, chained operations, blocked
       unsupported operators, and no external engine invocation.

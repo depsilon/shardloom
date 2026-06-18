@@ -84,9 +84,9 @@ This table is a README summary; the canonical public status matrix and claim bou
 | --- | --- | --- |
 | Local first-10-minutes smoke | Supported through local dry-run and Python examples. | Local technical-preview evidence only. |
 | CLI and Python front doors | Scoped local CSV, JSONL/NDJSON, flat JSON, generated rows, local Vortex, and selected feature-gated file/sink paths. | No broad SQL/DataFrame, package, production, or performance claim. |
-| SQL/DataFrame-style use | Many scoped local-source projections, filters, joins, aggregates, subqueries, aliases, bounded collects, metadata profiles, and native Vortex writes are admitted through ShardLoom routes. | Primitive row-stream exports and arbitrary compatibility exports still require a native Vortex-derived export contract; not PySpark/pandas/Polars parity and not broad production SQL/DataFrame support. |
+| SQL/DataFrame-style use | Many scoped local-source projections, filters, joins, aggregates, subqueries, aliases, bounded collects, metadata profiles, native Vortex writes, and scoped Vortex-derived JSONL/CSV row exports are admitted through ShardLoom routes. | Arbitrary compatibility exports still require a native Vortex-derived export contract; not PySpark/pandas/Polars parity and not broad production SQL/DataFrame support. |
 | Vortex preparation | Feature-gated local `vortex_ingest` creates local `.vortex` artifacts with SourceState and VortexPreparedState evidence. | Scoped local flat-schema evidence; no broad writer, object-store, table, or performance claim. |
-| Local output/sink scope | `write_vortex(...)` is the highest-fidelity admitted native local sink for provider-backed routes. Exact provider-backed Vortex result summaries can also export bounded `result_json` to workspace-safe `write_jsonl(...)` and `write_csv(...)`; primitive row-stream exports, broader `write(...)`, unsupported formats, and fanout block until a native Vortex-derived export contract exists. | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
+| Local output/sink scope | `write_vortex(...)` is the highest-fidelity admitted native local sink for provider-backed routes. Exact provider-backed Vortex result summaries can export bounded `result_json` to workspace-safe `write_jsonl(...)` and `write_csv(...)`; scoped primitive filter/project/filter-project/distinct/tail/sample row streams can export JSONL/CSV and JSONL+CSV fanout through `native_vortex_primitive_row_export`. Broader `write(...)`, unsupported formats, unsafe fanout, and arbitrary compatibility exports block until a native Vortex-derived export contract exists. | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
 | Prepared/native benchmark routes | Local benchmark artifacts expose cold, prepare-once, warm prepared, native Vortex, direct transient, and external-baseline lanes. | Claims depend on the selected timing surface and claim gate. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly fixture-scoped with report-only or blocked status for broader platform routes. | No production platform claim. |
 | Package/release status | v0.1.4 is published through GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula with checked-in channel proof. | No production/platform, performance, or broad runtime claim. |
@@ -180,8 +180,10 @@ The v1 Vortex runtime scope is separately defined in
 it admits feature-gated local Vortex primitives, prepared Vortex state, prepared compatibility
 artifacts, and generated local Vortex artifacts without claiming broad Vortex support.
 For direct `.vortex` inputs, exact benchmark-family Python and SQL shapes for grouped aggregation,
-hash join, global top-N, cast/try-cast, substring contains, native `write_vortex` sinks, and
-provider-backed bounded `write_jsonl`/`write_csv` result exports are listed by
+hash join, global top-N, cast/try-cast, substring contains, no-argument row-level distinct, scoped
+bounded source-order tail, deterministic bounded `sample(n=..., seed=...)`, native `write_vortex`
+sinks, and provider-backed bounded
+`write_jsonl`/`write_csv` result exports are listed by
 `ctx.native_vortex_provider_route_certificate_report()`; broader arbitrary Vortex SQL/DataFrame
 planning remains outside the v1 support claim and returns deterministic route diagnostics until it
 has its own route certificate. The released `route()` and `run()` facades infer the real admitted
@@ -189,6 +191,8 @@ native Vortex primitive/provider payloads for these shapes, so normal
 `ctx.read_vortex(...).select(...).limit(...).route()`, equivalent SQL/Python paths, and admitted
 local SQL paths with declared input format can prepare into Vortex without manual
 `--vortex-primitive` or `--native-vortex-provider-scenario` wiring.
+Scoped `describe(...)` lowers to the same metadata-first profile route as `profile(...)`;
+pandas-style percentile/options summaries remain outside the scoped claim.
 The v1 SourceState and prepared-state reuse boundary is defined in
 [`docs/architecture/v1-source-prepared-state-scope.md`](docs/architecture/v1-source-prepared-state-scope.md):
 it owns the scoped `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState`

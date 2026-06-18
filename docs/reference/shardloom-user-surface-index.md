@@ -86,8 +86,10 @@ sink/write status, fallback/external-engine flags, claim gate, and unsupported d
 For direct `.vortex` inputs, use
 `ctx.native_vortex_provider_route_certificate_report()` to inspect the exact release-feature-backed
 Python/SQL provider routes for grouped aggregation, hash join, global top-N, cast/try-cast,
-substring contains, and native `write_vortex` sink shapes. This report is route evidence, not a
-broad arbitrary Vortex SQL/DataFrame parity or performance claim.
+substring contains, and native `write_vortex` sink shapes. Scoped primitive routes also cover
+count/filter/project/limit, no-argument row-level distinct, bounded source-order tail, and
+deterministic bounded `sample(n=..., seed=...)`. These
+reports are route evidence, not broad arbitrary Vortex SQL/DataFrame parity or performance claims.
 
 ## Python Query Builder
 
@@ -98,14 +100,16 @@ objects. Common supported or scoped methods include:
   arguments, `having(...)` after an aggregate.
 - Projection and schema rewrites: `select(...)`, `project(...)`, `rename(...)`,
   `rename_columns(...)`, `drop(...)`, `drop_columns(...)`, `astype(...)`.
-- Row bounds: `limit(...)`, `head(...)`, `take(...)`.
+- Row bounds: `limit(...)`, `head(...)`, `take(...)`, scoped `tail(...)`, and scoped deterministic
+  `sample(n=..., seed=...)`.
 - Aggregation: `group_by(...).agg(...)`, `groupby(...).agg(...)`, scalar `agg(...)`,
   `aggregate(...)`, `nunique(...)`, `value_counts(...)`.
 - Joins and set operations: scoped `join(...)`, `merge(...)` when it lowers to the same join,
   `concat(...)` when it lowers to `UNION ALL`, `union(...)`, `union_all(...)`,
   `intersect(...)`, `except_rows(...)`, `subtract(...)`.
 - Ordering and top N: `sort(...)`, `order_by(...)`, `sort_by(...)`, `sort_values(...)`,
-  `nlargest(...)`, `nsmallest(...)`.
+  scoped index metadata `set_index(..., drop=False)`, source-order-preserving
+  `reset_index(drop=True)`/`sort_index(ascending=True)`, `nlargest(...)`, `nsmallest(...)`.
 - Null and duplicate helpers: `dropna(...)`, `fillna(...)`, `fill_null(...)`, `isna(...)`,
   `isnull(...)`, `notna(...)`, `notnull(...)`, `distinct()`, `drop_duplicates()`, `unique()`.
 - Computed columns: `with_column(...)`, `with_columns(...)`, `assign(...)` when the expression
@@ -116,7 +120,7 @@ objects. Common supported or scoped methods include:
   `fanout(...)`.
 - Bounded inspection: `schema(...)`, `describe_schema(...)`, `validate_schema(...)`,
   `schema_contract(...)`, `data_quality_check(...)`, `data_quality(...)`,
-  `data_quality_summary(...)`, `profile(...)`, `preview(...)`, `display(...)`,
+  `data_quality_summary(...)`, scoped `describe(...)`, `profile(...)`, `preview(...)`, `display(...)`,
   `to_python_objects(...)`, optional bounded `to_pandas(...)`, `to_arrow(...)`,
   `to_arrow_table(...)`, `to_arrow_ipc(...)`, and `to_numpy(...)`.
 

@@ -2826,6 +2826,28 @@ pub(crate) fn parse_vortex_primitive_request(
             uri,
             parse_projection_columns(cols)?,
         ))
+    } else if let Some(cols) = primitive_arg.strip_prefix("distinct:") {
+        Ok(
+            shardloom_vortex::VortexQueryPrimitiveRequest::distinct_rows(
+                uri,
+                parse_projection_columns(cols)?,
+                None,
+            ),
+        )
+    } else if let Some(cols) = primitive_arg.strip_prefix("tail:") {
+        Ok(shardloom_vortex::VortexQueryPrimitiveRequest::tail_rows(
+            uri,
+            parse_projection_columns(cols)?,
+            1,
+        ))
+    } else if let Some(cols) = primitive_arg.strip_prefix("sample:") {
+        Ok(shardloom_vortex::VortexQueryPrimitiveRequest::sample_rows(
+            uri,
+            parse_projection_columns(cols)?,
+            None,
+            1,
+            0,
+        ))
     } else if let Some(pred) = primitive_arg.strip_prefix("filter:") {
         Ok(shardloom_vortex::VortexQueryPrimitiveRequest::filter(
             uri,
@@ -2858,7 +2880,59 @@ pub(crate) fn parse_vortex_primitive_request(
                 );
             }
         }
-        Err(ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>, filter-project:<predicate>|<columns>".to_string()))
+        for prefix in ["distinct-filter-project:", "distinct-filter-and-project:"] {
+            if let Some(value) = primitive_arg.strip_prefix(prefix) {
+                let Some((predicate, columns)) = value.split_once('|') else {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "distinct-filter-project requires <predicate>|<columns>".to_string(),
+                    ));
+                };
+                if predicate.is_empty() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "distinct-filter-project predicate must not be empty".to_string(),
+                    ));
+                }
+                if columns.is_empty() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "distinct-filter-project columns must not be empty".to_string(),
+                    ));
+                }
+                return Ok(
+                    shardloom_vortex::VortexQueryPrimitiveRequest::distinct_rows(
+                        uri,
+                        parse_projection_columns(columns)?,
+                        Some(parse_tiny_predicate(predicate)?),
+                    ),
+                );
+            }
+        }
+        for prefix in ["sample-filter-project:", "sample-filter-and-project:"] {
+            if let Some(value) = primitive_arg.strip_prefix(prefix) {
+                let Some((predicate, columns)) = value.split_once('|') else {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "sample-filter-project requires <predicate>|<columns>".to_string(),
+                    ));
+                };
+                if predicate.is_empty() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "sample-filter-project predicate must not be empty".to_string(),
+                    ));
+                }
+                if columns.is_empty() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "sample-filter-project columns must not be empty".to_string(),
+                    ));
+                }
+                return Ok(shardloom_vortex::VortexQueryPrimitiveRequest::sample_rows(
+                    uri,
+                    parse_projection_columns(columns)?,
+                    Some(parse_tiny_predicate(predicate)?),
+                    1,
+                    0,
+                ));
+            }
+        }
+        Err(ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, distinct:<columns>, tail:<columns>, sample:<columns>, filter:<predicate>, filter-project:<predicate>|<columns>, distinct-filter-project:<predicate>|<columns>, sample-filter-project:<predicate>|<columns>".to_string()))
     }
 }
 
@@ -3266,7 +3340,10 @@ pub(crate) fn local_primitive_correctness_fixture_for_request(
                 )
             }
         }
-        shardloom_vortex::VortexQueryPrimitiveKind::SimpleAggregate
+        shardloom_vortex::VortexQueryPrimitiveKind::DistinctRows
+        | shardloom_vortex::VortexQueryPrimitiveKind::TailRows
+        | shardloom_vortex::VortexQueryPrimitiveKind::SampleRows
+        | shardloom_vortex::VortexQueryPrimitiveKind::SimpleAggregate
         | shardloom_vortex::VortexQueryPrimitiveKind::Unsupported => None,
     }
 }

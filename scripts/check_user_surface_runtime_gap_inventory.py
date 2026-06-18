@@ -96,34 +96,30 @@ FRONT_DOOR_GAP_ROUTES: dict[str, dict[str, str]] = {
     },
     "typed_nested_compatibility_sink": {
         "classification": "runtime_available_needs_output_route",
-        "vortex_normalization_point": "vortex_result_to_compatibility_export_pending",
+        "vortex_normalization_point": "computed_typed_nested_to_vortex_compatibility_export_pending",
         "runtime_route": (
-            "native Vortex/local prepared runtime exists for admitted query shapes; compatibility "
-            "exports remain blocked until derived from a certified native Vortex result contract"
+            "native Vortex/local prepared runtime exists for admitted primitive/provider query "
+            "and JSONL/CSV export shapes; computed ARRAY/STRUCT compatibility export remains "
+            "blocked until expressions lower through a certified Vortex-prepared/native route"
         ),
         "output_or_evidence_route": (
-            "deterministic native compatibility export blocker today; typed sink, replay, and "
-            "metadata-loss evidence required before compatibility output admission"
+            "deterministic computed typed-nested compatibility export blocker today; typed "
+            "expression lowering, structured sink replay, and metadata-loss evidence required "
+            "before Parquet/Arrow IPC/Avro compatibility output admission"
         ),
-        "owner": "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
+        "owner": "PY-VORTEX-LOCAL-EXPORT-DISTINCT-CLOSEOUT-1.typed_nested_narrowed_blocker",
     },
 }
 
 DATAFRAME_METHOD_FRONT_DOOR_GAPS = (
-    "sample",
     "explode",
     "pivot",
     "pivot_table",
     "melt",
     "rolling",
-    "tail",
-    "describe",
     "duplicated",
     "mask",
     "replace",
-    "set_index",
-    "reset_index",
-    "sort_index",
     "apply",
     "pipe",
     "transform",
@@ -143,7 +139,7 @@ DATAFRAME_METHOD_FRONT_DOOR_ROUTE = {
         "workflow-unsupported-plan diagnostic until the method has semantic, runtime, "
         "and output evidence"
     ),
-    "owner": "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
+    "owner": "PY-DATAFRAME-DETERMINISTIC-BLOCKER-COVERAGE-1",
 }
 
 DATAFRAME_METHOD_EXPRESSION_ROUTE = {
@@ -157,7 +153,7 @@ DATAFRAME_METHOD_EXPRESSION_ROUTE = {
         "workflow-unsupported-plan diagnostic until typed expression semantics, native "
         "execution, and no-fallback evidence land"
     ),
-    "owner": "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
+    "owner": "PY-DATAFRAME-DETERMINISTIC-BLOCKER-COVERAGE-1",
 }
 
 DATAFRAME_METHOD_GAP_ROUTES: dict[str, dict[str, str]] = {
@@ -166,37 +162,7 @@ DATAFRAME_METHOD_GAP_ROUTES: dict[str, dict[str, str]] = {
 }
 DATAFRAME_METHOD_GAP_ROUTES.update(
     {
-        "distinct": {
-            "classification": "true_runtime_expansion_item",
-            "vortex_normalization_point": "dataframe_distinct_to_vortex_operator_pending",
-            "runtime_route": "native distinct/deduplication operator route pending",
-            "output_or_evidence_route": (
-                "workflow-unsupported-plan diagnostic until distinct semantics and "
-                "execution evidence land"
-            ),
-            "owner": "GAR-RUNTIME-IMPL-6D:last_order.deduplication_runtime",
-        },
-        "drop_duplicates": {
-            "classification": "true_runtime_expansion_item",
-            "vortex_normalization_point": "dataframe_distinct_to_vortex_operator_pending",
-            "runtime_route": "native drop-duplicates operator route pending",
-            "output_or_evidence_route": (
-                "workflow-unsupported-plan diagnostic until duplicate-row semantics and "
-                "execution evidence land"
-            ),
-            "owner": "GAR-RUNTIME-IMPL-6D:last_order.deduplication_runtime",
-        },
         "eval": DATAFRAME_METHOD_EXPRESSION_ROUTE,
-        "unique": {
-            "classification": "true_runtime_expansion_item",
-            "vortex_normalization_point": "dataframe_unique_to_vortex_operator_pending",
-            "runtime_route": "native unique operator route pending",
-            "output_or_evidence_route": (
-                "workflow-unsupported-plan diagnostic until one-column unique semantics and "
-                "execution evidence land"
-            ),
-            "owner": "GAR-RUNTIME-IMPL-6D:last_order.deduplication_runtime",
-        },
         "schema_contract": {
             "classification": "true_runtime_expansion_item",
             "vortex_normalization_point": (
@@ -207,34 +173,6 @@ DATAFRAME_METHOD_GAP_ROUTES.update(
                 "diagnostic report until contract enforcement evidence lands"
             ),
             "owner": "GAR-RUNTIME-IMPL-6D:last_order.schema_contract_runtime",
-        },
-        "write": {
-            "classification": "runtime_available_needs_output_route",
-            "vortex_normalization_point": "vortex_result_to_compatibility_export_pending",
-            "runtime_route": "admitted query routes can execute through Vortex; compatibility write output remains gated",
-            "output_or_evidence_route": "native Vortex-derived compatibility export contract pending",
-            "owner": "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
-        },
-        "write_jsonl": {
-            "classification": "runtime_available_needs_output_route",
-            "vortex_normalization_point": "vortex_result_to_jsonl_export_pending",
-            "runtime_route": "admitted query routes can execute through Vortex; JSONL compatibility output remains gated",
-            "output_or_evidence_route": "native Vortex-derived JSONL export contract pending",
-            "owner": "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
-        },
-        "write_csv": {
-            "classification": "runtime_available_needs_output_route",
-            "vortex_normalization_point": "vortex_result_to_csv_export_pending",
-            "runtime_route": "admitted query routes can execute through Vortex; CSV compatibility output remains gated",
-            "output_or_evidence_route": "native Vortex-derived CSV export contract pending",
-            "owner": "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
-        },
-        "fanout": {
-            "classification": "runtime_available_needs_output_route",
-            "vortex_normalization_point": "vortex_result_to_fanout_export_pending",
-            "runtime_route": "admitted query routes can execute through Vortex; compatibility fanout remains gated",
-            "output_or_evidence_route": "native Vortex-derived fanout export and replay contract pending",
-            "owner": "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
         },
     }
 )

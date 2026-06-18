@@ -66,6 +66,7 @@ REQUIRED_QUERY_BUILDER_METHODS = [
     "fanout",
     "to_python_objects",
     "profile",
+    "describe",
     "quarantine",
 ]
 
@@ -139,9 +140,22 @@ REQUIRED_SUMMARY_RUNTIME_METHODS = [
     "value_counts",
 ]
 
+REQUIRED_METADATA_PROFILE_METHODS = [
+    "profile",
+    "describe",
+]
+
 REQUIRED_TOP_N_RUNTIME_METHODS = [
     "nlargest",
     "nsmallest",
+]
+
+REQUIRED_SOURCE_ORDER_RUNTIME_METHODS = [
+    "tail",
+]
+
+REQUIRED_SAMPLING_RUNTIME_METHODS = [
+    "sample",
 ]
 
 REQUIRED_COMBINE_RUNTIME_METHODS = [
@@ -159,21 +173,21 @@ REQUIRED_NULL_RUNTIME_METHODS = [
     "notnull",
 ]
 
+REQUIRED_INDEX_METADATA_METHODS = [
+    "set_index",
+    "reset_index",
+    "sort_index",
+]
+
 REQUIRED_UNSUPPORTED_METHODS = [
-    "sample",
     "explode",
     "pivot",
     "pivot_table",
     "melt",
     "rolling",
-    "tail",
-    "describe",
     "duplicated",
     "mask",
     "replace",
-    "set_index",
-    "reset_index",
-    "sort_index",
     "apply",
     "pipe",
     "transform",
@@ -278,7 +292,8 @@ REQUIRED_TEST_MARKERS = {
         "workflow.astype({\"amount\": \"int64\"})",
         "workflow.dropna(subset=[\"label\"])",
         "source.nlargest(5, \"amount\")",
-        "workflow.sample(n=5, seed=7)",
+        "test_local_csv_query_builder_sample_collect_routes_through_prepared_vortex",
+        "native_vortex_sample",
         "workflow.explode(\"items\")",
         "workflow.pipe(\"workflow_udf\", \"arg1\", config=\"strict\")",
         "workflow.transform(\"column_udf\")",
@@ -553,6 +568,8 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         *REQUIRED_TRANSFORM_RUNTIME_METHODS,
         *REQUIRED_SUMMARY_RUNTIME_METHODS,
         *REQUIRED_TOP_N_RUNTIME_METHODS,
+        *REQUIRED_SOURCE_ORDER_RUNTIME_METHODS,
+        *REQUIRED_SAMPLING_RUNTIME_METHODS,
         *REQUIRED_COMBINE_RUNTIME_METHODS,
         *REQUIRED_NULL_RUNTIME_METHODS,
         *REQUIRED_UNSUPPORTED_METHODS,
@@ -578,6 +595,8 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         *REQUIRED_TRANSFORM_RUNTIME_METHODS,
         *REQUIRED_SUMMARY_RUNTIME_METHODS,
         *REQUIRED_TOP_N_RUNTIME_METHODS,
+        *REQUIRED_SOURCE_ORDER_RUNTIME_METHODS,
+        *REQUIRED_SAMPLING_RUNTIME_METHODS,
         *REQUIRED_COMBINE_RUNTIME_METHODS,
         "sql",
     ]:
@@ -630,6 +649,26 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             if evidence not in required_evidence:
                 blockers.append(f"{method}: scoped summary row missing {evidence}")
 
+    for method in REQUIRED_METADATA_PROFILE_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: metadata profile support must be production_admitted_local_workflow"
+            )
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: metadata profile support requires runtime_execution true")
+        if row.get("data_read") is not False:
+            blockers.append(f"{method}: metadata profile support must not claim data_read")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: metadata profile row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        if "native_vortex_metadata_profile_route" not in required_evidence:
+            blockers.append(
+                f"{method}: metadata profile row missing native_vortex_metadata_profile_route"
+            )
+
     for method in REQUIRED_TOP_N_RUNTIME_METHODS:
         row = by_method.get(method)
         if not row:
@@ -646,6 +685,59 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         for evidence in ["sort_operator", "top_n_contract", "ordering_contract"]:
             if evidence not in required_evidence:
                 blockers.append(f"{method}: scoped top-N row missing {evidence}")
+
+    for method in REQUIRED_SOURCE_ORDER_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: source-order runtime support must be production_admitted_local_workflow"
+            )
+        if row.get("runtime_execution") is not True:
+            blockers.append(
+                f"{method}: source-order runtime support requires runtime_execution true"
+            )
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: source-order runtime support requires data_read true")
+        if row.get("materialization_required") is not True:
+            blockers.append(f"{method}: source-order runtime must report materialization_required")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: source-order runtime row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        for evidence in [
+            "native_vortex_tail_primitive",
+            "source_order_semantics",
+            "explicit_decode_materialization_boundary",
+        ]:
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: source-order runtime row missing {evidence}")
+
+    for method in REQUIRED_SAMPLING_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: sampling runtime support must be production_admitted_local_workflow"
+            )
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: sampling runtime support requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: sampling runtime support requires data_read true")
+        if row.get("materialization_required") is not True:
+            blockers.append(f"{method}: sampling runtime must report materialization_required")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: sampling runtime row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        for evidence in [
+            "native_vortex_sample_primitive",
+            "deterministic_seed_policy",
+            "bounded_result_contract",
+            "explicit_decode_materialization_boundary",
+        ]:
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: sampling runtime row missing {evidence}")
 
     for method in REQUIRED_COMBINE_RUNTIME_METHODS:
         row = by_method.get(method)
@@ -786,6 +878,40 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             if row.get(field) is not False:
                 blockers.append(f"{method}: unsupported row {field} must be false")
 
+    for method in REQUIRED_INDEX_METADATA_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        support_status = str(row.get("support_status", ""))
+        if support_status != "scoped_runtime_supported":
+            blockers.append(f"{method}: index metadata row must be scoped_runtime_supported")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: index metadata row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        expected_evidence = [
+            "source_order_preservation",
+            "execution_certificate",
+            "no_fallback_evidence",
+        ]
+        if method == "set_index":
+            expected_evidence.extend(
+                [
+                    "explicit_index_state_metadata",
+                    "encoded_row_data_preserved",
+                ]
+            )
+        else:
+            expected_evidence.append("no_explicit_index_state_contract")
+        for evidence in [
+            *expected_evidence,
+        ]:
+            if evidence not in required_evidence:
+                blockers.append(f"{method}: index metadata row missing {evidence}")
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: index metadata row requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: index metadata row requires data_read true")
+
     completion_rows = [
         _row(
             "dataframe_query_builder",
@@ -852,12 +978,45 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             status_when_passed="scoped_runtime_rows_present",
         ),
         _row(
+            "metadata_profile_methods",
+            "metadata-first DataFrame profile methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_METADATA_PROFILE_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="metadata_first_profile_rows_present",
+        ),
+        _row(
             "scoped_top_n_methods",
             "scoped DataFrame top-N selection methods",
             [
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_TOP_N_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
+        ),
+        _row(
+            "scoped_source_order_methods",
+            "scoped DataFrame source-order selection methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_SOURCE_ORDER_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
+        ),
+        _row(
+            "scoped_sampling_methods",
+            "scoped DataFrame deterministic sampling methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_SAMPLING_RUNTIME_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
             status_when_passed="scoped_runtime_rows_present",
@@ -880,6 +1039,17 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
                 blocker
                 for blocker in blockers
                 if any(f"{method}:" in blocker for method in REQUIRED_NULL_RUNTIME_METHODS)
+            ],
+            ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
+            status_when_passed="scoped_runtime_rows_present",
+        ),
+        _row(
+            "scoped_index_metadata_methods",
+            "scoped DataFrame index metadata no-op methods",
+            [
+                blocker
+                for blocker in blockers
+                if any(f"{method}:" in blocker for method in REQUIRED_INDEX_METADATA_METHODS)
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
             status_when_passed="scoped_runtime_rows_present",

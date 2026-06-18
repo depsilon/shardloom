@@ -38,9 +38,9 @@ The v1 front-door scope is local and bounded by default.
 | Surface | Supported v1 forms | Runtime boundary |
 | --- | --- | --- |
 | Python context | `context()`, `context(repo_root=...)`, `ctx.read(...)`, `ctx.read_csv(...)`, `ctx.read_json(...)`, `ctx.read_parquet(...)`, `ctx.read_arrow_ipc(...)`, `ctx.read_avro(...)`, `ctx.read_orc(...)`, `ctx.read_vortex(...)`, source-free helpers such as `ctx.from_rows(...)`, `ctx.range(...)`, `ctx.sequence(...)`, and `ctx.calendar(...)`. `ctx.read(...)` infers `.csv`, `.json`, `.jsonl`, `.ndjson`, `.parquet`, `.arrow`, `.ipc`, `.feather`, `.avro`, `.orc`, and `.vortex` local adapters. | ShardLoom CLI JSON commands through `ShardLoomClient`; no native Python execution engine. Format-specific readers are input adapters only, not separate execution engines. Feature-gated structured readers return deterministic blockers when their adapter is not enabled. |
-| Query builder | `filter`, `where`, `select`, `project`, `limit`, bounded `collect`, admitted `group_by(...).agg(...)`, scoped `join(..., on=..., how="inner")`, `sort`/`order_by`, `nlargest`, `dropna`, `astype`, `with_column`, metadata-first `profile()`, source-free/generated helpers, feature-gated `write_vortex`, and scoped Vortex-derived `write_jsonl`/`write_csv`/JSONL+CSV `fanout`. Residual helpers such as row-level `distinct()`/`drop_duplicates()`/`unique()`, transformed row profiling, `quarantine`, non-JSONL/CSV compatibility sinks, and bounded materialization helpers remain visible but must select an admitted native/prepared route or return deterministic blockers. | Prepared route, generated-source route, local Vortex primitive/provider/profile route, native Vortex sink route, native Vortex primitive row-export route, or deterministic blocker as reported by the capability matrices. Direct decoded local-source smoke is not a public product route; the public path prepares through Vortex first and never reports product-local post-prepare compatibility execution as native runtime. Runtime support is selected from the normalized ShardLoom plan, not from independent CSV/JSON/DataFrame execution stacks. |
+| Query builder | `filter`, `where`, `select`, `project`, `limit`, bounded `tail`, deterministic bounded `sample(n=..., seed=...)`, bounded `collect`, admitted `group_by(...).agg(...)`, scoped `join(..., on=..., how="inner")`, `sort`/`order_by`, `nlargest`, `dropna`, `astype`, `with_column`, metadata-first `profile()`, no-argument `distinct()`/`drop_duplicates()`/`unique()`, source-free/generated helpers, feature-gated `write_vortex`, and scoped Vortex-derived `write_jsonl`/`write_csv`/JSONL+CSV `fanout`. Residual helpers such as transformed row profiling, `quarantine`, non-JSONL/CSV compatibility sinks, and bounded materialization helpers remain visible but must select an admitted native/prepared route or return deterministic blockers. | Prepared route, generated-source route, local Vortex primitive/provider/profile route, native Vortex sink route, native Vortex primitive row-export route, or deterministic blocker as reported by the capability matrices. Direct decoded local-source smoke is not a public product route; the public path prepares through Vortex first and never reports product-local post-prepare compatibility execution as native runtime. Runtime support is selected from the normalized ShardLoom plan, not from independent CSV/JSON/DataFrame execution stacks. |
 | SQL frontend | Scoped local-source SQL over local file references, source-free literal/VALUES output, and scoped local `.vortex` primitive SQL shapes. | SQL is a frontend into ShardLoom planning and execution, not DataFusion, DuckDB, Spark, pandas, Polars, or another engine. |
-| DataFrame-style aliases | Familiar aliases such as `where`, `groupby`, `sort_values`, `head`, `take`, `query` without unsupported keyword arguments, bounded display/materialization helpers, and explicit unsupported reports for non-admitted methods. | Same ShardLoom route as the corresponding SQL/Python workflow or deterministic unsupported report. |
+| DataFrame-style aliases | Familiar aliases such as `where`, `groupby`, `sort_values`, scoped `set_index(..., drop=False)`, `reset_index(drop=True)`, `sort_index(ascending=True)`, `head`, `take`, `query` without unsupported keyword arguments, bounded display/materialization helpers, and explicit unsupported reports for non-admitted methods. | Same ShardLoom route as the corresponding SQL/Python workflow or deterministic unsupported report. |
 | Benchmark ETL snippets | `selective_filter`, `filter_projection_limit`, `group_by_aggregation`, `hash_join`, `global_top_n`, `clean_cast_filter_write`, `malformed_timestamp_cast`, `null_heavy_aggregate`, and `nested_json_field_scan` in `examples/local-python-benchmark-scenarios`. | Sequential local Python execution must use an admitted Vortex-prepared/native route or fail closed with deterministic diagnostics. Timing claims come only from promoted benchmark artifacts. |
 
 ## Format-Neutral Route Model
@@ -64,9 +64,12 @@ preparation/runtime feature is unavailable, `auto` fails closed with determinist
 instead of routing to an external engine.
 
 For direct `.vortex` input, the currently admitted primitive path is already shared across
-Python/DataFrame-style and SQL front doors: filter, projection, source-order limit, count, and
-filter-project chains enter the public workflow facade with the real calling surface and attached
-plan/SQL evidence before dispatching to the scoped local Vortex primitive commands. Post-shaped
+Python/DataFrame-style and SQL front doors: filter, projection, source-order limit, count,
+filter-project, scoped row-level distinct, bounded source-order tail, and deterministic bounded
+sample chains enter the public
+workflow facade with the real
+calling surface and attached plan/SQL evidence before dispatching to the scoped local Vortex
+primitive commands. Post-shaped
 Python/DataFrame-style operators for the benchmark-family shapes are also admitted when the CLI is
 built with `vortex-production-runtime` or `release-user-surfaces`: grouped count/sum, null-heavy aggregate, hash
 join with a declared right Vortex input, global top-N, clean/cast/filter, malformed timestamp cast,
@@ -74,10 +77,12 @@ substring contains, and native `write_vortex` result sinks lower through
 `vortex-production-runtime-run` with provider scenario evidence. General Vortex SQL/DataFrame
 planning remains explicitly blocked until its own native route contracts exist. Exact provider-backed
 result summaries can export bounded `result_json` to workspace-safe `write_jsonl()`/`write_csv()`
-sinks with explicit decode/materialization evidence. Primitive filter/project/filter-project
-row-streams can export workspace-safe JSONL/CSV, including JSONL+CSV fanout, through
-`native_vortex_primitive_row_export` with explicit selected-column decode/materialization evidence.
-Broad compatibility exports outside these Vortex-derived contracts remain blocked. Local
+sinks with explicit decode/materialization evidence. Primitive filter/project/filter-project,
+row-level distinct, bounded source-order tail, and deterministic bounded sample row-streams can
+export workspace-safe JSONL/CSV, including JSONL+CSV fanout, through
+`native_vortex_primitive_row_export` with explicit selected-column
+decode/materialization evidence. Broad compatibility exports outside these Vortex-derived contracts
+remain blocked. Local
 compatibility-file residual workflows that first normalize through Vortex preparation also block
 when the remaining transformed operator, row-level materialization, or compatibility sink lacks a native
 Vortex-derived route; they must not execute `sql-local-source-smoke` as the public runtime middle.

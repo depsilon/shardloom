@@ -217,18 +217,40 @@ pub fn physical_operator_plan_for_vortex_query_primitive(
                 PhysicalOperatorKind::Project,
             )?,
         ],
-        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
-            vec![bridge_operator(
-                "vortex.query_primitive.unsupported",
-                PhysicalOperatorKind::Unsupported,
-            )?]
-        }
+        VortexQueryPrimitiveKind::TailRows => vec![
+            bridge_operator(
+                "vortex.query_primitive.tail_rows.project",
+                PhysicalOperatorKind::Project,
+            )?,
+            bridge_operator(
+                "vortex.query_primitive.tail_rows.source_order_window",
+                PhysicalOperatorKind::Limit,
+            )?,
+        ],
+        VortexQueryPrimitiveKind::SampleRows => vec![
+            bridge_operator(
+                "vortex.query_primitive.sample_rows.project",
+                PhysicalOperatorKind::Project,
+            )?,
+            bridge_operator(
+                "vortex.query_primitive.sample_rows.deterministic_sample",
+                PhysicalOperatorKind::Limit,
+            )?,
+        ],
+        VortexQueryPrimitiveKind::DistinctRows
+        | VortexQueryPrimitiveKind::SimpleAggregate
+        | VortexQueryPrimitiveKind::Unsupported => vec![bridge_operator(
+            "vortex.query_primitive.unsupported",
+            PhysicalOperatorKind::Unsupported,
+        )?],
     };
     if request.source_order_limit.is_some()
         && !matches!(
             request.kind,
             VortexQueryPrimitiveKind::CountAll
                 | VortexQueryPrimitiveKind::CountWhere
+                | VortexQueryPrimitiveKind::TailRows
+                | VortexQueryPrimitiveKind::SampleRows
                 | VortexQueryPrimitiveKind::SimpleAggregate
                 | VortexQueryPrimitiveKind::Unsupported
         )
@@ -282,6 +304,9 @@ pub fn physical_operator_plan_for_vortex_query_primitive_result(
         )?],
         VortexQueryPrimitiveKind::ProjectColumns
         | VortexQueryPrimitiveKind::FilterAndProject
+        | VortexQueryPrimitiveKind::DistinctRows
+        | VortexQueryPrimitiveKind::TailRows
+        | VortexQueryPrimitiveKind::SampleRows
         | VortexQueryPrimitiveKind::SimpleAggregate
         | VortexQueryPrimitiveKind::Unsupported => {
             return physical_operator_plan_for_vortex_query_primitive(&result.request);
@@ -439,6 +464,7 @@ mod tests {
             projection: shardloom_plan::ProjectionRequest::all(),
             predicate: Some(PredicateExpr::AlwaysTrue),
             source_order_limit: None,
+            sample_seed: None,
             diagnostics: Vec::new(),
         };
 

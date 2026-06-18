@@ -11187,6 +11187,7 @@ class ShardLoomClient:
         vortex_predicate: str | None = None,
         vortex_columns: str | Sequence[str] | None = None,
         vortex_source_order_limit: int | None = None,
+        vortex_sample_seed: int | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -11235,6 +11236,7 @@ class ShardLoomClient:
             vortex_predicate=vortex_predicate,
             vortex_columns=vortex_columns,
             vortex_source_order_limit=vortex_source_order_limit,
+            vortex_sample_seed=vortex_sample_seed,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -11270,6 +11272,7 @@ class ShardLoomClient:
         vortex_predicate: str | None = None,
         vortex_columns: str | Sequence[str] | None = None,
         vortex_source_order_limit: int | None = None,
+        vortex_sample_seed: int | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -11305,6 +11308,7 @@ class ShardLoomClient:
             vortex_predicate=vortex_predicate,
             vortex_columns=vortex_columns,
             vortex_source_order_limit=vortex_source_order_limit,
+            vortex_sample_seed=vortex_sample_seed,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -11373,6 +11377,7 @@ class ShardLoomClient:
         vortex_predicate: str | None = None,
         vortex_columns: str | Sequence[str] | None = None,
         vortex_source_order_limit: int | None = None,
+        vortex_sample_seed: int | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
     ) -> list[CommandPart]:
@@ -11420,6 +11425,7 @@ class ShardLoomClient:
             vortex_predicate=vortex_predicate,
             vortex_columns=vortex_columns,
             vortex_source_order_limit=vortex_source_order_limit,
+            vortex_sample_seed=vortex_sample_seed,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -13890,6 +13896,7 @@ def _append_public_vortex_payload_args(
     vortex_predicate: str | None,
     vortex_columns: str | Sequence[str] | None,
     vortex_source_order_limit: int | None,
+    vortex_sample_seed: int | None,
     memory_gb: int | None,
     max_parallelism: int | None,
 ) -> None:
@@ -13912,6 +13919,13 @@ def _append_public_vortex_payload_args(
                 str(_positive_int("vortex_source_order_limit", vortex_source_order_limit)),
             ]
         )
+    if vortex_sample_seed is not None:
+        args.extend(
+            [
+                "--vortex-sample-seed",
+                str(_non_negative_int("vortex_sample_seed", vortex_sample_seed)),
+            ]
+        )
     if memory_gb is not None:
         args.extend(["--memory-gb", str(_positive_int("memory_gb", memory_gb))])
     if max_parallelism is not None:
@@ -13923,6 +13937,14 @@ def _append_public_vortex_payload_args(
 def _positive_int(name: str, value: int) -> int:
     if value < 1:
         raise ValueError(f"{name} must be >= 1")
+    return value
+
+
+def _non_negative_int(name: str, value: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an integer")
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0")
     return value
 
 

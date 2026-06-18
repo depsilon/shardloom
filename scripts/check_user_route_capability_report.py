@@ -209,6 +209,8 @@ REQUIRED_LOCAL_VORTEX_PRIMITIVE_ROUTE_IDS = {
     "vortex_select_star_limit_collect",
     "vortex_filter_project_collect",
     "vortex_filter_project_limit_collect",
+    "vortex_tail_collect",
+    "vortex_sample_collect",
 }
 
 REQUIRED_LOCAL_VORTEX_PRIMITIVE_COMMANDS = {
@@ -217,6 +219,7 @@ REQUIRED_LOCAL_VORTEX_PRIMITIVE_COMMANDS = {
     "vortex-filter",
     "vortex-project",
     "vortex-filter-project",
+    "public-workflow run",
 }
 
 REQUIRED_LOCAL_VORTEX_LIMIT_ROUTE_IDS = {
@@ -224,6 +227,8 @@ REQUIRED_LOCAL_VORTEX_LIMIT_ROUTE_IDS = {
     "vortex_project_limit_collect",
     "vortex_select_star_limit_collect",
     "vortex_filter_project_limit_collect",
+    "vortex_tail_collect",
+    "vortex_sample_collect",
 }
 
 

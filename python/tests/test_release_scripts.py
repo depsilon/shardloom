@@ -11049,6 +11049,7 @@ jobs:
             "vortex_select_star_limit_collect",
             "vortex_filter_project_collect",
             "vortex_filter_project_limit_collect",
+            "vortex_tail_collect",
         ]
         scenario_ids = [
             "selective_filter",
@@ -13524,6 +13525,17 @@ jobs:
             "deterministic_seed_policy",
             by_method["sample"]["required_evidence"],
         )
+        self.assertEqual(
+            by_method["sample"]["support_status"],
+            "production_admitted_local_workflow",
+        )
+        self.assertIn(
+            "native_vortex_sample_primitive",
+            by_method["sample"]["required_evidence"],
+        )
+        self.assertTrue(by_method["sample"]["runtime_execution"])
+        self.assertTrue(by_method["sample"]["materialization_required"])
+        self.assertIsNone(by_method["sample"]["blocker_id"])
         self.assertFalse(by_method["explode"]["runtime_execution"])
         self.assertEqual(
             by_method["merge"]["support_status"],
