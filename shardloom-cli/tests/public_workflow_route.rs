@@ -581,17 +581,31 @@ fn public_route_infers_native_vortex_distinct_without_smoke_middle() {
     ]);
 
     assert!(stdout.contains("\"command\":\"route\""));
-    assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field("route_id", "native_vortex_distinct")));
-    assert!(stdout.contains(&field("native_vortex_operation_family", "distinct")));
-    assert!(stdout.contains(&field("resolved_internal_command", "vortex-run")));
-    assert!(stdout.contains(&field("vortex_primitive", "distinct")));
-    assert!(stdout.contains(&field("vortex_columns", "id,group_key")));
-    assert!(stdout.contains(&field("vortex_source_order_limit", "10")));
-    assert!(stdout.contains(&field(
-        "route_support_status",
-        "production_admitted_local_workflow"
-    )));
+    if cfg!(feature = "vortex-local-primitives") {
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("route_id", "native_vortex_distinct")));
+        assert!(stdout.contains(&field("native_vortex_operation_family", "distinct")));
+        assert!(stdout.contains(&field("resolved_internal_command", "vortex-run")));
+        assert!(stdout.contains(&field("vortex_primitive", "distinct")));
+        assert!(stdout.contains(&field("vortex_columns", "id,group_key")));
+        assert!(stdout.contains(&field("vortex_source_order_limit", "10")));
+        assert!(stdout.contains(&field(
+            "route_support_status",
+            "production_admitted_local_workflow"
+        )));
+    } else {
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("route_id", "blocked")));
+        assert!(stdout.contains(&field(
+            "blocker_id",
+            "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+        )));
+        assert!(stdout.contains(&field(
+            "native_vortex_required_feature_gate",
+            "vortex-local-primitives"
+        )));
+        assert!(stdout.contains(&field("native_vortex_capability_status", "feature_gated")));
+    }
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
@@ -618,19 +632,33 @@ fn public_route_infers_native_vortex_sample_without_smoke_middle() {
     ]);
 
     assert!(stdout.contains("\"command\":\"route\""));
-    assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field("route_id", "native_vortex_sample")));
-    assert!(stdout.contains(&field("native_vortex_operation_family", "sample")));
-    assert!(stdout.contains(&field("resolved_internal_command", "vortex-run")));
-    assert!(stdout.contains(&field("vortex_primitive", "sample")));
-    assert!(stdout.contains(&field("vortex_predicate", "gte:value:3")));
-    assert!(stdout.contains(&field("vortex_columns", "id,group_key")));
-    assert!(stdout.contains(&field("vortex_source_order_limit", "10")));
-    assert!(stdout.contains(&field("vortex_sample_seed", "7")));
-    assert!(stdout.contains(&field(
-        "route_support_status",
-        "production_admitted_local_workflow"
-    )));
+    if cfg!(feature = "vortex-local-primitives") {
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("route_id", "native_vortex_sample")));
+        assert!(stdout.contains(&field("native_vortex_operation_family", "sample")));
+        assert!(stdout.contains(&field("resolved_internal_command", "vortex-run")));
+        assert!(stdout.contains(&field("vortex_primitive", "sample")));
+        assert!(stdout.contains(&field("vortex_predicate", "gte:value:3")));
+        assert!(stdout.contains(&field("vortex_columns", "id,group_key")));
+        assert!(stdout.contains(&field("vortex_source_order_limit", "10")));
+        assert!(stdout.contains(&field("vortex_sample_seed", "7")));
+        assert!(stdout.contains(&field(
+            "route_support_status",
+            "production_admitted_local_workflow"
+        )));
+    } else {
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("route_id", "blocked")));
+        assert!(stdout.contains(&field(
+            "blocker_id",
+            "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+        )));
+        assert!(stdout.contains(&field(
+            "native_vortex_required_feature_gate",
+            "vortex-local-primitives"
+        )));
+        assert!(stdout.contains(&field("native_vortex_capability_status", "feature_gated")));
+    }
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }

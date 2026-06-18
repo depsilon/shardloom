@@ -2071,6 +2071,10 @@ impl PublicVortexPrimitive {
                 | Self::Sample
         )
     }
+
+    const fn requires_local_primitives_feature(self) -> bool {
+        matches!(self, Self::Distinct | Self::Tail | Self::Sample)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2340,6 +2344,9 @@ fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRo
     if let Some(plan) = native_vortex_primitive_payload_blocker(&effective_request, primitive) {
         return plan;
     }
+    if primitive.requires_local_primitives_feature() && !cfg!(feature = "vortex-local-primitives") {
+        return native_vortex_materializing_primitive_feature_gated_route();
+    }
     admitted_route(
         primitive.route_id(),
         primitive.resolved_internal_command(),
@@ -2509,6 +2516,26 @@ fn native_vortex_primitive_row_export_feature_gated_route() -> PublicWorkflowRou
             Some("compiled_without=vortex-local-primitives".to_string()),
             Some(
                 "build the release binary with --features release-user-surfaces or vortex-local-primitives to execute scoped JSONL/CSV row exports".to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    )
+}
+
+fn native_vortex_materializing_primitive_feature_gated_route() -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated",
+        "native Vortex materializing primitive collect requires the vortex-local-primitives feature",
+        Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::UnsupportedFeature,
+            "native Vortex distinct/tail/sample collect is feature-gated in this binary"
+                .to_string(),
+            Some("public_workflow_route.vortex_primitive".to_string()),
+            Some("compiled_without=vortex-local-primitives".to_string()),
+            Some(
+                "build the release binary with --features release-user-surfaces or vortex-local-primitives to execute distinct, tail, or sample collect routes".to_string(),
             ),
             FallbackStatus::disabled_by_policy(),
         ),
@@ -4721,6 +4748,10 @@ fn native_vortex_required_feature_gate(
     if matches!(plan.route_id, "native_vortex_primitive_row_export")
         || plan.blocker_id
             == "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+        || plan.blocker_id
+            == "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+        || normalized_vortex_primitive(request)
+            .is_some_and(PublicVortexPrimitive::requires_local_primitives_feature)
     {
         return "vortex-local-primitives";
     }
@@ -4778,6 +4809,7 @@ fn native_vortex_capability_status(
         plan.blocker_id,
         "py-vortex-route-unify-1.native_vortex_provider_feature_gated"
             | "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+            | "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
     ) {
         "feature_gated"
     } else if plan.blocker_id.starts_with("py-vortex-route-unify-1.") {
@@ -6647,18 +6679,35 @@ mod tests {
         let fields = route_fields(&request, &plan);
         let attachments = execution_attachment_fields("run", &request, &plan);
 
-        assert_eq!(plan.status, CommandStatus::Success);
-        assert_eq!(plan.route_id, "native_vortex_tail");
-        assert_eq!(
-            field(&fields, "route_runtime_status"),
-            "production_admitted_local_workflow"
-        );
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_tail");
+            assert_eq!(
+                field(&fields, "route_runtime_status"),
+                "production_admitted_local_workflow"
+            );
+            assert_eq!(
+                field(&fields, "typed_result_contract"),
+                "bounded_python_rows_with_explicit_materialization_boundary"
+            );
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(plan.route_id, "blocked");
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+            );
+            assert_eq!(
+                field(&fields, "native_vortex_capability_status"),
+                "feature_gated"
+            );
+            assert_eq!(
+                field(&fields, "native_vortex_required_feature_gate"),
+                "vortex-local-primitives"
+            );
+        }
         assert_eq!(field(&fields, "vortex_primitive"), "tail");
         assert_eq!(field(&fields, "native_vortex_operation_family"), "top_n");
-        assert_eq!(
-            field(&fields, "typed_result_contract"),
-            "bounded_python_rows_with_explicit_materialization_boundary"
-        );
         assert_eq!(
             field(&attachments, "public_workflow_vortex_primitive"),
             "tail"
