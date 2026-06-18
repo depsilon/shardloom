@@ -194,7 +194,8 @@ Current autonomous execution order:
     `describe` through the existing metadata-first profile route and scoped bounded `tail(limit)`
     through a native/prepared Vortex source-order tail primitive, and scoped
     deterministic `sample(n=..., seed=...)` / `sample(n=..., random_state=<int>, replace=False)`
-    through a native/prepared Vortex sample primitive with explicit bounded materialization, plus
+    and no-replacement `sample(frac|fraction=..., seed|random_state=...)` through a native/prepared
+    Vortex sample primitive with explicit bounded materialization, plus
     scoped `reset_index(drop=True)` /
     `sort_index(ascending=True)` through index-state-free source-order preservation, and scoped
     `set_index(keys, drop=False)` through explicit index-state metadata. The remaining
@@ -206,9 +207,9 @@ Current autonomous execution order:
     semantic/runtime evidence recorded. Generic "unsupported" wording is not acceptable.
   - Blocked method coverage map:
     - [ ] Sampling/order/index track: scoped deterministic `sample(n=..., seed=...)`,
-      integer `random_state` aliasing, and `replace=False` without-replacement semantics are
-      admitted; fraction/weighted/replacement sample variants, pandas RNG object parity, and
-      `duplicated` remain open.
+      integer `random_state` aliasing, `replace=False` without-replacement semantics, and
+      no-replacement fractional sampling are admitted; weighted/replacement sample variants, pandas
+      RNG object parity, and `duplicated` remain open.
       Scoped `set_index(keys, drop=False)`, `reset_index(drop=True)`, and
       `sort_index(ascending=True)` are admitted as explicit/index-state-free
       source-order-preserving shapes.
@@ -247,9 +248,12 @@ Current autonomous execution order:
       `sample(n=..., random_state=<int>, replace=False)` through native/prepared Vortex scan plus
       ShardLoom seeded bounded row selection without replacement, with explicit
       decode/materialization evidence and no fallback or external engine invocation.
+    - [x] Implement scoped deterministic no-replacement `sample(frac|fraction=..., seed|random_state=...)`
+      through native/prepared Vortex scan plus ShardLoom seeded fractional row selection, with
+      explicit decode/materialization evidence and no fallback or external engine invocation.
     - [ ] Implement remaining deterministic sampling/order/index sub-shapes where semantics are
-      explicit: fractional/weighted/replacement sample variants, pandas RNG object parity if a
-      portable seed contract exists, row-mask `duplicated`, and explicit index-state
+      explicit: weighted/replacement sample variants, pandas RNG object parity if a portable seed
+      contract exists, row-mask `duplicated`, and explicit index-state
       creation/materialization if it can be represented without hidden pandas-style state.
     - [ ] Implement reshape/nested-expansion routes for feasible flat/nested Vortex shapes:
       `explode`, `pivot`, `pivot_table`, and `melt`, with explicit cardinality expansion,
@@ -284,8 +288,9 @@ Current autonomous execution order:
     `PY-VORTEX-LOCAL-EXPORT-DISTINCT-CLOSEOUT-1`, scoped `describe` is admitted through the
     profile family, scoped bounded `tail(limit)` is admitted through the native/prepared Vortex
     tail primitive, scoped deterministic `sample(n=..., seed=...)` / integer `random_state`
-    aliasing with `replace=False` is admitted through the native/prepared Vortex sample primitive,
-    scoped index metadata no-op shapes are admitted, and the other 15 have
+    aliasing with `replace=False` and no-replacement fractional sampling are admitted through the
+    native/prepared Vortex sample primitive, scoped index metadata no-op shapes are admitted, and
+    the other 15 have
     track-level implementation checklists with no generic
     unowned blocker bucket.
   - Non-goals: hidden pandas/Polars/DuckDB/DataFusion/Spark fallback, arbitrary unsafe Python

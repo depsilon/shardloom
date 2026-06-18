@@ -1480,7 +1480,7 @@ fn workflow_unsupported_sample() -> WorkflowUnsupportedOperation {
         feature: "cg21.workflow.sample",
         blocker_id: "cg21.workflow.sample.variant_not_admitted",
         required_evidence: "native_vortex_fractional_or_weighted_sample_contract,deterministic_seed_policy,semantic_conformance_suite,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use sample(n=..., seed=...) or sample(n=..., random_state=<int>, replace=False); fraction, weighted, replacement, and pandas RNG-object variants need a separate native Vortex sampling contract before execution.",
+        suggested_next_action: "Use sample(n=..., seed=...), sample(n=..., random_state=<int>, replace=False), or sample(frac|fraction=..., seed|random_state=...); weighted, replacement, and pandas RNG-object variants need a separate native Vortex sampling contract before execution.",
         diagnostic_code: DiagnosticCode::NotImplemented,
         materialization_required: false,
         write_required: false,

@@ -125,6 +125,7 @@ pub struct VortexQueryPrimitiveRequest {
     pub predicate: Option<PredicateExpr>,
     pub source_order_limit: Option<usize>,
     pub sample_seed: Option<u64>,
+    pub sample_fraction: Option<f64>,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexQueryPrimitiveRequest {
@@ -137,6 +138,7 @@ impl VortexQueryPrimitiveRequest {
             predicate: None,
             source_order_limit: None,
             sample_seed: None,
+            sample_fraction: None,
             diagnostics: vec![],
         }
     }
@@ -149,6 +151,7 @@ impl VortexQueryPrimitiveRequest {
             predicate: Some(predicate),
             source_order_limit: None,
             sample_seed: None,
+            sample_fraction: None,
             diagnostics: vec![],
         }
     }
@@ -161,6 +164,7 @@ impl VortexQueryPrimitiveRequest {
             predicate: None,
             source_order_limit: None,
             sample_seed: None,
+            sample_fraction: None,
             diagnostics: vec![],
         }
     }
@@ -173,6 +177,7 @@ impl VortexQueryPrimitiveRequest {
             predicate: Some(predicate),
             source_order_limit: None,
             sample_seed: None,
+            sample_fraction: None,
             diagnostics: vec![],
         }
     }
@@ -189,6 +194,7 @@ impl VortexQueryPrimitiveRequest {
             predicate: Some(predicate),
             source_order_limit: None,
             sample_seed: None,
+            sample_fraction: None,
             diagnostics: vec![],
         }
     }
@@ -205,6 +211,7 @@ impl VortexQueryPrimitiveRequest {
             predicate,
             source_order_limit: None,
             sample_seed: None,
+            sample_fraction: None,
             diagnostics: vec![],
         }
     }
@@ -217,6 +224,7 @@ impl VortexQueryPrimitiveRequest {
             predicate: None,
             source_order_limit: Some(limit),
             sample_seed: None,
+            sample_fraction: None,
             diagnostics: vec![],
         }
     }
@@ -235,17 +243,44 @@ impl VortexQueryPrimitiveRequest {
             predicate,
             source_order_limit: Some(limit),
             sample_seed: Some(seed),
+            sample_fraction: None,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn sample_fraction_rows(
+        uri: DatasetUri,
+        projection: ProjectionRequest,
+        predicate: Option<PredicateExpr>,
+        fraction: f64,
+        seed: u64,
+    ) -> Self {
+        Self {
+            kind: VortexQueryPrimitiveKind::SampleRows,
+            source_uri: Some(uri),
+            projection,
+            predicate,
+            source_order_limit: None,
+            sample_seed: Some(seed),
+            sample_fraction: Some(fraction),
             diagnostics: vec![],
         }
     }
     #[must_use]
     pub fn with_source_order_limit(mut self, limit: usize) -> Self {
         self.source_order_limit = Some(limit);
+        self.sample_fraction = None;
         self
     }
     #[must_use]
     pub fn with_sample_seed(mut self, seed: u64) -> Self {
         self.sample_seed = Some(seed);
+        self
+    }
+    #[must_use]
+    pub fn with_sample_fraction(mut self, fraction: f64) -> Self {
+        self.sample_fraction = Some(fraction);
+        self.source_order_limit = None;
         self
     }
     #[must_use]
@@ -257,6 +292,7 @@ impl VortexQueryPrimitiveRequest {
             predicate: None,
             source_order_limit: None,
             sample_seed: None,
+            sample_fraction: None,
             diagnostics: vec![],
         };
         request.add_diagnostic(Diagnostic::unsupported(
@@ -282,7 +318,7 @@ impl VortexQueryPrimitiveRequest {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "kind={} uri={} projection={} predicate={} source_order_limit={} sample_seed={} diagnostics={}",
+            "kind={} uri={} projection={} predicate={} source_order_limit={} sample_seed={} sample_fraction={} diagnostics={}",
             self.kind.as_str(),
             self.source_uri
                 .as_ref()
@@ -295,9 +331,18 @@ impl VortexQueryPrimitiveRequest {
                 .map_or_else(|| "none".to_string(), |limit| limit.to_string()),
             self.sample_seed
                 .map_or_else(|| "none".to_string(), |seed| seed.to_string()),
+            self.sample_fraction
+                .map_or_else(|| "none".to_string(), format_fraction),
             self.diagnostics.len()
         )
     }
+}
+
+fn format_fraction(value: f64) -> String {
+    format!("{value:.12}")
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

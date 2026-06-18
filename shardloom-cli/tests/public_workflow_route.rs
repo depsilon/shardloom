@@ -495,6 +495,7 @@ fn public_route_admits_native_vortex_sample_row_export_payloads() {
         assert!(stdout.contains(&field("vortex_primitive", "sample")));
         assert!(stdout.contains(&field("vortex_source_order_limit", "2")));
         assert!(stdout.contains(&field("vortex_sample_seed", "7")));
+        assert!(stdout.contains(&field("vortex_sample_fraction", "none")));
         assert!(stdout.contains(&field(
             "typed_sink_contract",
             "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink"
@@ -505,6 +506,53 @@ fn public_route_admits_native_vortex_sample_row_export_payloads() {
         assert!(stdout.contains(&field(
             "blocker_id",
             "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+        )));
+    }
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_admits_native_vortex_sample_fraction_payloads() {
+    let stdout = run_route(&[
+        "route",
+        "dataframe",
+        "--input",
+        "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--execution-policy",
+        "native_vortex",
+        "--bounded",
+        "true",
+        "--vortex-primitive",
+        "sample",
+        "--vortex-columns",
+        "metric",
+        "--vortex-sample-fraction",
+        "0.5",
+        "--vortex-sample-seed",
+        "7",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    if cfg!(feature = "vortex-local-primitives") {
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("route_id", "native_vortex_sample")));
+        assert!(stdout.contains(&field("vortex_primitive", "sample")));
+        assert!(stdout.contains(&field("vortex_source_order_limit", "none")));
+        assert!(stdout.contains(&field("vortex_sample_fraction", "0.5")));
+        assert!(stdout.contains(&field("vortex_sample_seed", "7")));
+    } else {
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("route_id", "blocked")));
+        assert!(stdout.contains(&field(
+            "blocker_id",
+            "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
         )));
     }
     assert!(stdout.contains(&field("fallback_attempted", "false")));
@@ -641,6 +689,60 @@ fn public_route_infers_native_vortex_sample_without_smoke_middle() {
         assert!(stdout.contains(&field("vortex_predicate", "gte:value:3")));
         assert!(stdout.contains(&field("vortex_columns", "id,group_key")));
         assert!(stdout.contains(&field("vortex_source_order_limit", "10")));
+        assert!(stdout.contains(&field("vortex_sample_seed", "7")));
+        assert!(stdout.contains(&field(
+            "route_support_status",
+            "production_admitted_local_workflow"
+        )));
+    } else {
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("route_id", "blocked")));
+        assert!(stdout.contains(&field(
+            "blocker_id",
+            "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+        )));
+        assert!(stdout.contains(&field(
+            "native_vortex_required_feature_gate",
+            "vortex-local-primitives"
+        )));
+        assert!(stdout.contains(&field("native_vortex_capability_status", "feature_gated")));
+    }
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_infers_native_vortex_sample_fraction_without_smoke_middle() {
+    let stdout = run_route(&[
+        "route",
+        "dataframe",
+        "--input",
+        "target/fact.vortex",
+        "--input-format",
+        "vortex",
+        "--plan",
+        "read_vortex(target/fact.vortex) -> filter(gte:value:3) -> select(id,group_key) -> sample(fraction,0.5,7)",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    if cfg!(feature = "vortex-local-primitives") {
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("route_id", "native_vortex_sample")));
+        assert!(stdout.contains(&field("native_vortex_operation_family", "sample")));
+        assert!(stdout.contains(&field("resolved_internal_command", "vortex-run")));
+        assert!(stdout.contains(&field("vortex_primitive", "sample")));
+        assert!(stdout.contains(&field("vortex_predicate", "gte:value:3")));
+        assert!(stdout.contains(&field("vortex_columns", "id,group_key")));
+        assert!(stdout.contains(&field("vortex_source_order_limit", "none")));
+        assert!(stdout.contains(&field("vortex_sample_fraction", "0.5")));
         assert!(stdout.contains(&field("vortex_sample_seed", "7")));
         assert!(stdout.contains(&field(
             "route_support_status",
@@ -1633,6 +1735,7 @@ fn public_run_executes_native_vortex_sample_payload_with_attached_route_envelope
     assert!(stdout.contains(&field("public_workflow_vortex_columns", "metric")));
     assert!(stdout.contains(&field("public_workflow_vortex_source_order_limit", "2")));
     assert!(stdout.contains(&field("public_workflow_vortex_sample_seed", "7")));
+    assert!(stdout.contains(&field("public_workflow_vortex_sample_fraction", "none")));
     assert!(stdout.contains(&field("mode", "native_vortex_primitive")));
     assert!(stdout.contains(&field("primitive", "sample_rows")));
     assert!(stdout.contains(&field(
@@ -1648,6 +1751,67 @@ fn public_run_executes_native_vortex_sample_payload_with_attached_route_envelope
     assert!(stdout.contains(&field("local_primitive_native_io_certified", "true")));
     assert!(stdout.contains(&field("data_decoded", "true")));
     assert!(stdout.contains(&field("data_materialized", "true")));
+    assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
+    assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn public_run_executes_native_vortex_sample_fraction_payload() {
+    let fixture = local_primitive_struct_fixture();
+    let stdout = run_route(&[
+        "run",
+        "cli",
+        "--input",
+        fixture.as_str(),
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--execution-policy",
+        "native_vortex",
+        "--materialization-policy",
+        "bounded",
+        "--evidence-level",
+        "runtime_smoke",
+        "--bounded",
+        "true",
+        "--vortex-primitive",
+        "sample",
+        "--vortex-predicate",
+        "gte:value:3",
+        "--vortex-columns",
+        "metric",
+        "--vortex-sample-fraction",
+        "0.5",
+        "--vortex-sample-seed",
+        "7",
+        "--memory-gb",
+        "1",
+        "--max-parallelism",
+        "1",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("public_workflow_route_id", "native_vortex_sample")));
+    assert!(stdout.contains(&field("public_workflow_vortex_primitive", "sample")));
+    assert!(stdout.contains(&field("public_workflow_vortex_source_order_limit", "none")));
+    assert!(stdout.contains(&field("public_workflow_vortex_sample_fraction", "0.5")));
+    assert!(stdout.contains(&field("public_workflow_vortex_sample_seed", "7")));
+    assert!(stdout.contains(&field("mode", "native_vortex_primitive")));
+    assert!(stdout.contains(&field("primitive", "sample_rows")));
+    assert!(stdout.contains(&field(
+        "execution",
+        "local_vortex_sample_rows_primitive_performed"
+    )));
+    assert!(stdout.contains(&field("output_row_count", "2")));
+    assert!(stdout.contains(&field(
+        "local_primitive_native_io_certificate_status",
+        "certified"
+    )));
     assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
     assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
 }

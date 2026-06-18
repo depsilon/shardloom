@@ -3441,6 +3441,7 @@ class _VortexPrimitiveWorkflowShape:
     tail_limit: int | None = None
     sample_count: int | None = None
     sample_seed: int | None = None
+    sample_fraction: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -3623,8 +3624,9 @@ def _native_vortex_row_export_payload_from_primitive_shape(
     predicate = getattr(shape, "predicate", None)
     columns = getattr(shape, "columns", None)
     sample_count = getattr(shape, "sample_count", None)
+    sample_fraction = getattr(shape, "sample_fraction", None)
     tail_limit = getattr(shape, "tail_limit", None)
-    if sample_count is not None:
+    if sample_count is not None or sample_fraction is not None:
         primitive = "sample"
         source_order_limit = sample_count
     elif tail_limit is not None:
@@ -3651,6 +3653,7 @@ def _native_vortex_row_export_payload_from_primitive_shape(
         "vortex_columns": columns,
         "vortex_source_order_limit": source_order_limit,
         "vortex_sample_seed": getattr(shape, "sample_seed", None),
+        "vortex_sample_fraction": sample_fraction,
     }
 
 
@@ -4354,7 +4357,7 @@ class LazyFrame:
         replace: bool = False,
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
-        """Return a scoped deterministic bounded sample over admitted Vortex-backed rows."""
+        """Return a scoped deterministic no-replacement sample over admitted Vortex-backed rows."""
 
         effective_fraction = _normalize_sample_fraction_alias(
             fraction=fraction,
@@ -4371,15 +4374,23 @@ class LazyFrame:
             weights=weights,
             replace=replace,
         )
-        if weights is not None or effective_fraction is not None or replace is not False:
+        if weights is not None or replace is not False:
             return self._unsupported_operation("sample", target_ref, check=check)
-        sample_n = 1 if n is None else _normalize_non_negative_int("sample n", n)
-        _validate_positive_row_count("sample n", sample_n)
         sample_seed = (
             0
             if effective_seed is None
             else _normalize_non_negative_int("sample seed", effective_seed)
         )
+        if effective_fraction is not None:
+            sample_fraction = _normalize_sample_fraction_value(effective_fraction)
+            return self._append(
+                WorkflowOperation(
+                    "sample",
+                    ("fraction", f"{sample_fraction:.12g}", str(sample_seed)),
+                )
+            )
+        sample_n = 1 if n is None else _normalize_non_negative_int("sample n", n)
+        _validate_positive_row_count("sample n", sample_n)
         return self._append(WorkflowOperation("sample", (str(sample_n), str(sample_seed))))
 
     def explode(
@@ -5180,7 +5191,10 @@ class LazyFrame:
         primitive_shape = self._vortex_primitive_shape()
         if primitive_shape is not None:
             primitive: str | None = None
-            if primitive_shape.sample_count is not None:
+            if (
+                primitive_shape.sample_count is not None
+                or primitive_shape.sample_fraction is not None
+            ):
                 primitive = "sample"
             elif primitive_shape.tail_limit is not None:
                 primitive = "tail"
@@ -5206,6 +5220,7 @@ class LazyFrame:
                         else primitive_shape.limit
                     ),
                     "vortex_sample_seed": primitive_shape.sample_seed,
+                    "vortex_sample_fraction": primitive_shape.sample_fraction,
                 }
         provider_shape = self._native_vortex_user_route_shape()
         if provider_shape is None:
@@ -6994,6 +7009,19 @@ class LazyFrame:
                 columns=shape.columns,
                 source_order_limit=shape.sample_count,
                 sample_seed=shape.sample_seed,
+                sample_fraction=None,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.sample_fraction is not None:
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="sample",
+                predicate=shape.predicate,
+                columns=shape.columns,
+                source_order_limit=None,
+                sample_seed=shape.sample_seed,
+                sample_fraction=shape.sample_fraction,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7005,6 +7033,7 @@ class LazyFrame:
                 columns=shape.columns,
                 source_order_limit=shape.tail_limit,
                 sample_seed=None,
+                sample_fraction=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7016,6 +7045,7 @@ class LazyFrame:
                 columns=shape.columns,
                 source_order_limit=shape.limit,
                 sample_seed=None,
+                sample_fraction=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7027,6 +7057,7 @@ class LazyFrame:
                 columns=shape.columns,
                 source_order_limit=shape.limit,
                 sample_seed=None,
+                sample_fraction=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7038,6 +7069,7 @@ class LazyFrame:
                 columns=None,
                 source_order_limit=shape.limit,
                 sample_seed=None,
+                sample_fraction=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7049,6 +7081,7 @@ class LazyFrame:
                 columns=shape.columns,
                 source_order_limit=shape.limit,
                 sample_seed=None,
+                sample_fraction=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7076,6 +7109,7 @@ class LazyFrame:
             or shape.distinct
             or shape.tail_limit is not None
             or shape.sample_count is not None
+            or shape.sample_fraction is not None
         ):
             return None
         memory_gb = _normalize_positive_int("memory_gb", memory_gb)
@@ -7087,6 +7121,7 @@ class LazyFrame:
                 columns=None,
                 source_order_limit=None,
                 sample_seed=None,
+                sample_fraction=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7098,6 +7133,7 @@ class LazyFrame:
                 columns=None,
                 source_order_limit=None,
                 sample_seed=None,
+                sample_fraction=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7237,6 +7273,7 @@ class LazyFrame:
         columns: Sequence[str] | None,
         source_order_limit: int | None,
         sample_seed: int | None,
+        sample_fraction: float | None,
         memory_gb: int,
         max_parallelism: int,
         check: bool,
@@ -7259,6 +7296,7 @@ class LazyFrame:
             vortex_columns=columns,
             vortex_source_order_limit=source_order_limit,
             vortex_sample_seed=sample_seed,
+            vortex_sample_fraction=sample_fraction,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
             check=check,
@@ -7274,6 +7312,7 @@ class LazyFrame:
         tail_limit: int | None = None
         sample_count: int | None = None
         sample_seed: int | None = None
+        sample_fraction: float | None = None
         for operation in self.operations:
             if operation.kind == "set_index":
                 continue
@@ -7284,6 +7323,7 @@ class LazyFrame:
                     or distinct
                     or tail_limit is not None
                     or sample_count is not None
+                    or sample_fraction is not None
                 ):
                     return None
                 if _sql_filter_requires_native_vortex_expression_route(operation.values[0]):
@@ -7298,6 +7338,7 @@ class LazyFrame:
                     or distinct
                     or tail_limit is not None
                     or sample_count is not None
+                    or sample_fraction is not None
                 ):
                     return None
                 if any(
@@ -7312,6 +7353,7 @@ class LazyFrame:
                     or limit is not None
                     or tail_limit is not None
                     or sample_count is not None
+                    or sample_fraction is not None
                 ):
                     return None
                 distinct = True
@@ -7322,6 +7364,7 @@ class LazyFrame:
                     or distinct
                     or tail_limit is not None
                     or sample_count is not None
+                    or sample_fraction is not None
                 ):
                     return None
                 parsed_tail = int(operation.values[0])
@@ -7334,16 +7377,37 @@ class LazyFrame:
                     or distinct
                     or tail_limit is not None
                     or sample_count is not None
+                    or sample_fraction is not None
                 ):
                     return None
-                parsed_sample = int(operation.values[0])
-                parsed_seed = int(operation.values[1]) if len(operation.values) > 1 else 0
-                if parsed_sample <= 0 or parsed_seed < 0:
-                    return None
-                sample_count = parsed_sample
-                sample_seed = parsed_seed
+                if operation.values and operation.values[0] == "fraction":
+                    if len(operation.values) < 2:
+                        return None
+                    parsed_fraction = float(operation.values[1])
+                    parsed_seed = int(operation.values[2]) if len(operation.values) > 2 else 0
+                    if (
+                        not math.isfinite(parsed_fraction)
+                        or parsed_fraction <= 0
+                        or parsed_fraction > 1
+                        or parsed_seed < 0
+                    ):
+                        return None
+                    sample_fraction = parsed_fraction
+                    sample_seed = parsed_seed
+                else:
+                    parsed_sample = int(operation.values[0])
+                    parsed_seed = int(operation.values[1]) if len(operation.values) > 1 else 0
+                    if parsed_sample <= 0 or parsed_seed < 0:
+                        return None
+                    sample_count = parsed_sample
+                    sample_seed = parsed_seed
             elif operation.kind == "limit":
-                if limit is not None or tail_limit is not None or sample_count is not None:
+                if (
+                    limit is not None
+                    or tail_limit is not None
+                    or sample_count is not None
+                    or sample_fraction is not None
+                ):
                     return None
                 parsed_limit = int(operation.values[0])
                 if parsed_limit <= 0:
@@ -7359,6 +7423,7 @@ class LazyFrame:
             tail_limit=tail_limit,
             sample_count=sample_count,
             sample_seed=sample_seed,
+            sample_fraction=sample_fraction,
         )
 
     def _native_vortex_user_route_shape(self) -> _NativeVortexUserRouteShape | None:
@@ -9961,6 +10026,15 @@ def _normalize_sample_fraction_alias(
     if fraction is not None and frac is not None:
         raise ValueError("sample accepts either fraction or frac, not both")
     return fraction if fraction is not None else frac
+
+
+def _normalize_sample_fraction_value(fraction: float) -> float:
+    if isinstance(fraction, bool) or not isinstance(fraction, (int, float)):
+        raise TypeError("sample fraction must be numeric")
+    value = float(fraction)
+    if not math.isfinite(value) or value <= 0 or value > 1:
+        raise ValueError("sample fraction must be finite and in the range (0, 1]")
+    return value
 
 
 def _normalize_sample_seed_alias(

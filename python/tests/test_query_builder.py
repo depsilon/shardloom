@@ -144,6 +144,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         columns = _shardloom_take_flag(args, "--vortex-columns")
         source_order_limit = _shardloom_take_flag(args, "--vortex-source-order-limit")
         sample_seed = _shardloom_take_flag(args, "--vortex-sample-seed")
+        sample_fraction = _shardloom_take_flag(args, "--vortex-sample-fraction")
         if requested_output == "collect" and primitive is not None:
             route_id = {
                 "count": "native_vortex_count_all",
@@ -173,6 +174,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ["public_workflow_vortex_columns", columns or "none"],
                 ["public_workflow_vortex_source_order_limit", source_order_limit or "none"],
                 ["public_workflow_vortex_sample_seed", sample_seed or "none"],
+                ["public_workflow_vortex_sample_fraction", sample_fraction or "none"],
                 ["mode", "native_vortex_primitive"],
                 ["primitive", primitive],
                 ["execution", f"local_vortex_{primitive}_primitive_performed" if materializing_primitive else "local_vortex_primitive_performed"],
@@ -12547,7 +12549,43 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_local_csv_query_builder_sample_fraction_and_weights_stay_deterministic_blockers(
+    def test_local_csv_query_builder_sample_fraction_routes_through_prepared_vortex(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .sample(frac=0.5, random_state=3)
+            .collect()
+        )
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"), "native_vortex_sample"
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "sample")
+        self.assertEqual(report.envelope.field("public_workflow_vortex_sample_seed"), "3")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "none"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_sample_fraction"), "0.5"
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_sample_weighted_and_replacement_stay_deterministic_blockers(
         self,
     ) -> None:
         binary = self.fake_cli(
@@ -12574,8 +12612,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         "category": "unsupported_feature",
                         "message": "unsupported",
                         "feature": "cg21.workflow.sample",
-                        "reason": "sample variant requires a native Vortex sample-fraction or weighted-sample contract",
-                        "suggested_next_step": "use sample(n=..., seed=...) or sample(n=..., random_state=..., replace=False)",
+                        "reason": "sample variant requires a native Vortex weighted or replacement sample contract",
+                        "suggested_next_step": "use sample(n=..., seed=...), sample(n=..., random_state=..., replace=False), or sample(frac=..., random_state=...)",
                         "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     }],
                     "fields": [
@@ -12583,7 +12621,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "workflow_operation", "value": "sample"},
                         {"key": "target_ref", "value": target_ref},
                         {"key": "blocker_id", "value": "cg21.workflow.sample.variant_not_admitted"},
-                        {"key": "required_evidence", "value": "native_vortex_fractional_or_weighted_sample_contract,execution_certificate,native_io_certificate"},
+                        {"key": "required_evidence", "value": "native_vortex_weighted_or_replacement_sample_contract,execution_certificate,native_io_certificate"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "runtime_execution", "value": "false"},
                         {"key": "data_read", "value": "false"},
@@ -12596,15 +12634,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         workflow = sl.read_csv("events.csv", client=ShardLoomClient(binary=binary))
 
-        frac_report = workflow.sample(frac=0.5, random_state=3)
         weighted_report = workflow.sample(n=2, weights="weight", seed=3)
         replacement_report = workflow.sample(n=2, seed=3, replace=True)
 
-        self.assertEqual(frac_report.operation, "sample")
-        self.assertEqual(
-            frac_report.envelope.field("target_ref"),
-            "fraction=0.5,seed=3",
-        )
         self.assertEqual(weighted_report.operation, "sample")
         self.assertEqual(
             weighted_report.envelope.field("target_ref"),
@@ -12615,9 +12647,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             replacement_report.envelope.field("target_ref"),
             "n=2,seed=3,replace=true",
         )
-        self.assertFalse(frac_report.fallback_attempted)
         self.assertFalse(weighted_report.fallback_attempted)
         self.assertFalse(replacement_report.fallback_attempted)
+
+        with self.assertRaisesRegex(ValueError, "sample fraction"):
+            workflow.sample(frac=1.2)
 
     def test_local_csv_query_builder_tail_write_jsonl_routes_through_prepared_vortex_row_export(
         self,

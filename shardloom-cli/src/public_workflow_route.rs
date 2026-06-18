@@ -65,6 +65,7 @@ struct PublicWorkflowRouteRequest {
     vortex_columns: Option<String>,
     vortex_source_order_limit: Option<String>,
     vortex_sample_seed: Option<String>,
+    vortex_sample_fraction: Option<String>,
     memory_gb: Option<String>,
     max_parallelism: Option<String>,
 }
@@ -946,6 +947,10 @@ fn native_vortex_materializing_request_and_arg(
         primitive_request =
             primitive_request.with_sample_seed(non_negative_u64_arg("sample seed", seed)?);
     }
+    if let Some(fraction) = request.vortex_sample_fraction.as_ref() {
+        primitive_request = primitive_request
+            .with_sample_fraction(sample_fraction_arg("sample fraction", fraction)?);
+    }
     Ok((primitive_request, primitive_arg))
 }
 
@@ -1738,7 +1743,7 @@ impl PublicWorkflowRouteRequest {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-seed <seed>] [--memory-gb <n>] [--max-parallelism <n>]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--memory-gb <n>] [--max-parallelism <n>]"
                     .to_string(),
             ));
         };
@@ -1783,6 +1788,7 @@ impl PublicWorkflowRouteRequest {
             vortex_columns: None,
             vortex_source_order_limit: None,
             vortex_sample_seed: None,
+            vortex_sample_fraction: None,
             memory_gb: None,
             max_parallelism: None,
         }
@@ -1872,6 +1878,10 @@ impl PublicWorkflowRouteRequest {
             }
             "--vortex-sample-seed" => {
                 self.vortex_sample_seed = Some(required_value(args, "--vortex-sample-seed")?);
+            }
+            "--vortex-sample-fraction" => {
+                self.vortex_sample_fraction =
+                    Some(required_value(args, "--vortex-sample-fraction")?);
             }
             "--memory-gb" => {
                 self.memory_gb = Some(required_value(args, "--memory-gb")?);
@@ -2383,15 +2393,33 @@ fn native_vortex_primitive_payload_blocker(
             "use --vortex-source-order-limit only with filter, project, filter_project, distinct, tail, or sample",
         ));
     }
-    if matches!(
-        primitive,
-        PublicVortexPrimitive::Tail | PublicVortexPrimitive::Sample
-    ) && request.vortex_source_order_limit.is_none()
+    if matches!(primitive, PublicVortexPrimitive::Tail)
+        && request.vortex_source_order_limit.is_none()
     {
         return Some(native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_source_order_limit",
-            "native Vortex tail/sample requires a bounded row count",
-            "pass --vortex-source-order-limit with the requested tail/sample row count",
+            "native Vortex tail requires a bounded row count",
+            "pass --vortex-source-order-limit with the requested tail row count",
+        ));
+    }
+    if matches!(primitive, PublicVortexPrimitive::Sample)
+        && request.vortex_source_order_limit.is_none()
+        && request.vortex_sample_fraction.is_none()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_shape",
+            "native Vortex sample requires a bounded row count or fraction",
+            "pass --vortex-source-order-limit for sample(n=...) or --vortex-sample-fraction for sample(frac=...)",
+        ));
+    }
+    if matches!(primitive, PublicVortexPrimitive::Sample)
+        && request.vortex_source_order_limit.is_some()
+        && request.vortex_sample_fraction.is_some()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_shape",
+            "native Vortex sample accepts either row count or fraction, not both",
+            "pass only one of --vortex-source-order-limit or --vortex-sample-fraction",
         ));
     }
     if request.vortex_sample_seed.is_some() && !matches!(primitive, PublicVortexPrimitive::Sample) {
@@ -2408,6 +2436,24 @@ fn native_vortex_primitive_payload_blocker(
             "public_workflow_route.vortex_sample_seed",
             "native Vortex sample seed must be a non-negative integer",
             "pass --vortex-sample-seed with an unsigned integer seed",
+        ));
+    }
+    if request.vortex_sample_fraction.is_some()
+        && !matches!(primitive, PublicVortexPrimitive::Sample)
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_fraction",
+            "native Vortex sample fraction is only valid for sample primitives",
+            "use --vortex-sample-fraction only with --vortex-primitive sample",
+        ));
+    }
+    if let Some(fraction) = request.vortex_sample_fraction.as_ref()
+        && sample_fraction_arg("sample fraction", fraction).is_err()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_fraction",
+            "native Vortex sample fraction must be finite and in the range (0, 1]",
+            "pass --vortex-sample-fraction with a decimal value greater than 0 and no greater than 1",
         ));
     }
     native_vortex_resource_hint_blocker(request)
@@ -2448,48 +2494,7 @@ fn native_vortex_primitive_row_export_route(
     {
         return native_vortex_operation_blocked_route(operation_family);
     }
-    if primitive.requires_predicate() && request.vortex_predicate.is_none() {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_predicate",
-            "native Vortex primitive row export requires a predicate payload",
-            "pass --vortex-predicate with the scoped tiny predicate expression",
-        );
-    }
-    if primitive.requires_columns() && request.vortex_columns.is_none() {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_columns",
-            "native Vortex primitive row export requires a projection payload",
-            "pass --vortex-columns with comma-separated projected columns",
-        );
-    }
-    if matches!(
-        primitive,
-        PublicVortexPrimitive::Tail | PublicVortexPrimitive::Sample
-    ) && request.vortex_source_order_limit.is_none()
-    {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_source_order_limit",
-            "native Vortex primitive row export requires a bounded row count",
-            "pass --vortex-source-order-limit with the requested tail/sample row count",
-        );
-    }
-    if request.vortex_sample_seed.is_some() && !matches!(primitive, PublicVortexPrimitive::Sample) {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_sample_seed",
-            "native Vortex sample seed is only valid for sample row export",
-            "use --vortex-sample-seed only with --vortex-primitive sample",
-        );
-    }
-    if let Some(seed) = request.vortex_sample_seed.as_ref()
-        && non_negative_u64_arg("sample seed", seed).is_err()
-    {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_sample_seed",
-            "native Vortex sample seed must be a non-negative integer",
-            "pass --vortex-sample-seed with an unsigned integer seed",
-        );
-    }
-    if let Some(plan) = native_vortex_resource_hint_blocker(request) {
+    if let Some(plan) = native_vortex_primitive_row_export_payload_blocker(request, primitive) {
         return plan;
     }
     admitted_route(
@@ -2501,6 +2506,90 @@ fn native_vortex_primitive_row_export_route(
         false,
         true,
     )
+}
+
+fn native_vortex_primitive_row_export_payload_blocker(
+    request: &PublicWorkflowRouteRequest,
+    primitive: PublicVortexPrimitive,
+) -> Option<PublicWorkflowRoutePlan> {
+    if primitive.requires_predicate() && request.vortex_predicate.is_none() {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_predicate",
+            "native Vortex primitive row export requires a predicate payload",
+            "pass --vortex-predicate with the scoped tiny predicate expression",
+        ));
+    }
+    if primitive.requires_columns() && request.vortex_columns.is_none() {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_columns",
+            "native Vortex primitive row export requires a projection payload",
+            "pass --vortex-columns with comma-separated projected columns",
+        ));
+    }
+    if matches!(primitive, PublicVortexPrimitive::Tail)
+        && request.vortex_source_order_limit.is_none()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_source_order_limit",
+            "native Vortex primitive row export requires a bounded tail row count",
+            "pass --vortex-source-order-limit with the requested tail row count",
+        ));
+    }
+    if matches!(primitive, PublicVortexPrimitive::Sample)
+        && request.vortex_source_order_limit.is_none()
+        && request.vortex_sample_fraction.is_none()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_shape",
+            "native Vortex sample row export requires a row count or fraction",
+            "pass --vortex-source-order-limit for sample(n=...) or --vortex-sample-fraction for sample(frac=...)",
+        ));
+    }
+    if matches!(primitive, PublicVortexPrimitive::Sample)
+        && request.vortex_source_order_limit.is_some()
+        && request.vortex_sample_fraction.is_some()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_shape",
+            "native Vortex sample row export accepts either row count or fraction, not both",
+            "pass only one of --vortex-source-order-limit or --vortex-sample-fraction",
+        ));
+    }
+    if request.vortex_sample_seed.is_some() && !matches!(primitive, PublicVortexPrimitive::Sample) {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_seed",
+            "native Vortex sample seed is only valid for sample row export",
+            "use --vortex-sample-seed only with --vortex-primitive sample",
+        ));
+    }
+    if let Some(seed) = request.vortex_sample_seed.as_ref()
+        && non_negative_u64_arg("sample seed", seed).is_err()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_seed",
+            "native Vortex sample seed must be a non-negative integer",
+            "pass --vortex-sample-seed with an unsigned integer seed",
+        ));
+    }
+    if request.vortex_sample_fraction.is_some()
+        && !matches!(primitive, PublicVortexPrimitive::Sample)
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_fraction",
+            "native Vortex sample fraction is only valid for sample row export",
+            "use --vortex-sample-fraction only with --vortex-primitive sample",
+        ));
+    }
+    if let Some(fraction) = request.vortex_sample_fraction.as_ref()
+        && sample_fraction_arg("sample fraction", fraction).is_err()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_fraction",
+            "native Vortex sample fraction must be finite and in the range (0, 1]",
+            "pass --vortex-sample-fraction with a decimal value greater than 0 and no greater than 1",
+        ));
+    }
+    native_vortex_resource_hint_blocker(request)
 }
 
 fn native_vortex_primitive_row_export_feature_gated_route() -> PublicWorkflowRoutePlan {
@@ -2970,6 +3059,7 @@ struct InferredNativeVortexRoutePayload {
     columns: Option<String>,
     source_order_limit: Option<String>,
     sample_seed: Option<String>,
+    sample_fraction: Option<String>,
     right_input: Option<String>,
 }
 
@@ -2997,6 +3087,9 @@ impl InferredNativeVortexRoutePayload {
         }
         if request.vortex_sample_seed.is_none() {
             request.vortex_sample_seed = self.sample_seed;
+        }
+        if request.vortex_sample_fraction.is_none() {
+            request.vortex_sample_fraction = self.sample_fraction;
         }
         if request.native_vortex_right_input.is_none() {
             request.native_vortex_right_input = self.right_input;
@@ -3091,6 +3184,7 @@ fn infer_native_vortex_provider_payload(
         columns: None,
         source_order_limit: None,
         sample_seed: None,
+        sample_fraction: None,
         right_input: infer_native_vortex_right_input(request),
     })
 }
@@ -3173,6 +3267,7 @@ fn infer_native_vortex_sql_provider_payload(
         columns: None,
         source_order_limit: None,
         sample_seed: None,
+        sample_fraction: None,
         right_input: refs.get(1).cloned(),
     })
 }
@@ -3220,6 +3315,7 @@ fn infer_native_vortex_sql_primitive_payload(
             columns: None,
             source_order_limit: None,
             sample_seed: None,
+            sample_fraction: None,
             right_input: None,
         });
     }
@@ -3242,6 +3338,7 @@ fn infer_native_vortex_sql_primitive_payload(
         columns,
         source_order_limit: shape.limit,
         sample_seed: None,
+        sample_fraction: None,
         right_input: None,
     })
 }
@@ -3335,6 +3432,13 @@ fn normalize_sql_projection_columns(projection: &str) -> Option<String> {
 struct SummaryOperation<'a> {
     kind: &'a str,
     arg: &'a str,
+}
+
+#[derive(Debug, Clone)]
+struct SummarySampleShape {
+    source_order_limit: Option<String>,
+    sample_fraction: Option<String>,
+    sample_seed: String,
 }
 
 fn parse_plan_summary_operations(summary: &str) -> Option<Vec<SummaryOperation<'_>>> {
@@ -3523,6 +3627,25 @@ fn native_vortex_primitive_payload_with_seed(
         columns,
         source_order_limit,
         sample_seed,
+        sample_fraction: None,
+        right_input: None,
+    }
+}
+
+fn native_vortex_sample_primitive_payload(
+    predicate: Option<String>,
+    columns: Option<String>,
+    sample_shape: SummarySampleShape,
+) -> InferredNativeVortexRoutePayload {
+    InferredNativeVortexRoutePayload {
+        family: NativeVortexOperationFamily::Sample,
+        provider_scenario: None,
+        primitive: Some(PublicVortexPrimitive::Sample),
+        predicate,
+        columns,
+        source_order_limit: sample_shape.source_order_limit,
+        sample_seed: Some(sample_shape.sample_seed),
+        sample_fraction: sample_shape.sample_fraction,
         right_input: None,
     }
 }
@@ -3610,62 +3733,107 @@ fn infer_native_vortex_sample_primitive_payload(
 ) -> Option<InferredNativeVortexRoutePayload> {
     if matches_summary_kinds(operations, &["read_vortex", "filter", "select", "sample"]) {
         let predicate = summary_tiny_predicate_from_sql(operations[1].arg)?;
-        let (sample_size, sample_seed) = summary_sample_size_seed(operations[3].arg)?;
-        Some(native_vortex_primitive_payload_with_seed(
-            PublicVortexPrimitive::Sample,
+        let sample_shape = summary_sample_shape(operations[3].arg)?;
+        Some(native_vortex_sample_primitive_payload(
             Some(predicate),
             Some(operations[2].arg.trim().to_string()),
-            Some(sample_size),
-            Some(sample_seed),
+            sample_shape,
         ))
     } else if matches_summary_kinds(operations, &["read_vortex", "filter", "sample"]) {
         let predicate = summary_tiny_predicate_from_sql(operations[1].arg)?;
-        let (sample_size, sample_seed) = summary_sample_size_seed(operations[2].arg)?;
-        Some(native_vortex_primitive_payload_with_seed(
-            PublicVortexPrimitive::Sample,
+        let sample_shape = summary_sample_shape(operations[2].arg)?;
+        Some(native_vortex_sample_primitive_payload(
             Some(predicate),
             None,
-            Some(sample_size),
-            Some(sample_seed),
+            sample_shape,
         ))
     } else if matches_summary_kinds(operations, &["read_vortex", "select", "sample"]) {
-        let (sample_size, sample_seed) = summary_sample_size_seed(operations[2].arg)?;
-        Some(native_vortex_primitive_payload_with_seed(
-            PublicVortexPrimitive::Sample,
+        let sample_shape = summary_sample_shape(operations[2].arg)?;
+        Some(native_vortex_sample_primitive_payload(
             None,
             Some(operations[1].arg.trim().to_string()),
-            Some(sample_size),
-            Some(sample_seed),
+            sample_shape,
         ))
     } else if matches_summary_kinds(operations, &["read_vortex", "sample"]) {
-        let (sample_size, sample_seed) = summary_sample_size_seed(operations[1].arg)?;
-        Some(native_vortex_primitive_payload_with_seed(
-            PublicVortexPrimitive::Sample,
+        let sample_shape = summary_sample_shape(operations[1].arg)?;
+        Some(native_vortex_sample_primitive_payload(
             None,
             None,
-            Some(sample_size),
-            Some(sample_seed),
+            sample_shape,
         ))
     } else {
         None
     }
 }
 
-fn summary_sample_size_seed(value: &str) -> Option<(String, String)> {
-    let value = value.trim();
-    if let Some((size, seed)) = value.split_once(',') {
-        let size = size.trim().strip_prefix("n=").unwrap_or(size.trim());
-        let seed = seed.trim().strip_prefix("seed=").unwrap_or(seed.trim());
-        if summary_positive_limit(size) && seed.parse::<u64>().is_ok() {
-            return Some((size.to_string(), seed.to_string()));
+fn summary_sample_shape(value: &str) -> Option<SummarySampleShape> {
+    let parts = value
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>();
+    if parts.is_empty() {
+        return None;
+    }
+    if parts.first().copied() == Some("fraction") {
+        let fraction = *parts.get(1)?;
+        let seed = parts.get(2).copied().unwrap_or("0");
+        if parts.len() <= 3
+            && sample_fraction_arg("sample fraction", fraction).is_ok()
+            && seed.parse::<u64>().is_ok()
+        {
+            return Some(SummarySampleShape {
+                source_order_limit: None,
+                sample_fraction: Some(fraction.to_string()),
+                sample_seed: seed.to_string(),
+            });
         }
         return None;
     }
-    let size = value.strip_prefix("n=").unwrap_or(value);
-    if summary_positive_limit(size) {
-        Some((size.to_string(), "0".to_string()))
-    } else {
+    let mut source_order_limit = None;
+    let mut sample_fraction = None;
+    let mut sample_seed = "0".to_string();
+    let mut saw_seed = false;
+    for (index, part) in parts.iter().enumerate() {
+        if let Some(value) = part.strip_prefix("n=") {
+            if source_order_limit.is_some() || !summary_positive_limit(value) {
+                return None;
+            }
+            source_order_limit = Some(value.to_string());
+        } else if let Some(value) = part
+            .strip_prefix("frac=")
+            .or_else(|| part.strip_prefix("fraction="))
+        {
+            if sample_fraction.is_some() || sample_fraction_arg("sample fraction", value).is_err() {
+                return None;
+            }
+            sample_fraction = Some(value.to_string());
+        } else if let Some(value) = part
+            .strip_prefix("seed=")
+            .or_else(|| part.strip_prefix("random_state="))
+        {
+            if saw_seed || value.parse::<u64>().is_err() {
+                return None;
+            }
+            sample_seed = value.to_string();
+            saw_seed = true;
+        } else if index == 0 && source_order_limit.is_none() && summary_positive_limit(part) {
+            source_order_limit = Some((*part).to_string());
+        } else if index == 1 && !saw_seed && part.parse::<u64>().is_ok() {
+            sample_seed = (*part).to_string();
+            saw_seed = true;
+        } else {
+            return None;
+        }
+    }
+    if source_order_limit.is_some() == sample_fraction.is_some() {
         None
+    } else {
+        Some(SummarySampleShape {
+            source_order_limit,
+            sample_fraction,
+            sample_seed,
+        })
     }
 }
 
@@ -4589,6 +4757,11 @@ fn add_route_native_vortex_request_fields(
     );
     push_field(
         fields,
+        "vortex_sample_fraction",
+        optional_or_none(request.vortex_sample_fraction.as_ref()),
+    );
+    push_field(
+        fields,
         "memory_gb",
         request.memory_gb.clone().unwrap_or_else(|| "1".to_string()),
     );
@@ -4907,7 +5080,7 @@ fn admitted_native_vortex_next_action(
             "execute the admitted native Vortex bounded source-order tail primitive route"
         }
         PublicVortexPrimitive::Sample => {
-            "execute the admitted native Vortex deterministic bounded sample primitive route with a declared seed"
+            "execute the admitted native Vortex deterministic no-replacement sample primitive route with a declared seed and row count or fraction"
         }
     })
 }
@@ -5387,6 +5560,10 @@ fn execution_attachment_fields(
             optional_or_none(effective_request.vortex_sample_seed.as_ref()),
         ),
         (
+            "public_workflow_vortex_sample_fraction".to_string(),
+            optional_or_none(effective_request.vortex_sample_fraction.as_ref()),
+        ),
+        (
             "public_workflow_memory_gb".to_string(),
             effective_request
                 .memory_gb
@@ -5669,6 +5846,18 @@ fn non_negative_u64_arg(label: &str, value: &str) -> Result<u64, ShardLoomError>
     value.parse::<u64>().map_err(|_| {
         ShardLoomError::InvalidOperation(format!("{label} must be a non-negative integer"))
     })
+}
+
+fn sample_fraction_arg(label: &str, value: &str) -> Result<f64, ShardLoomError> {
+    let parsed = value.parse::<f64>().map_err(|_| {
+        ShardLoomError::InvalidOperation(format!("{label} must be a finite decimal"))
+    })?;
+    if !parsed.is_finite() || parsed <= 0.0 || parsed > 1.0 {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{label} must be finite and in the range (0, 1]"
+        )));
+    }
+    Ok(parsed)
 }
 
 fn positive_usize_arg(label: &str, value: &str) -> Result<usize, ShardLoomError> {
