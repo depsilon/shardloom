@@ -465,6 +465,7 @@ mod tests {
             predicate: Some(PredicateExpr::AlwaysTrue),
             source_order_limit: None,
             sample_seed: None,
+            sample_fraction: None,
             diagnostics: Vec::new(),
         };
 

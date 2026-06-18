@@ -3311,21 +3311,22 @@ LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS: tuple[LocalVortexPrimitiveRouteRow, ...] = (
         "vortex_sample_collect",
         "sample_rows",
         sql_surface="not_applicable_sql_sample_function",
-        python_surface="read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect()",
+        python_surface="read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect(); sample(frac=0.5, random_state=7)",
         dataframe_surface=(
-            "read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect()"
+            "read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect(); sample(frac=0.5, random_state=7)"
         ),
         context_surface=(
-            "ctx.read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect()"
+            "ctx.read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect(); sample(frac=0.5, random_state=7)"
         ),
         session_surface=(
-            "session.read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect()"
+            "session.read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect(); sample(frac=0.5, random_state=7)"
         ),
         cli_command="public-workflow run",
         cli_args_template=(
             "run dataframe --input <dataset.vortex> --input-format vortex --request collect "
             "--execution-policy native_vortex --vortex-primitive sample --vortex-columns <columns> "
-            "--vortex-predicate <tiny-predicate> --vortex-source-order-limit <n> "
+            "--vortex-predicate <tiny-predicate> "
+            "(--vortex-source-order-limit <n>|--vortex-sample-fraction <fraction>) "
             "--vortex-sample-seed <seed> --format json"
         ),
         supports_source_order_limit=True,
@@ -3932,18 +3933,19 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "native_vortex_sample_primitive",
             "deterministic_seed_policy",
             "bounded_result_contract",
+            "bounded_or_fractional_result_contract",
             "explicit_decode_materialization_boundary",
             "execution_certificate",
             "native_io_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped `sample(n=..., seed=...)` and `sample(n=..., random_state=<int>, "
-            "replace=False)` lower local compatibility sources through prepared Vortex or native "
-            "Vortex input, then apply deterministic ShardLoom seeded row selection without "
-            "replacement at an explicit bounded materialization boundary. Fraction-based sampling, "
-            "unbounded sampling, weighted sampling, replacement sampling, pandas RNG object parity, "
-            "and performance claims remain outside this route and fail closed."
+            "Scoped `sample(n=..., seed=...)`, `sample(n=..., random_state=<int>, "
+            "replace=False)`, and no-replacement `sample(frac|fraction=..., seed|random_state=...)` "
+            "lower local compatibility sources through prepared Vortex or native Vortex input, then "
+            "apply deterministic ShardLoom seeded row selection at an explicit bounded "
+            "materialization boundary. Unbounded sampling, weighted sampling, replacement sampling, "
+            "pandas RNG object parity, and performance claims remain outside this route and fail closed."
         ),
     ),
     _df_method(

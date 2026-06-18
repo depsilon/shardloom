@@ -181,7 +181,7 @@ it admits feature-gated local Vortex primitives, prepared Vortex state, prepared
 artifacts, and generated local Vortex artifacts without claiming broad Vortex support.
 For direct `.vortex` inputs, exact benchmark-family Python and SQL shapes for grouped aggregation,
 hash join, global top-N, cast/try-cast, substring contains, no-argument row-level distinct, scoped
-bounded source-order tail, deterministic bounded `sample(n=..., seed=...|random_state=<int>, replace=False)`, native `write_vortex`
+bounded source-order tail, deterministic no-replacement `sample(n=..., seed=...|random_state=<int>, replace=False)` or `sample(frac|fraction=..., seed=...|random_state=<int>)`, native `write_vortex`
 sinks, and provider-backed bounded
 `write_jsonl`/`write_csv` result exports are listed by
 `ctx.native_vortex_provider_route_certificate_report()`; broader arbitrary Vortex SQL/DataFrame

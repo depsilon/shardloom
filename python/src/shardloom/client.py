@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import os
 import platform
 import re
@@ -11188,6 +11189,7 @@ class ShardLoomClient:
         vortex_columns: str | Sequence[str] | None = None,
         vortex_source_order_limit: int | None = None,
         vortex_sample_seed: int | None = None,
+        vortex_sample_fraction: float | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -11237,6 +11239,7 @@ class ShardLoomClient:
             vortex_columns=vortex_columns,
             vortex_source_order_limit=vortex_source_order_limit,
             vortex_sample_seed=vortex_sample_seed,
+            vortex_sample_fraction=vortex_sample_fraction,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -11273,6 +11276,7 @@ class ShardLoomClient:
         vortex_columns: str | Sequence[str] | None = None,
         vortex_source_order_limit: int | None = None,
         vortex_sample_seed: int | None = None,
+        vortex_sample_fraction: float | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -11309,6 +11313,7 @@ class ShardLoomClient:
             vortex_columns=vortex_columns,
             vortex_source_order_limit=vortex_source_order_limit,
             vortex_sample_seed=vortex_sample_seed,
+            vortex_sample_fraction=vortex_sample_fraction,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -11378,6 +11383,7 @@ class ShardLoomClient:
         vortex_columns: str | Sequence[str] | None = None,
         vortex_source_order_limit: int | None = None,
         vortex_sample_seed: int | None = None,
+        vortex_sample_fraction: float | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
     ) -> list[CommandPart]:
@@ -11426,6 +11432,7 @@ class ShardLoomClient:
             vortex_columns=vortex_columns,
             vortex_source_order_limit=vortex_source_order_limit,
             vortex_sample_seed=vortex_sample_seed,
+            vortex_sample_fraction=vortex_sample_fraction,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -13897,6 +13904,7 @@ def _append_public_vortex_payload_args(
     vortex_columns: str | Sequence[str] | None,
     vortex_source_order_limit: int | None,
     vortex_sample_seed: int | None,
+    vortex_sample_fraction: float | None,
     memory_gb: int | None,
     max_parallelism: int | None,
 ) -> None:
@@ -13926,6 +13934,13 @@ def _append_public_vortex_payload_args(
                 str(_non_negative_int("vortex_sample_seed", vortex_sample_seed)),
             ]
         )
+    if vortex_sample_fraction is not None:
+        args.extend(
+            [
+                "--vortex-sample-fraction",
+                _sample_fraction_arg(vortex_sample_fraction),
+            ]
+        )
     if memory_gb is not None:
         args.extend(["--memory-gb", str(_positive_int("memory_gb", memory_gb))])
     if max_parallelism is not None:
@@ -13946,6 +13961,15 @@ def _non_negative_int(name: str, value: int) -> int:
     if value < 0:
         raise ValueError(f"{name} must be >= 0")
     return value
+
+
+def _sample_fraction_arg(value: float) -> str:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError("vortex_sample_fraction must be numeric")
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed <= 0 or parsed > 1:
+        raise ValueError("vortex_sample_fraction must be finite and in the range (0, 1]")
+    return f"{parsed:.12g}"
 
 
 def _bundled_cli_platform_tags() -> tuple[str, ...]:
