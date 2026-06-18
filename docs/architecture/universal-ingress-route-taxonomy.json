@@ -112,7 +112,7 @@
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "Local CSV SourceState, direct-transient, vortex_ingest, and certified import runtime for admitted flat schemas only; no object-store/table or production claim."
+      "claim_boundary": "Local CSV SourceState, vortex_ingest normalization, and certified import runtime for admitted flat schemas only; direct transient remains internal smoke-only and no object-store/table or production claim is made."
     },
     {
       "source_surface_id": "jsonl_ndjson",
@@ -142,7 +142,7 @@
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "Local flat JSONL/NDJSON SourceState, direct-transient, vortex_ingest, and certified import runtime only; no nested JSON, JSONPath, object-store/table, or production claim."
+      "claim_boundary": "Local flat JSONL/NDJSON SourceState, vortex_ingest normalization, and certified import runtime only; direct transient remains internal smoke-only and no nested JSON, JSONPath, object-store/table, or production claim is made."
     },
     {
       "source_surface_id": "json",
@@ -200,7 +200,7 @@
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "Feature-gated flat scalar local Parquet SourceState, direct-transient, vortex_ingest, and certified import runtime only; no broad type/nesting, metadata-fidelity, table, or production claim."
+      "claim_boundary": "Feature-gated flat scalar local Parquet SourceState, vortex_ingest normalization, and certified import runtime only; direct transient remains internal smoke-only and no broad type/nesting, metadata-fidelity, table, or production claim is made."
     },
     {
       "source_surface_id": "arrow_ipc",
@@ -229,7 +229,7 @@
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "Feature-gated flat scalar local Arrow IPC SourceState, direct-transient, vortex_ingest, and certified import runtime only; no zero-copy, nested type, broad Arrow runtime, or production claim."
+      "claim_boundary": "Feature-gated flat scalar local Arrow IPC SourceState, vortex_ingest normalization, and certified import runtime only; direct transient remains internal smoke-only and no zero-copy, nested type, broad Arrow runtime, or production claim is made."
     },
     {
       "source_surface_id": "avro",
@@ -258,7 +258,7 @@
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "Feature-gated flat scalar local Avro SourceState, direct-transient, vortex_ingest, and certified import runtime only; no schema-evolution, logical-type completeness, or production claim."
+      "claim_boundary": "Feature-gated flat scalar local Avro SourceState, vortex_ingest normalization, and certified import runtime only; direct transient remains internal smoke-only and no schema-evolution, logical-type completeness, or production claim is made."
     },
     {
       "source_surface_id": "orc",
@@ -287,7 +287,7 @@
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "Feature-gated flat scalar local ORC SourceState, direct-transient, vortex_ingest, and certified import runtime only; no stripe/statistics runtime or production claim."
+      "claim_boundary": "Feature-gated flat scalar local ORC SourceState, vortex_ingest normalization, and certified import runtime only; direct transient remains internal smoke-only and no stripe/statistics runtime or production claim is made."
     },
     {
       "source_surface_id": "excel",

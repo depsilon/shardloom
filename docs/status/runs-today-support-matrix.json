@@ -143,6 +143,7 @@
     "object_store_request_plan",
     "object_store_boundary_use_cases",
     "object_store_public_fixture_read_smoke",
+    "public_workflow_route_tests",
     "fanout_replay_tests",
     "sql_local_source_vortex_output_tests",
     "vortex_output_commit_tests",
@@ -826,7 +827,7 @@
         "read_avro",
         "read_orc",
         "sql",
-        "LazyFrame.collect/write local-file auto route"
+        "LazyFrame.collect/profile/write_vortex/write_jsonl/write_csv/fanout local-file auto route"
       ],
       "support_state": "executable",
       "feature_gate": "release-user-surfaces for Vortex preparation/provider execution; default builds fail closed with deterministic feature-gate diagnostics",
@@ -838,7 +839,7 @@
       ],
       "blocker_id": "none",
       "claim_gate_status": "not_claim_grade",
-      "claim_boundary": "scoped local Python/SQL/DataFrame workflows normalize through Vortex preparation or native Vortex input before admitted native primitive/provider execution where those routes exist; remaining scoped product-local operators require Vortex preparation but are not native Vortex middle claims. Direct decoded local-source smoke remains internal-only; no arbitrary SQL/DataFrame, object-store/table, fallback, or performance claim",
+      "claim_boundary": "scoped local Python/SQL/DataFrame workflows normalize through Vortex preparation or native Vortex input before admitted native primitive/provider execution where those routes exist; scoped provider JSONL/CSV result-summary exports and primitive JSONL/CSV row-stream/fanout exports are Vortex-derived with explicit decode/materialization evidence. Residual product-local operators and broad compatibility sinks block until a native/prepared Vortex route or Vortex-derived export contract exists. Direct decoded local-source smoke remains internal-only; no arbitrary SQL/DataFrame, object-store/table, fallback, or performance claim",
       "runtime_execution": true,
       "data_read": true,
       "write_io": true,
@@ -1106,15 +1107,17 @@
         "csv"
       ],
       "support_state": "executable",
-      "feature_gate": "default",
+      "feature_gate": "release-user-surfaces for public Vortex-derived local workflow exports; default generated-source helpers remain fixture smoke",
       "evidence_refs": [
+        "python.tests.test_query_builder",
+        "public_workflow_route_tests",
         "sql_local_source_runtime_smoke",
         "generated_source_runtime_tests",
         "fanout_replay_tests"
       ],
       "blocker_id": "none",
-      "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "local fixture result output only; not production sink or transaction support",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "public local-source JSONL/CSV writes and JSONL+CSV fanout are admitted only when derived from native/prepared Vortex primitive row streams or exact provider-backed native Vortex result summaries with explicit decode/materialization evidence; generated-source and internal fixture result output remain separate smoke surfaces",
       "runtime_execution": true,
       "data_read": false,
       "write_io": true,

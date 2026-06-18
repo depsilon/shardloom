@@ -478,6 +478,13 @@ pub fn evaluate_vortex_prepared_state_reuse(
             &manifest_digest,
         ));
     }
+    if !request.prepared_artifact_path.exists() {
+        return Ok(prepared_state_reuse_miss_with_digest(
+            request,
+            "prepared_artifact_missing",
+            &manifest_digest,
+        ));
+    }
     let artifact_fingerprint = LocalReuseFileFingerprint::from_path(
         &request.prepared_artifact_path,
         "prepared-state reuse artifact",
@@ -10074,6 +10081,52 @@ mod tests {
             "id:int64,label:utf8"
         );
         assert!(decision.changed_byte_range_refs.contains("#bytes="));
+        assert!(!decision.fallback_attempted);
+        assert!(!decision.external_engine_invoked);
+
+        std::fs::remove_dir_all(root).expect("remove temp root");
+    }
+
+    #[test]
+    fn prepared_state_reuse_missing_artifact_is_cache_miss_not_error() {
+        let root = temp_test_root("reuse-manifest-missing-artifact");
+        let source = root.join("input.csv");
+        let target = root.join("prepared.vortex");
+        std::fs::write(&source, "id,label\n1,alpha\n").expect("write source");
+        std::fs::write(&target, b"prepared-vortex-artifact").expect("write prepared artifact");
+        let manifest_path =
+            vortex_prepared_state_reuse_manifest_path(&target).expect("manifest path");
+        let request = reuse_request_for_test(&source, &target, &manifest_path);
+        let first_decision =
+            evaluate_vortex_prepared_state_reuse(&request).expect("first reuse decision");
+        let artifact_digest =
+            sha256_file_digest(&target, "test artifact").expect("artifact digest");
+        write_vortex_prepared_state_reuse_manifest(
+            &request,
+            &first_decision,
+            VortexPreparedStateReuseWriteEvidence {
+                source_state_id: "source-state-base".to_string(),
+                source_state_digest: "fnv64:source-base".to_string(),
+                source_schema_digest: "fnv64:schema".to_string(),
+                source_row_count: 1,
+                source_column_family_summary: "id:int64,label:utf8".to_string(),
+                prepared_state_id: "prepared-base".to_string(),
+                prepared_state_digest: "fnv64:prepared-base".to_string(),
+                prepared_artifact_digest: artifact_digest,
+                certificate_refs: "reopen_row_count_scan".to_string(),
+                fallback_attempted: false,
+                external_engine_invoked: false,
+            },
+        )
+        .expect("write reuse manifest");
+
+        std::fs::remove_file(&target).expect("remove stale artifact");
+        let decision =
+            evaluate_vortex_prepared_state_reuse(&request).expect("missing artifact is a miss");
+        assert!(!decision.hit);
+        assert_eq!(decision.status, "prepared_state_reuse_miss");
+        assert_eq!(decision.reason, "prepared_artifact_missing");
+        assert_eq!(decision.invalidation_reason, "prepared_artifact_missing");
         assert!(!decision.fallback_attempted);
         assert!(!decision.external_engine_invoked);
 

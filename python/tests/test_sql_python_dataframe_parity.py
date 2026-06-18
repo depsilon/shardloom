@@ -46,7 +46,7 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertEqual(report["v1_expected_error_scenario_ids"], [])
         self.assertFalse(report["flexible_anything_claim_allowed"])
         self.assertFalse(report["performance_equivalence_claim_allowed"])
-        self.assertEqual(report["admitted_row_count"], 7)
+        self.assertEqual(report["admitted_row_count"], 6)
         self.assertGreaterEqual(report["remaining_gap_count"], 4)
         self.assertTrue(report["all_broad_gaps_have_precise_runtime_status"])
         self.assertIn(
@@ -102,11 +102,15 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             if row["row_id"] == "typed_nested_compatibility_sink"
         )
         self.assertEqual(
-            nested_sink["parity_status"], "equivalent_admitted_scope"
+            nested_sink["parity_status"],
+            "deterministic_blocker_until_native_export_contract",
         )
-        self.assertEqual(nested_sink["runtime_gap_status"], "admitted_scope")
+        self.assertEqual(
+            nested_sink["runtime_gap_status"],
+            "native_compatibility_export_contract_missing",
+        )
         self.assertIn(
-            "local sink replay evidence",
+            "certified native Vortex result/export contract",
             nested_sink["claim_boundary"],
         )
         native = next(

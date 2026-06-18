@@ -1937,14 +1937,11 @@ class SqlWorkflow:
             max_parallelism=max_parallelism,
         ):
             return report
-        if report := self._local_source_prepared_sql_compatibility_collect_report(
-            check=check
-        ):
-            return report
         if _is_local_source_sql_statement(self.statement):
-            return self._unsupported_operation(
-                "native-vortex-sql-local-source",
-                "local_source_sql_requires_vortex_preparation_and_admitted_native_route",
+            return self._public_workflow_blocked_report(
+                operation="native-vortex-sql-local-source",
+                target_ref="local_source_sql_requires_vortex_preparation_and_admitted_native_route",
+                requested_output="collect",
                 check=check,
             )
         return self._unsupported_operation("sql", self.statement, check=check)
@@ -2050,8 +2047,12 @@ class SqlWorkflow:
         limit: int = 100,
         *,
         check: bool = False,
-    ) -> WorkflowProfileReport | UnsupportedWorkflowOperationReport:
-        """Return a bounded runtime profile for admitted local-source SQL."""
+    ) -> (
+        WorkflowProfileReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
+        """Return a metadata-first profile for admitted Vortex/prepared SQL."""
 
         _validate_positive_row_count("profile limit", limit)
         if report := self._bounded_materialization_report(limit=limit, check=check):
@@ -2061,6 +2062,31 @@ class SqlWorkflow:
                 smoke_report=report,
                 schema_report=_workflow_schema_report(workflow, report),
                 limit=limit,
+            )
+        if _is_local_source_sql_statement(self.statement):
+            execution = self.client.public_workflow_run(
+                "sql",
+                sql_statement=self.statement,
+                requested_output="profile",
+                execution_policy="auto",
+                materialization_policy="bounded",
+                evidence_level="production_admitted_local_workflow",
+                bounded=True,
+                memory_gb=4,
+                max_parallelism=1,
+                check=check,
+            )
+            workflow = self._report_workflow()
+            if execution.envelope.status == "success":
+                return VortexWorkflowExecutionReport(
+                    workflow=workflow,
+                    operation="profile",
+                    envelope=execution.envelope,
+                )
+            return UnsupportedWorkflowOperationReport(
+                workflow=workflow,
+                operation="profile",
+                envelope=execution.envelope,
             )
         return self._unsupported_operation("profile", self.statement, check=check)
 
@@ -2308,19 +2334,6 @@ class SqlWorkflow:
         """Write an admitted SQL result to a scoped local output."""
 
         normalized_output_format = _normalize_local_output_format(output_format)
-        if _is_local_source_sql_statement(self.statement) and normalized_output_format != "vortex":
-            if report := self._local_source_prepared_sql_compatibility_write_report(
-                target_uri,
-                output_format=normalized_output_format,
-                allow_overwrite=allow_overwrite,
-                check=check,
-            ):
-                return report
-            return self._unsupported_operation(
-                f"native-vortex-{normalized_output_format}-sql-sink",
-                str(target_uri),
-                check=check,
-            )
         return self._public_workflow_write_report(
             target_uri,
             requested_output=_public_write_request_for_format(normalized_output_format),
@@ -2334,7 +2347,12 @@ class SqlWorkflow:
         *,
         allow_overwrite: bool = False,
         check: bool = True,
-    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> (
+        GeneratedSourceWriteReport
+        | SqlLocalSourceSmokeReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
         """Alias for `write(..., output_format="jsonl")`."""
 
         return self.write(
@@ -2350,7 +2368,12 @@ class SqlWorkflow:
         *,
         allow_overwrite: bool = False,
         check: bool = True,
-    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> (
+        GeneratedSourceWriteReport
+        | SqlLocalSourceSmokeReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
         """Alias for `write(..., output_format="csv")`."""
 
         return self.write(
@@ -2507,9 +2530,11 @@ class SqlWorkflow:
             )
             return GeneratedSourceWriteReport(execution.envelope)
         if _is_local_source_sql_statement(self.statement):
-            return self._unsupported_operation(
-                "native-vortex-sql-fanout",
-                "compatibility fanout sinks require an explicit native Vortex export contract",
+            return self._public_workflow_write_report(
+                output_path,
+                requested_output=requested_output,
+                allow_overwrite=allow_overwrite,
+                fanout_outputs=fanout_outputs,
                 check=check,
             )
         return self._unsupported_operation("fanout", self.statement, check=check)
@@ -2521,22 +2546,27 @@ class SqlWorkflow:
         requested_output: str,
         allow_overwrite: bool,
         check: bool,
+        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> (
         GeneratedSourceWriteReport
         | SqlLocalSourceSmokeReport
         | VortexWorkflowExecutionReport
         | UnsupportedWorkflowOperationReport
     ):
-        if requested_output == "write_vortex":
-            if report := self._vortex_sql_user_route_write_vortex_report(
+        if requested_output in {"write_vortex", "write_jsonl", "write_csv"}:
+            if report := self._vortex_sql_user_route_write_report(
                 target_uri,
+                requested_output=requested_output,
                 allow_overwrite=allow_overwrite,
+                fanout_outputs=fanout_outputs,
                 check=check,
             ):
                 return report
-            if report := self._local_source_auto_vortex_sql_write_vortex_report(
+            if report := self._local_source_auto_vortex_sql_write_report(
                 target_uri,
+                requested_output=requested_output,
                 allow_overwrite=allow_overwrite,
+                fanout_outputs=fanout_outputs,
                 check=check,
             ):
                 return report
@@ -2547,6 +2577,7 @@ class SqlWorkflow:
                 plan_summary=self.operation_summary,
                 requested_output=requested_output,
                 output_ref=target_uri,
+                fanout_outputs=fanout_outputs,
                 materialization_policy="bounded",
                 evidence_level="runtime_smoke",
                 bounded=True,
@@ -2555,12 +2586,48 @@ class SqlWorkflow:
             )
             return GeneratedSourceWriteReport(execution.envelope)
         if _is_local_source_sql_statement(self.statement):
-            return self._unsupported_operation(
+            return self._public_workflow_blocked_report(
                 f"native-vortex-{requested_output.replace('_', '-')}-sql-sink",
-                str(target_uri),
+                target_ref=str(target_uri),
+                requested_output=requested_output,
+                output_ref=target_uri,
+                allow_overwrite=allow_overwrite,
+                fanout_outputs=fanout_outputs,
                 check=check,
             )
         return self._unsupported_operation("sql", self.statement, check=check)
+
+    def _public_workflow_blocked_report(
+        self,
+        *,
+        operation: str,
+        target_ref: str | None = None,
+        requested_output: str = "collect",
+        output_ref: str | os.PathLike[str] | None = None,
+        allow_overwrite: bool = False,
+        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        execution = self.client.public_workflow_run(
+            "sql",
+            sql_statement=self.statement,
+            plan_summary=self.operation_summary,
+            requested_output=requested_output,
+            output_ref=output_ref,
+            fanout_outputs=fanout_outputs,
+            execution_policy="auto",
+            materialization_policy="bounded",
+            evidence_level="production_admitted_local_workflow",
+            bounded=True,
+            allow_overwrite=allow_overwrite,
+            max_parallelism=1,
+            check=check,
+        )
+        return UnsupportedWorkflowOperationReport(
+            workflow=self._report_workflow(),
+            operation=operation,
+            envelope=execution.envelope,
+        )
 
     def _local_source_auto_vortex_sql_collect_report(
         self,
@@ -2672,18 +2739,30 @@ class SqlWorkflow:
             preparation_envelope=preparation,
         )
 
-    def _local_source_auto_vortex_sql_write_vortex_report(
+    def _local_source_auto_vortex_sql_write_report(
         self,
         target_uri: str | os.PathLike[str],
         *,
+        requested_output: str,
         allow_overwrite: bool,
         check: bool,
+        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         candidate = _local_source_auto_vortex_sql_candidate(
             self.statement,
             client=self.client,
         )
-        if candidate is None or _vortex_sql_user_route_shape(candidate.workflow.statement) is None:
+        if candidate is None:
+            return None
+        provider_shape = _vortex_sql_user_route_shape(candidate.workflow.statement)
+        primitive_payload = (
+            _native_vortex_row_export_payload_from_primitive_shape(
+                _vortex_sql_primitive_shape(candidate.workflow.statement)
+            )
+            if requested_output in {"write_jsonl", "write_csv"}
+            else None
+        )
+        if provider_shape is None and primitive_payload is None:
             return None
         preparation = self._prepare_local_sql_vortex_sources(candidate, check=check)
         if preparation is not None and preparation.status != "success":
@@ -2693,9 +2772,11 @@ class SqlWorkflow:
                 envelope=preparation,
                 preparation_envelope=preparation,
             )
-        report = candidate.workflow._vortex_sql_user_route_write_vortex_report(
+        report = candidate.workflow._vortex_sql_user_route_write_report(
             target_uri,
+            requested_output=requested_output,
             allow_overwrite=allow_overwrite,
+            fanout_outputs=fanout_outputs,
             check=check,
         )
         if report is None:
@@ -2705,6 +2786,20 @@ class SqlWorkflow:
             operation=report.operation,
             envelope=report.envelope,
             preparation_envelope=preparation,
+        )
+
+    def _local_source_auto_vortex_sql_write_vortex_report(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool,
+        check: bool,
+    ) -> VortexWorkflowExecutionReport | None:
+        return self._local_source_auto_vortex_sql_write_report(
+            target_uri,
+            requested_output="write_vortex",
+            allow_overwrite=allow_overwrite,
+            check=check,
         )
 
     def _prepare_local_sql_vortex_sources(
@@ -2758,6 +2853,8 @@ class SqlWorkflow:
         statement = self._bounded_local_source_statement(default_limit=100)
         if statement is None:
             return None
+        if _is_local_source_sql_statement(statement):
+            return None
         report = SqlWorkflow(
             statement=statement,
             client=self.client,
@@ -2774,6 +2871,8 @@ class SqlWorkflow:
     ) -> SqlLocalSourceSmokeReport | None:
         statement = self._bounded_local_source_statement(default_limit=limit)
         if statement is None:
+            return None
+        if _is_local_source_sql_statement(statement):
             return None
         report = SqlWorkflow(
             statement=statement,
@@ -2888,24 +2987,57 @@ class SqlWorkflow:
             envelope=envelope,
         )
 
-    def _vortex_sql_user_route_write_vortex_report(
+    def _vortex_sql_user_route_write_report(
         self,
         target_uri: str | os.PathLike[str],
         *,
+        requested_output: str,
         allow_overwrite: bool,
         check: bool,
+        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> VortexWorkflowExecutionReport | None:
         shape = _vortex_sql_user_route_shape(self.statement)
         if shape is None:
-            return None
+            if requested_output not in {"write_jsonl", "write_csv"}:
+                return None
+            primitive_shape = _vortex_sql_primitive_shape(self.statement)
+            primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
+                primitive_shape
+            )
+            if primitive_payload is None:
+                return None
+            envelope = self.client.public_workflow_run(
+                "sql",
+                input_uri=primitive_shape.uri,
+                input_format="vortex",
+                sql_statement=self.statement,
+                plan_summary=self.operation_summary,
+                requested_output=requested_output,
+                output_ref=target_uri,
+                fanout_outputs=fanout_outputs,
+                execution_policy="native_vortex",
+                materialization_policy="zero_decode",
+                evidence_level="runtime_smoke",
+                bounded=True,
+                allow_overwrite=allow_overwrite,
+                max_parallelism=1,
+                check=check,
+                **primitive_payload,
+            ).envelope
+            return VortexWorkflowExecutionReport(
+                workflow=self._report_workflow(),
+                operation=requested_output,
+                envelope=envelope,
+            )
         envelope = self.client.public_workflow_run(
             "sql",
             input_uri=shape.uri,
             input_format="vortex",
             sql_statement=self.statement,
             plan_summary=self.operation_summary,
-            requested_output="write_vortex",
+            requested_output=requested_output,
             output_ref=target_uri,
+            fanout_outputs=fanout_outputs,
             execution_policy="native_vortex",
             materialization_policy="zero_decode",
             evidence_level="runtime_smoke",
@@ -2919,8 +3051,22 @@ class SqlWorkflow:
         ).envelope
         return VortexWorkflowExecutionReport(
             workflow=self._report_workflow(),
-            operation="write_vortex",
+            operation=requested_output,
             envelope=envelope,
+        )
+
+    def _vortex_sql_user_route_write_vortex_report(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool,
+        check: bool,
+    ) -> VortexWorkflowExecutionReport | None:
+        return self._vortex_sql_user_route_write_report(
+            target_uri,
+            requested_output="write_vortex",
+            allow_overwrite=allow_overwrite,
+            check=check,
         )
 
     def _report_workflow(self) -> "LazyFrame":
@@ -3384,19 +3530,30 @@ def _sql_native_vortex_public_workflow_kwargs(
 ) -> dict[str, Any]:
     """Return exact native Vortex route payloads inferred from a SQL workflow."""
 
-    if requested_output == "write_vortex":
+    if requested_output in {"write_vortex", "write_jsonl", "write_csv"}:
         provider_shape = _vortex_sql_user_route_shape(statement)
-        if provider_shape is None:
-            return {}
-        payload: dict[str, Any] = {
-            "input_uri": provider_shape.uri,
-            "input_format": "vortex",
-            "native_vortex_operation_family": "sink",
-            "native_vortex_provider_scenario": provider_shape.provider_scenario,
-        }
-        if provider_shape.right_input is not None:
-            payload["native_vortex_right_input"] = provider_shape.right_input
-        return payload
+        if provider_shape is not None:
+            payload: dict[str, Any] = {
+                "input_uri": provider_shape.uri,
+                "input_format": "vortex",
+                "native_vortex_operation_family": "sink",
+                "native_vortex_provider_scenario": provider_shape.provider_scenario,
+            }
+            if provider_shape.right_input is not None:
+                payload["native_vortex_right_input"] = provider_shape.right_input
+            return payload
+        if requested_output in {"write_jsonl", "write_csv"}:
+            primitive_shape = _vortex_sql_primitive_shape(statement)
+            primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
+                primitive_shape
+            )
+            if primitive_payload is not None:
+                return {
+                    "input_uri": primitive_shape.uri,
+                    "input_format": "vortex",
+                    **primitive_payload,
+                }
+        return {}
     if requested_output != "collect":
         return {}
     primitive_shape = _vortex_sql_primitive_shape(statement)
@@ -3440,6 +3597,30 @@ def _sql_native_vortex_public_workflow_kwargs(
     if provider_shape.right_input is not None:
         payload["native_vortex_right_input"] = provider_shape.right_input
     return payload
+
+
+def _native_vortex_row_export_payload_from_primitive_shape(
+    shape: Any | None,
+) -> dict[str, Any] | None:
+    if shape is None or getattr(shape, "count", False):
+        return None
+    predicate = getattr(shape, "predicate", None)
+    columns = getattr(shape, "columns", None)
+    if predicate and columns:
+        primitive = "filter_project"
+    elif predicate:
+        primitive = "filter"
+    elif columns:
+        primitive = "project"
+    else:
+        return None
+    return {
+        "native_vortex_operation_family": "sink",
+        "vortex_primitive": primitive,
+        "vortex_predicate": predicate,
+        "vortex_columns": columns,
+        "vortex_source_order_limit": getattr(shape, "limit", None),
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -4894,17 +5075,25 @@ class LazyFrame:
 
         if self.source.source_format != "vortex":
             return {}
-        if requested_output == "write_vortex":
+        if requested_output == "profile":
+            return {"native_vortex_operation_family": "profile"}
+        if requested_output in {"write_vortex", "write_jsonl", "write_csv"}:
             shape = self._native_vortex_user_route_shape()
-            if shape is None:
-                return {}
-            payload: dict[str, Any] = {
-                "native_vortex_operation_family": "sink",
-                "native_vortex_provider_scenario": shape.provider_scenario,
-            }
-            if shape.right_input is not None:
-                payload["native_vortex_right_input"] = shape.right_input
-            return payload
+            if shape is not None:
+                payload: dict[str, Any] = {
+                    "native_vortex_operation_family": "sink",
+                    "native_vortex_provider_scenario": shape.provider_scenario,
+                }
+                if shape.right_input is not None:
+                    payload["native_vortex_right_input"] = shape.right_input
+                return payload
+            if requested_output in {"write_jsonl", "write_csv"}:
+                primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
+                    self._vortex_primitive_shape()
+                )
+                if primitive_payload is not None:
+                    return primitive_payload
+            return {}
         if requested_output != "collect":
             return {}
         primitive_shape = self._vortex_primitive_shape()
@@ -4989,6 +5178,7 @@ class LazyFrame:
             "dataframe",
             input_uri=self.source.uri,
             input_format=_public_workflow_input_format(self.source),
+            sql_statement=self._sql_local_source_statement(),
             plan_summary=self.operation_summary,
             requested_output=requested_output,
             output_ref=output_ref,
@@ -5065,8 +5255,12 @@ class LazyFrame:
         limit: int = 100,
         *,
         check: bool = False,
-    ) -> WorkflowProfileReport | UnsupportedWorkflowOperationReport:
-        """Return a bounded runtime profile for admitted local-source workflows."""
+    ) -> (
+        WorkflowProfileReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
+        """Return a metadata-first profile for admitted Vortex/prepared workflows."""
 
         _validate_positive_row_count("profile limit", limit)
         if report := self._bounded_materialization_report(limit=limit, check=check):
@@ -5076,7 +5270,55 @@ class LazyFrame:
                 schema_report=_workflow_schema_report(self, report),
                 limit=limit,
             )
+        if self.source.source_format == "vortex" or _is_query_builder_local_source(
+            self.source
+        ):
+            execution = self._public_workflow_profile_execution(check=check)
+            if execution.envelope.status == "success":
+                return VortexWorkflowExecutionReport(
+                    workflow=self,
+                    operation="profile",
+                    envelope=execution.envelope,
+                )
+            return UnsupportedWorkflowOperationReport(
+                workflow=self,
+                operation="profile",
+                envelope=execution.envelope,
+            )
         return self._unsupported_operation("profile", str(limit), check=check)
+
+    def _public_workflow_profile_execution(
+        self,
+        *,
+        check: bool,
+    ) -> PublicWorkflowExecution:
+        native_vortex_kwargs = self._native_vortex_public_workflow_kwargs(
+            requested_output="profile",
+        )
+        return self.client.public_workflow_run(
+            "dataframe",
+            input_uri=self.source.uri,
+            input_format=_public_workflow_input_format(self.source),
+            sql_statement=self._sql_local_source_statement(),
+            plan_summary=self.operation_summary,
+            requested_output="profile",
+            execution_policy=(
+                "native_vortex" if self.source.source_format == "vortex" else "auto"
+            ),
+            materialization_policy=(
+                "zero_decode" if self.source.source_format == "vortex" else "bounded"
+            ),
+            evidence_level=(
+                "runtime_smoke"
+                if self.source.source_format == "vortex"
+                else "production_admitted_local_workflow"
+            ),
+            bounded=True,
+            memory_gb=4,
+            max_parallelism=1,
+            check=check,
+            **native_vortex_kwargs,
+        )
 
     def collect(
         self,
@@ -5117,13 +5359,10 @@ class LazyFrame:
             max_parallelism=max_parallelism,
         ):
             return report
-        if report := self._local_source_prepared_sql_compatibility_collect_report(
-            check=check
-        ):
-            return report
         if _is_query_builder_local_source(self.source):
-            return self._unsupported_operation(
-                "collect",
+            return self._public_workflow_blocked_report(
+                operation="collect",
+                requested_output="collect",
                 check=check,
             )
         return self._unsupported_operation("collect", check=check)
@@ -5182,17 +5421,30 @@ class LazyFrame:
                 allow_overwrite=allow_overwrite,
                 check=check,
             )
-        if _is_query_builder_local_source(self.source):
-            if report := self._local_source_prepared_sql_compatibility_write_report(
+        requested_output = _public_write_request_for_format(normalized_output_format)
+        if self.source.source_format == "vortex":
+            return self._vortex_user_route_write_report(
                 target_uri,
-                output_format=normalized_output_format,
+                requested_output=requested_output,
+                operation=f"write_{normalized_output_format.replace('-', '_')}",
                 allow_overwrite=allow_overwrite,
                 check=check,
-            ):
-                return report
-            return self._unsupported_operation(
-                f"native-vortex-{normalized_output_format}-sink",
-                str(target_uri),
+            )
+        if report := self._local_source_auto_vortex_write_report(
+            target_uri,
+            requested_output=requested_output,
+            operation=f"write_{normalized_output_format.replace('-', '_')}",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        ):
+            return report
+        if _is_query_builder_local_source(self.source):
+            return self._public_workflow_blocked_report(
+                operation=f"native-vortex-{normalized_output_format}-sink",
+                target_ref=str(target_uri),
+                requested_output=requested_output,
+                output_ref=target_uri,
+                allow_overwrite=allow_overwrite,
                 check=check,
             )
         statement = self._sql_local_source_statement()
@@ -5216,7 +5468,7 @@ class LazyFrame:
             )
         return self._public_workflow_write_report(
             target_uri,
-            requested_output=_public_write_request_for_format(normalized_output_format),
+            requested_output=requested_output,
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -5339,18 +5591,45 @@ class LazyFrame:
         *,
         allow_overwrite: bool = False,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+    ) -> (
+        SqlLocalSourceSmokeReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
         """Write an admitted local source result to multiple local sinks."""
 
         normalized_outputs = _normalize_fanout_outputs(outputs)
-        _output_format, output_path = normalized_outputs[0]
-        if _is_query_builder_local_source(self.source):
-            if report := self._local_source_prepared_sql_compatibility_fanout_report(
-                normalized_outputs,
+        output_format, output_path = normalized_outputs[0]
+        requested_output = _public_write_request_for_format(output_format)
+        fanout_outputs = normalized_outputs[1:]
+        if self.source.source_format == "vortex":
+            return self._vortex_user_route_write_report(
+                output_path,
+                requested_output=requested_output,
+                operation=f"fanout_{output_format.replace('-', '_')}",
                 allow_overwrite=allow_overwrite,
+                fanout_outputs=fanout_outputs,
                 check=check,
-            ):
-                return report
+            )
+        if report := self._local_source_auto_vortex_write_report(
+            output_path,
+            requested_output=requested_output,
+            operation=f"fanout_{output_format.replace('-', '_')}",
+            allow_overwrite=allow_overwrite,
+            fanout_outputs=fanout_outputs,
+            check=check,
+        ):
+            return report
+        if _is_query_builder_local_source(self.source):
+            return self._public_workflow_blocked_report(
+                operation="native-vortex-fanout-sink",
+                target_ref=str(output_path),
+                requested_output=requested_output,
+                output_ref=output_path,
+                allow_overwrite=allow_overwrite,
+                fanout_outputs=fanout_outputs,
+                check=check,
+            )
         return self._unsupported_operation(
             "native-vortex-fanout-sink",
             str(output_path),
@@ -5608,15 +5887,14 @@ class LazyFrame:
         ):
             return report
         if _is_query_builder_local_source(self.source):
-            if report := self._local_source_prepared_sql_compatibility_write_report(
-                target_uri,
-                output_format="vortex",
+            return self._public_workflow_blocked_report(
+                operation="write-vortex",
+                target_ref=str(target_uri),
+                requested_output="write_vortex",
+                output_ref=target_uri,
                 allow_overwrite=allow_overwrite,
                 check=check,
-            ):
-                return report
-        if _is_query_builder_local_source(self.source):
-            return self._unsupported_operation("write-vortex", str(target_uri), check=check)
+            )
         if self._sql_local_source_statement() is None:
             return self._unsupported_operation("write-vortex", str(target_uri), check=check)
         return self._public_workflow_write_report(
@@ -5626,6 +5904,41 @@ class LazyFrame:
             check=check,
         )
 
+    def _public_workflow_blocked_report(
+        self,
+        *,
+        operation: str,
+        target_ref: str | None = None,
+        requested_output: str,
+        output_ref: str | os.PathLike[str] | None = None,
+        allow_overwrite: bool = False,
+        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        execution = self.client.public_workflow_run(
+            "dataframe",
+            input_uri=self.source.uri,
+            input_format=_public_workflow_input_format(self.source),
+            sql_statement=self._sql_local_source_statement(),
+            plan_summary=self.operation_summary,
+            requested_output=requested_output,
+            output_ref=output_ref,
+            execution_policy="auto",
+            materialization_policy="bounded",
+            evidence_level="production_admitted_local_workflow",
+            bounded=True,
+            allow_overwrite=allow_overwrite,
+            fanout_outputs=fanout_outputs,
+            memory_gb=4 if requested_output in {"collect", "profile"} else None,
+            max_parallelism=1,
+            check=check,
+        )
+        return UnsupportedWorkflowOperationReport(
+            workflow=self,
+            operation=operation,
+            envelope=execution.envelope,
+        )
+
     def _public_workflow_write_report(
         self,
         target_uri: str | os.PathLike[str],
@@ -5633,12 +5946,8 @@ class LazyFrame:
         requested_output: str,
         allow_overwrite: bool,
         check: bool,
+        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
     ) -> SqlLocalSourceSmokeReport:
-        if _is_query_builder_local_source(self.source):
-            raise ValueError(
-                "public local-source writes must route through native Vortex preparation/runtime; "
-                "direct sql-local-source-smoke is internal-only"
-            )
         statement = self._sql_local_source_statement()
         if statement is None:
             raise ValueError(
@@ -5652,6 +5961,7 @@ class LazyFrame:
             plan_summary=self.operation_summary,
             requested_output=requested_output,
             output_ref=target_uri,
+            fanout_outputs=fanout_outputs,
             materialization_policy="bounded",
             evidence_level="production_admitted_local_workflow",
             bounded=True,
@@ -6341,8 +6651,36 @@ class LazyFrame:
         allow_overwrite: bool,
         check: bool,
     ) -> VortexWorkflowExecutionReport | None:
+        return self._local_source_auto_vortex_write_report(
+            target_uri,
+            requested_output="write_vortex",
+            operation="write_vortex",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def _local_source_auto_vortex_write_report(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        requested_output: str,
+        operation: str,
+        allow_overwrite: bool,
+        check: bool,
+        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
+    ) -> VortexWorkflowExecutionReport | None:
         candidate = self._prepared_vortex_candidate_for_admitted_runtime()
-        if candidate is None or candidate.frame._native_vortex_user_route_shape() is None:
+        if candidate is None:
+            return None
+        provider_shape = candidate.frame._native_vortex_user_route_shape()
+        primitive_payload = (
+            _native_vortex_row_export_payload_from_primitive_shape(
+                candidate.frame._vortex_primitive_shape()
+            )
+            if requested_output in {"write_jsonl", "write_csv"}
+            else None
+        )
+        if provider_shape is None and primitive_payload is None:
             return None
         preparation = self._prepare_vortex_candidate(candidate, check=check)
         if preparation.envelope.status != "success":
@@ -6352,9 +6690,12 @@ class LazyFrame:
                 envelope=preparation.envelope,
                 preparation_envelope=preparation.envelope,
             )
-        report = candidate.frame._vortex_user_route_write_vortex_report(
+        report = candidate.frame._vortex_user_route_write_report(
             target_uri,
+            requested_output=requested_output,
+            operation=operation,
             allow_overwrite=allow_overwrite,
+            fanout_outputs=fanout_outputs,
             check=check,
         )
         if report is None or isinstance(report, UnsupportedWorkflowOperationReport):
@@ -6672,20 +7013,68 @@ class LazyFrame:
         allow_overwrite: bool,
         check: bool,
     ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
+        return self._vortex_user_route_write_report(
+            target_uri,
+            requested_output="write_vortex",
+            operation="write_vortex",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def _vortex_user_route_write_report(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        requested_output: str,
+        operation: str,
+        allow_overwrite: bool,
+        check: bool,
+        fanout_outputs: Sequence[tuple[str, CommandPart]] | None = None,
+    ) -> VortexWorkflowExecutionReport | UnsupportedWorkflowOperationReport:
         shape = self._native_vortex_user_route_shape()
         if shape is None:
+            if requested_output in {"write_jsonl", "write_csv"}:
+                primitive_payload = _native_vortex_row_export_payload_from_primitive_shape(
+                    self._vortex_primitive_shape()
+                )
+                if primitive_payload is not None:
+                    write_method = requested_output.removeprefix("write_")
+                    envelope = self.client.public_workflow_run(
+                        "dataframe",
+                        input_uri=self.source.uri,
+                        input_format="vortex",
+                        plan_summary=f"{self.operation_summary} -> write_{write_method}({target_uri})",
+                        requested_output=requested_output,
+                        output_ref=target_uri,
+                        fanout_outputs=fanout_outputs,
+                        execution_policy="native_vortex",
+                        materialization_policy="zero_decode",
+                        evidence_level="runtime_smoke",
+                        bounded=True,
+                        allow_overwrite=allow_overwrite,
+                        max_parallelism=1,
+                        check=check,
+                        **primitive_payload,
+                    ).envelope
+                    return VortexWorkflowExecutionReport(
+                        workflow=self,
+                        operation=operation,
+                        envelope=envelope,
+                    )
             return self._unsupported_operation(
                 "native-vortex-sink",
                 str(target_uri),
                 check=check,
             )
+        write_method = requested_output.removeprefix("write_")
         envelope = self.client.public_workflow_run(
             "dataframe",
             input_uri=self.source.uri,
             input_format="vortex",
-            plan_summary=f"{self.operation_summary} -> write_vortex({target_uri})",
-            requested_output="write_vortex",
+            plan_summary=f"{self.operation_summary} -> write_{write_method}({target_uri})",
+            requested_output=requested_output,
             output_ref=target_uri,
+            fanout_outputs=fanout_outputs,
             execution_policy="native_vortex",
             materialization_policy="zero_decode",
             evidence_level="runtime_smoke",
@@ -6699,7 +7088,7 @@ class LazyFrame:
         ).envelope
         return VortexWorkflowExecutionReport(
             workflow=self,
-            operation="write_vortex",
+            operation=operation,
             envelope=envelope,
         )
 
@@ -7125,6 +7514,8 @@ class LazyFrame:
         statement = self._sql_local_source_statement(default_limit=100)
         if statement is None:
             return None
+        if _is_query_builder_local_source(self.source):
+            return None
         frame = self if _workflow_has_limit(self.operations) else self.limit(100)
         report = frame._local_source_prepared_sql_compatibility_collect_report(check=check)
         if not isinstance(report, SqlLocalSourceSmokeReport) or report.status != "success":
@@ -7141,6 +7532,8 @@ class LazyFrame:
             _validate_positive_row_count("materialization limit", limit)
         statement = self._sql_local_source_statement(default_limit=limit)
         if statement is None:
+            return None
+        if _is_query_builder_local_source(self.source):
             return None
         frame = self
         if limit is not None and not _workflow_has_limit(self.operations):

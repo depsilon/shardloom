@@ -47,10 +47,17 @@ orc
 vortex
 ```
 
-`jsonl` and `csv` are the default local compatibility sinks for admitted local-source and
-generated-source routes. `parquet`, `arrow-ipc`, `avro`, and `orc` are feature-gated flat scalar
-compatibility exports behind `universal-format-io`. `vortex` is a feature-gated local native sink
-behind `vortex-write` and remains the highest-fidelity ShardLoom persistence target.
+`vortex` is the admitted native local sink behind `vortex-write` and remains the
+highest-fidelity ShardLoom persistence target. Generated-source and internal smoke routes can
+exercise `jsonl`, `csv`, and feature-gated flat scalar compatibility exports for evidence, but
+public local-source runtime routes must not execute direct decoded compatibility sinks as their
+runtime middle. Exact provider-backed Vortex result summaries may now export bounded `result_json`
+to workspace-safe `jsonl` or `csv` sinks after native Vortex execution. Scoped primitive
+filter/project/filter-project row streams may export workspace-safe `jsonl` or `csv`, including
+JSONL+CSV fanout, through `native_vortex_primitive_row_export` after native/prepared Vortex input
+with explicit selected-column decode/materialization evidence. Broad local-source row streams,
+unsupported formats, unsafe/duplicate fanout targets, and arbitrary local-source workflows remain
+blocked when the workflow does not have a Vortex-derived typed export contract.
 
 ## User-Facing Write Methods
 
@@ -70,7 +77,14 @@ fanout
 
 These helpers write only through admitted local routes. They do not authorize arbitrary SQL,
 broad DataFrame execution, object-store paths, table/catalog writes, remote result delivery, or
-fallback execution.
+fallback execution. For public local-source workflows in the current v1 surface, only native
+`write_vortex` is the highest-fidelity sink where the upstream operator route is admitted. Exact
+provider-backed result summaries also admit `write_jsonl` and `write_csv` as bounded result exports
+with explicit decode/materialization evidence. Scoped primitive row streams admit
+`write_jsonl`, `write_csv`, and JSONL+CSV `fanout` through `native_vortex_primitive_row_export`.
+Compatibility-output helpers remain deterministic blockers for arbitrary local-source workflows,
+unsupported formats, and non-admitted fanout targets until those paths have their own
+Vortex-derived typed export contracts.
 
 ## Output Routes
 
@@ -78,12 +92,13 @@ The route ids covered by this scope are:
 
 | Route id | Output posture |
 | --- | --- |
-| `local_file_direct_transient_route` | Local JSONL/CSV and feature-gated local structured/Vortex sinks from admitted direct local-source workflows. |
+| `local_file_direct_transient_route` | Internal smoke-only local JSONL/CSV and feature-gated structured/Vortex sink safeguard; not a public runtime middle. |
 | `local_file_cold_certified_route` | Local result sink and evidence output for cold certified local-file route rows. |
 | `local_file_prepare_once_first_query` | Prepared query result, bounded report, or local result sink. |
 | `local_file_prepare_once_batch` | Batch prepared query result, bounded report, or local result sink. |
 | `prepared_vortex_warm_query` | Prepared Vortex query result, bounded report, or local result sink. |
 | `native_vortex_query` | Native local Vortex result/report route with scoped result sink evidence. |
+| `native_vortex_primitive_row_export` | Native/prepared Vortex primitive filter/project/filter-project row stream to JSONL/CSV, including JSONL+CSV fanout, with explicit decode/materialization boundary. |
 | `generated_rows_local_output` | Local JSONL/CSV, feature-gated structured/Vortex output, artifact-adjacent prepared-state reuse manifest, and fanout. |
 | `quarantine_output_route` | Local quarantine sink for admitted schema/data-quality rows. |
 

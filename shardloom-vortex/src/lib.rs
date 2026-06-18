@@ -648,9 +648,10 @@ pub use local_execution::{
 pub use local_primitives::{
     VortexLocalPrimitiveExecutionMode, VortexLocalPrimitiveExecutionPolicy,
     VortexLocalPrimitiveExecutionReport, VortexLocalPrimitiveExecutionStatus,
-    execute_vortex_local_primitive, execute_vortex_local_primitive_with_policy,
-    local_primitive_correctness_fixture_for_request, local_primitive_execution_certificate,
-    local_primitive_native_io_certificate,
+    VortexLocalPrimitiveRowExportFormat, VortexLocalPrimitiveRowExportReport,
+    execute_vortex_local_primitive, execute_vortex_local_primitive_row_export_with_policy,
+    execute_vortex_local_primitive_with_policy, local_primitive_correctness_fixture_for_request,
+    local_primitive_execution_certificate, local_primitive_native_io_certificate,
 };
 pub use streaming_batch_runtime::{
     VortexStreamingBatchRuntimeMode, VortexStreamingBatchRuntimeReport,

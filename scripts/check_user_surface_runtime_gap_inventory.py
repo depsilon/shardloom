@@ -94,6 +94,19 @@ FRONT_DOOR_GAP_ROUTES: dict[str, dict[str, str]] = {
         "output_or_evidence_route": "front-door equivalent benchmark manifest and claim evidence pending",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.performance_equivalence",
     },
+    "typed_nested_compatibility_sink": {
+        "classification": "runtime_available_needs_output_route",
+        "vortex_normalization_point": "vortex_result_to_compatibility_export_pending",
+        "runtime_route": (
+            "native Vortex/local prepared runtime exists for admitted query shapes; compatibility "
+            "exports remain blocked until derived from a certified native Vortex result contract"
+        ),
+        "output_or_evidence_route": (
+            "deterministic native compatibility export blocker today; typed sink, replay, and "
+            "metadata-loss evidence required before compatibility output admission"
+        ),
+        "owner": "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
+    },
 }
 
 DATAFRAME_METHOD_FRONT_DOOR_GAPS = (
@@ -194,6 +207,34 @@ DATAFRAME_METHOD_GAP_ROUTES.update(
                 "diagnostic report until contract enforcement evidence lands"
             ),
             "owner": "GAR-RUNTIME-IMPL-6D:last_order.schema_contract_runtime",
+        },
+        "write": {
+            "classification": "runtime_available_needs_output_route",
+            "vortex_normalization_point": "vortex_result_to_compatibility_export_pending",
+            "runtime_route": "admitted query routes can execute through Vortex; compatibility write output remains gated",
+            "output_or_evidence_route": "native Vortex-derived compatibility export contract pending",
+            "owner": "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
+        },
+        "write_jsonl": {
+            "classification": "runtime_available_needs_output_route",
+            "vortex_normalization_point": "vortex_result_to_jsonl_export_pending",
+            "runtime_route": "admitted query routes can execute through Vortex; JSONL compatibility output remains gated",
+            "output_or_evidence_route": "native Vortex-derived JSONL export contract pending",
+            "owner": "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
+        },
+        "write_csv": {
+            "classification": "runtime_available_needs_output_route",
+            "vortex_normalization_point": "vortex_result_to_csv_export_pending",
+            "runtime_route": "admitted query routes can execute through Vortex; CSV compatibility output remains gated",
+            "output_or_evidence_route": "native Vortex-derived CSV export contract pending",
+            "owner": "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
+        },
+        "fanout": {
+            "classification": "runtime_available_needs_output_route",
+            "vortex_normalization_point": "vortex_result_to_fanout_export_pending",
+            "runtime_route": "admitted query routes can execute through Vortex; compatibility fanout remains gated",
+            "output_or_evidence_route": "native Vortex-derived fanout export and replay contract pending",
+            "owner": "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
         },
     }
 )
@@ -447,6 +488,20 @@ DOC_STATUS_PATTERNS: tuple[tuple[str, str, str, str, str], ...] = (
         "route_specific_vortex_boundary_required",
         "claim evidence pending",
         "GAR-RUNTIME-IMPL-6D:last_order.claim_evidence",
+    ),
+    (
+        "remain blocked until output is derived from a certified native vortex",
+        "runtime_available_needs_output_route",
+        "vortex_result_to_compatibility_export_pending",
+        "native Vortex-derived compatibility export contract pending",
+        "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
+    ),
+    (
+        "until a native vortex-derived export contract exists",
+        "runtime_available_needs_output_route",
+        "vortex_result_to_compatibility_export_pending",
+        "native Vortex-derived compatibility export contract pending",
+        "PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1.compatibility_export_contract",
     ),
     (
         "--allow-blocked",

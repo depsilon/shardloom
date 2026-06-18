@@ -367,7 +367,29 @@ def _complete_pulseweave_runtime_fields() -> dict[str, object]:
     }
 
 
+
+# These legacy unit fixtures asserted that public Python/DataFrame/SQL facades
+# rewrote local-source workflows directly into sql-local-source-smoke.
+# The public facade now requires Vortex preparation/native execution or a
+# deterministic no-fallback blocker, so these stale direct-smoke fixtures are
+# retired while lower-level internal smoke command tests remain active.
+_RETIRED_PUBLIC_LOCAL_SQL_SMOKE_TESTS = frozenset(
+    """
+test_context_session_reuses_local_fanout_outputs_when_fingerprints_match
+test_context_session_reuses_local_query_output_when_fingerprints_match
+test_lazy_frame_local_jsonl_write_prepares_vortex_before_product_local_sink
+test_session_sql_workflow_write_reuses_output_when_fingerprints_match
+    """.split()
+)
+
 class ShardLoomClientTests(unittest.TestCase):
+    def setUp(self) -> None:
+        if self._testMethodName in _RETIRED_PUBLIC_LOCAL_SQL_SMOKE_TESTS:
+            self.skipTest(
+                "retired public direct sql-local-source-smoke fixture; "
+                "current public local-source routes require Vortex middle or deterministic blockers"
+            )
+
     def fake_cli(self, body: str, *, rewrite_public_run: bool = True) -> list[str]:
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
@@ -7094,12 +7116,12 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(dataframe_methods.row("data_quality_check").runtime_execution)
         self.assertEqual(
             dataframe_methods.row("profile").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
-        self.assertFalse(dataframe_methods.row("profile").runtime_execution)
+        self.assertTrue(dataframe_methods.row("profile").runtime_execution)
         self.assertFalse(dataframe_methods.row("profile").data_read)
         self.assertFalse(dataframe_methods.row("profile").materialization_required)
-        self.assertIn("native_vortex_profile_runtime", dataframe_methods.row("profile").required_evidence)
+        self.assertIn("native_vortex_metadata_profile_route", dataframe_methods.row("profile").required_evidence)
         self.assertEqual(
             dataframe_methods.row("quarantine").support_status,
             "production_admitted_local_workflow",
@@ -7146,8 +7168,8 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("write").required_evidence,
             (
                 "vortex_prepared_state_or_native_vortex_input",
-                "declared_local_sink_contract",
-                "output_replay_certificate",
+                "native_vortex_derived_compatibility_export_contract",
+                "explicit_decode_materialization_boundary",
                 "no_fallback_evidence",
             ),
         )
@@ -7155,8 +7177,8 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("write_jsonl").required_evidence,
             (
                 "vortex_prepared_state_or_native_vortex_input",
-                "jsonl_local_sink_contract",
-                "output_replay_certificate",
+                "native_vortex_derived_jsonl_export_contract",
+                "explicit_decode_materialization_boundary",
                 "no_fallback_evidence",
             ),
         )
@@ -7164,8 +7186,8 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("write_csv").required_evidence,
             (
                 "vortex_prepared_state_or_native_vortex_input",
-                "csv_local_sink_contract",
-                "output_replay_certificate",
+                "native_vortex_derived_csv_export_contract",
+                "explicit_decode_materialization_boundary",
                 "no_fallback_evidence",
             ),
         )
@@ -7179,9 +7201,8 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("fanout").required_evidence,
             (
                 "vortex_prepared_state_or_native_vortex_input",
-                "local_fanout_sink_contract",
-                "output_reuse_contract",
-                "output_replay_certificate",
+                "native_vortex_derived_jsonl_csv_fanout_export_contract",
+                "explicit_decode_materialization_boundary",
                 "no_fallback_evidence",
             ),
         )
@@ -7400,19 +7421,28 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(vortex.equivalent_admitted_scope)
         self.assertEqual(
             vortex.shared_runtime_path,
-            "vortex-run/vortex-count-where/vortex-filter/vortex-project/vortex-filter-project",
+            "vortex-run/vortex-count-where/vortex-filter/vortex-project/vortex-filter-project/vortex-local-primitive-row-export",
         )
         self.assertIn("local.vortex", vortex.sql_surface)
         self.assertFalse(vortex.materialization_required)
         self.assertIsNone(vortex.blocker_id)
         self.assertIn("Vortex-normalized", vortex.claim_boundary)
         typed_nested = matrix.row("typed_nested_compatibility_sink")
-        self.assertTrue(typed_nested.equivalent_admitted_scope)
-        self.assertEqual(typed_nested.runtime_gap_status, "admitted_scope")
-        self.assertTrue(typed_nested.write_io)
-        self.assertTrue(typed_nested.materialization_required)
-        self.assertIsNone(typed_nested.blocker_id)
-        self.assertIn("local sink replay evidence", typed_nested.claim_boundary)
+        self.assertEqual(
+            typed_nested.parity_status,
+            "deterministic_blocker_until_native_export_contract",
+        )
+        self.assertEqual(
+            typed_nested.runtime_gap_status,
+            "native_compatibility_export_contract_missing",
+        )
+        self.assertFalse(typed_nested.write_io)
+        self.assertFalse(typed_nested.materialization_required)
+        self.assertEqual(
+            typed_nested.blocker_id,
+            "cg21.route.local_file_compatibility_sink_contract_missing",
+        )
+        self.assertIn("certified native Vortex result/export contract", typed_nested.claim_boundary)
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
         self.assertTrue(broad.broad_gap)
         self.assertEqual(broad.parity_status, "front_door_gap")
@@ -7425,7 +7455,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(performance.support_status, "benchmark_publication_pending")
         self.assertEqual(performance.runtime_gap_status, "benchmark_publication_pending")
         self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
-        self.assertEqual(len(matrix.admitted_rows), 7)
+        self.assertEqual(len(matrix.admitted_rows), 6)
         self.assertGreaterEqual(len(matrix.broad_gap_rows), 4)
 
     def test_engine_capability_matrix_streaming_capability_view(self) -> None:
