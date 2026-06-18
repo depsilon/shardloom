@@ -36,7 +36,7 @@ universal-format-io = [
 vortex-file-io = ["upstream-vortex"]
 vortex-object-store = ["vortex-file-io"]
 vortex-write = ["vortex-file-io"]
-vortex-local-primitives = ["vortex-file-io", "dep:lending-iterator"]
+vortex-local-primitives = ["vortex-file-io", "dep:lending-iterator", "dep:serde_json"]
 vortex-production-runtime = ["vortex-traditional-analytics-benchmark"]
 vortex-traditional-analytics-benchmark = [
     "universal-format-io",

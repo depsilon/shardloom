@@ -3026,12 +3026,21 @@ pub(crate) fn handle_vortex_file_metadata_open(
 }
 
 pub(crate) fn handle_vortex_metadata_summary(
+    args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    handle_vortex_metadata_summary_with_facade(args, format, "vortex-metadata-summary", Vec::new())
+}
+
+pub(crate) fn handle_vortex_metadata_summary_with_facade(
     mut args: std::vec::IntoIter<String>,
     format: OutputFormat,
+    emit_command: &'static str,
+    mut extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
     let Some(uri_text) = args.next() else {
         return emit_error(
-            "vortex-metadata-summary",
+            emit_command,
             format,
             "missing dataset uri",
             &ShardLoomError::InvalidOperation(
@@ -3043,7 +3052,7 @@ pub(crate) fn handle_vortex_metadata_summary(
         Ok(uri) => uri,
         Err(error) => {
             return emit_error(
-                "vortex-metadata-summary",
+                emit_command,
                 format,
                 "invalid dataset uri",
                 &ShardLoomError::InvalidOperation(format!("invalid dataset uri: {error}")),
@@ -3053,8 +3062,30 @@ pub(crate) fn handle_vortex_metadata_summary(
     let probe = probe_vortex_metadata_only(uri)
         .unwrap_or_else(|_| VortexMetadataProbeReport::deferred_api_unclear());
     let report = summarize_vortex_metadata_probe(&probe);
+    let mut fields = vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("fallback_attempted".to_string(), "false".to_string()),
+        ("external_engine_invoked".to_string(), "false".to_string()),
+        ("mode".to_string(), "vortex_metadata_summary".to_string()),
+        (
+            "metadata_summary_plan_only".to_string(),
+            metadata_summary_is_plan_only(&report).to_string(),
+        ),
+        ("data_materialized".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("write_io".to_string(), "false".to_string()),
+        (
+            "execution".to_string(),
+            "metadata_profile_summary".to_string(),
+        ),
+        ("plan_only".to_string(), "true".to_string()),
+    ];
+    fields.append(&mut extra_fields);
     emit(
-        "vortex-metadata-summary",
+        emit_command,
         format,
         if report.has_errors() {
             CommandStatus::Unsupported
@@ -3064,23 +3095,7 @@ pub(crate) fn handle_vortex_metadata_summary(
         "vortex metadata summary".to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
-        vec![
-            (
-                "fallback_execution_allowed".to_string(),
-                "false".to_string(),
-            ),
-            ("mode".to_string(), "vortex_metadata_summary".to_string()),
-            (
-                "metadata_summary_plan_only".to_string(),
-                metadata_summary_is_plan_only(&report).to_string(),
-            ),
-            ("data_materialized".to_string(), "false".to_string()),
-            ("object_store_io".to_string(), "false".to_string()),
-            ("write_io".to_string(), "false".to_string()),
-            ("write_io".to_string(), "false".to_string()),
-            ("execution".to_string(), "not_performed".to_string()),
-            ("plan_only".to_string(), "true".to_string()),
-        ],
+        fields,
     );
     if report.has_errors() {
         ExitCode::from(1)

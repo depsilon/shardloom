@@ -46046,6 +46046,31 @@ the current queue; promote any actionable unfinished work into Planned before im
       checkpoint stores, exactly-once semantics, public production live/hybrid claims, benchmark
       claims, Spark/DataFusion/Polars/DuckDB/Velox fallback, and external-engine execution remain
       blocked.
+- [x] PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1 promotes the remaining feasible prepared-local
+      Python/SQL residual routes out of public product-local SQL execution and into native or
+      prepared Vortex middle routes. Public local CSV/JSONL collect/write/fanout routes now prepare
+      local files to Vortex and execute the same native primitive/provider route as equivalent
+      DataFrame and SQL shapes; explicit direct local execution remains blocked as a public product
+      policy. Native Vortex primitive filter/project/filter-project row-stream exports now write
+      JSONL/CSV, including JSONL+CSV fanout, through `native_vortex_primitive_row_export` /
+      `vortex-local-primitive-row-export` with selected-column decode/materialization evidence,
+      `fallback_attempted=false`, `external_engine_invoked=false`, `max_parallelism=1` defaults,
+      workspace-safe output preflight, duplicate/unsafe fanout blockers, and Vortex scan evidence.
+      Provider-backed aggregate/join/top-N/cast/contains/result-summary routes, `write_vortex`,
+      metadata-first native `profile`, prepared-artifact reuse invalidation, and route facade
+      diagnostics remain connected through the shared public workflow route. Capability reports,
+      README, front-door runtime scope, local output sink scope, Vortex runtime scope, SQL/Python/
+      DataFrame parity docs, runs-today status, compatibility scoreboards, and golden workflow
+      validators now distinguish production-admitted local workflow, scoped runtime support,
+      internal smoke-only safeguards, feature gates, and deterministic blockers. Validation covered
+      Python syntax checks, query-builder and CLI-client suites, SQL/Python/DataFrame parity,
+      user-surface and v1 scope validators, golden workflow validation, generated runs-today docs,
+      focused Rust route/capability tests, `cargo fmt --all -- --check`,
+      `cargo clippy --workspace --all-targets -- -D warnings`, and
+      `cargo test --workspace --all-targets`. Arbitrary broad SQL/DataFrame semantics,
+      non-JSONL/CSV row-stream compatibility exports, external object-store/table/Foundry
+      production environments, benchmark superiority claims, and external-engine fallback remain
+      blocked unless future phase items add real ShardLoom/Vortex-native evidence.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project
   encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind

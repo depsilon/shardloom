@@ -324,6 +324,172 @@ impl VortexLocalPrimitiveExecutionPolicy {
     }
 }
 
+/// Compatibility row-output format for a scoped local Vortex primitive export.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexLocalPrimitiveRowExportFormat {
+    Jsonl,
+    Csv,
+}
+impl VortexLocalPrimitiveRowExportFormat {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Jsonl => "jsonl",
+            Self::Csv => "csv",
+        }
+    }
+}
+
+/// Materializing compatibility export report for supported local Vortex
+/// primitive row streams.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexLocalPrimitiveRowExportReport {
+    pub status: VortexLocalPrimitiveExecutionStatus,
+    pub primitive_kind: VortexQueryPrimitiveKind,
+    pub output_path: String,
+    pub output_format: &'static str,
+    pub rows_scanned: u64,
+    pub rows_written: u64,
+    pub pre_limit_result_row_count: u64,
+    pub projected_columns: Vec<String>,
+    pub arrays_read_count: usize,
+    pub max_chunk_rows: usize,
+    pub max_parallelism_requested: usize,
+    pub scan_concurrency_per_worker: usize,
+    pub source_order_limit_requested: Option<u64>,
+    pub evidence: VortexLocalPrimitiveRowExportEvidence,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+/// Pushdown evidence for a local primitive row export.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VortexLocalPrimitiveRowExportPushdownEvidence {
+    pub filter_pushdown_applied: bool,
+    pub projection_pushdown_applied: bool,
+    pub source_order_limit_applied: bool,
+}
+
+/// Runtime evidence for a local primitive row export.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexLocalPrimitiveRowExportEvidence {
+    pub pushdown: VortexLocalPrimitiveRowExportPushdownEvidence,
+    pub side_effects: NativeIoSideEffectReport,
+    pub upstream_scan_called: bool,
+    pub materialization_boundary_reported: bool,
+}
+
+fn disabled_row_export_evidence() -> VortexLocalPrimitiveRowExportEvidence {
+    VortexLocalPrimitiveRowExportEvidence {
+        pushdown: VortexLocalPrimitiveRowExportPushdownEvidence {
+            filter_pushdown_applied: false,
+            projection_pushdown_applied: false,
+            source_order_limit_applied: false,
+        },
+        side_effects: NativeIoSideEffectReport {
+            data_read: false,
+            data_decoded: false,
+            data_materialized: false,
+            row_read: false,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: false,
+            spill_io_performed: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+        },
+        upstream_scan_called: false,
+        materialization_boundary_reported: false,
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn executed_row_export_evidence(
+    filter_pushdown_applied: bool,
+    projection_pushdown_applied: bool,
+    source_order_limit_applied: bool,
+) -> VortexLocalPrimitiveRowExportEvidence {
+    VortexLocalPrimitiveRowExportEvidence {
+        pushdown: VortexLocalPrimitiveRowExportPushdownEvidence {
+            filter_pushdown_applied,
+            projection_pushdown_applied,
+            source_order_limit_applied,
+        },
+        side_effects: NativeIoSideEffectReport {
+            data_read: true,
+            data_decoded: true,
+            data_materialized: true,
+            row_read: true,
+            arrow_converted: false,
+            object_store_io: false,
+            write_io: true,
+            spill_io_performed: false,
+            external_effects_executed: false,
+            fallback_attempted: false,
+            fallback_execution_allowed: false,
+        },
+        upstream_scan_called: true,
+        materialization_boundary_reported: true,
+    }
+}
+
+impl VortexLocalPrimitiveRowExportReport {
+    #[must_use]
+    pub fn feature_disabled(
+        primitive_kind: VortexQueryPrimitiveKind,
+        output_path: &std::path::Path,
+        output_format: VortexLocalPrimitiveRowExportFormat,
+    ) -> Self {
+        Self {
+            status: VortexLocalPrimitiveExecutionStatus::FeatureDisabled,
+            primitive_kind,
+            output_path: output_path.display().to_string(),
+            output_format: output_format.as_str(),
+            rows_scanned: 0,
+            rows_written: 0,
+            pre_limit_result_row_count: 0,
+            projected_columns: Vec::new(),
+            arrays_read_count: 0,
+            max_chunk_rows: 0,
+            max_parallelism_requested: 1,
+            scan_concurrency_per_worker: 1,
+            source_order_limit_requested: None,
+            evidence: disabled_row_export_evidence(),
+            diagnostics: vec![Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "vortex_local_primitive_row_export",
+                "local Vortex primitive row export requires the vortex-local-primitives feature",
+                Some("Fallback attempted: false".to_string()),
+            )],
+        }
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    fn blocked(
+        primitive_kind: VortexQueryPrimitiveKind,
+        output_path: &std::path::Path,
+        output_format: VortexLocalPrimitiveRowExportFormat,
+        diagnostic: Diagnostic,
+    ) -> Self {
+        let mut out = Self::feature_disabled(primitive_kind, output_path, output_format);
+        out.status = VortexLocalPrimitiveExecutionStatus::BlockedByUnsupportedPrimitive;
+        out.diagnostics.clear();
+        out.diagnostics.push(diagnostic);
+        out
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+            || self.diagnostics.iter().any(|diagnostic| {
+                matches!(
+                    diagnostic.severity,
+                    DiagnosticSeverity::Error | DiagnosticSeverity::Fatal
+                )
+            })
+    }
+}
+
 /// Builds a CG-16 execution certificate for a completed local `.vortex`
 /// primitive report.
 ///
@@ -1129,6 +1295,479 @@ pub fn execute_vortex_local_primitive_with_policy(
     }
 }
 
+/// Executes a scoped local Vortex primitive and writes bounded rows to a
+/// compatibility sink.
+///
+/// This is intentionally separate from `execute_vortex_local_primitive`: the
+/// primitive report preserves zero-row-materialization evidence, while this
+/// export reports an explicit decode/materialization/write boundary for JSONL
+/// and CSV compatibility outputs.
+///
+/// # Errors
+/// Returns an error when the local Vortex source, primitive, projected column
+/// dtypes, output path, or output writer cannot satisfy the scoped export
+/// contract.
+pub fn execute_vortex_local_primitive_row_export_with_policy(
+    request: &VortexQueryPrimitiveRequest,
+    output_path: &std::path::Path,
+    output_format: VortexLocalPrimitiveRowExportFormat,
+    allow_overwrite: bool,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<VortexLocalPrimitiveRowExportReport> {
+    #[cfg(feature = "vortex-local-primitives")]
+    {
+        execute_vortex_local_primitive_row_export_enabled(
+            request,
+            output_path,
+            output_format,
+            allow_overwrite,
+            policy,
+        )
+    }
+    #[cfg(not(feature = "vortex-local-primitives"))]
+    {
+        let _ = allow_overwrite;
+        let _ = policy;
+        Ok(VortexLocalPrimitiveRowExportReport::feature_disabled(
+            request.kind,
+            output_path,
+            output_format,
+        ))
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
+fn execute_vortex_local_primitive_row_export_enabled(
+    request: &VortexQueryPrimitiveRequest,
+    output_path: &std::path::Path,
+    output_format: VortexLocalPrimitiveRowExportFormat,
+    allow_overwrite: bool,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<VortexLocalPrimitiveRowExportReport> {
+    use std::io::Write as _;
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    if !matches!(
+        request.kind,
+        VortexQueryPrimitiveKind::FilterPredicate
+            | VortexQueryPrimitiveKind::ProjectColumns
+            | VortexQueryPrimitiveKind::FilterAndProject
+    ) {
+        return Ok(VortexLocalPrimitiveRowExportReport::blocked(
+            request.kind,
+            output_path,
+            output_format,
+            Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "vortex_local_primitive_row_export",
+                "local Vortex primitive row export supports filter, project, and filter-project row streams only",
+                Some("use scalar collect for count primitives, or an admitted provider sink for provider-backed result summaries".to_string()),
+            ),
+        ));
+    }
+    let Some(uri) = request.source_uri.as_ref() else {
+        return Ok(VortexLocalPrimitiveRowExportReport::blocked(
+            request.kind,
+            output_path,
+            output_format,
+            Diagnostic::invalid_input(
+                "vortex_local_primitive_row_export",
+                "local Vortex primitive row export requires a source URI",
+                "provide a local `.vortex` source URI",
+            ),
+        ));
+    };
+    let Some(path) = local_vortex_path(uri, request.kind)? else {
+        return Ok(VortexLocalPrimitiveRowExportReport::blocked(
+            request.kind,
+            output_path,
+            output_format,
+            Diagnostic::invalid_input(
+                "vortex_local_primitive_row_export",
+                format!(
+                    "unsupported local Vortex row export target: {}",
+                    uri.as_str()
+                ),
+                "provide an existing local path or file:// `.vortex` target",
+            ),
+        ));
+    };
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(&path))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to open local Vortex target for row export: {error}"
+            ))
+        })?;
+    let source_row_count = file.row_count();
+    let plan = row_export_scan_plan(request, file.dtype())?;
+    let declared_columns = if plan.projected_columns.is_empty() {
+        local_field_names(file.dtype(), request.kind)?
+    } else {
+        plan.projected_columns.clone()
+    };
+
+    let temp_path = temporary_output_path(output_path)?;
+    prepare_output_target(output_path, &temp_path, allow_overwrite)?;
+    let write_result = (|| -> Result<VortexLocalPrimitiveRowExportReport> {
+        let mut output = std::fs::File::create_new(&temp_path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create local Vortex row export temp file {}: {error}",
+                temp_path.display()
+            ))
+        })?;
+        if output_format == VortexLocalPrimitiveRowExportFormat::Csv {
+            write_csv_header(&mut output, &declared_columns)?;
+        }
+
+        let filter_pushdown_applied = plan.filter.is_some();
+        let projection_pushdown_applied = plan.projection.is_some();
+        let source_order_limit = plan.source_order_limit;
+        let mut scan = file.scan().map_err(vortex_error)?;
+        if let Some(filter) = plan.filter {
+            scan = scan.with_filter(filter);
+        }
+        if let Some(projection) = plan.projection {
+            scan = scan.with_projection(projection);
+        }
+        scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+
+        let mut rows_written = 0usize;
+        let mut pre_limit_result_row_count = 0usize;
+        let mut arrays_read_count = 0usize;
+        let mut max_chunk_rows = 0usize;
+        for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+            let chunk = chunk.map_err(vortex_error)?;
+            let chunk_rows = chunk.len();
+            pre_limit_result_row_count = pre_limit_result_row_count
+                .checked_add(chunk_rows)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex row export pre-limit row count overflowed usize".to_string(),
+                    )
+                })?;
+            let output_rows = source_order_limit.map_or(chunk_rows, |limit| {
+                limit.saturating_sub(rows_written).min(chunk_rows)
+            });
+            let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+            write_row_export_chunk(
+                &mut output,
+                output_format,
+                &declared_columns,
+                &columns,
+                output_rows,
+            )?;
+            rows_written = rows_written.checked_add(output_rows).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex row export row count overflowed usize".to_string(),
+                )
+            })?;
+            max_chunk_rows = max_chunk_rows.max(chunk_rows);
+            arrays_read_count += 1;
+            if source_order_limit.is_some_and(|limit| rows_written >= limit) {
+                break;
+            }
+        }
+        output.flush().map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to flush local Vortex row export {}: {error}",
+                temp_path.display()
+            ))
+        })?;
+        drop(output);
+        std::fs::rename(&temp_path, output_path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to commit local Vortex row export {} -> {}: {error}",
+                temp_path.display(),
+                output_path.display()
+            ))
+        })?;
+
+        Ok(VortexLocalPrimitiveRowExportReport {
+            status: VortexLocalPrimitiveExecutionStatus::Executed,
+            primitive_kind: request.kind,
+            output_path: output_path.display().to_string(),
+            output_format: output_format.as_str(),
+            rows_scanned: source_row_count,
+            rows_written: usize_to_u64(rows_written)?,
+            pre_limit_result_row_count: usize_to_u64(pre_limit_result_row_count)?,
+            projected_columns: declared_columns,
+            arrays_read_count,
+            max_chunk_rows,
+            max_parallelism_requested: policy.max_parallelism,
+            scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
+            source_order_limit_requested: source_order_limit.map(usize_to_u64).transpose()?,
+            evidence: executed_row_export_evidence(
+                filter_pushdown_applied,
+                projection_pushdown_applied,
+                source_order_limit.is_some(),
+            ),
+            diagnostics: Vec::new(),
+        })
+    })();
+    if write_result.is_err() {
+        let _ = std::fs::remove_file(&temp_path);
+    }
+    write_result
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn row_export_scan_plan(
+    request: &VortexQueryPrimitiveRequest,
+    dtype: &vortex::array::dtype::DType,
+) -> Result<LocalVortexScanPlan> {
+    match request.kind {
+        VortexQueryPrimitiveKind::FilterPredicate => {
+            let Some(predicate) = request.predicate.as_ref() else {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex row export filter primitive was missing its predicate"
+                        .to_string(),
+                ));
+            };
+            let mut plan = LocalVortexScanPlan::filter(predicate_to_vortex_expr(
+                predicate,
+                dtype,
+                request.kind,
+            )?);
+            plan.source_order_limit = request.source_order_limit;
+            Ok(plan)
+        }
+        VortexQueryPrimitiveKind::ProjectColumns => {
+            let mut plan = projection_scan_plan(dtype, &request.projection, request.kind)?;
+            plan.source_order_limit = request.source_order_limit;
+            Ok(plan)
+        }
+        VortexQueryPrimitiveKind::FilterAndProject => {
+            let Some(predicate) = request.predicate.as_ref() else {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex row export filter-project primitive was missing its predicate"
+                        .to_string(),
+                ));
+            };
+            let mut plan = projection_scan_plan(dtype, &request.projection, request.kind)?;
+            plan.filter = Some(predicate_to_vortex_expr(predicate, dtype, request.kind)?);
+            plan.source_order_limit = request.source_order_limit;
+            Ok(plan)
+        }
+        VortexQueryPrimitiveKind::CountAll
+        | VortexQueryPrimitiveKind::CountWhere
+        | VortexQueryPrimitiveKind::SimpleAggregate
+        | VortexQueryPrimitiveKind::Unsupported => Err(ShardLoomError::InvalidOperation(
+            "local Vortex row export supports filter, project, and filter-project primitives only"
+                .to_string(),
+        )),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn temporary_output_path(output_path: &std::path::Path) -> Result<std::path::PathBuf> {
+    let parent = output_path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty());
+    let file_name = output_path
+        .file_name()
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "local Vortex row export output path has no file name: {}",
+                output_path.display()
+            ))
+        })?
+        .to_string_lossy();
+    let temp_name = format!(".{file_name}.shardloom-tmp-{}", std::process::id());
+    Ok(parent.map_or_else(
+        || std::path::PathBuf::from(&temp_name),
+        |path| path.join(&temp_name),
+    ))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn prepare_output_target(
+    output_path: &std::path::Path,
+    temp_path: &std::path::Path,
+    allow_overwrite: bool,
+) -> Result<()> {
+    let workspace_root = shardloom_core::infer_local_output_workspace_root(output_path)?;
+    shardloom_core::plan_workspace_safe_local_output(workspace_root, output_path, allow_overwrite)?;
+    if output_path.exists() && !allow_overwrite {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local Vortex row export output already exists: {}; pass allow_overwrite to replace it; no fallback execution was attempted",
+            output_path.display()
+        )));
+    }
+    if temp_path.exists() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local Vortex row export temp path already exists: {}; remove stale temp file before retrying; no fallback execution was attempted",
+            temp_path.display()
+        )));
+    }
+    if let Some(parent) = output_path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+    {
+        std::fs::create_dir_all(parent).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create local Vortex row export directory {}: {error}",
+                parent.display()
+            ))
+        })?;
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn write_csv_header(output: &mut std::fs::File, columns: &[String]) -> Result<()> {
+    use std::io::Write as _;
+
+    let header = columns
+        .iter()
+        .map(|column| csv_escape(column))
+        .collect::<Vec<_>>()
+        .join(",");
+    writeln!(output, "{header}").map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to write local Vortex row export CSV header: {error}"
+        ))
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn row_export_columns_from_chunk(
+    chunk: &vortex::array::ArrayRef,
+    declared_columns: &[String],
+) -> Result<Vec<Vec<StatValue>>> {
+    let mut out = Vec::with_capacity(declared_columns.len());
+    if chunk.dtype().is_struct() {
+        let children = chunk
+            .named_children()
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        for column in declared_columns {
+            let Some(array) = children.get(column.as_str()) else {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local Vortex row export column '{column}' was not present in scanned chunk; no fallback execution was attempted"
+                )));
+            };
+            out.push(row_export_values_from_vortex_array(column, array)?);
+        }
+    } else {
+        let column = declared_columns.first().map_or("value", String::as_str);
+        out.push(row_export_values_from_vortex_array(column, chunk)?);
+    }
+    let Some(first_len) = out.first().map(Vec::len) else {
+        return Ok(out);
+    };
+    if out.iter().any(|values| values.len() != first_len) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex row export scanned columns had mismatched row counts; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    Ok(out)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn row_export_values_from_vortex_array(
+    column: &str,
+    array: &vortex::array::ArrayRef,
+) -> Result<Vec<StatValue>> {
+    stat_values_from_vortex_array(array).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex row export column '{column}' has unsupported dtype or nullable validity for scoped JSONL/CSV export; no fallback execution was attempted"
+        ))
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn write_row_export_chunk(
+    output: &mut std::fs::File,
+    format: VortexLocalPrimitiveRowExportFormat,
+    columns: &[String],
+    column_values: &[Vec<StatValue>],
+    rows: usize,
+) -> Result<()> {
+    use std::io::Write as _;
+
+    for row_index in 0..rows {
+        match format {
+            VortexLocalPrimitiveRowExportFormat::Jsonl => {
+                let mut row = serde_json::Map::with_capacity(columns.len());
+                for (column_index, column) in columns.iter().enumerate() {
+                    row.insert(
+                        column.clone(),
+                        stat_value_to_json_value(&column_values[column_index][row_index])?,
+                    );
+                }
+                let line = serde_json::Value::Object(row).to_string();
+                writeln!(output, "{line}").map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "failed to write local Vortex row export JSONL row: {error}"
+                    ))
+                })?;
+            }
+            VortexLocalPrimitiveRowExportFormat::Csv => {
+                let line = column_values
+                    .iter()
+                    .map(|values| stat_value_to_csv_cell(&values[row_index]))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                writeln!(output, "{line}").map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "failed to write local Vortex row export CSV row: {error}"
+                    ))
+                })?;
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn stat_value_to_json_value(value: &StatValue) -> Result<serde_json::Value> {
+    match value {
+        StatValue::Boolean(value) => Ok(serde_json::Value::Bool(*value)),
+        StatValue::Int64(value) => Ok(serde_json::Value::Number((*value).into())),
+        StatValue::UInt64(value) => Ok(serde_json::Value::Number((*value).into())),
+        StatValue::Float64(value) => serde_json::Number::from_f64(*value)
+            .map(serde_json::Value::Number)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex row export cannot serialize non-finite float values; no fallback execution was attempted"
+                        .to_string(),
+                )
+            }),
+        StatValue::Utf8(value) => Ok(serde_json::Value::String(value.clone())),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn stat_value_to_csv_cell(value: &StatValue) -> String {
+    match value {
+        StatValue::Boolean(value) => value.to_string(),
+        StatValue::Int64(value) => value.to_string(),
+        StatValue::UInt64(value) => value.to_string(),
+        StatValue::Float64(value) => value.to_string(),
+        StatValue::Utf8(value) => csv_escape(value),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn csv_escape(value: &str) -> String {
+    if value.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
+}
+
 #[cfg(feature = "vortex-local-primitives")]
 #[allow(clippy::too_many_lines)]
 fn execute_vortex_local_primitive_enabled(
@@ -1820,8 +2459,8 @@ fn stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<
     match array.dtype() {
         DType::Primitive(_, _) => primitive_stat_values_from_vortex_array(array),
         DType::Utf8(_) => utf8_stat_values_from_vortex_array(array),
+        DType::Bool(_) => bool_stat_values_from_vortex_array(array),
         DType::Null
-        | DType::Bool(_)
         | DType::Decimal(_, _)
         | DType::Binary(_)
         | DType::Struct(_, _)
@@ -1955,6 +2594,29 @@ fn utf8_stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option
         values.push(StatValue::Utf8(text.to_string()));
     }
     Some(values)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn bool_stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<StatValue>> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::BoolArray;
+    use vortex::array::arrays::bool::BoolArrayExt as _;
+    use vortex::array::validity::Validity;
+
+    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let bool_array = array.clone().execute::<BoolArray>(&mut ctx).ok()?;
+    match bool_array.validity().ok()? {
+        Validity::NonNullable | Validity::AllValid => {}
+        Validity::AllInvalid | Validity::Array(_) => return None,
+    }
+    Some(
+        bool_array
+            .to_bit_buffer()
+            .iter()
+            .take(bool_array.len())
+            .map(StatValue::Boolean)
+            .collect(),
+    )
 }
 
 #[cfg(feature = "vortex-local-primitives")]

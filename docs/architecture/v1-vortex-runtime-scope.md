@@ -92,7 +92,10 @@ Every native Vortex public route also emits the route-unification contract field
 `public_workflow_` prefix. These fields are evidence metadata; they do not make a blocked operator
 supported. Count-style primitive routes report `native_vortex_capability_status=supported`;
 row-returning filter/project/filter-project primitive routes report
-`native_vortex_capability_status=supported_with_materialization_boundary`.
+`native_vortex_capability_status=supported_with_materialization_boundary`. The matching
+`write_jsonl()` / `write_csv()` / JSONL+CSV `fanout()` shapes route to
+`native_vortex_primitive_row_export` and report
+`native_vortex_capability_status=supported_with_explicit_decode_sink_boundary`.
 
 Current native Vortex route-unification blockers are reserved for unshaped or non-admitted
 families:
@@ -105,7 +108,9 @@ families:
 | Top-N shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_top_n_route_missing` |
 | Cast/try-cast shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_cast_route_missing` |
 | Substring contains shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_contains_route_missing` |
-| Compatibility JSONL/CSV/Parquet/Arrow sink from native Vortex workflow | `py-vortex-route-unify-1.native_vortex_sink_contract_missing` |
+| Row-level distinct/deduplication | `py-vortex-route-unify-1.native_vortex_distinct_route_missing` |
+| Provider-result compatibility sink outside JSONL/CSV | `py-vortex-route-unify-1.native_vortex_sink_format_missing` |
+| Primitive row-stream sink outside JSONL/CSV/fanout contract, invalid fanout payload, duplicate output, or unsafe output path | `py-vortex-route-unify-1.native_vortex_sink_format_missing`, `py-vortex-route-unify-1.native_vortex_fanout_payload_invalid`, `py-vortex-route-unify-1.native_vortex_fanout_sink_format_missing`, `py-vortex-route-unify-1.native_vortex_fanout_duplicate_output`, `py-vortex-route-unify-1.native_vortex_row_export_output_path_unsafe` |
 
 ## Supported V1 Local Vortex Primitive Operations
 
@@ -122,6 +127,7 @@ The scoped local primitive report admits these route ids:
 | `vortex_select_star_limit_collect` | Select all columns with source-order limit. | Yes |
 | `vortex_filter_project_collect` | Filter and project supported columns. | No |
 | `vortex_filter_project_limit_collect` | Filter and project supported columns with source-order limit. | Yes |
+| `native_vortex_primitive_row_export` | Write filter/project/filter-project row streams to JSONL/CSV, including JSONL+CSV fanout. | Yes |
 
 Each route must expose SQL, Python, DataFrame-style, context, session, and CLI surfaces. Each route
 must name output route, evidence route, materialization/decode boundary, required evidence,
@@ -142,13 +148,17 @@ traditional-analytics runtime scenarios:
 | `with_column("amount_float", cast(dirty_numeric)).filter(amount_float >= 0).limit(...)` | `SELECT ..., CAST(dirty_numeric AS float64) AS amount_float FROM 'fact.vortex' WHERE amount_float >= 0 LIMIT ...` | `clean-cast-filter-write` | `native_vortex_user_cast` |
 | `with_column("event_day", cast(raw_event_time AS date32)).limit(...)` | `SELECT ..., CAST(raw_event_time AS date32) AS event_day FROM 'fact.vortex' LIMIT ...` | `malformed-timestamp-dirty-csv` | `native_vortex_user_cast` |
 | `filter(nested_payload.contains("target")).select("id", "nested_payload").limit(...)` | `SELECT id, nested_payload FROM 'events.vortex' WHERE nested_payload LIKE '%target%' LIMIT ...` | `nested-json-field-scan` | `native_vortex_user_contains` |
-| Any admitted provider shape followed by `write_vortex(...)` | Exact admitted SQL shape followed by `write_vortex(...)` | matching provider scenario | `native_vortex_user_sink` |
+| `profile()` on `read_vortex(...)` with optional `select(...)`/`limit(...)` metadata | Metadata/schema profile over a native Vortex source | `vortex-metadata-summary` | `native_vortex_user_profile` |
+| Any admitted provider shape followed by `write_vortex(...)`, `write_jsonl(...)`, or `write_csv(...)` | Exact admitted SQL shape followed by `write_vortex(...)`, `write_jsonl(...)`, or `write_csv(...)` | matching provider scenario | `native_vortex_user_sink` |
 
 These routes emit `public_workflow_native_vortex_provider_scenario` and
-`public_workflow_native_vortex_right_input` fields. Compatibility exports such as `write_jsonl()`
-from a direct Vortex-native workflow remain blocked until a separate explicit decode/export
-contract is implemented. Arbitrary SQL parity remains out of scope; only the exact shapes above
-emit the provider payload.
+`public_workflow_native_vortex_right_input` fields. Provider-backed `write_jsonl()` and
+`write_csv()` export the bounded provider `result_json` after native Vortex execution with explicit
+decode/materialization evidence. Primitive filter/project/filter-project row-stream exports and
+JSONL/CSV fanout are admitted through `native_vortex_primitive_row_export` with explicit
+selected-column decode/materialization evidence. Arbitrary compatibility exports, unsupported
+formats, and non-admitted operator shapes remain blocked. Arbitrary SQL parity remains out of
+scope; only the exact shapes above emit the provider payload.
 
 `ShardLoomContext.native_vortex_provider_route_certificate_report()` is the machine-readable
 certificate surface for these exact routes. It records the route id, operation family, provider

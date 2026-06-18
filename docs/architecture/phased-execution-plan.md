@@ -178,18 +178,26 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
-- [ ] `PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1` Promote residual prepared-local Python/SQL
+- [x] `PY-VORTEX-RESIDUAL-ROUTE-PROMOTION-1` Promote residual prepared-local Python/SQL
   operators from product-local SQL runtime to native Vortex middle routes.
   - Source: June 17, 2026 local release-feature Python UAT showing
     `ctx.read(...).filter(...).select(...).limit(...).collect()` now performs Vortex preparation
-    and native primitive execution, while row-level `distinct()`, `drop_duplicates()`, `unique()`,
-    bounded `profile()`, and compatibility JSONL/CSV sinks still prepare Vortex and then execute
-    through the scoped product-local `sql-local-source-smoke` runtime.
+    and native primitive execution. Follow-up route hardening found residual row-level
+    `distinct()`/`drop_duplicates()`/`unique()`, transformed row profiling, primitive row-stream
+    JSONL/CSV sinks, fanout, and broad compatibility exports must either promote to a real
+    native/prepared Vortex route or block; they must not execute through scoped product-local
+    `sql-local-source-smoke` as a public runtime middle.
   - Current state: universal ingest, Vortex preparation, release-user-surface feature gates, native
     primitive routes, and exact provider-backed aggregate/join/top-N/cast/contains/`write_vortex`
-    routes are connected. The remaining scoped product-local operators are not external fallback
-    and now carry preparation evidence, but they are not yet native Vortex middle/operator routes
-    and must not be presented as production-admitted native runtime claims.
+    routes are connected. Exact provider-backed JSONL/CSV result-summary exports are connected.
+    Scoped primitive filter/project/filter-project JSONL/CSV row-stream exports and JSONL+CSV
+    fanout are connected through `native_vortex_primitive_row_export` after native/prepared Vortex
+    input.
+    Direct SQL local-source collect routes now infer declared or extension-based inputs, prepare
+    local files into Vortex, and execute the same native primitive/provider route as the equivalent
+    DataFrame/Python shape. Remaining arbitrary residual operators, non-JSONL/CSV row-stream
+    sinks, invalid/duplicate/unsafe fanout targets, and broad compatibility exports block before
+    execution with no-fallback evidence.
   - Intake review: accepted the UAT finding as a real v1 readiness gap because ShardLoom's public
     surface should not require users to distinguish input normalization from actual runtime middle
     execution. Already-addressed candidates: direct local one-shot auto routing is blocked for
@@ -208,32 +216,73 @@ Current autonomous execution order:
     without changing Python APIs; evidence-tier controls must distinguish native runtime,
     product-local post-prepare compatibility, and internal smoke-only routes.
   - Execution checklist:
-    - [ ] Inventory all public Python/SQL/DataFrame methods whose real UAT route has
+    - [x] Inventory all public Python/SQL/DataFrame methods whose real UAT route has
       `vortex_ingest_performed=true` but `activation_summary.command=sql-local-source-smoke`, and
       classify each as native-route feasible, decode/export feasible, or deterministic blocker.
-    - [ ] Add route-facade diagnostics so post-prepare product-local SQL execution cannot be
+      June 17, 2026 pass classified residual row-level `distinct`/`drop_duplicates`/`unique`,
+      bounded `profile`, fanout, non-Vortex compatibility sinks, and local-source SQL/DataFrame
+      collect/write/profile wrappers; exact native/provider families remain below.
+    - [x] Add route-facade diagnostics so post-prepare product-local SQL execution cannot be
       mistaken for native Vortex middle execution in activation summaries, capability rows, or
       generated docs.
-    - [ ] Implement or wrap a native Vortex row-level distinct/deduplication route for the admitted
-      no-subset/no-keep Python aliases, including null/equality semantics and bounded collect
+      The public facade now blocks residual local-source Python/SQL collect/write/profile/fanout
+      paths instead of invoking `sql-local-source-smoke`, native Vortex route fields classify
+      payload-less `distinct` as an explicit missing native-route family, and metadata-first
+      `profile` now has an admitted native Vortex route.
+    - [x] Classify row-level `distinct()`/`drop_duplicates()`/`unique()` aliases at the public
+      native Vortex boundary instead of routing them through product-local SQL smoke execution.
+      Current state keeps generic row-level dedup blocked with
+      `py-vortex-route-unify-1.native_vortex_distinct_route_missing` because the reusable native
+      provider evidence covers distinct-count/high-cardinality grouped state, not a general
+      row-level distinct result contract with null/equality semantics and bounded typed collect
       evidence.
-    - [ ] Implement or wrap a native Vortex bounded profile/schema/statistics route that uses
+    - [x] Implement or wrap a native Vortex bounded profile/schema/statistics route that uses
       metadata-first evidence where possible and reports any decode/materialization boundary
       explicitly.
-    - [ ] Implement Vortex-derived compatibility export routes for JSONL/CSV outputs, or keep those
+      Current state admits base `read_vortex(...).profile()` and optional projection/limit metadata
+      profiles through `native_vortex_user_profile` backed by `vortex-metadata-summary`; transformed
+      row profiling remains blocked until a row-materialization profile contract exists.
+    - [x] Implement Vortex-derived compatibility export routes for JSONL/CSV outputs, or keep those
       sinks blocked when a safe decode/export contract is missing; `write_vortex` remains the
       highest-fidelity native sink.
-    - [ ] Add Python UAT-style fixtures that sequentially exercise inferred `ctx.read(...)`,
+      Current state admits exact provider-backed native Vortex `result_json` exports to
+      workspace-safe JSONL/CSV sinks after Vortex execution, plus scoped primitive
+      filter/project/filter-project row-stream exports and JSONL+CSV fanout through
+      `native_vortex_primitive_row_export` with explicit selected-column decode/materialization
+      evidence. Broader local-source compatibility writes, unsupported fanout formats, invalid or
+      duplicate fanout targets, and non-JSONL/CSV provider exports still block until their own
+      Vortex-derived typed export contracts exist.
+    - [x] Add Python UAT-style fixtures that sequentially exercise inferred `ctx.read(...)`,
       explicit readers, SQL, and DataFrame aliases across the promoted residual operators and assert
       `fallback_attempted=false`, `external_engine_invoked=false`, and native/runtime-middle
       evidence.
-    - [ ] Add Rust route/admission tests proving residual operators either select a real native
+      Initial focused fixtures cover local DataFrame collect, row-level distinct collect, profile,
+      and write blockers without the fake-CLI legacy public-run rewrite.
+    - [x] Add Rust route/admission tests proving residual operators either select a real native
       Vortex route or fail with stable blocker IDs; no public path may silently execute
       product-local SQL as a native claim.
-    - [ ] Refresh capability/status/generated docs so `production_admitted_local_workflow`,
+      Current focused route tests cover default feature-gated blockers, release-user-surface
+      prepared/native execution for DataFrame and SQL local-source collect routes, extensionless
+      SQL with declared `--input-format`, provider-backed JSONL result export, primitive sink
+      blockers, and stale prepared-artifact reuse invalidation.
+    - [x] Refresh capability/status/generated docs so `production_admitted_local_workflow`,
       `scoped_runtime_supported`, `runtime_expansion_pending`, `internal_smoke_only`, and
       `feature_gated` remain distinct and source-grounded.
-    - [ ] Move completed detail to the phased execution completed ledger after validation and PR
+      Current state separates metadata-first native profile, internal direct-compatibility smoke,
+      public native `write_vortex`, provider-result JSONL/CSV exports, scoped primitive
+      row-stream JSONL/CSV/fanout exports, broad compatibility sink blockers, and local
+      compatibility input normalization
+      into explicit capability/doc rows.
+    - [x] Migrate legacy Python unit fixtures that still expect direct `sql-local-source-smoke`
+      result envelopes for public local-source workflows; either promote each covered expression or
+      sink shape to a real native/prepared Vortex route, or update the fixture to assert the stable
+      public workflow blocker and no-fallback/no-external-engine evidence.
+      Current broad-file probe
+      `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client python.tests.test_query_builder`
+      passes with exact stale public direct-smoke fixtures explicitly retired, while active
+      replacement fixtures cover Vortex-prepared/native collect, native profile, compatibility sink
+      blockers, and no-fallback/no-external-engine route evidence.
+    - [x] Move completed detail to the phased execution completed ledger after validation and PR
       handling.
   - Next outcome: a cohesive runtime PR/session that either promotes the remaining feasible
     prepared-local residual operators to native Vortex middle routes or leaves them blocked with
@@ -540,9 +589,9 @@ Current autonomous execution order:
           `native_vortex_user_cast`, `native_vortex_user_contains`, and
           `native_vortex_user_sink`) as `scoped_runtime_supported` with
           `native_vortex_user_operator_provider` middle status, matching the admitted runtime path.
-      - [x] Keep compatibility sinks such as JSONL/CSV from Vortex-native workflows blocked until
-        an explicit decode/export contract is implemented; `write_vortex` is the admitted native
-        sink route.
+      - [x] Promote exact provider-backed JSONL/CSV result exports from Vortex-native workflows once
+        the bounded result/decode/export contract is explicit; `write_vortex` remains the
+        highest-fidelity native sink route.
     - [x] Add v1-scoped native Vortex multi-input join state for the admitted Python/SQL hash-join
       provider route, keeping declared right-input/build-probe state inside ShardLoom-native
       execution instead of compatibility fallback.
@@ -558,8 +607,12 @@ Current autonomous execution order:
       - Evidence note: current supported primitives expose bounded scalar/row result contracts;
         product-local workflows expose declared compatibility sink contracts; exact provider-backed
         native Vortex `write_vortex` chains expose
-        `native_vortex_result_sink_with_replay_verified_artifact`; compatibility exports from a
-        Vortex-native workflow remain blocked until a decode/export contract is implemented.
+        `native_vortex_result_sink_with_replay_verified_artifact`, while provider-backed
+        `write_jsonl`/`write_csv` chains expose
+        `native_vortex_provider_result_json_export_with_workspace_safe_sink`. Scoped primitive
+        filter/project/filter-project row-stream `write_jsonl`/`write_csv` and JSONL+CSV fanout
+        chains expose `native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink` with
+        explicit selected-column decode/materialization evidence.
     - [x] Add minimal Python/SQL contract fixtures, not new benchmark scenario definitions,
       covering single input, multiple inputs, multiple outputs, chained operations, blocked
       unsupported operators, and no external engine invocation.
@@ -570,12 +623,14 @@ Current autonomous execution order:
         benchmark-family aggregate, join, top-N, cast, contains, and `write_vortex` sink shapes
         lower through the public native Vortex route facade with `fallback_attempted=false` and
         `external_engine_invoked=false`.
-      - [x] Keep blocked fixtures for unadmitted Vortex shapes and compatibility sinks.
+      - [x] Keep blocked fixtures for unadmitted Vortex shapes and broad compatibility sinks.
       - [x] Add broader fixtures only when real multi-input joins, multi-output sinks, and typed
         native Vortex sink contracts are implemented.
-        - Evidence note: v1-scoped hash join and native `write_vortex` sink fixtures now cover the
-          admitted multi-input and sink routes. Broader arbitrary multi-input joins and multi-output
-          sinks are not part of this v1 route certificate and remain explicit blockers.
+        - Evidence note: v1-scoped hash join, native `write_vortex`, and provider-result JSONL/CSV
+          sink fixtures now cover the admitted multi-input and provider sink routes; primitive
+          row-stream JSONL/CSV and fanout fixtures cover the admitted multi-output route. Broader
+          arbitrary multi-input joins, non-JSONL/CSV row-stream sinks, and unsupported fanout
+          targets remain explicit blockers.
     - [x] Add benchmark/publication evidence or route certificate rows proving the native Python
       route matches the named benchmark route for the admitted scenario families before making any
       performance claim.

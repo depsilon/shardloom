@@ -100,7 +100,6 @@ V1_FRONT_DOOR_SUPPORTED_PARITY_ROW_IDS = (
     "generated_source_output",
     "schema_quality_preview",
     "local_vortex_primitive_runtime",
-    "typed_nested_compatibility_sink",
     "decoded_materialization_interop",
 )
 V1_FRONT_DOOR_PENDING_PARITY_ROW_IDS = (
@@ -4922,8 +4921,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "production_admitted_local_workflow",
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
-            "declared_local_sink_contract",
-            "output_replay_certificate",
+            "native_vortex_derived_compatibility_export_contract",
+            "explicit_decode_materialization_boundary",
             "no_fallback_evidence",
         ),
         runtime_execution=True,
@@ -4931,10 +4930,11 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "write is admitted for scoped local workflows after Vortex preparation and declared "
-            "local sink replay evidence. Compatibility outputs may report metadata/fidelity loss; "
-            "this is not object-store/table output, external engine execution, fallback, or a "
-            "performance claim."
+            "Scoped write() is admitted for native/prepared Vortex primitive row streams to "
+            "JSONL/CSV and exact provider-backed native Vortex result summaries to "
+            "write_vortex/JSONL/CSV. Other output formats or unadmitted operators fail closed "
+            "with deterministic blockers; direct decoded compatibility sinks remain internal "
+            "smoke safeguards only."
         ),
     ),
     _df_method(
@@ -4943,8 +4943,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "production_admitted_local_workflow",
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
-            "jsonl_local_sink_contract",
-            "output_replay_certificate",
+            "native_vortex_derived_jsonl_export_contract",
+            "explicit_decode_materialization_boundary",
             "no_fallback_evidence",
         ),
         runtime_execution=True,
@@ -4952,9 +4952,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "write_jsonl is admitted for scoped local workflows after Vortex preparation and JSONL "
-            "sink replay evidence. JSONL is a compatibility output, not native Vortex layout "
-            "preservation, external engine execution, fallback, or a performance claim."
+            "write_jsonl is admitted only when JSONL output is derived from a native/prepared "
+            "Vortex primitive row stream or exact provider-backed native Vortex result summary "
+            "with explicit decode/materialization evidence. It must not execute direct decoded "
+            "local-source sink code as the public runtime middle."
         ),
     ),
     _df_method(
@@ -4963,8 +4964,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "production_admitted_local_workflow",
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
-            "csv_local_sink_contract",
-            "output_replay_certificate",
+            "native_vortex_derived_csv_export_contract",
+            "explicit_decode_materialization_boundary",
             "no_fallback_evidence",
         ),
         runtime_execution=True,
@@ -4972,9 +4973,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "write_csv is admitted for scoped local workflows after Vortex preparation and CSV sink "
-            "replay evidence. CSV is a compatibility output that loses static type/layout metadata; "
-            "this is not external engine execution, fallback, or a performance claim."
+            "write_csv is admitted only when CSV output is derived from a native/prepared "
+            "Vortex primitive row stream or exact provider-backed native Vortex result summary "
+            "with explicit decode/materialization evidence. It must not execute direct decoded "
+            "local-source sink code as the public runtime middle."
         ),
     ),
     _df_method(
@@ -4983,9 +4985,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "production_admitted_local_workflow",
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
-            "local_fanout_sink_contract",
-            "output_reuse_contract",
-            "output_replay_certificate",
+            "native_vortex_derived_jsonl_csv_fanout_export_contract",
+            "explicit_decode_materialization_boundary",
             "no_fallback_evidence",
         ),
         runtime_execution=True,
@@ -4993,9 +4994,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "fanout is admitted for scoped local workflows after Vortex preparation and shared "
-            "local sink replay evidence. It may emit compatibility-output fidelity limits; this is "
-            "not object-store/table fanout, external engine execution, fallback, or a performance claim."
+            "fanout is admitted for JSONL/CSV outputs when every declared output is derived "
+            "sequentially from the same native/prepared Vortex primitive row stream or exact "
+            "provider-backed native Vortex result summary. Unsupported fanout formats or shapes "
+            "fail closed; direct decoded compatibility fanout is not a public runtime middle."
         ),
     ),
     _df_method(
@@ -5387,21 +5389,22 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "profile",
         "observability",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_profile_runtime",
-            "native_vortex_schema_observability",
+            "native_vortex_metadata_profile_route",
+            "vortex_metadata_summary",
             "vortex_prepared_state_or_native_vortex_input",
-            "bounded_materialization_contract",
+            "metadata_summary_plan_only",
             "no_fallback_evidence",
         ),
+        runtime_execution=True,
+        data_read=False,
         materialization_required=False,
         claim_boundary=(
-            "Public local-source profile can currently produce a bounded product-local summary "
-            "after Vortex preparation, but it remains blocked as a production-admitted native "
-            "Vortex runtime profile until schema/statistics observability and materialization "
-            "evidence are attached to a native route. Broad runtime profiling, resource tracing, "
-            "production observability, and performance claims remain blocked."
+            "profile is admitted as a metadata-first native/prepared Vortex profile route for "
+            "base-source schema/statistics summaries with optional projection/limit metadata. "
+            "Filtered/transformed row profiling, resource tracing, decoded materialization, "
+            "production observability, and performance claims remain outside this route."
         ),
     ),
 )
@@ -5976,7 +5979,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
 FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "local_file_filter_project_limit",
-        "local file read, filter, project, distinct, limit, collect, and local write",
+        "local file read, filter, project, limit, collect, metadata profile, and native Vortex write",
         "scoped_runtime_supported",
         sql_surface="ctx.sql(\"SELECT ... FROM 'local.csv' WHERE ... LIMIT ...\").collect()",
         python_surface="ctx.sql(...), ctx.read(...), LazyFrame.collect(), LazyFrame.write_vortex() where provider-admitted",
@@ -5996,9 +5999,10 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "SQL, Python, and DataFrame-style local file filter/project/distinct/limit workflows "
-            "normalize into Vortex before admitted native primitive/provider execution. "
-            "Compatibility exports and unsupported operator shapes block deterministically. This "
+            "SQL, Python, and DataFrame-style local file filter/project/limit workflows normalize "
+            "into Vortex before admitted native primitive/provider execution, and base-source "
+            "profile uses the metadata-first Vortex profile route. Row-level distinct, "
+            "compatibility exports, and unsupported operator shapes block deterministically. This "
             "does not claim arbitrary SQL, remote/table sources, or benchmarked performance "
             "equivalence."
         ),
@@ -6087,15 +6091,23 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     ),
     _front_door_row(
         "local_vortex_primitive_runtime",
-        "local Vortex count, count-where, filter, project, and filter-project primitive reports",
+        "local Vortex count, count-where, filter, project, filter-project, and JSONL/CSV row-export primitives",
         "scoped_runtime_supported",
         sql_surface=(
-            "ctx.sql(\"SELECT COUNT(*)/columns FROM 'local.vortex' WHERE ... LIMIT ...\").collect()"
+            "ctx.sql(\"SELECT COUNT(*)/columns FROM 'local.vortex' WHERE ... LIMIT ...\")"
+            ".collect/write_jsonl/write_csv/fanout"
         ),
-        python_surface="ctx.read_vortex(...).count/filter/select/collect scoped primitive reports",
-        dataframe_surface="read_vortex(...).filter/select/count/collect scoped primitive reports",
+        python_surface=(
+            "ctx.read_vortex(...).count/filter/select/collect/write_jsonl/write_csv/fanout "
+            "scoped primitive reports"
+        ),
+        dataframe_surface=(
+            "read_vortex(...).filter/select/count/collect/write_jsonl/write_csv/fanout "
+            "scoped primitive reports"
+        ),
         shared_runtime_path=(
-            "vortex-run/vortex-count-where/vortex-filter/vortex-project/vortex-filter-project"
+            "vortex-run/vortex-count-where/vortex-filter/vortex-project/"
+            "vortex-filter-project/vortex-local-primitive-row-export"
         ),
         parity_status="equivalent_admitted_scope",
         performance_equivalence_status="same_runtime_family_no_benchmark_claim",
@@ -6103,6 +6115,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         data_read=True,
         required_evidence=(
             "vortex_local_primitive_runtime",
+            "native_vortex_primitive_row_export_contract",
             "sql_vortex_primitive_tests",
             "python_query_builder_tests",
             "execution_certificate",
@@ -6112,18 +6125,18 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         claim_boundary=(
             "Scoped SQL, Python, and DataFrame-style local Vortex primitive report workflows "
             "share ShardLoom's explicit Vortex primitive command family for count, count-where, "
-            "filter, project, and filter-project with optional source-order limit. Native "
-            "`.vortex` input is already at the Vortex boundary, so this row is the direct "
-            "Vortex-normalized case. This is not decoded row materialization, broad Vortex "
-            "read-transform-write parity, object-store runtime, or benchmark-backed performance "
-            "equivalence."
+            "filter, project, filter-project, optional source-order limit, and scoped JSONL/CSV "
+            "row export/fanout with an explicit decode/materialization boundary. Native `.vortex` "
+            "input is already at the Vortex boundary, so this row is the direct Vortex-normalized "
+            "case. This is not broad Vortex SQL/DataFrame parity, non-JSONL/CSV compatibility "
+            "sinks, object-store runtime, or benchmark-backed performance equivalence."
         ),
     ),
     _front_door_row(
         "typed_nested_compatibility_sink",
         "typed nested local compatibility sink output for scoped ARRAY/STRUCT projections",
-        "production_admitted_local_workflow",
-        runtime_gap_status="admitted_scope",
+        "runtime_expansion_pending",
+        runtime_gap_status="native_compatibility_export_contract_missing",
         sql_surface=(
             "ctx.sql(\"SELECT ARRAY[...] AS values, STRUCT(...) AS payload FROM 'local.csv'\")"
             ".write_parquet/write_arrow_ipc/write_avro/write_vortex"
@@ -6135,26 +6148,23 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         dataframe_surface=(
             "DataFrame-style with_columns(array/struct).write_parquet/write_arrow_ipc/write_avro/write_vortex"
         ),
-        shared_runtime_path="local source -> Vortex preparation -> declared compatibility sink with replay evidence",
-        parity_status="equivalent_admitted_scope",
-        performance_equivalence_status="same_vortex_middle_no_benchmark_claim",
-        runtime_execution=True,
-        data_read=True,
-        write_io=True,
-        materialization_required=True,
+        shared_runtime_path="blocked until local source -> Vortex preparation -> native Vortex-derived compatibility export contract",
+        parity_status="deterministic_blocker_until_native_export_contract",
+        performance_equivalence_status="not_claim_grade",
+        blocker_id="cg21.route.local_file_compatibility_sink_contract_missing",
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
-            "declared_compatibility_sink_contract",
+            "native_vortex_derived_compatibility_export_contract",
             "python_query_builder_tests",
             "output_replay_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped declared compatibility sinks are admitted after Vortex preparation and local "
-            "sink replay evidence. This does not claim full-fidelity native Vortex nested output, "
-            "all-null computed nested columns without child-schema evidence, broad nested "
-            "ordering, complex-key joins, production SQL nested parity, or benchmarked "
-            "performance equivalence."
+            "Scoped declared compatibility sinks remain blocked for public local-source workflows "
+            "until output is derived from a certified native Vortex result/export contract. This "
+            "does not claim full-fidelity native Vortex nested output, all-null computed nested "
+            "columns without child-schema evidence, broad nested ordering, complex-key joins, "
+            "production SQL nested parity, or benchmarked performance equivalence."
         ),
     ),
     _front_door_row(

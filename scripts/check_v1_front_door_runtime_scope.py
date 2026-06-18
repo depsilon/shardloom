@@ -35,8 +35,11 @@ SUPPORTED_PARITY_ROWS = {
     "generated_source_output",
     "schema_quality_preview",
     "local_vortex_primitive_runtime",
-    "typed_nested_compatibility_sink",
     "decoded_materialization_interop",
+}
+
+EXPORT_PENDING_PARITY_ROWS = {
+    "typed_nested_compatibility_sink",
 }
 
 BROAD_PENDING_PARITY_ROWS = {
@@ -168,6 +171,12 @@ def validate_parity_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]
     missing_pending = sorted(BROAD_PENDING_PARITY_ROWS - by_id.keys())
     if missing_pending:
         blockers.append("v1 parity matrix missing pending rows: " + ",".join(missing_pending))
+    missing_export_pending = sorted(EXPORT_PENDING_PARITY_ROWS - by_id.keys())
+    if missing_export_pending:
+        blockers.append(
+            "v1 parity matrix missing export-pending rows: "
+            + ",".join(missing_export_pending)
+        )
 
     for row_id in sorted(SUPPORTED_PARITY_ROWS):
         row = by_id.get(row_id)
@@ -179,6 +188,19 @@ def validate_parity_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]
             blockers.append(f"{row_id}: v1 row must use runtime_gap_status=admitted_scope")
         if row.get("blocker_id") is not None:
             blockers.append(f"{row_id}: v1 row must not carry blocker_id")
+
+    for row_id in sorted(EXPORT_PENDING_PARITY_ROWS):
+        row = by_id.get(row_id)
+        if not row:
+            continue
+        if row.get("parity_status") != "deterministic_blocker_until_native_export_contract":
+            blockers.append(f"{row_id}: export-pending row must use native export blocker parity")
+        if row.get("runtime_gap_status") != "native_compatibility_export_contract_missing":
+            blockers.append(
+                f"{row_id}: export-pending row must use native compatibility export gap status"
+            )
+        if not row.get("blocker_id"):
+            blockers.append(f"{row_id}: export-pending row must carry blocker_id")
 
     for row_id in sorted(BROAD_PENDING_PARITY_ROWS):
         row = by_id.get(row_id)

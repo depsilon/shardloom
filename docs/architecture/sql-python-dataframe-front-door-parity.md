@@ -43,17 +43,19 @@ and aggregate routes from being overclaimed as broad production or performance s
 Rows with `parity_status=equivalent_admitted_scope` are the current front-door parity contract:
 
 - `local_file_filter_project_limit`: SQL, Python, and DataFrame-style local file
-  filter/project/limit collect/write workflows lower to `sql-local-source-smoke`; runtime-ready
-  expansion must expose the adapter-to-Vortex normalization boundary. SQL users can provide that
-  boundedness in the statement, through `collect(limit=n)`, or through `.limit(n).collect()`.
+  filter/project/limit collect workflows route through the public workflow facade and must use
+  Vortex preparation plus an admitted native primitive/provider route, or fail closed with a
+  deterministic no-fallback diagnostic. SQL users can provide boundedness in the statement, through
+  `collect(limit=n)`, or through `.limit(n).collect()`.
   Python/DataFrame users can use `.limit(n).collect()` or `collect(limit=n)`. Unbounded
   local-source `collect()` returns a deterministic no-fallback diagnostic. Familiar aliases
   `project`, `with_columns`, `assign`, `groupby`, `order_by`, `sort_by`, and `sort_values` lower to
   the same admitted ShardLoom operations instead of creating separate runtime paths. Row-level
-  duplicate removal is admitted for bounded local-source projection, aggregate/HAVING, join, and
-  window output rows through SQL `SELECT DISTINCT` and Python/DataFrame `.distinct()`,
-  `.drop_duplicates()`, and `.unique()`; the runtime deduplicates before applying `LIMIT` and emits
-  `distinct_projection_*` evidence. Scoped local-source set operations are admitted for already
+  duplicate removal remains a residual public local-source route: SQL `SELECT DISTINCT` and
+  Python/DataFrame `.distinct()`, `.drop_duplicates()`, and `.unique()` must lower to a native
+  Vortex distinct route before product support is claimed, and current public workflows block
+  instead of executing `sql-local-source-smoke` as the runtime middle. Scoped local-source set
+  operations are admitted for already
   admitted branch `SELECT` plans through SQL `UNION`/`UNION ALL`/`INTERSECT`/`EXCEPT` and
   Python/DataFrame `.union(...)`, `.union_all(...)`, `.intersect(...)`, `.except_(...)`,
   `.except_rows(...)`, and `.subtract(...)`; branch dtypes must match and the runtime emits
@@ -79,7 +81,9 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   diagnostics, and deduplicated `unsupported_reasons` on `SqlLocalSourceSmokeReport` while keeping
   `fallback_attempted=false` and `external_engine_invoked=false`.
 - `local_file_join_aggregate_sort_window`: admitted local join, aggregate, sort, computed-column,
-  and window workflows lower to `sql-local-source-smoke`.
+  and benchmark-family workflows must route through prepared/native Vortex primitive or provider
+  lanes when public product support is claimed; non-admitted residual shapes remain deterministic
+  blockers rather than direct local-source smoke execution.
 - `generated_source_output`: source-free SQL, Python, and DataFrame-style generated-output helpers
   lower through the generated-source smoke family; generated row/range aliases such as `project`,
   `with_columns`, `assign`, and `order_by` remain thin wrappers over the same generated-source
@@ -90,8 +94,11 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   result/evidence dataset-shaped artifacts; real Foundry runtime and output APIs remain platform
   integration gates.
 - `schema_quality_preview`: `ctx.sql(...)`, Python `LazyFrame`, and DataFrame-style helpers expose
-  bounded schema, `schema_contract`/validation, data-quality, runtime profile, scoped local-source
-  quarantine, preview, head, and take methods over `sql-local-source-smoke` inline results.
+  only the bounded schema/quarantine/preview paths and metadata-first `profile()` routes that have
+  admitted Vortex-backed route evidence. Base-source profile uses `vortex-metadata-summary` over a
+  native or prepared Vortex source; transformed row-profile and residual materialization helpers
+  return deterministic blockers instead of executing `sql-local-source-smoke` inline results as
+  product runtime.
 - `decoded_materialization_interop`: bounded local-source ShardLoom results can materialize to
   Python objects, optional pandas DataFrames, optional PyArrow tables/IPC bytes, optional NumPy
   arrays, and notebook preview HTML from the same inline result path; pandas/Arrow materialized
@@ -224,12 +231,10 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   runtime and Python/DataFrame aliases as scoped `UNION`, with `sql_set_operation_*` evidence over
   already-admitted branch `SELECT` plans. Scoped decimal casts plus mixed-scale add/subtract/multiply, comparison, and exact fixed-scale
   division lower through the same ShardLoom generic-expression route from SQL and Python/DataFrame
-  helpers, and Python result reports expose parsed typed decimal sink support for Parquet,
-  Arrow IPC, Avro, and Vortex while leaving ORC typed decimals as the deterministic provider-backed
-  blocker. Scoped typed nested compatibility sinks now preserve inferable `List` / `Struct`
-  result columns through Parquet, Arrow IPC, Avro, and local Vortex when a nested Arrow schema can
-  be inferred; ORC nested output and all-null child-schema-free nested output remain deterministic
-  blockers. Scoped scalar-expression `JOIN ON` predicates over qualified local sources lower through
+  helpers. Public local-source compatibility sinks, including typed nested Parquet/Arrow/Avro/CSV/
+  JSONL-style exports, remain blocked until output is derived from a certified native Vortex
+  result/export contract; local Vortex remains the highest-fidelity sink where the provider route is
+  admitted. Scoped scalar-expression `JOIN ON` predicates over qualified local sources lower through
   the bounded expression-join route, including Python `LazyFrame.join(condition=...)` predicate
   objects and logical `OR` over admitted qualified scalar leaves; complex-key and broader
   non-scalar join predicates remain deterministic blockers. Schema-declared local-source

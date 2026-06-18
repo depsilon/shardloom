@@ -60,28 +60,54 @@ fn public_route_blocks_local_file_auto_without_vortex_middle() {
     ]);
 
     assert!(stdout.contains("\"command\":\"route\""));
-    assert!(stdout.contains("\"status\":\"unsupported\""));
     assert!(stdout.contains(&field(
         "public_workflow_route_schema_version",
         "shardloom.public_workflow_route.v1"
     )));
-    assert!(stdout.contains(&field("route_id", "blocked")));
-    assert!(stdout.contains(&field(
-        "blocker_id",
-        "cg21.route.local_file_vortex_ingest_feature_gated"
-    )));
-    assert!(stdout.contains(&field("route_support_status", "unsupported_boundary")));
-    assert!(stdout.contains(&field("resolved_internal_command", "not_resolved")));
-    assert!(stdout.contains(&field("underlying_runtime_command", "not_resolved")));
+    if cfg!(all(
+        feature = "vortex-write",
+        feature = "vortex-local-primitives"
+    )) {
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("route_id", "local_file_prepare_once_first_query")));
+        assert!(stdout.contains(&field("route_support_status", "scoped_runtime_supported")));
+        assert!(stdout.contains(&field(
+            "resolved_internal_command",
+            "vortex-ingest-smoke->vortex-production-runtime-run"
+        )));
+        assert!(stdout.contains(&field(
+            "underlying_runtime_command",
+            "vortex-ingest-smoke->vortex-production-runtime-run"
+        )));
+        assert!(stdout.contains(&field("start_state", "compatibility_local_source")));
+        assert!(stdout.contains(&field("vortex_normalization_point", "VortexPreparedState")));
+        assert!(stdout.contains(&field("vortex_middle_status", "prepared_vortex_state")));
+        assert!(stdout.contains(&field("execution_mode", "prepared_vortex")));
+        assert!(stdout.contains(&field("preparation_included", "true")));
+        assert!(stdout.contains(&field("query_timing_starts_after_preparation", "true")));
+        assert!(stdout.contains(&field("blocker_id", "none")));
+    } else {
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("route_id", "blocked")));
+        let expected_blocker = if cfg!(feature = "vortex-write") {
+            "cg21.route.local_file_vortex_primitive_feature_gated"
+        } else {
+            "cg21.route.local_file_vortex_ingest_feature_gated"
+        };
+        assert!(stdout.contains(&field("blocker_id", expected_blocker)));
+        assert!(stdout.contains(&field("route_support_status", "unsupported_boundary")));
+        assert!(stdout.contains(&field("resolved_internal_command", "not_resolved")));
+        assert!(stdout.contains(&field("underlying_runtime_command", "not_resolved")));
+        assert!(stdout.contains(&field("start_state", "blocked")));
+        assert!(stdout.contains(&field("vortex_normalization_point", "not_applicable")));
+        assert!(stdout.contains(&field("vortex_middle_status", "blocked_or_unsupported")));
+        assert!(stdout.contains(&field("execution_mode", "blocked")));
+        assert!(stdout.contains(&field("preparation_included", "false")));
+        assert!(stdout.contains(&field("query_timing_starts_after_preparation", "false")));
+    }
     assert!(stdout.contains(&field("local_workflow_runtime_profile", "not_applicable")));
     assert!(stdout.contains(&field("surface", "dataframe")));
     assert!(stdout.contains(&field("source_format", "csv")));
-    assert!(stdout.contains(&field("start_state", "blocked")));
-    assert!(stdout.contains(&field("vortex_normalization_point", "not_applicable")));
-    assert!(stdout.contains(&field("vortex_middle_status", "blocked_or_unsupported")));
-    assert!(stdout.contains(&field("execution_mode", "blocked")));
-    assert!(stdout.contains(&field("preparation_included", "false")));
-    assert!(stdout.contains(&field("query_timing_starts_after_preparation", "false")));
     assert!(stdout.contains(&field("runtime_execution", "false")));
     assert!(stdout.contains(&field("source_io_performed", "false")));
     assert!(stdout.contains(&field("output_io_performed", "false")));
@@ -267,7 +293,8 @@ fn public_route_blocks_collect_fanout_before_execution() {
 }
 
 #[test]
-fn public_route_blocks_native_vortex_write_payloads() {
+fn public_route_admits_native_vortex_primitive_row_export_payloads() {
+    let _ = std::fs::remove_file("target/native-vortex-output.jsonl");
     let stdout = run_route(&[
         "route",
         "cli",
@@ -292,17 +319,167 @@ fn public_route_blocks_native_vortex_write_payloads() {
     ]);
 
     assert!(stdout.contains("\"command\":\"route\""));
+    if cfg!(feature = "vortex-local-primitives") {
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("route_id", "native_vortex_primitive_row_export")));
+        assert!(stdout.contains(&field(
+            "resolved_internal_command",
+            "vortex-local-primitive-row-export"
+        )));
+        assert!(stdout.contains(&field("native_vortex_operation_family", "sink")));
+        assert!(stdout.contains(&field(
+            "typed_sink_contract",
+            "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink"
+        )));
+        assert!(stdout.contains(&field(
+            "decode_materialization_boundary",
+            "native_vortex_scan_pushdown_then_selected_column_decode_at_compatibility_sink"
+        )));
+    } else {
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("route_id", "blocked")));
+        assert!(stdout.contains(&field(
+            "blocker_id",
+            "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+        )));
+    }
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "vortex-production-runtime")]
+#[test]
+fn public_route_admits_provider_backed_native_vortex_jsonl_result_sink() {
+    let stdout = run_route(&[
+        "route",
+        "dataframe",
+        "--input",
+        "target/fact.vortex",
+        "--input-format",
+        "vortex",
+        "--plan",
+        "read_vortex(target/fact.vortex) -> with_column(amount_float,CAST(dirty_numeric AS float64)) -> filter(amount_float >= 0) -> limit(1000)",
+        "--request",
+        "write_jsonl",
+        "--execution-policy",
+        "native_vortex",
+        "--output",
+        "target/native-provider-result.jsonl",
+        "--allow-overwrite",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("route_id", "native_vortex_user_sink")));
+    assert!(stdout.contains(&field(
+        "resolved_internal_command",
+        "vortex-production-runtime-run"
+    )));
+    assert!(stdout.contains(&field("requested_output", "write_jsonl")));
+    assert!(stdout.contains(&field("native_vortex_operation_family", "sink")));
+    assert!(stdout.contains(&field(
+        "native_vortex_provider_scenario",
+        "clean-cast-filter-write"
+    )));
+    assert!(stdout.contains(&field(
+        "typed_sink_contract",
+        "native_vortex_provider_result_json_export_with_workspace_safe_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "decode_materialization_boundary",
+        "native_vortex_zero_decode_runtime_with_bounded_result_json_sink_materialization"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_blocks_payloadless_native_vortex_distinct_without_smoke_middle() {
+    let stdout = run_route(&[
+        "route",
+        "dataframe",
+        "--input",
+        "target/fact.vortex",
+        "--input-format",
+        "vortex",
+        "--plan",
+        "read_vortex(target/fact.vortex) -> select(id,group_key) -> distinct() -> limit(10)",
+        "--request",
+        "collect",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
     assert!(stdout.contains("\"status\":\"unsupported\""));
     assert!(stdout.contains(&field("route_id", "blocked")));
     assert!(stdout.contains(&field(
         "blocker_id",
-        "py-vortex-route-unify-1.native_vortex_sink_contract_missing"
+        "py-vortex-route-unify-1.native_vortex_distinct_route_missing"
     )));
-    assert!(stdout.contains(&field("native_vortex_operation_family", "sink")));
+    assert!(stdout.contains(&field("native_vortex_operation_family", "distinct")));
     assert!(stdout.contains(&field(
-        "typed_sink_contract",
-        "blocked_until_native_vortex_typed_sink_contract"
+        "native_vortex_capability_status",
+        "blocked_until_native_route_admitted"
     )));
+    assert!(stdout.contains(&field("resolved_internal_command", "not_resolved")));
+    assert!(stdout.contains(&field("underlying_runtime_command", "not_resolved")));
+    assert!(stdout.contains(&field("runtime_execution", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_admits_payloadless_native_vortex_metadata_profile_without_smoke_middle() {
+    let stdout = run_route(&[
+        "route",
+        "dataframe",
+        "--input",
+        "target/fact.vortex",
+        "--input-format",
+        "vortex",
+        "--plan",
+        "read_vortex(target/fact.vortex)",
+        "--request",
+        "profile",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("route_id", "native_vortex_user_profile")));
+    assert!(stdout.contains(&field("route_status", "admitted")));
+    assert!(stdout.contains(&field(
+        "resolved_internal_command",
+        "vortex-metadata-summary"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_middle_status",
+        "native_vortex_metadata_profile"
+    )));
+    assert!(stdout.contains(&field("native_vortex_operation_family", "profile")));
+    assert!(stdout.contains(&field("native_vortex_capability_status", "supported")));
+    assert!(stdout.contains(&field("native_vortex_required_feature_gate", "default")));
+    assert!(stdout.contains(&field(
+        "typed_result_contract",
+        "metadata_first_native_vortex_profile_summary"
+    )));
+    assert!(stdout.contains(&field(
+        "decode_materialization_boundary",
+        "metadata_only_no_decode_materialization"
+    )));
+    assert!(stdout.contains(&field("runtime_execution", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
@@ -325,34 +502,59 @@ fn public_run_blocks_local_sql_auto_without_vortex_middle() {
         "json",
     ]);
 
-    assert!(!success);
     assert!(stdout.contains("\"command\":\"run\""));
-    assert!(stdout.contains("\"status\":\"unsupported\""));
     assert!(stdout.contains(&field(
         "public_workflow_facade_schema_version",
         "shardloom.public_workflow_execution_facade.v1"
     )));
     assert!(stdout.contains(&field("public_workflow_route_attached", "true")));
-    assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
-    assert!(stdout.contains(&field(
-        "public_workflow_blocker_id",
-        "cg21.route.local_file_vortex_ingest_feature_gated"
-    )));
-    assert!(stdout.contains(&field(
-        "public_workflow_resolved_internal_command",
-        "not_resolved"
-    )));
-    assert!(stdout.contains(&field(
-        "public_workflow_underlying_runtime_command",
-        "not_resolved"
-    )));
+    if cfg!(all(
+        feature = "vortex-write",
+        feature = "vortex-local-primitives"
+    )) {
+        assert!(success);
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("public_workflow_route_id", "native_vortex_project")));
+        assert!(stdout.contains(&field(
+            "public_workflow_resolved_internal_command",
+            "vortex-project"
+        )));
+        assert!(stdout.contains(&field(
+            "public_workflow_local_source_route_id",
+            "local_file_prepare_once_first_query"
+        )));
+        assert!(stdout.contains(&field(
+            "public_workflow_local_source_vortex_ingest_performed",
+            "true"
+        )));
+        assert!(stdout.contains(&field("project_local_execution_status", "executed")));
+        assert!(stdout.contains(&field("project_local_execution_data_decoded", "false")));
+        assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
+        assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
+    } else {
+        assert!(!success);
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
+        assert!(stdout.contains(&field(
+            "public_workflow_blocker_id",
+            "cg21.route.local_file_vortex_ingest_feature_gated"
+        )));
+        assert!(stdout.contains(&field(
+            "public_workflow_resolved_internal_command",
+            "not_resolved"
+        )));
+        assert!(stdout.contains(&field(
+            "public_workflow_underlying_runtime_command",
+            "not_resolved"
+        )));
+        assert!(stdout.contains(&field("runtime_execution", "false")));
+        assert!(stdout.contains(&field("fallback_attempted", "false")));
+        assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    }
     assert!(stdout.contains(&field(
         "public_workflow_local_workflow_runtime_profile",
         "not_applicable"
     )));
-    assert!(stdout.contains(&field("runtime_execution", "false")));
-    assert!(stdout.contains(&field("fallback_attempted", "false")));
-    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
 #[test]
@@ -375,22 +577,40 @@ fn public_run_blocks_extensionless_local_sql_source_but_preserves_declared_forma
         "json",
     ]);
 
-    assert!(!success);
     assert!(stdout.contains("\"command\":\"run\""));
-    assert!(stdout.contains("\"status\":\"unsupported\""));
-    assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
-    assert!(stdout.contains(&field(
-        "public_workflow_blocker_id",
-        "cg21.route.local_file_vortex_ingest_feature_gated"
-    )));
-    assert!(stdout.contains(&field("public_workflow_source_format", "csv")));
-    assert!(stdout.contains(&field("runtime_execution", "false")));
-    assert!(stdout.contains(&field("fallback_attempted", "false")));
-    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    if cfg!(all(
+        feature = "vortex-write",
+        feature = "vortex-local-primitives"
+    )) {
+        assert!(success);
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("public_workflow_route_id", "native_vortex_project")));
+        assert!(stdout.contains(&field(
+            "public_workflow_local_source_vortex_ingest_performed",
+            "true"
+        )));
+        assert!(stdout.contains(&field("project_local_execution_status", "executed")));
+        assert!(stdout.contains(&field("project_local_execution_data_decoded", "false")));
+        assert!(stdout.contains(&field("public_workflow_local_source_format", "csv")));
+        assert!(stdout.contains(&field("public_workflow_fallback_attempted", "false")));
+        assert!(stdout.contains(&field("public_workflow_external_engine_invoked", "false")));
+    } else {
+        assert!(!success);
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
+        assert!(stdout.contains(&field(
+            "public_workflow_blocker_id",
+            "cg21.route.local_file_vortex_ingest_feature_gated"
+        )));
+        assert!(stdout.contains(&field("runtime_execution", "false")));
+        assert!(stdout.contains(&field("public_workflow_source_format", "csv")));
+        assert!(stdout.contains(&field("fallback_attempted", "false")));
+        assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    }
 }
 
 #[test]
-fn public_run_blocks_local_write_without_vortex_middle_but_preserves_intent() {
+fn public_run_executes_local_write_through_prepared_vortex_row_export() {
     let workspace = std::path::Path::new("target/public-workflow-write-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact.csv");
@@ -418,28 +638,54 @@ fn public_run_blocks_local_write_without_vortex_middle_but_preserves_intent() {
         "json",
     ]);
 
-    assert!(!success);
     assert!(stdout.contains("\"command\":\"run\""));
-    assert!(stdout.contains("\"status\":\"unsupported\""));
-    assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
-    assert!(stdout.contains(&field(
-        "public_workflow_blocker_id",
-        "cg21.route.local_file_compatibility_sink_contract_missing"
-    )));
-    assert!(stdout.contains(&field("public_workflow_requested_output", "write_csv")));
-    assert!(stdout.contains(&field("public_workflow_allow_overwrite", "true")));
-    assert!(stdout.contains(&field(
-        "public_workflow_output_ref",
-        output.to_str().expect("utf8 output path")
-    )));
-    assert!(stdout.contains(&field("runtime_execution", "false")));
-    assert!(stdout.contains(&field("output_io_performed", "false")));
+    if cfg!(all(
+        feature = "vortex-write",
+        feature = "vortex-local-primitives"
+    )) {
+        assert!(success, "{stdout}");
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field(
+            "public_workflow_route_id",
+            "native_vortex_primitive_row_export"
+        )));
+        assert!(stdout.contains(&field(
+            "public_workflow_local_source_route_id",
+            "local_file_prepare_once_first_query"
+        )));
+        assert!(stdout.contains(&field(
+            "public_workflow_local_source_vortex_ingest_performed",
+            "true"
+        )));
+        assert!(stdout.contains(&field("public_workflow_requested_output", "write_csv")));
+        assert!(stdout.contains(&field("native_vortex_result_export_format", "csv")));
+        assert!(stdout.contains(&field("native_vortex_result_export_rows_written", "2")));
+        assert!(stdout.contains(&field("native_vortex_result_export_target_count", "1")));
+        assert!(stdout.contains(&field("data_decoded", "true")));
+        assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
+        assert_eq!(
+            std::fs::read_to_string(&output).expect("read csv output"),
+            "id,label\n1,alpha\n2,beta\n"
+        );
+    } else {
+        assert!(!success);
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
+        let expected_blocker = if cfg!(feature = "vortex-write") {
+            "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+        } else {
+            "cg21.route.local_file_vortex_ingest_feature_gated"
+        };
+        assert!(stdout.contains(&field("public_workflow_blocker_id", expected_blocker)));
+        assert!(stdout.contains(&field("runtime_execution", "false")));
+        assert!(stdout.contains(&field("output_io_performed", "false")));
+    }
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
 
 #[test]
-fn public_run_blocks_local_fanout_without_vortex_middle_but_preserves_intent() {
+fn public_run_executes_local_fanout_through_prepared_vortex_row_export() {
     let workspace = std::path::Path::new("target/public-workflow-fanout-facade");
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact.csv");
@@ -472,23 +718,59 @@ fn public_run_blocks_local_fanout_without_vortex_middle_but_preserves_intent() {
         "json",
     ]);
 
-    assert!(!success);
     assert!(stdout.contains("\"command\":\"run\""));
-    assert!(stdout.contains("\"status\":\"unsupported\""));
-    assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
-    assert!(stdout.contains(&field(
-        "public_workflow_resolved_internal_command",
-        "not_resolved"
-    )));
-    assert!(stdout.contains(&field(
-        "public_workflow_underlying_runtime_command",
-        "not_resolved"
-    )));
-    assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));
-    assert!(stdout.contains(&field("public_workflow_fanout_output_count", "1")));
-    assert!(stdout.contains(&field("public_workflow_fanout_outputs", &fanout_arg)));
-    assert!(stdout.contains(&field("runtime_execution", "false")));
-    assert!(stdout.contains(&field("output_io_performed", "false")));
+    if cfg!(all(
+        feature = "vortex-write",
+        feature = "vortex-local-primitives"
+    )) {
+        assert!(success, "{stdout}");
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field(
+            "public_workflow_route_id",
+            "native_vortex_primitive_row_export"
+        )));
+        assert!(stdout.contains(&field("public_workflow_requested_output", "write_jsonl")));
+        assert!(stdout.contains(&field("public_workflow_fanout_output_count", "1")));
+        assert!(stdout.contains(&field("public_workflow_fanout_outputs", &fanout_arg)));
+        assert!(stdout.contains(&field("native_vortex_result_export_target_count", "2")));
+        assert!(stdout.contains(&field("native_vortex_result_export_fanout_count", "1")));
+        assert!(stdout.contains(&field(
+            "native_vortex_result_export_fanout_performed",
+            "true"
+        )));
+        assert!(stdout.contains(&field(
+            "native_vortex_result_export_target_formats",
+            "jsonl,csv"
+        )));
+        assert!(stdout.contains(&field(
+            "native_vortex_result_export_target_rows_written",
+            "2,2"
+        )));
+        assert_eq!(
+            std::fs::read_to_string(&primary).expect("read jsonl output"),
+            "{\"id\":1,\"label\":\"alpha\"}\n{\"id\":2,\"label\":\"beta\"}\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&fanout).expect("read csv fanout"),
+            "id,label\n1,alpha\n2,beta\n"
+        );
+    } else {
+        assert!(!success);
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
+        let expected_blocker = if cfg!(feature = "vortex-write") {
+            "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+        } else {
+            "cg21.route.local_file_vortex_ingest_feature_gated"
+        };
+        assert!(stdout.contains(&field("public_workflow_blocker_id", expected_blocker)));
+        assert!(stdout.contains(&field(
+            "public_workflow_underlying_runtime_command",
+            "not_resolved"
+        )));
+        assert!(stdout.contains(&field("runtime_execution", "false")));
+        assert!(stdout.contains(&field("output_io_performed", "false")));
+    }
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
@@ -1024,6 +1306,7 @@ fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
     std::fs::create_dir_all(workspace).expect("create test workspace");
     let input = workspace.join("fact.csv");
     let output = workspace.join("fact.vortex");
+    let _ = std::fs::remove_file(&output);
     std::fs::write(&input, "id,label\n1,alpha\n2,beta\n").expect("write csv");
     let (_success, stdout) = run_facade(&[
         "prepare",
@@ -1039,21 +1322,41 @@ fn public_prepare_attaches_route_envelope_to_ingest_path_or_gate() {
     ]);
 
     assert!(stdout.contains("\"command\":\"prepare\""));
-    assert!(stdout.contains(&field(
-        "public_workflow_facade_schema_version",
-        "shardloom.public_workflow_execution_facade.v1"
-    )));
-    assert!(stdout.contains(&field("public_workflow_route_attached", "true")));
-    assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
-    assert!(stdout.contains(&field(
-        "public_workflow_blocker_id",
-        "cg21.route.local_file_vortex_ingest_feature_gated"
-    )));
-    assert!(stdout.contains(&field(
-        "public_workflow_resolved_internal_command",
-        "not_resolved"
-    )));
-    assert!(stdout.contains(&field("public_workflow_preparation_included", "false")));
+    if cfg!(feature = "vortex-write") {
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field(
+            "public_workflow_facade_schema_version",
+            "shardloom.public_workflow_execution_facade.v1"
+        )));
+        assert!(stdout.contains(&field("public_workflow_route_attached", "true")));
+        assert!(stdout.contains(&field(
+            "public_workflow_route_id",
+            "local_file_prepare_once"
+        )));
+        assert!(stdout.contains(&field(
+            "public_workflow_resolved_internal_command",
+            "vortex-ingest-smoke"
+        )));
+        assert!(stdout.contains(&field("public_workflow_preparation_included", "true")));
+        assert!(stdout.contains(&field("vortex_ingest_performed", "true")));
+    } else {
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field(
+            "public_workflow_facade_schema_version",
+            "shardloom.public_workflow_execution_facade.v1"
+        )));
+        assert!(stdout.contains(&field("public_workflow_route_attached", "true")));
+        assert!(stdout.contains(&field("public_workflow_route_id", "blocked")));
+        assert!(stdout.contains(&field(
+            "public_workflow_blocker_id",
+            "cg21.route.local_file_vortex_ingest_feature_gated"
+        )));
+        assert!(stdout.contains(&field(
+            "public_workflow_resolved_internal_command",
+            "not_resolved"
+        )));
+        assert!(stdout.contains(&field("public_workflow_preparation_included", "false")));
+    }
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }

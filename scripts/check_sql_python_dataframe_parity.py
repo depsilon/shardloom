@@ -41,11 +41,14 @@ REQUIRED_ADMITTED_ROWS = {
     "generated_source_output",
     "schema_quality_preview",
     "local_vortex_primitive_runtime",
-    "typed_nested_compatibility_sink",
     "decoded_materialization_interop",
 }
 
-REQUIRED_GAP_ROWS = REQUIRED_ROWS - REQUIRED_ADMITTED_ROWS
+REQUIRED_EXPORT_PENDING_ROWS = {
+    "typed_nested_compatibility_sink",
+}
+
+REQUIRED_GAP_ROWS = REQUIRED_ROWS - REQUIRED_ADMITTED_ROWS - REQUIRED_EXPORT_PENDING_ROWS
 ADMITTED_RUNTIME_GAP_STATUS = "admitted_scope"
 PRECISE_RUNTIME_GAP_STATUSES = {
     "front_door_connection_pending",
@@ -269,6 +272,21 @@ def validate_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]]:
                 blockers.append(f"{row_id}: admitted row must avoid benchmarked performance claim")
             if row["blocker_id"] is not None:
                 blockers.append(f"{row_id}: admitted scoped row must not carry blocker_id")
+        if row_id in REQUIRED_EXPORT_PENDING_ROWS:
+            if row["parity_status"] != "deterministic_blocker_until_native_export_contract":
+                blockers.append(
+                    f"{row_id}: export-pending row must use native export blocker parity"
+                )
+            if row["runtime_gap_status"] != "native_compatibility_export_contract_missing":
+                blockers.append(
+                    f"{row_id}: export-pending row must use native compatibility export gap"
+                )
+            if row["runtime_execution"] is not False:
+                blockers.append(f"{row_id}: export-pending row must have runtime_execution=false")
+            if row["write_io"] is not False:
+                blockers.append(f"{row_id}: export-pending row must have write_io=false")
+            if not row["blocker_id"]:
+                blockers.append(f"{row_id}: export-pending row must name blocker_id")
         if row_id in REQUIRED_GAP_ROWS:
             if row["parity_status"] != "front_door_gap":
                 blockers.append(f"{row_id}: gap row must be front_door_gap")

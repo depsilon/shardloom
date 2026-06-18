@@ -4,7 +4,7 @@
 //! comparison-only baselines and must not become fallback execution paths.
 
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::ExitCode,
     time::{Duration, Instant},
 };
@@ -28,6 +28,125 @@ use crate::{
 };
 
 const TRADITIONAL_ANALYTICS_RUN_USAGE: &str = "usage: shardloom traditional-analytics-run <scenario> <fact_input> <dim_input> [--workspace <dir>] [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <csv>] [--compat-output-format csv|jsonl|parquet|arrow-ipc|avro|orc] [--verify-native-replay] [--write-result-vortex] [--preserve-all-text-columns-for-reuse] [--execution-mode auto|compatibility_import_certified|direct_compatibility_transient] [--memory-gb <cap>] [--max-parallelism <cap>]";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NativeVortexResultExportFormat {
+    Jsonl,
+    Csv,
+}
+
+impl NativeVortexResultExportFormat {
+    fn parse(value: &str) -> Result<Self, ShardLoomError> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "jsonl" | "json-lines" | "ndjson" => Ok(Self::Jsonl),
+            "csv" => Ok(Self::Csv),
+            other => Err(ShardLoomError::InvalidOperation(format!(
+                "native Vortex result export format {other:?} is unsupported; use jsonl or csv; fallback execution was not attempted"
+            ))),
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Jsonl => "jsonl",
+            Self::Csv => "csv",
+        }
+    }
+
+    const fn materialization_boundary(self) -> &'static str {
+        match self {
+            Self::Jsonl => "native_vortex_result_json_to_jsonl_sink",
+            Self::Csv => "native_vortex_result_json_to_csv_sink",
+        }
+    }
+
+    fn render(self, result_json: &str) -> Vec<u8> {
+        match self {
+            Self::Jsonl => {
+                let mut content = String::with_capacity(result_json.len() + 1);
+                content.push_str(result_json);
+                content.push('\n');
+                content.into_bytes()
+            }
+            Self::Csv => {
+                let escaped = result_json.replace('"', "\"\"");
+                format!("result_json\n\"{escaped}\"\n").into_bytes()
+            }
+        }
+    }
+}
+
+fn write_native_vortex_result_export(
+    output_path: &Path,
+    output_format: NativeVortexResultExportFormat,
+    allow_overwrite: bool,
+    result_json: &str,
+) -> shardloom_core::Result<Vec<(String, String)>> {
+    let workspace_root = shardloom_core::infer_local_output_workspace_root(output_path)?;
+    let content = output_format.render(result_json);
+    let report = shardloom_core::write_workspace_safe_bytes(
+        workspace_root,
+        output_path,
+        allow_overwrite,
+        format!("native Vortex result {} export", output_format.as_str()),
+        &content,
+    )?;
+    let mut fields = vec![
+        (
+            "native_vortex_result_export_performed".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "native_vortex_result_export_format".to_string(),
+            output_format.as_str().to_string(),
+        ),
+        (
+            "native_vortex_result_export_path".to_string(),
+            output_path.display().to_string(),
+        ),
+        (
+            "native_vortex_result_export_materialization_boundary".to_string(),
+            output_format.materialization_boundary().to_string(),
+        ),
+        (
+            "native_vortex_result_export_rows_written".to_string(),
+            "1".to_string(),
+        ),
+        (
+            "native_vortex_result_export_source".to_string(),
+            "provider_result_json_after_native_vortex_execution".to_string(),
+        ),
+        (
+            "native_vortex_result_export_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "native_vortex_result_export_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+    ];
+    fields.extend(report.evidence_fields("native_vortex_result_export"));
+    Ok(fields)
+}
+
+fn parse_native_vortex_result_fanout(
+    value: &str,
+) -> shardloom_core::Result<(PathBuf, NativeVortexResultExportFormat)> {
+    let Some((format, path)) = value.split_once('=') else {
+        return Err(ShardLoomError::InvalidOperation(
+            "native Vortex result fanout output must use format=path syntax; fallback execution was not attempted"
+                .to_string(),
+        ));
+    };
+    let output_format = NativeVortexResultExportFormat::parse(format)?;
+    if path.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "native Vortex result fanout output path must not be empty; fallback execution was not attempted"
+                .to_string(),
+        ));
+    }
+    Ok((PathBuf::from(path), output_format))
+}
 
 fn upsert_report_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
     if let Some((_, existing)) = fields.iter_mut().find(|(field, _)| field == key) {
@@ -519,7 +638,7 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
     extra_fields: Vec<(String, String)>,
 ) -> ExitCode {
     let usage = format!(
-        "usage: shardloom {emit_command} <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
+        "usage: shardloom {emit_command} <scenario> <fact_vortex> <dim_vortex> [--cdc-delta-vortex <path>] [--workspace <dir>] [--write-result-vortex] [--result-output <path>] [--result-output-format jsonl|csv] [--allow-overwrite] [--execution-mode auto|native_vortex|prepared_vortex] [--memory-gb <cap>] [--max-parallelism <cap>]"
     );
     let Some(scenario_text) = args.next() else {
         eprintln!("{usage}");
@@ -537,6 +656,10 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
     let mut workspace_dir: Option<PathBuf> = None;
     let mut cdc_delta_vortex: Option<PathBuf> = None;
     let mut write_result_vortex = false;
+    let mut result_output: Option<PathBuf> = None;
+    let mut result_output_format: Option<NativeVortexResultExportFormat> = None;
+    let mut result_fanout_outputs = Vec::<(PathBuf, NativeVortexResultExportFormat)>::new();
+    let mut result_output_allow_overwrite = false;
     let mut memory_gb: Option<u32> = None;
     let mut max_parallelism: Option<usize> = None;
     while let Some(arg) = args.next() {
@@ -557,6 +680,52 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
             }
             "--write-result-vortex" => {
                 write_result_vortex = true;
+            }
+            "--result-output" => {
+                let Some(path) = args.next() else {
+                    eprintln!("usage: shardloom {emit_command} ... --result-output <path>");
+                    return ExitCode::from(2);
+                };
+                result_output = Some(PathBuf::from(path));
+            }
+            "--result-output-format" => {
+                let Some(value) = args.next() else {
+                    eprintln!(
+                        "usage: shardloom {emit_command} ... --result-output-format jsonl|csv"
+                    );
+                    return ExitCode::from(2);
+                };
+                match NativeVortexResultExportFormat::parse(&value) {
+                    Ok(parsed) => result_output_format = Some(parsed),
+                    Err(error) => {
+                        return emit_error(
+                            emit_command,
+                            format,
+                            "native Vortex provider runtime failed",
+                            &error,
+                        );
+                    }
+                }
+            }
+            "--fanout-output" => {
+                let Some(value) = args.next() else {
+                    eprintln!("usage: shardloom {emit_command} ... --fanout-output format=path");
+                    return ExitCode::from(2);
+                };
+                match parse_native_vortex_result_fanout(&value) {
+                    Ok(parsed) => result_fanout_outputs.push(parsed),
+                    Err(error) => {
+                        return emit_error(
+                            emit_command,
+                            format,
+                            "native Vortex result export failed",
+                            &error,
+                        );
+                    }
+                }
+            }
+            "--allow-overwrite" => {
+                result_output_allow_overwrite = true;
             }
             "--execution-mode" => {
                 let Some(value) = args.next() else {
@@ -679,11 +848,99 @@ pub(crate) fn handle_traditional_analytics_vortex_run_with_facade(
             );
         }
     };
+    let mut result_export_fields = match (result_output.as_ref(), result_output_format) {
+        (Some(path), Some(output_format)) => match write_native_vortex_result_export(
+            path,
+            output_format,
+            result_output_allow_overwrite,
+            &report.result_json,
+        ) {
+            Ok(fields) => fields,
+            Err(error) => {
+                return emit_error(
+                    emit_command,
+                    format,
+                    "native Vortex result export failed",
+                    &error,
+                );
+            }
+        },
+        (Some(_), None) => {
+            return emit_error(
+                emit_command,
+                format,
+                "native Vortex result export failed",
+                &ShardLoomError::InvalidOperation(
+                    "--result-output requires --result-output-format jsonl|csv; fallback execution was not attempted".to_string(),
+                ),
+            );
+        }
+        (None, Some(_)) => {
+            return emit_error(
+                emit_command,
+                format,
+                "native Vortex result export failed",
+                &ShardLoomError::InvalidOperation(
+                    "--result-output-format requires --result-output <path>; fallback execution was not attempted".to_string(),
+                ),
+            );
+        }
+        (None, None) => Vec::new(),
+    };
+    if !result_fanout_outputs.is_empty() {
+        let mut fanout_formats = Vec::with_capacity(result_fanout_outputs.len());
+        let mut fanout_paths = Vec::with_capacity(result_fanout_outputs.len());
+        for (index, (path, output_format)) in result_fanout_outputs.iter().enumerate() {
+            let fields = match write_native_vortex_result_export(
+                path,
+                *output_format,
+                result_output_allow_overwrite,
+                &report.result_json,
+            ) {
+                Ok(fields) => fields,
+                Err(error) => {
+                    return emit_error(
+                        emit_command,
+                        format,
+                        "native Vortex result fanout export failed",
+                        &error,
+                    );
+                }
+            };
+            fanout_formats.push(output_format.as_str());
+            fanout_paths.push(path.display().to_string());
+            for (key, value) in fields {
+                result_export_fields.push((
+                    format!("native_vortex_result_export_fanout_{index}_{key}"),
+                    value,
+                ));
+            }
+        }
+        result_export_fields.extend([
+            (
+                "native_vortex_result_export_fanout_performed".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "native_vortex_result_export_fanout_count".to_string(),
+                result_fanout_outputs.len().to_string(),
+            ),
+            (
+                "native_vortex_result_export_fanout_formats".to_string(),
+                fanout_formats.join(","),
+            ),
+            (
+                "native_vortex_result_export_fanout_paths".to_string(),
+                fanout_paths.join(","),
+            ),
+        ]);
+    }
     let human_render_start = Instant::now();
     let human_text = report.to_human_text();
     let human_render_elapsed = human_render_start.elapsed();
     let report_fields_start = Instant::now();
     let mut fields = report.fields();
+    fields.extend(result_export_fields);
     fields.extend(extra_fields);
     let report_fields_elapsed = report_fields_start.elapsed();
     record_evidence_render_timing(&mut fields, human_render_elapsed, report_fields_elapsed);

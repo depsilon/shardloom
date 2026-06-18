@@ -24,7 +24,7 @@ MATRIX_SCHEMA_VERSION = "shardloom.v1_correctness_conformance_matrix.v1"
 GATE_ID = "prod-v1-2b.correctness_conformance"
 DEFAULT_MATRIX = Path("docs/release/v1-correctness-conformance-matrix.json")
 
-EXPECTED_FRONT_DOOR_SUPPORTED_ROWS = 7
+EXPECTED_FRONT_DOOR_SUPPORTED_ROWS = 6
 EXPECTED_FRONT_DOOR_PENDING_ROWS = 4
 EXPECTED_EXAMPLE_SCENARIOS = {
     "selective_filter",
