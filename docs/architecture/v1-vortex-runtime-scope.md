@@ -112,7 +112,7 @@ families:
 | Cast/try-cast shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_cast_route_missing` |
 | Substring contains shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_contains_route_missing` |
 | Row-level distinct/deduplication outside no-argument scalar/bool/UTF-8 primitive shapes, such as subset/keep variants, nested equality, nullable equality, or broad SQL/DataFrame distinct semantics | `py-vortex-route-unify-1.native_vortex_distinct_route_missing` |
-| Sampling outside deterministic bounded `sample(n=..., seed=...)`, such as fraction-based, weighted, pandas random-state parity, or unbounded sampling | `py-vortex-route-unify-1.native_vortex_sample_route_missing` |
+| Sampling outside deterministic bounded `sample(n=..., seed=...|random_state=<int>, replace=False)`, such as fraction-based, weighted, replacement, pandas RNG-object parity, or unbounded sampling | `cg21.workflow.sample.variant_not_admitted` |
 | Provider-result compatibility sink outside JSONL/CSV | `py-vortex-route-unify-1.native_vortex_sink_format_missing` |
 | Primitive row-stream sink outside JSONL/CSV/fanout contract, invalid fanout payload, duplicate output, or unsafe output path | `py-vortex-route-unify-1.native_vortex_sink_format_missing`, `py-vortex-route-unify-1.native_vortex_fanout_payload_invalid`, `py-vortex-route-unify-1.native_vortex_fanout_sink_format_missing`, `py-vortex-route-unify-1.native_vortex_fanout_duplicate_output`, `py-vortex-route-unify-1.native_vortex_row_export_output_path_unsafe` |
 
@@ -133,7 +133,7 @@ The scoped local primitive report admits these route ids:
 | `vortex_filter_project_limit_collect` | Filter and project supported columns with source-order limit. | Yes |
 | `native_vortex_distinct` | Materialize no-argument row-level distinct/deduplication over supported scalar/bool/UTF-8 row streams with optional filter/projection and explicit decode/materialization evidence. | Yes |
 | `vortex_tail_collect` | Materialize bounded source-order tail over supported scalar/bool/UTF-8 row streams with optional projection and explicit decode/materialization evidence. | Yes |
-| `vortex_sample_collect` | Materialize deterministic bounded `sample(n=..., seed=...)` over supported scalar/bool/UTF-8 row streams with optional filter/projection and explicit decode/materialization evidence. | Yes |
+| `vortex_sample_collect` | Materialize deterministic bounded `sample(n=..., seed=...|random_state=<int>, replace=False)` over supported scalar/bool/UTF-8 row streams with optional filter/projection and explicit decode/materialization evidence. | Yes |
 | `native_vortex_primitive_row_export` | Write filter/project/filter-project/distinct/tail/sample row streams to JSONL/CSV, including JSONL+CSV fanout. | Yes |
 
 Each route must expose SQL, Python, DataFrame-style, context, session, and CLI surfaces. Each route

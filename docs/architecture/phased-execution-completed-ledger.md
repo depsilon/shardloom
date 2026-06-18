@@ -46071,6 +46071,24 @@ the current queue; promote any actionable unfinished work into Planned before im
       non-JSONL/CSV row-stream compatibility exports, external object-store/table/Foundry
       production environments, benchmark superiority claims, and external-engine fallback remain
       blocked unless future phase items add real ShardLoom/Vortex-native evidence.
+- [x] PY-VORTEX-LOCAL-EXPORT-DISTINCT-CLOSEOUT-1 retired the locally solvable Python front-door
+      runtime blockers for row-level distinct and Vortex-derived JSONL/CSV compatibility exports.
+      No-argument `distinct()`, `drop_duplicates()`, and `unique()` now use the native/prepared
+      Vortex materializing primitive path for admitted projected/filter/project shapes, with
+      explicit row decode/materialization evidence and no external engine invocation. Public
+      local-source `write_jsonl`, `write_csv`, `write(...)` when it resolves to JSONL/CSV/Vortex,
+      and JSONL+CSV `fanout` now normalize through prepared/native Vortex and export through either
+      provider-backed result summaries or `native_vortex_primitive_row_export`; unsafe formats,
+      duplicate fanout paths, and computed typed-nested structured sinks retain deterministic
+      blockers. Capability reports, README/Python README, user-surface index, v1 front-door/Vortex
+      scope docs, generated runs-today status, and supported/unsupported docs now distinguish
+      production-admitted local workflow routes, scoped runtime support, internal smoke-only
+      safeguards, feature gates, and deterministic blockers. Validation landed in PR #1297 with
+      green CI, including Rust baseline format/clippy/tests, feature matrix lanes, Python shards,
+      website/docs validation, release runtime/user-surface/package/readiness evidence, CodeQL, and
+      Cloudflare Workers build checks. Arbitrary pandas/SQL parity, Python callable UDFs/effects,
+      object-store/table production output, broad structured compatibility sinks, benchmark
+      superiority claims, and external-engine fallback remain gated.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project
   encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind

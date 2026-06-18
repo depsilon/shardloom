@@ -4348,16 +4348,38 @@ class LazyFrame:
         fraction: float | None = None,
         seed: int | None = None,
         *,
+        frac: float | None = None,
+        random_state: int | None = None,
+        weights: object | None = None,
+        replace: bool = False,
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped deterministic bounded sample over admitted Vortex-backed rows."""
 
-        target_ref = _normalize_sample_target(n=n, fraction=fraction, seed=seed)
-        if fraction is not None:
+        effective_fraction = _normalize_sample_fraction_alias(
+            fraction=fraction,
+            frac=frac,
+        )
+        effective_seed = _normalize_sample_seed_alias(
+            seed=seed,
+            random_state=random_state,
+        )
+        target_ref = _normalize_sample_target(
+            n=n,
+            fraction=effective_fraction,
+            seed=effective_seed,
+            weights=weights,
+            replace=replace,
+        )
+        if weights is not None or effective_fraction is not None or replace is not False:
             return self._unsupported_operation("sample", target_ref, check=check)
         sample_n = 1 if n is None else _normalize_non_negative_int("sample n", n)
         _validate_positive_row_count("sample n", sample_n)
-        sample_seed = 0 if seed is None else _normalize_non_negative_int("sample seed", seed)
+        sample_seed = (
+            0
+            if effective_seed is None
+            else _normalize_non_negative_int("sample seed", effective_seed)
+        )
         return self._append(WorkflowOperation("sample", (str(sample_n), str(sample_seed))))
 
     def explode(
@@ -9904,9 +9926,13 @@ def _normalize_sample_target(
     n: int | None,
     fraction: float | None,
     seed: int | None,
+    weights: object | None = None,
+    replace: bool = False,
 ) -> str:
     if n is not None and fraction is not None:
         raise ValueError("sample accepts either n or fraction, not both")
+    if not isinstance(replace, bool):
+        raise TypeError("sample replace must be boolean")
     parts: list[str] = []
     if fraction is None:
         sample_n = 1 if n is None else _normalize_non_negative_int("sample n", n)
@@ -9920,7 +9946,40 @@ def _normalize_sample_target(
         parts.append(f"fraction={fraction_value:.12g}")
     if seed is not None:
         parts.append(f"seed={_normalize_non_negative_int('sample seed', seed)}")
+    if weights is not None:
+        parts.append(f"weights={_stable_target_value(weights)}")
+    if replace:
+        parts.append("replace=true")
     return ",".join(parts)
+
+
+def _normalize_sample_fraction_alias(
+    *,
+    fraction: float | None,
+    frac: float | None,
+) -> float | None:
+    if fraction is not None and frac is not None:
+        raise ValueError("sample accepts either fraction or frac, not both")
+    return fraction if fraction is not None else frac
+
+
+def _normalize_sample_seed_alias(
+    *,
+    seed: int | None,
+    random_state: int | None,
+) -> int | None:
+    if seed is None:
+        return random_state
+    if random_state is None:
+        return seed
+    normalized_seed = _normalize_non_negative_int("sample seed", seed)
+    normalized_random_state = _normalize_non_negative_int(
+        "sample random_state",
+        random_state,
+    )
+    if normalized_seed != normalized_random_state:
+        raise ValueError("sample seed and random_state must match when both are provided")
+    return normalized_seed
 
 
 def _normalize_merge_target(

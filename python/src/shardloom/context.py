@@ -3938,11 +3938,12 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped `sample(n=..., seed=...)` lowers local compatibility sources through prepared "
-            "Vortex or native Vortex input, then applies deterministic ShardLoom seeded row "
-            "selection at an explicit bounded materialization boundary. Fraction-based sampling, "
-            "unbounded sampling, weighted sampling, pandas random-state parity, and performance "
-            "claims remain outside this route and fail closed."
+            "Scoped `sample(n=..., seed=...)` and `sample(n=..., random_state=<int>, "
+            "replace=False)` lower local compatibility sources through prepared Vortex or native "
+            "Vortex input, then apply deterministic ShardLoom seeded row selection without "
+            "replacement at an explicit bounded materialization boundary. Fraction-based sampling, "
+            "unbounded sampling, weighted sampling, replacement sampling, pandas RNG object parity, "
+            "and performance claims remain outside this route and fail closed."
         ),
     ),
     _df_method(
