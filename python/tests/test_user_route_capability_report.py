@@ -135,6 +135,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
                 "vortex-filter",
                 "vortex-project",
                 "vortex-filter-project",
+                "public-workflow run",
             },
         )
 
@@ -258,6 +259,8 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         }
         self.assertIn("vortex_count_all", primitive_rows)
         self.assertIn("vortex_filter_project_limit_collect", primitive_rows)
+        self.assertIn("vortex_tail_collect", primitive_rows)
+        self.assertIn("vortex_sample_collect", primitive_rows)
         self.assertEqual(
             primitive_rows["vortex_count_all"]["vortex_normalization_point"],
             "native_vortex_boundary",
@@ -420,6 +423,14 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         )
         self.assertIn(
             "vortex_select_star_limit_collect",
+            primitives.source_order_limit_route_ids,
+        )
+        self.assertIn(
+            "vortex_tail_collect",
+            primitives.source_order_limit_route_ids,
+        )
+        self.assertIn(
+            "vortex_sample_collect",
             primitives.source_order_limit_route_ids,
         )
         local_file_routes = ShardLoomContext(

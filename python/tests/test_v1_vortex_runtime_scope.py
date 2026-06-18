@@ -38,7 +38,7 @@ class V1VortexRuntimeScopeTests(unittest.TestCase):
             report["schema_version"],
             "shardloom.v1_vortex_runtime_scope_report.v1",
         )
-        self.assertEqual(report["local_vortex_primitive_route_count"], 9)
+        self.assertEqual(report["local_vortex_primitive_route_count"], 11)
         self.assertEqual(report["native_vortex_provider_route_count"], 8)
         self.assertEqual(report["local_file_benchmark_route_count"], 15)
         self.assertTrue(report["local_vortex_primitive_v1_scope_ready"])
@@ -79,7 +79,7 @@ class V1VortexRuntimeScopeTests(unittest.TestCase):
         self.assertTrue(primitive_report.v1_scope_ready)
         self.assertTrue(provider_report.v1_scope_ready)
         self.assertTrue(user_report.v1_vortex_scope_ready)
-        self.assertEqual(len(primitive_report.v1_supported_route_ids), 9)
+        self.assertEqual(len(primitive_report.v1_supported_route_ids), 11)
         self.assertEqual(len(provider_report.rows), 8)
         self.assertEqual(
             provider_report.v1_provider_route_ids,

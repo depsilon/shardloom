@@ -3437,6 +3437,10 @@ class _VortexPrimitiveWorkflowShape:
     predicate: str | None = None
     columns: tuple[str, ...] | None = None
     limit: int | None = None
+    distinct: bool = False
+    tail_limit: int | None = None
+    sample_count: int | None = None
+    sample_seed: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -3520,7 +3524,19 @@ def _native_vortex_operation_family_for_primitive(primitive: str) -> str:
     normalized = primitive.strip().lower().replace("-", "_")
     if normalized in {"count", "count_where", "filter_count", "filtered_count"}:
         return "count"
+    if normalized in {"distinct", "distinct_rows", "drop_duplicates", "unique"}:
+        return "distinct"
+    if normalized in {"tail", "tail_rows", "source_order_tail"}:
+        return "top_n"
+    if normalized in {"sample", "sample_rows", "deterministic_sample"}:
+        return "sample"
     return "filter_project_limit"
+
+
+def _strip_index_metadata_operations(
+    operations: Sequence[WorkflowOperation],
+) -> tuple[WorkflowOperation, ...]:
+    return tuple(operation for operation in operations if operation.kind != "set_index")
 
 
 def _sql_native_vortex_public_workflow_kwargs(
@@ -3606,12 +3622,26 @@ def _native_vortex_row_export_payload_from_primitive_shape(
         return None
     predicate = getattr(shape, "predicate", None)
     columns = getattr(shape, "columns", None)
-    if predicate and columns:
+    sample_count = getattr(shape, "sample_count", None)
+    tail_limit = getattr(shape, "tail_limit", None)
+    if sample_count is not None:
+        primitive = "sample"
+        source_order_limit = sample_count
+    elif tail_limit is not None:
+        primitive = "tail"
+        source_order_limit = tail_limit
+    elif getattr(shape, "distinct", False):
+        primitive = "distinct"
+        source_order_limit = getattr(shape, "limit", None)
+    elif predicate and columns:
         primitive = "filter_project"
+        source_order_limit = getattr(shape, "limit", None)
     elif predicate:
         primitive = "filter"
+        source_order_limit = getattr(shape, "limit", None)
     elif columns:
         primitive = "project"
+        source_order_limit = getattr(shape, "limit", None)
     else:
         return None
     return {
@@ -3619,7 +3649,8 @@ def _native_vortex_row_export_payload_from_primitive_shape(
         "vortex_primitive": primitive,
         "vortex_predicate": predicate,
         "vortex_columns": columns,
-        "vortex_source_order_limit": getattr(shape, "limit", None),
+        "vortex_source_order_limit": source_order_limit,
+        "vortex_sample_seed": getattr(shape, "sample_seed", None),
     }
 
 
@@ -4318,11 +4349,16 @@ class LazyFrame:
         seed: int | None = None,
         *,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for sampling semantics."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped deterministic bounded sample over admitted Vortex-backed rows."""
 
         target_ref = _normalize_sample_target(n=n, fraction=fraction, seed=seed)
-        return self._unsupported_operation("sample", target_ref, check=check)
+        if fraction is not None:
+            return self._unsupported_operation("sample", target_ref, check=check)
+        sample_n = 1 if n is None else _normalize_non_negative_int("sample n", n)
+        _validate_positive_row_count("sample n", sample_n)
+        sample_seed = 0 if seed is None else _normalize_non_negative_int("sample seed", seed)
+        return self._append(WorkflowOperation("sample", (str(sample_n), str(sample_seed))))
 
     def explode(
         self,
@@ -4498,21 +4534,31 @@ class LazyFrame:
         limit: int = 20,
         *,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for source-order tail materialization."""
+    ) -> "LazyFrame":
+        """Return a lazy source-order tail window over admitted Vortex-backed rows."""
 
         _validate_positive_row_count("tail limit", limit)
-        return self._unsupported_operation("tail", str(limit), check=check)
+        return self._append(WorkflowOperation("tail", (str(limit),)))
 
     def describe(
         self,
         *columns: object,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for pandas-style summary statistics."""
+    ) -> (
+        WorkflowProfileReport
+        | VortexWorkflowExecutionReport
+        | UnsupportedWorkflowOperationReport
+    ):
+        """Return a metadata-first profile for admitted local/Vortex columns."""
 
         target_ref = _normalize_describe_target(columns, kwargs)
+        if not kwargs:
+            normalized_columns = _normalize_columns(columns)
+            if not normalized_columns:
+                return self.profile(check=check)
+            if all(_is_sql_identifier(column) for column in normalized_columns):
+                return self.select(*normalized_columns).profile(check=check)
         return self._unsupported_operation("describe", target_ref, check=check)
 
     def nunique(
@@ -4954,12 +5000,21 @@ class LazyFrame:
         self,
         keys: object,
         *,
+        drop: bool = True,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for DataFrame index-state semantics."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Attach scoped index-state metadata without changing encoded row data."""
 
-        target_ref = _normalize_index_target("set_index", keys=keys, kwargs=kwargs)
+        target_ref = _normalize_index_target(
+            "set_index",
+            keys=keys,
+            drop=drop,
+            kwargs=kwargs,
+        )
+        index_columns = _normalize_index_columns(keys)
+        if drop is False and not kwargs:
+            return self._append(WorkflowOperation("set_index", index_columns))
         return self._unsupported_operation("set-index", target_ref, check=check)
 
     def reset_index(
@@ -4967,9 +5022,11 @@ class LazyFrame:
         *,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for DataFrame index reset semantics."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Drop non-existent DataFrame index state without changing the ShardLoom plan."""
 
+        if kwargs == {"drop": True}:
+            return self
         target_ref = _normalize_index_target("reset_index", keys=None, kwargs=kwargs)
         return self._unsupported_operation("reset-index", target_ref, check=check)
 
@@ -4979,9 +5036,11 @@ class LazyFrame:
         ascending: bool = True,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for DataFrame index ordering semantics."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Preserve source order when no explicit DataFrame index state exists."""
 
+        if ascending is True and not kwargs and not _workflow_has_index_metadata(self.operations):
+            return self
         target_ref = _normalize_sort_index_target(ascending=ascending, kwargs=kwargs)
         return self._unsupported_operation("sort-index", target_ref, check=check)
 
@@ -5099,7 +5158,11 @@ class LazyFrame:
         primitive_shape = self._vortex_primitive_shape()
         if primitive_shape is not None:
             primitive: str | None = None
-            if primitive_shape.predicate and primitive_shape.columns:
+            if primitive_shape.sample_count is not None:
+                primitive = "sample"
+            elif primitive_shape.tail_limit is not None:
+                primitive = "tail"
+            elif primitive_shape.predicate and primitive_shape.columns:
                 primitive = "filter_project"
             elif primitive_shape.predicate:
                 primitive = "filter"
@@ -5113,7 +5176,14 @@ class LazyFrame:
                     "vortex_primitive": primitive,
                     "vortex_predicate": primitive_shape.predicate,
                     "vortex_columns": primitive_shape.columns,
-                    "vortex_source_order_limit": primitive_shape.limit,
+                    "vortex_source_order_limit": (
+                        primitive_shape.sample_count
+                        if primitive_shape.sample_count is not None
+                        else primitive_shape.tail_limit
+                        if primitive_shape.tail_limit is not None
+                        else primitive_shape.limit
+                    ),
+                    "vortex_sample_seed": primitive_shape.sample_seed,
                 }
         provider_shape = self._native_vortex_user_route_shape()
         if provider_shape is None:
@@ -6895,12 +6965,46 @@ class LazyFrame:
         memory_gb = _normalize_positive_int("memory_gb", memory_gb)
         max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
         envelope: OutputEnvelope | None = None
-        if shape.predicate and shape.columns:
+        if shape.sample_count is not None:
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="sample",
+                predicate=shape.predicate,
+                columns=shape.columns,
+                source_order_limit=shape.sample_count,
+                sample_seed=shape.sample_seed,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.tail_limit is not None:
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="tail",
+                predicate=None,
+                columns=shape.columns,
+                source_order_limit=shape.tail_limit,
+                sample_seed=None,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.distinct:
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="distinct",
+                predicate=shape.predicate,
+                columns=shape.columns,
+                source_order_limit=shape.limit,
+                sample_seed=None,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.predicate and shape.columns:
             envelope = self._run_vortex_primitive_public_workflow(
                 primitive="filter_project",
                 predicate=shape.predicate,
                 columns=shape.columns,
                 source_order_limit=shape.limit,
+                sample_seed=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -6911,6 +7015,7 @@ class LazyFrame:
                 predicate=shape.predicate,
                 columns=None,
                 source_order_limit=shape.limit,
+                sample_seed=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -6921,6 +7026,7 @@ class LazyFrame:
                 predicate=None,
                 columns=shape.columns,
                 source_order_limit=shape.limit,
+                sample_seed=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -6941,7 +7047,14 @@ class LazyFrame:
         max_parallelism: int,
     ) -> VortexWorkflowExecutionReport | None:
         shape = self._vortex_primitive_shape()
-        if shape is None or shape.columns is not None or shape.limit is not None:
+        if (
+            shape is None
+            or shape.columns is not None
+            or shape.limit is not None
+            or shape.distinct
+            or shape.tail_limit is not None
+            or shape.sample_count is not None
+        ):
             return None
         memory_gb = _normalize_positive_int("memory_gb", memory_gb)
         max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
@@ -6951,6 +7064,7 @@ class LazyFrame:
                 predicate=shape.predicate,
                 columns=None,
                 source_order_limit=None,
+                sample_seed=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -6961,6 +7075,7 @@ class LazyFrame:
                 predicate=None,
                 columns=None,
                 source_order_limit=None,
+                sample_seed=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7099,6 +7214,7 @@ class LazyFrame:
         predicate: str | None,
         columns: Sequence[str] | None,
         source_order_limit: int | None,
+        sample_seed: int | None,
         memory_gb: int,
         max_parallelism: int,
         check: bool,
@@ -7120,6 +7236,7 @@ class LazyFrame:
             vortex_predicate=predicate,
             vortex_columns=columns,
             vortex_source_order_limit=source_order_limit,
+            vortex_sample_seed=sample_seed,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
             check=check,
@@ -7131,9 +7248,21 @@ class LazyFrame:
         predicate: str | None = None
         columns: tuple[str, ...] | None = None
         limit: int | None = None
+        distinct = False
+        tail_limit: int | None = None
+        sample_count: int | None = None
+        sample_seed: int | None = None
         for operation in self.operations:
+            if operation.kind == "set_index":
+                continue
             if operation.kind == "filter":
-                if predicate is not None or limit is not None:
+                if (
+                    predicate is not None
+                    or limit is not None
+                    or distinct
+                    or tail_limit is not None
+                    or sample_count is not None
+                ):
                     return None
                 if _sql_filter_requires_native_vortex_expression_route(operation.values[0]):
                     return None
@@ -7141,11 +7270,58 @@ class LazyFrame:
                 if predicate is None:
                     return None
             elif operation.kind == "select":
-                if columns is not None or limit is not None:
+                if (
+                    columns is not None
+                    or limit is not None
+                    or distinct
+                    or tail_limit is not None
+                    or sample_count is not None
+                ):
+                    return None
+                if any(
+                    column != "*" and not _is_sql_identifier(column)
+                    for column in operation.values
+                ):
                     return None
                 columns = operation.values
+            elif operation.kind == "distinct":
+                if (
+                    distinct
+                    or limit is not None
+                    or tail_limit is not None
+                    or sample_count is not None
+                ):
+                    return None
+                distinct = True
+            elif operation.kind == "tail":
+                if (
+                    predicate is not None
+                    or limit is not None
+                    or distinct
+                    or tail_limit is not None
+                    or sample_count is not None
+                ):
+                    return None
+                parsed_tail = int(operation.values[0])
+                if parsed_tail <= 0:
+                    return None
+                tail_limit = parsed_tail
+            elif operation.kind == "sample":
+                if (
+                    limit is not None
+                    or distinct
+                    or tail_limit is not None
+                    or sample_count is not None
+                ):
+                    return None
+                parsed_sample = int(operation.values[0])
+                parsed_seed = int(operation.values[1]) if len(operation.values) > 1 else 0
+                if parsed_sample <= 0 or parsed_seed < 0:
+                    return None
+                sample_count = parsed_sample
+                sample_seed = parsed_seed
             elif operation.kind == "limit":
-                if limit is not None:
+                if limit is not None or tail_limit is not None or sample_count is not None:
                     return None
                 parsed_limit = int(operation.values[0])
                 if parsed_limit <= 0:
@@ -7157,12 +7333,16 @@ class LazyFrame:
             predicate=predicate,
             columns=columns,
             limit=limit,
+            distinct=distinct,
+            tail_limit=tail_limit,
+            sample_count=sample_count,
+            sample_seed=sample_seed,
         )
 
     def _native_vortex_user_route_shape(self) -> _NativeVortexUserRouteShape | None:
         if self.source.source_format != "vortex":
             return None
-        operations = self.operations
+        operations = _strip_index_metadata_operations(self.operations)
         if _matches_vortex_group_by_aggregation_shape(operations):
             return _NativeVortexUserRouteShape(
                 operation_family="aggregate",
@@ -10055,11 +10235,23 @@ def _normalize_index_target(
     context: str,
     *,
     keys: object | None,
+    drop: bool | None = None,
     kwargs: Mapping[str, object],
 ) -> str:
     parts = [f"keys={_optional_columns_for_target(keys)}"]
+    if drop is not None:
+        parts.append(f"drop={str(bool(drop)).lower()}")
     parts.extend(_normalize_extra_kwargs(context, kwargs))
     return ";".join(parts)
+
+
+def _normalize_index_columns(keys: object) -> tuple[str, ...]:
+    columns = _normalize_columns((keys,))
+    if any(not _is_sql_identifier(column) for column in columns):
+        raise ValueError("set_index keys admit only bare SQL identifiers")
+    if len(set(columns)) != len(columns):
+        raise ValueError("set_index keys must be unique")
+    return columns
 
 
 def _normalize_sort_index_target(
@@ -11827,9 +12019,15 @@ def _cap_top_level_sql_limit(statement: str, limit_index: int, count: int) -> st
 
 
 def _workflow_has_limit(operations: Sequence[WorkflowOperation]) -> bool:
-    """Whether a lazy workflow already carries a limit operation."""
+    """Whether a lazy workflow already carries a finite collect bound."""
 
-    return any(operation.kind == "limit" for operation in operations)
+    return any(operation.kind in {"limit", "tail", "sample"} for operation in operations)
+
+
+def _workflow_has_index_metadata(operations: Sequence[WorkflowOperation]) -> bool:
+    """Whether a lazy workflow carries explicit index-state metadata."""
+
+    return any(operation.kind == "set_index" for operation in operations)
 
 
 def _workflow_has_top_n_shape(operations: Sequence[WorkflowOperation]) -> bool:

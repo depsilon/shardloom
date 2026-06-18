@@ -2826,40 +2826,112 @@ pub(crate) fn parse_vortex_primitive_request(
             uri,
             parse_projection_columns(cols)?,
         ))
+    } else if let Some(cols) = primitive_arg.strip_prefix("distinct:") {
+        Ok(
+            shardloom_vortex::VortexQueryPrimitiveRequest::distinct_rows(
+                uri,
+                parse_projection_columns(cols)?,
+                None,
+            ),
+        )
+    } else if let Some(cols) = primitive_arg.strip_prefix("tail:") {
+        Ok(shardloom_vortex::VortexQueryPrimitiveRequest::tail_rows(
+            uri,
+            parse_projection_columns(cols)?,
+            1,
+        ))
+    } else if let Some(cols) = primitive_arg.strip_prefix("sample:") {
+        Ok(shardloom_vortex::VortexQueryPrimitiveRequest::sample_rows(
+            uri,
+            parse_projection_columns(cols)?,
+            None,
+            1,
+            0,
+        ))
     } else if let Some(pred) = primitive_arg.strip_prefix("filter:") {
         Ok(shardloom_vortex::VortexQueryPrimitiveRequest::filter(
             uri,
             parse_tiny_predicate(pred)?,
         ))
     } else {
-        for prefix in ["filter-project:", "filter-and-project:"] {
-            if let Some(value) = primitive_arg.strip_prefix(prefix) {
-                let Some((predicate, columns)) = value.split_once('|') else {
-                    return Err(ShardLoomError::InvalidOperation(
-                        "filter-project requires <predicate>|<columns>".to_string(),
-                    ));
-                };
-                if predicate.is_empty() {
-                    return Err(ShardLoomError::InvalidOperation(
-                        "filter-project predicate must not be empty".to_string(),
-                    ));
-                }
-                if columns.is_empty() {
-                    return Err(ShardLoomError::InvalidOperation(
-                        "filter-project columns must not be empty".to_string(),
-                    ));
-                }
-                return Ok(
-                    shardloom_vortex::VortexQueryPrimitiveRequest::filter_and_project(
-                        uri,
-                        parse_tiny_predicate(predicate)?,
-                        parse_projection_columns(columns)?,
-                    ),
-                );
-            }
-        }
-        Err(ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>, filter-project:<predicate>|<columns>".to_string()))
+        parse_vortex_compound_primitive_request(uri, primitive_arg)
     }
+}
+
+fn parse_vortex_compound_primitive_request(
+    uri: DatasetUri,
+    primitive_arg: &str,
+) -> Result<shardloom_vortex::VortexQueryPrimitiveRequest, ShardLoomError> {
+    if let Some((predicate, columns)) = prefixed_predicate_columns(
+        primitive_arg,
+        &["filter-project:", "filter-and-project:"],
+        "filter-project",
+    )? {
+        return Ok(
+            shardloom_vortex::VortexQueryPrimitiveRequest::filter_and_project(
+                uri,
+                parse_tiny_predicate(predicate)?,
+                parse_projection_columns(columns)?,
+            ),
+        );
+    }
+    if let Some((predicate, columns)) = prefixed_predicate_columns(
+        primitive_arg,
+        &["distinct-filter-project:", "distinct-filter-and-project:"],
+        "distinct-filter-project",
+    )? {
+        return Ok(
+            shardloom_vortex::VortexQueryPrimitiveRequest::distinct_rows(
+                uri,
+                parse_projection_columns(columns)?,
+                Some(parse_tiny_predicate(predicate)?),
+            ),
+        );
+    }
+    if let Some((predicate, columns)) = prefixed_predicate_columns(
+        primitive_arg,
+        &["sample-filter-project:", "sample-filter-and-project:"],
+        "sample-filter-project",
+    )? {
+        return Ok(shardloom_vortex::VortexQueryPrimitiveRequest::sample_rows(
+            uri,
+            parse_projection_columns(columns)?,
+            Some(parse_tiny_predicate(predicate)?),
+            1,
+            0,
+        ));
+    }
+    Err(ShardLoomError::InvalidOperation(
+        "invalid primitive; expected count, count-where:<predicate>, project:<columns>, distinct:<columns>, tail:<columns>, sample:<columns>, filter:<predicate>, filter-project:<predicate>|<columns>, distinct-filter-project:<predicate>|<columns>, sample-filter-project:<predicate>|<columns>".to_string(),
+    ))
+}
+
+fn prefixed_predicate_columns<'a>(
+    value: &'a str,
+    prefixes: &[&str],
+    label: &str,
+) -> Result<Option<(&'a str, &'a str)>, ShardLoomError> {
+    for prefix in prefixes {
+        if let Some(remainder) = value.strip_prefix(prefix) {
+            let Some((predicate, columns)) = remainder.split_once('|') else {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{label} requires <predicate>|<columns>"
+                )));
+            };
+            if predicate.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{label} predicate must not be empty"
+                )));
+            }
+            if columns.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{label} columns must not be empty"
+                )));
+            }
+            return Ok(Some((predicate, columns)));
+        }
+    }
+    Ok(None)
 }
 
 pub(crate) fn build_vortex_encoded_count_readiness(
@@ -3266,7 +3338,10 @@ pub(crate) fn local_primitive_correctness_fixture_for_request(
                 )
             }
         }
-        shardloom_vortex::VortexQueryPrimitiveKind::SimpleAggregate
+        shardloom_vortex::VortexQueryPrimitiveKind::DistinctRows
+        | shardloom_vortex::VortexQueryPrimitiveKind::TailRows
+        | shardloom_vortex::VortexQueryPrimitiveKind::SampleRows
+        | shardloom_vortex::VortexQueryPrimitiveKind::SimpleAggregate
         | shardloom_vortex::VortexQueryPrimitiveKind::Unsupported => None,
     }
 }

@@ -6037,7 +6037,7 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         id: "python_local_query_builder",
         family: "python_api",
         surface: "ctx.read,read_csv,read_json,read_parquet,read_arrow_ipc,read_avro,read_orc,sql,LazyFrame.collect/profile/write_vortex/write_jsonl/write_csv/fanout local-file auto route",
-        support_state: "executable",
+        support_state: "feature_gated",
         feature_gate: "release-user-surfaces for Vortex preparation/provider execution; default builds fail closed with deterministic feature-gate diagnostics",
         evidence_refs: "python.tests.test_query_builder,python.tests.test_cli_client,sql_python_dataframe_vortex_middle_gate,public_workflow_direct_policy_block_tests",
         blocker_id: "none",

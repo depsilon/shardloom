@@ -34,7 +34,7 @@ turn it into a broad Vortex runtime, object-store, table/catalog, or performance
 
 | Starting state | Supported v1 meaning | Runtime boundary |
 | --- | --- | --- |
-| `native_local_vortex_file` | A local `.vortex` file enters at `native_vortex_boundary` and uses the scoped local primitive runtime family. | `vortex-run`, `vortex-count-where`, `vortex-filter`, `vortex-project`, and `vortex-filter-project` with execution certificate, Native I/O certificate, and no-fallback evidence. |
+| `native_local_vortex_file` | A local `.vortex` file enters at `native_vortex_boundary` and uses the scoped local primitive runtime family. | `vortex-run`, `vortex-count-where`, `vortex-filter`, `vortex-project`, `vortex-filter-project`, and the `public-workflow run` native-Vortex primitive facade with execution certificate, Native I/O certificate, and no-fallback evidence. |
 | `prepared_local_vortex_state` | A previously created `VortexPreparedState` is reused for a warm prepared query. | `prepared_vortex` starts after preparation and reports preparation exclusion, prepared-state reuse, execution evidence, and result boundary evidence. |
 | `prepared_compatibility_artifact` | A local compatibility source is normalized through `SourceState -> vortex_ingest -> VortexPreparedState` before query execution. | Prepared benchmark-family rows include preparation/reuse evidence, source and split refs, route timing fields, execution certificate, Native I/O certificate, and no-fallback evidence. |
 | `generated_local_vortex_artifact` | Source-free/generated rows create a local Vortex-preparable artifact with explicit local output evidence. | Generated-source certificates and local output evidence prove the artifact boundary; this is not object-store or table/catalog support. |
@@ -64,12 +64,15 @@ by the native route contract, the public surface must return a deterministic blo
 `fallback_attempted=false` and `external_engine_invoked=false`.
 
 The admitted direct `.vortex` primitive user routes are surface-aware: Python/DataFrame-style
-`ctx.read_vortex(...).filter(...).select(...).limit(...).collect()` and equivalent scoped SQL
-statements enter through the shared `public_workflow_run` facade with `surface=dataframe` or
-`surface=sql`, the logical plan or SQL statement attached, and `execution_policy=native_vortex`.
-The facade then dispatches only the admitted primitive payloads to `vortex-run`,
-`vortex-count-where`, `vortex-filter`, `vortex-project`, or `vortex-filter-project`. This is still
-scoped primitive support, not broad Vortex SQL/DataFrame parity.
+`ctx.read_vortex(...).filter(...).select(...).limit(...).collect()`,
+`ctx.read_vortex(...).select(...).distinct().collect()`, and
+`ctx.read_vortex(...).select(...).tail(...).collect()` plus equivalent scoped SQL statements enter
+through the shared `public_workflow_run` facade with `surface=dataframe` or `surface=sql`, the
+logical plan or SQL statement attached, and `execution_policy=native_vortex`. The facade then
+dispatches only the admitted primitive payloads to `vortex-run`, `vortex-count-where`,
+`vortex-filter`, `vortex-project`, `vortex-filter-project`, or the scoped row-level distinct and
+source-order tail local Vortex primitives. This is still scoped primitive support, not broad Vortex
+SQL/DataFrame parity.
 
 The admitted direct `.vortex` benchmark-family user routes are exact-shape provider routes:
 Python/DataFrame-style chains and equivalent exact SQL statements that match the existing native
@@ -91,7 +94,7 @@ Every native Vortex public route also emits the route-unification contract field
 `decode_materialization_boundary`. The same fields are attached to public run envelopes with the
 `public_workflow_` prefix. These fields are evidence metadata; they do not make a blocked operator
 supported. Count-style primitive routes report `native_vortex_capability_status=supported`;
-row-returning filter/project/filter-project primitive routes report
+row-returning filter/project/filter-project/distinct/tail/sample primitive routes report
 `native_vortex_capability_status=supported_with_materialization_boundary`. The matching
 `write_jsonl()` / `write_csv()` / JSONL+CSV `fanout()` shapes route to
 `native_vortex_primitive_row_export` and report
@@ -108,7 +111,8 @@ families:
 | Top-N shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_top_n_route_missing` |
 | Cast/try-cast shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_cast_route_missing` |
 | Substring contains shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_contains_route_missing` |
-| Row-level distinct/deduplication | `py-vortex-route-unify-1.native_vortex_distinct_route_missing` |
+| Row-level distinct/deduplication outside no-argument scalar/bool/UTF-8 primitive shapes, such as subset/keep variants, nested equality, nullable equality, or broad SQL/DataFrame distinct semantics | `py-vortex-route-unify-1.native_vortex_distinct_route_missing` |
+| Sampling outside deterministic bounded `sample(n=..., seed=...)`, such as fraction-based, weighted, pandas random-state parity, or unbounded sampling | `py-vortex-route-unify-1.native_vortex_sample_route_missing` |
 | Provider-result compatibility sink outside JSONL/CSV | `py-vortex-route-unify-1.native_vortex_sink_format_missing` |
 | Primitive row-stream sink outside JSONL/CSV/fanout contract, invalid fanout payload, duplicate output, or unsafe output path | `py-vortex-route-unify-1.native_vortex_sink_format_missing`, `py-vortex-route-unify-1.native_vortex_fanout_payload_invalid`, `py-vortex-route-unify-1.native_vortex_fanout_sink_format_missing`, `py-vortex-route-unify-1.native_vortex_fanout_duplicate_output`, `py-vortex-route-unify-1.native_vortex_row_export_output_path_unsafe` |
 
@@ -127,7 +131,10 @@ The scoped local primitive report admits these route ids:
 | `vortex_select_star_limit_collect` | Select all columns with source-order limit. | Yes |
 | `vortex_filter_project_collect` | Filter and project supported columns. | No |
 | `vortex_filter_project_limit_collect` | Filter and project supported columns with source-order limit. | Yes |
-| `native_vortex_primitive_row_export` | Write filter/project/filter-project row streams to JSONL/CSV, including JSONL+CSV fanout. | Yes |
+| `native_vortex_distinct` | Materialize no-argument row-level distinct/deduplication over supported scalar/bool/UTF-8 row streams with optional filter/projection and explicit decode/materialization evidence. | Yes |
+| `vortex_tail_collect` | Materialize bounded source-order tail over supported scalar/bool/UTF-8 row streams with optional projection and explicit decode/materialization evidence. | Yes |
+| `vortex_sample_collect` | Materialize deterministic bounded `sample(n=..., seed=...)` over supported scalar/bool/UTF-8 row streams with optional filter/projection and explicit decode/materialization evidence. | Yes |
+| `native_vortex_primitive_row_export` | Write filter/project/filter-project/distinct/tail/sample row streams to JSONL/CSV, including JSONL+CSV fanout. | Yes |
 
 Each route must expose SQL, Python, DataFrame-style, context, session, and CLI surfaces. Each route
 must name output route, evidence route, materialization/decode boundary, required evidence,
@@ -154,8 +161,8 @@ traditional-analytics runtime scenarios:
 These routes emit `public_workflow_native_vortex_provider_scenario` and
 `public_workflow_native_vortex_right_input` fields. Provider-backed `write_jsonl()` and
 `write_csv()` export the bounded provider `result_json` after native Vortex execution with explicit
-decode/materialization evidence. Primitive filter/project/filter-project row-stream exports and
-JSONL/CSV fanout are admitted through `native_vortex_primitive_row_export` with explicit
+decode/materialization evidence. Primitive filter/project/filter-project/distinct/tail/sample
+row-stream exports and JSONL/CSV fanout are admitted through `native_vortex_primitive_row_export` with explicit
 selected-column decode/materialization evidence. Arbitrary compatibility exports, unsupported
 formats, and non-admitted operator shapes remain blocked. Arbitrary SQL parity remains out of
 scope; only the exact shapes above emit the provider payload.

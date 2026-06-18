@@ -13,6 +13,9 @@ pub enum VortexQueryPrimitiveKind {
     ProjectColumns,
     FilterPredicate,
     FilterAndProject,
+    DistinctRows,
+    TailRows,
+    SampleRows,
     SimpleAggregate,
     Unsupported,
 }
@@ -25,6 +28,9 @@ impl VortexQueryPrimitiveKind {
             Self::ProjectColumns => "project_columns",
             Self::FilterPredicate => "filter_predicate",
             Self::FilterAndProject => "filter_and_project",
+            Self::DistinctRows => "distinct_rows",
+            Self::TailRows => "tail_rows",
+            Self::SampleRows => "sample_rows",
             Self::SimpleAggregate => "simple_aggregate",
             Self::Unsupported => "unsupported",
         }
@@ -35,11 +41,11 @@ impl VortexQueryPrimitiveKind {
     }
     #[must_use]
     pub const fn requires_decode(&self) -> bool {
-        false
+        matches!(self, Self::DistinctRows | Self::TailRows | Self::SampleRows)
     }
     #[must_use]
     pub const fn requires_materialization(&self) -> bool {
-        false
+        matches!(self, Self::DistinctRows | Self::TailRows | Self::SampleRows)
     }
 }
 
@@ -118,6 +124,7 @@ pub struct VortexQueryPrimitiveRequest {
     pub projection: ProjectionRequest,
     pub predicate: Option<PredicateExpr>,
     pub source_order_limit: Option<usize>,
+    pub sample_seed: Option<u64>,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexQueryPrimitiveRequest {
@@ -129,6 +136,7 @@ impl VortexQueryPrimitiveRequest {
             projection: ProjectionRequest::all(),
             predicate: None,
             source_order_limit: None,
+            sample_seed: None,
             diagnostics: vec![],
         }
     }
@@ -140,6 +148,7 @@ impl VortexQueryPrimitiveRequest {
             projection: ProjectionRequest::all(),
             predicate: Some(predicate),
             source_order_limit: None,
+            sample_seed: None,
             diagnostics: vec![],
         }
     }
@@ -151,6 +160,7 @@ impl VortexQueryPrimitiveRequest {
             projection,
             predicate: None,
             source_order_limit: None,
+            sample_seed: None,
             diagnostics: vec![],
         }
     }
@@ -162,6 +172,7 @@ impl VortexQueryPrimitiveRequest {
             projection: ProjectionRequest::all(),
             predicate: Some(predicate),
             source_order_limit: None,
+            sample_seed: None,
             diagnostics: vec![],
         }
     }
@@ -177,12 +188,64 @@ impl VortexQueryPrimitiveRequest {
             projection,
             predicate: Some(predicate),
             source_order_limit: None,
+            sample_seed: None,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn distinct_rows(
+        uri: DatasetUri,
+        projection: ProjectionRequest,
+        predicate: Option<PredicateExpr>,
+    ) -> Self {
+        Self {
+            kind: VortexQueryPrimitiveKind::DistinctRows,
+            source_uri: Some(uri),
+            projection,
+            predicate,
+            source_order_limit: None,
+            sample_seed: None,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn tail_rows(uri: DatasetUri, projection: ProjectionRequest, limit: usize) -> Self {
+        Self {
+            kind: VortexQueryPrimitiveKind::TailRows,
+            source_uri: Some(uri),
+            projection,
+            predicate: None,
+            source_order_limit: Some(limit),
+            sample_seed: None,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn sample_rows(
+        uri: DatasetUri,
+        projection: ProjectionRequest,
+        predicate: Option<PredicateExpr>,
+        limit: usize,
+        seed: u64,
+    ) -> Self {
+        Self {
+            kind: VortexQueryPrimitiveKind::SampleRows,
+            source_uri: Some(uri),
+            projection,
+            predicate,
+            source_order_limit: Some(limit),
+            sample_seed: Some(seed),
             diagnostics: vec![],
         }
     }
     #[must_use]
     pub fn with_source_order_limit(mut self, limit: usize) -> Self {
         self.source_order_limit = Some(limit);
+        self
+    }
+    #[must_use]
+    pub fn with_sample_seed(mut self, seed: u64) -> Self {
+        self.sample_seed = Some(seed);
         self
     }
     #[must_use]
@@ -193,6 +256,7 @@ impl VortexQueryPrimitiveRequest {
             projection: ProjectionRequest::all(),
             predicate: None,
             source_order_limit: None,
+            sample_seed: None,
             diagnostics: vec![],
         };
         request.add_diagnostic(Diagnostic::unsupported(
@@ -218,7 +282,7 @@ impl VortexQueryPrimitiveRequest {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "kind={} uri={} projection={} predicate={} source_order_limit={} diagnostics={}",
+            "kind={} uri={} projection={} predicate={} source_order_limit={} sample_seed={} diagnostics={}",
             self.kind.as_str(),
             self.source_uri
                 .as_ref()
@@ -229,6 +293,8 @@ impl VortexQueryPrimitiveRequest {
                 .map_or_else(|| "none".to_string(), PredicateExpr::summary),
             self.source_order_limit
                 .map_or_else(|| "none".to_string(), |limit| limit.to_string()),
+            self.sample_seed
+                .map_or_else(|| "none".to_string(), |seed| seed.to_string()),
             self.diagnostics.len()
         )
     }
@@ -695,6 +761,33 @@ pub fn evaluate_vortex_query_primitive(
             } else {
                 plan_vortex_encoded_projection(request, summary, None)
             }
+        }
+        VortexQueryPrimitiveKind::DistinctRows => {
+            let mut out = VortexQueryPrimitiveResult::needs_encoded_read(
+                request,
+                "row-level distinct requires a Vortex scan plus ShardLoom row-key de-duplication at the explicit bounded materialization boundary",
+            );
+            out.status = VortexQueryPrimitiveStatus::NeedsEncodedRead;
+            out.mode = VortexQueryPrimitiveMode::Deferred;
+            Ok(out)
+        }
+        VortexQueryPrimitiveKind::TailRows => {
+            let mut out = VortexQueryPrimitiveResult::needs_encoded_read(
+                request,
+                "source-order tail requires a full Vortex scan plus ShardLoom final-row windowing at the explicit bounded materialization boundary",
+            );
+            out.status = VortexQueryPrimitiveStatus::NeedsEncodedRead;
+            out.mode = VortexQueryPrimitiveMode::Deferred;
+            Ok(out)
+        }
+        VortexQueryPrimitiveKind::SampleRows => {
+            let mut out = VortexQueryPrimitiveResult::needs_encoded_read(
+                request,
+                "deterministic sample requires a Vortex scan plus ShardLoom seeded row selection at the explicit bounded materialization boundary",
+            );
+            out.status = VortexQueryPrimitiveStatus::NeedsEncodedRead;
+            out.mode = VortexQueryPrimitiveMode::Deferred;
+            Ok(out)
         }
         VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
             Ok(VortexQueryPrimitiveResult::unsupported(

@@ -135,6 +135,8 @@ V1_VORTEX_SUPPORTED_PRIMITIVE_ROUTE_IDS = (
     "vortex_project_collect",
     "vortex_project_limit_collect",
     "vortex_select_star_limit_collect",
+    "vortex_tail_collect",
+    "vortex_sample_collect",
     "vortex_filter_project_collect",
     "vortex_filter_project_limit_collect",
 )
@@ -3283,6 +3285,60 @@ LOCAL_VORTEX_PRIMITIVE_ROUTE_ROWS: tuple[LocalVortexPrimitiveRouteRow, ...] = (
         ),
     ),
     _local_vortex_primitive_route(
+        "vortex_tail_collect",
+        "tail_rows",
+        sql_surface="not_applicable_sql_tail_function",
+        python_surface="read_vortex('orders.vortex').select('metric').tail(5).collect()",
+        dataframe_surface="read_vortex('orders.vortex').select('metric').tail(5).collect()",
+        context_surface="ctx.read_vortex('orders.vortex').select('metric').tail(5).collect()",
+        session_surface="session.read_vortex('orders.vortex').select('metric').tail(5).collect()",
+        cli_command="public-workflow run",
+        cli_args_template=(
+            "run dataframe --input <dataset.vortex> --input-format vortex --request collect "
+            "--execution-policy native_vortex --vortex-primitive tail --vortex-columns <columns> "
+            "--vortex-source-order-limit <n> --format json"
+        ),
+        supports_source_order_limit=True,
+        required_evidence=(
+            "vortex_tail",
+            "source_order_tail",
+            "explicit_decode_materialization_boundary",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+    ),
+    _local_vortex_primitive_route(
+        "vortex_sample_collect",
+        "sample_rows",
+        sql_surface="not_applicable_sql_sample_function",
+        python_surface="read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect()",
+        dataframe_surface=(
+            "read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect()"
+        ),
+        context_surface=(
+            "ctx.read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect()"
+        ),
+        session_surface=(
+            "session.read_vortex('orders.vortex').filter('gte:value:3').select('metric').sample(n=5, seed=7).collect()"
+        ),
+        cli_command="public-workflow run",
+        cli_args_template=(
+            "run dataframe --input <dataset.vortex> --input-format vortex --request collect "
+            "--execution-policy native_vortex --vortex-primitive sample --vortex-columns <columns> "
+            "--vortex-predicate <tiny-predicate> --vortex-source-order-limit <n> "
+            "--vortex-sample-seed <seed> --format json"
+        ),
+        supports_source_order_limit=True,
+        required_evidence=(
+            "vortex_sample",
+            "deterministic_seed_policy",
+            "bounded_result_contract",
+            "explicit_decode_materialization_boundary",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+    ),
+    _local_vortex_primitive_route(
         "vortex_filter_project_collect",
         "filter_and_project",
         sql_surface=(
@@ -3866,22 +3922,27 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     ),
     _df_method(
         "sample",
-        "dataframe_transform_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="sample",
-        blocker_id="cg21.workflow.sample.sampling_semantics_unsupported",
+        "dataframe_sampling",
+        "production_admitted_local_workflow",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         required_evidence=(
-            "sampling_semantics",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_sample_primitive",
             "deterministic_seed_policy",
-            "semantic_conformance_suite",
+            "bounded_result_contract",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
+            "native_io_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Sample is a deterministic unsupported report until native sampling semantics, "
-            "seed policy, and correctness evidence are certified. No random local "
-            "materialization, pandas/Polars backend, external engine, fallback, or performance "
-            "claim."
+            "Scoped `sample(n=..., seed=...)` lowers local compatibility sources through prepared "
+            "Vortex or native Vortex input, then applies deterministic ShardLoom seeded row "
+            "selection at an explicit bounded materialization boundary. Fraction-based sampling, "
+            "unbounded sampling, weighted sampling, pandas random-state parity, and performance "
+            "claims remain outside this route and fail closed."
         ),
     ),
     _df_method(
@@ -4036,38 +4097,43 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     ),
     _df_method(
         "tail",
-        "dataframe_inspection_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="tail",
-        blocker_id="cg21.workflow.tail.source_order_unsupported",
+        "dataframe_inspection",
+        "production_admitted_local_workflow",
         required_evidence=(
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_tail_primitive",
             "source_order_semantics",
-            "reverse_scan_or_stable_ordering",
-            "materialization_boundary",
-            "execution_certificate",
+            "explicit_decode_materialization_boundary",
             "no_fallback_evidence",
         ),
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "Tail is a deterministic unsupported report until stable source-order or reverse-scan "
-            "semantics are certified. Use scoped head/preview for bounded inspection."
+            "Scoped tail(limit) lowers to a native/prepared Vortex scan plus ShardLoom "
+            "source-order final-row window. The route reports selected-row decode/materialization "
+            "explicitly and does not invoke external fallback. Filtered tail, distinct-tail, "
+            "reverse-scan optimization, pandas index semantics, and performance claims remain "
+            "outside this scoped claim."
         ),
     ),
     _df_method(
         "describe",
-        "dataframe_summary_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="describe",
-        blocker_id="cg21.workflow.describe.summary_statistics_unsupported",
+        "dataframe_summary",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "summary_statistics_semantics",
-            "numeric_dtype_policy",
-            "null_semantics",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_metadata_profile_route",
+            "metadata_first_profile_summary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
+        runtime_execution=True,
+        data_read=False,
         claim_boundary=(
-            "Pandas-style describe is a deterministic unsupported report until native summary "
-            "statistics, dtype policy, null semantics, and result-shape evidence are certified."
+            "Scoped describe lowers to ShardLoom's metadata-first native/prepared Vortex profile "
+            "route for no-kwargs, optional-column summaries. This is not a pandas-style percentile "
+            "matrix, external profiler, arbitrary dtype summary contract, or performance claim."
         ),
     ),
     _df_method(
@@ -4620,106 +4686,117 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "distinct",
         "deduplication",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_distinct_operator",
             "vortex_prepared_state_or_native_vortex_input",
-            "execution_certificate",
+            "native_vortex_distinct_primitive",
+            "explicit_decode_materialization_boundary",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.distinct.native_vortex_operator_missing",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "Row-level distinct has scoped SQL local-source runtime evidence and now requires "
-            "Vortex preparation before that product-local compatibility boundary, but it is not "
-            "yet a native Vortex middle/operator route. Direct local-source smoke evidence is "
-            "internal-only and no external fallback is used."
+            "No-argument row-level distinct is admitted for native/prepared Vortex primitive "
+            "scalar, boolean, and UTF-8 row streams with optional filter/projection and source-order "
+            "limit. The route explicitly reports row-key decode/materialization and never invokes "
+            "external fallback. subset/keep, nullable/nested equality, and broad SQL/DataFrame "
+            "distinct semantics remain outside this scoped claim."
         ),
     ),
     _df_method(
         "drop_duplicates",
         "deduplication",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_distinct_operator",
             "vortex_prepared_state_or_native_vortex_input",
-            "execution_certificate",
+            "native_vortex_distinct_primitive",
+            "explicit_decode_materialization_boundary",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.drop-duplicates.native_vortex_operator_missing",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "No-argument row-level drop_duplicates lowers to the same scoped distinct front-door "
-            "shape after Vortex preparation, but it is not yet a native Vortex middle/operator "
-            "route. subset/keep variants and duplicate mask semantics remain deterministic "
-            "blockers until they have explicit semantics and runtime evidence."
+            "No-argument drop_duplicates lowers to the scoped native/prepared Vortex row-level "
+            "distinct primitive. pandas subset/keep variants and duplicate mask semantics remain "
+            "deterministic blockers until they have explicit semantics and runtime evidence."
         ),
     ),
     _df_method(
         "unique",
         "deduplication",
-        "runtime_expansion_pending",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "native_vortex_distinct_operator",
             "vortex_prepared_state_or_native_vortex_input",
-            "execution_certificate",
+            "native_vortex_distinct_primitive",
+            "explicit_decode_materialization_boundary",
             "no_fallback_evidence",
         ),
-        blocker_id="cg21.workflow.unique.native_vortex_operator_missing",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "unique lowers to the row-level distinct front-door shape after Vortex preparation, "
-            "but it is not yet a native Vortex middle/operator route. Column-specific unique "
-            "semantics remain outside this v1 claim unless expressed through admitted "
-            "grouped/count-distinct routes."
+            "unique lowers to the scoped native/prepared Vortex row-level distinct primitive. "
+            "Column-specific unique semantics remain outside this v1 claim unless expressed "
+            "through admitted grouped/count-distinct routes."
         ),
     ),
     _df_method(
         "set_index",
-        "dataframe_index_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="set_index",
-        blocker_id="cg21.workflow.set_index.index_state_unsupported",
+        "dataframe_index_metadata",
+        "scoped_runtime_supported",
         required_evidence=(
-            "index_state_model",
-            "ordering_contract",
+            "explicit_index_state_metadata",
+            "source_order_preservation",
+            "encoded_row_data_preserved",
             "execution_certificate",
             "no_fallback_evidence",
         ),
+        runtime_execution=True,
+        data_read=True,
         claim_boundary=(
-            "DataFrame index state is a deterministic unsupported report until ShardLoom has an "
-            "explicit index-state model distinct from encoded-columnar row order."
+            "Scoped set_index(keys, drop=False) records explicit ShardLoom index metadata while "
+            "preserving encoded row data and source order through native/prepared Vortex routes. "
+            "Default/drop=True pandas semantics, materialized index values, multi-index output, "
+            "and hidden row-label state remain deterministic blockers."
         ),
     ),
     _df_method(
         "reset_index",
-        "dataframe_index_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="reset_index",
-        blocker_id="cg21.workflow.reset_index.index_state_unsupported",
+        "dataframe_index_metadata",
+        "scoped_runtime_supported",
         required_evidence=(
-            "index_state_model",
-            "row_number_or_index_projection_policy",
+            "no_explicit_index_state_contract",
+            "source_order_preservation",
             "execution_certificate",
             "no_fallback_evidence",
         ),
+        runtime_execution=True,
+        data_read=True,
         claim_boundary=(
-            "Reset-index is a deterministic unsupported report until index materialization, "
-            "row identity, and projection semantics are certified."
+            "Scoped reset_index(drop=True) is a no-op over ShardLoom frames because no hidden "
+            "pandas-style index state is carried in the runtime plan. Reset-index materialization, "
+            "row-number projection, level handling, and index column output remain deterministic "
+            "blockers with no fallback or external engine execution."
         ),
     ),
     _df_method(
         "sort_index",
-        "dataframe_index_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="sort_index",
-        blocker_id="cg21.workflow.sort_index.index_order_unsupported",
+        "dataframe_index_metadata",
+        "scoped_runtime_supported",
         required_evidence=(
-            "index_state_model",
-            "ordering_contract",
+            "no_explicit_index_state_contract",
+            "source_order_preservation",
             "execution_certificate",
             "no_fallback_evidence",
         ),
+        runtime_execution=True,
+        data_read=True,
         claim_boundary=(
-            "Sort-index is a deterministic unsupported report until index state and ordering "
-            "semantics are certified without hidden materialization or external engines."
+            "Scoped sort_index(ascending=True) preserves source order when no explicit index state "
+            "exists. Descending index sort, materialized index state, multi-index ordering, and "
+            "hidden pandas-style row identity remain deterministic blockers."
         ),
     ),
     _df_method(
@@ -6134,35 +6211,42 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     ),
     _front_door_row(
         "typed_nested_compatibility_sink",
-        "typed nested local compatibility sink output for scoped ARRAY/STRUCT projections",
+        "computed typed nested compatibility sink output for scoped ARRAY/STRUCT projections",
         "runtime_expansion_pending",
         runtime_gap_status="native_compatibility_export_contract_missing",
         sql_surface=(
             "ctx.sql(\"SELECT ARRAY[...] AS values, STRUCT(...) AS payload FROM 'local.csv'\")"
-            ".write_parquet/write_arrow_ipc/write_avro/write_vortex"
+            ".write_parquet/write_arrow_ipc/write_avro"
         ),
         python_surface=(
-            "ctx.sql(...).write_parquet/write_arrow_ipc/write_avro/write_vortex and "
+            "ctx.sql(...).write_parquet/write_arrow_ipc/write_avro and "
             "ctx.read(...).with_columns({'values': sl.array(...), 'payload': sl.struct(...)})"
         ),
         dataframe_surface=(
-            "DataFrame-style with_columns(array/struct).write_parquet/write_arrow_ipc/write_avro/write_vortex"
+            "DataFrame-style with_columns(array/struct).write_parquet/write_arrow_ipc/write_avro"
         ),
-        shared_runtime_path="blocked until local source -> Vortex preparation -> native Vortex-derived compatibility export contract",
+        shared_runtime_path=(
+            "blocked until computed array/struct expressions lower through Vortex-prepared/native "
+            "execution and a native Vortex-derived structured compatibility export contract"
+        ),
         parity_status="deterministic_blocker_until_native_export_contract",
         performance_equivalence_status="not_claim_grade",
         blocker_id="cg21.route.local_file_compatibility_sink_contract_missing",
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
+            "typed_nested_expression_lowering",
             "native_vortex_derived_compatibility_export_contract",
             "python_query_builder_tests",
             "output_replay_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped declared compatibility sinks remain blocked for public local-source workflows "
-            "until output is derived from a certified native Vortex result/export contract. This "
-            "does not claim full-fidelity native Vortex nested output, all-null computed nested "
+            "Computed ARRAY/STRUCT compatibility sinks remain blocked for public local-source "
+            "workflows until the expression is produced by a certified Vortex-prepared/native "
+            "route and exported through a certified native Vortex result/export contract with "
+            "structured Parquet/Arrow IPC/Avro evidence. Scoped primitive JSONL/CSV row-stream "
+            "exports and provider `write_vortex` result sinks are covered by separate admitted "
+            "rows. This does not claim full-fidelity nested output, all-null computed nested "
             "columns without child-schema evidence, broad nested ordering, complex-key joins, "
             "production SQL nested parity, or benchmarked performance equivalence."
         ),

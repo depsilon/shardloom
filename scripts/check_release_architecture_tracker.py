@@ -245,6 +245,8 @@ def main() -> int:
         if phase_unchecked
         else "no_unchecked_phase_plan_rows"
     )
+    if phase_unchecked:
+        blockers.append(f"phase plan has unchecked items: {len(phase_unchecked)}")
     if mirrored_missing:
         blockers.append("unchecked GAR ids missing from phase plan or completed ledger: " + ",".join(mirrored_missing))
 

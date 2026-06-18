@@ -140,6 +140,81 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         requested_output = _shardloom_take_flag(args, "--request") or "collect"
         output_ref = _shardloom_take_flag(args, "--output")
         primitive = _shardloom_take_flag(args, "--vortex-primitive")
+        predicate = _shardloom_take_flag(args, "--vortex-predicate")
+        columns = _shardloom_take_flag(args, "--vortex-columns")
+        source_order_limit = _shardloom_take_flag(args, "--vortex-source-order-limit")
+        sample_seed = _shardloom_take_flag(args, "--vortex-sample-seed")
+        if requested_output == "collect" and primitive is not None:
+            route_id = {
+                "count": "native_vortex_count_all",
+                "count_where": "native_vortex_count_where",
+                "filter": "native_vortex_filter",
+                "project": "native_vortex_project",
+                "filter_project": "native_vortex_filter_project",
+                "distinct": "native_vortex_distinct",
+                "tail": "native_vortex_tail",
+                "sample": "native_vortex_sample",
+            }.get(primitive, "native_vortex_filter_project")
+            materializing_primitive = primitive in {"distinct", "tail", "sample"}
+            fields = [
+                ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
+                ["public_workflow_route_attached", "true"],
+                ["public_workflow_facade_command", "run"],
+                ["public_workflow_route_id", route_id],
+                ["public_workflow_route_status", "admitted"],
+                ["public_workflow_resolved_internal_command", "vortex-local-primitive"],
+                ["public_workflow_vortex_normalization_point", "VortexPreparedState"],
+                ["public_workflow_vortex_middle_status", "native_vortex_primitive"],
+                ["public_workflow_execution_mode", "native_vortex"],
+                ["public_workflow_preparation_included", "false"],
+                ["public_workflow_requested_output", "collect"],
+                ["public_workflow_vortex_primitive", primitive],
+                ["public_workflow_vortex_predicate", predicate or "none"],
+                ["public_workflow_vortex_columns", columns or "none"],
+                ["public_workflow_vortex_source_order_limit", source_order_limit or "none"],
+                ["public_workflow_vortex_sample_seed", sample_seed or "none"],
+                ["mode", "native_vortex_primitive"],
+                ["primitive", primitive],
+                ["execution", f"local_vortex_{primitive}_primitive_performed" if materializing_primitive else "local_vortex_primitive_performed"],
+                ["local_primitive_report_present", "true"],
+                ["local_primitive_status", "executed"],
+                ["local_primitive_mode", "vortex_scan_pushdown"],
+                ["local_primitive_rows_scanned", "3"],
+                ["local_primitive_rows_selected", "2"],
+                ["local_primitive_rows_projected", "2"],
+                ["rows_selected", "2"],
+                ["rows_projected", "2"],
+                ["output_row_count", "2"],
+                ["result_known", "true"],
+                ["local_primitive_projected_columns", "id,label"],
+                ["runtime_execution", "true"],
+                ["data_read", "true"],
+                ["data_decoded", "true" if materializing_primitive else "false"],
+                ["data_materialized", "true" if materializing_primitive else "false"],
+                ["row_read", "true" if materializing_primitive else "false"],
+                ["upstream_vortex_scan_called", "true"],
+                ["local_primitive_materialization_boundary_reported", "true" if materializing_primitive else "false"],
+                ["local_primitive_source_order_limit_requested", source_order_limit or "none"],
+                ["local_primitive_source_order_limit_applied", "true" if primitive in {"tail", "sample"} and source_order_limit else "false"],
+                ["local_primitive_source_order_limit_rows_output", "2" if primitive in {"tail", "sample"} and source_order_limit else "none"],
+                ["fallback_attempted", "false"],
+                ["external_engine_invoked", "false"],
+                ["public_workflow_fallback_attempted", "false"],
+                ["public_workflow_external_engine_invoked", "false"],
+                ["public_workflow_blocker_id", "none"],
+                ["claim_gate_status", "not_claim_grade"],
+            ]
+            print(_shardloom_json.dumps({
+                "schema_version": "shardloom.output.v2",
+                "command": "run",
+                "status": "success",
+                "summary": "prepared native Vortex primitive collect",
+                "human_text": "prepared native Vortex primitive collect",
+                "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                "diagnostics": [],
+                "fields": [{"key": key, "value": value} for key, value in fields],
+            }))
+            raise SystemExit(0)
         if requested_output in {"write_jsonl", "write_csv"} and primitive is not None:
             output_format = _shardloom_public_request_output_format(requested_output)
             fanout_outputs = _shardloom_values_after_flag(args, "--fanout-output")
@@ -165,6 +240,10 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ["public_workflow_fanout_output_count", str(len(fanout_outputs))],
                 ["public_workflow_fanout_outputs", ";".join(fanout_outputs)],
                 ["public_workflow_vortex_primitive", primitive],
+                ["public_workflow_vortex_predicate", predicate or "none"],
+                ["public_workflow_vortex_columns", columns or "none"],
+                ["public_workflow_vortex_source_order_limit", source_order_limit or "none"],
+                ["public_workflow_vortex_sample_seed", sample_seed or "none"],
                 ["mode", "native_vortex_primitive_row_export"],
                 ["execution", "native_vortex_primitive_row_export_performed"],
                 ["native_vortex_result_export_kind", "primitive_row_stream"],
@@ -836,6 +915,118 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "cg21.route.local_file_vortex_middle_required",
         )
         self.assertEqual(dataframe_route.as_dict()["execution_mode"], "blocked")
+
+    def test_native_vortex_sample_and_tail_route_run_are_bounded_by_row_count(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                command = args[0]
+                assert command in {"route", "run"}, sys.argv
+                assert args[1:6] == ["dataframe", "--input", "orders.vortex", "--input-format", "vortex"], sys.argv
+                primitive = args[args.index("--vortex-primitive") + 1]
+                if primitive == "sample":
+                    expected_plan = "read_vortex(orders.vortex) -> sample(2,7)"
+                    expected_family = "sample"
+                    expected_seed = "7"
+                elif primitive == "tail":
+                    expected_plan = "read_vortex(orders.vortex) -> tail(2)"
+                    expected_family = "top_n"
+                    expected_seed = "none"
+                    assert "--vortex-sample-seed" not in args, sys.argv
+                else:
+                    raise AssertionError(sys.argv)
+                assert args[args.index("--plan") + 1] == expected_plan, sys.argv
+                assert args[args.index("--request") + 1] == "collect", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
+                assert args[args.index("--bounded") + 1] == "true", sys.argv
+                assert args[args.index("--native-vortex-operation-family") + 1] == expected_family, sys.argv
+                assert args[args.index("--vortex-source-order-limit") + 1] == "2", sys.argv
+                if primitive == "sample":
+                    assert args[args.index("--vortex-sample-seed") + 1] == expected_seed, sys.argv
+                if command == "route":
+                    fields = [
+                        ["public_workflow_route_schema_version", "shardloom.public_workflow_route.v1"],
+                        ["route_id", f"native_vortex_{primitive}"],
+                        ["route_status", "admitted"],
+                        ["resolved_internal_command", "vortex-run"],
+                        ["surface", "dataframe"],
+                        ["start_state", "native_vortex_file"],
+                        ["vortex_normalization_point", "native_vortex_boundary"],
+                        ["vortex_middle_status", "native_vortex"],
+                        ["execution_mode", "native_vortex"],
+                        ["preparation_included", "false"],
+                        ["query_timing_starts_after_preparation", "true"],
+                        ["route_side_effect_free", "true"],
+                        ["vortex_primitive", primitive],
+                        ["vortex_source_order_limit", "2"],
+                        ["vortex_sample_seed", expected_seed],
+                        ["fallback_attempted", "false"],
+                        ["external_engine_invoked", "false"],
+                        ["blocker_id", "none"],
+                    ]
+                    status = "success"
+                    summary = f"{primitive} route"
+                else:
+                    fields = [
+                        ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
+                        ["public_workflow_route_attached", "true"],
+                        ["public_workflow_facade_command", "run"],
+                        ["public_workflow_route_id", f"native_vortex_{primitive}"],
+                        ["public_workflow_route_status", "admitted"],
+                        ["public_workflow_resolved_internal_command", "vortex-run"],
+                        ["public_workflow_vortex_normalization_point", "native_vortex_boundary"],
+                        ["public_workflow_vortex_middle_status", "native_vortex"],
+                        ["public_workflow_execution_mode", "native_vortex"],
+                        ["public_workflow_preparation_included", "false"],
+                        ["public_workflow_requested_output", "collect"],
+                        ["public_workflow_vortex_primitive", primitive],
+                        ["public_workflow_vortex_source_order_limit", "2"],
+                        ["public_workflow_vortex_sample_seed", expected_seed],
+                        ["runtime_execution", "true"],
+                        ["fallback_attempted", "false"],
+                        ["external_engine_invoked", "false"],
+                        ["public_workflow_fallback_attempted", "false"],
+                        ["public_workflow_external_engine_invoked", "false"],
+                        ["public_workflow_blocker_id", "none"],
+                    ]
+                    status = "success"
+                    summary = f"{primitive} run"
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": status,
+                    "summary": summary,
+                    "human_text": summary,
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+        for frame, route_id in (
+            (sl.read_vortex("orders.vortex", client=client).sample(n=2, seed=7), "native_vortex_sample"),
+            (sl.read_vortex("orders.vortex", client=client).tail(2), "native_vortex_tail"),
+        ):
+            route = frame.route(check=False)
+            run = frame.run(check=False)
+
+            self.assertEqual(route.route_id, route_id)
+            self.assertEqual(route.envelope.field("vortex_source_order_limit"), "2")
+            self.assertEqual(run.envelope.field("public_workflow_route_id"), route_id)
+            self.assertEqual(
+                run.envelope.field("public_workflow_vortex_source_order_limit"),
+                "2",
+            )
+            self.assertFalse(route.fallback_attempted)
+            self.assertFalse(run.fallback_attempted)
 
     def test_workflow_route_blocks_unbounded_collect_at_admission(self) -> None:
         binary = self.fake_cli(
@@ -2588,7 +2779,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         report = workflow.preview(limit=2)
 
-        self.assertEqual(report.output_row_count, 2)
+        self.assertEqual(report.envelope.field_int("output_row_count"), 2)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -7469,42 +7660,76 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_schema_declared_dataframe_rename_lowers_to_projection_alias(self) -> None:
+    def test_schema_declared_dataframe_rename_blocks_until_alias_preserving_vortex_projection(
+        self,
+    ) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "target/input.csv",
+                    "--input-format",
+                    "csv",
+                    "--sql",
                     "SELECT id,amount AS order_amount,label FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
-                    "--output-format",
-                    "inline-jsonl",
+                    "--plan",
+                    "read_csv(target/input.csv) -> select(id,amount AS order_amount,label) -> filter(amount >= 10) -> limit(2)",
+                    "--request",
+                    "collect",
+                    "--execution-policy",
+                    "auto",
+                    "--materialization-policy",
+                    "bounded",
+                    "--evidence-level",
+                    "production_admitted_local_workflow",
+                    "--bounded",
+                    "true",
+                    "--memory-gb",
+                    "4",
+                    "--max-parallelism",
+                    "1",
                     "--format",
                     "json",
                 ], sys.argv
+                fields = [
+                    ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
+                    ["public_workflow_route_attached", "true"],
+                    ["public_workflow_facade_command", "run"],
+                    ["public_workflow_route_id", "blocked"],
+                    ["public_workflow_route_status", "blocked"],
+                    ["public_workflow_resolved_internal_command", "not_resolved"],
+                    ["public_workflow_vortex_normalization_point", "not_applicable"],
+                    ["public_workflow_vortex_middle_status", "blocked_or_unsupported"],
+                    ["public_workflow_execution_mode", "blocked"],
+                    ["public_workflow_preparation_included", "false"],
+                    ["public_workflow_requested_output", "collect"],
+                    ["runtime_execution", "false"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                    ["public_workflow_fallback_attempted", "false"],
+                    ["public_workflow_external_engine_invoked", "false"],
+                    ["public_workflow_blocker_id", "cg21.route.local_file_vortex_middle_required"],
+                    ["claim_gate_status", "not_claim_grade"],
+                ]
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
-                    "status": "success",
-                    "summary": "sql local source projection alias",
-                    "human_text": "sql local source projection alias",
+                    "command": "run",
+                    "status": "unsupported",
+                    "summary": "alias-preserving projection blocked before execution",
+                    "human_text": "alias-preserving projection blocked before execution",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
-                    "fields": [
-                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"order_amount\\":19,\\"label\\":\\"beta\\"}\\n"},
-                        {"key": "sql_statement_kind", "value": "local_source_projection_filter_limit"},
-                        {"key": "projection_alias_runtime_execution", "value": "true"},
-                        {"key": "projection_alias_source_columns", "value": "amount"},
-                        {"key": "projection_alias_output_columns", "value": "order_amount"},
-                        {"key": "output_row_count", "value": "1"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
-                    ],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
                 }))
+                sys.exit(1)
                 """
-            )
+            ),
+            rewrite_public_run=False,
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
@@ -7515,45 +7740,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(workflow, LazyFrame)
         report = workflow.filter(sl.col("amount") >= 10).collect(limit=2)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
-        self.assertEqual(report.envelope.field("projection_alias_runtime_execution"), "true")
-        self.assertEqual(report.envelope.field("projection_alias_output_columns"), "order_amount")
-        self.assertFalse(report.fallback_attempted)
-        self.assertFalse(report.external_engine_invoked)
+        self.assert_public_local_file_vortex_middle_blocked(
+            report.envelope,
+            requested_output="collect",
+        )
 
-    def test_schema_declared_dataframe_drop_lowers_to_projection_rewrite(self) -> None:
+    def test_schema_declared_dataframe_drop_lowers_to_prepared_vortex_projection(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
-                import json, sys
+                import sys
 
-                assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
-                    "SELECT id,amount FROM 'target/input.csv' LIMIT 3",
-                    "--output-format",
-                    "inline-jsonl",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
-                    "status": "success",
-                    "summary": "sql local source projection rewrite",
-                    "human_text": "sql local source projection rewrite",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"amount\\":8}\\n{\\"id\\":2,\\"amount\\":19}\\n"},
-                        {"key": "sql_statement_kind", "value": "local_source_projection_limit"},
-                        {"key": "projection_rewrite_runtime_execution", "value": "true"},
-                        {"key": "projection_rewrite_dropped_columns", "value": "debug"},
-                        {"key": "output_row_count", "value": "2"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
-                    ],
-                }))
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
                 """
             )
         )
@@ -7566,9 +7764,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsInstance(workflow, LazyFrame)
         report = workflow.collect(limit=3)
 
-        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
-        self.assertEqual(report.envelope.field("projection_rewrite_runtime_execution"), "true")
-        self.assertEqual(report.envelope.field("projection_rewrite_dropped_columns"), "debug")
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_project",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_middle_status"),
+            "native_vortex_primitive",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "project")
+        self.assertEqual(report.envelope.field("public_workflow_vortex_columns"), "id,amount")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -12092,70 +12301,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         binary = self.fake_cli(
             textwrap.dedent(
                 """
-                import json, sys
+                import sys
 
-                assert sys.argv[1:] == [
-                    "run",
-                    "dataframe",
-                    "--input",
-                    "target/input.csv",
-                    "--input-format",
-                    "csv",
-                    "--sql",
-                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
-                    "--plan",
-                    "read_csv(target/input.csv) -> select(id,label) -> limit(2)",
-                    "--request",
-                    "collect",
-                    "--execution-policy",
-                    "auto",
-                    "--materialization-policy",
-                    "bounded",
-                    "--evidence-level",
-                    "production_admitted_local_workflow",
-                    "--bounded",
-                    "true",
-                    "--memory-gb",
-                    "4",
-                    "--max-parallelism",
-                    "1",
-                    "--format",
-                    "json",
-                ], sys.argv
-                fields = [
-                    ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
-                    ["public_workflow_route_attached", "true"],
-                    ["public_workflow_facade_command", "run"],
-                    ["public_workflow_route_id", "blocked"],
-                    ["public_workflow_route_status", "blocked"],
-                    ["public_workflow_resolved_internal_command", "not_resolved"],
-                    ["public_workflow_vortex_normalization_point", "not_applicable"],
-                    ["public_workflow_vortex_middle_status", "blocked_or_unsupported"],
-                    ["public_workflow_execution_mode", "blocked"],
-                    ["public_workflow_preparation_included", "false"],
-                    ["public_workflow_requested_output", "collect"],
-                    ["runtime_execution", "false"],
-                    ["fallback_attempted", "false"],
-                    ["external_engine_invoked", "false"],
-                    ["public_workflow_fallback_attempted", "false"],
-                    ["public_workflow_external_engine_invoked", "false"],
-                    ["public_workflow_blocker_id", "cg21.route.local_file_vortex_middle_required"],
-                    ["claim_gate_status", "not_claim_grade"],
-                ]
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "run",
-                    "status": "unsupported",
-                    "summary": "local source collect blocked before execution",
-                    "human_text": "local source collect blocked before execution",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [{"key": key, "value": value} for key, value in fields],
-                }))
-                sys.exit(1)
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
                 """
-            ),
-            rewrite_public_run=False,
+            )
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
@@ -12166,81 +12316,37 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assert_public_local_file_vortex_middle_blocked(
-            report.envelope,
-            requested_output="collect",
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
         )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_project",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_middle_status"),
+            "native_vortex_primitive",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "project")
+        self.assertEqual(report.envelope.field("public_workflow_vortex_columns"), "id,label")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "2"
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
-    def test_local_csv_query_builder_distinct_collect_uses_public_blocker_not_sql_smoke(
+    def test_local_csv_query_builder_distinct_collect_routes_through_prepared_vortex(
         self,
     ) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
-                import json, sys
+                import sys
 
-                assert sys.argv[1:] == [
-                    "run",
-                    "dataframe",
-                    "--input",
-                    "target/input.csv",
-                    "--input-format",
-                    "csv",
-                    "--sql",
-                    "SELECT DISTINCT id,label FROM 'target/input.csv' LIMIT 2",
-                    "--plan",
-                    "read_csv(target/input.csv) -> select(id,label) -> distinct() -> limit(2)",
-                    "--request",
-                    "collect",
-                    "--execution-policy",
-                    "auto",
-                    "--materialization-policy",
-                    "bounded",
-                    "--evidence-level",
-                    "production_admitted_local_workflow",
-                    "--bounded",
-                    "true",
-                    "--memory-gb",
-                    "4",
-                    "--max-parallelism",
-                    "1",
-                    "--format",
-                    "json",
-                ], sys.argv
-                fields = [
-                    ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
-                    ["public_workflow_route_attached", "true"],
-                    ["public_workflow_facade_command", "run"],
-                    ["public_workflow_route_id", "blocked"],
-                    ["public_workflow_route_status", "blocked"],
-                    ["public_workflow_resolved_internal_command", "not_resolved"],
-                    ["public_workflow_vortex_normalization_point", "not_applicable"],
-                    ["public_workflow_vortex_middle_status", "blocked_or_unsupported"],
-                    ["public_workflow_execution_mode", "blocked"],
-                    ["public_workflow_preparation_included", "false"],
-                    ["public_workflow_requested_output", "collect"],
-                    ["runtime_execution", "false"],
-                    ["fallback_attempted", "false"],
-                    ["external_engine_invoked", "false"],
-                    ["public_workflow_fallback_attempted", "false"],
-                    ["public_workflow_external_engine_invoked", "false"],
-                    ["public_workflow_blocker_id", "cg21.route.local_file_vortex_middle_required"],
-                    ["claim_gate_status", "not_claim_grade"],
-                ]
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "run",
-                    "status": "unsupported",
-                    "summary": "local source distinct blocked before execution",
-                    "human_text": "local source distinct blocked before execution",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [{"key": key, "value": value} for key, value in fields],
-                }))
-                sys.exit(1)
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
                 """
-            ),
-            rewrite_public_run=False,
+            )
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
@@ -12252,10 +12358,261 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assert_public_local_file_vortex_middle_blocked(
-            report.envelope,
-            requested_output="collect",
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
         )
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "native_vortex_distinct")
+        self.assertEqual(report.envelope.field("public_workflow_vortex_middle_status"), "native_vortex_primitive")
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "distinct")
+        self.assertEqual(report.envelope.field("execution"), "local_vortex_distinct_primitive_performed")
+        self.assertEqual(report.envelope.field_int("output_row_count"), 2)
+        self.assertEqual(report.rows_selected, 2)
+        self.assertEqual(report.projected_columns, ("id", "label"))
+        self.assertEqual(report.envelope.field("data_decoded"), "true")
+        self.assertEqual(report.envelope.field("data_materialized"), "true")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_tail_collect_routes_through_prepared_vortex(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.read_csv("target/input.csv").select(["id", "label"]).tail(2).collect()
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "native_vortex_tail")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_middle_status"),
+            "native_vortex_primitive",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "tail")
+        self.assertEqual(
+            report.envelope.field("execution"),
+            "local_vortex_tail_primitive_performed",
+        )
+        self.assertEqual(
+            report.envelope.field("local_primitive_source_order_limit_requested"), "2"
+        )
+        self.assertEqual(
+            report.envelope.field("local_primitive_source_order_limit_applied"), "true"
+        )
+        self.assertEqual(report.envelope.field_int("output_row_count"), 2)
+        self.assertEqual(report.rows_selected, 2)
+        self.assertEqual(report.projected_columns, ("id", "label"))
+        self.assertEqual(report.envelope.field("data_decoded"), "true")
+        self.assertEqual(report.envelope.field("data_materialized"), "true")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_set_index_metadata_collect_routes_through_prepared_vortex(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .set_index("id", drop=False)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"), "native_vortex_project"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_middle_status"),
+            "native_vortex_primitive",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "project")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "2"
+        )
+        self.assertEqual(report.envelope.field_int("output_row_count"), 2)
+        self.assertEqual(report.rows_selected, 2)
+        self.assertEqual(report.projected_columns, ("id", "label"))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_sample_collect_routes_through_prepared_vortex(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .filter("id > 0")
+            .select(["id", "label"])
+            .sample(n=2, seed=7)
+            .collect()
+        )
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"), "native_vortex_sample"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_middle_status"),
+            "native_vortex_primitive",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "sample")
+        self.assertEqual(report.envelope.field("public_workflow_vortex_sample_seed"), "7")
+        self.assertEqual(
+            report.envelope.field("execution"),
+            "local_vortex_sample_primitive_performed",
+        )
+        self.assertEqual(
+            report.envelope.field("local_primitive_source_order_limit_requested"), "2"
+        )
+        self.assertEqual(
+            report.envelope.field("local_primitive_source_order_limit_applied"), "true"
+        )
+        self.assertEqual(report.envelope.field_int("output_row_count"), 2)
+        self.assertEqual(report.rows_selected, 2)
+        self.assertEqual(report.projected_columns, ("id", "label"))
+        self.assertEqual(report.envelope.field("data_decoded"), "true")
+        self.assertEqual(report.envelope.field("data_materialized"), "true")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_tail_write_jsonl_routes_through_prepared_vortex_row_export(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .tail(2)
+            .write_jsonl("target/tail-out.jsonl", allow_overwrite=True)
+        )
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_primitive_row_export",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_resolved_internal_command"),
+            "vortex-local-primitive-row-export",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "tail")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "2"
+        )
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_jsonl")
+        self.assertEqual(
+            report.envelope.field("native_vortex_result_export_format"),
+            "jsonl",
+        )
+        self.assertEqual(
+            report.envelope.field("typed_sink_contract"),
+            "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_sample_write_csv_routes_through_prepared_vortex_row_export(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .filter("id > 0")
+            .select(["id", "label"])
+            .sample(n=2, seed=7)
+            .write_csv("target/sample-out.csv", allow_overwrite=True)
+        )
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_primitive_row_export",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_resolved_internal_command"),
+            "vortex-local-primitive-row-export",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "sample")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "2"
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_sample_seed"), "7")
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_csv")
+        self.assertEqual(
+            report.envelope.field("native_vortex_result_export_format"),
+            "csv",
+        )
+        self.assertEqual(
+            report.envelope.field("typed_sink_contract"),
+            "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_local_csv_query_builder_profile_uses_public_blocker_not_sql_smoke(
         self,
@@ -12422,6 +12779,96 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_native_vortex_query_builder_describe_routes_to_metadata_profile(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "run",
+                    "dataframe",
+                    "--input",
+                    "target/fact.vortex",
+                    "--input-format",
+                    "vortex",
+                    "--plan",
+                    "read_vortex(target/fact.vortex) -> select(id,label)",
+                    "--request",
+                    "profile",
+                    "--execution-policy",
+                    "native_vortex",
+                    "--materialization-policy",
+                    "zero_decode",
+                    "--evidence-level",
+                    "runtime_smoke",
+                    "--bounded",
+                    "true",
+                    "--native-vortex-operation-family",
+                    "profile",
+                    "--memory-gb",
+                    "4",
+                    "--max-parallelism",
+                    "1",
+                    "--format",
+                    "json",
+                ], sys.argv
+                fields = [
+                    ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
+                    ["public_workflow_route_attached", "true"],
+                    ["public_workflow_facade_command", "run"],
+                    ["public_workflow_route_id", "native_vortex_user_profile"],
+                    ["public_workflow_route_status", "admitted"],
+                    ["public_workflow_resolved_internal_command", "vortex-metadata-summary"],
+                    ["public_workflow_vortex_normalization_point", "native_vortex_metadata_profile"],
+                    ["public_workflow_vortex_middle_status", "native_vortex_metadata_profile"],
+                    ["public_workflow_execution_mode", "native_vortex"],
+                    ["public_workflow_preparation_included", "false"],
+                    ["public_workflow_requested_output", "profile"],
+                    ["public_workflow_native_vortex_operation_family", "profile"],
+                    ["public_workflow_typed_result_contract", "metadata_first_native_vortex_profile_summary"],
+                    ["public_workflow_decode_materialization_boundary", "metadata_only_no_decode_materialization"],
+                    ["mode", "vortex_metadata_summary"],
+                    ["runtime_execution", "false"],
+                    ["data_materialized", "false"],
+                    ["write_io", "false"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                    ["public_workflow_fallback_attempted", "false"],
+                    ["public_workflow_external_engine_invoked", "false"],
+                    ["claim_gate_status", "not_claim_grade"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run",
+                    "status": "success",
+                    "summary": "vortex metadata profile",
+                    "human_text": "vortex metadata profile",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            ),
+            rewrite_public_run=False,
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.read_vortex("target/fact.vortex").describe("id", "label")
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(report.command, "vortex-metadata-summary")
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_user_profile",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_middle_status"),
+            "native_vortex_metadata_profile",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_write_csv_routes_through_public_run_facade(
         self,
     ) -> None:
@@ -12465,67 +12912,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.envelope.field("fallback_attempted"), "false")
         self.assertEqual(report.envelope.field("external_engine_invoked"), "false")
 
-    def test_local_csv_query_builder_fanout_invokes_sql_smoke_outputs(self) -> None:
+    def test_local_csv_query_builder_fanout_routes_through_prepared_vortex_row_export(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
-                import json, sys
+                import sys
 
-                assert sys.argv[1:] == [
-                    "sql-local-source-smoke",
-                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
-                    "--output-format",
-                    "jsonl",
-                    "--output",
-                    "target/out.jsonl",
-                    "--fanout-output",
-                    "csv=target/out.csv",
-                    "--allow-overwrite",
-                    "--format",
-                    "json",
-                ], sys.argv
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
-                    "status": "success",
-                    "summary": "sql local source fanout output",
-                    "human_text": "sql local source fanout output",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
-                        {"key": "output_route", "value": "local_sink_and_fanout"},
-                        {"key": "output_format", "value": "jsonl"},
-                        {"key": "output_path", "value": "target/out.jsonl"},
-                        {"key": "output_row_count", "value": "2"},
-                        {"key": "selected_row_count", "value": "3"},
-                        {"key": "output_io_performed", "value": "true"},
-                        {"key": "output_fanout_performed", "value": "true"},
-                        {"key": "fanout_output_count", "value": "1"},
-                        {"key": "fanout_output_formats", "value": "csv"},
-                        {"key": "fanout_output_paths", "value": "target/out.csv"},
-                        {"key": "fanout_output_digests", "value": "csv:def"},
-                        {"key": "fanout_output_workspace_path_safety_statuses", "value": "csv:true"},
-                        {"key": "fanout_output_commit_modes", "value": "csv:atomic_rename_same_directory"},
-                        {"key": "fanout_output_native_io_certificate_statuses", "value": "csv:certified_local_csv_sink"},
-                        {"key": "fanout_output_replay_statuses", "value": "csv:verified_local_file_digest"},
-                        {"key": "fanout_output_fidelity_statuses", "value": "csv:logical_rows_replay_verified_type_metadata_not_preserved"},
-                        {"key": "fanout_output_fidelity_loss", "value": "csv:csv_text_roundtrip_loses_static_type_metadata"},
-                        {"key": "sink_artifact_count", "value": "2"},
-                        {"key": "sink_artifact_ref", "value": "jsonl:target/out.jsonl,csv:target/out.csv"},
-                        {"key": "sink_artifact_refs", "value": "jsonl:target/out.jsonl,csv:target/out.csv"},
-                        {"key": "sink_artifact_digest", "value": "jsonl:abc,csv:def"},
-                        {"key": "sink_artifact_digests", "value": "jsonl:abc,csv:def"},
-                        {"key": "sink_artifact_manifest_status", "value": "verified_local_sink_artifacts"},
-                        {"key": "output_native_io_certificate_status", "value": "certified_local_fanout_sinks"},
-                        {"key": "result_replay_verified", "value": "true"},
-                        {"key": "output_replay_status", "value": "verified_local_sink_artifacts"},
-                        {"key": "fanout_result_reuse_hit", "value": "true"},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
-                    ],
-                }))
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
                 """
             )
         )
@@ -12541,52 +12934,34 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(report.envelope.field("output_route"), "local_sink_and_fanout")
-        self.assertTrue(report.output_io_performed)
-        self.assertTrue(report.output_fanout_performed)
-        self.assertEqual(report.fanout_output_count, 1)
-        self.assertEqual(report.fanout_output_formats, ("csv",))
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
         self.assertEqual(
-            report.fanout_output_paths,
-            ("target/out.csv",),
-        )
-        self.assertEqual(report.fanout_output_digests, ("csv:def",))
-        self.assertEqual(report.sink_artifact_count, 2)
-        self.assertEqual(
-            report.sink_artifact_refs,
-            ("jsonl:target/out.jsonl", "csv:target/out.csv"),
-        )
-        self.assertEqual(report.sink_artifact_digests, ("jsonl:abc", "csv:def"))
-        self.assertEqual(
-            report.sink_artifact_manifest_status,
-            "verified_local_sink_artifacts",
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
         )
         self.assertEqual(
-            report.fanout_output_workspace_path_safety_statuses,
-            ("csv:true",),
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_primitive_row_export",
         )
         self.assertEqual(
-            report.fanout_output_commit_modes,
-            ("csv:atomic_rename_same_directory",),
+            report.envelope.field("public_workflow_resolved_internal_command"),
+            "vortex-local-primitive-row-export",
         )
-        self.assertTrue(report.result_replay_verified)
-        self.assertEqual(report.output_replay_status, "verified_local_sink_artifacts")
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_jsonl")
         self.assertEqual(
-            report.fanout_output_replay_statuses,
-            ("csv:verified_local_file_digest",),
-        )
-        self.assertEqual(
-            report.fanout_output_fidelity_statuses,
-            ("csv:logical_rows_replay_verified_type_metadata_not_preserved",),
+            report.envelope.field("native_vortex_result_export_target_formats"),
+            "jsonl,csv",
         )
         self.assertEqual(
-            report.fanout_output_fidelity_loss,
-            ("csv:csv_text_roundtrip_loses_static_type_metadata",),
+            report.envelope.field("native_vortex_result_export_target_paths"),
+            "target/out.jsonl,target/out.csv",
         )
-        self.assertTrue(report.fanout_result_reuse_hit)
         self.assertEqual(
-            report.output_native_io_certificate_status,
-            "certified_local_fanout_sinks",
+            report.envelope.field("native_vortex_result_export_fanout_performed"),
+            "true",
+        )
+        self.assertEqual(
+            report.envelope.field("typed_sink_contract"),
+            "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink",
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -15771,7 +16146,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.drop_columns("debug"),
             workflow.dropna(subset=["label"]),
             workflow.astype({"amount": "int64"}),
-            workflow.sample(n=5, seed=7),
             workflow.explode("items"),
             workflow.merge(
                 sl.read_csv("other.csv", client=ShardLoomClient(binary=binary)),
@@ -15787,7 +16161,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ),
             workflow.melt(id_vars="id", value_vars=["amount"]),
             workflow.rolling(window=3),
-            workflow.tail(limit=5),
             workflow.describe("amount"),
             workflow.nunique("customer_id"),
             workflow.value_counts("label"),
@@ -15836,7 +16209,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 70)
+        self.assertEqual(len(reports), 68)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -15926,7 +16299,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             by_operation["astype"].envelope.field("target_ref"),
             "dtype={amount=int64};errors=raise",
         )
-        self.assertEqual(by_operation["sample"].envelope.field("target_ref"), "n=5,seed=7")
         self.assertEqual(by_operation["explode"].envelope.field("target_ref"), "items")
         self.assertEqual(
             by_operation["pipe"].envelope.field("target_ref"),
@@ -15972,7 +16344,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             by_operation["rolling"].envelope.field("target_ref"),
             "window=3;center=false",
         )
-        self.assertEqual(by_operation["tail"].envelope.field("target_ref"), "5")
         self.assertEqual(
             by_operation["describe"].envelope.field("target_ref"),
             "columns=amount",
@@ -16047,7 +16418,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             by_operation["set-index"].envelope.field("workflow_operation"),
             "set_index",
         )
-        self.assertEqual(by_operation["set-index"].envelope.field("target_ref"), "keys=id")
+        self.assertEqual(
+            by_operation["set-index"].envelope.field("target_ref"),
+            "keys=id;drop=true",
+        )
         self.assertEqual(
             by_operation["reset-index"].envelope.field("workflow_operation"),
             "reset_index",
@@ -16074,6 +16448,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(by_operation["data-quality"].envelope.field_bool("runtime_required"))
         self.assertTrue(by_operation["preview"].envelope.field_bool("materialization_required"))
         self.assertTrue(by_operation["head"].envelope.field_bool("materialization_required"))
+
         self.assertEqual(by_operation["head"].envelope.field("target_ref"), "5")
         self.assertTrue(by_operation["take"].envelope.field_bool("materialization_required"))
         self.assertEqual(by_operation["take"].envelope.field("target_ref"), "5")
@@ -16081,6 +16456,75 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(
             by_operation["foundry-generated-output"].envelope.field_bool("write_required")
         )
+
+    def test_scoped_index_noop_affordances_preserve_lazy_plan(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1] == "workflow-unsupported-plan", sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "unsupported index operation",
+                    "human_text": "unsupported index operation",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "operation", "value": sys.argv[2]},
+                        {"key": "blocker_id", "value": "test.unsupported_index_shape"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "not_claim_grade"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv("events.csv")
+            .filter("id > 0")
+            .select("id", "amount")
+        )
+
+        reset = workflow.reset_index(drop=True)
+        sorted_by_index = workflow.sort_index()
+        explicit_sorted_by_index = workflow.sort_index(ascending=True)
+        indexed = workflow.set_index("id", drop=False)
+
+        self.assertIs(reset, workflow)
+        self.assertIs(sorted_by_index, workflow)
+        self.assertIs(explicit_sorted_by_index, workflow)
+        self.assertIsInstance(indexed, sl.LazyFrame)
+        self.assertEqual(
+            workflow.operation_summary,
+            "read_csv(events.csv) -> filter(id > 0) -> select(id,amount)",
+        )
+        self.assertEqual(
+            indexed.operation_summary,
+            "read_csv(events.csv) -> filter(id > 0) -> select(id,amount) -> set_index(id)",
+        )
+
+        reset_materialized = workflow.reset_index()
+        descending_sort = workflow.sort_index(ascending=False)
+        dropped_index_column = workflow.set_index("id")
+        sorted_explicit_index = indexed.sort_index()
+
+        self.assertIsInstance(reset_materialized, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(reset_materialized.operation, "reset-index")
+        self.assertFalse(reset_materialized.fallback_attempted)
+        self.assertIsInstance(descending_sort, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(descending_sort.operation, "sort-index")
+        self.assertFalse(descending_sort.fallback_attempted)
+        self.assertIsInstance(dropped_index_column, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(dropped_index_column.operation, "set-index")
+        self.assertIsInstance(sorted_explicit_index, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(sorted_explicit_index.operation, "sort-index")
+        self.assertFalse(sorted_explicit_index.fallback_attempted)
+        self.assertFalse(dropped_index_column.fallback_attempted)
 
     def test_vortex_user_operator_shapes_route_to_native_provider(self) -> None:
         binary = self.fake_cli(

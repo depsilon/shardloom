@@ -6146,7 +6146,12 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertEqual(packet["next_implementation_slice"], "none")
+        self.assertTrue(
+            packet["next_implementation_slice"].startswith(
+                "`PY-VORTEX-LOCAL-EXPORT-DISTINCT-CLOSEOUT-1`"
+            ),
+            packet["next_implementation_slice"],
+        )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
     def _optimization_target_rows(self) -> list[dict[str, object]]:
@@ -11049,6 +11054,7 @@ jobs:
             "vortex_select_star_limit_collect",
             "vortex_filter_project_collect",
             "vortex_filter_project_limit_collect",
+            "vortex_tail_collect",
         ]
         scenario_ids = [
             "selective_filter",
@@ -13524,6 +13530,17 @@ jobs:
             "deterministic_seed_policy",
             by_method["sample"]["required_evidence"],
         )
+        self.assertEqual(
+            by_method["sample"]["support_status"],
+            "production_admitted_local_workflow",
+        )
+        self.assertIn(
+            "native_vortex_sample_primitive",
+            by_method["sample"]["required_evidence"],
+        )
+        self.assertTrue(by_method["sample"]["runtime_execution"])
+        self.assertTrue(by_method["sample"]["materialization_required"])
+        self.assertIsNone(by_method["sample"]["blocker_id"])
         self.assertFalse(by_method["explode"]["runtime_execution"])
         self.assertEqual(
             by_method["merge"]["support_status"],

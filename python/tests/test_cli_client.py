@@ -6672,7 +6672,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertNotIn("drop_columns", dataframe_methods.unsupported_methods)
         self.assertNotIn("astype", dataframe_methods.unsupported_methods)
         self.assertNotIn("dropna", dataframe_methods.unsupported_methods)
-        self.assertIn("sample", dataframe_methods.unsupported_methods)
+        self.assertNotIn("sample", dataframe_methods.unsupported_methods)
         self.assertIn("explode", dataframe_methods.unsupported_methods)
         self.assertNotIn("merge", dataframe_methods.unsupported_methods)
         self.assertNotIn("concat", dataframe_methods.unsupported_methods)
@@ -6680,6 +6680,8 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn("pivot_table", dataframe_methods.unsupported_methods)
         self.assertIn("melt", dataframe_methods.unsupported_methods)
         self.assertIn("rolling", dataframe_methods.unsupported_methods)
+        self.assertNotIn("tail", dataframe_methods.unsupported_methods)
+        self.assertNotIn("describe", dataframe_methods.unsupported_methods)
         self.assertNotIn("nunique", dataframe_methods.unsupported_methods)
         self.assertNotIn("value_counts", dataframe_methods.unsupported_methods)
         self.assertNotIn("nlargest", dataframe_methods.unsupported_methods)
@@ -6693,9 +6695,9 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn("duplicated", dataframe_methods.unsupported_methods)
         self.assertIn("mask", dataframe_methods.unsupported_methods)
         self.assertIn("replace", dataframe_methods.unsupported_methods)
-        self.assertIn("set_index", dataframe_methods.unsupported_methods)
-        self.assertIn("reset_index", dataframe_methods.unsupported_methods)
-        self.assertIn("sort_index", dataframe_methods.unsupported_methods)
+        self.assertNotIn("set_index", dataframe_methods.unsupported_methods)
+        self.assertNotIn("reset_index", dataframe_methods.unsupported_methods)
+        self.assertNotIn("sort_index", dataframe_methods.unsupported_methods)
         self.assertEqual(
             dataframe_methods.row("read_vortex").support_status,
             "source_declaration_supported",
@@ -6810,20 +6812,21 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("distinct").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
-        self.assertFalse(dataframe_methods.row("distinct").runtime_execution)
+        self.assertTrue(dataframe_methods.row("distinct").runtime_execution)
+        self.assertTrue(dataframe_methods.row("distinct").materialization_required)
         self.assertIn(
-            "native_vortex_distinct_operator",
+            "native_vortex_distinct_primitive",
             dataframe_methods.row("distinct").required_evidence,
         )
         self.assertEqual(
             dataframe_methods.row("drop_duplicates").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
         self.assertEqual(
             dataframe_methods.row("unique").support_status,
-            "runtime_expansion_pending",
+            "production_admitted_local_workflow",
         )
         self.assertEqual(
             dataframe_methods.row("rename").support_status,
@@ -7003,10 +7006,18 @@ class ShardLoomClientTests(unittest.TestCase):
             "fixture_smoke_supported",
         )
         self.assertEqual(
-            dataframe_methods.row("sample").blocker_id,
-            "cg21.workflow.sample.sampling_semantics_unsupported",
+            dataframe_methods.row("sample").support_status,
+            "production_admitted_local_workflow",
         )
+        self.assertTrue(dataframe_methods.row("sample").runtime_execution)
+        self.assertTrue(dataframe_methods.row("sample").data_read)
+        self.assertTrue(dataframe_methods.row("sample").materialization_required)
+        self.assertIsNone(dataframe_methods.row("sample").blocker_id)
         self.assertFalse(dataframe_methods.row("sample").write_io)
+        self.assertIn(
+            "native_vortex_sample_primitive",
+            dataframe_methods.row("sample").required_evidence,
+        )
         self.assertIn(
             "deterministic_seed_policy",
             dataframe_methods.row("sample").required_evidence,
@@ -7051,6 +7062,18 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("rolling").required_evidence,
         )
         self.assertEqual(
+            dataframe_methods.row("describe").support_status,
+            "production_admitted_local_workflow",
+        )
+        self.assertTrue(dataframe_methods.row("describe").runtime_execution)
+        self.assertFalse(dataframe_methods.row("describe").data_read)
+        self.assertIsNone(dataframe_methods.row("describe").diagnostic_operation)
+        self.assertIsNone(dataframe_methods.row("describe").blocker_id)
+        self.assertIn(
+            "native_vortex_metadata_profile_route",
+            dataframe_methods.row("describe").required_evidence,
+        )
+        self.assertEqual(
             dataframe_methods.row("duplicated").blocker_id,
             "cg21.workflow.duplicated.row_mask_unsupported",
         )
@@ -7067,16 +7090,31 @@ class ShardLoomClientTests(unittest.TestCase):
             "cg21.workflow.replace.value_rewrite_unsupported",
         )
         self.assertEqual(
-            dataframe_methods.row("set_index").blocker_id,
-            "cg21.workflow.set_index.index_state_unsupported",
+            dataframe_methods.row("set_index").support_status,
+            "scoped_runtime_supported",
+        )
+        self.assertIsNone(dataframe_methods.row("set_index").blocker_id)
+        self.assertIn(
+            "explicit_index_state_metadata",
+            dataframe_methods.row("set_index").required_evidence,
         )
         self.assertEqual(
-            dataframe_methods.row("reset_index").blocker_id,
-            "cg21.workflow.reset_index.index_state_unsupported",
+            dataframe_methods.row("reset_index").support_status,
+            "scoped_runtime_supported",
+        )
+        self.assertIsNone(dataframe_methods.row("reset_index").blocker_id)
+        self.assertIn(
+            "no_explicit_index_state_contract",
+            dataframe_methods.row("reset_index").required_evidence,
         )
         self.assertEqual(
-            dataframe_methods.row("sort_index").blocker_id,
-            "cg21.workflow.sort_index.index_order_unsupported",
+            dataframe_methods.row("sort_index").support_status,
+            "scoped_runtime_supported",
+        )
+        self.assertIsNone(dataframe_methods.row("sort_index").blocker_id)
+        self.assertIn(
+            "source_order_preservation",
+            dataframe_methods.row("sort_index").required_evidence,
         )
         self.assertEqual(
             dataframe_methods.row("window").support_status,
@@ -7442,7 +7480,8 @@ class ShardLoomClientTests(unittest.TestCase):
             typed_nested.blocker_id,
             "cg21.route.local_file_compatibility_sink_contract_missing",
         )
-        self.assertIn("certified native Vortex result/export contract", typed_nested.claim_boundary)
+        self.assertIn("Computed ARRAY/STRUCT compatibility sinks", typed_nested.claim_boundary)
+        self.assertIn("separate admitted rows", typed_nested.claim_boundary)
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
         self.assertTrue(broad.broad_gap)
         self.assertEqual(broad.parity_status, "front_door_gap")

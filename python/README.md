@@ -352,8 +352,11 @@ print(native_vortex.command, native_vortex.route_id, native_vortex.vortex_primit
 ```
 
 For direct `.vortex` inputs, `route()` and `run()` infer the admitted primitive/provider payloads
-for scoped count/filter/project/limit and exact benchmark-family grouped aggregate, hash join,
-global top-N, cast/try-cast, substring contains, and native `write_vortex` sink shapes. Manual
+for scoped count/filter/project/limit, no-argument row-level distinct, bounded source-order tail,
+deterministic bounded `sample(n=..., seed=...)`,
+and exact benchmark-family grouped aggregate, hash join, global top-N, cast/try-cast,
+substring contains, and native
+`write_vortex` sink shapes. Manual
 `vortex_primitive` and `native_vortex_provider_scenario` arguments remain available on
 `ctx.client.public_workflow_*` for low-level diagnostics, but normal Python/SQL facades route the
 admitted shapes without requiring those flags.
@@ -366,11 +369,14 @@ envelope. The equivalent CLI surfaces are
 `shardloom prepare <sql|python|dataframe|cli> --format json`.
 Lazy DataFrame bounded `collect()` and admitted generated-source/source-free writes route through
 the public `run` facade and return existing typed reports with attached `public_workflow_*` route
-fields. Compatibility writes such as `write(...)`, `write_jsonl(...)`, `write_csv(...)`,
-structured write aliases, and compatibility fanout return deterministic blockers unless an admitted
-native Vortex sink/export route exists for the normalized plan. Native Vortex primitive and
-promoted provider helpers attach the inferred route payloads to the same facade rather than relying
-on a separate payload-only path.
+fields. `write_vortex(...)` remains the highest-fidelity native sink when the upstream provider
+route is admitted. Exact provider-backed result summaries can export bounded `result_json` to
+workspace-safe JSONL/CSV, and scoped primitive filter/project/filter-project/distinct/tail/sample row streams
+can export JSONL/CSV or JSONL+CSV fanout through `native_vortex_primitive_row_export`. Broader
+compatibility writes such as arbitrary `write(...)`, structured write aliases, unsupported formats,
+and unsafe or non-admitted fanout return deterministic blockers until a native Vortex sink/export
+route exists for the normalized plan. Native Vortex primitive and promoted provider helpers attach
+the inferred route payloads to the same facade rather than relying on a separate payload-only path.
 
 Traditional analytics compatibility inputs can also use the explicit context/session prepared route
 or the lower-level client helpers. `ctx.prepare_vortex(..., workspace=...)` and
@@ -440,8 +446,8 @@ print(result.field("selected_execution_mode"))
 print(result.fallback.attempted)
 ```
 
-`read_vortex(...).count/filter/select/limit/collect`, admitted grouped aggregate/join/top-N/cast/
-contains chains, and native `write_vortex` sinks route through the public native Vortex facade when
+`read_vortex(...).count/filter/select/limit/distinct/tail/sample/collect`, admitted grouped
+aggregate/join/top-N/cast/contains chains, and native `write_vortex` sinks route through the public native Vortex facade when
 their shape has a certificate-backed provider route. `native_vortex_route(...)` remains the
 explicit route-comparable surface for the production provider facade
 (`vortex-production-runtime-run`) and the lower-level benchmark-compatible helpers
@@ -852,9 +858,13 @@ For local compatibility inputs, admitted `collect()`, `count()`, `preview()`, `h
 schema/data-quality summaries, bounded decoded materialization, local compatibility writes,
 compatibility fanout, quarantine sinks, and exact benchmark-family provider shapes enter the same
 Vortex-prepared/native route described above. Profile summaries and broad production/export
-semantics remain blocked unless a later native Vortex materialization or export contract admits
-them. Alias rows such as `project`, `where`, `groupby`, `order_by`,
-`sort_values`, `merge`, and `nlargest` are useful only when their normalized operation shape maps to
+semantics require an admitted route contract: native `.vortex` metadata profiles are admitted for
+base read/select/limit shapes, and scoped `describe(...)` lowers to that same metadata-first
+profile route. Transformed row profiling, pandas-style percentile/options summaries, and broad
+production profiling remain blocked until a native Vortex materialization/profile contract admits
+them. Alias rows such as
+`project`, `where`, `groupby`, `order_by`,
+`sort_values`, `merge`, `nlargest`, scoped `tail`, and scoped deterministic `sample` are useful only when their normalized operation shape maps to
 an admitted native route; otherwise they return the matching unsupported report before data is read.
 
 Generated-source rows such as `ctx.from_rows(...)`, `ctx.range(...)`, `ctx.sequence(...)`, and
@@ -864,8 +874,9 @@ compatibility files can use direct decoded sinks as a product runtime.
 `schema_contract(...)` and `validate_schema(...)` are bounded local schema evidence surfaces after
 Vortex preparation. They are not broad schema registry, table constraint manager, or object-store/
 lakehouse enforcement surfaces.
-`profile(...)` remains blocked until it has a native Vortex runtime profile/materialization
-contract. It is not a hidden pandas/Polars profiler, resource tracer, performance claim, or
+`profile(...)` is admitted for metadata-first native `.vortex` base read/select/limit profiles and
+otherwise returns deterministic blockers until a route-specific profile/materialization contract
+exists. It is not a hidden pandas/Polars profiler, resource tracer, performance claim, or
 production observability surface.
 `quarantine(...)` is admitted for bounded local checks and optional local sink replay evidence. It is
 not object-store/table quarantine, production remediation, or a broad data-governance engine.
@@ -1686,9 +1697,11 @@ The Python helper path uses the public `run` facade for explicit local primitive
 execution, so envelopes have `command=run` plus
 `public_workflow_resolved_internal_command` set to `vortex-run`,
 `vortex-count-where`, `vortex-filter`, `vortex-project`, or
-`vortex-filter-project`. Count-all maps to `--vortex-primitive count`.
-Count-where, filter, project, and filter-project map to explicit predicate,
-projection, source-order limit, `memory_gb`, and `max_parallelism` payloads.
+`vortex-filter-project`. Count-all, no-argument row-level distinct, scoped source-order tail, and
+deterministic bounded sampling map through `vortex-run`; count-where, filter, project, and
+filter-project map through their scoped primitive commands. Distinct, tail, and sample use explicit
+projection, source-order limit, sample seed, `memory_gb`, and `max_parallelism` payloads where
+relevant.
 The lower `vortex-*` commands remain available for direct diagnostics, tests,
 and benchmark evidence. Calls without explicit local primitive execution use
 the existing metadata/plan evidence surfaces where the CLI supports them.

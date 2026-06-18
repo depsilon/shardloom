@@ -1692,8 +1692,8 @@ def main() -> int:
             v1_vortex_blockers.append(
                 "v1 Vortex all_no_fallback_no_external_engine must be true"
             )
-        if len(v1_vortex_runtime_scope.get("supported_primitive_route_ids", [])) != 9:
-            v1_vortex_blockers.append("v1 Vortex primitive route coverage must contain 9 rows")
+        if len(v1_vortex_runtime_scope.get("supported_primitive_route_ids", [])) != 11:
+            v1_vortex_blockers.append("v1 Vortex primitive route coverage must contain 11 rows")
         if len(v1_vortex_runtime_scope.get("supported_benchmark_scenario_ids", [])) != 15:
             v1_vortex_blockers.append(
                 "v1 Vortex benchmark scenario coverage must contain 15 rows"
@@ -2114,7 +2114,7 @@ def main() -> int:
             ("golden_workflow_replay_verified_count", 3),
             ("benchmark_scenario_count", 9),
             ("benchmark_expected_error_scenario_count", 0),
-            ("unsupported_failure_fixture_count", 2),
+            ("unsupported_failure_fixture_count", 1),
             ("docs_marker_status", "passed"),
             ("runtime_command_status", "passed"),
             ("golden_workflow_replay_status", "passed"),
@@ -2311,7 +2311,7 @@ def main() -> int:
                 ): 11,
                 ("admitted_semantics", "required_stage_no_fallback_count"): 58,
                 ("admitted_semantics", "required_stage_no_external_engine_count"): 58,
-                ("front_door", "supported_parity_row_count"): 7,
+                ("front_door", "supported_parity_row_count"): 6,
                 ("front_door", "broad_pending_parity_row_count"): 4,
                 ("front_door", "example_scenario_count"): 9,
                 ("front_door", "expected_error_scenario_count"): 0,
@@ -2320,11 +2320,11 @@ def main() -> int:
                 ("source_prepared_state", "supported_input_format_count"): 6,
                 ("source_prepared_state", "prepared_route_count"): 4,
                 ("source_prepared_state", "invalidation_case_count"): 9,
-                ("vortex_runtime", "primitive_route_count"): 9,
+                ("vortex_runtime", "primitive_route_count"): 11,
                 ("vortex_runtime", "local_file_benchmark_route_count"): 15,
                 ("local_output_sink", "supported_output_format_count"): 7,
                 ("local_output_sink", "write_method_count"): 9,
-                ("local_output_sink", "output_route_count"): 8,
+                ("local_output_sink", "output_route_count"): 7,
                 ("python_user_surface", "method_matrix_row_count"): 113,
                 ("python_user_surface", "method_matrix_row_list_count"): 113,
                 ("python_user_surface", "required_operation_method_count"): 13,
@@ -2337,7 +2337,7 @@ def main() -> int:
                 ("example_replay", "golden_workflow_replay_verified_count"): 3,
                 ("example_replay", "benchmark_scenario_count"): 9,
                 ("example_replay", "benchmark_expected_error_scenario_count"): 0,
-                ("example_replay", "unsupported_failure_fixture_count"): 2,
+                ("example_replay", "unsupported_failure_fixture_count"): 1,
                 (
                     "example_replay",
                     "all_no_fallback_no_external_engine",
@@ -2642,6 +2642,7 @@ def main() -> int:
             "vortex-filter",
             "vortex-project",
             "vortex-filter-project",
+            "public-workflow run",
         }
         primitive_commands = set(
             user_route_capability.get("local_vortex_primitive_command_coverage", [])
