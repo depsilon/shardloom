@@ -65,8 +65,8 @@
   ],
   "row_count": 40,
   "support_state_counts": {
-    "executable": 25,
-    "feature_gated": 5,
+    "executable": 24,
+    "feature_gated": 6,
     "internal_smoke_only": 1,
     "diagnostic_only": 3,
     "report_only": 1,
@@ -829,7 +829,7 @@
         "sql",
         "LazyFrame.collect/profile/write_vortex/write_jsonl/write_csv/fanout local-file auto route"
       ],
-      "support_state": "executable",
+      "support_state": "feature_gated",
       "feature_gate": "release-user-surfaces for Vortex preparation/provider execution; default builds fail closed with deterministic feature-gate diagnostics",
       "evidence_refs": [
         "python.tests.test_query_builder",

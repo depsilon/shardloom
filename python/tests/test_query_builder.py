@@ -916,6 +916,102 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertEqual(dataframe_route.as_dict()["execution_mode"], "blocked")
 
+    def test_native_vortex_sample_route_and_run_are_bounded_by_sample_size(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                command = args[0]
+                assert command in {"route", "run"}, sys.argv
+                assert args[1:6] == ["dataframe", "--input", "orders.vortex", "--input-format", "vortex"], sys.argv
+                assert args[args.index("--plan") + 1] == "read_vortex(orders.vortex) -> sample(2,7)", sys.argv
+                assert args[args.index("--request") + 1] == "collect", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
+                assert args[args.index("--bounded") + 1] == "true", sys.argv
+                assert args[args.index("--native-vortex-operation-family") + 1] == "sample", sys.argv
+                assert args[args.index("--vortex-primitive") + 1] == "sample", sys.argv
+                assert args[args.index("--vortex-source-order-limit") + 1] == "2", sys.argv
+                assert args[args.index("--vortex-sample-seed") + 1] == "7", sys.argv
+                if command == "route":
+                    fields = [
+                        ["public_workflow_route_schema_version", "shardloom.public_workflow_route.v1"],
+                        ["route_id", "native_vortex_sample"],
+                        ["route_status", "admitted"],
+                        ["resolved_internal_command", "vortex-run"],
+                        ["surface", "dataframe"],
+                        ["start_state", "native_vortex_file"],
+                        ["vortex_normalization_point", "native_vortex_boundary"],
+                        ["vortex_middle_status", "native_vortex"],
+                        ["execution_mode", "native_vortex"],
+                        ["preparation_included", "false"],
+                        ["query_timing_starts_after_preparation", "true"],
+                        ["route_side_effect_free", "true"],
+                        ["vortex_primitive", "sample"],
+                        ["vortex_source_order_limit", "2"],
+                        ["vortex_sample_seed", "7"],
+                        ["fallback_attempted", "false"],
+                        ["external_engine_invoked", "false"],
+                        ["blocker_id", "none"],
+                    ]
+                    status = "success"
+                    summary = "sample route"
+                else:
+                    fields = [
+                        ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
+                        ["public_workflow_route_attached", "true"],
+                        ["public_workflow_facade_command", "run"],
+                        ["public_workflow_route_id", "native_vortex_sample"],
+                        ["public_workflow_route_status", "admitted"],
+                        ["public_workflow_resolved_internal_command", "vortex-run"],
+                        ["public_workflow_vortex_normalization_point", "native_vortex_boundary"],
+                        ["public_workflow_vortex_middle_status", "native_vortex"],
+                        ["public_workflow_execution_mode", "native_vortex"],
+                        ["public_workflow_preparation_included", "false"],
+                        ["public_workflow_requested_output", "collect"],
+                        ["public_workflow_vortex_primitive", "sample"],
+                        ["public_workflow_vortex_source_order_limit", "2"],
+                        ["public_workflow_vortex_sample_seed", "7"],
+                        ["runtime_execution", "true"],
+                        ["fallback_attempted", "false"],
+                        ["external_engine_invoked", "false"],
+                        ["public_workflow_fallback_attempted", "false"],
+                        ["public_workflow_external_engine_invoked", "false"],
+                        ["public_workflow_blocker_id", "none"],
+                    ]
+                    status = "success"
+                    summary = "sample run"
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": status,
+                    "summary": summary,
+                    "human_text": summary,
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+        frame = sl.read_vortex("orders.vortex", client=client).sample(n=2, seed=7)
+
+        route = frame.route(check=False)
+        run = frame.run(check=False)
+
+        self.assertEqual(route.route_id, "native_vortex_sample")
+        self.assertEqual(route.envelope.field("vortex_source_order_limit"), "2")
+        self.assertEqual(run.envelope.field("public_workflow_route_id"), "native_vortex_sample")
+        self.assertEqual(
+            run.envelope.field("public_workflow_vortex_source_order_limit"),
+            "2",
+        )
+        self.assertFalse(route.fallback_attempted)
+        self.assertFalse(run.fallback_attempted)
+
     def test_workflow_route_blocks_unbounded_collect_at_admission(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -16399,6 +16495,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         reset_materialized = workflow.reset_index()
         descending_sort = workflow.sort_index(ascending=False)
         dropped_index_column = workflow.set_index("id")
+        sorted_explicit_index = indexed.sort_index()
 
         self.assertIsInstance(reset_materialized, sl.UnsupportedWorkflowOperationReport)
         self.assertEqual(reset_materialized.operation, "reset-index")
@@ -16408,6 +16505,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(descending_sort.fallback_attempted)
         self.assertIsInstance(dropped_index_column, sl.UnsupportedWorkflowOperationReport)
         self.assertEqual(dropped_index_column.operation, "set-index")
+        self.assertIsInstance(sorted_explicit_index, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(sorted_explicit_index.operation, "sort-index")
+        self.assertFalse(sorted_explicit_index.fallback_attempted)
         self.assertFalse(dropped_index_column.fallback_attempted)
 
     def test_vortex_user_operator_shapes_route_to_native_provider(self) -> None:

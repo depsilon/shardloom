@@ -182,6 +182,7 @@ fn execute_native_vortex_profile_run_with_extra(
         return emit_blocked_facade("run", format, request, &blocked);
     };
     let mut attachment_fields = execution_attachment_fields("run", request, plan);
+    attachment_fields.extend(native_vortex_profile_projection_attachment_fields(request));
     attachment_fields.append(&mut extra_fields);
     vortex_planning::handle_vortex_metadata_summary_with_facade(
         vec![input_uri].into_iter(),
@@ -2375,13 +2376,15 @@ fn native_vortex_primitive_payload_blocker(
             "use --vortex-source-order-limit only with filter, project, filter_project, distinct, tail, or sample",
         ));
     }
-    if matches!(primitive, PublicVortexPrimitive::Sample)
-        && request.vortex_source_order_limit.is_none()
+    if matches!(
+        primitive,
+        PublicVortexPrimitive::Tail | PublicVortexPrimitive::Sample
+    ) && request.vortex_source_order_limit.is_none()
     {
         return Some(native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_source_order_limit",
-            "native Vortex sample requires a bounded sample size",
-            "pass --vortex-source-order-limit with the requested sample row count",
+            "native Vortex tail/sample requires a bounded row count",
+            "pass --vortex-source-order-limit with the requested tail/sample row count",
         ));
     }
     if request.vortex_sample_seed.is_some() && !matches!(primitive, PublicVortexPrimitive::Sample) {
@@ -2545,6 +2548,54 @@ fn native_vortex_metadata_profile_shape_admitted(request: &PublicWorkflowRouteRe
         .iter()
         .skip(1)
         .all(|operation| matches!(operation.kind, "select" | "limit"))
+}
+
+fn native_vortex_profile_projection_attachment_fields(
+    request: &PublicWorkflowRouteRequest,
+) -> Vec<(String, String)> {
+    let projected_columns = request
+        .plan_summary
+        .as_deref()
+        .and_then(|summary| profile_projection_columns_from_summary(summary, request));
+    let (scope, columns) = match projected_columns {
+        Some(columns) => ("selected_columns", columns),
+        None => ("all_columns", "all".to_string()),
+    };
+    vec![
+        (
+            "public_workflow_profile_projection_scope".to_string(),
+            scope.to_string(),
+        ),
+        (
+            "public_workflow_profile_projected_columns".to_string(),
+            columns,
+        ),
+        (
+            "metadata_summary_projection_scope".to_string(),
+            scope.to_string(),
+        ),
+    ]
+}
+
+fn profile_projection_columns_from_summary(
+    summary: &str,
+    request: &PublicWorkflowRouteRequest,
+) -> Option<String> {
+    let operations = parse_plan_summary_operations(summary)?;
+    let operations = strip_index_metadata_operations(&operations);
+    if !summary_read_vortex_matches_input(&operations, request.input_uri.as_deref()?) {
+        return None;
+    }
+    let columns = operations
+        .iter()
+        .rev()
+        .find(|operation| operation.kind == "select")?
+        .arg
+        .trim();
+    if columns.is_empty() || columns == "*" {
+        return None;
+    }
+    normalize_sql_projection_columns(columns)
 }
 
 fn native_vortex_resource_hint_blocker(
@@ -3181,19 +3232,60 @@ fn parse_native_vortex_sql_single_source_shape(
     let from_tail = select_body[from_position + "FROM".len()..].trim();
     let (source_ref, consumed) = leading_quoted_sql_literal_with_consumed(from_tail)?;
     let tail = from_tail[consumed..].trim();
-    if find_sql_keyword_outside_quotes_and_parens(tail, "JOIN").is_some()
-        || find_sql_keyword_outside_quotes_and_parens(tail, "GROUP BY").is_some()
-        || find_sql_keyword_outside_quotes_and_parens(tail, "ORDER BY").is_some()
-    {
-        return None;
-    }
+    let (where_clause, limit) = parse_native_vortex_sql_allowed_tail(tail)?;
     Some(NativeVortexSqlSingleSourceShape {
         projection: projection.to_string(),
         source_ref,
-        where_clause: sql_clause_body(tail, "WHERE", &["LIMIT"]),
-        limit: sql_clause_body(tail, "LIMIT", &[])
-            .and_then(|value| value.split_whitespace().next().map(str::to_string)),
+        where_clause,
+        limit,
     })
+}
+
+fn parse_native_vortex_sql_allowed_tail(tail: &str) -> Option<(Option<String>, Option<String>)> {
+    let tail = tail.trim();
+    if tail.is_empty() {
+        return Some((None, None));
+    }
+    if sql_keyword_prefix(tail, "WHERE") {
+        let where_tail = tail["WHERE".len()..].trim();
+        let limit_position = find_sql_keyword_outside_quotes_and_parens(where_tail, "LIMIT");
+        let (where_clause, limit) = if let Some(position) = limit_position {
+            let clause = where_tail[..position].trim();
+            let limit_tail = where_tail[position + "LIMIT".len()..].trim();
+            (
+                clause,
+                Some(parse_native_vortex_sql_limit_literal(limit_tail)?),
+            )
+        } else {
+            (where_tail, None)
+        };
+        if where_clause.is_empty() {
+            return None;
+        }
+        return Some((Some(where_clause.to_string()), limit));
+    }
+    if sql_keyword_prefix(tail, "LIMIT") {
+        let limit_tail = tail["LIMIT".len()..].trim();
+        return Some((
+            None,
+            Some(parse_native_vortex_sql_limit_literal(limit_tail)?),
+        ));
+    }
+    None
+}
+
+fn parse_native_vortex_sql_limit_literal(value: &str) -> Option<String> {
+    let value = value.trim();
+    let digit_count = value
+        .as_bytes()
+        .iter()
+        .take_while(|byte| byte.is_ascii_digit())
+        .count();
+    if digit_count == 0 || !value[digit_count..].trim().is_empty() {
+        return None;
+    }
+    let limit = &value[..digit_count];
+    summary_positive_limit(limit).then(|| limit.to_string())
 }
 
 fn normalize_sql_projection_columns(projection: &str) -> Option<String> {
@@ -3210,18 +3302,6 @@ fn normalize_sql_projection_columns(projection: &str) -> Option<String> {
         return None;
     }
     Some(columns.join(","))
-}
-
-fn sql_clause_body(raw: &str, keyword: &str, end_keywords: &[&str]) -> Option<String> {
-    let start = find_sql_keyword_outside_quotes_and_parens(raw, keyword)? + keyword.len();
-    let rest = raw[start..].trim();
-    let end = end_keywords
-        .iter()
-        .filter_map(|end_keyword| find_sql_keyword_outside_quotes_and_parens(rest, end_keyword))
-        .min()
-        .unwrap_or(rest.len());
-    let value = rest[..end].trim();
-    (!value.is_empty()).then(|| value.to_string())
 }
 
 #[derive(Debug, Clone, Copy)]

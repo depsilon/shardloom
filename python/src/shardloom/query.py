@@ -5039,7 +5039,7 @@ class LazyFrame:
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Preserve source order when no explicit DataFrame index state exists."""
 
-        if ascending is True and not kwargs:
+        if ascending is True and not kwargs and not _workflow_has_index_metadata(self.operations):
             return self
         target_ref = _normalize_sort_index_target(ascending=ascending, kwargs=kwargs)
         return self._unsupported_operation("sort-index", target_ref, check=check)
@@ -12019,9 +12019,15 @@ def _cap_top_level_sql_limit(statement: str, limit_index: int, count: int) -> st
 
 
 def _workflow_has_limit(operations: Sequence[WorkflowOperation]) -> bool:
-    """Whether a lazy workflow already carries a limit operation."""
+    """Whether a lazy workflow already carries a finite collect bound."""
 
-    return any(operation.kind == "limit" for operation in operations)
+    return any(operation.kind in {"limit", "tail", "sample"} for operation in operations)
+
+
+def _workflow_has_index_metadata(operations: Sequence[WorkflowOperation]) -> bool:
+    """Whether a lazy workflow carries explicit index-state metadata."""
+
+    return any(operation.kind == "set_index" for operation in operations)
 
 
 def _workflow_has_top_n_shape(operations: Sequence[WorkflowOperation]) -> bool:

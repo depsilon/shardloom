@@ -236,6 +236,35 @@ fn public_route_blocks_unresolved_newline_from_source_without_declared_input() {
 }
 
 #[test]
+fn public_route_rejects_native_vortex_sql_non_where_limit_tail() {
+    let stdout = run_route(&[
+        "route",
+        "sql",
+        "--input",
+        "target/fact.vortex",
+        "--input-format",
+        "vortex",
+        "--sql",
+        "SELECT id FROM 'target/fact.vortex' OFFSET 10 LIMIT 2",
+        "--request",
+        "collect",
+        "--execution-policy",
+        "native_vortex",
+        "--bounded",
+        "true",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("route_id", "blocked")));
+    assert!(!stdout.contains(&field("route_id", "native_vortex_project")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn public_route_requires_vortex_input_for_native_vortex_policy() {
     let stdout = run_route(&[
         "route",
@@ -392,6 +421,40 @@ fn public_route_admits_native_vortex_tail_row_export_payloads() {
             "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
         )));
     }
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_route_blocks_native_vortex_tail_collect_without_explicit_count() {
+    let stdout = run_route(&[
+        "route",
+        "cli",
+        "--input",
+        "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+        "--input-format",
+        "vortex",
+        "--request",
+        "collect",
+        "--execution-policy",
+        "native_vortex",
+        "--bounded",
+        "true",
+        "--vortex-primitive",
+        "tail",
+        "--vortex-columns",
+        "metric",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("route_id", "blocked")));
+    assert!(stdout.contains(&field(
+        "blocker_id",
+        "cg21.route.native_vortex_payload_invalid"
+    )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
@@ -653,6 +716,48 @@ fn public_route_admits_payloadless_native_vortex_metadata_profile_without_smoke_
         "metadata_only_no_decode_materialization"
     )));
     assert!(stdout.contains(&field("runtime_execution", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
+fn public_run_native_vortex_profile_marks_projected_metadata_scope() {
+    let (_success, stdout) = run_facade(&[
+        "run",
+        "dataframe",
+        "--input",
+        "target/fact.vortex",
+        "--input-format",
+        "vortex",
+        "--plan",
+        "read_vortex(target/fact.vortex) -> select(id,label)",
+        "--request",
+        "profile",
+        "--bounded",
+        "true",
+        "--execution-policy",
+        "native_vortex",
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"run\""));
+    assert!(stdout.contains(&field(
+        "public_workflow_route_id",
+        "native_vortex_user_profile"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_profile_projection_scope",
+        "selected_columns"
+    )));
+    assert!(stdout.contains(&field(
+        "public_workflow_profile_projected_columns",
+        "id,label"
+    )));
+    assert!(stdout.contains(&field(
+        "metadata_summary_projection_scope",
+        "selected_columns"
+    )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 }
