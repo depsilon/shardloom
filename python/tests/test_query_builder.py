@@ -12514,6 +12514,111 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_local_csv_query_builder_sample_random_state_alias_routes_through_prepared_vortex(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .sample(n=2, random_state=11, replace=False)
+            .collect()
+        )
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"), "native_vortex_sample"
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "sample")
+        self.assertEqual(report.envelope.field("public_workflow_vortex_sample_seed"), "11")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "2"
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_sample_fraction_and_weights_stay_deterministic_blockers(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[-2:] == ["--format", "json"], args
+                parts = args[:-2]
+                assert parts[0] == "workflow-unsupported-plan", args
+                operation = parts[1]
+                target_ref = parts[3] if len(parts) == 4 else "none"
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "unsupported",
+                    "human_text": "unsupported",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [{
+                        "code": "SL_UNSUPPORTED_SQL",
+                        "severity": "error",
+                        "category": "unsupported_feature",
+                        "message": "unsupported",
+                        "feature": "cg21.workflow.sample",
+                        "reason": "sample variant requires a native Vortex sample-fraction or weighted-sample contract",
+                        "suggested_next_step": "use sample(n=..., seed=...) or sample(n=..., random_state=..., replace=False)",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    }],
+                    "fields": [
+                        {"key": "mode", "value": "workflow_unsupported_plan"},
+                        {"key": "workflow_operation", "value": "sample"},
+                        {"key": "target_ref", "value": target_ref},
+                        {"key": "blocker_id", "value": "cg21.workflow.sample.variant_not_admitted"},
+                        {"key": "required_evidence", "value": "native_vortex_fractional_or_weighted_sample_contract,execution_certificate,native_io_certificate"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                    ],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+        workflow = sl.read_csv("events.csv", client=ShardLoomClient(binary=binary))
+
+        frac_report = workflow.sample(frac=0.5, random_state=3)
+        weighted_report = workflow.sample(n=2, weights="weight", seed=3)
+        replacement_report = workflow.sample(n=2, seed=3, replace=True)
+
+        self.assertEqual(frac_report.operation, "sample")
+        self.assertEqual(
+            frac_report.envelope.field("target_ref"),
+            "fraction=0.5,seed=3",
+        )
+        self.assertEqual(weighted_report.operation, "sample")
+        self.assertEqual(
+            weighted_report.envelope.field("target_ref"),
+            "n=2,seed=3,weights=weight",
+        )
+        self.assertEqual(replacement_report.operation, "sample")
+        self.assertEqual(
+            replacement_report.envelope.field("target_ref"),
+            "n=2,seed=3,replace=true",
+        )
+        self.assertFalse(frac_report.fallback_attempted)
+        self.assertFalse(weighted_report.fallback_attempted)
+        self.assertFalse(replacement_report.fallback_attempted)
+
     def test_local_csv_query_builder_tail_write_jsonl_routes_through_prepared_vortex_row_export(
         self,
     ) -> None:

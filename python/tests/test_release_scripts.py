@@ -6148,7 +6148,7 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
         self.assertTrue(
             packet["next_implementation_slice"].startswith(
-                "`PY-VORTEX-LOCAL-EXPORT-DISTINCT-CLOSEOUT-1`"
+                "`PY-DATAFRAME-DETERMINISTIC-BLOCKER-COVERAGE-1`"
             ),
             packet["next_implementation_slice"],
         )

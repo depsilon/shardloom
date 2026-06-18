@@ -84,7 +84,7 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.limit.execution_uncertified,",
     "cg21.workflow.rename.schema_rewrite_unsupported,",
     "cg21.workflow.drop.schema_projection_unsupported,",
-    "cg21.workflow.sample.sampling_semantics_unsupported,",
+    "cg21.workflow.sample.variant_not_admitted,",
     "cg21.workflow.explode.nested_expansion_unsupported,",
     "cg21.workflow.merge.join_alias_unsupported,",
     "cg21.workflow.concat.union_alignment_unsupported,",

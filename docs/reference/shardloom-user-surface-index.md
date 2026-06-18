@@ -88,7 +88,7 @@ For direct `.vortex` inputs, use
 Python/SQL provider routes for grouped aggregation, hash join, global top-N, cast/try-cast,
 substring contains, and native `write_vortex` sink shapes. Scoped primitive routes also cover
 count/filter/project/limit, no-argument row-level distinct, bounded source-order tail, and
-deterministic bounded `sample(n=..., seed=...)`. These
+deterministic bounded `sample(n=..., seed=...|random_state=<int>, replace=False)`. These
 reports are route evidence, not broad arbitrary Vortex SQL/DataFrame parity or performance claims.
 
 ## Python Query Builder
@@ -101,7 +101,7 @@ objects. Common supported or scoped methods include:
 - Projection and schema rewrites: `select(...)`, `project(...)`, `rename(...)`,
   `rename_columns(...)`, `drop(...)`, `drop_columns(...)`, `astype(...)`.
 - Row bounds: `limit(...)`, `head(...)`, `take(...)`, scoped `tail(...)`, and scoped deterministic
-  `sample(n=..., seed=...)`.
+  `sample(n=..., seed=...|random_state=<int>, replace=False)`.
 - Aggregation: `group_by(...).agg(...)`, `groupby(...).agg(...)`, scalar `agg(...)`,
   `aggregate(...)`, `nunique(...)`, `value_counts(...)`.
 - Joins and set operations: scoped `join(...)`, `merge(...)` when it lowers to the same join,
