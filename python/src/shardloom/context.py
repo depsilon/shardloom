@@ -6243,12 +6243,12 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         claim_boundary=(
             "Computed ARRAY/STRUCT compatibility sinks remain blocked for public local-source "
             "workflows until the expression is produced by a certified Vortex-prepared/native "
-            "route and exported through structured Parquet/Arrow IPC/Avro evidence. Scoped "
-            "primitive JSONL/CSV row-stream exports and provider `write_vortex` result sinks are "
-            "covered by separate admitted rows. This does not claim full-fidelity nested output, "
-            "all-null computed nested columns without child-schema evidence, broad nested "
-            "ordering, complex-key joins, production SQL nested parity, or benchmarked "
-            "performance equivalence."
+            "route and exported through a certified native Vortex result/export contract with "
+            "structured Parquet/Arrow IPC/Avro evidence. Scoped primitive JSONL/CSV row-stream "
+            "exports and provider `write_vortex` result sinks are covered by separate admitted "
+            "rows. This does not claim full-fidelity nested output, all-null computed nested "
+            "columns without child-schema evidence, broad nested ordering, complex-key joins, "
+            "production SQL nested parity, or benchmarked performance equivalence."
         ),
     ),
     _front_door_row(

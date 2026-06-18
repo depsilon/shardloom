@@ -2336,57 +2336,7 @@ fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRo
     if !operation_family.allows_primitive(primitive) {
         return native_vortex_operation_blocked_route(operation_family);
     }
-    if primitive.requires_predicate() && effective_request.vortex_predicate.is_none() {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_predicate",
-            "native Vortex primitive requires a predicate payload",
-            "pass --vortex-predicate with the scoped tiny predicate expression",
-        );
-    }
-    if primitive.requires_columns() && effective_request.vortex_columns.is_none() {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_columns",
-            "native Vortex primitive requires a projection payload",
-            "pass --vortex-columns with comma-separated projected columns",
-        );
-    }
-    if effective_request.vortex_source_order_limit.is_some()
-        && !primitive.allows_source_order_limit()
-    {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_source_order_limit",
-            "native Vortex primitive does not admit a source-order limit",
-            "use --vortex-source-order-limit only with filter, project, filter_project, distinct, tail, or sample",
-        );
-    }
-    if matches!(primitive, PublicVortexPrimitive::Sample)
-        && effective_request.vortex_source_order_limit.is_none()
-    {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_source_order_limit",
-            "native Vortex sample requires a bounded sample size",
-            "pass --vortex-source-order-limit with the requested sample row count",
-        );
-    }
-    if effective_request.vortex_sample_seed.is_some()
-        && !matches!(primitive, PublicVortexPrimitive::Sample)
-    {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_sample_seed",
-            "native Vortex sample seed is only valid for sample primitives",
-            "use --vortex-sample-seed only with --vortex-primitive sample",
-        );
-    }
-    if let Some(seed) = effective_request.vortex_sample_seed.as_ref()
-        && non_negative_u64_arg("sample seed", seed).is_err()
-    {
-        return native_vortex_payload_blocked_route(
-            "public_workflow_route.vortex_sample_seed",
-            "native Vortex sample seed must be a non-negative integer",
-            "pass --vortex-sample-seed with an unsigned integer seed",
-        );
-    }
-    if let Some(plan) = native_vortex_resource_hint_blocker(&effective_request) {
+    if let Some(plan) = native_vortex_primitive_payload_blocker(&effective_request, primitive) {
         return plan;
     }
     admitted_route(
@@ -2398,6 +2348,59 @@ fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRo
         false,
         true,
     )
+}
+
+fn native_vortex_primitive_payload_blocker(
+    request: &PublicWorkflowRouteRequest,
+    primitive: PublicVortexPrimitive,
+) -> Option<PublicWorkflowRoutePlan> {
+    if primitive.requires_predicate() && request.vortex_predicate.is_none() {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_predicate",
+            "native Vortex primitive requires a predicate payload",
+            "pass --vortex-predicate with the scoped tiny predicate expression",
+        ));
+    }
+    if primitive.requires_columns() && request.vortex_columns.is_none() {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_columns",
+            "native Vortex primitive requires a projection payload",
+            "pass --vortex-columns with comma-separated projected columns",
+        ));
+    }
+    if request.vortex_source_order_limit.is_some() && !primitive.allows_source_order_limit() {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_source_order_limit",
+            "native Vortex primitive does not admit a source-order limit",
+            "use --vortex-source-order-limit only with filter, project, filter_project, distinct, tail, or sample",
+        ));
+    }
+    if matches!(primitive, PublicVortexPrimitive::Sample)
+        && request.vortex_source_order_limit.is_none()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_source_order_limit",
+            "native Vortex sample requires a bounded sample size",
+            "pass --vortex-source-order-limit with the requested sample row count",
+        ));
+    }
+    if request.vortex_sample_seed.is_some() && !matches!(primitive, PublicVortexPrimitive::Sample) {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_seed",
+            "native Vortex sample seed is only valid for sample primitives",
+            "use --vortex-sample-seed only with --vortex-primitive sample",
+        ));
+    }
+    if let Some(seed) = request.vortex_sample_seed.as_ref()
+        && non_negative_u64_arg("sample seed", seed).is_err()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_seed",
+            "native Vortex sample seed must be a non-negative integer",
+            "pass --vortex-sample-seed with an unsigned integer seed",
+        ));
+    }
+    native_vortex_resource_hint_blocker(request)
 }
 
 fn native_vortex_primitive_row_export_route(

@@ -7278,6 +7278,11 @@ class LazyFrame:
                     or sample_count is not None
                 ):
                     return None
+                if any(
+                    column != "*" and not _is_sql_identifier(column)
+                    for column in operation.values
+                ):
+                    return None
                 columns = operation.values
             elif operation.kind == "distinct":
                 if (
