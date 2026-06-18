@@ -6,12 +6,13 @@
 [![Homebrew](https://img.shields.io/badge/Homebrew-depsilon%2Ftap%2Fshardloom-2f4f4f)](https://github.com/depsilon/homebrew-tap)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Posture](https://img.shields.io/badge/posture-no--fallback%20technical--preview-0f766e)](docs/release/public-status-matrix.md)
+[![Patent Pending](https://img.shields.io/badge/patent--pending-designs-7c3aed)](#what-makes-shardloom-different)
 
 [shardloom.io](https://shardloom.io) is the public, claim-safe interpretation layer for this
 repository. The repo remains the source of truth for code, architecture docs, phase plans, use
 cases, benchmarks, and release evidence.
 
-ShardLoom v0.1.4 is the current proof-backed technical-preview package release across GitHub
+ShardLoom's latest proof-backed technical-preview package release is published across GitHub
 pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula. ShardLoom is a
 Vortex-first, no-fallback local compute engine foundation built around explicit routes and evidence
 fields that show what ran: source admission, Vortex preparation, execution mode, output planning,
@@ -21,6 +22,48 @@ ShardLoom is not an official Vortex project and is not Vortex-endorsed. It does 
 readiness, public performance superiority, broad engine replacement or Apache Spark displacement,
 broad SQL/DataFrame support, production object-store or lakehouse support, production Foundry
 support, package access as a production support claim, or hidden external fallback.
+
+## What Makes ShardLoom Different
+
+ShardLoom's differentiators are execution and evidence contracts around Vortex-native data, not
+blanket performance claims:
+
+- **Vortex-native middle, no hidden fallback**: public compatibility workflows normalize into an
+  admitted Vortex route or fail closed, native Vortex inputs stay native, and non-admitted plans
+  emit deterministic diagnostics instead of running through Spark, DataFusion, DuckDB, Polars,
+  pandas, or another engine.
+- **Evidence-certified routes**: every public workflow is expected to expose what actually ran:
+  source admission, Vortex preparation, execution mode, output planning, certificate state,
+  fallback/external-engine status, and claim posture.
+  - `SourceState` records the admitted input boundary.
+  - `VortexPreparedState` records the native prepared middle.
+  - route certificates connect execution evidence to output artifacts and claim gates.
+- **PulseWeave**: ShardLoom's route-control vocabulary for bounded local work shaping.
+  - `FlowInventory` tracks in-flight source, execution, and writer work.
+  - `ScarcityLedger` records memory, decode, sink, and pressure signals.
+  - `EndoPulse` applies run-local feedback without delegating to another engine.
+  - `ProofBound` blocks adaptive behavior until the route has certificate evidence.
+- **Capillary work units**: ingest, preparation, execution, and output work can be split into small
+  typed units instead of opaque tasks.
+  - each unit carries source range, projection/filter mask, and target artifact references.
+  - each unit records materialization posture, retry/idempotency state, sink pressure, memory
+    pressure, and no-fallback evidence.
+  - units can be coalesced, split, retried, reused, or audited without hiding execution boundaries.
+- **Dynamic work shaping**: metadata, workload shape, route evidence, and measured feedback guide
+  how ShardLoom sizes work.
+  - small units can be coalesced when scheduling overhead dominates.
+  - large units can be split when memory, decode, sink, or source pressure requires it.
+  - hard proof lanes remain separate from fast lanes so CI, benchmarks, and release gates stay
+    evidence-preserving.
+- **Metadata-first, late-materialized execution**: ShardLoom tries to answer from metadata, prune
+  segments, compute over encoded Vortex data, decode only what is needed, and materialize at
+  explicit output boundaries.
+- **Timing-surface discipline**: hot runtime, replay proof, and publication proof are separated so
+  proof-heavy evidence work does not silently become a query-runtime claim.
+- **Patent-pending design notice**: PulseWeave, capillary work units, dynamic work shaping, and
+  related route/evidence/certificate machinery include patent-pending design elements. ShardLoom
+  remains distributed under Apache-2.0; this notice is informational, preserves attribution, and
+  deters bad-faith copying without expanding the technical-preview support claim.
 
 ## First Read
 
@@ -89,7 +132,7 @@ This table is a README summary; the canonical public status matrix and claim bou
 | Local output/sink scope | `write_vortex(...)` is the highest-fidelity admitted native local sink for provider-backed routes. Exact provider-backed Vortex result summaries can export bounded `result_json` to workspace-safe `write_jsonl(...)` and `write_csv(...)`; scoped primitive filter/project/filter-project/distinct/tail/sample row streams can export JSONL/CSV and JSONL+CSV fanout through `native_vortex_primitive_row_export`. Broader `write(...)`, unsupported formats, unsafe fanout, and arbitrary compatibility exports block until a native Vortex-derived export contract exists. | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
 | Prepared/native benchmark routes | Local benchmark artifacts expose cold, prepare-once, warm prepared, native Vortex, direct transient, and external-baseline lanes. | Claims depend on the selected timing surface and claim gate. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly fixture-scoped with report-only or blocked status for broader platform routes. | No production platform claim. |
-| Package/release status | v0.1.4 is published through GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula with checked-in channel proof. | No production/platform, performance, or broad runtime claim. |
+| Package/release status | The latest published technical-preview package is available through GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula with checked-in channel proof. | No production/platform, performance, or broad runtime claim. |
 
 User surface graduation is tracked separately from runtime breadth. Public CLI/Python surfaces are
 classified as `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
@@ -119,17 +162,19 @@ python examples\local-python-smoke\run.py --repo-root .
 
 The selected local/source/package v1 release track is source checkout plus GitHub pre-release,
 TestPyPI, PyPI, and Homebrew. GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for
-v0.1.4; Scoop/winget/conda are feasible later channels, while real production object-store,
-lakehouse, distributed, live/hybrid, and Foundry claims stay fail-closed without environments.
+v0.1.4; later patch releases must add their own channel-proof transcripts before this README or
+package-status docs advance their published-version wording. Scoop/winget/conda are feasible later
+channels, while real production object-store, lakehouse, distributed, live/hybrid, and Foundry
+claims stay fail-closed without environments.
 
 Package installs:
 
 ```sh
-python -m pip install shardloom==0.1.4
+python -m pip install shardloom
 brew install depsilon/tap/shardloom
 ```
 
-The Python package is a thin client surface over the ShardLoom CLI. Published v0.1.4 resolves the
+The Python package is a thin client surface over the ShardLoom CLI. Published packages resolve the
 CLI from explicit binary/env/source configuration first, then from bundled resources in supported
 platform wheels, and finally from `shardloom` on `PATH`. Managed Python environments can use
 `sl.context()` without passing binary paths when they install a supported bundled wheel.
