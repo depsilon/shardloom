@@ -201,10 +201,10 @@ Current autonomous execution order:
     arithmetic expressions, date/time extraction/truncation, `CASE`, `IN`, `HAVING`, and wide
     repeated aggregate projection.
   - Current state: ShardLoom has real native/prepared Vortex routes for scoped Python/DataFrame
-    operations and several named traditional-analytics benchmark families, but broad ClickBench SQL
-    coverage is not yet a production runtime contract. Any ClickBench work must land as ShardLoom
-    planner/operator/runtime support, not as benchmark-only scenarios, smoke-only caps, or external
-    engine delegation.
+    operations, several named traditional-analytics benchmark families, and shared SQL-to-native
+    Vortex OLAP lowering that admits all 43 ClickBench query-family rows in the local coverage
+    manifest. ClickBench work must continue to land as ShardLoom planner/operator/runtime support,
+    not as benchmark-only scenarios, smoke-only caps, or external engine delegation.
   - Intake review: accepted as a new required runtime item rather than merging into DataFrame
     blocker coverage. The DataFrame item owns user-method parity; this item owns SQL/OLAP operator
     breadth and ClickBench query-family evidence. Existing aggregate/top-N/contains routes are
@@ -227,7 +227,7 @@ Current autonomous execution order:
     - [x] Add a SQL capability classifier that maps every ClickBench query to admitted,
       implementation-required, feature-gated, or externally blocked state with stable route/work
       IDs and no fallback/external engine evidence.
-    - [ ] Generalize SQL lowering for single-table OLAP plans over Vortex/prepared Vortex sources:
+    - [x] Generalize SQL lowering for single-table OLAP plans over Vortex/prepared Vortex sources:
       projection lists, aliases, scalar arithmetic, predicates, `LIKE`/`NOT LIKE`, `IN`, `CASE`,
       `length`, regex replace admission, date/time extract/trunc, `GROUP BY`, `HAVING`,
       `ORDER BY`, `LIMIT`, and `OFFSET`.
@@ -245,16 +245,16 @@ Current autonomous execution order:
         no-fallback evidence.
       - [x] Promote grouped-aggregate `ORDER BY ... LIMIT/OFFSET` into a reusable bounded
         top-K/offset route over aggregate result rows.
-      - [ ] Promote raw-row `ORDER BY ... LIMIT/OFFSET` over filter/project/star projections into
+      - [x] Promote raw-row `ORDER BY ... LIMIT/OFFSET` over filter/project/star projections into
         a reusable native sorted-row route; this owns ClickBench Q24-Q27 and must not be left as a
         permanent string-predicate blocker.
-      - [ ] Promote SQL `LIKE`/`NOT LIKE`/substring predicates and `IN` predicates into native
+      - [x] Promote SQL `LIKE`/`NOT LIKE`/substring predicates and `IN` predicates into native
         predicate kernels with deterministic case-sensitivity semantics and no external engine
         delegation.
-      - [ ] Promote scalar SQL functions and expression aliases (`length`, `REGEXP_REPLACE`,
+      - [x] Promote scalar SQL functions and expression aliases (`length`, `REGEXP_REPLACE`,
         `extract`, `DATE_TRUNC`, `CASE`, arithmetic projection) into native expression-project
         kernels before grouped/top-K execution.
-    - [ ] Implement or reuse native operator kernels for plain aggregates (`count`, `sum`, `avg`,
+    - [x] Implement or reuse native operator kernels for plain aggregates (`count`, `sum`, `avg`,
       `min`, `max`), multi-aggregate projection, multi-key group-by, grouped top-K, count-distinct,
       point lookup, filtered string contains/LIKE, arithmetic expression projection, and bounded
       order/limit/offset.
@@ -273,7 +273,7 @@ Current autonomous execution order:
         the shared aggregate state rather than a wide-query scenario shim.
       - [ ] Add capillary/PulseWeave memory/spill diagnostics for count-distinct and high-cardinality
         grouped top-K state now that those runtime routes exist.
-      - [ ] Create remaining ClickBench expression families as real runtime routes: date/time
+      - [x] Create remaining ClickBench expression families as real runtime routes: date/time
         extract/trunc group keys, `length` + `HAVING`, regex replace group keys, group ordinals and
         constant projections, arithmetic group-key projection, `CASE` group keys, and `IN` list
         predicates.
@@ -283,21 +283,20 @@ Current autonomous execution order:
     - [ ] Add ClickBench-scale fixture strategy: small deterministic local fixture for correctness,
       medium sequential UAT fixture for route/stress checks, and optional full 100M-row artifact
       runner that is never required for PR fast lanes.
-    - [ ] Add correctness tests for representative query classes and a manifest coverage test that
+    - [x] Add correctness tests for representative query classes and a manifest coverage test that
       requires every ClickBench query to have an admitted runtime route unless it requires an
       external environment that is unavailable in local v1. In-repo feasible rows must remain open
       implementation checklist work, not accepted final blockers.
-    - [ ] Add runtime/evidence tests proving `fallback_attempted=false`,
+    - [x] Add runtime/evidence tests proving `fallback_attempted=false`,
       `external_engine_invoked=false`, Vortex-native input/prepared normalization, materialization
       boundaries, and per-query route IDs.
-    - [ ] Update README/docs/architecture/user-surface references so ClickBench readiness is stated
+    - [x] Update README/docs/architecture/user-surface references so ClickBench readiness is stated
       as local evidence coverage, not as a public performance/superiority claim.
     - [ ] Add benchmark/site data fields for ClickBench lane readiness only after runtime routes and
       evidence exist; keep ClickBench performance claims claim-gated until an approved rerun.
     - [ ] Move completed detail to the ledger after validation and PR handling.
-  - Next outcome: a cohesive OLAP runtime PR that introduces the manifest/classifier and promotes
-    the first broad SQL operator families needed by ClickBench without creating scenario-only
-    routes.
+  - Next outcome: finish the remaining diagnostics/docs/evidence polish for the cohesive OLAP
+    runtime PR without creating scenario-only routes.
   - User-visible surface: SQL facade, Python `ctx.sql(...)`, route/capability reports, benchmark
     evidence artifacts, README/docs, and website readiness views.
   - Implementation scope: SQL parser/lowering, native Vortex primitive/provider routing,

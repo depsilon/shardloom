@@ -479,13 +479,17 @@ pub fn prove_predicate_from_segment_stats(
         }
         PredicateExpr::IsNull { .. }
         | PredicateExpr::IsNotNull { .. }
-        | PredicateExpr::Compare { .. } => {}
+        | PredicateExpr::Compare { .. }
+        | PredicateExpr::StringContains { .. }
+        | PredicateExpr::InList { .. } => {}
     }
 
     let Some(column_stats) = (match predicate {
         PredicateExpr::IsNull { column }
         | PredicateExpr::IsNotNull { column }
-        | PredicateExpr::Compare { column, .. } => segment
+        | PredicateExpr::Compare { column, .. }
+        | PredicateExpr::StringContains { column, .. }
+        | PredicateExpr::InList { column, .. } => segment
             .columns
             .iter()
             .find(|c| c.column.as_ref() == Some(column)),

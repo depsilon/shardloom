@@ -72,6 +72,7 @@ struct PublicWorkflowRouteRequest {
     vortex_pivot_projection: Option<String>,
     vortex_rolling_window: Option<String>,
     vortex_aggregate: Option<String>,
+    vortex_sort_rows: Option<String>,
     memory_gb: Option<String>,
     max_parallelism: Option<String>,
 }
@@ -156,7 +157,8 @@ pub(crate) fn handle_public_workflow_run(
         | "native_vortex_explode"
         | "native_vortex_pivot"
         | "native_vortex_rolling_window"
-        | "native_vortex_aggregate" => execute_native_vortex_primitive_run(&request, &plan, format),
+        | "native_vortex_aggregate"
+        | "native_vortex_sort_rows" => execute_native_vortex_primitive_run(&request, &plan, format),
         "native_vortex_user_aggregate"
         | "native_vortex_user_join"
         | "native_vortex_user_top_n"
@@ -599,13 +601,53 @@ fn native_vortex_primitive_arg_for_request(
                 Ok(format!("aggregate:{aggregate}"))
             }
         }
+        PublicVortexPrimitive::SortRows => {
+            let sort_rows =
+                required_native_vortex_payload(request.vortex_sort_rows.as_ref(), "vortex sort rows")?;
+            let columns = request
+                .vortex_columns
+                .as_ref()
+                .map_or("*", String::as_str);
+            if let Some(predicate) = request.vortex_predicate.as_ref() {
+                Ok(format!("sort-filter-project:{predicate}|{columns}|{sort_rows}"))
+            } else {
+                Ok(format!(
+                    "sort-rows:{}",
+                    sort_rows_payload_with_columns(&sort_rows, request.vortex_columns.as_deref())?
+                ))
+            }
+        }
         PublicVortexPrimitive::Count | PublicVortexPrimitive::CountWhere => Err(
             ShardLoomError::InvalidOperation(
-                "native Vortex primitive row export supports filter, project, filter-project, distinct, duplicate-mask, tail, sample, expression-project, melt, explode, pivot, rolling-window, and aggregate primitives only"
+                "native Vortex primitive row export supports filter, project, filter-project, distinct, duplicate-mask, tail, sample, expression-project, melt, explode, pivot, rolling-window, aggregate, and sort-row primitives only"
                     .to_string(),
             ),
         ),
     }
+}
+
+fn sort_rows_payload_with_columns(
+    payload: &str,
+    columns: Option<&str>,
+) -> Result<String, ShardLoomError> {
+    let Some(columns) = columns else {
+        return Ok(payload.to_string());
+    };
+    let mut value = serde_json::from_str::<serde_json::Value>(payload).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "native Vortex sort rows payload must be valid JSON: {error}"
+        ))
+    })?;
+    let object = value.as_object_mut().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "native Vortex sort rows payload must be a JSON object".to_string(),
+        )
+    })?;
+    object.insert(
+        "columns".to_string(),
+        serde_json::Value::String(columns.to_string()),
+    );
+    Ok(value.to_string())
 }
 
 fn append_native_vortex_primitive_row_export_fields(
@@ -848,7 +890,7 @@ fn execute_native_vortex_primitive_run_with_extra(
         let blocked = native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_primitive",
             "public native Vortex run requires a primitive payload",
-            "pass --vortex-primitive with count, count_where, filter, project, filter_project, distinct, duplicate_mask, tail, sample, expression_project, melt, explode, pivot, rolling_window, or aggregate",
+            "pass --vortex-primitive with count, count_where, filter, project, filter_project, distinct, duplicate_mask, tail, sample, expression_project, melt, explode, pivot, rolling_window, aggregate, or sort_rows",
         );
         return emit_blocked_facade("run", format, request, &blocked);
     };
@@ -864,6 +906,7 @@ fn execute_native_vortex_primitive_run_with_extra(
             | PublicVortexPrimitive::Pivot
             | PublicVortexPrimitive::RollingWindow
             | PublicVortexPrimitive::Aggregate
+            | PublicVortexPrimitive::SortRows
     ) {
         return execute_native_vortex_materializing_primitive_run_with_extra(
             request,
@@ -929,7 +972,8 @@ fn execute_native_vortex_primitive_run_with_extra(
         | PublicVortexPrimitive::Explode
         | PublicVortexPrimitive::Pivot
         | PublicVortexPrimitive::RollingWindow
-        | PublicVortexPrimitive::Aggregate => {
+        | PublicVortexPrimitive::Aggregate
+        | PublicVortexPrimitive::SortRows => {
             unreachable!("handled before runtime args")
         }
     }
@@ -1121,6 +1165,7 @@ fn native_vortex_materializing_public_primitive_name(
         shardloom_vortex::VortexQueryPrimitiveKind::PivotRows => "pivot",
         shardloom_vortex::VortexQueryPrimitiveKind::RollingWindowRows => "rolling_window",
         shardloom_vortex::VortexQueryPrimitiveKind::SimpleAggregate => "aggregate",
+        shardloom_vortex::VortexQueryPrimitiveKind::SortRows => "sort_rows",
         _ => kind.as_str(),
     }
 }
@@ -1474,7 +1519,8 @@ fn execute_prepared_local_native_route(
         | "native_vortex_explode"
         | "native_vortex_pivot"
         | "native_vortex_rolling_window"
-        | "native_vortex_aggregate" => execute_native_vortex_primitive_run_with_extra(
+        | "native_vortex_aggregate"
+        | "native_vortex_sort_rows" => execute_native_vortex_primitive_run_with_extra(
             request,
             native_plan,
             format,
@@ -1831,7 +1877,7 @@ impl PublicWorkflowRouteRequest {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--memory-gb <n>] [--max-parallelism <n>]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate|sort_rows>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--vortex-sort-rows <json>] [--memory-gb <n>] [--max-parallelism <n>]"
                     .to_string(),
             ));
         };
@@ -1883,6 +1929,7 @@ impl PublicWorkflowRouteRequest {
             vortex_pivot_projection: None,
             vortex_rolling_window: None,
             vortex_aggregate: None,
+            vortex_sort_rows: None,
             memory_gb: None,
             max_parallelism: None,
         }
@@ -1999,6 +2046,9 @@ impl PublicWorkflowRouteRequest {
             }
             "--vortex-aggregate" => {
                 self.vortex_aggregate = Some(required_value(args, "--vortex-aggregate")?);
+            }
+            "--vortex-sort-rows" => {
+                self.vortex_sort_rows = Some(required_value(args, "--vortex-sort-rows")?);
             }
             "--memory-gb" => {
                 self.memory_gb = Some(required_value(args, "--memory-gb")?);
@@ -2129,6 +2179,7 @@ enum PublicVortexPrimitive {
     Pivot,
     RollingWindow,
     Aggregate,
+    SortRows,
 }
 
 impl PublicVortexPrimitive {
@@ -2166,6 +2217,9 @@ impl PublicVortexPrimitive {
             }
             "aggregate" | "aggregation" | "simple_aggregate" | "simple-aggregate"
             | "scalar_aggregate" | "scalar-aggregate" => Some(Self::Aggregate),
+            "sort" | "sort_rows" | "sort-rows" | "order_by" | "order-rows" | "order_rows" => {
+                Some(Self::SortRows)
+            }
             _ => None,
         }
     }
@@ -2187,6 +2241,7 @@ impl PublicVortexPrimitive {
             Self::Pivot => "pivot",
             Self::RollingWindow => "rolling_window",
             Self::Aggregate => "aggregate",
+            Self::SortRows => "sort_rows",
         }
     }
 
@@ -2207,6 +2262,7 @@ impl PublicVortexPrimitive {
             Self::Pivot => "native_vortex_pivot",
             Self::RollingWindow => "native_vortex_rolling_window",
             Self::Aggregate => "native_vortex_aggregate",
+            Self::SortRows => "native_vortex_sort_rows",
         }
     }
 
@@ -2226,7 +2282,8 @@ impl PublicVortexPrimitive {
             | Self::Explode
             | Self::Pivot
             | Self::RollingWindow
-            | Self::Aggregate => "vortex-run",
+            | Self::Aggregate
+            | Self::SortRows => "vortex-run",
         }
     }
 
@@ -2269,6 +2326,10 @@ impl PublicVortexPrimitive {
         matches!(self, Self::Aggregate)
     }
 
+    const fn requires_sort_rows(self) -> bool {
+        matches!(self, Self::SortRows)
+    }
+
     const fn allows_source_order_limit(self) -> bool {
         matches!(
             self,
@@ -2285,6 +2346,7 @@ impl PublicVortexPrimitive {
                 | Self::Pivot
                 | Self::RollingWindow
                 | Self::Aggregate
+                | Self::SortRows
         )
     }
 
@@ -2301,6 +2363,7 @@ impl PublicVortexPrimitive {
                 | Self::Pivot
                 | Self::RollingWindow
                 | Self::Aggregate
+                | Self::SortRows
         )
     }
 }
@@ -2390,6 +2453,7 @@ impl NativeVortexOperationFamily {
             PublicVortexPrimitive::Pivot => Self::Pivot,
             PublicVortexPrimitive::RollingWindow => Self::RollingWindow,
             PublicVortexPrimitive::Aggregate => Self::Aggregate,
+            PublicVortexPrimitive::SortRows => Self::TopN,
         }
     }
 
@@ -2429,7 +2493,10 @@ impl NativeVortexOperationFamily {
                     | PublicVortexPrimitive::FilterProject
             ) | (Self::Distinct, PublicVortexPrimitive::Distinct)
                 | (Self::DuplicateMask, PublicVortexPrimitive::DuplicateMask)
-                | (Self::TopN, PublicVortexPrimitive::Tail)
+                | (
+                    Self::TopN,
+                    PublicVortexPrimitive::Tail | PublicVortexPrimitive::SortRows
+                )
                 | (Self::Sample, PublicVortexPrimitive::Sample)
                 | (
                     Self::ExpressionProject,
@@ -2656,7 +2723,7 @@ fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRo
             return native_vortex_payload_blocked_route(
                 "public_workflow_route.vortex_primitive",
                 "unsupported native Vortex primitive",
-                "use count, count_where, filter, project, filter_project, distinct, duplicate_mask, tail, sample, expression_project, melt, explode, pivot, or rolling_window",
+                "use count, count_where, filter, project, filter_project, distinct, duplicate_mask, tail, sample, expression_project, melt, explode, pivot, rolling_window, aggregate, or sort_rows",
             );
         }
         if let Some(plan) = native_vortex_provider_schema_shape_blocker(&effective_request) {
@@ -2750,11 +2817,18 @@ fn native_vortex_primitive_payload_blocker(
             "pass --vortex-aggregate with the scoped scalar aggregate JSON",
         ));
     }
+    if primitive.requires_sort_rows() && request.vortex_sort_rows.is_none() {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sort_rows",
+            "native Vortex sort-row primitive requires a sort payload",
+            "pass --vortex-sort-rows with the scoped order_by JSON",
+        ));
+    }
     if request.vortex_source_order_limit.is_some() && !primitive.allows_source_order_limit() {
         return Some(native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_source_order_limit",
             "native Vortex primitive does not admit a source-order limit",
-            "use --vortex-source-order-limit only with filter, project, filter_project, distinct, duplicate_mask, tail, sample, expression_project, melt, explode, pivot, or rolling_window",
+            "use --vortex-source-order-limit only with filter, project, filter_project, distinct, duplicate_mask, tail, sample, expression_project, melt, explode, pivot, rolling_window, aggregate, or sort_rows",
         ));
     }
     if matches!(primitive, PublicVortexPrimitive::Tail)
@@ -2861,6 +2935,22 @@ fn native_vortex_primitive_payload_blocker(
             "public_workflow_route.vortex_aggregate",
             "native Vortex aggregate payload is only valid for aggregate primitives",
             "use --vortex-aggregate only with --vortex-primitive aggregate",
+        ));
+    }
+    if request.vortex_sort_rows.is_some() && !matches!(primitive, PublicVortexPrimitive::SortRows) {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sort_rows",
+            "native Vortex sort-row payload is only valid for sort-row primitives",
+            "use --vortex-sort-rows only with --vortex-primitive sort_rows",
+        ));
+    }
+    if matches!(primitive, PublicVortexPrimitive::SortRows)
+        && request.vortex_source_order_limit.is_none()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_source_order_limit",
+            "native Vortex sort rows require a bounded row count",
+            "pass --vortex-source-order-limit with the requested top row count",
         ));
     }
     if let Some(fraction) = request.vortex_sample_fraction.as_ref()
@@ -2992,6 +3082,13 @@ fn native_vortex_primitive_row_export_payload_blocker(
             "pass --vortex-aggregate with the scoped scalar aggregate JSON",
         ));
     }
+    if primitive.requires_sort_rows() && request.vortex_sort_rows.is_none() {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sort_rows",
+            "native Vortex sort-row export requires a sort payload",
+            "pass --vortex-sort-rows with the scoped order_by JSON",
+        ));
+    }
     if matches!(primitive, PublicVortexPrimitive::Tail)
         && request.vortex_source_order_limit.is_none()
     {
@@ -3098,6 +3195,22 @@ fn native_vortex_primitive_row_export_payload_blocker(
             "use --vortex-aggregate only with --vortex-primitive aggregate",
         ));
     }
+    if request.vortex_sort_rows.is_some() && !matches!(primitive, PublicVortexPrimitive::SortRows) {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sort_rows",
+            "native Vortex sort-row payload is only valid for sort-row export",
+            "use --vortex-sort-rows only with --vortex-primitive sort_rows",
+        ));
+    }
+    if matches!(primitive, PublicVortexPrimitive::SortRows)
+        && request.vortex_source_order_limit.is_none()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_source_order_limit",
+            "native Vortex sort-row export requires a bounded row count",
+            "pass --vortex-source-order-limit with the requested top row count",
+        ));
+    }
     if let Some(fraction) = request.vortex_sample_fraction.as_ref()
         && sample_fraction_arg("sample fraction", fraction).is_err()
     {
@@ -3137,7 +3250,7 @@ fn native_vortex_materializing_primitive_feature_gated_route() -> PublicWorkflow
             DiagnosticCode::NotImplemented,
             DiagnosticSeverity::Error,
             DiagnosticCategory::UnsupportedFeature,
-                "native Vortex distinct/tail/sample/expression-project/melt/explode/rolling-window collect is feature-gated in this binary"
+                "native Vortex distinct/tail/sample/expression-project/melt/explode/rolling-window/aggregate/sort-row collect is feature-gated in this binary"
                 .to_string(),
             Some("public_workflow_route.vortex_primitive".to_string()),
             Some("compiled_without=vortex-local-primitives".to_string()),
@@ -3594,6 +3707,7 @@ struct InferredNativeVortexRoutePayload {
     pivot_projection: Option<String>,
     rolling_window: Option<String>,
     aggregate: Option<String>,
+    sort_rows: Option<String>,
     right_input: Option<String>,
 }
 
@@ -3637,6 +3751,9 @@ impl InferredNativeVortexRoutePayload {
         if request.vortex_aggregate.is_none() {
             request.vortex_aggregate = self.aggregate;
         }
+        if request.vortex_sort_rows.is_none() {
+            request.vortex_sort_rows = self.sort_rows;
+        }
         if request.native_vortex_right_input.is_none() {
             request.native_vortex_right_input = self.right_input;
         }
@@ -3655,8 +3772,8 @@ fn infer_native_vortex_route_payload(
     if request.surface == "sql" || request.sql_statement.is_some() {
         return infer_native_vortex_sql_payload(request);
     }
-    infer_native_vortex_provider_payload(request)
-        .or_else(|| infer_native_vortex_primitive_payload(request))
+    infer_native_vortex_primitive_payload(request)
+        .or_else(|| infer_native_vortex_provider_payload(request))
 }
 
 fn effective_public_workflow_request(
@@ -3735,6 +3852,7 @@ fn infer_native_vortex_provider_payload(
         pivot_projection: None,
         rolling_window: None,
         aggregate: None,
+        sort_rows: None,
         right_input: infer_native_vortex_right_input(request),
     })
 }
@@ -3822,6 +3940,7 @@ fn infer_native_vortex_sql_provider_payload(
         pivot_projection: None,
         rolling_window: None,
         aggregate: None,
+        sort_rows: None,
         right_input: refs.get(1).cloned(),
     })
 }
@@ -3832,6 +3951,7 @@ struct NativeVortexSqlSingleSourceShape {
     source_ref: String,
     where_clause: Option<String>,
     group_by: Option<String>,
+    having: Option<String>,
     order_by: Option<String>,
     limit: Option<String>,
     offset: Option<String>,
@@ -3860,6 +3980,32 @@ fn infer_native_vortex_sql_primitive_payload(
             Some(where_clause) => Some(summary_tiny_predicate_from_sql(where_clause)?),
             None => None,
         };
+        if predicate
+            .as_deref()
+            .is_some_and(tiny_predicate_requires_materialized_eval)
+        {
+            return Some(InferredNativeVortexRoutePayload {
+                family: NativeVortexOperationFamily::Aggregate,
+                provider_scenario: None,
+                primitive: Some(PublicVortexPrimitive::Aggregate),
+                predicate,
+                columns: None,
+                source_order_limit: None,
+                sample_seed: None,
+                sample_fraction: None,
+                explode_projection: None,
+                pivot_projection: None,
+                rolling_window: None,
+                aggregate: Some(
+                    serde_json::json!({
+                        "measures": [{"function": "count", "alias": "count_all_0"}]
+                    })
+                    .to_string(),
+                ),
+                sort_rows: None,
+                right_input: None,
+            });
+        }
         return Some(InferredNativeVortexRoutePayload {
             family: NativeVortexOperationFamily::Count,
             provider_scenario: None,
@@ -3877,12 +4023,47 @@ fn infer_native_vortex_sql_primitive_payload(
             pivot_projection: None,
             rolling_window: None,
             aggregate: None,
+            sort_rows: None,
+            right_input: None,
+        });
+    }
+    if shape.group_by.is_none()
+        && let (Some(order_by), Some(limit)) = (shape.order_by.as_deref(), shape.limit.as_deref())
+    {
+        let columns = if shape.projection.trim() == "*" {
+            None
+        } else {
+            Some(normalize_sql_projection_columns(&shape.projection)?)
+        };
+        let predicate = match shape.where_clause.as_deref() {
+            Some(where_clause) => Some(summary_tiny_predicate_from_sql(where_clause)?),
+            None => None,
+        };
+        return Some(InferredNativeVortexRoutePayload {
+            family: NativeVortexOperationFamily::TopN,
+            provider_scenario: None,
+            primitive: Some(PublicVortexPrimitive::SortRows),
+            predicate,
+            columns,
+            source_order_limit: Some(limit.to_string()),
+            sample_seed: None,
+            sample_fraction: None,
+            explode_projection: None,
+            pivot_projection: None,
+            rolling_window: None,
+            aggregate: None,
+            sort_rows: Some(sort_rows_payload_from_sql_order_by(
+                order_by,
+                shape.offset.as_deref(),
+                limit,
+            )?),
             right_input: None,
         });
     }
     if let Some(aggregate_payload) = aggregate_payload_from_sql_projection(
         &shape.projection,
         shape.group_by.as_deref(),
+        shape.having.as_deref(),
         shape.order_by.as_deref(),
         shape.offset.as_deref(),
     ) {
@@ -3903,6 +4084,7 @@ fn infer_native_vortex_sql_primitive_payload(
             pivot_projection: None,
             rolling_window: None,
             aggregate: Some(aggregate_payload),
+            sort_rows: None,
             right_input: None,
         });
     }
@@ -3933,6 +4115,7 @@ fn infer_native_vortex_sql_primitive_payload(
         pivot_projection: None,
         rolling_window: None,
         aggregate: None,
+        sort_rows: None,
         right_input: None,
     })
 }
@@ -3956,6 +4139,7 @@ fn parse_native_vortex_sql_single_source_shape(
         source_ref,
         where_clause: tail.where_clause,
         group_by: tail.group_by,
+        having: tail.having,
         order_by: tail.order_by,
         limit: tail.limit,
         offset: tail.offset,
@@ -3966,6 +4150,7 @@ fn parse_native_vortex_sql_single_source_shape(
 struct NativeVortexSqlTailClauses {
     where_clause: Option<String>,
     group_by: Option<String>,
+    having: Option<String>,
     order_by: Option<String>,
     limit: Option<String>,
     offset: Option<String>,
@@ -3998,7 +4183,13 @@ fn parse_native_vortex_sql_allowed_tail(tail: &str) -> Option<NativeVortexSqlTai
         rest = tail;
     }
     if sql_keyword_prefix(rest, "HAVING") {
-        return None;
+        rest = rest["HAVING".len()..].trim();
+        let (clause, tail) = take_sql_clause_until(rest, &["ORDER BY", "LIMIT", "OFFSET"]);
+        if clause.is_empty() {
+            return None;
+        }
+        clauses.having = Some(clause.to_string());
+        rest = tail;
     }
     if sql_keyword_prefix(rest, "ORDER BY") {
         rest = rest["ORDER BY".len()..].trim();
@@ -4082,13 +4273,14 @@ fn normalize_sql_projection_columns(projection: &str) -> Option<String> {
 fn aggregate_payload_from_sql_projection(
     projection: &str,
     group_by: Option<&str>,
+    having: Option<&str>,
     order_by: Option<&str>,
     offset: Option<&str>,
 ) -> Option<String> {
-    let group_columns = if let Some(group_by) = group_by {
-        parse_sql_group_by_columns(group_by)?
+    let group_spec = if let Some(group_by) = group_by {
+        parse_sql_group_by_spec(group_by, projection)?
     } else {
-        Vec::new()
+        ParsedSqlGroupSpec::default()
     };
     let mut measures = Vec::new();
     let mut parsed_measures = Vec::new();
@@ -4101,29 +4293,58 @@ fn aggregate_payload_from_sql_projection(
             parsed_measures.push(measure);
             continue;
         }
-        let projected_group = normalize_sql_group_item(strip_sql_alias(item.trim()).trim())?;
-        if !group_columns
-            .iter()
-            .any(|column| column == &projected_group)
-        {
+        let projected_group_raw = strip_sql_alias(item.trim()).trim();
+        let projected_group = normalize_sql_group_item(projected_group_raw);
+        let projected_group_alias = sql_explicit_alias(item.trim());
+        let direct_group_matches = projected_group.as_ref().is_some_and(|projected_group| {
+            group_spec
+                .columns
+                .iter()
+                .any(|column| column == projected_group)
+        });
+        let expression_group_matches = group_spec.expressions.iter().any(|expression| {
+            expression.expression_key == compact_ascii_lower(projected_group_raw)
+                || projected_group_alias.is_some_and(|alias| alias == expression.alias)
+        });
+        if !direct_group_matches && !expression_group_matches {
             return None;
         }
+    }
+    if group_spec.columns.is_empty() && group_spec.expressions.is_empty() && group_by.is_some() {
+        return None;
     }
     if measures.is_empty() {
         return None;
     }
     let order_by = match order_by {
-        Some(order_by) => parse_sql_aggregate_order_by(order_by, &group_columns, &parsed_measures)?,
+        Some(order_by) => parse_sql_aggregate_order_by(order_by, &group_spec, &parsed_measures)?,
+        None => Vec::new(),
+    };
+    let having = match having {
+        Some(having) => parse_sql_aggregate_having(having, &parsed_measures)?,
         None => Vec::new(),
     };
     let mut payload = serde_json::Map::new();
-    if !group_columns.is_empty() {
+    if !group_spec.columns.is_empty() {
         payload.insert(
             "group_by".to_string(),
             serde_json::Value::Array(
-                group_columns
+                group_spec
+                    .columns
                     .iter()
                     .map(|column| serde_json::Value::String(column.clone()))
+                    .collect(),
+            ),
+        );
+    }
+    if !group_spec.expressions.is_empty() {
+        payload.insert(
+            "group_expressions".to_string(),
+            serde_json::Value::Array(
+                group_spec
+                    .expressions
+                    .iter()
+                    .map(|expression| expression.payload.clone())
                     .collect(),
             ),
         );
@@ -4132,6 +4353,50 @@ fn aggregate_payload_from_sql_projection(
     if !order_by.is_empty() {
         payload.insert("order_by".to_string(), serde_json::Value::Array(order_by));
     }
+    if !having.is_empty() {
+        payload.insert("having".to_string(), serde_json::Value::Array(having));
+    }
+    if let Some(offset) = offset {
+        let parsed = offset.parse::<usize>().ok()?;
+        if parsed > 0 {
+            payload.insert(
+                "offset".to_string(),
+                serde_json::Value::Number(serde_json::Number::from(parsed)),
+            );
+        }
+    }
+    Some(serde_json::Value::Object(payload).to_string())
+}
+
+fn sort_rows_payload_from_sql_order_by(
+    order_by: &str,
+    offset: Option<&str>,
+    limit: &str,
+) -> Option<String> {
+    let order_by = split_sql_projection_list(order_by)
+        .into_iter()
+        .map(|item| {
+            let (expression, descending) = parse_sql_order_item(item);
+            let column = normalize_sql_group_item(strip_sql_alias(expression).trim())?;
+            Some(serde_json::json!({
+                "column": column,
+                "descending": descending
+            }))
+        })
+        .collect::<Option<Vec<_>>>()?;
+    if order_by.is_empty() {
+        return None;
+    }
+    let parsed_limit = limit.parse::<usize>().ok()?;
+    if parsed_limit == 0 {
+        return None;
+    }
+    let mut payload = serde_json::Map::new();
+    payload.insert("order_by".to_string(), serde_json::Value::Array(order_by));
+    payload.insert(
+        "limit".to_string(),
+        serde_json::Value::Number(serde_json::Number::from(parsed_limit)),
+    );
     if let Some(offset) = offset {
         let parsed = offset.parse::<usize>().ok()?;
         if parsed > 0 {
@@ -4149,6 +4414,19 @@ struct ParsedSqlAggregateMeasure {
     payload: serde_json::Value,
     alias: String,
     expression_key: String,
+}
+
+#[derive(Debug, Clone)]
+struct ParsedSqlGroupExpression {
+    payload: serde_json::Value,
+    alias: String,
+    expression_key: String,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ParsedSqlGroupSpec {
+    columns: Vec<String>,
+    expressions: Vec<ParsedSqlGroupExpression>,
 }
 
 fn scalar_aggregate_measure_from_sql(
@@ -4208,12 +4486,20 @@ fn scalar_aggregate_measure_from_sql(
             expression_key: compact_ascii_lower(item),
         });
     }
-    let (column, argument_offset) = if function == "sum" {
-        parse_sql_additive_aggregate_argument(argument)
-            .unwrap_or_else(|| (argument.strip_prefix("f.").unwrap_or(argument).trim(), 0))
-    } else {
-        (argument.strip_prefix("f.").unwrap_or(argument).trim(), 0)
-    };
+    let (column, argument_offset, value_transform) =
+        if let Some(column) = parse_sql_length_expression(argument) {
+            (column, 0, Some("length"))
+        } else if function == "sum" {
+            let (column, offset) = parse_sql_additive_aggregate_argument(argument)
+                .unwrap_or_else(|| (argument.strip_prefix("f.").unwrap_or(argument).trim(), 0));
+            (column, offset, None)
+        } else {
+            (
+                argument.strip_prefix("f.").unwrap_or(argument).trim(),
+                0,
+                None,
+            )
+        };
     if !is_summary_identifier(column) {
         return None;
     }
@@ -4231,6 +4517,14 @@ fn scalar_aggregate_measure_from_sql(
         object.insert(
             "argument_offset".to_string(),
             serde_json::Value::Number(serde_json::Number::from(argument_offset)),
+        );
+    }
+    if let Some(value_transform) = value_transform
+        && let serde_json::Value::Object(ref mut object) = payload
+    {
+        object.insert(
+            "value_transform".to_string(),
+            serde_json::Value::String(value_transform.to_string()),
         );
     }
     Some(ParsedSqlAggregateMeasure {
@@ -4262,9 +4556,320 @@ fn parse_sql_additive_aggregate_argument(argument: &str) -> Option<(&str, i64)> 
     is_summary_identifier(column).then_some((column, 0))
 }
 
+fn parse_sql_group_by_spec(group_by: &str, projection: &str) -> Option<ParsedSqlGroupSpec> {
+    let mut spec = ParsedSqlGroupSpec::default();
+    let projection_items = split_sql_projection_list(projection);
+    let projection_expressions = split_sql_projection_list(projection)
+        .into_iter()
+        .filter_map(parse_sql_group_expression)
+        .collect::<Vec<_>>();
+    let fallback_column = split_sql_projection_list(group_by)
+        .into_iter()
+        .find_map(normalize_sql_group_item)
+        .or_else(|| {
+            projection_items
+                .iter()
+                .find_map(|item| normalize_sql_group_item(strip_sql_alias(item.trim()).trim()))
+        });
+    for item in split_sql_projection_list(group_by) {
+        if let Ok(ordinal) = item.trim().parse::<usize>()
+            && ordinal > 0
+            && let Some(projection_item) = projection_items.get(ordinal - 1)
+            && let Ok(value) = strip_sql_alias(projection_item.trim())
+                .trim()
+                .parse::<i64>()
+        {
+            let column = fallback_column.clone()?;
+            let alias = format!("literal_{value}");
+            spec.expressions.push(ParsedSqlGroupExpression {
+                payload: serde_json::json!({
+                    "alias": alias,
+                    "column": column,
+                    "function": "constant_int",
+                    "argument_offset": value
+                }),
+                alias,
+                expression_key: value.to_string(),
+            });
+            continue;
+        }
+        if let Some(expression) = projection_expressions
+            .iter()
+            .find(|expression| expression.alias.eq_ignore_ascii_case(item.trim()))
+            .cloned()
+        {
+            if !spec
+                .expressions
+                .iter()
+                .any(|existing| existing.alias == expression.alias)
+            {
+                spec.expressions.push(expression);
+            }
+            continue;
+        }
+        if let Some(column) = normalize_sql_group_item(item) {
+            if !spec.columns.iter().any(|existing| existing == &column) {
+                spec.columns.push(column);
+            }
+            continue;
+        }
+        let key = compact_ascii_lower(strip_sql_alias(item.trim()).trim());
+        let expression = projection_expressions
+            .iter()
+            .find(|expression| {
+                expression.expression_key == key
+                    || expression.alias.eq_ignore_ascii_case(item.trim())
+            })
+            .cloned()
+            .or_else(|| parse_sql_group_expression(item))?;
+        if !spec
+            .expressions
+            .iter()
+            .any(|existing| existing.alias == expression.alias)
+        {
+            spec.expressions.push(expression);
+        }
+    }
+    Some(spec)
+}
+
+fn parse_sql_group_expression(item: &str) -> Option<ParsedSqlGroupExpression> {
+    let alias = sql_explicit_alias(item)
+        .filter(|alias| is_summary_identifier(alias))
+        .map(str::to_string);
+    let expression = strip_sql_alias(item.trim()).trim();
+    let expression_key = compact_ascii_lower(expression);
+    if let Some(alias) = alias.clone()
+        && let Some(column) = normalize_sql_group_item(expression)
+        && alias != column
+    {
+        return Some(ParsedSqlGroupExpression {
+            payload: serde_json::json!({
+                "alias": alias,
+                "column": column,
+                "function": "identity"
+            }),
+            alias,
+            expression_key,
+        });
+    }
+    if let Some((column, offset)) = parse_sql_additive_aggregate_argument(expression)
+        && offset != 0
+    {
+        let alias = alias.unwrap_or_else(|| {
+            format!(
+                "{}_{}{}",
+                column,
+                if offset < 0 { "minus" } else { "plus" },
+                offset.unsigned_abs()
+            )
+        });
+        return Some(ParsedSqlGroupExpression {
+            payload: serde_json::json!({
+                "alias": alias,
+                "column": column,
+                "function": "add_offset",
+                "argument_offset": offset
+            }),
+            alias,
+            expression_key,
+        });
+    }
+    if let Some(column) = parse_sql_length_expression(expression) {
+        let alias = alias.unwrap_or_else(|| format!("length_{column}"));
+        return Some(ParsedSqlGroupExpression {
+            payload: serde_json::json!({
+                "alias": alias,
+                "column": column,
+                "function": "length"
+            }),
+            alias,
+            expression_key,
+        });
+    }
+    if let Some(column) = parse_sql_extract_minute_expression(expression) {
+        let alias = alias.unwrap_or_else(|| "minute".to_string());
+        return Some(ParsedSqlGroupExpression {
+            payload: serde_json::json!({
+                "alias": alias,
+                "column": column,
+                "function": "extract_minute"
+            }),
+            alias,
+            expression_key,
+        });
+    }
+    if let Some(column) = parse_sql_date_trunc_minute_expression(expression) {
+        let alias = alias.unwrap_or_else(|| "date_trunc_minute".to_string());
+        return Some(ParsedSqlGroupExpression {
+            payload: serde_json::json!({
+                "alias": alias,
+                "column": column,
+                "function": "date_trunc_minute"
+            }),
+            alias,
+            expression_key,
+        });
+    }
+    if let Some(column) = parse_sql_regex_domain_expression(expression) {
+        let alias = alias.unwrap_or_else(|| "domain".to_string());
+        return Some(ParsedSqlGroupExpression {
+            payload: serde_json::json!({
+                "alias": alias,
+                "column": column,
+                "function": "regex_domain"
+            }),
+            alias,
+            expression_key,
+        });
+    }
+    if let Some((referer, search_engine, adv_engine)) =
+        parse_sql_case_search_adv_zero_referer_expression(expression)
+    {
+        let alias = alias.unwrap_or_else(|| "traffic_source_referer".to_string());
+        return Some(ParsedSqlGroupExpression {
+            payload: serde_json::json!({
+                "alias": alias,
+                "column": referer,
+                "extra_columns": [search_engine, adv_engine],
+                "function": "case_search_adv_zero_referer_else_empty"
+            }),
+            alias,
+            expression_key,
+        });
+    }
+    None
+}
+
+fn parse_sql_length_expression(expression: &str) -> Option<&str> {
+    let inner = parse_sql_function_call(expression, "length")?;
+    let column = inner.trim().strip_prefix("f.").unwrap_or(inner.trim());
+    is_summary_identifier(column).then_some(column)
+}
+
+fn parse_sql_extract_minute_expression(expression: &str) -> Option<&str> {
+    let normalized = expression.trim();
+    let inner = parse_sql_function_call(normalized, "extract")?;
+    let (unit, tail) = inner
+        .split_once("FROM")
+        .or_else(|| inner.split_once("from"))?;
+    if !unit.trim().eq_ignore_ascii_case("minute") {
+        return None;
+    }
+    let column = tail.trim().strip_prefix("f.").unwrap_or(tail.trim());
+    is_summary_identifier(column).then_some(column)
+}
+
+fn parse_sql_date_trunc_minute_expression(expression: &str) -> Option<&str> {
+    let inner = parse_sql_function_call(expression, "date_trunc")?;
+    let parts = split_sql_projection_list(inner);
+    if parts.len() != 2 {
+        return None;
+    }
+    if parse_sql_single_quoted_literal(parts[0])?.to_ascii_lowercase() != "minute" {
+        return None;
+    }
+    let column = parts[1]
+        .trim()
+        .strip_prefix("f.")
+        .unwrap_or(parts[1].trim());
+    is_summary_identifier(column).then_some(column)
+}
+
+fn parse_sql_regex_domain_expression(expression: &str) -> Option<&str> {
+    let inner = parse_sql_function_call(expression, "regexp_replace")?;
+    let parts = split_sql_projection_list(inner);
+    if parts.len() != 3 {
+        return None;
+    }
+    let column = parts[0]
+        .trim()
+        .strip_prefix("f.")
+        .unwrap_or(parts[0].trim());
+    let pattern = parse_sql_single_quoted_literal(parts[1])?;
+    let replacement = parse_sql_single_quoted_literal(parts[2])?;
+    (is_summary_identifier(column)
+        && pattern.contains("https?")
+        && pattern.contains("([^/]+)")
+        && replacement == "\\1")
+        .then_some(column)
+}
+
+fn parse_sql_case_search_adv_zero_referer_expression(
+    expression: &str,
+) -> Option<(&str, &str, &str)> {
+    let lowered = expression.trim().to_ascii_lowercase();
+    if !lowered.starts_with("case when ")
+        || !lowered.contains(" then ")
+        || !lowered.contains(" else ")
+        || !lowered.ends_with(" end")
+    {
+        return None;
+    }
+    let when_tail = expression.trim()[4..].trim();
+    let when_tail = when_tail
+        .strip_prefix("WHEN")
+        .or_else(|| when_tail.strip_prefix("when"))?
+        .trim();
+    let then_position = find_sql_keyword_outside_quotes_and_parens(when_tail, "THEN")?;
+    let condition = when_tail[..then_position].trim();
+    let then_tail = when_tail[then_position + "THEN".len()..].trim();
+    let else_position = find_sql_keyword_outside_quotes_and_parens(then_tail, "ELSE")?;
+    let then_value = then_tail[..else_position].trim();
+    let else_tail = then_tail[else_position + "ELSE".len()..].trim();
+    let else_value = else_tail
+        .strip_suffix("END")
+        .or_else(|| else_tail.strip_suffix("end"))?
+        .trim();
+    if parse_sql_single_quoted_literal(else_value)? != "" {
+        return None;
+    }
+    let referer = then_value
+        .trim()
+        .strip_prefix("f.")
+        .unwrap_or(then_value.trim());
+    if !is_summary_identifier(referer) {
+        return None;
+    }
+    let predicates = split_sql_conjunction_predicates(
+        condition
+            .strip_prefix('(')
+            .and_then(|value| value.strip_suffix(')'))
+            .unwrap_or(condition),
+    );
+    let mut zero_columns = Vec::new();
+    for predicate in predicates {
+        let (column, literal) = predicate.split_once('=')?;
+        if summary_sql_literal_to_tiny_scalar(literal.trim())? != "0" {
+            return None;
+        }
+        let column = column.trim().strip_prefix("f.").unwrap_or(column.trim());
+        if !is_summary_identifier(column) {
+            return None;
+        }
+        zero_columns.push(column);
+    }
+    let search_engine = zero_columns
+        .iter()
+        .find(|column| column.eq_ignore_ascii_case("SearchEngineID"))?;
+    let adv_engine = zero_columns
+        .iter()
+        .find(|column| column.eq_ignore_ascii_case("AdvEngineID"))?;
+    Some((referer, search_engine, adv_engine))
+}
+
+fn parse_sql_function_call<'a>(expression: &'a str, function: &str) -> Option<&'a str> {
+    let trimmed = expression.trim();
+    let open = trimmed.find('(')?;
+    if !trimmed[..open].trim().eq_ignore_ascii_case(function) || !trimmed.ends_with(')') {
+        return None;
+    }
+    Some(&trimmed[open + 1..trimmed.len() - 1])
+}
+
 fn parse_sql_aggregate_order_by(
     order_by: &str,
-    group_columns: &[String],
+    group_spec: &ParsedSqlGroupSpec,
     measures: &[ParsedSqlAggregateMeasure],
 ) -> Option<Vec<serde_json::Value>> {
     split_sql_projection_list(order_by)
@@ -4273,7 +4878,18 @@ fn parse_sql_aggregate_order_by(
             let (expression, descending) = parse_sql_order_item(item);
             let expression = strip_sql_alias(expression).trim();
             let column = normalize_sql_group_item(expression)
-                .filter(|column| group_columns.iter().any(|group| group == column))
+                .filter(|column| group_spec.columns.iter().any(|group| group == column))
+                .or_else(|| {
+                    group_spec
+                        .expressions
+                        .iter()
+                        .find(|group_expression| {
+                            group_expression.alias.eq_ignore_ascii_case(expression)
+                                || group_expression.expression_key
+                                    == compact_ascii_lower(expression)
+                        })
+                        .map(|group_expression| group_expression.alias.clone())
+                })
                 .or_else(|| {
                     measures
                         .iter()
@@ -4287,6 +4903,45 @@ fn parse_sql_aggregate_order_by(
                 "column": column,
                 "descending": descending
             }))
+        })
+        .collect()
+}
+
+fn parse_sql_aggregate_having(
+    having: &str,
+    measures: &[ParsedSqlAggregateMeasure],
+) -> Option<Vec<serde_json::Value>> {
+    split_sql_conjunction_predicates(having)
+        .into_iter()
+        .map(|predicate| {
+            for (sql_op, op) in [
+                (">=", "gte"),
+                ("<=", "lte"),
+                ("!=", "neq"),
+                ("<>", "neq"),
+                (">", "gt"),
+                ("<", "lt"),
+                ("=", "eq"),
+            ] {
+                let Some((left, right)) = predicate.split_once(sql_op) else {
+                    continue;
+                };
+                let left = left.trim();
+                let column = measures
+                    .iter()
+                    .find(|measure| {
+                        measure.alias.eq_ignore_ascii_case(left)
+                            || measure.expression_key == compact_ascii_lower(left)
+                    })
+                    .map(|measure| measure.alias.clone())?;
+                let value = summary_sql_literal_to_tiny_scalar(right.trim())?;
+                return Some(serde_json::json!({
+                    "column": column,
+                    "op": op,
+                    "value": value
+                }));
+            }
+            None
         })
         .collect()
 }
@@ -4315,14 +4970,6 @@ fn find_sql_trailing_keyword(value: &str, keyword: &str) -> Option<usize> {
     trimmed.as_bytes()[suffix_start - 1]
         .is_ascii_whitespace()
         .then_some(suffix_start - 1)
-}
-
-fn parse_sql_group_by_columns(group_by: &str) -> Option<Vec<String>> {
-    let columns = split_sql_projection_list(group_by)
-        .into_iter()
-        .map(normalize_sql_group_item)
-        .collect::<Option<Vec<_>>>()?;
-    (!columns.is_empty()).then_some(columns)
 }
 
 fn normalize_sql_group_item(item: &str) -> Option<String> {
@@ -4535,6 +5182,7 @@ fn infer_native_vortex_primitive_payload(
     infer_native_vortex_sample_primitive_payload(&operations)
         .or_else(|| infer_native_vortex_explode_primitive_payload(&operations))
         .or_else(|| infer_native_vortex_rolling_window_primitive_payload(&operations))
+        .or_else(|| infer_native_vortex_sort_rows_primitive_payload(&operations))
         .or_else(|| infer_native_vortex_tail_primitive_payload(&operations))
         .or_else(|| infer_native_vortex_duplicate_mask_primitive_payload(&operations))
         .or_else(|| infer_native_vortex_distinct_primitive_payload(&operations))
@@ -4576,6 +5224,7 @@ fn native_vortex_primitive_payload_with_seed(
         pivot_projection: None,
         rolling_window: None,
         aggregate: None,
+        sort_rows: None,
         right_input: None,
     }
 }
@@ -4598,6 +5247,7 @@ fn native_vortex_sample_primitive_payload(
         pivot_projection: None,
         rolling_window: None,
         aggregate: None,
+        sort_rows: None,
         right_input: None,
     }
 }
@@ -4620,6 +5270,7 @@ fn native_vortex_explode_primitive_payload(
         pivot_projection: None,
         rolling_window: None,
         aggregate: None,
+        sort_rows: None,
         right_input: None,
     }
 }
@@ -4675,6 +5326,7 @@ fn native_vortex_rolling_window_primitive_payload(
         pivot_projection: None,
         rolling_window: Some(payload),
         aggregate: None,
+        sort_rows: None,
         right_input: None,
     }
 }
@@ -4719,6 +5371,87 @@ fn summary_rolling_window_source_column(payload: &str) -> Option<String> {
         .and_then(serde_json::Value::as_str)?
         .trim();
     is_summary_identifier(column).then(|| column.to_string())
+}
+
+fn native_vortex_sort_rows_primitive_payload(
+    predicate: Option<String>,
+    columns: Option<String>,
+    source_order_limit: String,
+    sort_rows: String,
+) -> InferredNativeVortexRoutePayload {
+    InferredNativeVortexRoutePayload {
+        family: NativeVortexOperationFamily::TopN,
+        provider_scenario: None,
+        primitive: Some(PublicVortexPrimitive::SortRows),
+        predicate,
+        columns,
+        source_order_limit: Some(source_order_limit),
+        sample_seed: None,
+        sample_fraction: None,
+        explode_projection: None,
+        pivot_projection: None,
+        rolling_window: None,
+        aggregate: None,
+        sort_rows: Some(sort_rows),
+        right_input: None,
+    }
+}
+
+fn infer_native_vortex_sort_rows_primitive_payload(
+    operations: &[SummaryOperation<'_>],
+) -> Option<InferredNativeVortexRoutePayload> {
+    if matches_summary_kinds(operations, &["read_vortex", "select", "sort", "limit"])
+        && summary_positive_limit(operations[3].arg)
+    {
+        let limit = operations[3].arg.trim().to_string();
+        return Some(native_vortex_sort_rows_primitive_payload(
+            None,
+            Some(operations[1].arg.trim().to_string()),
+            limit.clone(),
+            summary_sort_rows_payload(operations[2].arg, &limit)?,
+        ));
+    }
+    if matches_summary_kinds(
+        operations,
+        &["read_vortex", "filter", "select", "sort", "limit"],
+    ) && summary_positive_limit(operations[4].arg)
+    {
+        let predicate = summary_tiny_predicate_from_sql(operations[1].arg)?;
+        let limit = operations[4].arg.trim().to_string();
+        return Some(native_vortex_sort_rows_primitive_payload(
+            Some(predicate),
+            Some(operations[2].arg.trim().to_string()),
+            limit.clone(),
+            summary_sort_rows_payload(operations[3].arg, &limit)?,
+        ));
+    }
+    None
+}
+
+fn summary_sort_rows_payload(sort: &str, limit: &str) -> Option<String> {
+    let parts = sort.split(',').map(str::trim).collect::<Vec<_>>();
+    let (descending, column) = match parts.as_slice() {
+        ["desc" | "DESC", column] => (true, *column),
+        ["asc" | "ASC", column] => (false, *column),
+        [column, "desc" | "DESC"] => (true, *column),
+        [column, "asc" | "ASC"] => (false, *column),
+        [column] => (false, *column),
+        _ => return None,
+    };
+    if !is_summary_identifier(column) {
+        return None;
+    }
+    let parsed_limit = limit.parse::<usize>().ok()?;
+    if parsed_limit == 0 {
+        return None;
+    }
+    Some(
+        serde_json::json!({
+            "order_by": [{"column": column, "descending": descending}],
+            "limit": parsed_limit
+        })
+        .to_string(),
+    )
 }
 
 fn infer_native_vortex_distinct_primitive_payload(
@@ -5122,6 +5855,19 @@ fn summary_tiny_predicate_from_sql(value: &str) -> Option<String> {
             if is_not { "is_not_null" } else { "is_null" }
         ));
     }
+    if let Some((column, needle, negated)) = parse_summary_like_predicate(text) {
+        return Some(format!(
+            "{}:{column}:{needle}",
+            if negated { "not_contains" } else { "contains" }
+        ));
+    }
+    if let Some((column, values, negated)) = parse_summary_in_predicate(text) {
+        return Some(format!(
+            "{}:{column}:{}",
+            if negated { "not_in" } else { "in" },
+            values.join(",")
+        ));
+    }
     for (sql_op, tiny_op) in [
         ("!=", "neq"),
         ("<>", "neq"),
@@ -5159,12 +5905,97 @@ fn is_summary_compact_tiny_predicate(value: &str) -> bool {
     match parts.as_slice() {
         ["is_null" | "is_not_null", column] => is_summary_identifier(column),
         [
+            "contains" | "string_contains" | "not_contains" | "not_string_contains",
+            column,
+            needle,
+        ] => is_summary_identifier(column) && !needle.is_empty(),
+        ["in" | "not_in", column, literals] => {
+            is_summary_identifier(column)
+                && literals
+                    .split(',')
+                    .map(str::trim)
+                    .any(|literal| !literal.is_empty())
+        }
+        [
             "eq" | "neq" | "not_eq" | "gt" | "gte" | "lt" | "lte",
             column,
             _literal,
         ] => is_summary_identifier(column),
         _ => false,
     }
+}
+
+fn tiny_predicate_requires_materialized_eval(value: &str) -> bool {
+    if let Some(inner) = value
+        .strip_prefix("and(")
+        .and_then(|value| value.strip_suffix(')'))
+    {
+        return inner
+            .split(';')
+            .filter(|part| !part.trim().is_empty())
+            .any(|part| tiny_predicate_requires_materialized_eval(part.trim()));
+    }
+    matches!(
+        value.splitn(3, ':').next(),
+        Some(
+            "contains"
+                | "string_contains"
+                | "not_contains"
+                | "not_string_contains"
+                | "in"
+                | "not_in"
+        )
+    )
+}
+
+fn parse_summary_like_predicate(value: &str) -> Option<(&str, String, bool)> {
+    for (keyword, negated) in [("NOT LIKE", true), ("LIKE", false)] {
+        let Some(position) = find_sql_keyword_outside_quotes_and_parens(value, keyword) else {
+            continue;
+        };
+        let column = value[..position].trim();
+        if !is_summary_identifier(column) {
+            continue;
+        }
+        let pattern = parse_sql_single_quoted_literal(&value[position + keyword.len()..])?;
+        let needle = sql_like_contains_needle(&pattern)?;
+        return Some((column, needle, negated));
+    }
+    None
+}
+
+fn sql_like_contains_needle(pattern: &str) -> Option<String> {
+    if pattern.contains('_') {
+        return None;
+    }
+    let inner = pattern.strip_prefix('%')?.strip_suffix('%')?;
+    if inner.is_empty() || inner.contains('%') {
+        return None;
+    }
+    Some(inner.to_string())
+}
+
+fn parse_summary_in_predicate(value: &str) -> Option<(&str, Vec<String>, bool)> {
+    for (keyword, negated) in [("NOT IN", true), ("IN", false)] {
+        let Some(position) = find_sql_keyword_outside_quotes_and_parens(value, keyword) else {
+            continue;
+        };
+        let column = value[..position].trim();
+        if !is_summary_identifier(column) {
+            continue;
+        }
+        let tail = value[position + keyword.len()..].trim();
+        let inner = tail.strip_prefix('(')?.strip_suffix(')')?;
+        let values = split_sql_projection_list(inner)
+            .into_iter()
+            .map(summary_sql_literal_to_tiny_scalar)
+            .collect::<Option<Vec<_>>>()?;
+        if values.is_empty() {
+            continue;
+        }
+        return Some((column, values, negated));
+    }
+    None
 }
 
 fn split_sql_conjunction_predicates(value: &str) -> Vec<&str> {
@@ -5334,6 +6165,8 @@ fn local_file_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoute
                 | "native_vortex_explode"
                 | "native_vortex_pivot"
                 | "native_vortex_rolling_window"
+                | "native_vortex_aggregate"
+                | "native_vortex_sort_rows"
         ) && !cfg!(feature = "vortex-local-primitives")
         {
             return local_file_vortex_primitive_feature_gated_route(request);
@@ -5991,6 +6824,11 @@ fn add_route_native_vortex_request_fields(
     );
     push_field(
         fields,
+        "vortex_sort_rows_present",
+        request.vortex_sort_rows.is_some().to_string(),
+    );
+    push_field(
+        fields,
         "memory_gb",
         request.memory_gb.clone().unwrap_or_else(|| "1".to_string()),
     );
@@ -6233,7 +7071,9 @@ fn native_vortex_capability_status(
             | "native_vortex_melt"
             | "native_vortex_explode"
             | "native_vortex_pivot"
-            | "native_vortex_rolling_window" => "supported_with_materialization_boundary",
+            | "native_vortex_rolling_window"
+            | "native_vortex_aggregate"
+            | "native_vortex_sort_rows" => "supported_with_materialization_boundary",
             "native_vortex_primitive_row_export" => "supported_with_explicit_decode_sink_boundary",
             _ => "supported",
         }
@@ -6362,6 +7202,9 @@ fn admitted_native_vortex_next_action(
         PublicVortexPrimitive::Aggregate => {
             "execute the admitted native Vortex scalar aggregate primitive route with explicit aggregate-state materialization evidence"
         }
+        PublicVortexPrimitive::SortRows => {
+            "execute the admitted native Vortex bounded sort/top-N primitive route with explicit order-state materialization evidence"
+        }
     })
 }
 
@@ -6387,9 +7230,9 @@ fn typed_result_contract(
         | "native_vortex_melt"
         | "native_vortex_explode"
         | "native_vortex_pivot"
-        | "native_vortex_rolling_window" => {
-            "bounded_python_rows_with_explicit_materialization_boundary"
-        }
+        | "native_vortex_rolling_window"
+        | "native_vortex_aggregate"
+        | "native_vortex_sort_rows" => "bounded_python_rows_with_explicit_materialization_boundary",
         "native_vortex_user_aggregate"
         | "native_vortex_user_join"
         | "native_vortex_user_top_n"
@@ -6538,6 +7381,7 @@ fn route_support_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
         | "native_vortex_pivot"
         | "native_vortex_rolling_window"
         | "native_vortex_aggregate"
+        | "native_vortex_sort_rows"
         | "native_vortex_user_profile"
         | "native_vortex_user_sink"
         | "native_vortex_duplicate_mask"
@@ -6585,6 +7429,7 @@ fn vortex_middle_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
         | "native_vortex_pivot"
         | "native_vortex_rolling_window"
         | "native_vortex_aggregate"
+        | "native_vortex_sort_rows"
         | "native_vortex_primitive_row_export" => "native_vortex_primitive",
         "native_vortex_user_aggregate"
         | "native_vortex_user_join"
@@ -7178,7 +8023,8 @@ fn native_vortex_primitive_runtime_args(
         | PublicVortexPrimitive::Explode
         | PublicVortexPrimitive::Pivot
         | PublicVortexPrimitive::RollingWindow
-        | PublicVortexPrimitive::Aggregate => {
+        | PublicVortexPrimitive::Aggregate
+        | PublicVortexPrimitive::SortRows => {
             return Err(ShardLoomError::InvalidOperation(
                 "public native Vortex materializing primitives use direct local primitive execution; fallback execution was not attempted".to_string(),
             ));
@@ -9690,6 +10536,479 @@ mod tests {
         assert!(aggregate.contains(r#""group_by":["SearchPhrase"]"#));
         assert!(aggregate.contains(r#""column":"c""#));
         assert!(aggregate.contains(r#""descending":true"#));
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_native_vortex_sql_like_count_as_residual_aggregate_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT COUNT(*) FROM 'hits.vortex' WHERE URL LIKE '%google%'",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL LIKE count route request");
+        let effective_request = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&effective_request);
+        let fields = route_fields(&effective_request, &plan);
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+            );
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
+        assert_eq!(field(&fields, "vortex_aggregate_present"), "true");
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_native_vortex_sql_like_grouped_topk_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT SearchPhrase, MIN(URL), COUNT(*) AS c FROM 'hits.vortex' WHERE URL LIKE '%google%' AND SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL LIKE grouped route request");
+        let effective_request = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&effective_request);
+        let fields = route_fields(&effective_request, &plan);
+        let aggregate = effective_request
+            .vortex_aggregate
+            .as_ref()
+            .expect("aggregate payload");
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+            );
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert_eq!(
+            field(&fields, "vortex_predicate"),
+            "and(contains:URL:google;neq:SearchPhrase:)"
+        );
+        assert_eq!(field(&fields, "vortex_source_order_limit"), "10");
+        assert!(aggregate.contains(r#""function":"min""#));
+        assert!(aggregate.contains(r#""column":"URL""#));
+        assert!(aggregate.contains(r#""group_by":["SearchPhrase"]"#));
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_native_vortex_sql_in_list_grouped_topk_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT URLHash, EventDate, COUNT(*) AS PageViews FROM 'hits.vortex' WHERE CounterID = 62 AND TraficSourceID IN (-1, 6) AND RefererHash = 3594120000172545465 GROUP BY URLHash, EventDate ORDER BY PageViews DESC LIMIT 10 OFFSET 100",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL IN-list grouped route request");
+        let effective_request = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&effective_request);
+        let fields = route_fields(&effective_request, &plan);
+        let aggregate = effective_request
+            .vortex_aggregate
+            .as_ref()
+            .expect("aggregate payload");
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+            );
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert_eq!(
+            field(&fields, "vortex_predicate"),
+            "and(eq:CounterID:62;in:TraficSourceID:-1,6;eq:RefererHash:3594120000172545465)"
+        );
+        assert_eq!(field(&fields, "vortex_source_order_limit"), "10");
+        assert!(aggregate.contains(r#""offset":100"#));
+        assert!(aggregate.contains(r#""group_by":["URLHash","EventDate"]"#));
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_native_vortex_sql_raw_order_topk_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT * FROM 'hits.vortex' WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL raw top-K route request");
+        let effective_request = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&effective_request);
+        let fields = route_fields(&effective_request, &plan);
+        let sort_rows = effective_request
+            .vortex_sort_rows
+            .as_ref()
+            .expect("sort rows payload");
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_sort_rows");
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+            );
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "sort_rows");
+        assert_eq!(field(&fields, "native_vortex_operation_family"), "top_n");
+        assert_eq!(field(&fields, "vortex_predicate"), "contains:URL:google");
+        assert_eq!(field(&fields, "vortex_source_order_limit"), "10");
+        assert_eq!(field(&fields, "vortex_sort_rows_present"), "true");
+        assert!(sort_rows.contains(r#""column":"EventTime""#));
+        assert!(sort_rows.contains(r#""limit":10"#));
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_native_vortex_sql_length_having_grouped_topk_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT CounterID, AVG(length(URL)) AS l, COUNT(*) AS c FROM 'hits.vortex' WHERE URL <> '' GROUP BY CounterID HAVING COUNT(*) > 100000 ORDER BY l DESC LIMIT 25",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL length/HAVING route request");
+        let effective_request = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&effective_request);
+        let fields = route_fields(&effective_request, &plan);
+        let aggregate = effective_request
+            .vortex_aggregate
+            .as_ref()
+            .expect("aggregate payload");
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert_eq!(field(&fields, "vortex_source_order_limit"), "25");
+        assert!(aggregate.contains(r#""value_transform":"length""#));
+        assert!(aggregate.contains(r#""column":"c""#));
+        assert!(aggregate.contains(r#""op":"gt""#));
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_native_vortex_sql_regex_domain_grouped_topk_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                r#"SELECT REGEXP_REPLACE(Referer, '^https?://(?:www\.)?([^/]+)/.*$', '\1') AS k, AVG(length(Referer)) AS l, COUNT(*) AS c, MIN(Referer) FROM 'hits.vortex' WHERE Referer <> '' GROUP BY k HAVING COUNT(*) > 100000 ORDER BY l DESC LIMIT 25"#,
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL regex-domain route request");
+        let effective_request = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&effective_request);
+        let fields = route_fields(&effective_request, &plan);
+        let aggregate = effective_request
+            .vortex_aggregate
+            .as_ref()
+            .expect("aggregate payload");
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert!(aggregate.contains(r#""function":"regex_domain""#));
+        assert!(aggregate.contains(r#""alias":"k""#));
+        assert!(aggregate.contains(r#""value_transform":"length""#));
+        assert!(aggregate.contains(r#""op":"gt""#));
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_native_vortex_sql_extract_minute_grouped_topk_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT UserID, extract(minute FROM EventTime) AS m, SearchPhrase, COUNT(*) FROM 'hits.vortex' GROUP BY UserID, m, SearchPhrase ORDER BY COUNT(*) DESC LIMIT 10",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL extract-minute route request");
+        let effective_request = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&effective_request);
+        let fields = route_fields(&effective_request, &plan);
+        let aggregate = effective_request
+            .vortex_aggregate
+            .as_ref()
+            .expect("aggregate payload");
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert!(aggregate.contains(r#""function":"extract_minute""#));
+        assert!(aggregate.contains(r#""alias":"m""#));
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_native_vortex_sql_arithmetic_group_key_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT ClientIP, ClientIP - 1, ClientIP - 2, ClientIP - 3, COUNT(*) AS c FROM 'hits.vortex' GROUP BY ClientIP, ClientIP - 1, ClientIP - 2, ClientIP - 3 ORDER BY c DESC LIMIT 10",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL arithmetic group route request");
+        let effective_request = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&effective_request);
+        let fields = route_fields(&effective_request, &plan);
+        let aggregate = effective_request
+            .vortex_aggregate
+            .as_ref()
+            .expect("aggregate payload");
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert!(aggregate.contains(r#""function":"add_offset""#));
+        assert!(aggregate.contains(r#""argument_offset":-1"#));
+        assert!(aggregate.contains(r#""argument_offset":-2"#));
+        assert!(aggregate.contains(r#""argument_offset":-3"#));
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_native_vortex_sql_date_trunc_grouped_topk_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT DATE_TRUNC('minute', EventTime) AS M, COUNT(*) AS PageViews FROM 'hits.vortex' WHERE CounterID = 62 GROUP BY DATE_TRUNC('minute', EventTime) ORDER BY DATE_TRUNC('minute', EventTime) LIMIT 10 OFFSET 1000",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL date-trunc route request");
+        let effective_request = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&effective_request);
+        let fields = route_fields(&effective_request, &plan);
+        let aggregate = effective_request
+            .vortex_aggregate
+            .as_ref()
+            .expect("aggregate payload");
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert_eq!(field(&fields, "vortex_source_order_limit"), "10");
+        assert!(aggregate.contains(r#""function":"date_trunc_minute""#));
+        assert!(aggregate.contains(r#""offset":1000"#));
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_native_vortex_sql_case_grouped_topk_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT TraficSourceID, SearchEngineID, AdvEngineID, CASE WHEN (SearchEngineID = 0 AND AdvEngineID = 0) THEN Referer ELSE '' END AS Src, URL AS Dst, COUNT(*) AS PageViews FROM 'hits.vortex' WHERE CounterID = 62 GROUP BY TraficSourceID, SearchEngineID, AdvEngineID, Src, Dst ORDER BY PageViews DESC LIMIT 10 OFFSET 1000",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL CASE grouped route request");
+        let effective_request = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&effective_request);
+        let fields = route_fields(&effective_request, &plan);
+        let aggregate = effective_request
+            .vortex_aggregate
+            .as_ref()
+            .expect("aggregate payload");
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert!(aggregate.contains(r#""function":"case_search_adv_zero_referer_else_empty""#));
+        assert!(aggregate.contains(r#""alias":"Src""#));
+        assert!(aggregate.contains(r#""alias":"Dst""#));
+        assert!(aggregate.contains(r#""offset":1000"#));
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_native_vortex_sql_ordinal_constant_group_key_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "sql",
+                "--sql",
+                "SELECT 1, URL, COUNT(*) AS c FROM 'hits.vortex' GROUP BY 1, URL ORDER BY c DESC LIMIT 10",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native SQL ordinal constant group route request");
+        let effective_request = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&effective_request);
+        let fields = route_fields(&effective_request, &plan);
+        let aggregate = effective_request
+            .vortex_aggregate
+            .as_ref()
+            .expect("aggregate payload");
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_aggregate");
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "aggregate");
+        assert!(aggregate.contains(r#""function":"constant_int""#));
+        assert!(aggregate.contains(r#""argument_offset":1"#));
         assert_eq!(field(&fields, "fallback_attempted"), "false");
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }

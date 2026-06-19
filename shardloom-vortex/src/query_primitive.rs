@@ -1,8 +1,8 @@
 use std::fmt::Write as _;
 
 use shardloom_core::{
-    ColumnRef, DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, PredicateExpr, Result,
-    StatValue,
+    ColumnRef, ComparisonOp, DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity,
+    PredicateExpr, Result, StatValue,
 };
 use shardloom_plan::ProjectionRequest;
 
@@ -24,6 +24,7 @@ pub enum VortexQueryPrimitiveKind {
     PivotRows,
     RollingWindowRows,
     SimpleAggregate,
+    SortRows,
     Unsupported,
 }
 impl VortexQueryPrimitiveKind {
@@ -45,6 +46,7 @@ impl VortexQueryPrimitiveKind {
             Self::PivotRows => "pivot_rows",
             Self::RollingWindowRows => "rolling_window_rows",
             Self::SimpleAggregate => "simple_aggregate",
+            Self::SortRows => "sort_rows",
             Self::Unsupported => "unsupported",
         }
     }
@@ -64,6 +66,7 @@ impl VortexQueryPrimitiveKind {
                 | Self::ExplodeRows
                 | Self::PivotRows
                 | Self::RollingWindowRows
+                | Self::SortRows
                 | Self::DuplicateMaskRows
         )
     }
@@ -79,6 +82,7 @@ impl VortexQueryPrimitiveKind {
                 | Self::ExplodeRows
                 | Self::PivotRows
                 | Self::RollingWindowRows
+                | Self::SortRows
                 | Self::DuplicateMaskRows
         )
     }
@@ -352,6 +356,7 @@ pub struct VortexSimpleAggregateMeasure {
     pub column: Option<ColumnRef>,
     pub alias: String,
     pub argument_offset: Option<i64>,
+    pub value_transform: Option<String>,
 }
 impl VortexSimpleAggregateMeasure {
     #[must_use]
@@ -361,6 +366,7 @@ impl VortexSimpleAggregateMeasure {
             column,
             alias,
             argument_offset: None,
+            value_transform: None,
         }
     }
 
@@ -371,14 +377,25 @@ impl VortexSimpleAggregateMeasure {
     }
 
     #[must_use]
+    pub fn with_value_transform(mut self, value_transform: impl Into<String>) -> Self {
+        self.value_transform = Some(value_transform.into());
+        self
+    }
+
+    #[must_use]
     pub fn summary(&self) -> String {
         let offset = self
             .argument_offset
             .map_or_else(String::new, |value| format!(" offset {value:+}"));
+        let transform = self
+            .value_transform
+            .as_ref()
+            .map_or_else(String::new, |value| format!(" transform {value}"));
         format!(
-            "{}({}{}) as {}",
+            "{}({}{}{}) as {}",
             self.function,
             self.column.as_ref().map_or("*", ColumnRef::as_str),
+            transform,
             offset,
             self.alias
         )
@@ -410,10 +427,131 @@ impl VortexAggregateOrderExpr {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexAggregateExpression {
+    pub alias: String,
+    pub column: ColumnRef,
+    pub extra_columns: Vec<ColumnRef>,
+    pub function: String,
+    pub argument_offset: Option<i64>,
+}
+impl VortexAggregateExpression {
+    #[must_use]
+    pub fn new(alias: String, column: ColumnRef, function: impl Into<String>) -> Self {
+        Self {
+            alias,
+            column,
+            extra_columns: Vec::new(),
+            function: function.into(),
+            argument_offset: None,
+        }
+    }
+
+    #[must_use]
+    pub fn with_argument_offset(mut self, argument_offset: i64) -> Self {
+        self.argument_offset = Some(argument_offset);
+        self
+    }
+
+    #[must_use]
+    pub fn with_extra_columns(mut self, extra_columns: Vec<ColumnRef>) -> Self {
+        self.extra_columns = extra_columns;
+        self
+    }
+
+    #[must_use]
+    pub fn summary(&self) -> String {
+        let offset = self
+            .argument_offset
+            .map_or_else(String::new, |value| format!(" offset {value:+}"));
+        format!(
+            "{}({}{}) as {}",
+            self.function,
+            self.column.as_str(),
+            offset,
+            self.alias
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexAggregateHavingExpr {
+    pub column: String,
+    pub op: ComparisonOp,
+    pub value: String,
+}
+impl VortexAggregateHavingExpr {
+    #[must_use]
+    pub fn new(column: impl Into<String>, op: ComparisonOp, value: impl Into<String>) -> Self {
+        Self {
+            column: column.into(),
+            op,
+            value: value.into(),
+        }
+    }
+
+    #[must_use]
+    pub fn summary(&self) -> String {
+        format!("{} {:?} {}", self.column, self.op, self.value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexSortRowsRequest {
+    pub order_by: Vec<VortexAggregateOrderExpr>,
+    pub offset: usize,
+}
+impl VortexSortRowsRequest {
+    #[must_use]
+    pub fn new(order_by: Vec<VortexAggregateOrderExpr>) -> Self {
+        Self {
+            order_by,
+            offset: 0,
+        }
+    }
+
+    #[must_use]
+    pub fn with_offset(mut self, offset: usize) -> Self {
+        self.offset = offset;
+        self
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.order_by.is_empty()
+    }
+
+    #[must_use]
+    pub fn order_columns(&self) -> Vec<ColumnRef> {
+        self.order_by
+            .iter()
+            .filter_map(|order| ColumnRef::new(&order.column).ok())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn summary(&self) -> String {
+        let mut parts = vec![format!(
+            "order_by={}",
+            self.order_by
+                .iter()
+                .map(VortexAggregateOrderExpr::summary)
+                .collect::<Vec<_>>()
+                .join(",")
+        )];
+        if self.offset > 0 {
+            parts.push(format!("offset={}", self.offset));
+        }
+        parts.join(";")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VortexSimpleAggregateRequest {
     pub group_by: Vec<ColumnRef>,
+    pub group_expressions: Vec<VortexAggregateExpression>,
     pub measures: Vec<VortexSimpleAggregateMeasure>,
     pub order_by: Vec<VortexAggregateOrderExpr>,
+    pub having: Vec<VortexAggregateHavingExpr>,
     pub offset: usize,
 }
 impl VortexSimpleAggregateRequest {
@@ -421,8 +559,10 @@ impl VortexSimpleAggregateRequest {
     pub fn new(measures: Vec<VortexSimpleAggregateMeasure>) -> Self {
         Self {
             group_by: Vec::new(),
+            group_expressions: Vec::new(),
             measures,
             order_by: Vec::new(),
+            having: Vec::new(),
             offset: 0,
         }
     }
@@ -431,8 +571,10 @@ impl VortexSimpleAggregateRequest {
     pub fn grouped(group_by: Vec<ColumnRef>, measures: Vec<VortexSimpleAggregateMeasure>) -> Self {
         Self {
             group_by,
+            group_expressions: Vec::new(),
             measures,
             order_by: Vec::new(),
+            having: Vec::new(),
             offset: 0,
         }
     }
@@ -440,6 +582,21 @@ impl VortexSimpleAggregateRequest {
     #[must_use]
     pub fn with_order_by(mut self, order_by: Vec<VortexAggregateOrderExpr>) -> Self {
         self.order_by = order_by;
+        self
+    }
+
+    #[must_use]
+    pub fn with_group_expressions(
+        mut self,
+        group_expressions: Vec<VortexAggregateExpression>,
+    ) -> Self {
+        self.group_expressions = group_expressions;
+        self
+    }
+
+    #[must_use]
+    pub fn with_having(mut self, having: Vec<VortexAggregateHavingExpr>) -> Self {
+        self.having = having;
         self
     }
 
@@ -465,6 +622,22 @@ impl VortexSimpleAggregateRequest {
                 out.push(column.clone());
             }
         }
+        for expression in &self.group_expressions {
+            if !out
+                .iter()
+                .any(|existing: &ColumnRef| existing.as_str() == expression.column.as_str())
+            {
+                out.push(expression.column.clone());
+            }
+            for column in &expression.extra_columns {
+                if !out
+                    .iter()
+                    .any(|existing: &ColumnRef| existing.as_str() == column.as_str())
+                {
+                    out.push(column.clone());
+                }
+            }
+        }
         for measure in &self.measures {
             let Some(column) = &measure.column else {
                 continue;
@@ -484,6 +657,11 @@ impl VortexSimpleAggregateRequest {
         self.group_by
             .iter()
             .map(|column| column.as_str().to_string())
+            .chain(
+                self.group_expressions
+                    .iter()
+                    .map(|expression| expression.alias.clone()),
+            )
             .chain(self.measures.iter().map(|measure| measure.alias.clone()))
             .collect()
     }
@@ -506,6 +684,16 @@ impl VortexSimpleAggregateRequest {
                 .join(",");
             parts.push(format!("group_by={group_by}"));
         }
+        if !self.group_expressions.is_empty() {
+            parts.push(format!(
+                "group_expressions={}",
+                self.group_expressions
+                    .iter()
+                    .map(VortexAggregateExpression::summary)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ));
+        }
         parts.push(format!("measures={measures}"));
         if !self.order_by.is_empty() {
             parts.push(format!(
@@ -519,6 +707,16 @@ impl VortexSimpleAggregateRequest {
         }
         if self.offset > 0 {
             parts.push(format!("offset={}", self.offset));
+        }
+        if !self.having.is_empty() {
+            parts.push(format!(
+                "having={}",
+                self.having
+                    .iter()
+                    .map(VortexAggregateHavingExpr::summary)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ));
         }
         parts.join(";")
     }
@@ -607,6 +805,7 @@ pub struct VortexQueryPrimitiveRequest {
     pub pivot_projection: Option<VortexPivotProjectionRequest>,
     pub rolling_window: Option<VortexRollingWindowRequest>,
     pub simple_aggregate: Option<VortexSimpleAggregateRequest>,
+    pub sort_rows: Option<VortexSortRowsRequest>,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexQueryPrimitiveRequest {
@@ -626,6 +825,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -645,6 +845,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -664,6 +865,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -683,6 +885,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -706,6 +909,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -729,6 +933,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -748,6 +953,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -767,6 +973,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -792,6 +999,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -817,6 +1025,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -840,6 +1049,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -860,6 +1070,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -883,6 +1094,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -903,6 +1115,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: Some(pivot_projection),
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -926,6 +1139,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: Some(rolling_window),
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         }
     }
@@ -949,6 +1163,33 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: Some(simple_aggregate),
+            sort_rows: None,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn sort_rows(
+        uri: DatasetUri,
+        projection: ProjectionRequest,
+        predicate: Option<PredicateExpr>,
+        sort_rows: VortexSortRowsRequest,
+        limit: usize,
+    ) -> Self {
+        Self {
+            kind: VortexQueryPrimitiveKind::SortRows,
+            source_uri: Some(uri),
+            projection,
+            predicate,
+            source_order_limit: Some(limit),
+            sample_seed: None,
+            sample_fraction: None,
+            expression_projection: None,
+            melt_projection: None,
+            explode_projection: None,
+            pivot_projection: None,
+            rolling_window: None,
+            simple_aggregate: None,
+            sort_rows: Some(sort_rows),
             diagnostics: vec![],
         }
     }
@@ -985,6 +1226,7 @@ impl VortexQueryPrimitiveRequest {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: vec![],
         };
         request.add_diagnostic(Diagnostic::unsupported(
@@ -1010,7 +1252,7 @@ impl VortexQueryPrimitiveRequest {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "kind={} uri={} projection={} predicate={} source_order_limit={} sample_seed={} sample_fraction={} expression_projection={} melt_projection={} explode_projection={} pivot_projection={} rolling_window={} simple_aggregate={} diagnostics={}",
+            "kind={} uri={} projection={} predicate={} source_order_limit={} sample_seed={} sample_fraction={} expression_projection={} melt_projection={} explode_projection={} pivot_projection={} rolling_window={} simple_aggregate={} sort_rows={} diagnostics={}",
             self.kind.as_str(),
             self.source_uri
                 .as_ref()
@@ -1045,6 +1287,9 @@ impl VortexQueryPrimitiveRequest {
             self.simple_aggregate
                 .as_ref()
                 .map_or_else(|| "none".to_string(), VortexSimpleAggregateRequest::summary),
+            self.sort_rows
+                .as_ref()
+                .map_or_else(|| "none".to_string(), VortexSortRowsRequest::summary),
             self.diagnostics.len()
         )
     }
@@ -1605,6 +1850,15 @@ pub fn evaluate_vortex_query_primitive(
             let mut out = VortexQueryPrimitiveResult::needs_encoded_read(
                 request,
                 "simple scalar aggregate requires a Vortex scan plus ShardLoom aggregate state over projected scalar columns",
+            );
+            out.status = VortexQueryPrimitiveStatus::NeedsEncodedRead;
+            out.mode = VortexQueryPrimitiveMode::Deferred;
+            Ok(out)
+        }
+        VortexQueryPrimitiveKind::SortRows => {
+            let mut out = VortexQueryPrimitiveResult::needs_encoded_read(
+                request,
+                "bounded sort rows require a Vortex scan plus ShardLoom bounded order state at the explicit materialization boundary",
             );
             out.status = VortexQueryPrimitiveStatus::NeedsEncodedRead;
             out.mode = VortexQueryPrimitiveMode::Deferred;

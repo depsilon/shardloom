@@ -497,14 +497,26 @@ pub enum PredicateExpr {
         op: ComparisonOp,
         value: StatValue,
     },
+    StringContains {
+        column: ColumnRef,
+        needle: String,
+        negated: bool,
+    },
+    InList {
+        column: ColumnRef,
+        values: Vec<StatValue>,
+        negated: bool,
+    },
 }
 impl PredicateExpr {
     #[must_use]
     pub const fn column(&self) -> Option<&ColumnRef> {
         match self {
-            Self::IsNull { column } | Self::IsNotNull { column } | Self::Compare { column, .. } => {
-                Some(column)
-            }
+            Self::IsNull { column }
+            | Self::IsNotNull { column }
+            | Self::Compare { column, .. }
+            | Self::StringContains { column, .. }
+            | Self::InList { column, .. } => Some(column),
             Self::AlwaysTrue | Self::AlwaysFalse | Self::And(_) => None,
         }
     }
@@ -526,6 +538,20 @@ impl PredicateExpr {
             Self::Compare { column, op, value } => {
                 format!("{} {} {:?}", column.as_str(), op.as_str(), value)
             }
+            Self::StringContains {
+                column,
+                needle,
+                negated,
+            } if *negated => format!("{} not contains {:?}", column.as_str(), needle),
+            Self::StringContains { column, needle, .. } => {
+                format!("{} contains {:?}", column.as_str(), needle)
+            }
+            Self::InList {
+                column,
+                values,
+                negated,
+            } if *negated => format!("{} not in {:?}", column.as_str(), values),
+            Self::InList { column, values, .. } => format!("{} in {:?}", column.as_str(), values),
         }
     }
 }
@@ -847,6 +873,18 @@ pub fn prove_predicate_from_stats(
             },
         },
         PredicateExpr::Compare { op, value, .. } => prove_comparison_from_stats(*op, value, stats),
+        PredicateExpr::StringContains { .. } => PredicateProof::Unknown {
+            reason:
+                "string contains predicates require encoded-value or materialized row evaluation"
+                    .to_string(),
+        },
+        PredicateExpr::InList { values, .. } if values.is_empty() => PredicateProof::AlwaysFalse {
+            reason: "empty IN list cannot match".to_string(),
+        },
+        PredicateExpr::InList { .. } => PredicateProof::MayMatch {
+            reason: "IN list predicates require encoded-value or materialized row evaluation"
+                .to_string(),
+        },
     }
 }
 
@@ -1169,7 +1207,10 @@ fn dictionary_selection_vector(
     match predicate {
         PredicateExpr::AlwaysTrue => return Ok(SelectionVector::all(row_count)),
         PredicateExpr::AlwaysFalse => return Ok(SelectionVector::none()),
-        PredicateExpr::And(_) | PredicateExpr::Compare { .. } => {}
+        PredicateExpr::And(_)
+        | PredicateExpr::Compare { .. }
+        | PredicateExpr::StringContains { .. }
+        | PredicateExpr::InList { .. } => {}
         PredicateExpr::IsNull { .. } => {
             return Ok(selection_vector_from_indices(
                 code_nullity_indices(codes, true)?,
@@ -1230,7 +1271,10 @@ fn bitpacked_unsigned_selection_vector(
         PredicateExpr::AlwaysFalse | PredicateExpr::IsNull { .. } => {
             return Ok(SelectionVector::none());
         }
-        PredicateExpr::Compare { .. } | PredicateExpr::And(_) => {}
+        PredicateExpr::Compare { .. }
+        | PredicateExpr::And(_)
+        | PredicateExpr::StringContains { .. }
+        | PredicateExpr::InList { .. } => {}
     }
     let mut indices = Vec::with_capacity(values.len().min(4_096));
     if let Some((op, rhs)) = u64_comparison_predicate(predicate) {
@@ -1345,7 +1389,10 @@ fn encoded_sequence_selection_vector(
         PredicateExpr::AlwaysTrue | PredicateExpr::IsNotNull { .. } => {
             return Ok(SelectionVector::all(row_count));
         }
-        PredicateExpr::Compare { .. } | PredicateExpr::And(_) => {}
+        PredicateExpr::Compare { .. }
+        | PredicateExpr::And(_)
+        | PredicateExpr::StringContains { .. }
+        | PredicateExpr::InList { .. } => {}
     }
 
     let mut indices = Vec::new();
@@ -1423,6 +1470,26 @@ fn predicate_matches_encoded_value(
                 ComparisonOp::Gt => ordering > 0,
                 ComparisonOp::GtEq => ordering >= 0,
             })
+        }
+        PredicateExpr::StringContains {
+            needle, negated, ..
+        } => {
+            let Some(StatValue::Utf8(lhs)) = value else {
+                return Ok(false);
+            };
+            let matched = lhs.contains(needle);
+            Ok(if *negated { !matched } else { matched })
+        }
+        PredicateExpr::InList {
+            values, negated, ..
+        } => {
+            let Some(lhs) = value else {
+                return Ok(false);
+            };
+            let matched = values
+                .iter()
+                .any(|rhs| cmp_stat_values(lhs, rhs) == Some(0));
+            Ok(if *negated { !matched } else { matched })
         }
     }
 }

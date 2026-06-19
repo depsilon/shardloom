@@ -36797,6 +36797,27 @@ fn predicate_matches_stat_value(
                 ComparisonOp::GtEq => ordering >= 0,
             })
         }
+        PredicateExpr::StringContains {
+            needle, negated, ..
+        } => {
+            let matches = value
+                .and_then(|value| match value {
+                    StatValue::Utf8(text) => Some(text.contains(needle)),
+                    _ => None,
+                })
+                .unwrap_or(false);
+            Ok(if *negated { !matches } else { matches })
+        }
+        PredicateExpr::InList {
+            values, negated, ..
+        } => {
+            let matches = value.is_some_and(|lhs| {
+                values
+                    .iter()
+                    .any(|rhs| compare_stat_values(lhs, rhs).is_some_and(|ordering| ordering == 0))
+            });
+            Ok(if *negated { !matches } else { matches })
+        }
     }
 }
 
