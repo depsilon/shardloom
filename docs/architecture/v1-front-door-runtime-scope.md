@@ -100,9 +100,9 @@ certificate inventory for those exact provider-backed Python and SQL shapes.
 The ClickBench OLAP fixture under `benchmarks/clickbench/queries.sql` is now the broad SQL coverage
 driver. `scripts/check_clickbench_olap_runtime_coverage.py` classifies all 43 canonical `hits`
 queries into admitted primitive SQL rows or reusable implementation families. The current local
-coverage map validates 28 admitted rows and 15 implementation-required rows. Remaining feasible
-rows stay as open runtime implementation work; they are not a completed blocker boundary. The
-checker is a readiness map, not a runtime benchmark or public performance claim.
+coverage map validates 43 admitted rows and 0 implementation-required rows through shared native
+Vortex aggregate, grouped expression, predicate, and sorted-row route families. The checker is a
+readiness map, not a runtime benchmark or public performance claim.
 
 ## Support Status Vocabulary
 

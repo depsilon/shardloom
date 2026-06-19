@@ -243,27 +243,7 @@ def runtime_status(query_id: str, tags: list[str], statement: str) -> dict[str, 
             "blocker_id": "none",
             "next_action": "none",
         }
-    if "regex_replace" in tags:
-        blocker = "clickbench.olap_runtime.regex_replace_group_by_required"
-        action = "add ShardLoom-native regex-replace scalar projection plus grouped aggregate route"
-    elif "case_expression" in tags:
-        blocker = "clickbench.olap_runtime.case_group_by_topk_required"
-        action = "lower CASE projection into the native expression registry before grouped top-K"
-    elif "date_time_trunc" in tags or "date_time_extract" in tags:
-        blocker = "clickbench.olap_runtime.datetime_projection_required"
-        action = "add native date/time extract-trunc projection kernels and grouped/top-K evidence"
-    elif "group_by" in tags and not any(
-        tag in tags
-        for tag in [
-            "arithmetic_projection",
-            "having",
-            "in_list_predicate",
-            "length_function",
-            "like_predicate",
-            "not_like_predicate",
-            "ordinal_group_by",
-        ]
-    ):
+    if "group_by" in tags:
         route_family = "native_vortex_grouped_aggregate"
         if "order_by" in tags or "top_k" in tags or "offset" in tags:
             route_family = "native_vortex_grouped_aggregate_topk"
@@ -296,12 +276,14 @@ def runtime_status(query_id: str, tags: list[str], statement: str) -> dict[str, 
             "blocker_id": "none",
             "next_action": "none",
         }
-    elif "like_predicate" in tags or "string_non_empty_predicate" in tags:
-        blocker = "clickbench.olap_runtime.string_predicate_required"
-        action = "add native UTF-8 LIKE/not-LIKE/string comparison kernels with no fallback"
     elif "top_k" in tags or "order_by" in tags:
-        blocker = "clickbench.olap_runtime.order_topk_required"
-        action = "add bounded native order/top-K/offset route over Vortex/prepared Vortex sources"
+        return {
+            "runtime_status": "admitted_current_runtime",
+            "route_family": "native_vortex_sorted_rows_topk",
+            "route_id": "native_vortex_sort_rows",
+            "blocker_id": "none",
+            "next_action": "none",
+        }
     elif "aggregate" in tags:
         return {
             "runtime_status": "admitted_current_runtime",
@@ -310,6 +292,9 @@ def runtime_status(query_id: str, tags: list[str], statement: str) -> dict[str, 
             "blocker_id": "none",
             "next_action": "none",
         }
+    elif "like_predicate" in tags or "string_non_empty_predicate" in tags:
+        blocker = "clickbench.olap_runtime.string_filter_rows_required"
+        action = "add native UTF-8 LIKE/not-LIKE row-returning filter/project route with no fallback"
     else:
         blocker = "clickbench.olap_runtime.general_sql_lowering_required"
         action = "lower this SQL shape into a declared native Vortex operator family"

@@ -22,27 +22,28 @@ use shardloom_exec::{
 };
 use shardloom_plan::ProjectionRequest;
 use shardloom_vortex::{
-    VortexAggregateOrderExpr, VortexBoundedExecutionPolicy, VortexBoundedExecutionReport,
-    VortexCountCandidateSource, VortexCountReadinessRequest,
-    VortexEncodedCountKernelAdmissionReport, VortexEncodedCountPhysicalKernelReport,
-    VortexEncodedPredicateEvaluationReport, VortexEncodedPredicateEvaluationStatus,
-    VortexEncodedReadExecutionMode, VortexEncodedReadExecutionStatus,
-    VortexEncodedReadExecutorFeatureStatus, VortexExplodeProjectionRequest,
-    VortexExpressionProjectionRequest, VortexExpressionRewrite, VortexLocalEngineReport,
-    VortexLocalEngineRequest, VortexLocalEngineWhyReport, VortexLocalExecutionReport,
-    VortexLocalExecutionStatus, VortexLocalPrimitiveExecutionPolicy,
+    VortexAggregateExpression, VortexAggregateHavingExpr, VortexAggregateOrderExpr,
+    VortexBoundedExecutionPolicy, VortexBoundedExecutionReport, VortexCountCandidateSource,
+    VortexCountReadinessRequest, VortexEncodedCountKernelAdmissionReport,
+    VortexEncodedCountPhysicalKernelReport, VortexEncodedPredicateEvaluationReport,
+    VortexEncodedPredicateEvaluationStatus, VortexEncodedReadExecutionMode,
+    VortexEncodedReadExecutionStatus, VortexEncodedReadExecutorFeatureStatus,
+    VortexExplodeProjectionRequest, VortexExpressionProjectionRequest, VortexExpressionRewrite,
+    VortexLocalEngineReport, VortexLocalEngineRequest, VortexLocalEngineWhyReport,
+    VortexLocalExecutionReport, VortexLocalExecutionStatus, VortexLocalPrimitiveExecutionPolicy,
     VortexLocalPrimitiveExecutionReport, VortexMeltProjectionRequest, VortexMetadataOpenRequest,
     VortexMetadataProbeReport, VortexMetadataSummaryReport, VortexPivotProjectionRequest,
     VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveValue,
     VortexRollingWindowRequest, VortexSelectionVectorFilterKernelAdmissionReport,
     VortexSelectionVectorFilterKernelReport, VortexSimpleAggregateMeasure,
-    VortexSimpleAggregateRequest, VortexStreamingBatchRuntimeReport, VortexTaskSchedulingDecision,
-    VortexWorkAvoidedMetricKind, VortexWorkAvoidedReport, admit_vortex_encoded_count_kernel,
-    admit_vortex_selection_vector_filter_kernel, build_vortex_runtime_task_graph,
-    evaluate_vortex_encoded_predicate_segments, evaluate_vortex_encoded_read_readiness,
-    evaluate_vortex_local_encoded_count_physical_kernel, evaluate_vortex_query_primitive,
-    evaluate_vortex_query_primitive_with_analysis, evaluate_vortex_selection_vector_filter_kernel,
-    execute_vortex_bounded_local_query, execute_vortex_count_all_from_approved_local_scan,
+    VortexSimpleAggregateRequest, VortexSortRowsRequest, VortexStreamingBatchRuntimeReport,
+    VortexTaskSchedulingDecision, VortexWorkAvoidedMetricKind, VortexWorkAvoidedReport,
+    admit_vortex_encoded_count_kernel, admit_vortex_selection_vector_filter_kernel,
+    build_vortex_runtime_task_graph, evaluate_vortex_encoded_predicate_segments,
+    evaluate_vortex_encoded_read_readiness, evaluate_vortex_local_encoded_count_physical_kernel,
+    evaluate_vortex_query_primitive, evaluate_vortex_query_primitive_with_analysis,
+    evaluate_vortex_selection_vector_filter_kernel, execute_vortex_bounded_local_query,
+    execute_vortex_count_all_from_approved_local_scan,
     execute_vortex_count_all_from_approved_local_scan_result,
     execute_vortex_local_primitive_with_policy, execute_vortex_local_query_primitive,
     local_encoded_count_execution_certificate, local_encoded_count_native_io_certificate,
@@ -312,21 +313,43 @@ pub(crate) fn parse_tiny_predicate(value: &str) -> Result<PredicateExpr, ShardLo
         ["is_not_null", column] => Ok(PredicateExpr::IsNotNull {
             column: ColumnRef::new(*column)?,
         }),
+        ["contains" | "string_contains", column, needle] => {
+            Ok(PredicateExpr::StringContains {
+                column: ColumnRef::new(*column)?,
+                needle: (*needle).to_string(),
+                negated: false,
+            })
+        }
+        ["not_contains" | "not_string_contains", column, needle] => {
+            Ok(PredicateExpr::StringContains {
+                column: ColumnRef::new(*column)?,
+                needle: (*needle).to_string(),
+                negated: true,
+            })
+        }
+        ["in" | "not_in", column, literals] => {
+            let values = literals
+                .split(',')
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(parse_tiny_predicate_literal)
+                .collect::<Vec<_>>();
+            if values.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "IN predicate requires at least one literal".to_string(),
+                ));
+            }
+            Ok(PredicateExpr::InList {
+                column: ColumnRef::new(*column)?,
+                values,
+                negated: parts[0] == "not_in",
+            })
+        }
         [op, column, literal] => {
             let value = parse_tiny_predicate_literal(literal);
-            let op = match *op {
-                "eq" => ComparisonOp::Eq,
-                "neq" | "not_eq" => ComparisonOp::NotEq,
-                "gt" => ComparisonOp::Gt,
-                "gte" => ComparisonOp::GtEq,
-                "lt" => ComparisonOp::Lt,
-                "lte" => ComparisonOp::LtEq,
-                _ => {
-                    return Err(ShardLoomError::InvalidOperation(
-                        "unsupported predicate operator".to_string(),
-                    ));
-                }
-            };
+            let op = parse_comparison_op(op).ok_or_else(|| {
+                ShardLoomError::InvalidOperation("unsupported predicate operator".to_string())
+            })?;
             Ok(PredicateExpr::Compare {
                 column: ColumnRef::new(*column)?,
                 op,
@@ -334,8 +357,20 @@ pub(crate) fn parse_tiny_predicate(value: &str) -> Result<PredicateExpr, ShardLo
             })
         }
         _ => Err(ShardLoomError::InvalidOperation(
-            "invalid predicate format; expected is_null:<column>, is_not_null:<column>, and(<predicate>;...), or <op>:<column>:<scalar> where <op> is eq, neq, gt, gte, lt, or lte".to_string(),
+            "invalid predicate format; expected is_null:<column>, is_not_null:<column>, contains:<column>:<needle>, in:<column>:<scalar,...>, and(<predicate>;...), or <op>:<column>:<scalar> where <op> is eq, neq, gt, gte, lt, or lte".to_string(),
         )),
+    }
+}
+
+fn parse_comparison_op(value: &str) -> Option<ComparisonOp> {
+    match value {
+        "eq" | "=" => Some(ComparisonOp::Eq),
+        "neq" | "not_eq" | "!=" | "<>" => Some(ComparisonOp::NotEq),
+        "gt" | ">" => Some(ComparisonOp::Gt),
+        "gte" | ">=" => Some(ComparisonOp::GtEq),
+        "lt" | "<" => Some(ComparisonOp::Lt),
+        "lte" | "<=" => Some(ComparisonOp::LtEq),
+        _ => None,
     }
 }
 
@@ -2918,6 +2953,14 @@ pub(crate) fn parse_vortex_primitive_request(
     {
         parse_rolling_primitive_request(uri, payload)
     } else if let Some(payload) = primitive_arg
+        .strip_prefix("sort-rows:")
+        .or_else(|| primitive_arg.strip_prefix("sort_rows:"))
+        .or_else(|| primitive_arg.strip_prefix("order-rows:"))
+        .or_else(|| primitive_arg.strip_prefix("order_rows:"))
+        .or_else(|| primitive_arg.strip_prefix("sort:"))
+    {
+        parse_sort_rows_primitive_request(uri, payload, None, None)
+    } else if let Some(payload) = primitive_arg
         .strip_prefix("aggregate:")
         .or_else(|| primitive_arg.strip_prefix("simple-aggregate:"))
         .or_else(|| primitive_arg.strip_prefix("simple_aggregate:"))
@@ -2991,8 +3034,15 @@ fn parse_vortex_compound_primitive_request(
             0,
         ));
     }
+    if let Some((predicate, columns, payload)) = prefixed_predicate_columns_payload(
+        primitive_arg,
+        &["sort-filter-project:", "sort-filter-and-project:"],
+        "sort-filter-project",
+    )? {
+        return parse_sort_rows_primitive_request(uri, payload, Some(predicate), Some(columns));
+    }
     Err(ShardLoomError::InvalidOperation(
-        "invalid primitive; expected count, count-where:<predicate>, project:<columns>, distinct:<columns>, tail:<columns>, sample:<columns>, expression-project:<json>, melt:<json>, explode:<json>, pivot:<json>, rolling:<json>, aggregate:<json>, aggregate-filter:<predicate>|<json>, filter:<predicate>, filter-project:<predicate>|<columns>, distinct-filter-project:<predicate>|<columns>, sample-filter-project:<predicate>|<columns>".to_string(),
+        "invalid primitive; expected count, count-where:<predicate>, project:<columns>, distinct:<columns>, tail:<columns>, sample:<columns>, expression-project:<json>, melt:<json>, explode:<json>, pivot:<json>, rolling:<json>, sort-rows:<json>, aggregate:<json>, aggregate-filter:<predicate>|<json>, filter:<predicate>, filter-project:<predicate>|<columns>, distinct-filter-project:<predicate>|<columns>, sample-filter-project:<predicate>|<columns>, sort-filter-project:<predicate>|<columns>|<json>".to_string(),
     ))
 }
 
@@ -3150,10 +3200,66 @@ fn parse_simple_aggregate_primitive_request(
         .transpose()?
         .flatten()
         .unwrap_or(0);
+    let group_expressions = value
+        .as_object()
+        .map(|object| {
+            json_optional_aggregate_expression_array_field_any(
+                object,
+                &["group_expressions", "groupExpressions", "computed_group_by"],
+            )
+        })
+        .transpose()?
+        .flatten()
+        .unwrap_or_default();
+    let having = value
+        .as_object()
+        .map(|object| json_optional_aggregate_having_array_field_any(object, &["having"]))
+        .transpose()?
+        .flatten()
+        .unwrap_or_default();
     let aggregate = VortexSimpleAggregateRequest::grouped(group_by, measures)
+        .with_group_expressions(group_expressions)
         .with_order_by(order_by)
+        .with_having(having)
         .with_offset(offset);
     Ok(shardloom_vortex::VortexQueryPrimitiveRequest::simple_aggregate(uri, aggregate))
+}
+
+fn parse_sort_rows_primitive_request(
+    uri: DatasetUri,
+    payload: &str,
+    predicate: Option<&str>,
+    columns: Option<&str>,
+) -> Result<shardloom_vortex::VortexQueryPrimitiveRequest, ShardLoomError> {
+    let value = serde_json::from_str::<serde_json::Value>(payload).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!("sort rows payload must be valid JSON: {error}"))
+    })?;
+    let object = value.as_object().ok_or_else(|| {
+        ShardLoomError::InvalidOperation("sort rows payload must be a JSON object".to_string())
+    })?;
+    let order_by = json_optional_aggregate_order_array_field_any(object, &["order_by", "orderBy"])?
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "sort rows payload requires order_by array".to_string(),
+            )
+        })?;
+    let offset = json_optional_usize_field_any(object, &["offset"])?.unwrap_or(0);
+    let limit =
+        json_optional_usize_field_any(object, &["limit", "source_order_limit"])?.unwrap_or(1);
+    let projection = if let Some(columns) = columns {
+        parse_projection_columns(columns)?
+    } else {
+        json_optional_projection_field_any(object, &["columns", "projection"])?
+            .unwrap_or_else(ProjectionRequest::all)
+    };
+    let request = shardloom_vortex::VortexQueryPrimitiveRequest::sort_rows(
+        uri,
+        projection,
+        predicate.map(parse_tiny_predicate).transpose()?,
+        VortexSortRowsRequest::new(order_by).with_offset(offset),
+        limit,
+    );
+    Ok(request)
 }
 
 fn parse_simple_aggregate_measure(
@@ -3178,11 +3284,116 @@ fn parse_simple_aggregate_measure(
     );
     let argument_offset =
         json_optional_i64_field_any(object, &["argument_offset", "arg_offset", "offset"])?;
+    let value_transform =
+        json_optional_string_field_any(object, &["value_transform", "transform"])?
+            .map(str::to_string);
     let mut measure = VortexSimpleAggregateMeasure::new(function, column, alias);
     if let Some(argument_offset) = argument_offset {
         measure = measure.with_argument_offset(argument_offset);
     }
+    if let Some(value_transform) = value_transform {
+        measure = measure.with_value_transform(value_transform);
+    }
     Ok(measure)
+}
+
+fn parse_aggregate_expression(
+    value: &serde_json::Value,
+) -> Result<VortexAggregateExpression, ShardLoomError> {
+    let object = value.as_object().ok_or_else(|| {
+        ShardLoomError::InvalidOperation("aggregate expression must be a JSON object".to_string())
+    })?;
+    let alias = json_string_field_any(object, &["alias", "output_column"])?.to_string();
+    let column = ColumnRef::new(json_string_field_any(
+        object,
+        &["column", "source_column", "on"],
+    )?)?;
+    let extra_columns =
+        json_optional_column_array_field_any(object, &["extra_columns", "extraColumns"])?
+            .unwrap_or_default();
+    let function = json_string_field_any(object, &["function", "expr", "transform"])?.to_string();
+    let argument_offset =
+        json_optional_i64_field_any(object, &["argument_offset", "arg_offset", "offset"])?;
+    let mut expression =
+        VortexAggregateExpression::new(alias, column, function).with_extra_columns(extra_columns);
+    if let Some(argument_offset) = argument_offset {
+        expression = expression.with_argument_offset(argument_offset);
+    }
+    Ok(expression)
+}
+
+fn json_optional_aggregate_expression_array_field_any(
+    object: &serde_json::Map<String, serde_json::Value>,
+    fields: &[&str],
+) -> Result<Option<Vec<VortexAggregateExpression>>, ShardLoomError> {
+    for field in fields {
+        if let Some(value) = object.get(*field) {
+            return match value {
+                serde_json::Value::Array(array) => array
+                    .iter()
+                    .map(parse_aggregate_expression)
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(Some),
+                _ => Err(ShardLoomError::InvalidOperation(format!(
+                    "aggregate {field} must be an array"
+                ))),
+            };
+        }
+    }
+    Ok(None)
+}
+
+fn parse_aggregate_having(
+    value: &serde_json::Value,
+) -> Result<VortexAggregateHavingExpr, ShardLoomError> {
+    let object = value.as_object().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "aggregate having expression must be a JSON object".to_string(),
+        )
+    })?;
+    let column = json_string_field_any(object, &["column", "alias"])?.to_string();
+    let op = parse_comparison_op(json_string_field_any(object, &["op", "operator"])?).ok_or_else(
+        || {
+            ShardLoomError::InvalidOperation(
+                "aggregate having operator must be one of eq, neq, gt, gte, lt, or lte".to_string(),
+            )
+        },
+    )?;
+    let raw_value = object.get("value").ok_or_else(|| {
+        ShardLoomError::InvalidOperation("aggregate having expression requires value".to_string())
+    })?;
+    let value = match raw_value {
+        serde_json::Value::String(value) => value.clone(),
+        serde_json::Value::Number(value) => value.to_string(),
+        serde_json::Value::Bool(value) => value.to_string(),
+        serde_json::Value::Null | serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            return Err(ShardLoomError::InvalidOperation(
+                "aggregate having value must be a scalar string, number, or boolean".to_string(),
+            ));
+        }
+    };
+    Ok(VortexAggregateHavingExpr::new(column, op, value))
+}
+
+fn json_optional_aggregate_having_array_field_any(
+    object: &serde_json::Map<String, serde_json::Value>,
+    fields: &[&str],
+) -> Result<Option<Vec<VortexAggregateHavingExpr>>, ShardLoomError> {
+    for field in fields {
+        if let Some(value) = object.get(*field) {
+            return match value {
+                serde_json::Value::Array(array) => array
+                    .iter()
+                    .map(parse_aggregate_having)
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(Some),
+                _ => Err(ShardLoomError::InvalidOperation(format!(
+                    "aggregate {field} must be an array"
+                ))),
+            };
+        }
+    }
+    Ok(None)
 }
 
 fn json_optional_column_array_field_any(
@@ -3212,6 +3423,35 @@ fn json_optional_column_array_field_any(
                 }
                 _ => Err(ShardLoomError::InvalidOperation(format!(
                     "aggregate field {field} must be a string or string array"
+                ))),
+            };
+        }
+    }
+    Ok(None)
+}
+
+fn json_optional_projection_field_any(
+    object: &serde_json::Map<String, serde_json::Value>,
+    fields: &[&str],
+) -> Result<Option<ProjectionRequest>, ShardLoomError> {
+    for field in fields {
+        if let Some(value) = object.get(*field) {
+            return match value {
+                serde_json::Value::String(value) => Ok(Some(parse_projection_columns(value)?)),
+                serde_json::Value::Array(values) => {
+                    let mut columns = Vec::with_capacity(values.len());
+                    for value in values {
+                        let Some(column) = value.as_str() else {
+                            return Err(ShardLoomError::InvalidOperation(format!(
+                                "projection field {field} array must contain strings"
+                            )));
+                        };
+                        columns.push(ColumnRef::new(column)?);
+                    }
+                    Ok(Some(ProjectionRequest::columns(columns)))
+                }
+                _ => Err(ShardLoomError::InvalidOperation(format!(
+                    "projection field {field} must be a string or string array"
                 ))),
             };
         }
@@ -3685,6 +3925,28 @@ fn prefixed_predicate_columns<'a>(
     Ok(None)
 }
 
+fn prefixed_predicate_columns_payload<'a>(
+    value: &'a str,
+    prefixes: &[&str],
+    label: &str,
+) -> Result<Option<(&'a str, &'a str, &'a str)>, ShardLoomError> {
+    for prefix in prefixes {
+        if let Some(remainder) = value.strip_prefix(prefix) {
+            let mut parts = remainder.splitn(3, '|');
+            let predicate = parts.next().unwrap_or_default();
+            let columns = parts.next().unwrap_or_default();
+            let payload = parts.next().unwrap_or_default();
+            if predicate.is_empty() || columns.is_empty() || payload.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "{label} requires <predicate>|<columns>|<payload>"
+                )));
+            }
+            return Ok(Some((predicate, columns, payload)));
+        }
+    }
+    Ok(None)
+}
+
 pub(crate) fn build_vortex_encoded_count_readiness(
     uri: DatasetUri,
     memory_gb: u64,
@@ -4099,6 +4361,7 @@ pub(crate) fn local_primitive_correctness_fixture_for_request(
         | shardloom_vortex::VortexQueryPrimitiveKind::PivotRows
         | shardloom_vortex::VortexQueryPrimitiveKind::RollingWindowRows
         | shardloom_vortex::VortexQueryPrimitiveKind::SimpleAggregate
+        | shardloom_vortex::VortexQueryPrimitiveKind::SortRows
         | shardloom_vortex::VortexQueryPrimitiveKind::Unsupported => None,
     }
 }

@@ -238,6 +238,20 @@ pub fn physical_operator_plan_for_vortex_query_primitive(
                 PhysicalOperatorKind::Limit,
             )?,
         ],
+        VortexQueryPrimitiveKind::SortRows => vec![
+            bridge_operator(
+                "vortex.query_primitive.sort_rows.project",
+                PhysicalOperatorKind::Project,
+            )?,
+            bridge_operator(
+                "vortex.query_primitive.sort_rows.order_state",
+                PhysicalOperatorKind::Sort,
+            )?,
+            bridge_operator(
+                "vortex.query_primitive.sort_rows.source_order_window",
+                PhysicalOperatorKind::Limit,
+            )?,
+        ],
         VortexQueryPrimitiveKind::DuplicateMaskRows => vec![
             bridge_operator(
                 "vortex.query_primitive.duplicate_mask_rows.project",
@@ -313,6 +327,7 @@ pub fn physical_operator_plan_for_vortex_query_primitive(
                 | VortexQueryPrimitiveKind::DuplicateMaskRows
                 | VortexQueryPrimitiveKind::TailRows
                 | VortexQueryPrimitiveKind::SampleRows
+                | VortexQueryPrimitiveKind::SortRows
                 | VortexQueryPrimitiveKind::ExpressionProjectRows
                 | VortexQueryPrimitiveKind::MeltRows
                 | VortexQueryPrimitiveKind::ExplodeRows
@@ -380,6 +395,7 @@ pub fn physical_operator_plan_for_vortex_query_primitive_result(
         | VortexQueryPrimitiveKind::PivotRows
         | VortexQueryPrimitiveKind::RollingWindowRows
         | VortexQueryPrimitiveKind::SimpleAggregate
+        | VortexQueryPrimitiveKind::SortRows
         | VortexQueryPrimitiveKind::Unsupported => {
             return physical_operator_plan_for_vortex_query_primitive(&result.request);
         }
@@ -544,6 +560,7 @@ mod tests {
             pivot_projection: None,
             rolling_window: None,
             simple_aggregate: None,
+            sort_rows: None,
             diagnostics: Vec::new(),
         };
 

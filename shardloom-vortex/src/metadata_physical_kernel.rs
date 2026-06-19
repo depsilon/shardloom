@@ -459,6 +459,7 @@ pub fn evaluate_vortex_metadata_physical_kernels(
         | VortexQueryPrimitiveKind::PivotRows
         | VortexQueryPrimitiveKind::RollingWindowRows
         | VortexQueryPrimitiveKind::SimpleAggregate
+        | VortexQueryPrimitiveKind::SortRows
         | VortexQueryPrimitiveKind::Unsupported => VortexMetadataPhysicalKernelReport::blocked(
             result,
             bridge,

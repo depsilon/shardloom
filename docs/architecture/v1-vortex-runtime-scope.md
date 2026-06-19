@@ -167,15 +167,14 @@ The coverage map is an implementation driver, not a benchmark result. Current ad
 Vortex SQL rows cover primitive count-all, integer not-equal filtered count, integer equality
 point lookup/filter-project shapes, no-group scalar aggregate projections over `count`, `sum`,
 `avg`, `min`, and `max`, count-distinct aggregate state, filtered grouped aggregates, grouped
-top-K/order/offset result rows, multi-key grouped aggregates, and repeated `SUM(column +/- constant)`
-aggregate measures. The current local map validates 28 admitted rows and 15 implementation-required
-rows.
+top-K/order/offset result rows, multi-key grouped aggregates, raw-row sorted top-K, UTF-8
+`LIKE`/`NOT LIKE`, `IN`, date/time extraction/truncation, `length` and `HAVING`, regex-domain group
+keys, group ordinals/constants, arithmetic group-key projection, `CASE` group keys, and repeated
+`SUM(column +/- constant)` aggregate measures. The current local map validates 43 admitted rows and
+0 implementation-required rows.
 
-Remaining ClickBench rows are open implementation tracks for raw-row sort/top-K, UTF-8
-`LIKE`/`NOT LIKE` predicates, `IN` predicates, date/time extraction/truncation, `length` and
-`HAVING`, regex-replace group keys, group ordinals/constants, arithmetic group-key projection, and
-`CASE` group keys. Those rows require real ShardLoom/Vortex-native kernels; they must not be
-satisfied through external engine delegation, permanent blockers, or scenario-only shims.
+This is route-readiness evidence only. It must not be satisfied through external engine delegation
+or scenario-only shims, and it does not authorize a ClickBench performance or superiority claim.
 
 ## Supported Exact Native Vortex Provider Routes
 

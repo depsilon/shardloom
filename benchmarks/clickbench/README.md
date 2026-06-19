@@ -21,16 +21,17 @@ The gate writes `target/clickbench-olap-runtime-coverage.json` with:
 - `CB-Q01` through `CB-Q43` query ids;
 - required operator tags and input-column inventory;
 - current route status for admitted primitive SQL shapes;
-- stable implementation ids and next actions for remaining OLAP kernel families;
+- stable route-family ids and next actions;
 - `fallback_attempted=false`, `external_engine_invoked=false`, and
   `performance_claim_allowed=false` for every row.
 
-The current coverage map validates 28 admitted rows and 15 implementation-required rows. Admitted
+The current coverage map validates 43 admitted rows and 0 implementation-required rows. Admitted
 rows include primitive count/filter-project rows, no-group scalar aggregate projections over
 `count`, `sum`, `avg`, `min`, and `max`, count-distinct state, filtered grouped aggregates, grouped
-order/top-K/offset, multi-key group-by, and repeated `SUM(column +/- constant)` measures.
+order/top-K/offset, multi-key group-by, raw-row sorted top-K, UTF-8 `LIKE`/`NOT LIKE`, `IN`, date/time
+extract/trunc, `length`/`HAVING`, regex-domain group keys, group ordinals/constants, arithmetic
+group keys, `CASE` group keys, and repeated `SUM(column +/- constant)` measures.
 
-The remaining rows are implementation tracks for raw-row sort/top-K, UTF-8 `LIKE`/`NOT LIKE`,
-`IN`, date/time extract/trunc, `length`/`HAVING`, regex replace, group ordinals/constants,
-arithmetic group keys, and `CASE` group keys. They must not be treated as completed blockers or
-routed through DuckDB, Polars, pandas, Spark, DataFusion, or any other fallback engine.
+This is local route-readiness evidence only. It must not be treated as a ClickBench performance
+result, public superiority claim, or permission to route through DuckDB, Polars, pandas, Spark,
+DataFusion, or any other fallback engine.
