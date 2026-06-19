@@ -373,6 +373,7 @@ class DataFrameMethodCapability:
     claim_gate_status: str
     diagnostic_operation: str | None
     blocker_id: str | None
+    future_contract_blocker_ids: tuple[str, ...]
     required_evidence: tuple[str, ...]
     runtime_execution: bool
     data_read: bool
@@ -450,6 +451,18 @@ class DataFrameMethodCapabilityMatrix:
         """Return methods that expose deterministic unsupported diagnostics."""
 
         return tuple(row.method for row in self.rows if row.unsupported)
+
+    @property
+    def future_contract_blocker_ids(self) -> tuple[str, ...]:
+        """Return stable blocker IDs for scoped variants that need future contracts."""
+
+        return tuple(
+            dict.fromkeys(
+                blocker_id
+                for row in self.rows
+                for blocker_id in row.future_contract_blocker_ids
+            )
+        )
 
     @property
     def claim_gate_statuses(self) -> tuple[str, ...]:
@@ -2596,6 +2609,7 @@ def _df_method(
     *,
     diagnostic_operation: str | None = None,
     blocker_id: str | None = None,
+    future_contract_blocker_ids: Sequence[str] = (),
     required_evidence: Sequence[str] = (),
     runtime_execution: bool = False,
     data_read: bool = False,
@@ -2610,6 +2624,7 @@ def _df_method(
         claim_gate_status="not_claim_grade",
         diagnostic_operation=diagnostic_operation,
         blocker_id=blocker_id,
+        future_contract_blocker_ids=tuple(future_contract_blocker_ids),
         required_evidence=tuple(required_evidence),
         runtime_execution=runtime_execution,
         data_read=data_read,
@@ -3556,6 +3571,88 @@ NATIVE_VORTEX_PROVIDER_ROUTE_CERTIFICATE_ROWS: tuple[
     ),
 )
 
+_SAMPLE_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.sample.weighted_or_rng_contract_missing",
+)
+_EXPLODE_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.explode.nested_expansion_unsupported",
+)
+_PIVOT_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.pivot.broad_reshape_contract_missing",
+)
+_PIVOT_TABLE_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing",
+)
+_MELT_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.melt.reshape_semantics_unsupported",
+)
+_ROLLING_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.rolling.broad_window_semantics_unsupported",
+)
+_DROPNA_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.dropna.null_cleanup_semantics_contract_missing",
+)
+_FILLNA_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.fillna.null_fill_semantics_unsupported",
+)
+_ISNA_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.isna.null_mask_semantics_unsupported",
+)
+_NOTNA_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.notna.null_mask_semantics_unsupported",
+)
+_DUPLICATED_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.duplicated.nullable_nested_or_index_contract_missing",
+)
+_DROP_DUPLICATES_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing",
+)
+_MASK_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
+)
+_REPLACE_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing",
+)
+_SET_INDEX_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
+)
+_RESET_INDEX_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.reset_index.row_number_or_hidden_index_contract_missing",
+)
+_SORT_INDEX_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.sort_index.hidden_index_order_contract_missing",
+)
+_APPLY_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.apply.python_callable_unsupported",
+)
+_PIPE_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.pipe.python_callable_unsupported",
+)
+_TRANSFORM_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.transform.python_callable_unsupported",
+)
+_APPLYMAP_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.applymap.python_callable_unsupported",
+)
+_MAP_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.map.python_callable_unsupported",
+)
+_MAP_ROWS_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.map_rows.python_callable_or_row_udf_unsupported",
+)
+_EVAL_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.eval.expression_engine_unsupported",
+)
+_NLARGEST_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.nlargest.tie_or_index_semantics_contract_missing",
+)
+_NSMALLEST_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.nsmallest.tie_or_index_semantics_contract_missing",
+)
+_FANOUT_FUTURE_CONTRACT_BLOCKERS = (
+    "cg21.workflow.fanout.multi_sink_atomicity_contract_missing",
+)
+
 DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "read_vortex",
@@ -3905,6 +4002,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "dropna",
         "dataframe_null_cleanup",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_DROPNA_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -3925,6 +4023,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "sample",
         "dataframe_sampling",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_SAMPLE_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         materialization_required=True,
@@ -3956,6 +4055,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "explode",
         "dataframe_reshape_runtime",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_EXPLODE_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         materialization_required=True,
@@ -4023,6 +4123,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "pivot",
         "dataframe_reshape_runtime",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_PIVOT_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         materialization_required=True,
@@ -4050,6 +4151,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "pivot_table",
         "dataframe_reshape_runtime",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_PIVOT_TABLE_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         materialization_required=True,
@@ -4079,6 +4181,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "melt",
         "dataframe_reshape_runtime",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_MELT_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         materialization_required=True,
@@ -4101,6 +4204,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "rolling",
         "dataframe_window_runtime",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_ROLLING_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         materialization_required=True,
@@ -4127,6 +4231,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "duplicated",
         "dataframe_deduplication_runtime",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_DUPLICATED_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         materialization_required=True,
@@ -4231,6 +4336,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "nlargest",
         "dataframe_ordering",
         "fixture_smoke_supported",
+        future_contract_blocker_ids=_NLARGEST_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4250,6 +4356,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "nsmallest",
         "dataframe_ordering",
         "fixture_smoke_supported",
+        future_contract_blocker_ids=_NSMALLEST_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4269,6 +4376,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "fillna",
         "dataframe_null_cleanup",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_FILLNA_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4289,6 +4397,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "fill_null",
         "dataframe_null_cleanup",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_FILLNA_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4307,6 +4416,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "isna",
         "dataframe_null_mask",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_ISNA_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4327,6 +4437,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "isnull",
         "dataframe_null_mask",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_ISNA_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4345,6 +4456,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "notna",
         "dataframe_null_mask",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_NOTNA_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4365,6 +4477,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "notnull",
         "dataframe_null_mask",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_NOTNA_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4383,6 +4496,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "mask",
         "dataframe_conditional_rewrite",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_MASK_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         materialization_required=True,
@@ -4405,6 +4519,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "replace",
         "dataframe_conditional_rewrite",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_REPLACE_FUTURE_CONTRACT_BLOCKERS,
         runtime_execution=True,
         data_read=True,
         materialization_required=True,
@@ -4427,6 +4542,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "apply",
         "dataframe_plan_transform",
         "lazy_plan_supported",
+        future_contract_blocker_ids=_APPLY_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "explicit_shardloom_plan_transform_wrapper",
             "lazy_plan_return_type_contract",
@@ -4445,6 +4561,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "pipe",
         "dataframe_plan_transform",
         "lazy_plan_supported",
+        future_contract_blocker_ids=_PIPE_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "explicit_shardloom_plan_transform_wrapper",
             "lazy_plan_return_type_contract",
@@ -4463,6 +4580,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "transform",
         "dataframe_expression_runtime",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_TRANSFORM_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
             "native_vortex_expression_project_primitive",
@@ -4487,6 +4605,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "applymap",
         "dataframe_expression_runtime",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_APPLYMAP_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
             "native_vortex_expression_project_primitive",
@@ -4510,6 +4629,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "map",
         "dataframe_expression_runtime",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_MAP_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
             "native_vortex_expression_project_primitive",
@@ -4533,6 +4653,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "map_rows",
         "dataframe_expression_runtime",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_MAP_ROWS_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
             "native_vortex_expression_project_primitive",
@@ -4558,6 +4679,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "eval",
         "dataframe_expression_runtime",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_EVAL_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
             "native_vortex_expression_project_primitive",
@@ -4796,6 +4918,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "drop_duplicates",
         "deduplication",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_DROP_DUPLICATES_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
             "native_vortex_distinct_primitive",
@@ -4815,6 +4938,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "unique",
         "deduplication",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_DROP_DUPLICATES_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
             "native_vortex_distinct_primitive",
@@ -4834,6 +4958,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "set_index",
         "dataframe_index_metadata",
         "scoped_runtime_supported",
+        future_contract_blocker_ids=_SET_INDEX_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "explicit_index_state_metadata",
             "source_order_preservation",
@@ -4854,6 +4979,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "reset_index",
         "dataframe_index_metadata",
         "scoped_runtime_supported",
+        future_contract_blocker_ids=_RESET_INDEX_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "no_explicit_index_state_contract",
             "explicit_index_state_metadata",
@@ -4877,6 +5003,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "sort_index",
         "dataframe_index_metadata",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_SORT_INDEX_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "no_explicit_index_state_contract",
             "explicit_index_state_metadata",
@@ -5157,6 +5284,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "fanout",
         "write",
         "production_admitted_local_workflow",
+        future_contract_blocker_ids=_FANOUT_FUTURE_CONTRACT_BLOCKERS,
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
             "native_vortex_derived_jsonl_csv_fanout_export_contract",

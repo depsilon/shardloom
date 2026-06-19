@@ -229,6 +229,50 @@ phase plan first.
       `external_engine_invoked=false`; no hidden pandas/Polars/DuckDB/Spark/DataFusion execution
       path was added.
 
+- [x] Session label: Python/DataFrame future-contract blocker field alignment
+  - Date: 2026-06-19
+  - Branch/PR: `codex/runtime-surface-polish-contracts`.
+  - Source:
+    - Maintainer direction to finish the remaining Python/DataFrame surface polish for sampling,
+      index, reshape, rolling/window, mask/replace null semantics, expression/UDF routes, and
+      precise blocker IDs where a future contract is still required.
+  - Scope:
+    - Added `future_contract_blocker_ids` to the typed DataFrame method capability matrix so
+      admitted scoped methods can stay unblocked while broad variants still expose deterministic
+      future-contract diagnostics.
+    - Aligned `capabilities workflow` operation names and blocker vocabulary with
+      `workflow-unsupported-plan`, including dropna/astype/query/having, explode, duplicated,
+      drop-duplicates, mask/replace, index metadata operations, top-N tie/index semantics, and
+      fanout atomicity.
+    - Updated SQL/Python/DataFrame and Python user-surface validators to require the blocker IDs
+      for sample, index, reshape, rolling/window, mask/replace, null helpers, expression/UDF,
+      top-N, deduplication, and fanout families.
+    - Refreshed docs so release users and agents can distinguish admitted scoped runtime routes
+      from future weighted sampling, hidden-index, broad reshape, nullable equality, arbitrary
+      Python callable/UDF, and multi-sink atomicity contracts.
+  - Evidence:
+    - `python3 -m py_compile python/src/shardloom/context.py scripts/check_sql_python_dataframe_parity.py scripts/check_python_user_surface_completion.py`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-contracts.json`
+      passed and emitted 27 future-contract blocker IDs.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion-contracts.json`
+      passed and emitted 27 future-contract blocker IDs.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_sql_python_dataframe_parity`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+      passed.
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots cross_cg_capability_parity_surfaces_shared_blocker_contracts`
+      passed.
+    - `cargo fmt --all -- --check` and `git diff --check` passed.
+  - Claim boundary:
+    - This is capability-surface, validator, and documentation alignment. It does not claim broad
+      pandas parity, arbitrary Python callable/UDF execution, multi-sink atomic commits,
+      larger-than-memory spill, ClickBench timing, or performance superiority.
+  - Fallback boundary:
+    - All successful and future-contract surfaces continue to preserve no-fallback policy. No
+      pandas, Polars, DuckDB, Spark, DataFusion, Vortex query-engine integration, or other external
+      execution fallback was added.
+
 - [x] Session label: Python/DataFrame deterministic blocker coverage closeout
   - Date: 2026-06-19
   - Branch/PR: `codex/clickbench-olap-polish` / PR #1303, with follow-up phase-plan cleanup in

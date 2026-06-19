@@ -7023,6 +7023,10 @@ class ShardLoomClientTests(unittest.TestCase):
             "deterministic_seed_policy",
             dataframe_methods.row("sample").required_evidence,
         )
+        self.assertIn(
+            "cg21.workflow.sample.weighted_or_rng_contract_missing",
+            dataframe_methods.row("sample").future_contract_blocker_ids,
+        )
         self.assertEqual(
             dataframe_methods.row("explode").support_status,
             "production_admitted_local_workflow",
@@ -7038,6 +7042,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn(
             "typed_list_projection",
             dataframe_methods.row("explode").required_evidence,
+        )
+        self.assertIn(
+            "cg21.workflow.explode.nested_expansion_unsupported",
+            dataframe_methods.row("explode").future_contract_blocker_ids,
         )
         self.assertEqual(
             dataframe_methods.row("pivot").support_status,
@@ -7055,6 +7063,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn(
             "duplicate_cell_fail_closed_policy",
             dataframe_methods.row("pivot").required_evidence,
+        )
+        self.assertIn(
+            "cg21.workflow.pivot.broad_reshape_contract_missing",
+            dataframe_methods.row("pivot").future_contract_blocker_ids,
         )
         self.assertEqual(
             dataframe_methods.row("pivot_table").support_status,
@@ -7082,6 +7094,10 @@ class ShardLoomClientTests(unittest.TestCase):
             "native_vortex_rolling_window_primitive",
             dataframe_methods.row("rolling").required_evidence,
         )
+        self.assertIn(
+            "cg21.workflow.rolling.broad_window_semantics_unsupported",
+            dataframe_methods.row("rolling").future_contract_blocker_ids,
+        )
         self.assertEqual(
             dataframe_methods.row("map_rows").support_status,
             "production_admitted_local_workflow",
@@ -7089,6 +7105,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn(
             "declarative_row_transform_contract",
             dataframe_methods.row("map_rows").required_evidence,
+        )
+        self.assertIn(
+            "cg21.workflow.map_rows.python_callable_or_row_udf_unsupported",
+            dataframe_methods.row("map_rows").future_contract_blocker_ids,
         )
         self.assertEqual(
             dataframe_methods.row("describe").support_status,
@@ -7111,6 +7131,10 @@ class ShardLoomClientTests(unittest.TestCase):
             "native_vortex_duplicate_mask_primitive",
             dataframe_methods.row("duplicated").required_evidence,
         )
+        self.assertIn(
+            "cg21.workflow.duplicated.nullable_nested_or_index_contract_missing",
+            dataframe_methods.row("duplicated").future_contract_blocker_ids,
+        )
         self.assertEqual(
             dataframe_methods.row("mask").support_status,
             "production_admitted_local_workflow",
@@ -7119,6 +7143,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn(
             "native_vortex_expression_project_primitive",
             dataframe_methods.row("mask").required_evidence,
+        )
+        self.assertIn(
+            "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
+            dataframe_methods.row("mask").future_contract_blocker_ids,
         )
         self.assertEqual(
             dataframe_methods.row("replace").support_status,
@@ -7129,6 +7157,10 @@ class ShardLoomClientTests(unittest.TestCase):
             "native_vortex_expression_project_primitive",
             dataframe_methods.row("replace").required_evidence,
         )
+        self.assertIn(
+            "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing",
+            dataframe_methods.row("replace").future_contract_blocker_ids,
+        )
         self.assertEqual(
             dataframe_methods.row("set_index").support_status,
             "scoped_runtime_supported",
@@ -7137,6 +7169,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn(
             "explicit_index_state_metadata",
             dataframe_methods.row("set_index").required_evidence,
+        )
+        self.assertIn(
+            "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
+            dataframe_methods.row("set_index").future_contract_blocker_ids,
         )
         self.assertEqual(
             dataframe_methods.row("reset_index").support_status,
@@ -7162,6 +7198,14 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertTrue(dataframe_methods.row("window").runtime_execution)
         self.assertIn("scoped_window_projection_route", dataframe_methods.row("window").required_evidence)
+        self.assertIn(
+            "cg21.workflow.apply.python_callable_unsupported",
+            dataframe_methods.future_contract_blocker_ids,
+        )
+        self.assertIn(
+            "cg21.workflow.fanout.multi_sink_atomicity_contract_missing",
+            dataframe_methods.future_contract_blocker_ids,
+        )
         self.assertEqual(
             dataframe_methods.row("to_python_objects").support_status,
             "production_admitted_local_workflow",

@@ -310,6 +310,12 @@ runtime evidence and deterministic blockers:
 | `nested_complex_dtype_general_vortex` | Unsupported as a broad Vortex claim. Individual benchmark rows may cover scoped nested/dirty data workflows only when they emit route evidence. |
 | `vector_device_gpu_vortex_runtime` | Unsupported; extension dtype discovery or device awareness is not vector search, GPU execution, or device-resident output support. |
 
+Scoped Python/DataFrame methods that are admitted through the local/Vortex route family keep their
+method rows active, while broader variants carry `future_contract_blocker_ids` in capability and
+parity reports. Those IDs are the release contract for remaining future work such as weighted
+sampling, hidden index materialization, broad reshape, null-aware mask/replace variants, arbitrary
+Python callables, typed UDF routes, and multi-sink fanout atomicity.
+
 Unsupported shapes must fail before hidden data reads, row materialization, writes, or external
 execution. They must preserve deterministic diagnostics and:
 

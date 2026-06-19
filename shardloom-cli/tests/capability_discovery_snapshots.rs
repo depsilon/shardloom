@@ -4247,108 +4247,140 @@ fn engine_capability_discovery_exposes_cg22_contract_without_runtime_claims() {
     assert!(output.contains(&field_pair("hybrid_no_effects", true)));
 }
 
-#[test]
-fn cross_cg_capability_parity_surfaces_shared_blocker_contracts() {
-    let workflow = run_capabilities_scope("workflow");
-    let remote_api = run_capabilities_scope("remote-api");
-    let cross_cg = run_capabilities_scope("cross-cg");
+fn assert_blocker_ids_include(output: &str, blocker_ids: &[&str]) {
+    assert!(output.contains("\"key\":\"blocker_ids\""));
+    for blocker_id in blocker_ids {
+        assert!(
+            output.contains(blocker_id),
+            "missing blocker id {blocker_id}"
+        );
+    }
+}
 
-    assert!(workflow.contains(&string_field_pair(
+fn assert_workflow_capability_parity(output: &str) {
+    assert!(output.contains(&string_field_pair(
         "schema_version",
         "shardloom.workflow_capability_parity.v1"
     )));
-    assert!(workflow.contains(&string_field_pair("workflow_operation_count", "73")));
-    assert!(workflow.contains(&string_field_pair(
-        "workflow_operation_names",
-        "profile,collect,from_pandas,from_arrow_table,from_arrow_ipc,to_pandas,to_arrow,to_arrow_table,to_arrow_ipc,to_numpy,to_python_objects,with_column,group_by,agg,sort,limit,rename,drop,sample,explode,merge,concat,pivot,pivot_table,melt,rolling,tail,describe,nunique,value_counts,fillna,isna,notna,apply,pipe,transform,applymap,map,map_rows,eval,write_vortex,write_parquet,write_arrow_ipc,write_avro,write_orc,sql,sql_parse,sql_bind,sql_plan,sql_execute,sql_source_free_projection,dataframe_source_free_projection,dataframe_generated_with_column,object_store_generated_output,foundry_generated_output,join,aggregate,window,schema_contract,schema,describe_schema,validate_schema,data_quality,data_quality_summary,quarantine,preview,display,object_store_read,object_store_write,table_commit,catalog_integration,remote_result_delivery,fallback_engine"
-    )));
-    assert!(workflow.contains(&string_field_pair(
-        "blocker_ids",
-        "cg21.workflow.profile.runtime_profile_unsupported,cg21.workflow.collect.materialization_unsupported,cg21.workflow.from_pandas.materialized_input_unsupported,cg21.workflow.from_arrow_table.decoded_columnar_input_unsupported,cg21.workflow.from_arrow_ipc.decoded_ipc_input_unsupported,cg21.workflow.to_pandas.decoded_dataframe_unsupported,cg21.workflow.to_arrow.decoded_columnar_unsupported,cg21.workflow.to_arrow_table.decoded_table_unsupported,cg21.workflow.to_arrow_ipc.decoded_ipc_unsupported,cg21.workflow.to_numpy.python_array_unsupported,cg21.workflow.to_python_objects.object_materialization_unsupported,cg21.workflow.with_column.expression_unsupported,cg21.workflow.group_by.operator_unsupported,cg21.workflow.agg.operator_unsupported,cg21.workflow.sort.operator_unsupported,cg21.workflow.limit.execution_uncertified,cg21.workflow.rename.schema_rewrite_unsupported,cg21.workflow.drop.schema_projection_unsupported,cg21.workflow.sample.weighted_or_rng_contract_missing,cg21.workflow.merge.join_alias_unsupported,cg21.workflow.concat.union_alignment_unsupported,cg21.workflow.pivot.broad_reshape_contract_missing,cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing,cg21.workflow.melt.reshape_semantics_unsupported,cg21.workflow.rolling.broad_window_semantics_unsupported,cg21.workflow.tail.source_order_unsupported,cg21.workflow.describe.summary_statistics_unsupported,cg21.workflow.nunique.distinct_count_semantics_unsupported,cg21.workflow.value_counts.grouped_count_semantics_unsupported,cg21.workflow.fillna.null_fill_semantics_unsupported,cg21.workflow.isna.null_mask_semantics_unsupported,cg21.workflow.notna.null_mask_semantics_unsupported,cg21.workflow.apply.python_callable_unsupported,cg21.workflow.pipe.python_callable_unsupported,cg21.workflow.transform.python_callable_unsupported,cg21.workflow.applymap.python_callable_unsupported,cg21.workflow.map.python_callable_unsupported,cg21.workflow.map_rows.python_callable_or_row_udf_unsupported,cg21.workflow.eval.expression_engine_unsupported,cg21.workflow.write_vortex.write_policy_unsupported,cg21.workflow.write_parquet.compatibility_export_unsupported,cg21.workflow.write_arrow_ipc.compatibility_export_unsupported,cg21.workflow.write_avro.compatibility_export_unsupported,cg21.workflow.write_orc.compatibility_export_unsupported,cg21.workflow.sql.frontend_unsupported,cg21.workflow.sql.parse_unsupported,cg21.workflow.sql.bind_unsupported,cg21.workflow.sql.plan_unsupported,cg21.workflow.sql.execute_unsupported,gar-gen-1.sql_source_free_projection_broad_runtime_blocked,gar-gen-1.dataframe_source_free_projection_broad_expression_blocked,gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked,gar-gen-1.object_store_generated_output_blocked,gar-gen-1.foundry_generated_output_runtime_not_implemented,cg21.workflow.join.operator_unsupported,cg21.workflow.aggregate.operator_unsupported,cg21.workflow.window.operator_unsupported,cg21.workflow.schema_contract.enforcement_unsupported,cg21.workflow.schema.discovery_unsupported,cg21.workflow.describe_schema.report_unsupported,cg21.workflow.validate_schema.validation_unsupported,cg21.workflow.data_quality.checks_unsupported,cg21.workflow.data_quality_summary.report_unsupported,cg21.workflow.quarantine.output_unsupported,cg21.workflow.preview.materialization_unsupported,cg21.workflow.display.rich_display_unsupported,cg21.workflow.object_store_read.runtime_unsupported,cg21.workflow.object_store_write.runtime_unsupported,cg21.workflow.table_commit.runtime_unsupported,cg21.workflow.catalog_integration.runtime_unsupported,cg21.workflow.remote_result_delivery.runtime_unsupported,cg21.workflow.fallback_engine.no_fallback_policy"
-    )));
-    assert!(workflow.contains(&string_field_pair("severity", "error")));
-    assert!(workflow.contains(&field_pair("no_runtime", true)));
-    assert!(workflow.contains(&field_pair("no_fallback", true)));
-    assert!(workflow.contains(&field_pair("no_effects", true)));
-    assert!(workflow.contains(&string_field_pair(
+    assert!(output.contains(&string_field_pair("workflow_operation_count", "88")));
+    assert!(output.contains("\"key\":\"workflow_operation_names\""));
+    assert!(output.contains("drop_duplicates"));
+    assert!(output.contains("set_index"));
+    assert!(output.contains("sort_index"));
+    assert!(output.contains("fanout"));
+    assert_blocker_ids_include(
+        output,
+        &[
+            "cg21.workflow.explode.nested_expansion_unsupported",
+            "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
+            "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing",
+            "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
+            "cg21.workflow.fanout.multi_sink_atomicity_contract_missing",
+        ],
+    );
+    assert!(output.contains(&string_field_pair("severity", "error")));
+    assert!(output.contains(&field_pair("no_runtime", true)));
+    assert!(output.contains(&field_pair("no_fallback", true)));
+    assert!(output.contains(&field_pair("no_effects", true)));
+    assert!(output.contains(&string_field_pair(
         "etl_workflow_matrix_schema_version",
         "shardloom.etl_workflow_capability_matrix.v1"
     )));
-    assert!(workflow.contains(&string_field_pair(
+    assert!(output.contains(&string_field_pair(
         "etl_workflow_matrix_id",
         "gar-0033-a.etl_workflow_capability_matrix"
     )));
-    assert!(workflow.contains(&string_field_pair(
+    assert!(output.contains(&string_field_pair(
         "etl_workflow_row_order",
         "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl_csv,source_free_range_jsonl_csv,source_free_literal_table_jsonl_csv,source_free_calendar_jsonl_csv,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"
     )));
-    assert!(workflow.contains(&string_field_pair(
+    assert!(output.contains(&string_field_pair(
         "etl_workflow_supported_local_count",
         "10"
     )));
-    assert!(workflow.contains(&string_field_pair("etl_workflow_report_only_count", "2")));
-    assert!(workflow.contains(&string_field_pair("etl_workflow_blocked_count", "3")));
-    assert!(workflow.contains(&string_field_pair(
+    assert!(output.contains(&string_field_pair("etl_workflow_report_only_count", "2")));
+    assert!(output.contains(&string_field_pair("etl_workflow_blocked_count", "3")));
+    assert!(output.contains(&string_field_pair(
         "etl_workflow_claim_gate_status",
         "not_claim_grade"
     )));
-    assert!(workflow.contains(&field_pair("etl_workflow_fallback_attempted", false)));
-    assert!(workflow.contains(&field_pair("etl_workflow_external_engine_invoked", false)));
-    assert!(workflow.contains(&field_pair(
+    assert!(output.contains(&field_pair("etl_workflow_fallback_attempted", false)));
+    assert!(output.contains(&field_pair("etl_workflow_external_engine_invoked", false)));
+    assert!(output.contains(&field_pair(
         "etl_workflow_production_etl_claim_allowed",
         false
     )));
-    assert!(workflow.contains(&field_pair(
+    assert!(output.contains(&field_pair(
         "etl_workflow_object_store_runtime_supported",
         false
     )));
-    assert!(workflow.contains(&field_pair(
+    assert!(output.contains(&field_pair(
         "etl_workflow_table_lakehouse_runtime_supported",
         false
     )));
+}
 
-    assert!(remote_api.contains(&string_field_pair(
+fn assert_remote_api_capability_parity(output: &str) {
+    assert!(output.contains(&string_field_pair(
         "schema_version",
         "shardloom.remote_api_capability_parity.v1"
     )));
-    assert!(remote_api.contains(&string_field_pair(
+    assert!(output.contains(&string_field_pair(
         "blocker_ids",
         "cg23.remote_api.plan_preview.unsupported_operator,cg23.remote_api.remote_object_store.unsupported,cg23.remote_api.lifecycle.uncertified_blocked,cg23.remote_api.data_plane.materialization_boundary_required"
     )));
-    assert!(remote_api.contains(&string_field_pair(
+    assert!(output.contains(&string_field_pair(
         "suggested_next_action",
         "Use rest-api-contract-plan and rest-api-plan-preview for scenario-specific blockers before enabling remote execution."
     )));
+}
 
-    assert!(cross_cg.contains(&string_field_pair("represented_gates", "cg21,cg22,cg23")));
-    assert!(cross_cg.contains(&string_field_pair("severity", "error")));
-    assert!(cross_cg.contains(&string_field_pair(
-        "blocker_ids",
-        "cg21.workflow.profile.runtime_profile_unsupported,cg21.workflow.collect.materialization_unsupported,cg21.workflow.from_pandas.materialized_input_unsupported,cg21.workflow.from_arrow_table.decoded_columnar_input_unsupported,cg21.workflow.from_arrow_ipc.decoded_ipc_input_unsupported,cg21.workflow.to_pandas.decoded_dataframe_unsupported,cg21.workflow.to_arrow.decoded_columnar_unsupported,cg21.workflow.to_arrow_table.decoded_table_unsupported,cg21.workflow.to_arrow_ipc.decoded_ipc_unsupported,cg21.workflow.to_numpy.python_array_unsupported,cg21.workflow.to_python_objects.object_materialization_unsupported,cg21.workflow.with_column.expression_unsupported,cg21.workflow.group_by.operator_unsupported,cg21.workflow.agg.operator_unsupported,cg21.workflow.sort.operator_unsupported,cg21.workflow.limit.execution_uncertified,cg21.workflow.rename.schema_rewrite_unsupported,cg21.workflow.drop.schema_projection_unsupported,cg21.workflow.sample.weighted_or_rng_contract_missing,cg21.workflow.merge.join_alias_unsupported,cg21.workflow.concat.union_alignment_unsupported,cg21.workflow.pivot.broad_reshape_contract_missing,cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing,cg21.workflow.melt.reshape_semantics_unsupported,cg21.workflow.rolling.broad_window_semantics_unsupported,cg21.workflow.tail.source_order_unsupported,cg21.workflow.describe.summary_statistics_unsupported,cg21.workflow.nunique.distinct_count_semantics_unsupported,cg21.workflow.value_counts.grouped_count_semantics_unsupported,cg21.workflow.fillna.null_fill_semantics_unsupported,cg21.workflow.isna.null_mask_semantics_unsupported,cg21.workflow.notna.null_mask_semantics_unsupported,cg21.workflow.apply.python_callable_unsupported,cg21.workflow.pipe.python_callable_unsupported,cg21.workflow.transform.python_callable_unsupported,cg21.workflow.applymap.python_callable_unsupported,cg21.workflow.map.python_callable_unsupported,cg21.workflow.map_rows.python_callable_or_row_udf_unsupported,cg21.workflow.eval.expression_engine_unsupported,cg21.workflow.write_vortex.write_policy_unsupported,cg21.workflow.write_parquet.compatibility_export_unsupported,cg21.workflow.write_arrow_ipc.compatibility_export_unsupported,cg21.workflow.write_avro.compatibility_export_unsupported,cg21.workflow.write_orc.compatibility_export_unsupported,cg21.workflow.sql.frontend_unsupported,cg21.workflow.sql.parse_unsupported,cg21.workflow.sql.bind_unsupported,cg21.workflow.sql.plan_unsupported,cg21.workflow.sql.execute_unsupported,gar-gen-1.sql_source_free_projection_broad_runtime_blocked,gar-gen-1.dataframe_source_free_projection_broad_expression_blocked,gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked,gar-gen-1.object_store_generated_output_blocked,gar-gen-1.foundry_generated_output_runtime_not_implemented,cg21.workflow.join.operator_unsupported,cg21.workflow.aggregate.operator_unsupported,cg21.workflow.window.operator_unsupported,cg21.workflow.schema_contract.enforcement_unsupported,cg21.workflow.schema.discovery_unsupported,cg21.workflow.describe_schema.report_unsupported,cg21.workflow.validate_schema.validation_unsupported,cg21.workflow.data_quality.checks_unsupported,cg21.workflow.data_quality_summary.report_unsupported,cg21.workflow.quarantine.output_unsupported,cg21.workflow.preview.materialization_unsupported,cg21.workflow.display.rich_display_unsupported,cg21.workflow.object_store_read.runtime_unsupported,cg21.workflow.object_store_write.runtime_unsupported,cg21.workflow.table_commit.runtime_unsupported,cg21.workflow.catalog_integration.runtime_unsupported,cg21.workflow.remote_result_delivery.runtime_unsupported,cg21.workflow.fallback_engine.no_fallback_policy,cg22.engine.batch.workload_correctness_evidence,cg22.engine.batch.benchmark_evidence,cg22.engine.batch.broad_source_sink_certification,cg22.engine.live.external_broker_adapters,cg22.engine.live.durable_checkpoint_store,cg22.engine.live.unbounded_runtime_scheduler,cg22.engine.live.workload_correctness_evidence,cg22.engine.live.benchmark_evidence,cg22.engine.hybrid.durable_micro_segment_flush_writes,cg22.engine.hybrid.object_store_commit_protocol,cg22.engine.hybrid.external_catalog_snapshot_discovery,cg22.engine.hybrid.workload_correctness_evidence,cg22.engine.hybrid.benchmark_evidence,cg23.remote_api.plan_preview.unsupported_operator,cg23.remote_api.remote_object_store.unsupported,cg23.remote_api.lifecycle.uncertified_blocked,cg23.remote_api.data_plane.materialization_boundary_required"
-    )));
-    assert!(cross_cg.contains(&string_field_pair(
+fn assert_cross_cg_capability_parity(output: &str) {
+    assert!(output.contains(&string_field_pair("represented_gates", "cg21,cg22,cg23")));
+    assert!(output.contains(&string_field_pair("severity", "error")));
+    assert_blocker_ids_include(
+        output,
+        &[
+            "cg21.workflow.explode.nested_expansion_unsupported",
+            "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing",
+            "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
+            "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing",
+            "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
+            "cg21.workflow.fanout.multi_sink_atomicity_contract_missing",
+            "cg22.engine.batch.workload_correctness_evidence",
+            "cg23.remote_api.plan_preview.unsupported_operator",
+        ],
+    );
+    assert!(output.contains(&string_field_pair(
         "required_evidence",
         "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary,object_store_capability_policy,credential_policy,commit_protocol,table_catalog_contract,catalog_transaction_policy,remote_result_contract,data_plane_policy,retry_recovery_evidence,source_order_semantics,summary_statistics_semantics,null_mask_semantics,python_callable_policy,expression_engine_policy,no_fallback_policy,workload_correctness_evidence,benchmark_evidence,broad_source_sink_certification,durable_checkpoint_store,object_store_commit_protocol,openapi_contract,asyncapi_contract,execution_certificate,native_io_certificate,security_governance_policy,data_plane_fidelity_report"
     )));
-    assert!(cross_cg.contains(&string_field_pair(
+    assert!(output.contains(&string_field_pair(
         "suggested_next_action",
         "Use workflow-unsupported-plan for method-specific blocker details before requesting execution. Use engine-selection-plan and engine-capability-matrix before making engine-mode execution claims. Use rest-api-contract-plan and rest-api-plan-preview for scenario-specific blockers before enabling remote execution."
     )));
-    assert!(cross_cg.contains(&string_field_pair(
+    assert!(output.contains(&string_field_pair(
         "cg21_workflow_diagnostic_surface",
         "workflow-unsupported-plan"
     )));
-    assert!(cross_cg.contains(&string_field_pair(
+    assert!(output.contains(&string_field_pair(
         "cg22_engine_modes_diagnostic_surface",
         "engine-capability-matrix"
     )));
-    assert!(cross_cg.contains(&string_field_pair(
+    assert!(output.contains(&string_field_pair(
         "cg23_remote_api_diagnostic_surface",
         "rest-api-plan-preview"
     )));
-    assert!(cross_cg.contains(&field_pair("cg21_workflow_no_runtime", true)));
-    assert!(cross_cg.contains(&field_pair("cg22_engine_modes_no_fallback", true)));
-    assert!(cross_cg.contains(&field_pair("cg23_remote_api_no_effects", true)));
+    assert!(output.contains(&field_pair("cg21_workflow_no_runtime", true)));
+    assert!(output.contains(&field_pair("cg22_engine_modes_no_fallback", true)));
+    assert!(output.contains(&field_pair("cg23_remote_api_no_effects", true)));
+}
+
+#[test]
+fn cross_cg_capability_parity_surfaces_shared_blocker_contracts() {
+    assert_workflow_capability_parity(&run_capabilities_scope("workflow"));
+    assert_remote_api_capability_parity(&run_capabilities_scope("remote-api"));
+    assert_cross_cg_capability_parity(&run_capabilities_scope("cross-cg"));
 }
 
 fn assert_operator_discovery_physical_plan(output: &str) {
