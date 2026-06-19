@@ -4807,6 +4807,10 @@ class LazyFrame:
             weights=weights,
             replace=replace,
         )
+        if effective_seed is not None and (
+            isinstance(effective_seed, bool) or not isinstance(effective_seed, int)
+        ):
+            return self._unsupported_operation("sample", target_ref, check=check)
         if weights is not None:
             return self._unsupported_operation("sample", target_ref, check=check)
         sample_seed = (
@@ -5083,9 +5087,18 @@ class LazyFrame:
 
         target_ref = _normalize_describe_target(columns, kwargs)
         if not kwargs:
-            normalized_columns = _normalize_columns(columns)
-            if not normalized_columns:
+            if not columns:
                 return self.profile(check=check)
+            normalized_columns = _normalize_columns(columns)
+            if self.source.source_format == "vortex":
+                projection_columns = self._declared_projection_columns()
+                if projection_columns is None:
+                    return self._unsupported_operation("describe", target_ref, check=check)
+                missing = tuple(
+                    column for column in normalized_columns if column not in projection_columns
+                )
+                if missing:
+                    return self._unsupported_operation("describe", target_ref, check=check)
             if all(_is_sql_identifier(column) for column in normalized_columns):
                 return self.select(*normalized_columns).profile(check=check)
         return self._unsupported_operation("describe", target_ref, check=check)
@@ -8879,6 +8892,15 @@ class LazyFrame:
     def _schema_declared_projection_columns(self) -> tuple[str, ...] | None:
         if not _is_query_builder_local_source(self.source) or not self.source.schema:
             return None
+        return self._declared_projection_columns(allowed_operations={"filter", "limit"})
+
+    def _declared_projection_columns(
+        self,
+        *,
+        allowed_operations: set[str] | None = None,
+    ) -> tuple[str, ...] | None:
+        if not self.source.schema:
+            return None
         declared_columns = tuple(name for name, _dtype in self.source.schema)
         if not declared_columns or any(not _is_sql_identifier(name) for name in declared_columns):
             return None
@@ -8888,7 +8910,9 @@ class LazyFrame:
                 if any(not _is_sql_identifier(value) for value in operation.values):
                     return None
                 projection_columns = operation.values
-            elif operation.kind in {"filter", "limit"}:
+            elif operation.kind == "set_index":
+                continue
+            elif allowed_operations is not None and operation.kind in allowed_operations:
                 continue
             else:
                 return None
@@ -9468,6 +9492,7 @@ class GroupedLazyFrame:
 def read_vortex(
     uri: str | os.PathLike[str],
     *,
+    schema: Mapping[str, object] | None = None,
     client: ShardLoomClient | None = None,
     engine_mode: str = "auto",
     **client_config: object,
@@ -9477,6 +9502,7 @@ def read_vortex(
     return _read_source(
         "vortex",
         uri,
+        schema=schema,
         client=client,
         engine_mode=engine_mode,
         **client_config,
@@ -10079,9 +10105,13 @@ def read(
 
     source_kind = _source_kind_from_path(uri)
     if source_kind == "vortex":
-        if schema is not None:
-            raise ValueError("read(..., schema=...) is not supported for Vortex sources")
-        return read_vortex(uri, client=client, engine_mode=engine_mode, **client_config)
+        return read_vortex(
+            uri,
+            schema=schema,
+            client=client,
+            engine_mode=engine_mode,
+            **client_config,
+        )
     return _read_source(
         source_kind,
         uri,
@@ -11352,7 +11382,10 @@ def _normalize_sample_target(
             raise ValueError("sample fraction must be positive and finite")
         parts.append(f"fraction={fraction_value:.12g}")
     if seed is not None:
-        parts.append(f"seed={_normalize_non_negative_int('sample seed', seed)}")
+        if isinstance(seed, bool) or not isinstance(seed, int):
+            parts.append(f"seed={_stable_target_value(seed)}")
+        else:
+            parts.append(f"seed={_normalize_non_negative_int('sample seed', seed)}")
     if weights is not None:
         parts.append(f"weights={_stable_target_value(weights)}")
     if replace:

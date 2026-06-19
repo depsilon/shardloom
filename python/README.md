@@ -12,8 +12,8 @@ a caller explicitly invokes a CLI command through `ShardLoomClient` or one of th
 helpers that wraps an evidence-backed CLI smoke.
 
 Public status is owned by `docs/release/public-status-matrix.md`. This README may describe scoped
-local Python surfaces and the approved v0.1.4 package track, but it does not authorize production
-support, performance claims, Spark displacement, or hidden external execution.
+local Python surfaces, the current source version, and the approved package track, but it does not
+authorize production support, performance claims, Spark displacement, or hidden external execution.
 
 ## Local Use
 
@@ -31,11 +31,12 @@ Foundry-style imports:
 python -m pip install -e python
 ```
 
-The source package exposes the v0.1.4 technical-preview version through
-`shardloom.__version__`. The selected published package channels are proof-backed at v0.1.4.
-The PyPI package is published as `shardloom==0.1.4`; GitHub release assets and the
-`depsilon/tap/shardloom` Homebrew formula are also published for v0.1.4. These channels are install
-access only and do not imply production readiness, broad runtime support, or performance claims.
+The source package exposes the v0.1.5 technical-preview version through
+`shardloom.__version__`. Until the v0.1.5 release train lands, the selected published package
+channels remain proof-backed at v0.1.4. The PyPI package is published as `shardloom==0.1.4`;
+GitHub release assets and the `depsilon/tap/shardloom` Homebrew formula are also published for
+v0.1.4. These channels are install access only and do not imply production readiness, broad runtime
+support, or performance claims.
 
 ```sh
 python -m pip install shardloom==0.1.4
@@ -1546,8 +1547,9 @@ report-only surfaces into runtime support.
 
 ## Package Build Smoke
 
-The current published v0.1.4 package is a Python client surface over ShardLoom's CLI, with bundled
-CLI resources in supported platform wheels. Bundled platform-wheel readiness can be checked locally
+The current source package is v0.1.5; the latest published channel proof remains v0.1.4 until the
+v0.1.5 release train lands. It is a Python client surface over ShardLoom's CLI, with bundled CLI
+resources in supported platform wheels. Bundled platform-wheel readiness can be checked locally
 without publishing:
 
 ```powershell

@@ -90,6 +90,7 @@ impl VortexLocalPrimitiveExecutionMode {
 
 /// State-budget evidence for local Vortex primitive work that can grow with input scale.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct VortexLocalPrimitiveStateBudgetReport {
     pub schema_version: String,
     pub state_budget_required: bool,
@@ -2051,6 +2052,24 @@ fn execute_vortex_local_primitive_row_export_enabled(
             rolling_window.map(|request| RollingWindowState::new(request.window_size));
         let sample_seed = request.sample_seed.unwrap_or(0);
         let sample_fraction = normalized_sample_fraction(request.sample_fraction)?;
+        let sample_fraction_candidate_cap = if sample_requested
+            && !request.sample_with_replacement
+            && source_order_limit.is_none()
+        {
+            sample_fraction
+                .map(|fraction| {
+                    let source_rows = usize::try_from(source_row_count).map_err(|_| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex sample source row count did not fit usize; no fallback execution was attempted"
+                                .to_string(),
+                        )
+                    })?;
+                    fractional_sample_size(source_rows, fraction)
+                })
+                .transpose()?
+        } else {
+            None
+        };
         if tail_requested && source_order_limit.is_none() {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "local Vortex {} row export requires a bounded row count",
@@ -2294,6 +2313,14 @@ fn execute_vortex_local_primitive_row_export_enabled(
                         insert_sample_row_export_candidate(
                             &mut sample_rows,
                             limit,
+                            score,
+                            row_index,
+                            row,
+                        );
+                    } else if let Some(candidate_cap) = sample_fraction_candidate_cap {
+                        insert_sample_row_export_candidate(
+                            &mut sample_rows,
+                            candidate_cap,
                             score,
                             row_index,
                             row,
@@ -2861,6 +2888,13 @@ fn simple_aggregate_result_rows(
             "local Vortex aggregate result summary was not valid JSON: {error}; no fallback execution was attempted"
         ))
     })?;
+    if payload
+        .get("rows")
+        .and_then(serde_json::Value::as_u64)
+        .is_some_and(|rows| rows == 0)
+    {
+        return Ok(Vec::new());
+    }
     let values = payload.get("values").ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "local Vortex aggregate result summary did not include values; no fallback execution was attempted"
@@ -3976,6 +4010,9 @@ fn insert_sample_row_export_candidate(
     row_index: usize,
     row: Vec<StatValue>,
 ) {
+    if limit == 0 {
+        return;
+    }
     if selected.len() < limit {
         selected.push((score, row_index, row));
         return;
@@ -8336,15 +8373,17 @@ fn read_local_vortex_simple_aggregate_scan(
     };
     let filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
-    let mut scalar_states = if aggregate.group_by.is_empty() {
+    let aggregate_has_grouping =
+        !aggregate.group_by.is_empty() || !aggregate.group_expressions.is_empty();
+    let mut scalar_states = if aggregate_has_grouping {
+        None
+    } else {
         Some(SimpleAggregateStates::new(aggregate, &declared_columns)?)
-    } else {
-        None
     };
-    let mut grouped_states = if aggregate.group_by.is_empty() {
-        None
-    } else {
+    let mut grouped_states = if aggregate_has_grouping {
         Some(GroupedAggregateStates::new(aggregate, &declared_columns)?)
+    } else {
+        None
     };
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter {
@@ -8450,10 +8489,14 @@ fn read_local_vortex_simple_aggregate_scan(
                     .to_string(),
             )
         })?;
-        let result_row_count = if aggregate.measures.is_empty() { 0 } else { 1 };
+        let result_row_count = if aggregate.measures.is_empty() {
+            0
+        } else {
+            states.result_row_count(&aggregate.having)?
+        };
         (
             result_row_count,
-            states.result_summary()?,
+            states.result_summary(&aggregate.having)?,
             states.state_budget_report(aggregate, pre_limit_result_row_count, result_row_count)?,
         )
     };
@@ -8947,11 +8990,18 @@ impl SimpleAggregateStates {
         Ok(values)
     }
 
-    fn result_summary(&self) -> Result<String> {
+    fn result_row_count(&self, having: &[VortexAggregateHavingExpr]) -> Result<usize> {
+        let values = self.result_values()?;
+        Ok(usize::from(aggregate_row_matches_having(&values, having)?))
+    }
+
+    fn result_summary(&self, having: &[VortexAggregateHavingExpr]) -> Result<String> {
+        let values = self.result_values()?;
+        let matched = aggregate_row_matches_having(&values, having)?;
         let payload = serde_json::json!({
-            "rows": 1,
+            "rows": usize::from(matched),
             "functions": self.functions_summary(),
-            "values": self.result_values()?,
+            "values": if matched { values } else { serde_json::Map::new() },
         });
         Ok(payload.to_string())
     }
@@ -9446,13 +9496,33 @@ fn compare_json_values(left: &serde_json::Value, right: &serde_json::Value) -> s
         (Value::Null, _) => std::cmp::Ordering::Less,
         (_, Value::Null) => std::cmp::Ordering::Greater,
         (Value::Bool(left), Value::Bool(right)) => left.cmp(right),
-        (Value::Number(left), Value::Number(right)) => left
-            .as_f64()
-            .and_then(|left| right.as_f64().and_then(|right| left.partial_cmp(&right)))
-            .unwrap_or(std::cmp::Ordering::Equal),
+        (Value::Number(left), Value::Number(right)) => compare_json_numbers(left, right),
         (Value::String(left), Value::String(right)) => left.cmp(right),
         _ => json_type_rank(left).cmp(&json_type_rank(right)),
     }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn compare_json_numbers(
+    left: &serde_json::Number,
+    right: &serde_json::Number,
+) -> std::cmp::Ordering {
+    if let Some(ordering) = match (left.as_i64(), left.as_u64(), right.as_i64(), right.as_u64()) {
+        (Some(left), _, Some(right), _) => Some(left.cmp(&right)),
+        (_, Some(left), _, Some(right)) => Some(left.cmp(&right)),
+        (Some(left), _, _, Some(right)) => {
+            Some(u64::try_from(left).map_or(std::cmp::Ordering::Less, |left| left.cmp(&right)))
+        }
+        (_, Some(left), Some(right), _) => {
+            Some(u64::try_from(right).map_or(std::cmp::Ordering::Greater, |right| left.cmp(&right)))
+        }
+        _ => None,
+    } {
+        return ordering;
+    }
+    left.as_f64()
+        .and_then(|left| right.as_f64().and_then(|right| left.partial_cmp(&right)))
+        .unwrap_or(std::cmp::Ordering::Equal)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -10405,6 +10475,31 @@ mod tests {
                     .into_array(),
             ],
             3,
+            Validity::NonNullable,
+        )
+        .map_err(vortex_error)?;
+        write_array(path, &array.into_array())
+    }
+
+    fn write_large_int_sort_fixture(path: &std::path::Path) -> Result<()> {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{PrimitiveArray, StructArray};
+        use vortex::array::dtype::FieldNames;
+        use vortex::array::validity::Validity;
+
+        let array = StructArray::try_new(
+            FieldNames::from(["id", "large"]),
+            vec![
+                [1_u32, 2]
+                    .into_iter()
+                    .collect::<PrimitiveArray>()
+                    .into_array(),
+                [9_007_199_254_740_993_i64, 9_007_199_254_740_992_i64]
+                    .into_iter()
+                    .collect::<PrimitiveArray>()
+                    .into_array(),
+            ],
+            2,
             Validity::NonNullable,
         )
         .map_err(vortex_error)?;
@@ -13816,6 +13911,40 @@ mod tests {
     }
 
     #[test]
+    fn sort_rows_preserves_exact_integer_ordering_without_fallback() {
+        let path = unique_vortex_path("sort-rows-exact-integer");
+        write_large_int_sort_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::sort_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![
+                ColumnRef::new("id").expect("column"),
+                ColumnRef::new("large").expect("column"),
+            ]),
+            None,
+            VortexSortRowsRequest::new(vec![crate::VortexAggregateOrderExpr::new("large", false)]),
+            1,
+        );
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::SortRows);
+        assert_eq!(report.rows_scanned, 2);
+        assert_eq!(report.rows_projected, Some(1));
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        let summary = report.result_summary.expect("summary");
+        assert!(summary.contains("\"id\":2"));
+        assert!(summary.contains("9007199254740992"));
+        assert!(!summary.contains("9007199254740993"));
+    }
+
+    #[test]
     fn grouped_aggregate_applies_expression_groups_value_transforms_and_having_without_fallback() {
         let path = unique_vortex_path("grouped-aggregate-expressions");
         write_pivot_struct_fixture(&path).expect("fixture");
@@ -13866,6 +13995,60 @@ mod tests {
         assert!(summary.contains("\"amount_minus_1\":6"));
         assert!(summary.contains("\"avg_label_len\":4.0"));
         assert!(summary.contains("\"avg_label_len\":5.0"));
+    }
+
+    #[test]
+    fn grouped_aggregate_uses_expression_groups_without_column_group_by() {
+        let path = unique_vortex_path("grouped-aggregate-expression-only");
+        write_pivot_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::grouped(
+                Vec::new(),
+                vec![
+                    crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                    crate::VortexSimpleAggregateMeasure::new(
+                        "sum",
+                        Some(ColumnRef::new("amount").expect("column")),
+                        "total_amount".to_string(),
+                    ),
+                ],
+            )
+            .with_group_expressions(vec![
+                crate::VortexAggregateExpression::new(
+                    "amount_bucket".to_string(),
+                    ColumnRef::new("amount").expect("column"),
+                    "add_offset",
+                )
+                .with_argument_offset(-5),
+            ]),
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::SimpleAggregate
+        );
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_projected, Some(3));
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(
+            report
+                .state_budget
+                .state_family
+                .contains("grouped_aggregate_state")
+        );
+        let summary = report.result_summary.expect("summary");
+        assert!(summary.contains("\"amount_bucket\":5"));
+        assert!(summary.contains("\"amount_bucket\":0"));
+        assert!(summary.contains("\"amount_bucket\":2"));
+        assert!(summary.contains("\"total_amount\":10.0"));
+        assert!(summary.contains("\"total_amount\":5.0"));
+        assert!(summary.contains("\"total_amount\":7.0"));
     }
 
     #[test]
@@ -14053,6 +14236,64 @@ mod tests {
         assert!(!report.evidence.side_effects.external_effects_executed);
         assert!(!report.evidence.side_effects.fallback_attempted);
         assert!(!report.evidence.side_effects.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn simple_aggregate_having_can_filter_scalar_result_without_fallback() {
+        let path = unique_vortex_path("simple-aggregate-having-filtered");
+        let output_path =
+            unique_vortex_path("simple-aggregate-having-filtered-output").with_extension("jsonl");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::new(vec![crate::VortexSimpleAggregateMeasure::new(
+                "count",
+                None,
+                "rows".to_string(),
+            )])
+            .with_having(vec![crate::VortexAggregateHavingExpr::new(
+                "rows",
+                ComparisonOp::Gt,
+                "10",
+            )]),
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_projected, Some(0));
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        let summary = report.result_summary.as_deref().expect("summary");
+        assert!(summary.contains("\"rows\":0"));
+        assert!(summary.contains("\"values\":{}"));
+
+        let export_report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("row export report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(
+            export_report.status,
+            VortexLocalPrimitiveExecutionStatus::Executed
+        );
+        assert_eq!(export_report.rows_written, 0);
+        assert_eq!(export_report.pre_limit_result_row_count, 0);
+        assert!(rows.trim().is_empty());
+        assert!(!export_report.evidence.side_effects.fallback_attempted);
+        assert!(
+            !export_report
+                .evidence
+                .side_effects
+                .fallback_execution_allowed
+        );
     }
 
     #[test]

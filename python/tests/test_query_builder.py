@@ -13945,6 +13945,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertFalse(weighted_report.fallback_attempted)
 
+        class FakeRandomState:
+            pass
+
+        rng_report = workflow.sample(n=2, random_state=FakeRandomState())
+
+        self.assertEqual(rng_report.operation, "sample")
+        self.assertEqual(
+            rng_report.envelope.field("target_ref"),
+            "n=2,seed=FakeRandomState",
+        )
+        self.assertFalse(rng_report.fallback_attempted)
+
         with self.assertRaisesRegex(ValueError, "sample fraction"):
             workflow.sample(frac=1.2)
 
@@ -14288,7 +14300,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
-        report = ctx.read_vortex("target/fact.vortex").describe("id", "label")
+        report = ctx.read_vortex(
+            "target/fact.vortex",
+            schema={"id": "int64", "label": "utf8"},
+        ).describe("id", "label")
 
         self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
         self.assertEqual(report.command, "vortex-metadata-summary")
@@ -14302,6 +14317,51 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
+
+    def test_local_vortex_describe_columns_without_declared_schema_blocks(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json
+                import sys
+
+                args = sys.argv[1:]
+                assert args[0] == "workflow-unsupported-plan", args
+                operation = args[1]
+                target_ref = args[3] if len(args) > 3 else "none"
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "unsupported",
+                    "human_text": "unsupported",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "mode", "value": "workflow_unsupported_plan"},
+                        {"key": "workflow_operation", "value": operation},
+                        {"key": "target_ref", "value": target_ref},
+                        {"key": "blocker_id", "value": "cg21.workflow.describe.declared_schema_required"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "data_read", "value": "false"},
+                    ],
+                }))
+                sys.exit(1)
+                """
+            ),
+            rewrite_public_run=False,
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.read_vortex("target/fact.vortex").describe("id")
+
+        self.assertIsInstance(report, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(report.operation, "describe")
+        self.assertEqual(report.envelope.field("target_ref"), "columns=id")
+        self.assertFalse(report.fallback_attempted)
 
     def test_local_csv_query_builder_write_csv_routes_through_public_run_facade(
         self,

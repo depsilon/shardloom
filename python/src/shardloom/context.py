@@ -12331,10 +12331,15 @@ class ShardLoomContext:
             check=check,
         )
 
-    def read_vortex(self, uri: str | os.PathLike[str]) -> LazyFrame:
+    def read_vortex(
+        self,
+        uri: str | os.PathLike[str],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> LazyFrame:
         """Declare a lazy native Vortex source using this context's client."""
 
-        return read_vortex(uri, client=self.client, engine_mode=self.engine)
+        return read_vortex(uri, schema=schema, client=self.client, engine_mode=self.engine)
 
     def native_vortex_route(
         self,

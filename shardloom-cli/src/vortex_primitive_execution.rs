@@ -7116,6 +7116,7 @@ fn append_vortex_run_local_primitive_row_fields(
     ]);
 }
 
+#[allow(clippy::too_many_lines)]
 fn append_vortex_run_local_primitive_execution_fields(
     fields: &mut Vec<(String, String)>,
     local: Option<&shardloom_vortex::VortexLocalPrimitiveExecutionReport>,

@@ -666,6 +666,7 @@ fn sort_rows_payload_with_columns(
     Ok(value.to_string())
 }
 
+#[allow(clippy::too_many_lines)]
 fn append_native_vortex_primitive_row_export_fields(
     fields: &mut Vec<(String, String)>,
     report: &shardloom_vortex::VortexLocalPrimitiveRowExportReport,
@@ -1247,7 +1248,9 @@ fn native_vortex_materializing_public_primitive_name(
 ) -> &'static str {
     match kind {
         shardloom_vortex::VortexQueryPrimitiveKind::DistinctRows => "distinct",
+        shardloom_vortex::VortexQueryPrimitiveKind::DuplicateMaskRows => "duplicate_mask",
         shardloom_vortex::VortexQueryPrimitiveKind::TailRows => "tail",
+        shardloom_vortex::VortexQueryPrimitiveKind::SampleRows => "sample",
         shardloom_vortex::VortexQueryPrimitiveKind::ExpressionProjectRows => "expression_project",
         shardloom_vortex::VortexQueryPrimitiveKind::MeltRows => "melt",
         shardloom_vortex::VortexQueryPrimitiveKind::ExplodeRows => "explode",
@@ -3104,9 +3107,11 @@ fn native_vortex_primitive_row_export_route(
             | PublicVortexPrimitive::Sample
             | PublicVortexPrimitive::ExpressionProject
             | PublicVortexPrimitive::Melt
+            | PublicVortexPrimitive::Explode
             | PublicVortexPrimitive::Pivot
             | PublicVortexPrimitive::RollingWindow
             | PublicVortexPrimitive::Aggregate
+            | PublicVortexPrimitive::SortRows
     ) {
         return native_vortex_operation_blocked_route(NativeVortexOperationFamily::Sink);
     }

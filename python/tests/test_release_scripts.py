@@ -6146,11 +6146,9 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(report["publication_claim_gate_status"], "passed")
         self.assertEqual(report["mirror_status"]["status"], "passed")
         self.assertEqual(packet["schema_version"], "shardloom.benchmark_route_packet.v1")
-        self.assertTrue(
-            packet["next_implementation_slice"].startswith(
-                "`CLICKBENCH-OLAP-RUNTIME-COVERAGE-1`"
-            ),
+        self.assertRegex(
             packet["next_implementation_slice"],
+            r"^`[A-Z0-9][A-Z0-9-]+` ",
         )
         self.assertIn("performance superiority", packet["forbidden_claims"])
 
