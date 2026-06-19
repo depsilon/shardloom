@@ -171,7 +171,9 @@ python examples\local-python-smoke\run.py --repo-root .
 ```
 
 The selected local/source/package v1 release track is source checkout plus GitHub pre-release,
-TestPyPI, PyPI, and Homebrew. Source is currently at v0.1.7. GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for v0.1.4 with checked-in channel proof until the next release pass advances the transcripts. Scoop/winget/conda are feasible later channels, while real production object-store, lakehouse, distributed, live/hybrid, and Foundry claims stay fail-closed without environments.
+TestPyPI, PyPI, and Homebrew. Source is currently at v0.1.8 release prep. GitHub pre-release, TestPyPI, PyPI, and Homebrew are published for the latest checked-in selected-channel proof and remain governed by that proof until the v0.1.8 publication transcripts advance the contract.
+Scoop/winget/conda are feasible later channels, while real production object-store, lakehouse,
+distributed, live/hybrid, and Foundry claims stay fail-closed without environments.
 
 Package installs:
 
