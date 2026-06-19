@@ -98,6 +98,10 @@ When using a local, non-`PATH` Conda-compatible executable, pass it explicitly:
 python scripts\release_dry_run_proof.py --conda-executable target\release-tools\miniforge3\_conda.exe --require-clean-conda
 ```
 
+By default, the clean Conda proof requests the same Python major/minor version used to build the
+local wheel, because the bundled-CLI wheel is CPython- and platform-specific. Override
+`--conda-python-version` only when deliberately testing another compatible artifact.
+
 The clean venv proof installs only the exact ShardLoom wheel built during the current dry run. It
 removes `SHARDLOOM_BIN` and `SHARDLOOM_REPO_ROOT` before client smoke so the installed package must
 resolve its bundled CLI resource. Release package proof builds the bundled CLI with

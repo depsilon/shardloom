@@ -1,6 +1,8 @@
 ---
 import SiteLayout from "../layouts/SiteLayout.astro";
 
+const selectedPackageReleaseTag = "v0.1.8";
+
 const pythonFrontDoorSnippet = `import shardloom as sl
 
 ctx = sl.context()
@@ -21,13 +23,13 @@ print(result.fallback_attempted, result.external_engine_invoked)`;
   <section class="page-hero">
     <p class="eyebrow">Start</p>
     <h1>Start local proof.</h1>
-    <p class="lede">Use the source checkout, published v0.1.0 package channels, local smokes, and checked-in evidence. The selected local/source/package v1 release track is GitHub prerelease + TestPyPI/PyPI + Homebrew.</p>
+    <p class="lede">Use the source checkout, published {selectedPackageReleaseTag} package channels, local smokes, and checked-in evidence. The selected local/source/package v1 release track is GitHub prerelease + TestPyPI/PyPI + Homebrew.</p>
   </section>
   <section class="section-grid">
     <div>
       <h2>Recommended first route</h2>
       <p class="narrow">Install the package and CLI, run a normal Python read, then move to source-checkout proof when you need the full release validator stack.</p>
-      <p class="narrow"><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md">Package user install status</a> shows the v0.1.0 GitHub pre-release, TestPyPI, PyPI, and Homebrew commands with channel proof refs. <a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md">Source checkout install</a> remains the strongest maintainer proof path.</p>
+      <p class="narrow"><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/package-user-install.md">Package user install status</a> shows the {selectedPackageReleaseTag} GitHub pre-release, TestPyPI, PyPI, and Homebrew commands with channel proof refs. <a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/source-checkout-install.md">Source checkout install</a> remains the strongest maintainer proof path.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">PowerShell</div>
@@ -50,7 +52,7 @@ python scripts\check_production_usability_gate.py</code></pre>
   <section class="section-grid">
     <div>
       <h2>Support boundary</h2>
-      <p class="narrow">Use the generated v1 support surface before assuming a path is live. Selected v0.1.0 package channels are published; future package channels remain outside the selected release surface until their own proof exists.</p>
+      <p class="narrow">Use the generated v1 support surface before assuming a path is live. Selected {selectedPackageReleaseTag} package channels are published; future package channels remain outside the selected release surface until their own proof exists.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">Docs</div>

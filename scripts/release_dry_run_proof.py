@@ -84,8 +84,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--conda-python-version",
-        default="3.11",
-        help="Python version requested for the clean Conda proof environment.",
+        default="match-package",
+        help=(
+            "Python version requested for the clean Conda proof environment. "
+            "Use 'match-package' to match the wheel-build interpreter major/minor."
+        ),
     )
     parser.add_argument(
         "--skip-clean-conda",
@@ -220,6 +223,18 @@ def conda_create_command(tool: Path, env_dir: Path, python_version: str) -> list
     if "micromamba" in tool.name.lower():
         command.extend(["-c", "conda-forge"])
     return command
+
+
+def conda_python_version_for_package_wheel(
+    requested: str,
+    package_python_version: str,
+) -> str:
+    if requested not in {"", "auto", "match-package"}:
+        return requested
+    version = parse_python_version_text(f"Python {package_python_version}")
+    if version is None:
+        raise ValueError(f"package Python version is not parseable: {package_python_version}")
+    return f"{version[0]}.{version[1]}"
 
 
 def env_with_path_prepend(directory: Path) -> dict[str, str]:
@@ -661,7 +676,14 @@ def main() -> int:
     clean_conda_tool: Path | None = None
     try:
         package_python, package_python_version = resolve_package_python(args.package_python)
+        clean_conda_python_version = conda_python_version_for_package_wheel(
+            args.conda_python_version,
+            package_python_version,
+        )
     except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
 
@@ -715,6 +737,7 @@ def main() -> int:
             args.require_clean_conda,
             package_python,
             package_python_version,
+            clean_conda_python_version,
         )
 
     wheel = newest_wheel(dist_dir)
@@ -778,7 +801,7 @@ def main() -> int:
                     command=conda_create_command(
                         clean_conda_tool,
                         conda_env_dir,
-                        args.conda_python_version,
+                        clean_conda_python_version,
                     ),
                     cwd=repo_root,
                     env=env_with_path_prepend(clean_conda_tool.parent),
@@ -931,6 +954,7 @@ def main() -> int:
         args.require_clean_conda,
         package_python,
         package_python_version,
+        clean_conda_python_version,
     )
 
 
@@ -948,6 +972,7 @@ def write_transcript(
     clean_conda_required: bool,
     package_python: Path | None = None,
     package_python_version: str | None = None,
+    clean_conda_python_version: str | None = None,
 ) -> int:
     steps_by_name = {step["name"]: step for step in steps}
 
@@ -1009,6 +1034,7 @@ def write_transcript(
         "clean_conda_env_install_status": clean_conda_status,
         "clean_conda_env_install_tool": transcript_path_ref(repo_root, clean_conda_tool),
         "clean_conda_env_install_required": clean_conda_required,
+        "clean_conda_env_python_version_requested": clean_conda_python_version,
         "local_wheel": transcript_path_ref(repo_root, wheel),
         "local_cli_binary": transcript_path_ref(repo_root, binary),
         "cli_binary_build_status": step_status("build_cli_binary"),

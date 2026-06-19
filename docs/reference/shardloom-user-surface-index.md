@@ -259,7 +259,7 @@ filter, group-by, having, order, limit, joins, set operations, bounded subquery 
 free `VALUES`, source-free literal `SELECT`, and generated range forms such as `generate_series`
 or `range` where the local runtime admits them.
 
-Not claimed in v0.1.0: broad SQL-standard/ANSI-style compliance, recursive CTEs, arbitrary dialect functions, arbitrary
+Not claimed by the technical preview: broad SQL-standard/ANSI-style compliance, recursive CTEs, arbitrary dialect functions, arbitrary
 subqueries, broad optimizer parity, SQL UDFs, catalog-backed SQL, object-store/table SQL, JDBC/ODBC,
 Flight SQL, or SQL execution delegated to another engine.
 

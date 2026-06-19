@@ -393,7 +393,6 @@ GLOBAL_REVIEW_MAPPINGS: tuple[GapMapping, ...] = (
     GapMapping("Live profiling collectors, profile artifacts, debug bundles, metrics exporters, trace", "observability_runtime"),
     GapMapping("Broad catalog/table metadata integration, real table data I/O, delete/tombstone execution,", "object_store_table_lakehouse_runtime"),
     GapMapping("Real Substrait parser/exporter support, dependency adoption, round-trip fixtures, and", "plan_interop_harness_runtime"),
-    GapMapping("First public release/package publication remains incomplete and is carried by", "release_package_platform_readiness"),
     GapMapping("Full competitive replacement remains incomplete until every sufficiency row has", "performance_claim_evidence"),
     GapMapping("Generalized direct encoded count/filter/project execution and production compressed-execution", "native_vortex_operator_runtime"),
     GapMapping("Real SIMD/vectorized dispatch, production vectorized kernel path, adaptive parallelism", "native_vortex_operator_runtime"),
@@ -410,7 +409,6 @@ GLOBAL_REVIEW_MAPPINGS: tuple[GapMapping, ...] = (
     GapMapping("Full comparative reruns, source-backed claim-grade promotion, managed-platform lanes,", "performance_claim_evidence"),
     GapMapping("Passing public release/package/performance/production/platform claims remain incomplete until", "release_package_platform_readiness"),
     GapMapping("Generalized Source/Split runtime paths, field-mask/predicate-ordering proof, layout/write", "native_vortex_operator_runtime"),
-    GapMapping("Actual public package publication, release tags, signing, uploaded attestations, and channel", "release_package_platform_readiness"),
     GapMapping("Prepared/native Vortex rows now carry a typed operator blocker matrix, explicit", "native_vortex_operator_runtime"),
     GapMapping("`GAR-IOREUSE-1` adds I/O reuse and cross-format fanout follow-through. `GAR-IOREUSE-1A`", "io_reuse_fanout_followthrough"),
 )
