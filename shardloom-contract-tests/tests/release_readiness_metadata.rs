@@ -1653,12 +1653,14 @@ fn gar_0024_a_publication_api_schema_gate_fails_closed() {
 
     let gar = read_repo_file("docs/architecture/global-architecture-review.md");
     assert!(gar.contains("`GAR-0024-A` adds `shardloom.publication_api_schema_stability_gate.v1`"));
-    assert!(gar.contains("First public release/package publication remains incomplete"));
+    assert!(gar.contains("Selected public release/package publication is complete"));
 
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
     assert!(traceability.contains("GAR-0024-A"));
     assert!(traceability.contains("shardloom.publication_api_schema_stability_gate.v1"));
-    assert!(traceability.contains("No package publication"));
+    assert!(
+        traceability.contains("v0.1.8 GitHub/TestPyPI/PyPI/Homebrew publication is proof-backed")
+    );
 }
 
 #[test]
@@ -2138,14 +2140,16 @@ fn gar_0043_a_release_architecture_tracker_gate_fails_closed() {
 
     let gar = read_repo_file("docs/architecture/global-architecture-review.md");
     assert!(gar.contains("`GAR-0043-A` adds `shardloom.release_architecture_tracker_report.v1`"));
-    assert!(gar.contains("Actual public package publication, release tags, signing"));
+    assert!(gar.contains(
+        "Selected public package publication, release tags, and channel proof are complete"
+    ));
 
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
     assert!(traceability.contains("GAR-0043-A"));
     assert!(traceability.contains("shardloom.release_architecture_tracker_report.v1"));
     assert!(
         traceability
-            .contains("v0.1.0 GitHub/TestPyPI/PyPI/Homebrew package access is proof-backed")
+            .contains("v0.1.8 GitHub/TestPyPI/PyPI/Homebrew package access is proof-backed")
     );
     assert!(traceability.contains("production claims, future package-channel claims, signing"));
 }
@@ -2306,7 +2310,9 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
 
     let gar = read_repo_file("docs/architecture/global-architecture-review.md");
     assert!(gar.contains("`GAR-0043-B` adds `shardloom.final_release_rehearsal_report.v1`"));
-    assert!(gar.contains("Actual public package publication, release tags, signing"));
+    assert!(gar.contains(
+        "Selected public package publication, release tags, and channel proof are complete"
+    ));
 
     let ci_workflow = read_repo_file(".github/workflows/ci.yml");
     let ci_doc = read_repo_file("docs/release/ci-gate-matrix.md");
@@ -2365,7 +2371,7 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
     assert!(traceability.contains("shardloom.final_release_rehearsal_report.v1"));
     assert!(
         traceability
-            .contains("v0.1.0 GitHub/TestPyPI/PyPI/Homebrew package access is proof-backed")
+            .contains("v0.1.8 GitHub/TestPyPI/PyPI/Homebrew package access is proof-backed")
     );
     assert!(traceability.contains("production claims, future package-channel claims, signing"));
 }

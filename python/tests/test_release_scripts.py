@@ -1128,8 +1128,8 @@ class ReleaseScriptTests(unittest.TestCase):
             "schema_version": "shardloom.runtime_gap_family_burn_down.v1",
             "status": "passed",
             "blockers": [],
-            "global_review_unchecked_count": 38,
-            "mapped_gap_count": 38,
+            "global_review_unchecked_count": 36,
+            "mapped_gap_count": 36,
             "acceptance_summary": {
                 "all_unchecked_global_review_rows_mapped": True,
                 "all_families_have_phase_items": True,
@@ -1147,7 +1147,7 @@ class ReleaseScriptTests(unittest.TestCase):
 
         blockers = module.runtime_gap_family_burn_down_blockers(
             report,
-            expected_global_unchecked_count=38,
+            expected_global_unchecked_count=36,
         )
 
         self.assertEqual(blockers, [])
@@ -1162,8 +1162,8 @@ class ReleaseScriptTests(unittest.TestCase):
             "schema_version": "shardloom.runtime_gap_family_burn_down.v1",
             "status": "passed",
             "blockers": [],
-            "global_review_unchecked_count": 37,
-            "mapped_gap_count": 37,
+            "global_review_unchecked_count": 35,
+            "mapped_gap_count": 35,
             "acceptance_summary": {
                 "all_unchecked_global_review_rows_mapped": True,
                 "all_families_have_phase_items": True,
@@ -1181,15 +1181,15 @@ class ReleaseScriptTests(unittest.TestCase):
 
         blockers = module.runtime_gap_family_burn_down_blockers(
             report,
-            expected_global_unchecked_count=38,
+            expected_global_unchecked_count=36,
         )
 
         self.assertIn(
-            "runtime gap family burn-down global_review_unchecked_count mismatch: 37 != 38",
+            "runtime gap family burn-down global_review_unchecked_count mismatch: 35 != 36",
             blockers,
         )
         self.assertIn(
-            "runtime gap family burn-down mapped_gap_count mismatch: 37 != 38",
+            "runtime gap family burn-down mapped_gap_count mismatch: 35 != 36",
             blockers,
         )
 
@@ -5050,8 +5050,8 @@ class ReleaseScriptTests(unittest.TestCase):
         report = {
             "schema_version": "shardloom.runtime_gap_family_burn_down.v1",
             "status": "passed",
-            "global_review_unchecked_count": 37,
-            "mapped_gap_count": 37,
+            "global_review_unchecked_count": 36,
+            "mapped_gap_count": 36,
             "acceptance_summary": {
                 "all_unchecked_global_review_rows_mapped": True,
                 "all_families_have_phase_items": True,
@@ -5068,9 +5068,9 @@ class ReleaseScriptTests(unittest.TestCase):
         }
 
         self.assertEqual(module.runtime_gap_family_burn_down_blockers(report), [])
-        mismatched = dict(report, mapped_gap_count=38)
+        mismatched = dict(report, mapped_gap_count=37)
         self.assertIn(
-            "runtime gap family burn-down mapped_gap_count does not match global_review_unchecked_count: 38 != 37",
+            "runtime gap family burn-down mapped_gap_count does not match global_review_unchecked_count: 37 != 36",
             module.runtime_gap_family_burn_down_blockers(mismatched),
         )
 
