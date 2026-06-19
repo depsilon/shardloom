@@ -600,7 +600,12 @@ def main() -> int:
         f"{report['runtime_status_counts'].get('admitted_current_runtime', 0)} admitted, "
         f"{report['runtime_status_counts'].get('implementation_required', 0)} implementation-required"
     )
-    print(f"wrote {args.output.relative_to(ROOT)}")
+    output_path = args.output.resolve()
+    try:
+        output_ref = output_path.relative_to(ROOT)
+    except ValueError:
+        output_ref = output_path
+    print(f"wrote {output_ref}")
     return 0
 
 
