@@ -100,10 +100,11 @@ V1_FRONT_DOOR_SUPPORTED_PARITY_ROW_IDS = (
     "generated_source_output",
     "schema_quality_preview",
     "local_vortex_primitive_runtime",
+    "typed_nested_compatibility_sink",
+    "native_vortex_general_runtime",
     "decoded_materialization_interop",
 )
 V1_FRONT_DOOR_PENDING_PARITY_ROW_IDS = (
-    "native_vortex_general_runtime",
     "object_store_lakehouse_catalog",
     "arbitrary_sql_python_dataframe_breadth",
     "performance_equivalence",
@@ -6930,30 +6931,35 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     ),
     _front_door_row(
         "native_vortex_general_runtime",
-        "general Vortex-native read, transform, and write workflows",
-        "broad_runtime_expansion_pending",
-        runtime_gap_status="front_door_connection_pending",
-        sql_surface="scoped SQL local Vortex primitive reports supported; broad Vortex SQL is tracked in GAR-RUNTIME-IMPL-6D",
-        python_surface="ctx.read_vortex(...).count/filter/select/limit scoped local primitive reports; broad workflow expansion is tracked in GAR-RUNTIME-IMPL-6D",
-        dataframe_surface="read_vortex(...).filter/select/count/limit/collect scoped primitive reports; broader read-transform-write expansion is tracked in GAR-RUNTIME-IMPL-6D",
-        shared_runtime_path="scoped Vortex local primitive runtime plus GAR-RUNTIME-IMPL-6D runtime expansion checklist",
-        parity_status="front_door_gap",
-        performance_equivalence_status="not_claim_grade",
-        blocker_id="cg19.cg21.general_vortex_front_door_runtime_missing",
+        "general admitted native/prepared Vortex read, transform, and write workflows",
+        "scoped_runtime_supported",
+        runtime_gap_status="admitted_scope",
+        sql_surface="admitted SQL `.vortex` and Vortex-prepared local workflows using the shared native Vortex plan contract",
+        python_surface="ctx.read_vortex(...), prepared local LazyFrame.collect(), profile, and write_* for admitted operator/sink families",
+        dataframe_surface="read_vortex(...).filter/select/group_by/join/nlargest/cast/contains/profile/write_* for admitted operator families",
+        shared_runtime_path="native_vortex_unified_plan over primitive/provider/profile/sink capillaries",
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_vortex_middle_no_benchmark_claim",
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         required_evidence=(
             "vortex_input_normalization_boundary",
-            "vortex_reader_runtime",
-            "vortex_writer_runtime",
-            "operator_kernel_coverage",
+            "native_vortex_unified_plan_contract",
+            "primitive_provider_profile_sink_capillary_coverage",
+            "typed_result_sink_contract",
             "execution_certificate",
             "native_io_certificate",
-            "front_door_equivalence_benchmarks",
+            "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped SQL/Python/DataFrame-style local Vortex count/filter/project/filter-project "
-            "primitive reports execute through ShardLoom's Vortex primitive runtime, but broad "
-            "intuitive SQL/Python/DataFrame Vortex read-transform-write parity with equivalent "
-            "runtime and performance evidence is tracked as a runtime expansion checklist item."
+            "Admitted SQL, Python, and DataFrame-style native `.vortex` inputs, plus local "
+            "compatibility sources after Vortex preparation, share the `native_vortex_unified_plan` "
+            "contract for primitive, provider, profile, and declared sink capillaries. This covers "
+            "only the documented operator families and explicit typed result/sink boundaries; it "
+            "does not claim arbitrary SQL/DataFrame breadth, object-store/table runtime, UDF/effect "
+            "execution, or benchmarked performance equivalence."
         ),
     ),
     _front_door_row(

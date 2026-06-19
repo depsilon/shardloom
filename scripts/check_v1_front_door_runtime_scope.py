@@ -36,13 +36,13 @@ SUPPORTED_PARITY_ROWS = {
     "schema_quality_preview",
     "local_vortex_primitive_runtime",
     "typed_nested_compatibility_sink",
+    "native_vortex_general_runtime",
     "decoded_materialization_interop",
 }
 
 EXPORT_PENDING_PARITY_ROWS: set[str] = set()
 
 BROAD_PENDING_PARITY_ROWS = {
-    "native_vortex_general_runtime",
     "object_store_lakehouse_catalog",
     "arbitrary_sql_python_dataframe_breadth",
     "performance_equivalence",
@@ -248,7 +248,6 @@ def validate_parity_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]
         if row.get("parity_status") == "equivalent_admitted_scope":
             blockers.append(f"{row_id}: pending row must not be equivalent_admitted_scope")
         if row_id in {
-            "native_vortex_general_runtime",
             "object_store_lakehouse_catalog",
             "arbitrary_sql_python_dataframe_breadth",
             "performance_equivalence",

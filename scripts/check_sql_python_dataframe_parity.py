@@ -43,6 +43,7 @@ REQUIRED_ADMITTED_ROWS = {
     "schema_quality_preview",
     "local_vortex_primitive_runtime",
     "typed_nested_compatibility_sink",
+    "native_vortex_general_runtime",
     "decoded_materialization_interop",
 }
 

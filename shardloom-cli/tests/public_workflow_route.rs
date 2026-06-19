@@ -71,6 +71,15 @@ fn public_route_blocks_local_file_auto_without_vortex_middle() {
         assert!(stdout.contains("\"status\":\"success\""));
         assert!(stdout.contains(&field("route_id", "local_file_prepare_once_first_query")));
         assert!(stdout.contains(&field("route_support_status", "scoped_runtime_supported")));
+        assert!(stdout.contains(&field("native_vortex_plan_contract_status", "admitted")));
+        assert!(stdout.contains(&field(
+            "native_vortex_plan_route_family",
+            "native_vortex_unified_plan"
+        )));
+        assert!(stdout.contains(&field(
+            "native_vortex_plan_payload_kind",
+            "prepared_compatibility_source"
+        )));
         assert!(stdout.contains(&field(
             "resolved_internal_command",
             "vortex-ingest-smoke->vortex-production-runtime-run"
@@ -95,6 +104,14 @@ fn public_route_blocks_local_file_auto_without_vortex_middle() {
             "cg21.route.local_file_vortex_ingest_feature_gated"
         };
         assert!(stdout.contains(&field("blocker_id", expected_blocker)));
+        assert!(stdout.contains(&field(
+            "native_vortex_plan_contract_status",
+            "blocked_before_execution"
+        )));
+        assert!(stdout.contains(&field(
+            "native_vortex_plan_route_family",
+            "native_vortex_unified_plan"
+        )));
         assert!(stdout.contains(&field("route_support_status", "unsupported_boundary")));
         assert!(stdout.contains(&field("resolved_internal_command", "not_resolved")));
         assert!(stdout.contains(&field("underlying_runtime_command", "not_resolved")));
@@ -1552,6 +1569,14 @@ fn public_route_admits_native_vortex_filter_project_payload() {
     assert!(stdout.contains("\"command\":\"route\""));
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("route_id", "native_vortex_filter_project")));
+    assert!(stdout.contains(&field(
+        "native_vortex_plan_route_family",
+        "native_vortex_unified_plan"
+    )));
+    assert!(stdout.contains(&field(
+        "native_vortex_plan_payload_kind",
+        "primitive_operator"
+    )));
     assert!(stdout.contains(&field("resolved_internal_command", "vortex-filter-project")));
     assert!(stdout.contains(&field("start_state", "native_vortex_file")));
     assert!(stdout.contains(&field("execution_mode", "native_vortex")));

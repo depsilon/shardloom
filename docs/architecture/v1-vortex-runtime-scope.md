@@ -36,7 +36,7 @@ turn it into a broad Vortex runtime, object-store, table/catalog, or performance
 
 | Starting state | Supported v1 meaning | Runtime boundary |
 | --- | --- | --- |
-| `native_local_vortex_file` | A local `.vortex` file enters at `native_vortex_boundary` and uses the scoped local primitive runtime family. | `vortex-run`, `vortex-count-where`, `vortex-filter`, `vortex-project`, `vortex-filter-project`, and the `public-workflow run` native-Vortex primitive facade with execution certificate, Native I/O certificate, and no-fallback evidence. |
+| `native_local_vortex_file` | A local `.vortex` file enters at `native_vortex_boundary` and uses the scoped local primitive/provider/profile/sink runtime family. | `native_vortex_unified_plan` over `vortex-run`, `vortex-count-where`, `vortex-filter`, `vortex-project`, `vortex-filter-project`, materializing local Vortex primitives, provider routes, profile routes, and declared sinks with execution certificate, Native I/O certificate, typed boundary evidence, and no-fallback evidence. |
 | `prepared_local_vortex_state` | A previously created `VortexPreparedState` is reused for a warm prepared query. | `prepared_vortex` starts after preparation and reports preparation exclusion, prepared-state reuse, execution evidence, and result boundary evidence. |
 | `prepared_compatibility_artifact` | A local compatibility source is normalized through `SourceState -> vortex_ingest -> VortexPreparedState` before query execution. | Prepared benchmark-family rows include preparation/reuse evidence, source and split refs, route timing fields, execution certificate, Native I/O certificate, and no-fallback evidence. |
 | `generated_local_vortex_artifact` | Source-free/generated rows create a local Vortex-preparable artifact with explicit local output evidence. | Generated-source certificates and local output evidence prove the artifact boundary; this is not object-store or table/catalog support. |
@@ -91,7 +91,13 @@ internal compatibility alias for benchmark harness code; public release guidance
 production feature names.
 
 Every native Vortex public route also emits the route-unification contract fields
-`native_vortex_user_route_contract_schema_version`, `native_vortex_operation_family`,
+`native_vortex_user_route_contract_schema_version`,
+`native_vortex_plan_contract_schema_version`,
+`native_vortex_plan_route_family`,
+`native_vortex_plan_payload_kind`,
+`native_vortex_plan_operator_capillaries`,
+`native_vortex_plan_source_count`,
+`native_vortex_operation_family`,
 `native_vortex_capability_status`, `native_vortex_required_evidence`,
 `native_vortex_next_action`, `typed_result_contract`, `typed_sink_contract`, and
 `decode_materialization_boundary`. The same fields are attached to public run envelopes with the
@@ -257,9 +263,10 @@ feature_gated_local_vortex_runtime
 ```
 
 Upstream Vortex stays outside the default lightweight build. v1 admits feature-gated local primitive
-routes, prepared-state routes, compatibility-import Vortex artifact creation, and generated local
-Vortex artifacts only when CI feature checks and route evidence prove the boundary. Package and
-install docs must explain that broad Vortex functionality is not enabled or claimed by default.
+routes, prepared-state routes, compatibility-import Vortex artifact creation, generated local
+Vortex artifacts, and admitted native Vortex provider/profile/sink capillaries only when CI feature
+checks and route evidence prove the boundary. Package and install docs must explain that arbitrary
+or unshaped Vortex functionality is not enabled or claimed by default.
 
 ## Vortex-First Provider Check
 
@@ -274,7 +281,7 @@ Vortex-first provider check:
   - `wrap_vortex_concept` for report-only scope, capability, provider, and route normalization
     surfaces.
   - `blocked_until_vortex_or_shardloom_evidence` for object-store Vortex I/O, table/catalog Vortex
-    I/O, generalized Source/Sink runtime, broad Vortex SQL/DataFrame parity,
+    I/O, generalized Source/Sink runtime, arbitrary broad Vortex SQL/DataFrame parity,
     nested/complex dtype general Vortex behavior, vector/device/GPU Vortex runtime, and other
     unproved shapes.
 - Vortex API/provider surface: upstream Vortex provider version derived from root `Cargo.toml`
@@ -290,7 +297,7 @@ Vortex-first provider check:
   or publication-proof evidence boundary only.
 - Evidence added: `scripts/check_v1_vortex_runtime_scope.py` validates route ids, starting states,
   feature profile, unsupported boundaries, no-fallback fields, and docs linkage.
-- Gates still blocked: broad Vortex runtime support remains unclaimed until each unsupported
+- Gates still blocked: arbitrary broad Vortex runtime support remains unclaimed until each unsupported
   boundary closes with correctness, execution, Native I/O, decode/materialization, and release
   evidence.
 - `fallback_attempted=false`: required for every admitted row.
@@ -306,7 +313,7 @@ runtime evidence and deterministic blockers:
 | `object_store_vortex_io` | Unsupported for v1 Vortex runtime. Local object-store fixtures do not authorize object-store Vortex scan/write support. |
 | `table_catalog_vortex_io` | Unsupported for v1 Vortex runtime. Table/catalog metadata rows do not authorize table execution. |
 | `generalized_source_sink_api` | Unsupported outside the admitted local primitive/prepared/generated artifact routes. |
-| `broad_vortex_sql_dataframe_parity` | Unsupported outside the scoped SQL/Python/DataFrame shapes listed by route reports. |
+| `broad_vortex_sql_dataframe_parity` | Unsupported outside the scoped SQL/Python/DataFrame shapes listed by route reports and the admitted `native_vortex_unified_plan` operator-family contract. |
 | `nested_complex_dtype_general_vortex` | Unsupported as a broad Vortex claim. Individual benchmark rows may cover scoped nested/dirty data workflows only when they emit route evidence. |
 | `vector_device_gpu_vortex_runtime` | Unsupported; extension dtype discovery or device awareness is not vector search, GPU execution, or device-resident output support. |
 

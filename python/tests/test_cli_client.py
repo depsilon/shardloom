@@ -7512,7 +7512,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(matrix.all_broad_gaps_have_precise_runtime_status)
         self.assertEqual(
             matrix.runtime_gap_status_counts["front_door_connection_pending"],
-            2,
+            1,
         )
         self.assertEqual(matrix.runtime_gap_status_counts["runtime_expansion_pending"], 1)
         self.assertIn("local_file_filter_project_limit", matrix.row_order)
@@ -7558,6 +7558,11 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsNone(typed_nested.blocker_id)
         self.assertIn("Scoped ARRAY literal", typed_nested.claim_boundary)
         self.assertIn("ORC nested output", typed_nested.claim_boundary)
+        native_general = matrix.row("native_vortex_general_runtime")
+        self.assertTrue(native_general.equivalent_admitted_scope)
+        self.assertEqual(native_general.runtime_gap_status, "admitted_scope")
+        self.assertIn("native_vortex_unified_plan", native_general.shared_runtime_path)
+        self.assertIsNone(native_general.blocker_id)
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
         self.assertTrue(broad.broad_gap)
         self.assertEqual(broad.parity_status, "front_door_gap")
@@ -7570,8 +7575,8 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(performance.support_status, "benchmark_publication_pending")
         self.assertEqual(performance.runtime_gap_status, "benchmark_publication_pending")
         self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
-        self.assertEqual(len(matrix.admitted_rows), 7)
-        self.assertGreaterEqual(len(matrix.broad_gap_rows), 4)
+        self.assertEqual(len(matrix.admitted_rows), 8)
+        self.assertGreaterEqual(len(matrix.broad_gap_rows), 3)
 
     def test_context_front_door_semantic_surface_matrix_scopes_claims(self) -> None:
         binary = self.fake_cli(

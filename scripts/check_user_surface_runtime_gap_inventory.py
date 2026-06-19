@@ -60,19 +60,6 @@ DOC_STATUS_FILES = (
 
 
 FRONT_DOOR_GAP_ROUTES: dict[str, dict[str, str]] = {
-    "native_vortex_general_runtime": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "native_vortex_boundary",
-        "runtime_route": (
-            "scoped local Vortex primitives exist; broad native Vortex read-transform-write "
-            "runtime remains a GAR-RUNTIME-IMPL-6D expansion item"
-        ),
-        "output_or_evidence_route": (
-            "primitive report rows and Native I/O evidence today; broad native Vortex output route "
-            "requires vortex reader/writer/operator coverage"
-        ),
-        "owner": "GAR-RUNTIME-IMPL-6D:last_order.native_vortex_general_runtime",
-    },
     "object_store_lakehouse_catalog": {
         "classification": "true_runtime_expansion_item",
         "vortex_normalization_point": "object_store_or_table_source_to_vortex_pending",
@@ -572,7 +559,6 @@ def front_door_gap_rows(repo_root: Path) -> tuple[list[dict[str, Any]], list[str
                 external_engine_invoked=row["external_engine_invoked"],
                 runtime_execution=bool(row["runtime_execution"]),
                 benchmark_range=row_id in {
-                    "native_vortex_general_runtime",
                     "arbitrary_sql_python_dataframe_breadth",
                     "performance_equivalence",
                 },
