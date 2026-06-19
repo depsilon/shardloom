@@ -1702,9 +1702,9 @@ def main() -> int:
             )
         if len(v1_vortex_runtime_scope.get("supported_primitive_route_ids", [])) != 11:
             v1_vortex_blockers.append("v1 Vortex primitive route coverage must contain 11 rows")
-        if len(v1_vortex_runtime_scope.get("supported_benchmark_scenario_ids", [])) != 15:
+        if len(v1_vortex_runtime_scope.get("supported_benchmark_scenario_ids", [])) != 16:
             v1_vortex_blockers.append(
-                "v1 Vortex benchmark scenario coverage must contain 15 rows"
+                "v1 Vortex benchmark scenario coverage must contain 16 rows"
             )
         if "object_store_vortex_io" not in set(
             v1_vortex_runtime_scope.get("unsupported_boundary_ids", [])

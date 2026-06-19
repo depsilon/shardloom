@@ -32,6 +32,9 @@ DOC_PATH = Path("docs/architecture/v1-source-prepared-state-scope.md")
 LATEST_BENCHMARK_ARTIFACT = Path(
     "website/assets/benchmarks/latest/benchmark-results.json"
 )
+BENCHMARK_SCENARIO_ALIASES = {
+    "malformed_timestamp_dirty_csv": "malformed_timestamp_cast",
+}
 
 DOC_MARKERS = (
     "shardloom.v1_source_prepared_state_scope.v1",
@@ -391,7 +394,8 @@ def validate_benchmark_rows(
     scenario_ids = set()
     for row in shardloom_rows:
         if row.get("scenario_id"):
-            scenario_ids.add(str(row["scenario_id"]))
+            scenario_id = str(row["scenario_id"])
+            scenario_ids.add(BENCHMARK_SCENARIO_ALIASES.get(scenario_id, scenario_id))
         missing = [field for field in required if not _present(row.get(field))]
         if missing:
             missing_rows.append(

@@ -151,6 +151,7 @@ V1_VORTEX_SUPPORTED_BENCHMARK_SCENARIO_IDS = (
     "row_number_window",
     "top_n_per_group",
     "clean_cast_filter_write",
+    "malformed_timestamp_cast",
     "partition_pruning",
     "many_small_files_scan",
     "null_heavy_aggregate",

@@ -6913,7 +6913,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsNone(dataframe_methods.row("nunique").blocker_id)
         self.assertEqual(
             dataframe_methods.row("nlargest").support_status,
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn(
             "top_n_contract",
@@ -6921,7 +6921,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("nsmallest").support_status,
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn(
             "top_n_contract",
@@ -7190,7 +7190,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertIsNone(dataframe_methods.row("reset_index").blocker_id)
         self.assertIn(
-            "no_explicit_index_state_contract",
+            "explicit_index_state_metadata_drop",
             dataframe_methods.row("reset_index").required_evidence,
         )
         self.assertEqual(
@@ -7224,12 +7224,12 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(
             future_contracts.classification_counts,
             {
-                "repo_feasible_contract_needed": 18,
+                "repo_feasible_contract_needed": 13,
                 "scoped_product_boundary": 3,
                 "unsafe_callable_boundary": 6,
             },
         )
-        self.assertEqual(len(future_contracts.repo_feasible_rows), 18)
+        self.assertEqual(len(future_contracts.repo_feasible_rows), 13)
         self.assertEqual(len(future_contracts.unsafe_callable_rows), 6)
         self.assertTrue(future_contracts.all_no_fallback_no_external_engine)
         self.assertEqual(
@@ -7374,6 +7374,8 @@ class ShardLoomClientTests(unittest.TestCase):
             (
                 "vortex_prepared_state_or_native_vortex_input",
                 "native_vortex_derived_jsonl_csv_fanout_export_contract",
+                "staged_multi_target_commit_contract",
+                "partial_write_cleanup_evidence",
                 "explicit_decode_materialization_boundary",
                 "no_fallback_evidence",
             ),
