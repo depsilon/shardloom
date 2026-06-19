@@ -170,6 +170,18 @@ It writes:
 target/release-validation-evidence.json
 ```
 
+For local inspection while broad workspace checks are intentionally deferred, use:
+
+```powershell
+python scripts\run_release_validation_evidence.py --skip-slow
+```
+
+That mode is metadata-only: it records the required command inventory with `skipped_slow` status and
+must not launch Cargo workspace checks, package builds, full unittest discovery, or release proof
+commands. It is useful for checking wiring, but it is not release proof. The hard release gate still
+requires `required_validation_status=passed` from the full evidence runner before any public release
+or readiness claim can pass.
+
 That report uses schema `shardloom.release_validation_evidence.v1` and contains:
 
 ```text

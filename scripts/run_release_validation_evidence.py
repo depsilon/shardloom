@@ -54,6 +54,8 @@ FEATURE_MATRIX_COMMANDS = [
     ),
     ("future_foundry_optional", [], True),
 ]
+SKIPPED_SLOW_STATUS = "skipped_slow"
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -344,6 +346,31 @@ def required_validation_commands(
     ]
 
 
+def planned_release_validation_commands(
+    python_executable: str,
+    args: argparse.Namespace,
+) -> tuple[
+    list[tuple[str, list[str], str, dict[str, str]]],
+    list[tuple[str, list[str]]],
+]:
+    required_commands = required_validation_commands(python_executable, args)
+    if args.skip_slow:
+        return [], required_commands
+
+    planned: list[tuple[str, list[str], str, dict[str, str]]] = []
+    planned.extend(supporting_commands(python_executable, args.pip_audit_python))
+    planned.extend(
+        (name, command, "feature_build_matrix", {})
+        for name, command, skip in FEATURE_MATRIX_COMMANDS
+        if not skip
+    )
+    planned.extend(
+        (name, command, "required_validation", {})
+        for name, command in required_commands
+    )
+    return planned, required_commands
+
+
 def tail(text: str, limit: int = 4000) -> str:
     if len(text) <= limit:
         return text
@@ -392,19 +419,7 @@ def main() -> int:
     python_executable = release_python(args)
     results: list[dict[str, Any]] = []
 
-    planned: list[tuple[str, list[str], str, dict[str, str]]] = []
-    planned.extend(supporting_commands(python_executable, args.pip_audit_python))
-    planned.extend(
-        (name, command, "feature_build_matrix", {})
-        for name, command, skip in FEATURE_MATRIX_COMMANDS
-        if not skip
-    )
-    required_commands = required_validation_commands(python_executable, args)
-    if not args.skip_slow:
-        planned.extend(
-            (name, command, "required_validation", {})
-            for name, command in required_commands
-        )
+    planned, required_commands = planned_release_validation_commands(python_executable, args)
 
     for name, command, group, env_overrides in planned:
         result = run_command(
@@ -433,33 +448,39 @@ def main() -> int:
             )
             continue
         text = command_text(command, python_executable)
+        status = SKIPPED_SLOW_STATUS if args.skip_slow else command_status.get(text, "not_run")
         feature_rows.append(
             {
                 "feature_set": name,
                 "command": text,
-                "status": command_status.get(text, "not_run"),
-                "release_blocking": command_status.get(text) != "passed",
+                "status": status,
+                "release_blocking": False if args.skip_slow else status != "passed",
             }
         )
 
     required_rows = []
     for name, command in required_commands:
         text = command_text(command, python_executable)
+        status = SKIPPED_SLOW_STATUS if args.skip_slow else command_status.get(text, "not_run")
         required_rows.append(
             {
                 "name": name,
                 "command": text,
-                "status": command_status.get(text, "not_run"),
-                "release_blocking": command_status.get(text) != "passed",
+                "status": status,
+                "release_blocking": False if args.skip_slow else status != "passed",
             }
         )
 
-    feature_matrix_passed = all(not row["release_blocking"] for row in feature_rows)
+    feature_matrix_passed = args.skip_slow or all(
+        not row["release_blocking"] for row in feature_rows
+    )
     required_validation_passed = args.skip_slow or all(
         not row["release_blocking"] for row in required_rows
     )
     supporting_passed = all(
-        result["status"] == "passed" for result in results if result["group"] == "security_dependency_provenance"
+        result["status"] == "passed"
+        for result in results
+        if result["group"] == "security_dependency_provenance"
     )
     passed = feature_matrix_passed and required_validation_passed and supporting_passed
 
@@ -470,11 +491,15 @@ def main() -> int:
         "pip_audit_python": str(args.pip_audit_python) if args.pip_audit_python else None,
         "clean_conda_required": args.require_clean_conda,
         "conda_executable": str(args.conda_executable) if args.conda_executable else None,
-        "feature_build_matrix_status": "passed" if feature_matrix_passed else "failed",
-        "required_validation_status": "skipped_slow"
+        "feature_build_matrix_status": SKIPPED_SLOW_STATUS
+        if args.skip_slow
+        else ("passed" if feature_matrix_passed else "failed"),
+        "required_validation_status": SKIPPED_SLOW_STATUS
         if args.skip_slow
         else ("passed" if required_validation_passed else "failed"),
-        "supporting_security_dependency_status": "passed" if supporting_passed else "failed",
+        "supporting_security_dependency_status": SKIPPED_SLOW_STATUS
+        if args.skip_slow
+        else ("passed" if supporting_passed else "failed"),
         "feature_build_matrix_rows": feature_rows,
         "required_validation_commands": required_rows,
         "command_results": results,

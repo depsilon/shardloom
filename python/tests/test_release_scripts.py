@@ -9515,6 +9515,34 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertEqual(security_group, "security_dependency_provenance")
         self.assertEqual(security_env, {})
 
+    def test_release_validation_evidence_skip_slow_plans_no_commands(self) -> None:
+        module = self._load_script_module(
+            "run_release_validation_evidence.py",
+            "run_release_validation_evidence_skip_slow_for_test",
+        )
+        args = type(
+            "Args",
+            (),
+            {
+                "skip_slow": True,
+                "pip_audit_python": Path("target/release-audit-venv/bin/python"),
+                "require_clean_conda": False,
+                "conda_executable": None,
+            },
+        )()
+
+        planned, required = module.planned_release_validation_commands(
+            "/tool/python3.12",
+            args,
+        )
+
+        self.assertEqual(planned, [])
+        self.assertTrue(required)
+        self.assertTrue(
+            any(command[0] == "cargo_test_workspace" for command in required),
+            required,
+        )
+
     def test_v1_security_ci_hardening_blocks_missing_pip_audit_and_requires_matrix_lanes(self) -> None:
         module = self._load_script_module(
             "check_v1_security_ci_hardening.py",
