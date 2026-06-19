@@ -29,6 +29,7 @@ ROUTE_RUNTIME_STATUSES = {
     "scoped_runtime_supported",
     "output_route_pending",
     "runtime_expansion_pending",
+    "external_environment_gate_pending",
     "claim_evidence_pending",
     "benchmark_publication_pending",
 }
@@ -54,6 +55,7 @@ REQUIRED_LOCAL_FILE_BENCHMARK_SCENARIO_IDS = {
     "row_number_window",
     "top_n_per_group",
     "clean_cast_filter_write",
+    "malformed_timestamp_cast",
     "partition_pruning",
     "many_small_files_scan",
     "null_heavy_aggregate",
@@ -145,6 +147,12 @@ OUTPUT_OPTION_PATTERNS = {
         "result-sink",
         "replay proof",
         "replay",
+    ),
+    "benchmark_evidence": (
+        "benchmark_evidence",
+        "benchmark evidence",
+        "front-door equivalence artifact",
+        "route-equivalence evidence",
     ),
     "fanout": ("fanout",),
 }

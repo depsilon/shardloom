@@ -2420,6 +2420,7 @@ dependencies = [
  "lending-iterator",
  "orc-rust",
  "parquet",
+ "regex",
  "serde_json",
  "sha2",
  "shardloom-core",

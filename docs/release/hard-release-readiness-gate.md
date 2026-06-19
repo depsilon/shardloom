@@ -553,11 +553,13 @@ activation evidence, runtime-envelope proof, independent reproducibility/correct
 proof, and no-fallback/no-external-engine proof block release readiness through the same canonical
 benchmark validators that protect the website/public bundle. The front-door benchmark publication
 gate, `scripts/check_front_door_benchmark_publication.py`, composes those public artifacts with the
-SQL/Python/DataFrame parity report and keeps performance equivalence
-`blocked_pending_measured_equivalence_artifact` until measured equivalent front-door rows, rerun
-approval, correctness digests, and execution certificates exist. Local runs without the precomputed
-reports fall back to direct manifest scans. The validators inspect static benchmark artifacts only;
-they do not rerun benchmarks.
+SQL/Python/DataFrame parity report and requires the local claim-gated
+`front-door-performance-equivalence.json` artifact before the selected v1 channel is release-ready.
+That artifact must report 27 SQL/Python/DataFrame scenario rows, matched correctness digests, route
+timing fields, `fallback_attempted=false`, and `external_engine_invoked=false`, while keeping
+`performance_equivalence_claim_allowed=false` and public performance/production/replacement claim
+flags false. Local runs without the precomputed reports fall back to direct manifest scans. The
+validators inspect static benchmark artifacts only; they do not rerun benchmarks.
 
 The package-channel matrix uses schema `shardloom.package_channel_readiness_matrix.v1`:
 

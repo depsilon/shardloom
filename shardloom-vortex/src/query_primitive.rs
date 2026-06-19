@@ -109,10 +109,23 @@ pub enum VortexExpressionRewrite {
         needle: String,
         replacement: String,
     },
+    RegexReplaceScalar {
+        target_column: ColumnRef,
+        pattern: String,
+        replacement: String,
+    },
     NumericScalarArithmetic {
         target_column: ColumnRef,
         operator: String,
         operand: StatValue,
+    },
+    ForwardFillNull {
+        target_column: ColumnRef,
+        limit: Option<usize>,
+    },
+    RowNumber {
+        target_column: ColumnRef,
+        start: u64,
     },
 }
 impl VortexExpressionRewrite {
@@ -122,7 +135,10 @@ impl VortexExpressionRewrite {
             Self::MaskScalar { target_column, .. }
             | Self::ReplaceScalar { target_column, .. }
             | Self::StringReplaceScalar { target_column, .. }
-            | Self::NumericScalarArithmetic { target_column, .. } => target_column,
+            | Self::RegexReplaceScalar { target_column, .. }
+            | Self::NumericScalarArithmetic { target_column, .. }
+            | Self::ForwardFillNull { target_column, .. }
+            | Self::RowNumber { target_column, .. } => target_column,
         }
     }
 
@@ -132,7 +148,10 @@ impl VortexExpressionRewrite {
             Self::MaskScalar { .. } => "mask_scalar",
             Self::ReplaceScalar { .. } => "replace_scalar",
             Self::StringReplaceScalar { .. } => "string_replace_scalar",
+            Self::RegexReplaceScalar { .. } => "regex_replace_scalar",
             Self::NumericScalarArithmetic { .. } => "numeric_scalar_arithmetic",
+            Self::ForwardFillNull { .. } => "forward_fill_null",
+            Self::RowNumber { .. } => "row_number",
         }
     }
 }
@@ -349,33 +368,118 @@ impl VortexMeltProjectionRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VortexExplodeProjectionRequest {
     pub column: ColumnRef,
+    pub columns: Vec<ColumnRef>,
+    pub element_field: Option<String>,
+    pub element_output_column: Option<String>,
 }
 impl VortexExplodeProjectionRequest {
     #[must_use]
-    pub const fn new(column: ColumnRef) -> Self {
-        Self { column }
+    pub fn new(column: ColumnRef) -> Self {
+        Self {
+            column: column.clone(),
+            columns: vec![column],
+            element_field: None,
+            element_output_column: None,
+        }
+    }
+
+    #[must_use]
+    pub fn with_columns(mut self, columns: Vec<ColumnRef>) -> Self {
+        self.columns = if columns.is_empty() {
+            vec![self.column.clone()]
+        } else {
+            columns
+        };
+        self.column = self.columns[0].clone();
+        self
+    }
+
+    #[must_use]
+    pub fn with_element_field(mut self, field: String, output_column: String) -> Self {
+        self.element_field = Some(field);
+        self.element_output_column = Some(output_column);
+        self
+    }
+
+    #[must_use]
+    pub fn explode_columns(&self) -> Vec<ColumnRef> {
+        if self.columns.is_empty() {
+            vec![self.column.clone()]
+        } else {
+            self.columns.clone()
+        }
     }
 
     #[must_use]
     pub fn output_columns(&self, projected_columns: &[String]) -> Vec<String> {
+        if self.element_field.is_some() {
+            let output_column = self
+                .element_output_column
+                .clone()
+                .or_else(|| self.element_field.clone())
+                .unwrap_or_else(|| self.column.as_str().to_string());
+            if projected_columns.is_empty() {
+                return vec![output_column];
+            }
+            return projected_columns
+                .iter()
+                .map(|column| {
+                    if column == self.column.as_str() {
+                        output_column.clone()
+                    } else {
+                        column.clone()
+                    }
+                })
+                .collect();
+        }
         if projected_columns.is_empty() {
-            return vec![self.column.as_str().to_string()];
+            return self
+                .explode_columns()
+                .into_iter()
+                .map(|column| column.as_str().to_string())
+                .collect();
         }
         projected_columns.to_vec()
     }
 
     #[must_use]
     pub fn summary(&self) -> String {
-        format!("column={}", self.column.as_str())
+        let columns = self.explode_columns();
+        let base = if columns.len() == 1 {
+            format!("column={}", columns[0].as_str())
+        } else {
+            format!(
+                "columns={}",
+                columns
+                    .iter()
+                    .map(ColumnRef::as_str)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )
+        };
+        if let Some(field) = &self.element_field {
+            format!(
+                "{base};element_field={field};output_column={}",
+                self.element_output_column
+                    .as_deref()
+                    .unwrap_or(field.as_str())
+            )
+        } else {
+            base
+        }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct VortexPivotProjectionRequest {
     pub index_column: ColumnRef,
     pub pivot_column: ColumnRef,
     pub value_column: ColumnRef,
     pub aggregate: String,
+    pub fill_value: Option<StatValue>,
+    pub dropna: bool,
+    pub margins: bool,
+    pub margins_name: String,
 }
 impl VortexPivotProjectionRequest {
     #[must_use]
@@ -390,7 +494,26 @@ impl VortexPivotProjectionRequest {
             pivot_column,
             value_column,
             aggregate: aggregate.into(),
+            fill_value: None,
+            dropna: true,
+            margins: false,
+            margins_name: "All".to_string(),
         }
+    }
+
+    #[must_use]
+    pub fn with_output_policy(
+        mut self,
+        fill_value: Option<StatValue>,
+        dropna: bool,
+        margins: bool,
+        margins_name: impl Into<String>,
+    ) -> Self {
+        self.fill_value = fill_value;
+        self.dropna = dropna;
+        self.margins = margins;
+        self.margins_name = margins_name.into();
+        self
     }
 
     #[must_use]
@@ -405,12 +528,39 @@ impl VortexPivotProjectionRequest {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "index_column={};pivot_column={};value_column={};aggregate={}",
+            "index_column={};pivot_column={};value_column={};aggregate={};fill_value={};dropna={};margins={};margins_name={}",
             self.index_column.as_str(),
             self.pivot_column.as_str(),
             self.value_column.as_str(),
-            self.aggregate
+            self.aggregate,
+            self.fill_value
+                .as_ref()
+                .map_or_else(|| "none".to_string(), stat_value_summary),
+            self.dropna,
+            self.margins,
+            self.margins_name
         )
+    }
+}
+
+fn stat_value_summary(value: &StatValue) -> String {
+    match value {
+        StatValue::Null => "null".to_string(),
+        StatValue::Boolean(value) => value.to_string(),
+        StatValue::Int64(value) => value.to_string(),
+        StatValue::UInt64(value) => value.to_string(),
+        StatValue::Float64(value) => value.to_string(),
+        StatValue::Utf8(value) => {
+            let mut escaped = String::new();
+            for ch in value.chars() {
+                match ch {
+                    '\\' => escaped.push_str("\\\\"),
+                    ';' => escaped.push_str("\\;"),
+                    _ => escaped.push(ch),
+                }
+            }
+            format!("utf8:{escaped}")
+        }
     }
 }
 
@@ -421,6 +571,7 @@ pub struct VortexRollingWindowRequest {
     pub window_size: usize,
     pub min_periods: usize,
     pub aggregate: String,
+    pub center: bool,
 }
 impl VortexRollingWindowRequest {
     #[must_use]
@@ -437,7 +588,14 @@ impl VortexRollingWindowRequest {
             window_size,
             min_periods,
             aggregate,
+            center: false,
         }
+    }
+
+    #[must_use]
+    pub fn with_center(mut self, center: bool) -> Self {
+        self.center = center;
+        self
     }
 
     #[must_use]
@@ -453,12 +611,13 @@ impl VortexRollingWindowRequest {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "source_column={};output_column={};window_size={};min_periods={};aggregate={}",
+            "source_column={};output_column={};window_size={};min_periods={};aggregate={};center={}",
             self.source_column.as_str(),
             self.output_column,
             self.window_size,
             self.min_periods,
-            self.aggregate
+            self.aggregate,
+            self.center
         )
     }
 }
@@ -608,10 +767,28 @@ impl VortexAggregateHavingExpr {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexSortTiePolicy {
+    First,
+    Last,
+    All,
+}
+impl VortexSortTiePolicy {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::First => "first",
+            Self::Last => "last",
+            Self::All => "all",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VortexSortRowsRequest {
     pub order_by: Vec<VortexAggregateOrderExpr>,
     pub offset: usize,
+    pub tie_policy: VortexSortTiePolicy,
 }
 impl VortexSortRowsRequest {
     #[must_use]
@@ -619,12 +796,19 @@ impl VortexSortRowsRequest {
         Self {
             order_by,
             offset: 0,
+            tie_policy: VortexSortTiePolicy::First,
         }
     }
 
     #[must_use]
     pub fn with_offset(mut self, offset: usize) -> Self {
         self.offset = offset;
+        self
+    }
+
+    #[must_use]
+    pub fn with_tie_policy(mut self, tie_policy: VortexSortTiePolicy) -> Self {
+        self.tie_policy = tie_policy;
         self
     }
 
@@ -653,6 +837,9 @@ impl VortexSortRowsRequest {
         )];
         if self.offset > 0 {
             parts.push(format!("offset={}", self.offset));
+        }
+        if self.tie_policy != VortexSortTiePolicy::First {
+            parts.push(format!("tie_policy={}", self.tie_policy.as_str()));
         }
         parts.join(";")
     }
@@ -2120,7 +2307,7 @@ pub fn evaluate_vortex_query_primitive(
         VortexQueryPrimitiveKind::MeltRows => {
             let mut out = VortexQueryPrimitiveResult::needs_encoded_read(
                 request,
-                "melt requires a Vortex scan plus ShardLoom scoped same-typed row expansion at the explicit bounded materialization boundary",
+                "melt requires a Vortex scan plus ShardLoom scoped heterogeneous scalar row expansion at the explicit bounded materialization boundary",
             );
             out.status = VortexQueryPrimitiveStatus::NeedsEncodedRead;
             out.mode = VortexQueryPrimitiveMode::Deferred;

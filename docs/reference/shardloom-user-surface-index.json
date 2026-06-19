@@ -176,6 +176,12 @@
       "write_vortex",
       "fanout"
     ],
+    "scoped_fanout_runtime_methods": {
+      "fanout": "local JSONL/CSV fanout derived from native/prepared Vortex row-export routes with staged multi-target commit, target-level cleanup evidence, fallback_attempted=false, and external_engine_invoked=false"
+    },
+    "scoped_window_runtime_methods": {
+      "rolling": "fixed-row source-order rolling sum/mean/count/min/max with valid-observation min_periods and ShardLoom-native bounded window state"
+    },
     "bounded_inspection_and_materialization": [
       "schema",
       "describe_schema",
@@ -236,9 +242,13 @@
       "sl.rank",
       "sl.dense_rank"
     ],
+    "scoped_null_profile_methods": {
+      "fillna": "schema-declared scalar or per-column literal fill values lower to COALESCE projection rewrites for axis=0/index or projection-equivalent axis=1/columns spellings with inplace=false; fillna(method='ffill', limit=<optional positive int>) lowers to a native source-order forward-fill expression rewrite with bounded state",
+      "fill_null": "alias for the scoped fillna COALESCE projection and forward-fill rewrite profiles"
+    },
     "scoped_conditional_rewrite_methods": {
-      "mask": "typed scalar mask(predicate, scalar) over declared/projection columns through native Vortex expression-project",
-      "replace": "typed full-cell scalar replace(old, new), column-mapped scalar replacement, and in-place UTF-8 with_column(\"col\", col(\"col\").replace(...)) through native Vortex expression-project"
+      "mask": "typed scalar/null mask(predicate, scalar-or-null) over declared/projection columns through native Vortex expression-project",
+      "replace": "typed full-cell scalar/null replace(old, scalar-or-null), column-mapped scalar/null replacement, scoped UTF-8 replace(pattern, replacement, regex=True), and in-place UTF-8 with_column(\"col\", col(\"col\").replace(...)) through native Vortex expression-project"
     },
     "scoped_duplicate_mask_methods": {
       "duplicated": "subset-aware duplicated(..., keep='first'|'last'|False) boolean mask over declared/projection scalar columns through native/prepared Vortex duplicate-mask row-key state"
@@ -258,19 +268,19 @@
       "transform": "mapping-style in-place numeric scalar assignment such as transform({\"amount\": sl.col(\"amount\") + 5}) through the native/prepared Vortex expression-project primitive"
     },
     "scoped_reshape_runtime_methods": {
-      "melt": "explicit id_vars/value_vars flat scalar column-to-row expansion through the native/prepared Vortex melt primitive with same-typed value columns",
-      "explode": "single declared scalar list/fixed-size-list column row expansion through the native/prepared Vortex explode primitive with explicit decode/materialization evidence",
-      "pivot": "single index column, pivot column, and value column wide reshape through the native/prepared Vortex pivot primitive with first-unique duplicate-cell policy",
-      "pivot_table": "single index column, pivot column, and value column aggregate reshape through the native/prepared Vortex pivot primitive with sum/count/mean aggregate kernels"
+      "melt": "explicit id_vars/value_vars flat scalar column-to-row expansion through the native/prepared Vortex melt primitive with heterogeneous scalar value columns and explicit source-order row-number materialization for ignore_index=false",
+      "explode": "single or same-length multi-column declared list/fixed-size-list row expansion with scalar, nullable, list, or struct element values, plus single-level list-of-struct dotted field projection, through the native/prepared Vortex explode primitive with explicit cardinality, null-shape, decode, and materialization evidence",
+      "pivot": "single index column, pivot column, and value column wide reshape through the native/prepared Vortex pivot primitive with first-unique duplicate-cell fail-closed policy and sparse/wide state evidence",
+      "pivot_table": "single index column, pivot column, and value column aggregate reshape through the native/prepared Vortex pivot primitive with sum/count/mean/min/max aggregate kernels plus scoped fill_value/dropna/margins output policy"
     },
     "scoped_window_runtime_methods": {
-      "rolling": "rolling(window=<positive int>, min_periods<=window, center=false).sum/mean/count(column, alias=...) over one scalar source-order column through the native/prepared Vortex rolling-window primitive; sum/mean require numeric inputs and count admits scalar rows"
+      "rolling": "rolling(window=<positive int>, min_periods<=window, center=true|false).sum/mean/count/min/max(column, alias=...) over one scalar source-order column through the native/prepared Vortex rolling-window primitive; sum/mean/min/max require numeric inputs, count admits scalar rows, and centered windows use bounded lookahead evidence"
     },
     "deterministic_blocker_methods": [
-      "broad_nullable_nested_or_multi_column_explode_variants",
+      "multi_level_nested_field_accessor_explode_variants",
       "broad_multi_index_multi_value_or_custom_aggregate_pivot_variants",
       "wide_schema_pivot_jsonl_csv_export_contract",
-      "broad_rolling_time_calendar_centered_or_callable_variants",
+      "broad_rolling_time_calendar_custom_or_callable_variants",
       "nested_or_hidden_index_duplicate_equality_variants",
       "broad_mask_variants",
       "broad_replace_variants",

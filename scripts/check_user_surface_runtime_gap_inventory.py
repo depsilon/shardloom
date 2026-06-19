@@ -36,6 +36,7 @@ CLASSIFICATIONS = {
     "runtime_available_needs_output_route",
     "runtime_available_needs_claim_evidence",
     "true_runtime_expansion_item",
+    "external_environment_gate",
     "policy_rejected",
 }
 
@@ -61,10 +62,10 @@ DOC_STATUS_FILES = (
 
 FRONT_DOOR_GAP_ROUTES: dict[str, dict[str, str]] = {
     "object_store_lakehouse_catalog": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "object_store_or_table_source_to_vortex_pending",
-        "runtime_route": "object-store/table runtime, commit, rollback, and catalog work pending",
-        "output_or_evidence_route": "blocked diagnostic or report-only evidence until runtime lands",
+        "classification": "external_environment_gate",
+        "vortex_normalization_point": "local_fixture_manifest_to_vortex_normalized_route_supported; real_object_store_or_table_source_to_vortex_requires_external_environment",
+        "runtime_route": "local-emulator object-store and local table-manifest fixtures are supported; credentialed cloud/catalog/table runtime requires maintainer-provided environments",
+        "output_or_evidence_route": "local fixture evidence today; deterministic external-environment gate for S3/GCS/ADLS/catalog/Foundry production proof",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog",
     },
     "arbitrary_sql_python_dataframe_breadth": {
@@ -73,13 +74,6 @@ FRONT_DOOR_GAP_ROUTES: dict[str, dict[str, str]] = {
         "runtime_route": "broad SQL grammar, expression registry, DataFrame API, UDF, and effect policy pending",
         "output_or_evidence_route": "deterministic diagnostic until broad semantic/runtime evidence lands",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
-    },
-    "performance_equivalence": {
-        "classification": "runtime_available_needs_claim_evidence",
-        "vortex_normalization_point": "route_specific_vortex_boundary_required_in_benchmark_manifest",
-        "runtime_route": "scoped shared runtime paths exist for admitted rows",
-        "output_or_evidence_route": "front-door equivalent benchmark manifest and claim evidence pending",
-        "owner": "GAR-RUNTIME-IMPL-6D:last_order.performance_equivalence",
     },
 }
 
@@ -136,10 +130,10 @@ RUNS_TODAY_GAP_ROUTES: dict[str, dict[str, str]] = {
         "owner": "GAR-RUNTIME-IMPL-6D:vortex_middle_public_local_workflow",
     },
     "input_object_store_cloud": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "credentialed_object_store_source_to_vortex_pending",
-        "runtime_route": "cloud object-store runtime and credential policy pending",
-        "output_or_evidence_route": "blocked diagnostic until credentialed runtime lands",
+        "classification": "external_environment_gate",
+        "vortex_normalization_point": "credentialed_object_store_source_to_vortex_requires_external_environment",
+        "runtime_route": "local object-store fixtures exist; real cloud object-store runtime requires credentials and approved backend profiles",
+        "output_or_evidence_route": "deterministic credential/environment gate until maintainer provides S3/GCS/ADLS-compatible proof target",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.object_store_runtime",
     },
     "execution_report_only_surfaces": {
@@ -180,20 +174,20 @@ RUNS_TODAY_GAP_ROUTES: dict[str, dict[str, str]] = {
         "owner": "release.package_publication_gate",
     },
     "claim_object_store_lakehouse_foundry_production": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "platform_or_table_source_to_vortex_pending",
-        "runtime_route": "object-store/lakehouse/Foundry production runtime pending",
-        "output_or_evidence_route": "platform production evidence pending",
+        "classification": "external_environment_gate",
+        "vortex_normalization_point": "platform_or_table_source_to_vortex_requires_external_environment",
+        "runtime_route": "local object-store/table/Foundry-shaped fixtures exist; production platform proof requires real environments",
+        "output_or_evidence_route": "external production evidence gate pending maintainer-provided cloud/catalog/Foundry targets",
         "owner": "platform.production_integration_evidence_required",
     },
 }
 
 WEBSITE_STATUS_ROUTES: dict[str, dict[str, str]] = {
     "iceberg-delta-hudi": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "lakehouse_table_source_to_vortex_pending",
-        "runtime_route": "Iceberg/Delta/Hudi production runtime and commits pending",
-        "output_or_evidence_route": "blocked diagnostic and local rehearsal evidence only",
+        "classification": "external_environment_gate",
+        "vortex_normalization_point": "local_table_manifest_to_vortex_supported; production_lakehouse_source_to_vortex_requires_external_environment",
+        "runtime_route": "local manifest/table rehearsal evidence exists; Iceberg/Delta/Hudi production commits require real protocol/environment proof",
+        "output_or_evidence_route": "local rehearsal evidence plus deterministic external production gate",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.lakehouse_table_runtime",
     },
     "package-release": {
@@ -225,7 +219,7 @@ WEBSITE_STATUS_ROUTES: dict[str, dict[str, str]] = {
         "classification": "true_runtime_expansion_item",
         "vortex_normalization_point": "front_door_expression_to_vortex_plan_pending",
         "runtime_route": "scoped local runtime exists; broad SQL/DataFrame parity pending",
-        "output_or_evidence_route": "diagnostic/evidence/local fanout today; broad route evidence pending",
+        "output_or_evidence_route": "scoped local JSONL/CSV fanout has staged commit evidence; non-local/effectful fanout remains output-policy gated",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
     },
 }
@@ -560,7 +554,6 @@ def front_door_gap_rows(repo_root: Path) -> tuple[list[dict[str, Any]], list[str
                 runtime_execution=bool(row["runtime_execution"]),
                 benchmark_range=row_id in {
                     "arbitrary_sql_python_dataframe_breadth",
-                    "performance_equivalence",
                 },
                 user_visible_refs=[
                     "python/src/shardloom/context.py:FRONT_DOOR_PARITY_ROWS",

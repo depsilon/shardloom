@@ -15,6 +15,11 @@ const dashboard = (benchmark as any).comparative_dashboard ?? {};
 const publishedRows = Array.isArray((benchmark as any).published_benchmark_rows) ? (benchmark as any).published_benchmark_rows : [];
 const batchRows = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
 const publicFrontDoorRows = Array.isArray((benchmark as any).public_front_door_benchmark_rows) ? (benchmark as any).public_front_door_benchmark_rows : [];
+const frontDoorEquivalence = ((benchmark as any).front_door_performance_equivalence ?? {}) as Record<string, any>;
+const frontDoorEquivalenceRows = Array.isArray((benchmark as any).front_door_performance_equivalence_rows) ? (benchmark as any).front_door_performance_equivalence_rows : [];
+const frontDoorEquivalenceScenarioRows = Array.from(
+  new Map(frontDoorEquivalenceRows.map((row: any) => [String(row.scenario_id ?? ""), row])).values(),
+).filter((row: any) => row?.scenario_id);
 const shardloomRows = publishedRows.filter((row: any) => String(row.engine ?? "").startsWith("shardloom"));
 const sourceStateRows = batchRows.filter((row: any) => row.source_state_coverage_matrix);
 const manifestAny = manifest as any;
@@ -64,6 +69,21 @@ function percent(value: number | null, max: number): string {
 
 function rowValue(row: Record<string, unknown>, key: string, fallback = "not reported"): string {
   return textValue(row[key], fallback);
+}
+
+function formatMsValue(value: unknown): string {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return "not reported";
+  if (parsed === 0) return "0 ms";
+  if (parsed < 0.01) return `${parsed.toFixed(4)} ms`;
+  if (parsed < 10) return `${parsed.toFixed(3)} ms`;
+  return `${parsed.toFixed(2)} ms`;
+}
+
+function shortDigest(value: unknown): string {
+  const text = textValue(value, "");
+  if (!text) return "not reported";
+  return text.length > 22 ? `${text.slice(0, 22)}...` : text;
 }
 
 function routeCardId(route: string): string {
@@ -573,6 +593,53 @@ const localOutputSinkScopeRef = {
       <p class="table-note">Local output support is scoped by {localOutputSinkScopeRef.source}; feature-gated sinks remain local artifact evidence.</p>
     </div>
     <p class="table-note">Schema: {publicFrontDoorTable.schema_version ?? "not reported"}. Boundary: {publicFrontDoorTable.claim_boundary ?? "not reported"}.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Front-door equivalence</p>
+    <h2>SQL, Python, and DataFrame rows share the same local Vortex route.</h2>
+    <p class="narrow">
+      This is a scoped local technical-preview artifact, not a public performance claim. It records route timing fields, correctness digests, and no-fallback evidence for the same benchmark scenario set across the three public front doors.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <div class="strip mini-strip embedded-strip">
+      <div class="metric"><strong>{textValue(frontDoorEquivalence.status)}</strong><span>artifact status</span></div>
+      <div class="metric"><strong>{textValue(frontDoorEquivalence.row_count)}</strong><span>front-door rows</span></div>
+      <div class="metric"><strong>{textValue(frontDoorEquivalence.timing_surface)}</strong><span>timing surface</span></div>
+      <div class="metric"><strong>{textValue(frontDoorEquivalence.actual_evidence_tier)}</strong><span>evidence tier</span></div>
+    </div>
+    <div class="readiness-groups" aria-label="Front-door equivalence claim boundary">
+      <div>
+        <span>Claims</span>
+        <div>
+          <span class="badge-count"><span class:list={["status-chip", statusClass(frontDoorEquivalence.front_door_performance_equivalence_status)]}>{textValue(frontDoorEquivalence.front_door_performance_equivalence_status)}</span><span>local only</span></span>
+          <span class="badge-count"><span class:list={["status-chip", statusClass(frontDoorEquivalence.front_door_performance_equivalence_claim_allowed ? "claim_allowed" : "claim_blocked")]}>{frontDoorEquivalence.front_door_performance_equivalence_claim_allowed ? "claim_allowed" : "claim_blocked"}</span><span>performance claim</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="table-wrap compact-table">
+      <table>
+        <thead>
+          <tr><th>Scenario</th><th>Route total</th><th>Query</th><th>Amortized prep</th><th>Sink</th><th>Digest</th></tr>
+        </thead>
+        <tbody>
+          {frontDoorEquivalenceScenarioRows.map((row: any) => (
+            <tr>
+              <td>{row.scenario_id}</td>
+              <td>{formatMsValue(row.route_total_ms)}</td>
+              <td>{formatMsValue(row.query_runtime_millis)}</td>
+              <td>{formatMsValue(row.preparation_millis)}</td>
+              <td>{formatMsValue(row.result_sink_millis)}</td>
+              <td><code>{shortDigest(row.correctness_digest)}</code></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">{textValue(frontDoorEquivalence.claim_boundary)} Artifact: {textValue(frontDoorEquivalence.artifact_path)}.</p>
   </div>
 </section>
 

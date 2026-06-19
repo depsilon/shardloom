@@ -19,6 +19,7 @@
     "sort_and_window",
     "etl_write",
     "messy_lakehouse_data",
+    "dirty_input_validation",
     "incremental_state",
     "operational_cache_concurrency"
   ],
@@ -277,6 +278,17 @@
       "executable": true,
       "dataset_profiles": ["dirty_csv"],
       "description": "Parse deterministic malformed timestamp and numeric fixture columns, counting valid rows without promoting write-path support."
+    },
+    {
+      "id": "malformed_timestamp_cast",
+      "name": "malformed timestamp / dirty CSV",
+      "suite": "etl_workflows",
+      "category": "dirty_input_validation",
+      "default": false,
+      "stress": false,
+      "executable": true,
+      "dataset_profiles": ["dirty_csv", "schema_drift"],
+      "description": "Validate fail-closed timestamp cast behavior through the public local workflow route while preserving no-fallback evidence."
     },
     {
       "id": "small_change_over_large_base",

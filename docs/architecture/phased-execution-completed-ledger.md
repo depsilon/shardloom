@@ -16,6 +16,234 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: RUNTIME-CLOSEOUT-4 front-door performance-equivalence artifact closeout
+  - Date: 2026-06-19
+  - Branch/PR: `codex/runtime-null-rewrite-closeout` / PR pending.
+  - Source:
+    - Phase-plan `RUNTIME-CLOSEOUT-4` front-door performance-equivalence benchmark evidence.
+  - Scope:
+    - Added `scripts/run_front_door_performance_equivalence.py`, a sequential local artifact
+      generator for the nine benchmark ETL scenarios across SQL, Python, and DataFrame front-door
+      surface strings. The generator runs the prepared Vortex batch route, writes
+      `target/front-door-performance-equivalence.json`, mirrors the current artifact into
+      `website/assets/benchmarks/latest/front-door-performance-equivalence.json` and
+      `website-public/assets/benchmarks/latest/front-door-performance-equivalence.json`, and
+      updates benchmark manifests/data mirrors.
+    - Regenerated the scoped artifact with `profile_order=debug,release` after building the local
+      CLI with `vortex-traditional-analytics-benchmark`. The artifact reports 27 rows, one for
+      each SQL/Python/DataFrame front door across the nine scenario set, with matched correctness
+      digests, `timing_surface=hot_runtime`, `actual_evidence_tier=metadata_sink`, amortized
+      prepared-state timing, scenario query/runtime timing, and no-fallback/no-external-engine
+      evidence.
+    - Promoted the front-door `performance_equivalence` parity row from pending to admitted
+      local evidence while preserving `front_door_performance_equivalence_claim_allowed=false`,
+      `performance_claim_allowed=false`, `production_claim_allowed=false`, and
+      `spark_replacement_claim_allowed=false`.
+    - Updated benchmark publication, parity, v1 front-door, user-route, release-readiness, and
+      route-gap validators/tests to require the local artifact and keep public claims blocked.
+    - Added the public `malformed_timestamp_cast` route/catalog ID and retained the older
+      `malformed_timestamp_dirty_csv` catalog row for compatibility.
+    - Updated architecture/release docs and the benchmark website dashboard so the front-door
+      equivalence artifact is visible with timing surface, evidence tier, claim boundary, route
+      totals, and correctness digests instead of being presented as missing or claim-grade.
+  - Evidence:
+    - `cargo build -p shardloom-cli --features vortex-traditional-analytics-benchmark` passed.
+    - `python3 scripts/run_front_door_performance_equivalence.py --update-website --profile-order debug,release`
+      passed and wrote 27 claim-gated local rows.
+    - `python3 scripts/check_user_route_capability_report.py --output target/user-route-capability-report.json`
+      passed.
+    - `python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json`
+      passed.
+    - `python3 scripts/check_front_door_benchmark_publication.py --allow-stale-git --allow-dirty-worktree --allow-incomplete`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_user_route_capability_report python.tests.test_sql_python_dataframe_parity python.tests.test_front_door_benchmark_publication python.tests.test_user_surface_runtime_gap_inventory`
+      passed.
+    - `npm run build` in `website-src/` passed and refreshed `website/` plus `website-public/`
+      static benchmark pages/assets.
+  - Claim boundary:
+    - This is scoped local SQL/Python/DataFrame route-equivalence evidence only. It does not
+      authorize public performance, production, superiority, Spark-displacement, broad
+      SQL/DataFrame compatibility, object-store/table/catalog, or Foundry claims.
+  - Fallback boundary:
+    - The admitted artifact rows preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`; external baselines remain comparison-only and are not
+      ShardLoom execution paths.
+
+- [x] Session label: RUNTIME-CLOSEOUT-7 centered/window, forward-fill, and dotted explode closeout
+  - Date: 2026-06-19
+  - Branch/PR: `codex/runtime-null-rewrite-closeout` / PR pending.
+  - Source:
+    - Phase-plan `RUNTIME-CLOSEOUT-7` remaining scoped reshape, rolling/window, and null-profile
+      runtime expansion items.
+  - Scope:
+    - Added native/prepared Vortex centered fixed-row rolling support with an explicit `center`
+      request field, bounded lookahead state, EOF flush behavior, JSONL row-export evidence, and
+      Python query-builder route coverage. Time/calendar windows and arbitrary custom frames remain
+      future contracts because they require ordering, timezone/frame, and spill semantics not
+      implied by the fixed-row route.
+    - Added a stateful `forward_fill_null` native expression-project rewrite and Python
+      `fillna(method="ffill", limit=<optional positive int>)` / `fill_null(...)` lowering over
+      declared/projection columns. The implementation carries per-column last-value state across
+      Vortex chunks and never calls pandas/Polars/DuckDB/Spark/DataFusion. Backfill and broader
+      method/limit result-shape variants remain future contracts requiring bounded lookahead or
+      dynamic output-shape evidence.
+    - Added scoped single-level `explode("items.field")` list-of-struct field projection through
+      the existing native/prepared Vortex explode primitive. The route scans the source list column,
+      projects the named struct field into an explicit output column, preserves companion columns,
+      and reports decode/materialization/no-fallback evidence. Recursive/multi-level nested access
+      remains a future contract boundary.
+    - Updated capability matrices, v1 runtime scope docs, SQL/Python/DataFrame parity docs, README,
+      and the user-surface reference index so admitted surfaces and deterministic future boundaries
+      are not conflated.
+  - Evidence:
+    - `cargo check -p shardloom-vortex --features vortex-local-primitives` passed.
+    - `cargo check -p shardloom-cli` passed.
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives rolling_window --lib`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives expression_project_row_export_ --lib`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives explode_row_export_writes_ --lib`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_rolling_sum_routes_through_prepared_vortex_rolling_window python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_rolling_mean_count_min_max_route_through_prepared_vortex`
+      passed for the rolling route tests.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_explode_routes_through_prepared_vortex_explode python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_forward_fill_routes_through_prepared_vortex_expression_project`
+      passed.
+    - `python3 scripts/check_python_user_surface_completion.py` passed.
+    - `python3 scripts/check_sql_python_dataframe_parity.py` passed.
+
+- [x] Session label: RUNTIME-CLOSEOUT-6/7/8 runtime surface reconciliation and reshape expansion
+  - Date: 2026-06-19
+  - Branch/PR: `codex/runtime-null-rewrite-closeout` / PR pending.
+  - Source:
+    - Phase-plan `RUNTIME-CLOSEOUT-6`, `RUNTIME-CLOSEOUT-7`, `RUNTIME-CLOSEOUT-8`, and
+      duplicated `RUNTIME-CLOSEOUT-5` local object-store/table closeout rows.
+  - Scope:
+    - Closed `RUNTIME-CLOSEOUT-6` ledger movement for the shared typed row-key/order-state family:
+      nested/list/struct row-key equality, visible row-number projection, and deterministic
+      top/bottom-N `keep="last"|"all"` are represented as admitted scoped runtime surfaces, while
+      hidden pandas-style indexes remain a scoped product boundary.
+    - Expanded the native/prepared Vortex explode primitive from one declared list column to
+      same-length multi-column list/fixed-size-list explode. The runtime validates per-row
+      cardinality, preserves companion columns, represents nullable list rows as explicit null
+      output elements, serializes scalar/list/struct element values through the shared typed
+      `ScalarValue` model, writes JSONL/CSV through the existing primitive row-export path, and
+      reports explicit decode/materialization/no-fallback evidence.
+    - Promoted scoped `pivot_table` output policy: `fill_value`, `dropna`, `margins`, and
+      `margins_name` now flow from Python payloads through the CLI parser into the Vortex pivot
+      row-export primitive for the admitted single-index/single-value aggregate family.
+    - Admitted projection-equivalent `axis=1`/`columns` spellings for schema-declared scalar and
+      per-column literal `fillna`/`fill_null`, preserving the existing COALESCE rewrite path and
+      no-fallback boundary while leaving broad pandas result-shape and method/limit fill profiles
+      as explicit future contracts.
+    - Strengthened scoped native/prepared Vortex JSONL/CSV fanout: multi-target row export now
+      stages every target before final commit, commits with same-directory atomic renames, records
+      target-level commit/cleanup/fidelity evidence, and preserves no-fallback/no-external-engine
+      envelope fields.
+    - Tightened fixed-row rolling window null semantics: rolling sum/mean/count/min/max now track
+      valid observations separately from frame length, skip null values for aggregate state, and
+      require `min_periods` valid observations before emitting rows.
+    - Reconciled the typed UDF/effect-policy item with existing supported and gated surfaces: the
+      safe `sl_fixture_double_i64` typed scalar UDF fixture remains admitted through native
+      expression-project lowering, while arbitrary Python callables, plugins, filesystem/network
+      effects, secret/environment/process access, and untrusted sandbox execution remain
+      deterministic unsupported boundaries covered by the sandbox/effect governance reports.
+    - Reconciled the duplicated object-store/lakehouse/catalog closeout row with existing
+      `PROD-READY-1B/1C` local fixture evidence and the already-ledgered external-environment gate
+      split. Local/emulated object-store/table fixture surfaces remain separate from real
+      credentialed cloud/catalog/Foundry production claims.
+    - Updated capability matrices, future-contract classifications, v1 front-door runtime scope,
+      SQL/Python/DataFrame parity docs, and the user-surface reference index to reflect the current
+      runtime boundary.
+  - Evidence:
+    - `python3 -m compileall -q python/src/shardloom python/tests/test_query_builder.py scripts`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_explode_routes_through_prepared_vortex_explode`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_missing_dataframe_affordances_return_report_only_unsupported`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_pivot_table_routes_through_prepared_vortex_pivot`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives explode_row_export_writes_ --lib`
+      passed for scalar, same-length multi-column, and nullable nested explode row export
+      regressions.
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives pivot_row_export_writes_fill_and_margins_without_fallback --lib`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives pivot_row_export_writes_sparse_wide_rows_without_fallback --lib`
+      passed.
+    - `cargo test -p shardloom-cli --bin shardloom parse_explode_payload` passed.
+    - `cargo check -p shardloom-cli --bin shardloom` passed.
+    - `cargo test -p shardloom-cli --test public_workflow_route native_vortex_primitive_row_export -- --nocapture`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_fanout_routes_through_prepared_vortex_row_export python.tests.test_query_builder.LazyWorkflowBuilderTests.test_vortex_query_builder_fanout_uses_primitive_row_export`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives rolling_window_values_use_valid_observation_min_periods_without_fallback --lib`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-runtime-closeout-current.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-runtime-closeout-current.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-runtime-closeout-current.json`
+      passed with `shardloom_benchmark_unsupported_rows=0`.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_reference.py` passed.
+  - Claim boundary:
+    - Scoped same-length multi-column list/fixed-size-list explode with scalar, nullable, list, and
+      struct element values plus scoped pivot/pivot_table output-policy profiles are admitted
+      runtime surfaces. This does not claim broad pandas/Polars reshape, dotted nested-field
+      accessor expansion, hidden-index parity, calendar rolling windows, arbitrary UDFs,
+      production cloud/catalog/table behavior, or benchmark performance equivalence.
+  - Fallback boundary:
+    - No pandas, Polars, DuckDB, Spark, DataFusion, Velox, Vortex query-engine integration, or
+      external engine fallback is used. Unsupported callable/effect/nested/platform paths remain
+      deterministic no-fallback diagnostics.
+
+- [x] Session label: RUNTIME-CLOSEOUT scalar/null rewrites, front-door constitution, and external
+      I/O gate split
+  - Date: 2026-06-19
+  - Branch/PR: `codex/runtime-null-rewrite-closeout` / PR pending.
+  - Source:
+    - Phase-plan `RUNTIME-CLOSEOUT-3`, `RUNTIME-CLOSEOUT-4`, and `RUNTIME-CLOSEOUT-5` follow-up
+      after scoped semantic surface and native Vortex route unification closeout.
+  - Scope:
+    - Promoted scoped `mask(..., other=None)` and `replace(..., value=None)` through the
+      native/prepared Vortex expression-project runtime by adding typed JSON null payload support
+      across the Python payload builder, CLI parser, and Vortex local primitive coercion path.
+    - Updated DataFrame future-contract IDs and capability docs so null rewrites are no longer
+      represented as unsupported while alignment/callable/nested/method-limit/mixed-dtype variants
+      remain explicit future contracts.
+    - Added `docs/architecture/front-door-performance-equivalence-constitution.json` and wired the
+      front-door benchmark publication validator/tests to require the shared
+      `native_vortex_unified_plan` runtime family, explicit hot-runtime timing surface, timing
+      fields, and evidence fields before any measured equivalence claim can be made.
+    - Split local object-store/table/Foundry-shaped fixture support from real S3/GCS/ADLS,
+      managed-catalog, production table-commit, and Foundry production proof. Capability/parity
+      rows now use `external_environment_gate_pending` for real external environments instead of a
+      generic runtime-expansion label.
+    - Promoted the broad semantic residuals that need shared row-key/order-state, reshape/window
+      state, fanout atomicity, or typed UDF/effect contracts into `RUNTIME-CLOSEOUT-6`,
+      `RUNTIME-CLOSEOUT-7`, and `RUNTIME-CLOSEOUT-8` in the phase plan.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_sql_python_dataframe_parity python.tests.test_user_surface_runtime_gap_inventory python.tests.test_front_door_benchmark_publication python.tests.test_v1_front_door_runtime_scope python.tests.test_user_route_capability_report.UserRouteCapabilityReportTests.test_current_route_report_names_vortex_boundaries_and_no_fallback python.tests.test_cli_client.ShardLoomClientTests.test_context_front_door_parity_matrix_exposes_broad_gaps`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_mask_routes_through_prepared_vortex_expression_project python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_replace_write_jsonl_routes_through_prepared_vortex_expression_project python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_string_replace_with_column_routes_through_expression_project`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-runtime-closeout.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-runtime-closeout.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-runtime-closeout.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_front_door_benchmark_publication.py --allow-stale-git --allow-dirty-worktree --output target/front-door-benchmark-publication-runtime-closeout.json`
+      passed.
+  - Claim boundary:
+    - Scoped scalar/null expression-project rewrites are admitted through ShardLoom/Vortex-native
+      routes. The new front-door equivalence constitution is local benchmark design evidence only;
+      it is not a measured performance-equivalence, superiority, Spark-displacement, or production
+      claim. Real cloud/catalog/table/Foundry production behavior remains externally gated.
+  - Fallback boundary:
+    - No pandas, Polars, DuckDB, Spark, DataFusion, Velox, Vortex query-engine integration, or
+      external engine fallback is used by the admitted surfaces. External-environment rows remain
+      deterministic no-fallback gates.
+
 - [x] Session label: RUNTIME-CLOSEOUT-claim-surface scoped semantic claim matrix
   - Date: 2026-06-19
   - Branch/PR: `codex/runtime-semantic-surface-closeout` / PR pending.

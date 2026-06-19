@@ -1398,10 +1398,10 @@ def main() -> int:
             front_door_benchmark_publication.get(
                 "front_door_performance_publication_status"
             )
-            != "blocked_pending_measured_equivalence_artifact"
+            != "local_equivalence_evidence_present_claim_gated"
         ):
             front_door_publication_blockers.append(
-                "front-door benchmark publication status must stay blocked pending measured equivalence artifact"
+                "front-door benchmark publication status must report local claim-gated equivalence evidence"
             )
         if (
             front_door_benchmark_publication.get(
@@ -1416,8 +1416,6 @@ def main() -> int:
             "performance_claim_allowed",
             "production_claim_allowed",
             "spark_replacement_claim_allowed",
-            "benchmark_run_performed",
-            "benchmark_rerun_approved",
             "publication_attempted",
             "fallback_attempted",
             "external_engine_invoked",
@@ -1425,6 +1423,16 @@ def main() -> int:
             if front_door_benchmark_publication.get(field) is not False:
                 front_door_publication_blockers.append(
                     f"front-door benchmark publication {field} must be false"
+                )
+        for field in [
+            "benchmark_run_performed",
+            "benchmark_rerun_approved",
+            "laptop_safe_sequential_controls_confirmed",
+            "measured_front_door_equivalence_artifact_present",
+        ]:
+            if front_door_benchmark_publication.get(field) is not True:
+                front_door_publication_blockers.append(
+                    f"front-door benchmark publication {field} must be true"
                 )
         if (
             int(
@@ -1440,7 +1448,7 @@ def main() -> int:
             )
         if not front_door_benchmark_publication.get("publication_admission_blockers"):
             front_door_publication_blockers.append(
-                "front-door benchmark publication must list admission blockers"
+                "front-door benchmark publication must list claim-gating blockers"
             )
     checks.append(
         check(
@@ -1694,9 +1702,9 @@ def main() -> int:
             )
         if len(v1_vortex_runtime_scope.get("supported_primitive_route_ids", [])) != 11:
             v1_vortex_blockers.append("v1 Vortex primitive route coverage must contain 11 rows")
-        if len(v1_vortex_runtime_scope.get("supported_benchmark_scenario_ids", [])) != 15:
+        if len(v1_vortex_runtime_scope.get("supported_benchmark_scenario_ids", [])) != 16:
             v1_vortex_blockers.append(
-                "v1 Vortex benchmark scenario coverage must contain 15 rows"
+                "v1 Vortex benchmark scenario coverage must contain 16 rows"
             )
         if "object_store_vortex_io" not in set(
             v1_vortex_runtime_scope.get("unsupported_boundary_ids", [])

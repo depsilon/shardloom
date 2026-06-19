@@ -27,7 +27,7 @@ def load_gate_module():
 
 
 class FrontDoorBenchmarkPublicationTests(unittest.TestCase):
-    def test_current_repo_gate_is_fail_closed_without_running_benchmarks(self) -> None:
+    def test_current_repo_gate_reports_local_equivalence_evidence_claim_gated(self) -> None:
         module = load_gate_module()
 
         report = module.build_report(
@@ -39,21 +39,38 @@ class FrontDoorBenchmarkPublicationTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed", report["blockers"])
         self.assertEqual(
             report["front_door_performance_publication_status"],
-            "blocked_pending_measured_equivalence_artifact",
+            "local_equivalence_evidence_present_claim_gated",
         )
         self.assertEqual(report["claim_gate_status"], "not_claim_grade")
         self.assertFalse(report["front_door_performance_equivalence_claim_allowed"])
         self.assertFalse(report["performance_claim_allowed"])
-        self.assertFalse(report["benchmark_run_performed"])
-        self.assertFalse(report["benchmark_rerun_approved"])
+        self.assertTrue(report["benchmark_run_performed"])
+        self.assertTrue(report["benchmark_rerun_approved"])
+        self.assertTrue(report["laptop_safe_sequential_controls_confirmed"])
+        self.assertTrue(report["measured_front_door_equivalence_artifact_present"])
         self.assertFalse(report["publication_attempted"])
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
         self.assertTrue(report["scoped_local_front_door_parity_supported"])
-        self.assertIn("performance_equivalence", report["parity_remaining_gap_row_ids"])
+        self.assertEqual(report["front_door_equivalence_artifact_status"], "passed")
+        self.assertEqual(report["front_door_equivalence_artifact_row_count"], 27)
+        self.assertEqual(
+            report["front_door_equivalence_constitution_status"],
+            "local_constitution_ready",
+        )
+        self.assertEqual(report["front_door_equivalence_constitution_workload_count"], 9)
+        self.assertIn(
+            "front_door_lowering_overhead_millis",
+            report["front_door_equivalence_constitution_timing_fields"],
+        )
+        self.assertIn(
+            "native_vortex_unified_plan_contract",
+            report["front_door_equivalence_constitution_evidence_fields"],
+        )
+        self.assertNotIn("performance_equivalence", report["parity_remaining_gap_row_ids"])
         self.assertEqual(report["public_front_door_benchmark_row_count"], 2)
         self.assertIn(
-            "measured_sql_python_dataframe_front_door_rows",
+            "public_claim_review_for_front_door_performance_equivalence",
             report["missing_claim_grade_evidence"],
         )
         self.assertTrue(report["publication_admission_blockers"])
@@ -114,7 +131,7 @@ class FrontDoorBenchmarkPublicationTests(unittest.TestCase):
             any("claim_gate_status" in blocker for blocker in report["blockers"])
         )
         self.assertTrue(
-            any("benchmark_publication_pending" in blocker for blocker in report["blockers"])
+            any("performance_equivalence_claim_allowed" in blocker for blocker in report["blockers"])
         )
 
 

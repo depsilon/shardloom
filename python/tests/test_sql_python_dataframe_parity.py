@@ -45,13 +45,13 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             "arbitrary_sql_python_dataframe_breadth",
             report["v1_supported_row_ids"],
         )
-        self.assertIn("performance_equivalence", report["v1_pending_row_ids"])
+        self.assertIn("performance_equivalence", report["v1_supported_row_ids"])
         self.assertIn("selective_filter", report["v1_example_scenario_ids"])
         self.assertEqual(report["v1_expected_error_scenario_ids"], [])
         self.assertFalse(report["flexible_anything_claim_allowed"])
         self.assertFalse(report["performance_equivalence_claim_allowed"])
-        self.assertEqual(report["admitted_row_count"], 9)
-        self.assertEqual(report["remaining_gap_count"], 2)
+        self.assertEqual(report["admitted_row_count"], 10)
+        self.assertEqual(report["remaining_gap_count"], 1)
         self.assertEqual(report["dataframe_method_blocker_count"], 0)
         self.assertEqual(report["dataframe_method_pending_or_unsupported_count"], 0)
         self.assertEqual(report["dataframe_named_runtime_surface_status"], "passed")
@@ -123,13 +123,13 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             "cg21.workflow.map_rows.python_callable_or_row_udf_unsupported",
             report["dataframe_future_contract_blocker_ids"],
         )
-        self.assertEqual(report["dataframe_future_contract_classification_count"], 27)
-        self.assertEqual(report["dataframe_future_contract_repo_feasible_count"], 18)
+        self.assertEqual(report["dataframe_future_contract_classification_count"], 22)
+        self.assertEqual(report["dataframe_future_contract_repo_feasible_count"], 13)
         self.assertEqual(report["dataframe_future_contract_unsafe_callable_count"], 6)
         self.assertEqual(
             report["dataframe_future_contract_classification_counts"],
             {
-                "repo_feasible_contract_needed": 18,
+                "repo_feasible_contract_needed": 13,
                 "scoped_product_boundary": 3,
                 "unsafe_callable_boundary": 6,
             },
@@ -186,7 +186,21 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             report["remaining_gap_row_ids"],
         )
         self.assertIn("object_store_lakehouse_catalog", report["remaining_gap_row_ids"])
-        self.assertIn("performance_equivalence", report["remaining_gap_row_ids"])
+        self.assertNotIn("performance_equivalence", report["remaining_gap_row_ids"])
+        object_store = next(
+            row
+            for row in report["rows"]
+            if row["row_id"] == "object_store_lakehouse_catalog"
+        )
+        self.assertEqual(
+            object_store["runtime_gap_status"],
+            "external_environment_gate_pending",
+        )
+        self.assertEqual(
+            object_store["support_status"],
+            "external_production_io_gate_pending",
+        )
+        self.assertIn("Local object-store/table", object_store["claim_boundary"])
         local = next(
             row
             for row in report["rows"]
@@ -254,7 +268,10 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             for row in report["rows"]
             if row["row_id"] == "performance_equivalence"
         )
-        self.assertEqual(performance["runtime_gap_status"], "benchmark_publication_pending")
+        self.assertEqual(performance["runtime_gap_status"], "admitted_scope")
+        self.assertEqual(performance["parity_status"], "equivalent_admitted_scope")
+        self.assertIsNone(performance["blocker_id"])
+        self.assertIn("no_benchmark_claim", performance["performance_equivalence_status"])
 
     def test_parity_validator_rejects_overclaimed_or_fallback_rows(self) -> None:
         module = load_parity_module()
@@ -282,9 +299,10 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             )
             for row_id in module.REQUIRED_ADMITTED_ROWS
         ]
+        rows = [row for row in rows if row.row_id != "object_store_lakehouse_catalog"]
         rows.append(
             SimpleNamespace(
-                row_id="performance_equivalence",
+                row_id="object_store_lakehouse_catalog",
                 workflow="broad",
                 support_status="blocked",
                 runtime_gap_status="unsupported",
@@ -293,8 +311,8 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
                 dataframe_surface="dataframe",
                 shared_runtime_path="unsupported",
                 parity_status="equivalent_admitted_scope",
-                performance_equivalence_status="claim_grade",
-                runtime_execution=True,
+                performance_equivalence_status="not_claim_grade",
+                runtime_execution=False,
                 data_read=False,
                 write_io=False,
                 materialization_required=False,

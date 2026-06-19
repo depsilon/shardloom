@@ -40,7 +40,7 @@ class V1VortexRuntimeScopeTests(unittest.TestCase):
         )
         self.assertEqual(report["local_vortex_primitive_route_count"], 11)
         self.assertEqual(report["native_vortex_provider_route_count"], 8)
-        self.assertEqual(report["local_file_benchmark_route_count"], 15)
+        self.assertEqual(report["local_file_benchmark_route_count"], 16)
         self.assertTrue(report["local_vortex_primitive_v1_scope_ready"])
         self.assertTrue(report["native_vortex_provider_route_v1_scope_ready"])
         self.assertFalse(
@@ -97,7 +97,11 @@ class V1VortexRuntimeScopeTests(unittest.TestCase):
             "declared_native_vortex_right_input_required",
         )
         self.assertFalse(provider_report.general_multi_input_join_claim_allowed)
-        self.assertEqual(len(user_report.v1_vortex_supported_benchmark_scenario_ids), 15)
+        self.assertEqual(len(user_report.v1_vortex_supported_benchmark_scenario_ids), 16)
+        self.assertIn(
+            "malformed_timestamp_cast",
+            user_report.v1_vortex_supported_benchmark_scenario_ids,
+        )
 
     def test_validator_rejects_primitive_rows_missing_native_io_evidence(self) -> None:
         module = load_scope_module()

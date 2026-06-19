@@ -381,9 +381,9 @@ pub use query_primitive::{
     VortexQueryPrimitiveKind, VortexQueryPrimitiveMode, VortexQueryPrimitiveRequest,
     VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
     VortexRollingWindowRequest, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
-    VortexSortRowsRequest, VortexStructuredProjectionColumn, VortexStructuredProjectionExpr,
-    VortexStructuredProjectionRequest, evaluate_vortex_count_all_from_summary,
-    evaluate_vortex_query_primitive,
+    VortexSortRowsRequest, VortexSortTiePolicy, VortexStructuredProjectionColumn,
+    VortexStructuredProjectionExpr, VortexStructuredProjectionRequest,
+    evaluate_vortex_count_all_from_summary, evaluate_vortex_query_primitive,
 };
 pub use query_primitives::{
     VortexQueryPrimitiveEffect, VortexQueryPrimitiveKind as VortexQueryPrimitiveBoundaryKind,

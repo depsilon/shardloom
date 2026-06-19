@@ -685,7 +685,6 @@ test_local_json_query_builder_with_column_sort_invokes_sql_smoke
 test_local_json_query_builder_with_column_without_select_invokes_sql_smoke
 test_local_orc_query_builder_collect_invokes_sql_smoke
 test_local_parquet_query_builder_collect_invokes_sql_smoke
-test_missing_dataframe_affordances_return_report_only_unsupported
 test_read_json_plain_json_projection_filter_limit_invokes_sql_smoke
 test_read_json_query_builder_group_by_aggregate_invokes_sql_smoke
 test_read_json_query_builder_order_by_topn_invokes_sql_smoke
@@ -12940,6 +12939,27 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 }
             ],
         )
+        null_workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["id", "amount"])
+            .mask(sl.col("amount") < 0, other=None, axis=0, inplace=False, level=None)
+            .limit(2)
+        )
+        self.assertEqual(null_workflow.operations[-2].kind, "expression_project")
+        self.assertEqual(
+            json.loads(null_workflow.operations[-2].values[0])["rewrites"],
+            [
+                {
+                    "kind": "mask_scalar",
+                    "predicate": "lt:amount:0",
+                    "replacement": {"type": "null", "value": None},
+                    "target_column": "amount",
+                }
+            ],
+        )
         self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
         self.assertEqual(
             report.preparation_envelope.field("vortex_ingest_performed"), "true"
@@ -12967,6 +12987,65 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.projected_columns, ("id", "amount"))
         self.assertEqual(report.envelope.field("data_decoded"), "true")
         self.assertEqual(report.envelope.field("data_materialized"), "true")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_forward_fill_routes_through_prepared_vortex_expression_project(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["id", "amount"])
+            .fillna(method="ffill", limit=2)
+            .limit(2)
+        )
+        self.assertEqual(workflow.operations[-2].kind, "expression_project")
+        payload = json.loads(workflow.operations[-2].values[0])
+
+        report = workflow.collect()
+
+        self.assertEqual(payload["columns"], ["id", "amount"])
+        self.assertEqual(
+            payload["rewrites"],
+            [
+                {
+                    "kind": "forward_fill_null",
+                    "limit": 2,
+                    "target_column": "id",
+                },
+                {
+                    "kind": "forward_fill_null",
+                    "limit": 2,
+                    "target_column": "amount",
+                },
+            ],
+        )
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_expression_project",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_present"),
+            "true",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_changed_columns"),
+            "amount,id",
+        )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -13004,6 +13083,27 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 {
                     "kind": "replace_scalar",
                     "replacement": {"type": "utf8", "value": "good"},
+                    "target_column": "label",
+                    "to_replace": {"type": "utf8", "value": "bad"},
+                }
+            ],
+        )
+        null_workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["label"])
+            .replace("bad", None, regex=False, inplace=False, method=None, limit=None)
+            .limit(2)
+        )
+        self.assertEqual(null_workflow.operations[-2].kind, "expression_project")
+        self.assertEqual(
+            json.loads(null_workflow.operations[-2].values[0])["rewrites"],
+            [
+                {
+                    "kind": "replace_scalar",
+                    "replacement": {"type": "null", "value": None},
                     "target_column": "label",
                     "to_replace": {"type": "utf8", "value": "bad"},
                 }
@@ -13066,6 +13166,46 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "target_column": "label",
                     "to_replace": {"type": "utf8", "value": "ugly"},
                 },
+            ],
+        )
+        nested_null_mapping = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["label"])
+            .replace({"label": {"bad": None}}, regex=False, inplace=False)
+        )
+        self.assertEqual(nested_null_mapping.operations[-1].kind, "expression_project")
+        self.assertEqual(
+            json.loads(nested_null_mapping.operations[-1].values[0])["rewrites"],
+            [
+                {
+                    "kind": "replace_scalar",
+                    "replacement": {"type": "null", "value": None},
+                    "target_column": "label",
+                    "to_replace": {"type": "utf8", "value": "bad"},
+                }
+            ],
+        )
+        regex_workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["label"])
+            .replace(r"^bad", "ok", regex=True, inplace=False, method=None, limit=None)
+        )
+        self.assertEqual(regex_workflow.operations[-1].kind, "expression_project")
+        self.assertEqual(
+            json.loads(regex_workflow.operations[-1].values[0])["rewrites"],
+            [
+                {
+                    "kind": "regex_replace_scalar",
+                    "pattern": r"^bad",
+                    "replacement": "ok",
+                    "target_column": "label",
+                }
             ],
         )
 
@@ -13710,6 +13850,36 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(inferred_payload["variable_column"], "measure")
         self.assertEqual(inferred_payload["value_column"], "amount")
 
+        indexed = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={
+                    "id": "int64",
+                    "amount_a": "int64",
+                    "label": "utf8",
+                },
+            )
+            .select(["id", "amount_a", "label"])
+            .melt(
+                id_vars="id",
+                value_vars=["amount_a", "label"],
+                var_name="field",
+                value_name="value",
+                ignore_index=False,
+            )
+            .limit(4)
+        )
+        self.assertIsInstance(indexed, sl.LazyFrame)
+        self.assertEqual(indexed.operations[-3].kind, "expression_project")
+        self.assertEqual(indexed.operations[-2].kind, "melt")
+        row_number_payload = json.loads(indexed.operations[-3].values[0])
+        self.assertEqual(row_number_payload["rewrites"][0]["kind"], "row_number")
+        indexed_payload = json.loads(indexed.operations[-2].values[0])
+        self.assertEqual(indexed_payload["id_columns"], ["index", "id"])
+        self.assertEqual(indexed_payload["value_columns"], ["amount_a", "label"])
+        self.assertEqual(indexed_payload["variable_column"], "field")
+        self.assertEqual(indexed_payload["value_column"], "value")
+
     def test_local_csv_query_builder_explode_routes_through_prepared_vortex_explode(
         self,
     ) -> None:
@@ -13771,6 +13941,78 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.envelope.field("data_materialized"), "true")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
+
+        multi_workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={
+                    "id": "int64",
+                    "items": "list<int64>",
+                    "labels": "list<utf8>",
+                },
+            )
+            .select("id", "items", "labels")
+            .explode("items", "labels", ignore_index=True)
+            .limit(4)
+        )
+
+        self.assertIsInstance(multi_workflow, sl.LazyFrame)
+        self.assertEqual(multi_workflow.operations[-2].kind, "explode")
+        multi_payload = json.loads(multi_workflow.operations[-2].values[0])
+        self.assertEqual(multi_payload["explode_columns"], ["items", "labels"])
+
+        multi_report = multi_workflow.collect()
+
+        self.assertIsInstance(multi_report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            multi_report.envelope.field("public_workflow_route_id"),
+            "native_vortex_explode",
+        )
+        self.assertEqual(
+            multi_report.envelope.field("public_workflow_vortex_columns"),
+            "id,items,labels",
+        )
+        self.assertEqual(
+            multi_report.envelope.field("public_workflow_vortex_explode_projection_present"),
+            "true",
+        )
+        self.assertFalse(multi_report.fallback_attempted)
+        self.assertFalse(multi_report.external_engine_invoked)
+
+        dotted_workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={
+                    "id": "int64",
+                    "items": "list<struct<code:int64,label:utf8>>",
+                },
+            )
+            .select("id", "items")
+            .explode("items.code")
+            .limit(4)
+        )
+
+        self.assertIsInstance(dotted_workflow, sl.LazyFrame)
+        self.assertEqual(dotted_workflow.operations[-2].kind, "explode")
+        dotted_payload = json.loads(dotted_workflow.operations[-2].values[0])
+        self.assertEqual(
+            dotted_payload,
+            {"column": "items", "element_field": "code", "output_column": "code"},
+        )
+
+        dotted_report = dotted_workflow.collect()
+
+        self.assertIsInstance(dotted_report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            dotted_report.envelope.field("public_workflow_route_id"),
+            "native_vortex_explode",
+        )
+        self.assertEqual(
+            dotted_report.envelope.field("public_workflow_vortex_columns"),
+            "id,items",
+        )
+        self.assertFalse(dotted_report.fallback_attempted)
+        self.assertFalse(dotted_report.external_engine_invoked)
 
     def test_local_csv_query_builder_pivot_routes_through_prepared_vortex_pivot(
         self,
@@ -13920,10 +14162,32 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             )
             .limit(4)
         )
+        policy_agg = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={
+                    "id": "int64",
+                    "label": "utf8",
+                    "amount": "float64",
+                },
+            )
+            .pivot_table(
+                index="id",
+                columns="label",
+                values="amount",
+                aggfunc="sum",
+                fill_value=0,
+                dropna=False,
+                margins=True,
+                margins_name="total",
+            )
+            .limit(4)
+        )
         self.assertIsInstance(list_agg, sl.LazyFrame)
         self.assertIsInstance(mapping_agg, sl.LazyFrame)
         self.assertIsInstance(min_agg, sl.LazyFrame)
         self.assertIsInstance(max_mapping_agg, sl.LazyFrame)
+        self.assertIsInstance(policy_agg, sl.LazyFrame)
         self.assertEqual(
             json.loads(list_agg.operations[-2].values[0])["aggregate"],
             "count",
@@ -13940,6 +14204,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             json.loads(max_mapping_agg.operations[-2].values[0])["aggregate"],
             "max",
         )
+        policy_payload = json.loads(policy_agg.operations[-2].values[0])
+        self.assertEqual(policy_payload["aggregate"], "sum")
+        self.assertEqual(policy_payload["fill_value"], 0)
+        self.assertFalse(policy_payload["dropna"])
+        self.assertTrue(policy_payload["margins"])
+        self.assertEqual(policy_payload["margins_name"], "total")
 
         report = workflow.collect()
 
@@ -14078,7 +14348,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_local_csv_query_builder_rolling_mean_and_count_route_through_prepared_vortex(
+    def test_local_csv_query_builder_rolling_mean_count_min_max_route_through_prepared_vortex(
         self,
     ) -> None:
         binary = self.fake_cli(
@@ -14104,18 +14374,47 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "amount",
             alias="rolling_amount_count",
         )
+        centered_workflow = source.rolling(window=3, min_periods=2, center=True).sum(
+            "amount",
+            alias="rolling_amount_centered_sum",
+        )
+        min_workflow = source.rolling(window=2, min_periods=1).min(
+            "amount",
+            alias="rolling_amount_min",
+        )
+        max_workflow = source.rolling(window=2, min_periods=1).max(
+            "amount",
+            alias="rolling_amount_max",
+        )
 
         self.assertIsInstance(mean_workflow, sl.LazyFrame)
         self.assertIsInstance(count_workflow, sl.LazyFrame)
+        self.assertIsInstance(centered_workflow, sl.LazyFrame)
+        self.assertIsInstance(min_workflow, sl.LazyFrame)
+        self.assertIsInstance(max_workflow, sl.LazyFrame)
         mean_payload = json.loads(mean_workflow.operations[-1].values[0])
         count_payload = json.loads(count_workflow.operations[-1].values[0])
+        centered_payload = json.loads(centered_workflow.operations[-1].values[0])
+        min_payload = json.loads(min_workflow.operations[-1].values[0])
+        max_payload = json.loads(max_workflow.operations[-1].values[0])
         self.assertEqual(mean_payload["aggregate"], "mean")
         self.assertEqual(mean_payload["output_column"], "rolling_amount_mean")
         self.assertEqual(count_payload["aggregate"], "count")
         self.assertEqual(count_payload["output_column"], "rolling_amount_count")
+        self.assertEqual(centered_payload["aggregate"], "sum")
+        self.assertEqual(centered_payload["output_column"], "rolling_amount_centered_sum")
+        self.assertTrue(centered_payload["center"])
+        self.assertEqual(centered_payload["min_periods"], 2)
+        self.assertEqual(min_payload["aggregate"], "min")
+        self.assertEqual(min_payload["output_column"], "rolling_amount_min")
+        self.assertEqual(max_payload["aggregate"], "max")
+        self.assertEqual(max_payload["output_column"], "rolling_amount_max")
 
         mean_report = mean_workflow.limit(2).collect()
         count_report = count_workflow.limit(2).collect()
+        centered_report = centered_workflow.limit(2).collect()
+        min_report = min_workflow.limit(2).collect()
+        max_report = max_workflow.limit(2).collect()
 
         self.assertEqual(
             mean_report.envelope.field("public_workflow_route_id"),
@@ -14125,10 +14424,26 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             count_report.envelope.field("public_workflow_route_id"),
             "native_vortex_rolling_window",
         )
+        self.assertEqual(
+            centered_report.envelope.field("public_workflow_route_id"),
+            "native_vortex_rolling_window",
+        )
+        self.assertEqual(
+            min_report.envelope.field("public_workflow_route_id"),
+            "native_vortex_rolling_window",
+        )
+        self.assertEqual(
+            max_report.envelope.field("public_workflow_route_id"),
+            "native_vortex_rolling_window",
+        )
         self.assertFalse(mean_report.fallback_attempted)
         self.assertFalse(mean_report.external_engine_invoked)
         self.assertFalse(count_report.fallback_attempted)
         self.assertFalse(count_report.external_engine_invoked)
+        self.assertFalse(centered_report.fallback_attempted)
+        self.assertFalse(centered_report.external_engine_invoked)
+        self.assertFalse(min_report.fallback_attempted)
+        self.assertFalse(max_report.external_engine_invoked)
 
     def test_local_csv_query_builder_pipe_accepts_declared_plan_transform(
         self,
@@ -17851,6 +18166,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     if materialization_required
                     else "SL_NOT_IMPLEMENTED"
                 )
+                blocker_ids = {
+                    "melt": "cg21.workflow.melt.nested_or_broad_index_contract_missing",
+                }
+                blocker_id = blocker_ids.get(
+                    canonical,
+                    f"cg21.workflow.{canonical}.unsupported",
+                )
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
                     "command": "workflow-unsupported-plan",
@@ -17873,7 +18195,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "workflow_operation", "value": canonical},
                         {"key": "workflow_summary", "value": workflow_summary},
                         {"key": "target_ref", "value": target_ref},
-                        {"key": "blocker_id", "value": f"cg21.workflow.{canonical}.unsupported"},
+                        {"key": "blocker_id", "value": blocker_id},
                         {"key": "required_evidence", "value": "execution_certificate,native_io_certificate"},
                         {"key": "suggested_next_action", "value": "inspect capability and evidence reports"},
                         {"key": "materialization_required", "value": str(materialization_required).lower()},
@@ -17898,25 +18220,15 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
         reports = (
-            workflow.collect(),
             sl.from_pandas(object(), client=ShardLoomClient(binary=binary)),
             sl.from_arrow_table(object(), client=ShardLoomClient(binary=binary)),
             sl.from_arrow_ipc("events.arrow", client=ShardLoomClient(binary=binary)),
-            workflow.to_pandas(),
-            workflow.to_arrow(),
-            workflow.to_arrow_table(),
-            workflow.to_arrow_ipc(),
-            workflow.to_numpy(),
             workflow.with_column("date", "to_date(ts)"),
-            workflow.group_by("id").agg(total="sum(amount)"),
-            workflow.agg("sum(amount)"),
             workflow.sort("amount", "amount", descending=True),
-            workflow.rename({"amount": "order_amount"}),
-            workflow.rename_columns([("id", "event_id")]),
-            workflow.drop(columns=["unused"]),
-            workflow.drop_columns("debug"),
-            workflow.astype({"amount": "int64"}),
-            workflow.explode("items", "other_items"),
+            workflow.dropna(axis=1),
+            workflow.fillna({"amount": 0}, method="ffill"),
+            workflow.sample(random_state="seed"),
+            workflow.explode("items.payload.deep"),
             workflow.merge(
                 sl.read_csv("other.csv", client=ShardLoomClient(binary=binary)),
                 how="left",
@@ -17929,18 +18241,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 values="amount",
                 aggfunc="median",
             ),
-            workflow.melt(id_vars="id", value_vars=["amount"]),
-            workflow.rolling(window=3),
-            workflow.describe("amount"),
-            workflow.nunique("customer_id"),
-            workflow.value_counts("label"),
-            workflow.nlargest(5, "amount", keep="last"),
-            workflow.nsmallest(3, "amount", keep="all"),
+            workflow.melt(id_vars="id", value_vars=["amount"], col_level=0),
+            workflow.rolling(window="3d"),
             workflow.duplicated(subset=["id"], keep="first", ignore_index=True),
-            workflow.fillna({"amount": 0}),
-            workflow.fill_null(0),
             workflow.mask("amount < 0", other=0, axis=1),
-            workflow.replace("bad", "good", regex=True),
+            workflow.replace("bad", "good", regex=True, limit=1),
             workflow.apply("row_udf"),
             workflow.pipe("workflow_udf", "arg1", config="strict"),
             workflow.transform("column_udf"),
@@ -17950,8 +18255,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.eval("amount + tax", engine="python"),
             workflow.set_index("id"),
             workflow.sort_index(ascending=False),
-            workflow.write_vortex("out.vortex", check=False),
-            workflow.write_parquet("out.parquet", check=False),
             ctx.sql_parse("select * from events"),
             ctx.sql_bind("select * from events"),
             ctx.sql_plan("select * from events"),
@@ -17963,7 +18266,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 on=("id", "other_id"),
                 how="left",
             ),
-            workflow.aggregate("sum(amount)"),
             workflow.sort("amount").window("row_number() over (partition by id)"),
             workflow.data_quality_check("regex:id"),
             sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).preview(limit=5),
@@ -17973,7 +18275,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 61)
+        self.assertEqual(len(reports), 41)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -18023,45 +18325,29 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             self.assertFalse(report.data_read)
             self.assertFalse(report.write_io)
         by_operation = {report.operation: report for report in reports}
-        self.assertIn("to-arrow", by_operation)
-        self.assertIn("to-arrow-table", by_operation)
         self.assertEqual(
             by_operation["with-column"].envelope.field("target_ref"),
             "date=to_date(ts)",
         )
-        agg_targets = [
-            report.envelope.field("target_ref")
-            for report in reports
-            if report.operation == "agg"
-        ]
-        self.assertIn("group_by:id;agg:total=sum(amount)", agg_targets)
-        self.assertIn("sum(amount)", agg_targets)
-        self.assertEqual(by_operation["agg"].envelope.field("workflow_operation"), "agg")
         self.assertEqual(
             by_operation["sort"].envelope.field("target_ref"),
             "desc:amount,amount",
         )
-        rename_targets = [
-            report.envelope.field("target_ref")
-            for report in reports
-            if report.operation == "rename"
-        ]
-        self.assertIn("amount=order_amount", rename_targets)
-        self.assertIn("id=event_id", rename_targets)
-        drop_targets = [
-            report.envelope.field("target_ref")
-            for report in reports
-            if report.operation == "drop"
-        ]
-        self.assertIn("unused", drop_targets)
-        self.assertIn("debug", drop_targets)
         self.assertEqual(
-            by_operation["astype"].envelope.field("target_ref"),
-            "dtype={amount=int64};errors=raise",
+            by_operation["dropna"].envelope.field("target_ref"),
+            "subset=none;how=any;axis=columns",
+        )
+        self.assertEqual(
+            by_operation["fillna"].envelope.field("target_ref"),
+            "value={amount=0};axis=rows;inplace=false;method=ffill",
+        )
+        self.assertEqual(
+            by_operation["sample"].envelope.field("target_ref"),
+            "n=1,seed=seed",
         )
         self.assertEqual(
             by_operation["explode"].envelope.field("target_ref"),
-            "items,other_items",
+            "items.payload.deep",
         )
         self.assertEqual(
             by_operation["pipe"].envelope.field("target_ref"),
@@ -18101,54 +18387,27 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertEqual(
             by_operation["melt"].envelope.field("target_ref"),
-            "id_vars=id;value_vars=amount",
+            "id_vars=id;value_vars=amount;ignore_index=true;col_level=0",
+        )
+        self.assertEqual(
+            by_operation["melt"].blocker_id,
+            "cg21.workflow.melt.nested_or_broad_index_contract_missing",
         )
         self.assertEqual(
             by_operation["rolling"].envelope.field("target_ref"),
-            "window=3;center=false",
-        )
-        self.assertEqual(
-            by_operation["describe"].envelope.field("target_ref"),
-            "columns=amount",
-        )
-        self.assertEqual(
-            by_operation["nunique"].envelope.field("target_ref"),
-            "columns=customer_id;dropna=true",
-        )
-        self.assertEqual(
-            by_operation["value-counts"].envelope.field("workflow_operation"),
-            "value_counts",
-        )
-        self.assertEqual(
-            by_operation["value-counts"].envelope.field("target_ref"),
-            "columns=label;sort=true;dropna=true",
-        )
-        self.assertEqual(
-            by_operation["nlargest"].envelope.field("target_ref"),
-            "n=5;columns=amount;keep=last",
-        )
-        self.assertEqual(
-            by_operation["nsmallest"].envelope.field("target_ref"),
-            "n=3;columns=amount;keep=all",
+            "window=3d;center=false",
         )
         self.assertEqual(
             by_operation["duplicated"].envelope.field("target_ref"),
             "subset=id;keep=first;ignore_index=True",
         )
-        fillna_targets = [
-            report.envelope.field("target_ref")
-            for report in reports
-            if report.operation == "fillna"
-        ]
-        self.assertIn("value={amount=0}", fillna_targets)
-        self.assertIn("value=0", fillna_targets)
         self.assertEqual(
             by_operation["mask"].envelope.field("target_ref"),
-            "cond=amount < 0;other=0;axis=columns;inplace=false;level=none",
+            "cond=amount < 0;other=0;axis=columns;inplace=false;level=null",
         )
         self.assertEqual(
             by_operation["replace"].envelope.field("target_ref"),
-            "to_replace=bad;value=good;regex=true;inplace=false;method=none;limit=none",
+            "to_replace=bad;value=good;regex=true;inplace=false;method=null;limit=1",
         )
         self.assertEqual(by_operation["apply"].envelope.field("target_ref"), "callable=row_udf")
         self.assertEqual(by_operation["map"].envelope.field("target_ref"), "callable=value_udf")
@@ -18173,11 +18432,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             by_operation["sort-index"].envelope.field("target_ref"),
             "ascending=false",
         )
-        self.assertEqual(
-            by_operation["write-vortex"].envelope.field("target_ref"),
-            "out.vortex",
-        )
-        self.assertTrue(by_operation["write-vortex"].envelope.field_bool("write_required"))
         self.assertFalse(by_operation["sql-parse"].envelope.field_bool("runtime_required"))
         self.assertFalse(by_operation["sql-bind"].envelope.field_bool("runtime_required"))
         self.assertFalse(by_operation["sql-plan"].envelope.field_bool("runtime_required"))
@@ -18311,9 +18565,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             axis=0,
             inplace=False,
         )
+        fillna_columns_axis = workflow.select("id", "amount").fillna(
+            {"amount": 0},
+            axis=1,
+            inplace=False,
+        )
         fill_null_axis = workflow.select("id", "amount").fill_null(
             {"amount": 0},
             axis="index",
+        )
+        fill_null_columns_axis = workflow.select("id", "amount").fill_null(
+            {"amount": 0},
+            axis="columns",
         )
         astype = workflow.select("id", "amount").astype({"amount": "int64"})
         renamed = workflow.select("id", "amount").rename({"amount": "order_amount"})
@@ -18329,7 +18592,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             notna,
             fillna,
             fillna_axis,
+            fillna_columns_axis,
             fill_null_axis,
+            fill_null_columns_axis,
             astype,
             renamed,
             dropped,
@@ -18369,7 +18634,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "read_csv(events.csv) -> select(id,COALESCE(amount, 0) AS amount)",
         )
         self.assertEqual(fillna_axis.operation_summary, fillna.operation_summary)
+        self.assertEqual(fillna_columns_axis.operation_summary, fillna.operation_summary)
         self.assertEqual(fill_null_axis.operation_summary, fillna.operation_summary)
+        self.assertEqual(fill_null_columns_axis.operation_summary, fillna.operation_summary)
         self.assertEqual(
             astype.operation_summary,
             "read_csv(events.csv) -> select(id,CAST(amount AS int64) AS amount)",
@@ -18425,6 +18692,183 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             report.envelope.field("public_workflow_vortex_sort_rows_present"),
             "true",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_native_vortex_top_n_tie_policies_route_through_sort_rows(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                sort_payload = json.loads(args[args.index("--vortex-sort-rows") + 1])
+                assert args[:2] == ["run", "dataframe"], args
+                assert args[args.index("--input-format") + 1] == "vortex", args
+                assert args[args.index("--vortex-primitive") + 1] == "sort_rows", args
+                assert sort_payload["tie_policy"] in {"last", "all"}, sort_payload
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run dataframe",
+                    "status": "success",
+                    "summary": "native vortex sort rows",
+                    "human_text": "native vortex sort rows",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "public_workflow_route_id", "value": "native_vortex_sort_rows"},
+                        {"key": "public_workflow_vortex_primitive", "value": "sort_rows"},
+                        {"key": "public_workflow_vortex_sort_rows_present", "value": "true"},
+                        {"key": "public_workflow_vortex_sort_tie_policy", "value": sort_payload["tie_policy"]},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        last_frame = (
+            ctx.read_vortex("target/events.vortex")
+            .select("id", "amount")
+            .nlargest(5, "amount", keep="last")
+        )
+        all_frame = (
+            ctx.read_vortex("target/events.vortex")
+            .select("id", "amount")
+            .nsmallest(3, "amount", keep="all")
+        )
+        self.assertEqual(last_frame.operations[-2].values, ("desc", "keep=last", "amount"))
+        self.assertEqual(all_frame.operations[-2].values, ("asc", "keep=all", "amount"))
+
+        last_report = last_frame.collect()
+        all_report = all_frame.collect()
+
+        self.assertEqual(
+            last_report.envelope.field("public_workflow_route_id"),
+            "native_vortex_sort_rows",
+        )
+        self.assertFalse(last_report.fallback_attempted)
+        self.assertFalse(all_report.external_engine_invoked)
+
+    def test_local_csv_reset_index_materializes_row_number_expression_project(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                expression_payload = json.loads(args[args.index("--vortex-expression-projection") + 1])
+                assert args[:2] == ["run", "dataframe"], args
+                assert args[args.index("--vortex-primitive") + 1] == "expression_project", args
+                assert expression_payload["rewrites"][0]["kind"] == "row_number", expression_payload
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run dataframe",
+                    "status": "success",
+                    "summary": "native vortex row number expression project",
+                    "human_text": "native vortex row number expression project",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "public_workflow_route_id", "value": "native_vortex_expression_project"},
+                        {"key": "public_workflow_vortex_primitive", "value": "expression_project"},
+                        {"key": "public_workflow_vortex_expression_projection_changed_columns", "value": expression_payload["rewrites"][0]["target_column"]},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv(
+                "target/events.csv",
+                schema={"id": "int64", "amount": "int64"},
+            )
+            .select("id", "amount")
+            .reset_index()
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_expression_project",
+        )
+        self.assertEqual(
+            report.envelope.field(
+                "public_workflow_vortex_expression_projection_changed_columns"
+            ),
+            "index",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_declared_typed_scalar_udf_lowers_to_native_expression_project(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                expression_payload = json.loads(args[args.index("--vortex-expression-projection") + 1])
+                rewrite = expression_payload["rewrites"][0]
+                assert rewrite["kind"] == "numeric_scalar_arithmetic", expression_payload
+                assert rewrite["operator"] == "*", expression_payload
+                assert rewrite["operand"]["value"] == 2, expression_payload
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "run dataframe",
+                    "status": "success",
+                    "summary": "native vortex typed udf expression project",
+                    "human_text": "native vortex typed udf expression project",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "public_workflow_route_id", "value": "native_vortex_expression_project"},
+                        {"key": "public_workflow_vortex_primitive", "value": "expression_project"},
+                        {"key": "typed_udf_id", "value": "sl_fixture_double_i64"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = (
+            ctx.read_csv(
+                "target/events.csv",
+                schema={"id": "int64", "amount": "int64"},
+            )
+            .select("id", "amount")
+            .map(sl.column_transform(amount=sl.fixture_double_i64(sl.col("amount"))))
+            .limit(2)
+        )
+        payload = json.loads(workflow.operations[-2].values[0])
+        rewrite = payload["rewrites"][0]
+
+        self.assertEqual(rewrite["kind"], "numeric_scalar_arithmetic")
+        self.assertEqual(rewrite["operator"], "*")
+        self.assertEqual(rewrite["operand"]["value"], 2)
+
+        report = workflow.collect()
+
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_expression_project",
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -19127,6 +19571,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "native_vortex_result_export_fanout_performed", "value": "true"},
                         {"key": "native_vortex_result_export_target_formats", "value": "jsonl,csv"},
                         {"key": "native_vortex_result_export_target_rows_written", "value": "2,2"},
+                        {"key": "native_vortex_result_export_target_commit_modes", "value": "primary:jsonl:atomic_rename_same_directory,fanout:csv:atomic_rename_same_directory"},
+                        {"key": "native_vortex_result_export_target_commit_statuses", "value": "primary:jsonl:committed,fanout:csv:committed"},
+                        {"key": "native_vortex_result_export_target_temp_cleanup_statuses", "value": "primary:jsonl:staging_removed_after_commit,fanout:csv:staging_removed_after_commit"},
+                        {"key": "native_vortex_result_export_target_replay_statuses", "value": "primary:jsonl:committed_row_count_recorded,fanout:csv:committed_row_count_recorded"},
+                        {"key": "native_vortex_result_export_all_targets_committed", "value": "true"},
+                        {"key": "native_vortex_result_export_fanout_atomicity_contract", "value": "all_targets_staged_before_final_commit_with_same_directory_atomic_rename_and_best_effort_rollback"},
+                        {"key": "native_vortex_result_export_partial_write_cleanup_status", "value": "not_needed_all_targets_committed"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                     ],
@@ -19149,6 +19600,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             report.envelope.field("native_vortex_result_export_target_count"),
             "2",
+        )
+        self.assertEqual(
+            report.envelope.field("native_vortex_result_export_all_targets_committed"),
+            "true",
+        )
+        self.assertIn(
+            "fanout:csv:committed",
+            report.envelope.field("native_vortex_result_export_target_commit_statuses") or "",
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)

@@ -68,12 +68,12 @@
     }
   ],
   "expected_counts": {
-    "front_door_supported_rows": 9,
-    "front_door_pending_rows": 2,
+    "front_door_supported_rows": 10,
+    "front_door_pending_rows": 1,
     "front_door_example_scenarios": 9,
     "front_door_expected_error_scenarios": 0,
     "vortex_primitive_routes": 11,
-    "vortex_local_file_routes": 15,
+    "vortex_local_file_routes": 16,
     "source_input_formats": 6,
     "source_prepared_routes": 4,
     "source_direct_routes": 1,

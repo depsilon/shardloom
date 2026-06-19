@@ -237,21 +237,33 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
 
         broad = by_id["broad_sql_python_dataframe_runtime"]
         self.assertEqual(
-            broad["nearest_runnable_route"],
-            "local_file_prepare_once_first_query",
+            broad["route_runtime_status"],
+            "scoped_runtime_supported",
         )
         self.assertEqual(
             broad["runtime_blocker_code"],
-            "cg20.cg21.broad_language_surface_missing",
+            "none",
+        )
+        self.assertIn(
+            "Vortex preparation/native Vortex unified plan",
+            broad["vortex_normalization_point"],
+        )
+        self.assertIn(
+            "documented local SQL/Python/DataFrame-style subset",
+            broad["recommended_user_surface"],
         )
         performance_evidence = by_id["performance_equivalence_evidence"]
         self.assertEqual(
             performance_evidence["route_runtime_status"],
-            "benchmark_publication_pending",
+            "scoped_runtime_supported",
         )
         self.assertEqual(
             performance_evidence["runtime_blocker_code"],
-            "cg6.front_door_performance_equivalence_benchmark_missing",
+            "none",
+        )
+        self.assertIn(
+            "front-door-performance-equivalence.json",
+            performance_evidence["recommended_user_surface"],
         )
 
         primitive_rows = {
@@ -280,7 +292,7 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
         scenarios = {
             row["scenario_id"]: row for row in report["local_file_benchmark_rows"]
         }
-        self.assertEqual(len(scenarios), 15)
+        self.assertEqual(len(scenarios), 16)
         self.assertEqual(
             scenarios["selective_filter"]["route_runtime_status"],
             "internal_smoke_only",
