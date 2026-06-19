@@ -3089,9 +3089,20 @@ fn parse_explode_primitive_request(
         object,
         &["column", "explode_column", "target_column"],
     )?)?;
+    let output_columns = json_optional_column_array_field_any(
+        object,
+        &["columns", "output_columns", "projected_columns"],
+    )?
+    .unwrap_or_else(|| vec![column.clone()]);
+    if !output_columns.iter().any(|candidate| candidate == &column) {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "explode output columns must include explode column '{}'",
+            column.as_str()
+        )));
+    }
     Ok(shardloom_vortex::VortexQueryPrimitiveRequest::explode_rows(
         uri,
-        ProjectionRequest::columns(vec![column.clone()]),
+        ProjectionRequest::columns(output_columns),
         VortexExplodeProjectionRequest::new(column),
     ))
 }
@@ -7893,5 +7904,29 @@ mod tests {
         assert!(aggregate.order_by[0].descending);
         assert_eq!(aggregate.offset, 5);
         assert_eq!(aggregate.output_columns(), vec!["SearchPhrase", "c"]);
+    }
+
+    #[test]
+    fn parse_explode_payload_preserves_selected_companion_columns() {
+        let uri = DatasetUri::new("target/input.vortex").expect("uri");
+        let request = parse_vortex_primitive_request(
+            uri,
+            r#"explode:{"column":"items","columns":"id,items"}"#,
+        )
+        .expect("explode request");
+
+        assert_eq!(
+            request.kind,
+            shardloom_vortex::VortexQueryPrimitiveKind::ExplodeRows
+        );
+        let ProjectionRequest::Columns(columns) = &request.projection else {
+            panic!("expected explicit projected columns");
+        };
+        assert_eq!(
+            columns.iter().map(ColumnRef::as_str).collect::<Vec<_>>(),
+            vec!["id", "items"]
+        );
+        let explode_projection = request.explode_projection.expect("explode projection");
+        assert_eq!(explode_projection.column.as_str(), "items");
     }
 }

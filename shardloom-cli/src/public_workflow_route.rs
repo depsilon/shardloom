@@ -587,13 +587,20 @@ fn native_vortex_primitive_arg_for_request(
                 "vortex melt projection"
             )?
         )),
-        PublicVortexPrimitive::Explode => Ok(format!(
-            "explode:{}",
-            required_native_vortex_payload(
+        PublicVortexPrimitive::Explode => {
+            let explode_projection = required_native_vortex_payload(
                 request.vortex_explode_projection.as_ref(),
-                "vortex explode projection"
-            )?
-        )),
+                "vortex explode projection",
+            )?;
+            Ok(format!(
+                "explode:{}",
+                json_payload_with_columns(
+                    &explode_projection,
+                    request.vortex_columns.as_deref(),
+                    "native Vortex explode projection",
+                )?
+            ))
+        }
         PublicVortexPrimitive::Pivot => Ok(format!(
             "pivot:{}",
             required_native_vortex_payload(
@@ -629,7 +636,11 @@ fn native_vortex_primitive_arg_for_request(
             } else {
                 Ok(format!(
                     "sort-rows:{}",
-                    sort_rows_payload_with_columns(&sort_rows, request.vortex_columns.as_deref())?
+                    json_payload_with_columns(
+                        &sort_rows,
+                        request.vortex_columns.as_deref(),
+                        "native Vortex sort rows",
+                    )?
                 ))
             }
         }
@@ -642,22 +653,19 @@ fn native_vortex_primitive_arg_for_request(
     }
 }
 
-fn sort_rows_payload_with_columns(
+fn json_payload_with_columns(
     payload: &str,
     columns: Option<&str>,
+    label: &str,
 ) -> Result<String, ShardLoomError> {
     let Some(columns) = columns else {
         return Ok(payload.to_string());
     };
     let mut value = serde_json::from_str::<serde_json::Value>(payload).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "native Vortex sort rows payload must be valid JSON: {error}"
-        ))
+        ShardLoomError::InvalidOperation(format!("{label} payload must be valid JSON: {error}"))
     })?;
     let object = value.as_object_mut().ok_or_else(|| {
-        ShardLoomError::InvalidOperation(
-            "native Vortex sort rows payload must be a JSON object".to_string(),
-        )
+        ShardLoomError::InvalidOperation(format!("{label} payload must be a JSON object"))
     })?;
     object.insert(
         "columns".to_string(),
@@ -9852,6 +9860,46 @@ mod tests {
             field(&attachments, "public_workflow_vortex_source_order_limit"),
             "4"
         );
+    }
+
+    #[test]
+    fn route_planner_passes_explode_projection_columns_to_primitive_arg() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "orders.vortex",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+                "--native-vortex-operation-family",
+                "explode",
+                "--vortex-primitive",
+                "explode",
+                "--vortex-columns",
+                "id,items",
+                "--vortex-source-order-limit",
+                "4",
+                "--vortex-explode-projection",
+                r#"{"column":"items"}"#,
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("native explode route request");
+
+        let primitive_arg =
+            native_vortex_primitive_arg_for_request(&request, PublicVortexPrimitive::Explode)
+                .expect("primitive arg");
+
+        assert!(primitive_arg.starts_with("explode:"));
+        assert!(primitive_arg.contains(r#""column":"items""#));
+        assert!(primitive_arg.contains(r#""columns":"id,items""#));
     }
 
     #[test]
