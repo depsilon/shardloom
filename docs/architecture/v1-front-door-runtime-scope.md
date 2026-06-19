@@ -96,6 +96,10 @@ The route report and run envelope identify all of this with
 supported routes from planned operator families without probing data or invoking external engines.
 `ShardLoomContext.native_vortex_provider_route_certificate_report()` is the side-effect-free
 certificate inventory for those exact provider-backed Python and SQL shapes.
+The DataFrame method capability matrix also exposes `future_contract_blocker_ids` for scoped method
+variants that remain outside the admitted runtime contract. This keeps sampling/index/reshape,
+rolling/window, mask/replace, null semantics, expression/UDF, and fanout boundaries
+machine-readable without reintroducing active method blockers or hidden pandas/Polars execution.
 
 The ClickBench OLAP fixture under `benchmarks/clickbench/queries.sql` is now the broad SQL coverage
 driver. `scripts/check_clickbench_olap_runtime_coverage.py` classifies all 43 canonical `hits`

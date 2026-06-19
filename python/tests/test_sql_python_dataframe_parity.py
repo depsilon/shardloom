@@ -57,6 +57,14 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertIn("fillna", report["dataframe_named_runtime_surface_ids"])
         self.assertIn("map_rows", report["dataframe_named_runtime_surface_ids"])
         self.assertIn("apply", report["dataframe_plan_transform_only_method_ids"])
+        self.assertIn(
+            "cg21.workflow.sample.weighted_or_rng_contract_missing",
+            report["dataframe_future_contract_blocker_ids"],
+        )
+        self.assertIn(
+            "cg21.workflow.map_rows.python_callable_or_row_udf_unsupported",
+            report["dataframe_future_contract_blocker_ids"],
+        )
         fillna = next(
             row
             for row in report["dataframe_named_runtime_surface_rows"]
@@ -64,6 +72,10 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         )
         self.assertEqual(fillna["support_status"], "production_admitted_local_workflow")
         self.assertTrue(fillna["runtime_execution"])
+        self.assertEqual(
+            fillna["future_contract_blocker_ids"],
+            ["cg21.workflow.fillna.null_fill_semantics_unsupported"],
+        )
         apply = next(
             row
             for row in report["dataframe_named_runtime_surface_rows"]
@@ -71,6 +83,10 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         )
         self.assertEqual(apply["support_status"], "lazy_plan_supported")
         self.assertFalse(apply["runtime_execution"])
+        self.assertEqual(
+            apply["future_contract_blocker_ids"],
+            ["cg21.workflow.apply.python_callable_unsupported"],
+        )
         self.assertTrue(report["all_broad_gaps_have_precise_runtime_status"])
         self.assertIn(
             "benchmark_publication_pending",

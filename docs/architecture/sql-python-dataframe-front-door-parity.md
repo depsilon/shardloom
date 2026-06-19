@@ -264,10 +264,13 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   Inferred-schema, broad pandas null-fill/mask result-shape, and unsafe shapes remain gated. Scoped
   duplicate-mask, conditional replacement, index metadata, sample, reshape, rolling, null, and
   declarative expression routes are listed in the DataFrame method matrix with their current
-  runtime status. Broad inspection/summary variants and arbitrary Python callable/UDF execution
-  fail closed through `workflow-unsupported-plan` diagnostics instead of missing attributes or
-  hidden pandas/Polars execution. Arbitrary expression/DataFrame breadth remains pending until its
-  runtime evidence lands.
+  runtime status and `future_contract_blocker_ids`. Broad inspection/summary variants and
+  arbitrary Python callable/UDF execution fail closed through `workflow-unsupported-plan`
+  diagnostics instead of missing attributes or hidden pandas/Polars execution. The parity report
+  emits `dataframe_future_contract_blocker_ids` so release gates can distinguish admitted scoped
+  runtime rows from future typed-UDF, hidden-index, broad reshape, nullable equality, weighted
+  sampling, and multi-sink atomicity contracts. Arbitrary expression/DataFrame breadth remains
+  pending until its runtime evidence lands.
 - `performance_equivalence`
   (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
   across front doors.

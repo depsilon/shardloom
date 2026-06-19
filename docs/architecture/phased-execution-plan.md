@@ -192,8 +192,9 @@ The first unchecked checkbox is the next default autonomous slice.
 Current autonomous execution order:
 
 - No open autonomous implementation items are active as of June 19, 2026. The ClickBench
-  route-readiness polish and Python/DataFrame runtime-surface polish requested on June 19 were
-  completed and moved to `docs/architecture/phased-execution-completed-ledger.md`.
+  route-readiness polish, Python/DataFrame runtime-surface polish, and future-contract blocker
+  field alignment requested on June 19 were completed and moved to
+  `docs/architecture/phased-execution-completed-ledger.md`.
 
 ### v1 Local Closeout Status
 

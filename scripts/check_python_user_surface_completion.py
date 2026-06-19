@@ -240,6 +240,48 @@ REQUIRED_INDEX_METADATA_METHODS = [
 
 REQUIRED_UNSUPPORTED_METHODS: list[str] = []
 
+REQUIRED_FUTURE_CONTRACT_BLOCKERS = {
+    "sample": {"cg21.workflow.sample.weighted_or_rng_contract_missing"},
+    "explode": {"cg21.workflow.explode.nested_expansion_unsupported"},
+    "pivot": {"cg21.workflow.pivot.broad_reshape_contract_missing"},
+    "pivot_table": {"cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing"},
+    "melt": {"cg21.workflow.melt.reshape_semantics_unsupported"},
+    "rolling": {"cg21.workflow.rolling.broad_window_semantics_unsupported"},
+    "dropna": {"cg21.workflow.dropna.null_cleanup_semantics_contract_missing"},
+    "fillna": {"cg21.workflow.fillna.null_fill_semantics_unsupported"},
+    "fill_null": {"cg21.workflow.fillna.null_fill_semantics_unsupported"},
+    "isna": {"cg21.workflow.isna.null_mask_semantics_unsupported"},
+    "isnull": {"cg21.workflow.isna.null_mask_semantics_unsupported"},
+    "notna": {"cg21.workflow.notna.null_mask_semantics_unsupported"},
+    "notnull": {"cg21.workflow.notna.null_mask_semantics_unsupported"},
+    "duplicated": {"cg21.workflow.duplicated.nullable_nested_or_index_contract_missing"},
+    "drop_duplicates": {
+        "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing"
+    },
+    "unique": {
+        "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing"
+    },
+    "mask": {"cg21.workflow.mask.null_callable_or_alignment_contract_missing"},
+    "replace": {
+        "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing"
+    },
+    "set_index": {
+        "cg21.workflow.set_index.hidden_index_materialization_contract_missing"
+    },
+    "reset_index": {
+        "cg21.workflow.reset_index.row_number_or_hidden_index_contract_missing"
+    },
+    "sort_index": {"cg21.workflow.sort_index.hidden_index_order_contract_missing"},
+    "apply": {"cg21.workflow.apply.python_callable_unsupported"},
+    "pipe": {"cg21.workflow.pipe.python_callable_unsupported"},
+    "transform": {"cg21.workflow.transform.python_callable_unsupported"},
+    "applymap": {"cg21.workflow.applymap.python_callable_unsupported"},
+    "map": {"cg21.workflow.map.python_callable_unsupported"},
+    "map_rows": {"cg21.workflow.map_rows.python_callable_or_row_udf_unsupported"},
+    "eval": {"cg21.workflow.eval.expression_engine_unsupported"},
+    "fanout": {"cg21.workflow.fanout.multi_sink_atomicity_contract_missing"},
+}
+
 REQUIRED_DOC_MARKERS = {
     "README.md": [
         "prepared = ctx.prepare_vortex(",
@@ -508,6 +550,9 @@ def _load_dataframe_method_rows_from_source(context_path: Path) -> tuple[dict[st
         required_evidence = keywords.get("required_evidence", ())
         if required_evidence is None:
             required_evidence = ()
+        future_contract_blocker_ids = keywords.get("future_contract_blocker_ids", ())
+        if future_contract_blocker_ids is None:
+            future_contract_blocker_ids = ()
         rows.append(
             {
                 "method": method,
@@ -516,6 +561,7 @@ def _load_dataframe_method_rows_from_source(context_path: Path) -> tuple[dict[st
                 "claim_gate_status": "not_claim_grade",
                 "diagnostic_operation": keywords.get("diagnostic_operation"),
                 "blocker_id": keywords.get("blocker_id"),
+                "future_contract_blocker_ids": list(future_contract_blocker_ids),
                 "required_evidence": list(required_evidence),
                 "runtime_execution": bool(keywords.get("runtime_execution", False)),
                 "data_read": bool(keywords.get("data_read", False)),
@@ -553,6 +599,7 @@ def _load_dataframe_method_rows(repo_root: Path) -> tuple[dict[str, Any], ...]:
                 "claim_gate_status": row.claim_gate_status,
                 "diagnostic_operation": row.diagnostic_operation,
                 "blocker_id": row.blocker_id,
+                "future_contract_blocker_ids": list(row.future_contract_blocker_ids),
                 "required_evidence": list(row.required_evidence),
                 "runtime_execution": row.runtime_execution,
                 "data_read": row.data_read,
@@ -637,6 +684,18 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             blockers.append(f"{method}: claim_gate_status must be not_claim_grade")
         if not isinstance(row.get("claim_boundary"), str) or not row["claim_boundary"].strip():
             blockers.append(f"{method}: missing claim_boundary")
+
+    for method, expected_blockers in REQUIRED_FUTURE_CONTRACT_BLOCKERS.items():
+        row = by_method.get(method)
+        if not row:
+            blockers.append(f"DataFrame method matrix missing future-contract method: {method}")
+            continue
+        observed = set(row.get("future_contract_blocker_ids") or [])
+        missing = expected_blockers - observed
+        if missing:
+            blockers.append(
+                f"{method}: missing future_contract_blocker_ids {sorted(missing)!r}"
+            )
 
     for method in [
         *REQUIRED_QUERY_BUILDER_METHODS,
@@ -1479,6 +1538,13 @@ def build_report(
         *production_blockers,
     ]
     passed = not blockers
+    future_contract_blocker_ids = sorted(
+        {
+            blocker_id
+            for row in method_rows
+            for blocker_id in row.get("future_contract_blocker_ids", [])
+        }
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "gate_id": GATE_ID,
@@ -1511,6 +1577,8 @@ def build_report(
         "production_usability_overclaim_guard": production_summary,
         "method_matrix_row_count": len(method_rows),
         "method_matrix_rows": method_rows,
+        "method_future_contract_blocker_count": len(future_contract_blocker_ids),
+        "method_future_contract_blocker_ids": future_contract_blocker_ids,
         "completion_matrix": matrix_rows,
         "remaining_non_parity_gaps": [
             "Spark internals and PySpark API parity",
