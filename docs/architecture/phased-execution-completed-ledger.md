@@ -16,9 +16,83 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: release evidence refresh and skip-slow hardening
+  - Date: 2026-06-19
+  - Branch/PR: `codex/release-evidence-skip-slow-hardening` / PR pending.
+  - Source:
+    - Goal-continuation audit for packaged/deployed/used readiness after v0.1.6 source release
+      metadata, with broad workspace cargo/clippy/test runs intentionally deferred until the
+      remaining implementation scope warrants them.
+  - Scope:
+    - Refreshed local current-state release evidence for architecture tracking, benchmark artifact
+      completeness, benchmark publication claim gating, front-door benchmark publication gating,
+      and live pre-5J dependency freshness without rerunning benchmarks or publishing artifacts.
+    - Fixed `scripts/run_release_validation_evidence.py --skip-slow` so local inspection mode is
+      metadata-only and does not launch Cargo workspace feature checks, package builds, full
+      unittest discovery, or release proof commands.
+    - Updated the release user-surface CI lane to reuse the package-smoke `target/debug/shardloom`
+      artifact for downstream resource-safety, observability, and example-replay checks instead of
+      rebuilding the CLI in the Python-only evidence job.
+    - Fixed internal auto-prepared Vortex targets for normal Python `ctx.read(...).collect()`
+      reruns so stale `.shardloom/prepared/*.vortex` files are overwritten by the internal
+      lifecycle instead of surfacing as public quickstart/runtime blockers. Explicit user-managed
+      preparation overwrite policy remains separate.
+    - Added a focused regression test for the skip-slow planner and documented that skip-slow
+      cannot satisfy hard release proof because `required_validation_status=passed` still requires
+      the full evidence runner.
+    - Corrected the previous ClickBench/DataFrame readiness-field ledger provenance from PR pending
+      to PR #1305 merged.
+  - Evidence:
+    - `python3 scripts/check_release_architecture_tracker.py --allow-blocked --output target/release-architecture-tracker-report.json`
+      passed with `unchecked_phase_plan_count=0` and mapped Global Architecture Review rows.
+    - `python3 scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json --output target/benchmark-artifact-completeness-report.json`
+      passed.
+    - `python3 scripts/check_pre_5j_dependency_freshness.py --require-live-github --output target/pre-5j-dependency-freshness-gate.json`
+      passed against live GitHub state.
+    - `python3 scripts/check_benchmark_publication_claim_gate.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --output target/benchmark-publication-claim-gate-report.json`
+      passed.
+    - `python3 scripts/check_front_door_benchmark_publication.py --manifest website/assets/benchmarks/latest/manifest.json --allow-stale-git --output target/front-door-benchmark-publication-gate.json`
+      passed.
+    - `python3 -m py_compile scripts/run_release_validation_evidence.py python/tests/test_release_scripts.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_release_validation_evidence_skip_slow_plans_no_commands`
+      passed.
+    - `python3 scripts/run_release_validation_evidence.py --skip-slow --output target/release-validation-evidence.json`
+      completed with zero command executions and `feature_build_matrix_status=skipped_slow`,
+      `required_validation_status=skipped_slow`, and
+      `supporting_security_dependency_status=skipped_slow`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_auto_prepared_vortex_collect_overwrites_internal_target`
+      passed.
+    - `PYTHONPATH=python/src python3 examples/local-python-smoke/run.py --repo-root . --shardloom-bin target/debug/shardloom`
+      passed with `quickstart_local_file_runtime_execution=true`,
+      `quickstart_local_file_vortex_ingest_performed=true`, and no fallback/external-engine
+      invocation.
+    - `python3 scripts/check_v1_example_replay.py --profile-order debug,release --skip-build --output target/v1-example-replay-report-skip-build-debug.json --work-dir target/v1-example-replay-skip-build-debug`
+      passed.
+    - `python3 scripts/check_v1_local_resource_safety.py --skip-build --output target/v1-local-resource-safety-report-skip-build-debug.json`
+      passed.
+    - `python3 scripts/check_v1_observability_support.py --skip-build --output target/v1-observability-support-report-skip-build-debug.json`
+      passed.
+    - `python3 scripts/check_ci_gate_matrix.py --output target/ci-gate-matrix-report-debug.json`
+      passed.
+    - `python3 -m py_compile scripts/check_v1_example_replay.py scripts/check_v1_local_resource_safety.py scripts/check_v1_observability_support.py scripts/check_ci_gate_matrix.py python/src/shardloom/query.py python/tests/test_query_builder.py`
+      passed.
+    - `git diff --check` passed.
+    - `python3 scripts/check_release_readiness.py --allow-blocked --output target/release-readiness-current-allow-blocked.json`
+      now blocks only on clean-env proof skipped by request, publication/API/schema approval,
+      per-claim evidence remaining not claim-grade, and full required-validation evidence not yet
+      attached.
+  - Claim boundary:
+    - This is release evidence wiring and local readiness refresh. It does not run the full
+      workspace validation suite, publish packages, create tags, refresh benchmarks, prove
+      production readiness, make performance claims, or close public claim gates.
+  - Fallback boundary:
+    - All refreshed reports preserve `fallback_attempted=false` and `external_engine_invoked=false`;
+      no external engine fallback, package publication, tag creation, or secret use occurred.
+
 - [x] Session label: ClickBench/DataFrame readiness-field closeout
   - Date: 2026-06-19
-  - Branch/PR: `codex/clickbench-dataframe-runtime-polish` / PR pending.
+  - Branch/PR: `codex/clickbench-dataframe-runtime-polish` / PR #1305, merged.
   - Source:
     - Maintainer direction to finish ClickBench capillary/PulseWeave memory and spill diagnostics,
       state budgeting, scale fixture strategy, benchmark/site readiness fields, ledger movement,
