@@ -778,6 +778,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "events.vortex",
             binary=["definitely-missing-shardloom"],
         )
+        inferred_vortex_schema_frame = sl.read(
+            "events.vortex",
+            schema={"id": "int64"},
+            binary=["definitely-missing-shardloom"],
+        )
 
         self.assertIsInstance(frame, LazyFrame)
         self.assertEqual(frame.source_format, "csv")
@@ -794,18 +799,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(inferred_json_frame.source_format, "json")
         self.assertEqual(inferred_arrow_frame.source_format, "arrow-ipc")
         self.assertEqual(inferred_vortex_frame.source_format, "vortex")
+        self.assertEqual(inferred_vortex_schema_frame.source_format, "vortex")
+        self.assertEqual(inferred_vortex_schema_frame.source.schema_map["id"], "int64")
+        self.assertEqual(
+            inferred_vortex_schema_frame.operation_summary,
+            "read_vortex(events.vortex)",
+        )
         self.assertEqual(
             frame.operation_summary,
             "read_csv(events.csv) -> filter(id > 0) -> select(id,amount) -> limit(10)",
         )
         with self.assertRaisesRegex(ValueError, "cannot infer a local source adapter"):
             sl.read("events.data", binary=["definitely-missing-shardloom"])
-        with self.assertRaisesRegex(ValueError, "schema=.*not supported for Vortex"):
-            sl.read(
-                "events.vortex",
-                schema={"id": "int64"},
-                binary=["definitely-missing-shardloom"],
-            )
 
     def test_lazy_builder_validates_empty_operations(self) -> None:
         frame = sl.read_parquet("orders.parquet", binary=["definitely-missing-shardloom"])
