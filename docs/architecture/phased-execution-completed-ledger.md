@@ -16,9 +16,44 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: v0.1.7 release-prep version bump
+  - Date: 2026-06-19
+  - Branch/PR: `codex/v0.1.7-release-prep` / PR pending.
+  - Source:
+    - Maintainer direction to proceed through the version bump process after PR #1308 merged.
+  - Scope:
+    - Bumped the root workspace package version to `0.1.7`, preserving root `Cargo.toml` as the
+      source of truth for Rust crate, Python package, website, lockfile, and CI version surfaces.
+    - Ran the version sync tool to update derived Python, website, and lockfile package metadata.
+    - Added v0.1.7 release-prep notes covering the post-v0.1.6 release-evidence hardening and
+      native Vortex runtime review-polish patch train.
+    - Updated the public README source-version sentence and maintainer handoff so v0.1.7 is
+      clearly source-prepared while package-channel proof remains pending until the GitHub,
+      TestPyPI, PyPI, and Homebrew sequence is executed and recorded.
+  - Evidence:
+    - `python3 scripts/sync_workspace_package_versions.py --check` passed.
+    - `python3 scripts/check_workspace_version_sources.py --output target/workspace-version-source-report-v017.json`
+      passed.
+    - `python3 scripts/write_ci_version_env.py --format json` reported
+      `SHARDLOOM_PACKAGE_VERSION=0.1.7`.
+    - `cargo fmt --all -- --check` passed.
+    - `python3 scripts/check_package_channel_readiness.py --output target/package-channel-readiness-v017-prep.json`
+      passed for the currently proof-backed selected channels.
+    - `python3 scripts/check_release_readiness.py --allow-blocked --output target/release-readiness-v017-prep-allow-blocked.json`
+      completed with hard public-release claims still blocked for publication/proof gates.
+    - `python3 scripts/check_release_architecture_tracker.py --allow-blocked --output target/release-architecture-tracker-v017-prep.json`
+      passed with `unchecked_phase_plan_count=0`.
+  - Claim boundary:
+    - This is a source version bump and release-prep metadata update. It does not publish packages,
+      create a tag, upload release assets, update Homebrew, mark v0.1.7 channels as published, or
+      make performance/production claims.
+  - Fallback boundary:
+    - No runtime fallback, external engine execution, package publication, tag creation, or secret
+      use occurred.
+
 - [x] Session label: PR #1297+ Codex review comment runtime polish
   - Date: 2026-06-19
-  - Branch/PR: `codex/pr1297-comment-runtime-polish` / PR pending.
+  - Branch/PR: `codex/pr1297-comment-runtime-polish` / PR #1308, merged.
   - Source:
     - One-time Codex review-comment sweep across PRs #1297 and up after the runtime/user-surface
       phase-plan closeout, focused on actionable correctness issues that still needed explicit
