@@ -75,13 +75,6 @@ FRONT_DOOR_GAP_ROUTES: dict[str, dict[str, str]] = {
         "output_or_evidence_route": "deterministic diagnostic until broad semantic/runtime evidence lands",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
     },
-    "performance_equivalence": {
-        "classification": "runtime_available_needs_claim_evidence",
-        "vortex_normalization_point": "route_specific_vortex_boundary_required_in_benchmark_manifest",
-        "runtime_route": "scoped shared runtime paths exist for admitted rows",
-        "output_or_evidence_route": "front-door equivalent benchmark manifest and claim evidence pending",
-        "owner": "GAR-RUNTIME-IMPL-6D:last_order.performance_equivalence",
-    },
 }
 
 DATAFRAME_METHOD_FRONT_DOOR_GAPS = (
@@ -226,7 +219,7 @@ WEBSITE_STATUS_ROUTES: dict[str, dict[str, str]] = {
         "classification": "true_runtime_expansion_item",
         "vortex_normalization_point": "front_door_expression_to_vortex_plan_pending",
         "runtime_route": "scoped local runtime exists; broad SQL/DataFrame parity pending",
-        "output_or_evidence_route": "diagnostic/evidence/local fanout today; broad route evidence pending",
+        "output_or_evidence_route": "scoped local JSONL/CSV fanout has staged commit evidence; non-local/effectful fanout remains output-policy gated",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
     },
 }
@@ -561,7 +554,6 @@ def front_door_gap_rows(repo_root: Path) -> tuple[list[dict[str, Any]], list[str
                 runtime_execution=bool(row["runtime_execution"]),
                 benchmark_range=row_id in {
                     "arbitrary_sql_python_dataframe_breadth",
-                    "performance_equivalence",
                 },
                 user_visible_refs=[
                     "python/src/shardloom/context.py:FRONT_DOOR_PARITY_ROWS",

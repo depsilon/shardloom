@@ -852,7 +852,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     assert!(melt.contains(&field("workflow_operation", "melt")));
     assert!(melt.contains(&field(
         "blocker_id",
-        "cg21.workflow.melt.reshape_semantics_unsupported"
+        "cg21.workflow.melt.nested_or_broad_index_contract_missing"
     )));
     assert!(melt.contains(&field("target_ref", "id_vars=id;value_vars=amount")));
     assert!(rolling.contains(&field("workflow_operation", "rolling")));

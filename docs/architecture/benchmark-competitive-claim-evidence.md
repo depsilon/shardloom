@@ -64,13 +64,15 @@ evidence are attached. This prevents the benchmark plan itself from becoming a
 marketing claim.
 
 `scripts/check_front_door_benchmark_publication.py` adds a separate fail-closed
-front-door admission gate for the SQL/Python/DataFrame equivalence claim. It
-does not run benchmarks and does not upgrade any timing row. Instead, it checks
-that scoped front-door parity is still explicit, public front-door route rows
-are present, no fallback/external engine is reported, and
-`front_door_performance_publication_status=blocked_pending_measured_equivalence_artifact`
-until measured equivalent front-door rows, correctness digests, execution
-certificates, reproducibility metadata, and rerun approval are attached.
+front-door admission gate for SQL/Python/DataFrame route-equivalence evidence.
+It consumes the scoped local artifact at
+`website/assets/benchmarks/latest/front-door-performance-equivalence.json`,
+checks that all 27 front-door/scenario rows share the same correctness digests,
+preserve `fallback_attempted=false` and `external_engine_invoked=false`, and
+keeps `front_door_performance_publication_status=local_equivalence_evidence_present_claim_gated`.
+That status proves local route-equivalence evidence is present; it still does
+not upgrade comparative timing rows or authorize public performance,
+production, superiority, or Spark-replacement claims.
 
 ## Baseline Policy
 

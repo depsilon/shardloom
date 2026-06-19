@@ -39,13 +39,13 @@ SUPPORTED_PARITY_ROWS = {
     "native_vortex_general_runtime",
     "decoded_materialization_interop",
     "arbitrary_sql_python_dataframe_breadth",
+    "performance_equivalence",
 }
 
 EXPORT_PENDING_PARITY_ROWS: set[str] = set()
 
 BROAD_PENDING_PARITY_ROWS = {
     "object_store_lakehouse_catalog",
-    "performance_equivalence",
 }
 
 EXPECTED_EXAMPLE_SCENARIOS = {
@@ -250,7 +250,6 @@ def validate_parity_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]
         if row_id in {
             "object_store_lakehouse_catalog",
             "arbitrary_sql_python_dataframe_breadth",
-            "performance_equivalence",
         }:
             if row.get("parity_status") != "front_door_gap":
                 blockers.append(f"{row_id}: broad pending row must remain front_door_gap")

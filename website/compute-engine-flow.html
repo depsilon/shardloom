@@ -435,7 +435,7 @@ source_state_date_null_metric_*
 | Local compatibility inputs | CSV/JSONL/flat JSON and selected feature-gated local formats enter through `UniversalIngress`. | Compatibility import/export is not fallback execution. |
 | Vortex preparation | Feature-gated local `vortex_ingest` creates `VortexPreparedState` evidence. | Scoped local flat-schema evidence only. |
 | Prepared/native benchmark routes | Promoted artifacts separate cold, prepare-once, warm prepared, native, direct, and baseline lanes. | Claims depend on `timing_surface`, evidence tier, and claim gate. |
-| SQL/DataFrame front doors | Scoped fixture/local-source rows exist for selected expressions and outputs. | Not broad PySpark, pandas, Polars, ANSI SQL, or production parity. |
+| SQL/DataFrame front doors | Scoped fixture/local-source rows exist for selected expressions and outputs. | Not broad PySpark, pandas, Polars, SQL-standard/ANSI-style, or production parity. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly report-only, fixture-scoped, or blocked. | No production platform claim. |
 | Package/release | Local no-publication rehearsals and gates exist. | Public package/release claims remain blocked until explicit release gates pass. |
 

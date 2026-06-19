@@ -114,8 +114,9 @@ deterministic row-count
 `sample(n=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)` or
 fractional
 `sample(frac|fraction=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)`, and scoped
-`melt(id_vars=..., value_vars=...)` over same-typed value columns plus scoped
-`explode("list_column")` over one declared scalar list column. These
+`melt(id_vars=..., value_vars=...)` over heterogeneous scalar value columns plus scoped
+single-column and same-length multi-column `explode(...)` over declared list/fixed-size-list
+columns with scalar, nullable, list, or struct element values. These
 reports are route evidence, not broad arbitrary Vortex SQL/DataFrame parity or performance claims.
 
 ## Python Query Builder
@@ -139,27 +140,38 @@ objects. Common supported or scoped methods include:
 - Ordering and top N: `sort(...)`, `order_by(...)`, `sort_by(...)`, `sort_values(...)`,
   scoped index metadata `set_index(..., drop=False)`, source-order-preserving
   `reset_index(drop=True)`/`sort_index(ascending=True)`, `nlargest(...)`, `nsmallest(...)`.
+- Windows: scoped fixed-row `rolling(...).sum(...)`, `mean(...)`, `count(...)`, `min(...)`, and
+  `max(...)` use source order, valid-observation `min_periods`, and ShardLoom-native window state.
 - Null and duplicate helpers: `dropna(...)`, `fillna(...)`, `fill_null(...)`, `isna(...)`,
   `isnull(...)`, `notna(...)`, `notnull(...)`, `distinct()`, `drop_duplicates()`, `unique()`,
   scoped `drop_duplicates(subset=..., keep="first"|"last"|False)` retained-row deduplication,
-  and scoped `duplicated(subset=..., keep="first"|"last"|False)` duplicate masks.
+  scoped `duplicated(subset=..., keep="first"|"last"|False)` duplicate masks, and
+  schema-declared scalar/per-column literal `fillna`/`fill_null` projection rewrites for
+  `axis=0`/`index` or projection-equivalent `axis=1`/`columns` spellings, plus scoped
+  source-order `fillna(method="ffill", limit=<optional positive int>)`/`fill_null(...)`
+  forward-fill rewrites.
 - Reshape: scoped `melt(id_vars=..., value_vars=..., var_name=..., value_name=...)` for explicit
-  flat scalar id/value columns with same-typed value columns through the native/prepared Vortex
-  melt primitive, scoped `explode("list_column")` over one declared scalar list column through the
-  native/prepared Vortex explode primitive, and scoped `pivot(...)` / `pivot_table(...)` over one
-  index column, one pivot column, and one value column through the native/prepared Vortex pivot
-  primitive. `pivot_table` admits one aggregate from `sum`, `count`, `mean`, `min`, or `max`;
-  heterogeneous unpivot, nullable/nested/multi-column explode, multi-index/multi-value pivot,
-  custom pivot aggregates, hidden index-state reshape, and broad reshape parity remain
-  deterministic blockers.
-- Windows: scoped `rolling(window=<positive int>, min_periods<=window, center=False).sum/mean/count(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
-  primitive; `sum`/`mean` require numeric inputs, `count` admits scalar rows, and time/calendar
-  windows, centered windows, callbacks, and broad pandas rolling parity remain deterministic
+  flat scalar id columns and heterogeneous scalar value columns through the native/prepared Vortex
+  melt primitive; `ignore_index=False` adds an explicit source-order row-number column rather than
+  relying on hidden pandas index state. Scoped `explode("list_column")` and same-length
+  multi-column list/fixed-size-list `explode("a", "b", ...)` lower through the native/prepared
+  Vortex explode primitive with scalar, nullable, list, or struct element values, cardinality
+  evidence, and null-shape evidence; scoped `explode("items.field")` projects one field from
+  list-of-struct elements. Scoped `pivot(...)` / `pivot_table(...)` over one
+  index column, one pivot column, and one value column lower through the native/prepared Vortex
+  pivot primitive. `pivot_table` admits one aggregate from `sum`, `count`, `mean`, `min`, or `max`
+  plus scoped `fill_value`, `dropna`, `margins`, and `margins_name` output policy; multi-level
+  nested-field accessor explode, multi-index/multi-value pivot, custom pivot aggregates,
+  hidden index-state reshape, and broad reshape parity remain deterministic blockers.
+- Windows: scoped `rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
+  primitive; `sum`/`mean`/`min`/`max` require numeric inputs, `count` admits scalar rows, centered windows
+  use bounded lookahead evidence, and time/calendar windows, custom frames, callbacks, and broad pandas rolling parity remain deterministic
   blockers.
 - Conditional and value rewrites: scoped typed scalar/null `mask(predicate, scalar-or-null)`,
-  `replace(old, scalar-or-null)`/column-mapped full-cell scalar/null replacement, and in-place UTF-8
+  `replace(old, scalar-or-null)`/column-mapped full-cell scalar/null replacement, scoped UTF-8
+  `replace(pattern, replacement, regex=True)`, and in-place UTF-8
   `with_column("col", col("col").replace(...))` string replacement when the schema and projection
-  admit the native Vortex expression-project primitive; broad pandas alignment, regex, callable,
+  admit the native Vortex expression-project primitive; broad pandas alignment, callable,
   method/limit, nested, or mixed-dtype variants remain deterministic blockers.
 - Computed columns: `with_column(...)`, `with_columns(...)`, `assign(...)` when the expression
   lowers to the scoped ShardLoom expression surface.
@@ -176,7 +188,8 @@ objects. Common supported or scoped methods include:
 - Local execution and writes: bounded `collect(...)`, `run(...)`, `route(...)`, `prepare(...)`,
   `write(...)`, `write_jsonl(...)`, `write_csv(...)`, feature-gated `write_parquet(...)`,
   `write_arrow_ipc(...)`, `write_avro(...)`, `write_orc(...)`, `write_vortex(...)`, and
-  `fanout(...)`.
+  `fanout(...)`. Scoped local JSONL/CSV fanout uses staged multi-target commit and exposes
+  target-level commit, cleanup, and no-fallback evidence.
 - Bounded inspection: `schema(...)`, `describe_schema(...)`, `validate_schema(...)`,
   `schema_contract(...)`, `data_quality_check(...)`, `data_quality(...)`,
   `data_quality_summary(...)`, scoped `describe(...)`, `profile(...)`, `preview(...)`, `display(...)`,

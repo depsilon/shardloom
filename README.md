@@ -257,13 +257,15 @@ bounded source-order tail, deterministic row-count
 numeric scalar assignment, `map(sl.column_transform(...))` / `applymap(sl.column_transform(...))`
 declarative column rewrites, `map_rows(sl.row_transform(...))` declarative row-shaped rewrites, scoped
 `drop_duplicates(subset=..., keep="first"|"last"|False)` retained-row deduplication, scoped
-`duplicated(subset=..., keep="first"|"last"|False)` duplicate masks, explicit
-`melt(id_vars=..., value_vars=...)` flat scalar row expansion, scoped
-`explode("list_column")` over one declared scalar list column, scoped
+`duplicated(subset=..., keep="first"|"last"|False)` duplicate masks, scoped
+`fillna(method="ffill", limit=<optional positive int>)`/`fill_null(...)` forward-fill rewrites, explicit
+`melt(id_vars=..., value_vars=...)` flat scalar row expansion, scoped single-column and same-length
+multi-column `explode(...)` over declared list/fixed-size-list columns with scalar, nullable, list,
+or struct element values plus single-level `explode("items.field")` list-of-struct projections, scoped
 `pivot(index=..., columns=..., values=...)` and
 `pivot_table(values=..., index=..., columns=..., aggfunc=sum|count|mean|min|max)` over one index/pivot/value
 column, scoped
-`rolling(window=<positive int>, min_periods<=window, center=False).sum/mean/count(column, alias=...)`, and
+`rolling(window=<positive int>, min_periods<=window, center=True|False).sum/mean/count/min/max(column, alias=...)`, and
 explicit `apply(sl.plan_transform(...))` / `pipe(sl.plan_transform(...))` lazy plan composition, native
 `write_vortex` sinks, scoped structured Vortex/Parquet/Arrow IPC/Avro expression-project exports, and
 provider-backed bounded

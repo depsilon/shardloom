@@ -7,6 +7,7 @@
 
 use std::{
     collections::BTreeSet,
+    fs,
     path::{Path, PathBuf},
     process::ExitCode,
 };
@@ -364,6 +365,11 @@ fn execute_native_vortex_primitive_row_export_reports(
     targets: &[NativeVortexPrimitiveRowExportTarget],
     execution: &NativeVortexPrimitiveRowExportExecution,
 ) -> Result<Vec<shardloom_vortex::VortexLocalPrimitiveRowExportReport>, ShardLoomError> {
+    if targets.len() > 1 {
+        return execute_native_vortex_primitive_row_export_reports_staged(
+            request, targets, execution,
+        );
+    }
     targets
         .iter()
         .map(|target| {
@@ -376,6 +382,201 @@ fn execute_native_vortex_primitive_row_export_reports(
             )
         })
         .collect()
+}
+
+fn execute_native_vortex_primitive_row_export_reports_staged(
+    request: &PublicWorkflowRouteRequest,
+    targets: &[NativeVortexPrimitiveRowExportTarget],
+    execution: &NativeVortexPrimitiveRowExportExecution,
+) -> Result<Vec<shardloom_vortex::VortexLocalPrimitiveRowExportReport>, ShardLoomError> {
+    let staged_targets = targets
+        .iter()
+        .enumerate()
+        .map(|(index, target)| {
+            Ok(NativeVortexPrimitiveRowExportTarget {
+                role: target.role,
+                format: target.format,
+                path: native_vortex_staged_row_export_path(&target.path, index)?,
+            })
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    let mut reports = Vec::with_capacity(targets.len());
+    for (index, staged_target) in staged_targets.iter().enumerate() {
+        let report = shardloom_vortex::execute_vortex_local_primitive_row_export_with_policy(
+            &execution.primitive_request,
+            &staged_target.path,
+            staged_target.format,
+            false,
+            execution.policy,
+        )?;
+        if report.has_errors() {
+            cleanup_native_vortex_staged_row_export_targets(&staged_targets);
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "native Vortex primitive fanout staged target {} did not execute; no final target was committed",
+                targets[index].path.display()
+            )));
+        }
+        reports.push(report);
+    }
+    commit_native_vortex_staged_row_export_targets(
+        &staged_targets,
+        targets,
+        request.allow_overwrite,
+    )?;
+    for (report, target) in reports.iter_mut().zip(targets.iter()) {
+        report.output_path = target.path.display().to_string();
+    }
+    Ok(reports)
+}
+
+fn native_vortex_staged_row_export_path(
+    target_path: &Path,
+    index: usize,
+) -> Result<PathBuf, ShardLoomError> {
+    let parent = target_path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty());
+    let file_name = target_path
+        .file_name()
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "native Vortex primitive fanout output path has no file name: {}",
+                target_path.display()
+            ))
+        })?
+        .to_string_lossy();
+    let staged_name = format!(
+        ".{file_name}.shardloom-fanout-stage-{}-{index}",
+        std::process::id()
+    );
+    let staged_path = parent.map_or_else(
+        || PathBuf::from(&staged_name),
+        |path| path.join(&staged_name),
+    );
+    if staged_path.exists() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "native Vortex primitive fanout staging path already exists: {}; remove stale staging output before retrying; no fallback execution was attempted",
+            staged_path.display()
+        )));
+    }
+    Ok(staged_path)
+}
+
+fn native_vortex_backup_row_export_path(
+    target_path: &Path,
+    index: usize,
+) -> Result<PathBuf, ShardLoomError> {
+    let parent = target_path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty());
+    let file_name = target_path
+        .file_name()
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "native Vortex primitive fanout output path has no file name: {}",
+                target_path.display()
+            ))
+        })?
+        .to_string_lossy();
+    let backup_name = format!(
+        ".{file_name}.shardloom-fanout-backup-{}-{index}",
+        std::process::id()
+    );
+    let backup_path = parent.map_or_else(
+        || PathBuf::from(&backup_name),
+        |path| path.join(&backup_name),
+    );
+    if backup_path.exists() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "native Vortex primitive fanout backup path already exists: {}; remove stale backup before retrying; no fallback execution was attempted",
+            backup_path.display()
+        )));
+    }
+    Ok(backup_path)
+}
+
+#[derive(Debug)]
+struct NativeVortexCommittedRowExportTarget {
+    target_path: PathBuf,
+    backup_path: Option<PathBuf>,
+}
+
+fn commit_native_vortex_staged_row_export_targets(
+    staged_targets: &[NativeVortexPrimitiveRowExportTarget],
+    targets: &[NativeVortexPrimitiveRowExportTarget],
+    allow_overwrite: bool,
+) -> Result<(), ShardLoomError> {
+    let mut committed = Vec::<NativeVortexCommittedRowExportTarget>::new();
+    for (index, (staged, target)) in staged_targets.iter().zip(targets.iter()).enumerate() {
+        let backup_path = if target.path.exists() {
+            if !allow_overwrite {
+                cleanup_native_vortex_staged_row_export_targets(staged_targets);
+                rollback_native_vortex_committed_row_export_targets(&committed);
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "native Vortex primitive fanout output already exists: {}; pass allow_overwrite to replace it; no final target was committed",
+                    target.path.display()
+                )));
+            }
+            let backup_path = native_vortex_backup_row_export_path(&target.path, index)?;
+            fs::rename(&target.path, &backup_path).map_err(|error| {
+                cleanup_native_vortex_staged_row_export_targets(staged_targets);
+                rollback_native_vortex_committed_row_export_targets(&committed);
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to stage existing native Vortex primitive fanout target {} for overwrite: {error}; no fallback execution was attempted",
+                    target.path.display()
+                ))
+            })?;
+            Some(backup_path)
+        } else {
+            None
+        };
+        if let Err(error) = fs::rename(&staged.path, &target.path) {
+            if let Some(backup_path) = backup_path.as_ref() {
+                let _ = fs::rename(backup_path, &target.path);
+            }
+            cleanup_native_vortex_staged_row_export_targets(staged_targets);
+            rollback_native_vortex_committed_row_export_targets(&committed);
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "failed to commit native Vortex primitive fanout staged target {} -> {}: {error}; partial outputs were cleaned up where possible; no fallback execution was attempted",
+                staged.path.display(),
+                target.path.display()
+            )));
+        }
+        committed.push(NativeVortexCommittedRowExportTarget {
+            target_path: target.path.clone(),
+            backup_path,
+        });
+    }
+    for target in &committed {
+        if let Some(backup_path) = target.backup_path.as_ref() {
+            fs::remove_file(backup_path).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to remove native Vortex primitive fanout overwrite backup {} after commit: {error}; committed outputs remain in place",
+                    backup_path.display()
+                ))
+            })?;
+        }
+    }
+    Ok(())
+}
+
+fn cleanup_native_vortex_staged_row_export_targets(
+    staged_targets: &[NativeVortexPrimitiveRowExportTarget],
+) {
+    for target in staged_targets {
+        let _ = fs::remove_file(&target.path);
+    }
+}
+
+fn rollback_native_vortex_committed_row_export_targets(
+    committed: &[NativeVortexCommittedRowExportTarget],
+) {
+    for target in committed.iter().rev() {
+        let _ = fs::remove_file(&target.target_path);
+        if let Some(backup_path) = target.backup_path.as_ref() {
+            let _ = fs::rename(backup_path, &target.target_path);
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -928,6 +1129,129 @@ fn append_native_vortex_primitive_row_export_target_fields(
             .collect::<Vec<_>>()
             .join(","),
     );
+    let all_targets_committed =
+        reports.len() == targets.len() && reports.iter().all(|report| !report.has_errors());
+    let multi_target = targets.len() > 1;
+    push_field(
+        fields,
+        "native_vortex_result_export_target_commit_modes",
+        row_export_target_evidence_field(targets, |_| "atomic_rename_same_directory"),
+    );
+    push_field(
+        fields,
+        "native_vortex_result_export_target_commit_statuses",
+        row_export_target_report_evidence_field(targets, reports, |report| {
+            if report.has_errors() {
+                "not_committed"
+            } else {
+                "committed"
+            }
+        }),
+    );
+    push_field(
+        fields,
+        "native_vortex_result_export_target_temp_cleanup_statuses",
+        row_export_target_report_evidence_field(targets, reports, |report| {
+            if report.has_errors() {
+                "cleanup_required"
+            } else if multi_target {
+                "staging_removed_after_commit"
+            } else {
+                "temp_removed_after_commit"
+            }
+        }),
+    );
+    push_field(
+        fields,
+        "native_vortex_result_export_target_replay_statuses",
+        row_export_target_report_evidence_field(targets, reports, |report| {
+            if report.has_errors() {
+                "not_replayed"
+            } else {
+                "committed_row_count_recorded"
+            }
+        }),
+    );
+    push_field(
+        fields,
+        "native_vortex_result_export_target_fidelity_statuses",
+        row_export_target_report_evidence_field(targets, reports, |report| {
+            native_vortex_row_export_fidelity_status(report.output_format)
+        }),
+    );
+    push_bool_field(
+        fields,
+        "native_vortex_result_export_all_targets_committed",
+        all_targets_committed,
+    );
+    push_field(
+        fields,
+        "native_vortex_result_export_fanout_atomicity_contract",
+        if targets.len() > 1 {
+            "all_targets_staged_before_final_commit_with_same_directory_atomic_rename_and_best_effort_rollback"
+        } else {
+            "single_target_same_directory_atomic_rename"
+        },
+    );
+    push_field(
+        fields,
+        "native_vortex_result_export_partial_write_cleanup_status",
+        if all_targets_committed {
+            if targets.len() > 1 {
+                "not_needed_all_targets_committed"
+            } else {
+                "not_needed_single_target_committed"
+            }
+        } else {
+            "cleanup_or_rollback_attempted_before_error"
+        },
+    );
+}
+
+fn row_export_target_evidence_field(
+    targets: &[NativeVortexPrimitiveRowExportTarget],
+    value: impl Fn(&NativeVortexPrimitiveRowExportTarget) -> &'static str,
+) -> String {
+    targets
+        .iter()
+        .map(|target| {
+            format!(
+                "{}:{}:{}",
+                target.role,
+                target.format.as_str(),
+                value(target)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn row_export_target_report_evidence_field(
+    targets: &[NativeVortexPrimitiveRowExportTarget],
+    reports: &[shardloom_vortex::VortexLocalPrimitiveRowExportReport],
+    value: impl Fn(&shardloom_vortex::VortexLocalPrimitiveRowExportReport) -> &'static str,
+) -> String {
+    targets
+        .iter()
+        .enumerate()
+        .map(|(index, target)| {
+            let evidence = match reports.get(index) {
+                Some(report) => value(report),
+                None => "not_reported",
+            };
+            format!("{}:{}:{evidence}", target.role, target.format.as_str())
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn native_vortex_row_export_fidelity_status(output_format: &str) -> &'static str {
+    match output_format {
+        "vortex" => "native_vortex_layout_preserved",
+        "parquet" | "arrow-ipc" | "avro" => "typed_compatibility_binary_export",
+        "jsonl" | "csv" => "compatibility_text_row_export_type_metadata_not_preserved",
+        _ => "unknown_output_format",
+    }
 }
 
 fn execute_native_vortex_provider_run(
@@ -2801,7 +3125,7 @@ impl NativeVortexOperationFamily {
                 "native_vortex_expression_projection;typed_scalar_rewrite;decode_materialization_boundary;decoded_reference_correctness;route_certificate"
             }
             Self::Melt => {
-                "native_vortex_melt;typed_melt_projection;same_typed_value_columns;decode_materialization_boundary;decoded_reference_correctness;route_certificate"
+                "native_vortex_melt;typed_melt_projection;heterogeneous_scalar_value_representation;decode_materialization_boundary;decoded_reference_correctness;route_certificate"
             }
             Self::Explode => {
                 "native_vortex_explode;typed_list_projection;list_element_scalar_contract;decode_materialization_boundary;decoded_reference_correctness;route_certificate"
@@ -7755,6 +8079,11 @@ fn add_route_native_vortex_extended_payload_fields(
         "vortex_sort_rows_present",
         request.vortex_sort_rows.is_some().to_string(),
     );
+    push_field(
+        fields,
+        "vortex_sort_tie_policy",
+        sort_rows_tie_policy(request.vortex_sort_rows.as_ref()),
+    );
 }
 
 fn add_route_native_vortex_resource_fields(
@@ -8673,6 +9002,23 @@ fn expression_projection_changed_columns(value: Option<&String>) -> String {
     }
 }
 
+fn sort_rows_tie_policy(value: Option<&String>) -> String {
+    let Some(value) = value else {
+        return "none".to_string();
+    };
+    let Ok(payload) = serde_json::from_str::<serde_json::Value>(value) else {
+        return "invalid".to_string();
+    };
+    payload
+        .get("tie_policy")
+        .or_else(|| payload.get("keep"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("first")
+        .to_string()
+}
+
 fn fanout_outputs_field(request: &PublicWorkflowRouteRequest) -> String {
     if request.fanout_outputs.is_empty() {
         "none".to_string()
@@ -8975,6 +9321,14 @@ fn execution_attachment_fields(
         (
             "public_workflow_vortex_aggregate_present".to_string(),
             effective_request.vortex_aggregate.is_some().to_string(),
+        ),
+        (
+            "public_workflow_vortex_sort_rows_present".to_string(),
+            effective_request.vortex_sort_rows.is_some().to_string(),
+        ),
+        (
+            "public_workflow_vortex_sort_tie_policy".to_string(),
+            sort_rows_tie_policy(effective_request.vortex_sort_rows.as_ref()),
         ),
         (
             "public_workflow_memory_gb".to_string(),
@@ -12834,5 +13188,63 @@ mod tests {
         );
         assert!(!plan.preparation_included);
         assert!(!plan.query_timing_starts_after_preparation);
+    }
+
+    #[test]
+    fn staged_row_export_commit_promotes_all_targets_and_removes_staging() {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom-public-route-fanout-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system time")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).expect("temp dir");
+        let primary_path = root.join("primary.jsonl");
+        let fanout_path = root.join("fanout.csv");
+        std::fs::write(&primary_path, "old\n").expect("old primary");
+        let targets = vec![
+            NativeVortexPrimitiveRowExportTarget {
+                role: "primary",
+                format: shardloom_vortex::VortexLocalPrimitiveRowExportFormat::Jsonl,
+                path: primary_path.clone(),
+            },
+            NativeVortexPrimitiveRowExportTarget {
+                role: "fanout",
+                format: shardloom_vortex::VortexLocalPrimitiveRowExportFormat::Csv,
+                path: fanout_path.clone(),
+            },
+        ];
+        let staged_targets = targets
+            .iter()
+            .enumerate()
+            .map(|(index, target)| NativeVortexPrimitiveRowExportTarget {
+                role: target.role,
+                format: target.format,
+                path: native_vortex_staged_row_export_path(&target.path, index)
+                    .expect("staged path"),
+            })
+            .collect::<Vec<_>>();
+        let primary_backup =
+            native_vortex_backup_row_export_path(&primary_path, 0).expect("backup path");
+        std::fs::write(&staged_targets[0].path, "{\"id\":1}\n").expect("staged primary");
+        std::fs::write(&staged_targets[1].path, "id\n1\n").expect("staged fanout");
+
+        commit_native_vortex_staged_row_export_targets(&staged_targets, &targets, true)
+            .expect("commit");
+
+        assert_eq!(
+            std::fs::read_to_string(&primary_path).expect("primary"),
+            "{\"id\":1}\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&fanout_path).expect("fanout"),
+            "id\n1\n"
+        );
+        assert!(!staged_targets[0].path.exists());
+        assert!(!staged_targets[1].path.exists());
+        assert!(!primary_backup.exists());
+        std::fs::remove_dir_all(&root).expect("cleanup temp dir");
     }
 }

@@ -86,11 +86,12 @@ GAR-RUNTIME-IMPL-6D front-door benchmark publication closeout: RFC 0009, RFC 002
 and RFC 0040 now map to `shardloom.front_door_benchmark_publication_gate.v1` via
 `scripts/check_front_door_benchmark_publication.py`. The gate composes scoped
 SQL/Python/DataFrame parity with public benchmark route rows and keeps
-`front_door_performance_publication_status=blocked_pending_measured_equivalence_artifact`,
+`front_door_performance_publication_status=local_equivalence_evidence_present_claim_gated`,
 `front_door_performance_equivalence_claim_allowed=false`, `performance_claim_allowed=false`,
-`benchmark_run_performed=false`, `fallback_attempted=false`, and
-`external_engine_invoked=false` until measured equivalent front-door rows, correctness digests,
-execution certificates, reproducibility metadata, and rerun approval exist.
+`benchmark_run_performed=true`, `fallback_attempted=false`, and `external_engine_invoked=false`
+for the local SQL/Python/DataFrame route-equivalence artifact. The artifact is scoped local
+evidence only; it does not authorize public performance, production, superiority, or
+Spark-replacement claims.
 
 P7.4.4 expanded-scenario update: the ShardLoom traditional analytics lane now executes the
 base-schema expanded taxonomy scenarios `filter + projection + limit`, `multi-key group by`,

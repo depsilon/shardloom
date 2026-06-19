@@ -46,6 +46,7 @@ REQUIRED_ADMITTED_ROWS = {
     "native_vortex_general_runtime",
     "decoded_materialization_interop",
     "arbitrary_sql_python_dataframe_breadth",
+    "performance_equivalence",
 }
 
 REQUIRED_EXPORT_PENDING_ROWS: set[str] = set()
@@ -183,14 +184,11 @@ REQUIRED_SOURCE_MARKERS = {
         "cg21.workflow.explode.nested_expansion_unsupported",
         "cg21.workflow.pivot.broad_reshape_contract_missing",
         "cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing",
-        "cg21.workflow.melt.reshape_semantics_unsupported",
+        "cg21.workflow.melt.nested_or_broad_index_contract_missing",
         "cg21.workflow.rolling.broad_window_semantics_unsupported",
-        "cg21.workflow.duplicated.nested_or_index_contract_missing",
-        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing",
         "cg21.workflow.mask.alignment_callable_or_nested_contract_missing",
-        "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing",
+        "cg21.workflow.replace.method_nested_or_mixed_dtype_contract_missing",
         "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
-        "cg21.workflow.reset_index.row_number_or_hidden_index_contract_missing",
         "cg21.workflow.sort_index.hidden_index_order_contract_missing",
         "cg21.workflow.apply.python_callable_unsupported",
         "cg21.workflow.pipe.python_callable_unsupported",
@@ -206,14 +204,11 @@ REQUIRED_SOURCE_MARKERS = {
         "cg21.workflow.explode.nested_expansion_unsupported",
         "cg21.workflow.pivot.broad_reshape_contract_missing",
         "cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing",
-        "cg21.workflow.melt.reshape_semantics_unsupported",
+        "cg21.workflow.melt.nested_or_broad_index_contract_missing",
         "cg21.workflow.rolling.broad_window_semantics_unsupported",
-        "cg21.workflow.duplicated.nested_or_index_contract_missing",
-        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing",
         "cg21.workflow.mask.alignment_callable_or_nested_contract_missing",
-        "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing",
+        "cg21.workflow.replace.method_nested_or_mixed_dtype_contract_missing",
         "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
-        "cg21.workflow.reset_index.row_number_or_hidden_index_contract_missing",
         "cg21.workflow.sort_index.hidden_index_order_contract_missing",
         "cg21.workflow.apply.python_callable_unsupported",
         "cg21.workflow.pipe.python_callable_unsupported",
@@ -306,7 +301,7 @@ REQUIRED_DATAFRAME_METHOD_FUTURE_CONTRACT_BLOCKERS = {
     "explode": {"cg21.workflow.explode.nested_expansion_unsupported"},
     "pivot": {"cg21.workflow.pivot.broad_reshape_contract_missing"},
     "pivot_table": {"cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing"},
-    "melt": {"cg21.workflow.melt.reshape_semantics_unsupported"},
+    "melt": {"cg21.workflow.melt.nested_or_broad_index_contract_missing"},
     "rolling": {"cg21.workflow.rolling.broad_window_semantics_unsupported"},
     "dropna": {"cg21.workflow.dropna.null_cleanup_semantics_contract_missing"},
     "fillna": {"cg21.workflow.fillna.null_fill_semantics_unsupported"},
@@ -315,22 +310,12 @@ REQUIRED_DATAFRAME_METHOD_FUTURE_CONTRACT_BLOCKERS = {
     "isnull": {"cg21.workflow.isna.null_mask_semantics_unsupported"},
     "notna": {"cg21.workflow.notna.null_mask_semantics_unsupported"},
     "notnull": {"cg21.workflow.notna.null_mask_semantics_unsupported"},
-    "duplicated": {"cg21.workflow.duplicated.nested_or_index_contract_missing"},
-    "drop_duplicates": {
-        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing"
-    },
-    "unique": {
-        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing"
-    },
     "mask": {"cg21.workflow.mask.alignment_callable_or_nested_contract_missing"},
     "replace": {
-        "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing"
+        "cg21.workflow.replace.method_nested_or_mixed_dtype_contract_missing"
     },
     "set_index": {
         "cg21.workflow.set_index.hidden_index_materialization_contract_missing"
-    },
-    "reset_index": {
-        "cg21.workflow.reset_index.row_number_or_hidden_index_contract_missing"
     },
     "sort_index": {"cg21.workflow.sort_index.hidden_index_order_contract_missing"},
     "apply": {"cg21.workflow.apply.python_callable_unsupported"},

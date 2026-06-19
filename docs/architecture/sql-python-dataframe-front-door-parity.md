@@ -153,10 +153,11 @@ Every user input route should answer four questions:
 Rows that cannot answer those questions are runtime-expansion checklist items, not vague
 unsupported shapes. The parity matrix therefore exposes two separate fields for gap rows:
 `parity_status=front_door_gap` says the broad user story is not complete, while
-`runtime_gap_status` says what kind of work remains. Current v1 gap statuses are
-`runtime_expansion_pending` and `benchmark_publication_pending`; generic no-route or incomplete
-labels are validator failures for engine-capable benchmark-range
-surfaces.
+`runtime_gap_status` says what kind of work remains. The current source/local v1 rows are admitted;
+the remaining v1-visible gap is `object_store_lakehouse_catalog` with
+`runtime_gap_status=external_environment_gate_pending`, because it requires real object-store,
+catalog, table-commit, or Foundry environments. Generic no-route or incomplete labels are validator
+failures for engine-capable benchmark-range surfaces.
 
 ## Scoped Vortex Primitive Runtime
 
@@ -263,10 +264,15 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   highest-fidelity sink where the provider or scoped structured route is admitted. Scoped
   `pivot_table` accepts one aggregate as a scalar string, one-element sequence, or one-column
   mapping when it maps to the admitted sum/count/mean/min/max native Vortex pivot aggregate family. Scoped
-  `melt(id_vars=..., ignore_index=True)` can infer same-typed value columns from the current
-  schema/projection and lowers to the same native/prepared Vortex melt primitive as explicit
-  `value_vars`; scoped single-column `explode(..., ignore_index=True)` uses the existing native
-  Vortex explode primitive with no hidden pandas index materialization.
+  `melt(id_vars=...)` can infer value columns from the current schema/projection, admits
+  heterogeneous scalar value columns for JSONL/CSV row materialization, and lowers to the same
+  native/prepared Vortex melt primitive as explicit `value_vars`; `ignore_index=False` is expressed
+  as an explicit source-order row-number column instead of hidden pandas index state. Scoped
+  single-column and same-length multi-column list/fixed-size-list `explode(..., ignore_index=True)`
+  use the same native Vortex explode primitive with scalar, nullable, list, or struct element
+  values, explicit null-shape evidence, and no hidden pandas index materialization. Scoped
+  `pivot_table` output policy now includes `fill_value`, `dropna`, `margins`, and `margins_name`
+  for the admitted single-index/single-value aggregate family.
   scalar-expression `JOIN ON` predicates over qualified local sources lower through the bounded
   expression-join route, including Python `LazyFrame.join(condition=...)` predicate objects and
   logical `OR` over admitted qualified scalar leaves; complex-key and broader non-scalar join
@@ -281,18 +287,22 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   `dropna(how="any"|"all")` and `dropna(thresh=<int>)` lower to `IS NOT NULL` filters joined with
   `AND`, `OR`, or threshold combinations, and `query(...)` aliases the admitted ShardLoom predicate
   path when no pandas expression-engine kwargs are requested. Scoped
-  `nlargest` / `nsmallest` lower to `ORDER BY ... LIMIT` when `keep="first"` and the sort keys are
-  admitted. Scoped local-source `sort(...)`/`order_by(...)`/`sort_values(...)` can pass
+  `nlargest` / `nsmallest` lower to native/prepared Vortex `sort_rows` with deterministic
+  `keep="first"`, `keep="last"`, and `keep="all"` tie policies when the sort keys are admitted.
+  Scoped local-source `sort(...)`/`order_by(...)`/`sort_values(...)` can pass
   `nulls="first"|"last"` to lower to explicit SQL `NULLS FIRST|LAST` top-N ordering. Scoped
   schema-declared `fillna`/`fill_null` lowers to `COALESCE` projection rewrites for scalar or
-  per-column literals with `axis=0`/`index` and immutable `inplace=False`, and scoped
+  per-column literals with `axis=0`/`index` or projection-equivalent `axis=1`/`columns` spellings
+  and immutable `inplace=False`, or to native/prepared Vortex source-order forward-fill rewrites
+  for `method="ffill"` with an optional positive `limit`, and scoped
   schema-declared `isna`/`isnull`/`notna`/`notnull` lowers to `IS NULL` / `IS NOT NULL` boolean
   projection rewrites. Scoped schema-declared
   `mask(predicate, scalar-or-null, axis=0/index, inplace=False, level=None)` lowers to native/prepared
   Vortex expression-project conditional rewrites, and scoped schema-declared
-  `replace(old, scalar-or-null, regex=False, inplace=False, method=None, limit=None)` lowers to
-  native/prepared Vortex expression-project scalar/null replacement, including column-nested
-  `{column: {old: new}}` scalar/null mapping forms. Scoped SQL/Python `IS DISTINCT FROM` and
+  `replace(old, scalar-or-null, inplace=False, method=None, limit=None)` lowers to
+  native/prepared Vortex expression-project scalar/null replacement, including scoped UTF-8
+  `regex=True` replacement and column-nested `{column: {old: new}}` scalar/null mapping forms.
+  Scoped SQL/Python `IS DISTINCT FROM` and
   `IS NOT DISTINCT FROM` null-safe
   comparisons lower to the same ShardLoom-owned null/comparison/logical predicate runtime for
   admitted filters and predicate projections over column-literal, date/timestamp/binary literal,
@@ -304,19 +314,25 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   expression-project primitive for existing numeric columns; Python/numexpr engines, new-column
   assignment, non-assignment expressions, callables, and side effects remain deterministic
   future-contract boundaries.
-- The DataFrame method matrix currently emits 27 future-contract variant IDs, all classified by
-  `DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS`: 18 are repo-feasible broad-profile expansion
+- The DataFrame method matrix currently emits 22 future-contract variant IDs, all classified by
+  `DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS`: 13 are repo-feasible broad-profile expansion
   items, 6 are unsafe callable/UDF boundaries that require a typed/sandboxed contract, and 3 are
   scoped product boundaries around hidden pandas-style index behavior. These IDs are not active
   base-method blockers; they identify where broad pandas/Polars-style parity would require
   additional contracts and evidence.
 - `performance_equivalence`
-  (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
-  across front doors.
+  (`runtime_gap_status=admitted_scope`): scoped local SQL/Python/DataFrame route-equivalence
+  evidence now exists in
+  `website/assets/benchmarks/latest/front-door-performance-equivalence.json`. The artifact carries
+  27 front-door/scenario rows, matched correctness digests, route timing fields, and no-fallback
+  evidence. It remains claim-gated local evidence, not a public performance, production,
+  superiority, or Spark-replacement claim.
 
 The parity matrix intentionally keeps `flexible_anything_claim_allowed=false` and
-`performance_equivalence_claim_allowed=false` until those checklist items are closed with
-correctness, Native I/O, execution-certificate, no-fallback, and benchmark evidence.
+`performance_equivalence_claim_allowed=false` even after the local equivalence artifact is present.
+Public performance or replacement claims still require separate correctness, Native I/O,
+execution-certificate, no-fallback, benchmark constitution, and approval evidence for the selected
+claim surface.
 
 ## Validator
 

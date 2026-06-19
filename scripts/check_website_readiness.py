@@ -88,6 +88,9 @@ STATUS_VOCABULARY = {
     "claim_grade",
     "not_claim_grade",
     "external_baseline_only",
+    "local_equivalence_evidence_present_claim_gated",
+    "claim_blocked",
+    "claim_allowed",
     "optimization_ready",
     "not_optimization_ready",
     "future",
@@ -174,6 +177,11 @@ REQUIRED_BENCHMARK_ARTIFACT_STRINGS = {
     "Format coverage rows",
     "Prepared/native source-state coverage",
     "source_state_coverage_all_requested_scenarios_classified",
+    "Front-door equivalence",
+    "SQL, Python, and DataFrame rows share the same local Vortex route.",
+    "local_equivalence_evidence_present_claim_gated",
+    "metadata_sink",
+    "claim_blocked",
     "Raw timing tables",
 }
 CLAIM_PHRASES = [

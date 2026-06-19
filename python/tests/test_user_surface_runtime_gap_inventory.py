@@ -74,13 +74,10 @@ class UserSurfaceRuntimeGapInventoryTests(unittest.TestCase):
             by_id,
         )
 
-        performance = by_id[("front_door_parity_matrix", "performance_equivalence")]
-        self.assertEqual(
-            performance["classification"],
-            "runtime_available_needs_claim_evidence",
+        self.assertNotIn(
+            ("front_door_parity_matrix", "performance_equivalence"),
+            by_id,
         )
-        self.assertEqual(performance["observed_status"], "benchmark_publication_pending")
-        self.assertIn("benchmark", performance["output_or_evidence_route"])
         object_store = by_id[("front_door_parity_matrix", "object_store_lakehouse_catalog")]
         self.assertEqual(object_store["classification"], "external_environment_gate")
         self.assertEqual(

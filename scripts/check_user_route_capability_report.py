@@ -55,6 +55,7 @@ REQUIRED_LOCAL_FILE_BENCHMARK_SCENARIO_IDS = {
     "row_number_window",
     "top_n_per_group",
     "clean_cast_filter_write",
+    "malformed_timestamp_cast",
     "partition_pruning",
     "many_small_files_scan",
     "null_heavy_aggregate",
@@ -146,6 +147,12 @@ OUTPUT_OPTION_PATTERNS = {
         "result-sink",
         "replay proof",
         "replay",
+    ),
+    "benchmark_evidence": (
+        "benchmark_evidence",
+        "benchmark evidence",
+        "front-door equivalence artifact",
+        "route-equivalence evidence",
     ),
     "fanout": ("fanout",),
 }

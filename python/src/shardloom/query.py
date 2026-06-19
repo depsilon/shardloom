@@ -3609,6 +3609,7 @@ class RollingFrame:
             window_size=self.window,
             min_periods=self.min_periods,
             aggregate=aggregate,
+            center=self.center,
         )
         if payload is None:
             return self.frame._unsupported_operation(
@@ -3653,6 +3654,30 @@ class RollingFrame:
         """Return a scoped source-order rolling row count over one scalar column."""
 
         return self._aggregate("count", column, alias=alias, check=check, **kwargs)
+
+    def min(
+        self,
+        column: object,
+        *,
+        alias: object | None = None,
+        check: bool = False,
+        **kwargs: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped source-order rolling minimum over one numeric column."""
+
+        return self._aggregate("min", column, alias=alias, check=check, **kwargs)
+
+    def max(
+        self,
+        column: object,
+        *,
+        alias: object | None = None,
+        check: bool = False,
+        **kwargs: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped source-order rolling maximum over one numeric column."""
+
+        return self._aggregate("max", column, alias=alias, check=check, **kwargs)
 
 
 def _native_vortex_operation_family_for_primitive(primitive: str) -> str:
@@ -3981,23 +4006,65 @@ def _vortex_explode_projection_columns_from_payload(payload: str) -> tuple[str, 
         return None
     if not isinstance(decoded, Mapping):
         return None
-    column = (
-        decoded.get("column")
-        or decoded.get("explode_column")
-        or decoded.get("target_column")
+    raw_columns = (
+        decoded.get("explode_columns")
+        or decoded.get("target_columns")
+        or decoded.get("columns")
     )
-    if not isinstance(column, str) or not _is_sql_identifier(column):
+    if raw_columns is None:
+        raw_columns = (
+            decoded.get("column")
+            or decoded.get("explode_column")
+            or decoded.get("target_column")
+        )
+    try:
+        columns = _normalize_columns((raw_columns,))
+    except (TypeError, ValueError):
         return None
-    return (column,)
+    element_field = decoded.get("element_field") or decoded.get("field")
+    if element_field is not None and (
+        not isinstance(element_field, str) or not _is_sql_identifier(element_field)
+    ):
+        return None
+    if not columns or any(not _is_sql_identifier(column) for column in columns):
+        return None
+    return tuple(columns)
 
 
 def _vortex_explode_projection_payload(columns: Sequence[str]) -> str | None:
-    if len(columns) != 1:
+    if not columns:
         return None
-    column = columns[0]
-    if not _is_sql_identifier(column):
+    if len(columns) == 1:
+        dotted = _split_dotted_field_accessor(columns[0])
+        if dotted is not None:
+            source_column, element_field = dotted
+            return json.dumps(
+                {
+                    "column": source_column,
+                    "element_field": element_field,
+                    "output_column": element_field,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+    if any(not _is_sql_identifier(column) for column in columns):
         return None
-    return json.dumps({"column": column}, separators=(",", ":"), sort_keys=True)
+    payload: dict[str, object]
+    if len(columns) == 1:
+        payload = {"column": columns[0]}
+    else:
+        payload = {"explode_columns": list(columns)}
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
+
+def _split_dotted_field_accessor(value: str) -> tuple[str, str] | None:
+    parts = value.split(".")
+    if len(parts) != 2:
+        return None
+    source_column, field = (part.strip() for part in parts)
+    if not _is_sql_identifier(source_column) or not _is_sql_identifier(field):
+        return None
+    return source_column, field
 
 
 def _vortex_pivot_projection_columns_from_payload(payload: str) -> tuple[str, ...] | None:
@@ -4016,7 +4083,7 @@ def _vortex_pivot_projection_columns_from_payload(payload: str) -> tuple[str, ..
     if len(set(columns)) != len(columns):
         return None
     aggregate = str(decoded.get("aggregate") or decoded.get("aggfunc") or "").strip().lower()
-    if aggregate not in {"first_unique", "sum", "count", "mean", "min", "max"}:
+    if aggregate not in {"first", "first_unique", "sum", "count", "mean", "min", "max"}:
         return None
     return tuple(columns)  # type: ignore[return-value]
 
@@ -4029,7 +4096,7 @@ def _vortex_pivot_projection_payload(
     aggregate: str,
     kwargs: Mapping[str, object],
 ) -> str | None:
-    if kwargs or index is None or columns is None or values is None:
+    if index is None or columns is None or values is None:
         return None
     try:
         index_columns = _normalize_columns((index,))
@@ -4050,6 +4117,9 @@ def _vortex_pivot_projection_payload(
     ):
         return None
     normalized_aggregate = aggregate.strip().lower().replace("-", "_")
+    policy_kwargs = _normalize_pivot_policy_kwargs(kwargs)
+    if policy_kwargs is None:
+        return None
     aliases = {
         "first": "first_unique",
         "first_unique": "first_unique",
@@ -4064,13 +4134,52 @@ def _vortex_pivot_projection_payload(
     aggregate_value = aliases.get(normalized_aggregate)
     if aggregate_value is None:
         return None
+    if aggregate_value == "first_unique" and bool(policy_kwargs.get("margins", False)):
+        return None
     payload = {
         "aggregate": aggregate_value,
         "index_column": index_column,
         "pivot_column": pivot_column,
         "value_column": value_column,
     }
+    payload.update(policy_kwargs)
     return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
+
+def _normalize_pivot_policy_kwargs(kwargs: Mapping[str, object]) -> dict[str, object] | None:
+    allowed = {"fill_value", "dropna", "margins", "margins_name"}
+    if any(key not in allowed for key in kwargs):
+        return None
+    policy: dict[str, object] = {}
+    if "fill_value" in kwargs:
+        fill_value = _json_scalar_policy_value(kwargs["fill_value"])
+        if fill_value is None and kwargs["fill_value"] is not None:
+            return None
+        policy["fill_value"] = fill_value
+    if "dropna" in kwargs:
+        dropna = kwargs["dropna"]
+        if not isinstance(dropna, bool):
+            return None
+        policy["dropna"] = dropna
+    if "margins" in kwargs:
+        margins = kwargs["margins"]
+        if not isinstance(margins, bool):
+            return None
+        policy["margins"] = margins
+    if "margins_name" in kwargs:
+        margins_name = _require_non_empty("pivot_table margins_name", kwargs["margins_name"])
+        policy["margins_name"] = margins_name
+    return policy
+
+
+def _json_scalar_policy_value(value: object) -> object | None:
+    if value is None:
+        return None
+    if isinstance(value, bool | int | str):
+        return value
+    if isinstance(value, float) and math.isfinite(value):
+        return value
+    return None
 
 
 def _normalize_pivot_table_single_aggregate(
@@ -4171,6 +4280,9 @@ def _vortex_rolling_window_columns_from_payload(payload: str) -> tuple[str, ...]
         return None
     window_size = decoded.get("window_size") or decoded.get("window")
     min_periods = decoded.get("min_periods")
+    center = decoded.get("center", False)
+    if not isinstance(center, bool):
+        return None
     aggregate = str(decoded.get("aggregate") or decoded.get("agg") or "").strip().lower()
     try:
         parsed_window = _normalize_positive_int("rolling window", window_size)
@@ -4181,7 +4293,13 @@ def _vortex_rolling_window_columns_from_payload(payload: str) -> tuple[str, ...]
         )
     except (TypeError, ValueError):
         return None
-    if parsed_min_periods > parsed_window or aggregate not in {"sum", "mean", "count"}:
+    if parsed_min_periods > parsed_window or aggregate not in {
+        "sum",
+        "mean",
+        "count",
+        "min",
+        "max",
+    }:
         return None
     return (source_column,)
 
@@ -4193,6 +4311,7 @@ def _vortex_rolling_window_payload(
     window_size: int,
     min_periods: int,
     aggregate: str,
+    center: bool = False,
 ) -> str | None:
     source_column = _normalize_expression_column(column)
     if "." in source_column:
@@ -4211,6 +4330,8 @@ def _vortex_rolling_window_payload(
         "sum",
         "mean",
         "count",
+        "min",
+        "max",
     }:
         return None
     return json.dumps(
@@ -4220,6 +4341,7 @@ def _vortex_rolling_window_payload(
             "output_column": output,
             "source_column": source_column,
             "window_size": normalized_window,
+            "center": bool(center),
         },
         separators=(",", ":"),
         sort_keys=True,
@@ -5170,6 +5292,29 @@ class LazyFrame:
         effective_value_vars = value_vars
         if effective_value_vars is None and id_vars is not None and not kwargs and ignore_index:
             effective_value_vars = self._schema_declared_melt_value_columns(id_vars)
+        if not ignore_index and not kwargs:
+            try:
+                original_id_columns = _normalize_optional_columns(id_vars)
+                value_columns = (
+                    _normalize_columns((value_vars,))
+                    if value_vars is not None
+                    else self._schema_declared_melt_value_columns(original_id_columns)
+                )
+            except (TypeError, ValueError):
+                value_columns = None
+            if value_columns:
+                indexed = self.reset_index()
+                if isinstance(indexed, LazyFrame):
+                    id_columns = ("index", *original_id_columns)
+                    payload = _vortex_melt_projection_payload(
+                        id_vars=id_columns,
+                        value_vars=value_columns,
+                        var_name=var_name,
+                        value_name=value_name,
+                        kwargs=kwargs,
+                    )
+                    if payload is not None:
+                        return indexed._append(WorkflowOperation("melt", (payload,)))
         if ignore_index and (
             payload := _vortex_melt_projection_payload(
                 id_vars=id_vars,
@@ -5199,7 +5344,7 @@ class LazyFrame:
             center=center,
             kwargs=kwargs,
         )
-        if kwargs or center:
+        if kwargs:
             return self._unsupported_operation("rolling", target_ref, check=check)
         try:
             window_size = _normalize_positive_int("rolling window", window)
@@ -5216,7 +5361,7 @@ class LazyFrame:
             frame=self,
             window=window_size,
             min_periods=min_window_periods,
-            center=False,
+            center=bool(center),
         )
 
     def duplicated(
@@ -5390,24 +5535,42 @@ class LazyFrame:
             columns=normalized_columns,
             keep=normalized_keep,
         )
-        if normalized_keep == "first" and self._can_append_sort(normalized_columns):
+        if normalized_keep in {"first", "last", "all"} and self._can_append_sort(
+            normalized_columns
+        ):
+            sort_values = (
+                ("desc" if descending else "asc", *normalized_columns)
+                if normalized_keep == "first"
+                else (
+                    "desc" if descending else "asc",
+                    f"keep={normalized_keep}",
+                    *normalized_columns,
+                )
+            )
             sorted_frame = self._append(
                 WorkflowOperation(
                     "sort",
-                    ("desc" if descending else "asc", *normalized_columns),
+                    sort_values,
                 )
             )
             return sorted_frame.limit(normalized_n)
         if self.source.source_format == "vortex":
-            if normalized_keep == "first":
-                sorted_frame = self._append(
-                    WorkflowOperation(
-                        "sort",
-                        ("desc" if descending else "asc", *normalized_columns),
-                    )
+            sort_values = (
+                ("desc" if descending else "asc", *normalized_columns)
+                if normalized_keep == "first"
+                else (
+                    "desc" if descending else "asc",
+                    f"keep={normalized_keep}",
+                    *normalized_columns,
                 )
-                return sorted_frame.limit(normalized_n)
-            return self._unsupported_operation("native-vortex-top-n", target_ref, check=check)
+            )
+            sorted_frame = self._append(
+                WorkflowOperation(
+                    "sort",
+                    sort_values,
+                )
+            )
+            return sorted_frame.limit(normalized_n)
         return self._unsupported_operation(operation, target_ref, check=check)
 
     def fillna(
@@ -5416,6 +5579,8 @@ class LazyFrame:
         *,
         axis: object | None = None,
         inplace: bool = False,
+        method: object | None = None,
+        limit: object | None = None,
         check: bool = False,
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
@@ -5425,11 +5590,26 @@ class LazyFrame:
             value,
             axis=axis,
             inplace=inplace,
+            method=method,
+            limit=limit,
             kwargs=kwargs,
         )
         if (
             not kwargs
+            and value is None
             and _normalize_dropna_axis(axis) == "rows"
+            and not inplace
+            and (method_name := _normalize_fill_method(method)) == "ffill"
+        ):
+            fill_limit = _normalize_optional_positive_int("fillna limit", limit)
+            payload = self._forward_fill_null_expression_project_payload(fill_limit)
+            if payload is not None:
+                return self._append(WorkflowOperation("expression_project", (payload,)))
+        if (
+            not kwargs
+            and method is None
+            and limit is None
+            and _normalize_dropna_axis(axis) in {"rows", "columns"}
             and not inplace
             and (projection := self._schema_declared_fillna_projection(value))
         ):
@@ -5442,6 +5622,8 @@ class LazyFrame:
         *,
         axis: object | None = None,
         inplace: bool = False,
+        method: object | None = None,
+        limit: object | None = None,
         check: bool = False,
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
@@ -5451,6 +5633,8 @@ class LazyFrame:
             value,
             axis=axis,
             inplace=inplace,
+            method=method,
+            limit=limit,
             check=check,
             **kwargs,
         )
@@ -5569,13 +5753,16 @@ class LazyFrame:
         )
         if (
             not kwargs
-            and not regex
             and not inplace
             and method is None
             and limit is None
             and to_replace is not None
         ):
-            rewrite_specs = self._replace_rewrite_specs(to_replace, value)
+            rewrite_specs = (
+                self._regex_replace_rewrite_specs(to_replace, value)
+                if regex
+                else self._replace_rewrite_specs(to_replace, value)
+            )
             if rewrite_specs is not None:
                 payload = self._expression_project_payload(
                     rewrite_specs,
@@ -5885,17 +6072,8 @@ class LazyFrame:
         check: bool = False,
         **kwargs: object,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
-        """Drop non-existent DataFrame index state without changing the ShardLoom plan."""
+        """Materialize an explicit source-order row number unless `drop=True` is requested."""
 
-        if not kwargs and _workflow_index_columns(self.operations):
-            return LazyFrame(
-                source=self.source,
-                client=self.client,
-                operations=_strip_index_metadata_operations(self.operations),
-                engine_mode=self.engine_mode,
-            )
-        if not kwargs:
-            return self
         if kwargs == {"drop": True}:
             if _workflow_index_columns(self.operations):
                 return LazyFrame(
@@ -5905,6 +6083,27 @@ class LazyFrame:
                     engine_mode=self.engine_mode,
                 )
             return self
+        if not kwargs or kwargs == {"drop": False}:
+            base = LazyFrame(
+                source=self.source,
+                client=self.client,
+                operations=_strip_index_metadata_operations(self.operations),
+                engine_mode=self.engine_mode,
+            )
+            projection_columns = base._expression_project_projection_columns(())
+            if projection_columns is not None:
+                target_column = (
+                    "index"
+                    if "index" not in projection_columns
+                    else "__shardloom_row_number"
+                )
+                payload = base._row_number_expression_project_payload(target_column)
+                if payload is not None:
+                    return base._append(WorkflowOperation("expression_project", (payload,)))
+            if _workflow_index_columns(self.operations):
+                return base
+            if not kwargs:
+                return self
         target_ref = _normalize_index_target("reset_index", keys=None, kwargs=kwargs)
         return self._unsupported_operation("reset-index", target_ref, check=check)
 
@@ -8439,7 +8638,7 @@ class LazyFrame:
         explode_projection: str | None = None
         pivot_projection: str | None = None
         rolling_window: str | None = None
-        sort_key: tuple[str, tuple[str, ...], str | None] | None = None
+        sort_key: tuple[str, tuple[str, ...], str | None, str] | None = None
         for operation in self.operations:
             if operation.kind == "set_index":
                 continue
@@ -8844,6 +9043,7 @@ class LazyFrame:
                 direction, sort_columns, null_ordering = _parse_sort_operation_values(
                     operation.values
                 )
+                tie_policy = _parse_sort_keep_policy(operation.values)
                 if (
                     direction not in {"asc", "desc"}
                     or null_ordering is not None
@@ -8851,7 +9051,7 @@ class LazyFrame:
                     or any(not _is_sql_identifier(column) for column in sort_columns)
                 ):
                     return None
-                sort_key = (direction, sort_columns, null_ordering)
+                sort_key = (direction, sort_columns, null_ordering, tie_policy)
             elif operation.kind == "limit":
                 if (
                     limit is not None
@@ -8870,7 +9070,12 @@ class LazyFrame:
         if sort_key is not None:
             if limit is None:
                 return None
-            sort_rows = _vortex_sort_rows_payload(sort_key[0], sort_key[1], limit)
+            sort_rows = _vortex_sort_rows_payload(
+                sort_key[0],
+                sort_key[1],
+                limit,
+                tie_policy=sort_key[3],
+            )
             if sort_rows is None:
                 return None
         return _VortexPrimitiveWorkflowShape(
@@ -9186,8 +9391,20 @@ class LazyFrame:
         for spec in rewrite_specs:
             kind = str(spec.get("kind", "")).strip()
             target_column = str(spec.get("target_column", "")).strip()
-            if not kind or not target_column:
+            if not kind or not target_column or not _is_sql_identifier(target_column):
                 return None
+            if kind == "row_number":
+                start = spec.get("start", 0)
+                if isinstance(start, bool) or not isinstance(start, int) or start < 0:
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "row_number",
+                        "target_column": target_column,
+                        "start": start,
+                    }
+                )
+                continue
             target_dtype = schema.get(target_column)
             if target_dtype is None:
                 return None
@@ -9245,6 +9462,25 @@ class LazyFrame:
                         "replacement": replacement,
                     }
                 )
+            elif kind == "regex_replace_scalar":
+                dtype = target_dtype.strip().lower().replace("-", "_")
+                pattern = spec.get("pattern")
+                replacement = spec.get("replacement")
+                if (
+                    dtype not in {"utf8", "string", "str"}
+                    or not isinstance(pattern, str)
+                    or pattern == ""
+                    or not isinstance(replacement, str)
+                ):
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "regex_replace_scalar",
+                        "target_column": target_column,
+                        "pattern": pattern,
+                        "replacement": replacement,
+                    }
+                )
             elif kind == "numeric_scalar_arithmetic":
                 operator = str(spec.get("operator", "")).strip()
                 if operator not in {"+", "-", "*", "/"}:
@@ -9263,6 +9499,17 @@ class LazyFrame:
                         "operand": operand,
                     }
                 )
+            elif kind == "forward_fill_null":
+                limit = spec.get("limit")
+                rewrite: dict[str, object] = {
+                    "kind": "forward_fill_null",
+                    "target_column": target_column,
+                }
+                if limit is not None:
+                    if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+                        return None
+                    rewrite["limit"] = limit
+                rewrites.append(rewrite)
             else:
                 return None
         if not rewrites:
@@ -9272,6 +9519,48 @@ class LazyFrame:
             "rewrites": rewrites,
         }
         return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+    def _row_number_expression_project_payload(
+        self,
+        target_column: str,
+    ) -> str | None:
+        projection_columns = self._expression_project_projection_columns(())
+        if projection_columns is None:
+            return None
+        return self._expression_project_payload(
+            (
+                {
+                    "kind": "row_number",
+                    "target_column": target_column,
+                    "start": 0,
+                },
+            ),
+            required_columns=(),
+        )
+
+    def _forward_fill_null_expression_project_payload(
+        self,
+        limit: int | None,
+    ) -> str | None:
+        projection_columns = self._expression_project_projection_columns(())
+        if projection_columns is None:
+            return None
+        return self._expression_project_payload(
+            tuple(
+                {
+                    "kind": "forward_fill_null",
+                    "target_column": column,
+                    "limit": limit,
+                }
+                if limit is not None
+                else {
+                    "kind": "forward_fill_null",
+                    "target_column": column,
+                }
+                for column in projection_columns
+            ),
+            required_columns=projection_columns,
+        )
 
     def _replace_rewrite_specs(
         self,
@@ -9325,6 +9614,58 @@ class LazyFrame:
                 "kind": "replace_scalar",
                 "target_column": projection_columns[0],
                 "to_replace": to_replace,
+                "replacement": value,
+            },
+        )
+
+    def _regex_replace_rewrite_specs(
+        self,
+        to_replace: object,
+        value: object,
+    ) -> tuple[Mapping[str, object], ...] | None:
+        projection_columns = self._expression_project_projection_columns(())
+        if projection_columns is None:
+            return None
+        specs: list[Mapping[str, object]] = []
+        if isinstance(to_replace, Mapping):
+            if not to_replace:
+                return None
+            replacement_map = value if isinstance(value, Mapping) else None
+            for raw_column, pattern in to_replace.items():
+                column = str(raw_column).strip()
+                if not _is_sql_identifier(column) or column not in projection_columns:
+                    return None
+                if not isinstance(pattern, str) or pattern == "":
+                    return None
+                if replacement_map is not None:
+                    if raw_column not in replacement_map and column not in replacement_map:
+                        return None
+                    replacement = replacement_map.get(raw_column, replacement_map.get(column))
+                else:
+                    replacement = value
+                if not isinstance(replacement, str):
+                    return None
+                specs.append(
+                    {
+                        "kind": "regex_replace_scalar",
+                        "target_column": column,
+                        "pattern": pattern,
+                        "replacement": replacement,
+                    }
+                )
+            return tuple(specs)
+        if (
+            len(projection_columns) != 1
+            or not isinstance(to_replace, str)
+            or to_replace == ""
+            or not isinstance(value, str)
+        ):
+            return None
+        return (
+            {
+                "kind": "regex_replace_scalar",
+                "target_column": projection_columns[0],
+                "pattern": to_replace,
                 "replacement": value,
             },
         )
@@ -10132,6 +10473,31 @@ def row_transform(
             named_expressions,
         )
     )
+
+
+def typed_scalar_udf(udf_id: object, column: object) -> ColumnExpression:
+    """Return an admitted typed deterministic scalar UDF expression.
+
+    The v1 runtime admits only built-in ShardLoom UDF fixtures with declared
+    dtype/null/effect metadata. This helper does not execute Python code; it
+    lowers the declared fixture into the native expression-project route.
+    """
+
+    normalized_id = _require_non_empty("typed scalar UDF id", udf_id).strip()
+    source_column = _normalize_expression_column(
+        column.sql if isinstance(column, ColumnExpression) else column
+    )
+    if normalized_id != "sl_fixture_double_i64":
+        raise ValueError(
+            "typed scalar UDF must be the admitted built-in sl_fixture_double_i64 fixture"
+        )
+    return ColumnExpression(f"{source_column} * 2")
+
+
+def fixture_double_i64(column: object) -> ColumnExpression:
+    """Return the admitted `sl_fixture_double_i64` typed scalar UDF expression."""
+
+    return typed_scalar_udf("sl_fixture_double_i64", column)
 
 
 def col(name: object) -> ColumnExpression:
@@ -12181,6 +12547,8 @@ def _normalize_fillna_target(
     *,
     axis: object | None,
     inplace: bool,
+    method: object | None,
+    limit: object | None,
     kwargs: Mapping[str, object],
 ) -> str:
     parts = [
@@ -12188,8 +12556,29 @@ def _normalize_fillna_target(
         f"axis={_normalize_dropna_axis(axis)}",
         f"inplace={str(bool(inplace)).lower()}",
     ]
+    if method is not None:
+        parts.append(f"method={_stable_target_value(method)}")
+    if limit is not None:
+        parts.append(f"limit={_stable_target_value(limit)}")
     parts.extend(_normalize_extra_kwargs("fillna", kwargs))
     return ";".join(parts)
+
+
+def _normalize_fill_method(method: object | None) -> str | None:
+    if method is None:
+        return None
+    normalized = _require_non_empty("fillna method", method).lower().replace("-", "_")
+    if normalized in {"ffill", "pad", "forward_fill", "forwardfill"}:
+        return "ffill"
+    if normalized in {"bfill", "backfill", "backward_fill", "backwardfill"}:
+        return "bfill"
+    raise ValueError("fillna method must be 'ffill'/'pad' or 'bfill'/'backfill'")
+
+
+def _normalize_optional_positive_int(name: str, value: object | None) -> int | None:
+    if value is None:
+        return None
+    return _normalize_positive_int(name, value)
 
 
 def _normalize_null_mask_target(columns: Sequence[object]) -> str:
@@ -15484,20 +15873,38 @@ def _parse_sort_operation_values(
     values: tuple[str, ...],
 ) -> tuple[str, tuple[str, ...], str | None]:
     direction = values[0]
-    if len(values) >= 2 and values[1].startswith(_SORT_NULLS_TOKEN_PREFIX):
-        null_ordering = values[1][len(_SORT_NULLS_TOKEN_PREFIX) :]
-        return direction, values[2:], null_ordering
-    return direction, values[1:], None
+    index = 1
+    null_ordering = None
+    if len(values) > index and values[index].startswith(_SORT_NULLS_TOKEN_PREFIX):
+        null_ordering = values[index][len(_SORT_NULLS_TOKEN_PREFIX) :]
+        index += 1
+    columns = tuple(value for value in values[index:] if not value.startswith("keep="))
+    return direction, columns, null_ordering
+
+
+def _parse_sort_keep_policy(values: tuple[str, ...]) -> str:
+    keep_values = tuple(value.split("=", 1)[1] for value in values if value.startswith("keep="))
+    if not keep_values:
+        return "first"
+    if len(keep_values) != 1:
+        return "first"
+    keep = keep_values[0].strip().lower().replace("_", "-")
+    return keep if keep in {"first", "last", "all"} else "first"
 
 
 def _vortex_sort_rows_payload(
     direction: str,
     columns: tuple[str, ...],
     limit: int,
+    *,
+    tie_policy: str = "first",
 ) -> str | None:
     if direction not in {"asc", "desc"} or limit <= 0:
         return None
     if not columns or any(not _is_sql_identifier(column) for column in columns):
+        return None
+    normalized_tie_policy = tie_policy.strip().lower().replace("_", "-")
+    if normalized_tie_policy not in {"first", "last", "all"}:
         return None
     return json.dumps(
         {
@@ -15506,6 +15913,7 @@ def _vortex_sort_rows_payload(
                 for column in columns
             ],
             "limit": limit,
+            "tie_policy": normalized_tie_policy,
         },
         separators=(",", ":"),
     )

@@ -177,13 +177,17 @@ REQUIRED_RESHAPE_RUNTIME_EVIDENCE = {
     "melt": [
         "native_vortex_melt_primitive",
         "explicit_id_value_column_contract",
-        "same_typed_value_columns",
+        "heterogeneous_scalar_value_representation",
+        "source_order_row_number_for_ignore_index_false",
         "explicit_decode_materialization_boundary",
     ],
     "explode": [
         "native_vortex_explode_primitive",
         "typed_list_projection",
         "list_element_scalar_contract",
+        "typed_nested_value_contract",
+        "nullable_list_null_shape_evidence",
+        "single_level_dotted_struct_field_projection",
         "explicit_decode_materialization_boundary",
     ],
     "pivot": [
@@ -249,7 +253,7 @@ REQUIRED_FUTURE_CONTRACT_BLOCKERS = {
     "explode": {"cg21.workflow.explode.nested_expansion_unsupported"},
     "pivot": {"cg21.workflow.pivot.broad_reshape_contract_missing"},
     "pivot_table": {"cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing"},
-    "melt": {"cg21.workflow.melt.reshape_semantics_unsupported"},
+    "melt": {"cg21.workflow.melt.nested_or_broad_index_contract_missing"},
     "rolling": {"cg21.workflow.rolling.broad_window_semantics_unsupported"},
     "dropna": {"cg21.workflow.dropna.null_cleanup_semantics_contract_missing"},
     "fillna": {"cg21.workflow.fillna.null_fill_semantics_unsupported"},
@@ -258,22 +262,12 @@ REQUIRED_FUTURE_CONTRACT_BLOCKERS = {
     "isnull": {"cg21.workflow.isna.null_mask_semantics_unsupported"},
     "notna": {"cg21.workflow.notna.null_mask_semantics_unsupported"},
     "notnull": {"cg21.workflow.notna.null_mask_semantics_unsupported"},
-    "duplicated": {"cg21.workflow.duplicated.nested_or_index_contract_missing"},
-    "drop_duplicates": {
-        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing"
-    },
-    "unique": {
-        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing"
-    },
     "mask": {"cg21.workflow.mask.alignment_callable_or_nested_contract_missing"},
     "replace": {
-        "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing"
+        "cg21.workflow.replace.method_nested_or_mixed_dtype_contract_missing"
     },
     "set_index": {
         "cg21.workflow.set_index.hidden_index_materialization_contract_missing"
-    },
-    "reset_index": {
-        "cg21.workflow.reset_index.row_number_or_hidden_index_contract_missing"
     },
     "sort_index": {"cg21.workflow.sort_index.hidden_index_order_contract_missing"},
     "apply": {"cg21.workflow.apply.python_callable_unsupported"},
@@ -376,9 +370,9 @@ REQUIRED_TEST_MARKERS = {
         "test_schema_declared_dataframe_query_dropna_astype_lowers_to_sql_smoke",
         "test_local_csv_query_builder_top_n_dataframe_aliases_lower_to_sort_limit",
         "test_missing_dataframe_affordances_return_report_only_unsupported",
-        "workflow.rename({\"amount\": \"order_amount\"})",
-        "workflow.drop(columns=[\"unused\"])",
-        "workflow.astype({\"amount\": \"int64\"})",
+        "workflow.select(\"id\", \"amount\").rename({\"amount\": \"order_amount\"})",
+        "workflow.select(\"id\", \"amount\").drop(columns=[\"amount\"])",
+        "workflow.select(\"id\", \"amount\").astype({\"amount\": \"int64\"})",
         "workflow.dropna(subset=[\"label\"])",
         "source.nlargest(5, \"amount\")",
         "test_local_csv_query_builder_sample_collect_routes_through_prepared_vortex",
@@ -870,8 +864,10 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         row = by_method.get(method)
         if not row:
             continue
-        if row.get("support_status") != "fixture_smoke_supported":
-            blockers.append(f"{method}: scoped top-N support must be fixture_smoke_supported")
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: scoped top-N support must be production_admitted_local_workflow"
+            )
         if row.get("runtime_execution") is not True:
             blockers.append(f"{method}: scoped top-N support requires runtime_execution true")
         if row.get("data_read") is not True:
@@ -879,7 +875,12 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         if row.get("blocker_id"):
             blockers.append(f"{method}: scoped top-N row must not carry blocker_id")
         required_evidence = set(row.get("required_evidence") or [])
-        for evidence in ["sort_operator", "top_n_contract", "ordering_contract"]:
+        for evidence in [
+            "native_vortex_sort_rows_primitive",
+            "top_n_contract",
+            "deterministic_tie_policy",
+            "source_order_state_budget",
+        ]:
             if evidence not in required_evidence:
                 blockers.append(f"{method}: scoped top-N row missing {evidence}")
 
@@ -955,6 +956,8 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         required_evidence = set(row.get("required_evidence") or [])
         for evidence in [
             "native_vortex_duplicate_mask_primitive",
+            "typed_nested_row_key_state",
+            "stable_nested_row_key_digest",
             "duplicate_mask_semantics",
             "keep_policy_subset_contract",
             "explicit_decode_materialization_boundary",
@@ -982,6 +985,8 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         for evidence in [
             "native_vortex_drop_duplicates_primitive",
             "explicit_row_key_retention_state",
+            "typed_nested_row_key_state",
+            "stable_nested_row_key_digest",
             "subset_keep_policy_contract",
             "explicit_decode_materialization_boundary",
         ]:
@@ -1031,8 +1036,9 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         for evidence in [
             "native_vortex_rolling_window_primitive",
             "source_order_window_contract",
+            "bounded_centered_window_lookahead",
             "bounded_window_state",
-            "complete_window_sum_mean_count_semantics",
+            "complete_window_sum_mean_count_min_max_semantics",
             "explicit_decode_materialization_boundary",
         ]:
             if evidence not in required_evidence:
@@ -1253,6 +1259,14 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
                 [
                     "explicit_index_state_metadata",
                     "encoded_row_data_preserved",
+                ]
+            )
+        elif method == "reset_index":
+            expected_evidence.extend(
+                [
+                    "native_vortex_expression_project_primitive",
+                    "source_order_row_number_column",
+                    "explicit_index_state_metadata_drop",
                 ]
             )
         else:

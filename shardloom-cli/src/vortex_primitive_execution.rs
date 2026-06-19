@@ -36,15 +36,16 @@ use shardloom_vortex::{
     VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveValue,
     VortexRollingWindowRequest, VortexSelectionVectorFilterKernelAdmissionReport,
     VortexSelectionVectorFilterKernelReport, VortexSimpleAggregateMeasure,
-    VortexSimpleAggregateRequest, VortexSortRowsRequest, VortexStreamingBatchRuntimeReport,
-    VortexStructuredProjectionColumn, VortexStructuredProjectionExpr,
-    VortexStructuredProjectionRequest, VortexTaskSchedulingDecision, VortexWorkAvoidedMetricKind,
-    VortexWorkAvoidedReport, admit_vortex_encoded_count_kernel,
-    admit_vortex_selection_vector_filter_kernel, build_vortex_runtime_task_graph,
-    evaluate_vortex_encoded_predicate_segments, evaluate_vortex_encoded_read_readiness,
-    evaluate_vortex_local_encoded_count_physical_kernel, evaluate_vortex_query_primitive,
-    evaluate_vortex_query_primitive_with_analysis, evaluate_vortex_selection_vector_filter_kernel,
-    execute_vortex_bounded_local_query, execute_vortex_count_all_from_approved_local_scan,
+    VortexSimpleAggregateRequest, VortexSortRowsRequest, VortexSortTiePolicy,
+    VortexStreamingBatchRuntimeReport, VortexStructuredProjectionColumn,
+    VortexStructuredProjectionExpr, VortexStructuredProjectionRequest,
+    VortexTaskSchedulingDecision, VortexWorkAvoidedMetricKind, VortexWorkAvoidedReport,
+    admit_vortex_encoded_count_kernel, admit_vortex_selection_vector_filter_kernel,
+    build_vortex_runtime_task_graph, evaluate_vortex_encoded_predicate_segments,
+    evaluate_vortex_encoded_read_readiness, evaluate_vortex_local_encoded_count_physical_kernel,
+    evaluate_vortex_query_primitive, evaluate_vortex_query_primitive_with_analysis,
+    evaluate_vortex_selection_vector_filter_kernel, execute_vortex_bounded_local_query,
+    execute_vortex_count_all_from_approved_local_scan,
     execute_vortex_count_all_from_approved_local_scan_result,
     execute_vortex_local_primitive_with_policy, execute_vortex_local_query_primitive,
     local_encoded_count_execution_certificate, local_encoded_count_native_io_certificate,
@@ -3137,25 +3138,61 @@ fn parse_explode_primitive_request(
     let object = value.as_object().ok_or_else(|| {
         ShardLoomError::InvalidOperation("explode payload must be a JSON object".to_string())
     })?;
-    let column = ColumnRef::new(json_string_field_any(
-        object,
-        &["column", "explode_column", "target_column"],
-    )?)?;
-    let output_columns = json_optional_column_array_field_any(
-        object,
-        &["columns", "output_columns", "projected_columns"],
-    )?
-    .unwrap_or_else(|| vec![column.clone()]);
-    if !output_columns.iter().any(|candidate| candidate == &column) {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "explode output columns must include explode column '{}'",
-            column.as_str()
-        )));
+    let single_column =
+        json_optional_string_field_any(object, &["column", "explode_column", "target_column"])?
+            .map(ColumnRef::new)
+            .transpose()?;
+    let columns_field = json_optional_column_array_field_any(object, &["columns"])?;
+    let explode_columns =
+        json_optional_column_array_field_any(object, &["explode_columns", "target_columns"])?
+            .or_else(|| single_column.as_ref().map(|column| vec![column.clone()]))
+            .or_else(|| columns_field.clone())
+            .unwrap_or_default();
+    if explode_columns.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "explode payload requires column or explode_columns".to_string(),
+        ));
+    }
+    let output_columns =
+        json_optional_column_array_field_any(object, &["output_columns", "projected_columns"])?
+            .or_else(|| single_column.as_ref().and(columns_field))
+            .unwrap_or_else(|| explode_columns.clone());
+    for column in &explode_columns {
+        if !output_columns.iter().any(|candidate| candidate == column) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "explode output columns must include explode column '{}'",
+                column.as_str()
+            )));
+        }
+    }
+    let element_field =
+        json_optional_string_field_any(object, &["element_field", "field", "field_path"])?;
+    let element_output_column =
+        json_optional_string_field_any(object, &["element_output_column", "output_column"])?;
+    let element_projection = if let Some(field) = element_field {
+        let field_ref = ColumnRef::new(field)?;
+        let output = element_output_column
+            .map(ColumnRef::new)
+            .transpose()?
+            .unwrap_or_else(|| field_ref.clone());
+        Some((field_ref.as_str().to_string(), output.as_str().to_string()))
+    } else {
+        None
+    };
+    if element_projection.is_some() && explode_columns.len() != 1 {
+        return Err(ShardLoomError::InvalidOperation(
+            "explode element_field requires exactly one explode column".to_string(),
+        ));
+    }
+    let mut projection = VortexExplodeProjectionRequest::new(explode_columns[0].clone())
+        .with_columns(explode_columns);
+    if let Some((field, output)) = element_projection {
+        projection = projection.with_element_field(field, output);
     }
     Ok(shardloom_vortex::VortexQueryPrimitiveRequest::explode_rows(
         uri,
         ProjectionRequest::columns(output_columns),
-        VortexExplodeProjectionRequest::new(column),
+        projection,
     ))
 }
 
@@ -3178,9 +3215,16 @@ fn parse_pivot_primitive_request(
     let aggregate = json_optional_string_field_any(object, &["aggregate", "aggfunc"])?
         .unwrap_or("first_unique")
         .to_string();
+    let fill_value = json_optional_stat_value_field_any(object, &["fill_value", "fill"])?;
+    let dropna = json_optional_bool_field_any(object, &["dropna"])?.unwrap_or(true);
+    let margins = json_optional_bool_field_any(object, &["margins"])?.unwrap_or(false);
+    let margins_name = json_optional_string_field_any(object, &["margins_name"])?
+        .unwrap_or("All")
+        .to_string();
     Ok(shardloom_vortex::VortexQueryPrimitiveRequest::pivot_rows(
         uri,
-        VortexPivotProjectionRequest::new(index_column, pivot_column, value_column, aggregate),
+        VortexPivotProjectionRequest::new(index_column, pivot_column, value_column, aggregate)
+            .with_output_policy(fill_value, dropna, margins, margins_name),
     ))
 }
 
@@ -3202,6 +3246,7 @@ fn parse_rolling_primitive_request(
     let window_size = json_usize_field_any(object, &["window_size", "window"])?;
     let min_periods = json_usize_field_any(object, &["min_periods"])?;
     let aggregate = json_string_field_any(object, &["aggregate", "agg"])?.to_string();
+    let center = json_optional_bool_field_any(object, &["center"])?.unwrap_or(false);
     Ok(
         shardloom_vortex::VortexQueryPrimitiveRequest::rolling_window_rows(
             uri,
@@ -3211,7 +3256,8 @@ fn parse_rolling_primitive_request(
                 window_size,
                 min_periods,
                 aggregate,
-            ),
+            )
+            .with_center(center),
         ),
     )
 }
@@ -3307,6 +3353,10 @@ fn parse_sort_rows_primitive_request(
             )
         })?;
     let offset = json_optional_usize_field_any(object, &["offset"])?.unwrap_or(0);
+    let tie_policy = json_optional_string_field_any(object, &["tie_policy", "keep"])?
+        .map(parse_sort_tie_policy)
+        .transpose()?
+        .unwrap_or(VortexSortTiePolicy::First);
     let limit =
         json_optional_usize_field_any(object, &["limit", "source_order_limit"])?.unwrap_or(1);
     let projection = if let Some(columns) = columns {
@@ -3319,10 +3369,23 @@ fn parse_sort_rows_primitive_request(
         uri,
         projection,
         predicate.map(parse_tiny_predicate).transpose()?,
-        VortexSortRowsRequest::new(order_by).with_offset(offset),
+        VortexSortRowsRequest::new(order_by)
+            .with_offset(offset)
+            .with_tie_policy(tie_policy),
         limit,
     );
     Ok(request)
+}
+
+fn parse_sort_tie_policy(value: &str) -> Result<VortexSortTiePolicy, ShardLoomError> {
+    match value.trim().to_ascii_lowercase().replace('-', "_").as_str() {
+        "first" => Ok(VortexSortTiePolicy::First),
+        "last" => Ok(VortexSortTiePolicy::Last),
+        "all" | "all_ties" | "ties" => Ok(VortexSortTiePolicy::All),
+        _ => Err(ShardLoomError::InvalidOperation(
+            "sort rows tie policy must be first, last, or all".to_string(),
+        )),
+    }
 }
 
 fn parse_simple_aggregate_measure(
@@ -3546,20 +3609,6 @@ fn json_optional_aggregate_order_array_field_any(
                 out.push(VortexAggregateOrderExpr::new(column, descending));
             }
             return Ok(Some(out));
-        }
-    }
-    Ok(None)
-}
-
-fn json_optional_bool_field_any(
-    object: &serde_json::Map<String, serde_json::Value>,
-    fields: &[&str],
-) -> Result<Option<bool>, ShardLoomError> {
-    for field in fields {
-        if let Some(value) = object.get(*field) {
-            return value.as_bool().map(Some).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(format!("field {field} must be boolean"))
-            });
         }
     }
     Ok(None)
@@ -3863,6 +3912,21 @@ fn parse_expression_project_rewrite(
                 replacement,
             })
         }
+        "regex_replace_scalar" | "regex_replace" | "replace_regex" => {
+            let pattern = json_string_field_any(object, &["pattern", "regex", "to_replace"])?;
+            if pattern.is_empty() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "regex_replace_scalar rewrite requires a non-empty pattern".to_string(),
+                ));
+            }
+            let replacement =
+                json_string_field_any(object, &["replacement", "new"]).map(str::to_string)?;
+            Ok(VortexExpressionRewrite::RegexReplaceScalar {
+                target_column,
+                pattern: pattern.to_string(),
+                replacement,
+            })
+        }
         "numeric_scalar_arithmetic" | "numeric_arithmetic" | "arithmetic_scalar" => {
             let operator = json_string_field_any(object, &["operator", "op"])?.trim();
             if !matches!(operator, "+" | "-" | "*" | "/") {
@@ -3882,8 +3946,32 @@ fn parse_expression_project_rewrite(
                 operand: parse_expression_scalar(operand, "operand")?,
             })
         }
+        "forward_fill_null" | "ffill_null" | "fill_forward_null" | "pad_null" => {
+            let limit = json_optional_usize_field_any(object, &["limit", "max_fill"])?;
+            if limit == Some(0) {
+                return Err(ShardLoomError::InvalidOperation(
+                    "forward_fill_null rewrite limit must be >= 1 when provided".to_string(),
+                ));
+            }
+            Ok(VortexExpressionRewrite::ForwardFillNull {
+                target_column,
+                limit,
+            })
+        }
+        "row_number" | "source_order_row_number" | "ordinal" => {
+            let start =
+                json_optional_usize_field_any(object, &["start", "base", "offset"])?.unwrap_or(0);
+            Ok(VortexExpressionRewrite::RowNumber {
+                target_column,
+                start: u64::try_from(start).map_err(|_| {
+                    ShardLoomError::InvalidOperation(
+                        "row_number rewrite start exceeded u64".to_string(),
+                    )
+                })?,
+            })
+        }
         _ => Err(ShardLoomError::InvalidOperation(
-            "expression-project rewrite kind must be mask_scalar, replace_scalar, string_replace_scalar, or numeric_scalar_arithmetic"
+            "expression-project rewrite kind must be mask_scalar, replace_scalar, string_replace_scalar, regex_replace_scalar, numeric_scalar_arithmetic, forward_fill_null, or row_number"
                 .to_string(),
         )),
     }
@@ -3962,6 +4050,76 @@ fn json_usize_field_any(
         "rolling payload missing required field {}",
         fields.join("/")
     )))
+}
+
+fn json_optional_bool_field_any(
+    object: &serde_json::Map<String, serde_json::Value>,
+    fields: &[&str],
+) -> Result<Option<bool>, ShardLoomError> {
+    for field in fields {
+        if let Some(value) = object.get(*field) {
+            if let Some(value) = value.as_bool() {
+                return Ok(Some(value));
+            }
+            if let Some(text) = value.as_str() {
+                return match text.trim().to_ascii_lowercase().as_str() {
+                    "true" => Ok(Some(true)),
+                    "false" => Ok(Some(false)),
+                    _ => Err(ShardLoomError::InvalidOperation(format!(
+                        "field {field} must be a boolean"
+                    ))),
+                };
+            }
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "field {field} must be a boolean"
+            )));
+        }
+    }
+    Ok(None)
+}
+
+fn json_optional_stat_value_field_any(
+    object: &serde_json::Map<String, serde_json::Value>,
+    fields: &[&str],
+) -> Result<Option<StatValue>, ShardLoomError> {
+    for field in fields {
+        if let Some(value) = object.get(*field) {
+            return json_stat_value(value, field).map(Some);
+        }
+    }
+    Ok(None)
+}
+
+fn json_stat_value(value: &serde_json::Value, field: &str) -> Result<StatValue, ShardLoomError> {
+    match value {
+        serde_json::Value::Null => Ok(StatValue::Null),
+        serde_json::Value::Bool(value) => Ok(StatValue::Boolean(*value)),
+        serde_json::Value::Number(value) => {
+            if let Some(value) = value.as_i64() {
+                Ok(StatValue::Int64(value))
+            } else if let Some(value) = value.as_u64() {
+                Ok(StatValue::UInt64(value))
+            } else if let Some(value) = value.as_f64() {
+                if value.is_finite() {
+                    Ok(StatValue::Float64(value))
+                } else {
+                    Err(ShardLoomError::InvalidOperation(format!(
+                        "field {field} must be a finite scalar"
+                    )))
+                }
+            } else {
+                Err(ShardLoomError::InvalidOperation(format!(
+                    "field {field} must be a scalar fill value"
+                )))
+            }
+        }
+        serde_json::Value::String(value) => Ok(StatValue::Utf8(value.clone())),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => {
+            Err(ShardLoomError::InvalidOperation(format!(
+                "field {field} supports only scalar fill values"
+            )))
+        }
+    }
 }
 
 fn json_optional_string_field_any<'a>(
@@ -8129,6 +8287,37 @@ mod tests {
     }
 
     #[test]
+    fn parse_explode_payload_accepts_multi_column_explode() {
+        let uri = DatasetUri::new("target/input.vortex").expect("uri");
+        let request = parse_vortex_primitive_request(
+            uri,
+            r#"explode:{"explode_columns":["items","labels"],"output_columns":["id","items","labels"]}"#,
+        )
+        .expect("multi-column explode request");
+
+        assert_eq!(
+            request.kind,
+            shardloom_vortex::VortexQueryPrimitiveKind::ExplodeRows
+        );
+        let ProjectionRequest::Columns(columns) = &request.projection else {
+            panic!("expected explicit projected columns");
+        };
+        assert_eq!(
+            columns.iter().map(ColumnRef::as_str).collect::<Vec<_>>(),
+            vec!["id", "items", "labels"]
+        );
+        let explode_projection = request.explode_projection.expect("explode projection");
+        assert_eq!(
+            explode_projection
+                .explode_columns()
+                .iter()
+                .map(ColumnRef::as_str)
+                .collect::<Vec<_>>(),
+            vec!["items", "labels"]
+        );
+    }
+
+    #[test]
     fn parse_expression_project_payload_accepts_typed_json_null_rewrite() {
         let uri = DatasetUri::new("target/input.vortex").expect("uri");
         let request = parse_vortex_primitive_request(
@@ -8156,5 +8345,65 @@ mod tests {
         };
         assert_eq!(target_column.as_str(), "amount");
         assert_eq!(*replacement, StatValue::Null);
+    }
+
+    #[test]
+    fn parse_expression_project_payload_accepts_regex_replace_rewrite() {
+        let uri = DatasetUri::new("target/input.vortex").expect("uri");
+        let request = parse_vortex_primitive_request(
+            uri,
+            r#"expression_project:{"columns":["label"],"rewrites":[{"kind":"regex_replace_scalar","target_column":"label","pattern":"^bad","replacement":"ok"}]}"#,
+        )
+        .expect("expression project request");
+
+        assert_eq!(
+            request.kind,
+            shardloom_vortex::VortexQueryPrimitiveKind::ExpressionProjectRows
+        );
+        let projection = request
+            .expression_projection
+            .expect("expression projection");
+        let [
+            VortexExpressionRewrite::RegexReplaceScalar {
+                target_column,
+                pattern,
+                replacement,
+            },
+        ] = projection.rewrites.as_slice()
+        else {
+            panic!("expected one regex replace rewrite");
+        };
+        assert_eq!(target_column.as_str(), "label");
+        assert_eq!(pattern, "^bad");
+        assert_eq!(replacement, "ok");
+    }
+
+    #[test]
+    fn parse_expression_project_payload_accepts_forward_fill_null_rewrite() {
+        let uri = DatasetUri::new("target/input.vortex").expect("uri");
+        let request = parse_vortex_primitive_request(
+            uri,
+            r#"expression_project:{"columns":["amount"],"rewrites":[{"kind":"forward_fill_null","target_column":"amount","limit":2}]}"#,
+        )
+        .expect("expression project request");
+
+        assert_eq!(
+            request.kind,
+            shardloom_vortex::VortexQueryPrimitiveKind::ExpressionProjectRows
+        );
+        let projection = request
+            .expression_projection
+            .expect("expression projection");
+        let [
+            VortexExpressionRewrite::ForwardFillNull {
+                target_column,
+                limit,
+            },
+        ] = projection.rewrites.as_slice()
+        else {
+            panic!("expected one forward-fill rewrite");
+        };
+        assert_eq!(target_column.as_str(), "amount");
+        assert_eq!(*limit, Some(2));
     }
 }

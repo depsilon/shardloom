@@ -56,6 +56,7 @@ arrow-ipc = { workspace = true, optional = true }
 arrow-schema = { workspace = true, optional = true }
 orc-rust = { version = "0.8.0", default-features = false, optional = true }
 parquet = { workspace = true, optional = true }
+regex = { workspace = true }
 shardloom-core = { workspace = true }
 shardloom-exec = { workspace = true }
 shardloom-plan = { workspace = true }

@@ -1129,15 +1129,10 @@ fn workflow_unsupported_dataframe_operation(token: &str) -> Option<WorkflowUnsup
         "fillna" | "fill-null" | "fill_null" => Some(workflow_unsupported_fillna()),
         "isna" | "isnull" | "is-null" | "is_null" => Some(workflow_unsupported_isna()),
         "notna" | "notnull" | "not-null" | "not_null" => Some(workflow_unsupported_notna()),
-        "duplicated" => Some(workflow_unsupported_duplicated()),
-        "drop-duplicates" | "drop_duplicates" => Some(workflow_unsupported_drop_duplicates()),
         "mask" => Some(workflow_unsupported_mask()),
         "replace" => Some(workflow_unsupported_replace()),
         "set-index" | "set_index" => Some(workflow_unsupported_set_index()),
-        "reset-index" | "reset_index" => Some(workflow_unsupported_reset_index()),
         "sort-index" | "sort_index" => Some(workflow_unsupported_sort_index()),
-        "nlargest" => Some(workflow_unsupported_nlargest()),
-        "nsmallest" => Some(workflow_unsupported_nsmallest()),
         "fanout" => Some(workflow_unsupported_fanout()),
         "apply" => Some(workflow_unsupported_apply()),
         "pipe" => Some(workflow_unsupported_pipe()),
@@ -1672,9 +1667,9 @@ fn workflow_unsupported_melt() -> WorkflowUnsupportedOperation {
         label: "DataFrame melt",
         surface: "dataframe_reshape",
         feature: "cg21.workflow.melt",
-        blocker_id: "cg21.workflow.melt.reshape_semantics_unsupported",
-        required_evidence: "unpivot_semantics,schema_alignment_contract,materialization_boundary,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use scoped melt(id_vars=..., value_vars=...) over flat same-typed value columns; heterogeneous, nested, hidden-index, and broad pandas melt variants require separate native unpivot evidence.",
+        blocker_id: "cg21.workflow.melt.nested_or_broad_index_contract_missing",
+        required_evidence: "unpivot_semantics,heterogeneous_scalar_value_representation,schema_alignment_contract,materialization_boundary,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped melt(id_vars=..., value_vars=...) over flat scalar value columns with explicit row-number materialization when ignore_index=false; nested, multi-index, and broad pandas melt variants require separate native unpivot evidence.",
         diagnostic_code: DiagnosticCode::NotImplemented,
         materialization_required: false,
         write_required: false,
@@ -1690,7 +1685,7 @@ fn workflow_unsupported_rolling() -> WorkflowUnsupportedOperation {
         feature: "cg21.workflow.rolling",
         blocker_id: "cg21.workflow.rolling.broad_window_semantics_unsupported",
         required_evidence: "time_calendar_window_semantics,centered_window_semantics,null_validity_window_semantics,window_operator_capability,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use rolling(window=<positive int>, min_periods<=window, center=false).sum/mean/count(column, alias=...) for the admitted native/prepared Vortex route; broader rolling variants require certified frame, null, and spill semantics.",
+        suggested_next_action: "Use rolling(window=<positive int>, min_periods<=window, center=false).sum/mean/count/min/max(column, alias=...) for the admitted native/prepared Vortex route; broader rolling variants require certified frame, null, and spill semantics.",
         diagnostic_code: DiagnosticCode::UnsupportedSql,
         materialization_required: false,
         write_required: false,
@@ -1810,38 +1805,6 @@ fn workflow_unsupported_notna() -> WorkflowUnsupportedOperation {
     }
 }
 
-fn workflow_unsupported_duplicated() -> WorkflowUnsupportedOperation {
-    WorkflowUnsupportedOperation {
-        operation: "duplicated",
-        label: "DataFrame duplicated mask variant",
-        surface: "dataframe_deduplication_runtime",
-        feature: "cg21.workflow.duplicated",
-        blocker_id: "cg21.workflow.duplicated.nested_or_index_contract_missing",
-        required_evidence: "native_vortex_duplicate_mask_primitive,duplicate_mask_semantics,keep_policy_contract,nested_equality_contract,hidden_index_policy,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use scoped duplicated(subset=..., keep='first'|'last'|False) over declared/projection scalar columns, including nullable scalar equality; nested/list/struct and hidden-index variants need separate row-key equality evidence.",
-        diagnostic_code: DiagnosticCode::NotImplemented,
-        materialization_required: true,
-        write_required: false,
-        runtime_required: true,
-    }
-}
-
-fn workflow_unsupported_drop_duplicates() -> WorkflowUnsupportedOperation {
-    WorkflowUnsupportedOperation {
-        operation: "drop_duplicates",
-        label: "DataFrame drop_duplicates variant",
-        surface: "dataframe_deduplication_runtime",
-        feature: "cg21.workflow.drop_duplicates",
-        blocker_id: "cg21.workflow.drop_duplicates.nested_or_index_contract_missing",
-        required_evidence: "native_vortex_drop_duplicates_primitive,explicit_row_key_retention_state,nested_equality_contract,hidden_index_policy,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use scoped drop_duplicates(subset=..., keep='first'|'last'|False) over declared/projection scalar columns, including nullable scalar equality; nested/list/struct and hidden-index variants need separate row-key equality evidence.",
-        diagnostic_code: DiagnosticCode::NotImplemented,
-        materialization_required: true,
-        write_required: false,
-        runtime_required: true,
-    }
-}
-
 fn workflow_unsupported_mask() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "mask",
@@ -1864,9 +1827,9 @@ fn workflow_unsupported_replace() -> WorkflowUnsupportedOperation {
         label: "DataFrame replace variant",
         surface: "dataframe_conditional_rewrite",
         feature: "cg21.workflow.replace",
-        blocker_id: "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing",
+        blocker_id: "cg21.workflow.replace.method_nested_or_mixed_dtype_contract_missing",
         required_evidence: "native_vortex_expression_project_primitive,value_rewrite_semantics,typed_scalar_or_null_rewrite_payload,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use scoped scalar-or-null replace(old, new), column-mapped scalar/null replacement, or UTF-8 string replacement; regex, method/limit, nested-value, and mixed-dtype variants need separate validity/type evidence.",
+        suggested_next_action: "Use scoped scalar-or-null replace(old, new), column-mapped scalar/null replacement, UTF-8 string replacement, or scoped UTF-8 regex replacement; method/limit, nested-value, and mixed-dtype variants need separate validity/type evidence.",
         diagnostic_code: DiagnosticCode::UnsupportedSql,
         materialization_required: true,
         write_required: false,
@@ -1890,22 +1853,6 @@ fn workflow_unsupported_set_index() -> WorkflowUnsupportedOperation {
     }
 }
 
-fn workflow_unsupported_reset_index() -> WorkflowUnsupportedOperation {
-    WorkflowUnsupportedOperation {
-        operation: "reset_index",
-        label: "DataFrame reset_index variant",
-        surface: "dataframe_index_metadata",
-        feature: "cg21.workflow.reset_index",
-        blocker_id: "cg21.workflow.reset_index.row_number_or_hidden_index_contract_missing",
-        required_evidence: "index_metadata_removal,row_number_projection_contract,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use reset_index(drop=true) or reset_index() after scoped set_index(drop=false); row-number projection, level handling, and hidden index output need separate evidence.",
-        diagnostic_code: DiagnosticCode::NotImplemented,
-        materialization_required: false,
-        write_required: false,
-        runtime_required: true,
-    }
-}
-
 fn workflow_unsupported_sort_index() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "sort_index",
@@ -1917,38 +1864,6 @@ fn workflow_unsupported_sort_index() -> WorkflowUnsupportedOperation {
         suggested_next_action: "Use sort_index(ascending=true) with no explicit index or sort_index(ascending=true|false) after set_index(drop=false); source-order descending, multi-index, and hidden row-label variants need separate evidence.",
         diagnostic_code: DiagnosticCode::NotImplemented,
         materialization_required: false,
-        write_required: false,
-        runtime_required: true,
-    }
-}
-
-fn workflow_unsupported_nlargest() -> WorkflowUnsupportedOperation {
-    WorkflowUnsupportedOperation {
-        operation: "nlargest",
-        label: "DataFrame nlargest variant",
-        surface: "dataframe_top_n",
-        feature: "cg21.workflow.nlargest",
-        blocker_id: "cg21.workflow.nlargest.tie_or_index_semantics_contract_missing",
-        required_evidence: "native_vortex_top_n_provider_route,tie_policy_contract,index_tie_semantics,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use scoped nlargest(n, columns, keep='first') over admitted sort keys; keep='last'/'all' and pandas index tie semantics need separate evidence.",
-        diagnostic_code: DiagnosticCode::UnsupportedSql,
-        materialization_required: true,
-        write_required: false,
-        runtime_required: true,
-    }
-}
-
-fn workflow_unsupported_nsmallest() -> WorkflowUnsupportedOperation {
-    WorkflowUnsupportedOperation {
-        operation: "nsmallest",
-        label: "DataFrame nsmallest variant",
-        surface: "dataframe_top_n",
-        feature: "cg21.workflow.nsmallest",
-        blocker_id: "cg21.workflow.nsmallest.tie_or_index_semantics_contract_missing",
-        required_evidence: "native_vortex_top_n_provider_route,tie_policy_contract,index_tie_semantics,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use scoped nsmallest(n, columns, keep='first') over admitted sort keys; keep='last'/'all' and pandas index tie semantics need separate evidence.",
-        diagnostic_code: DiagnosticCode::UnsupportedSql,
-        materialization_required: true,
         write_required: false,
         runtime_required: true,
     }

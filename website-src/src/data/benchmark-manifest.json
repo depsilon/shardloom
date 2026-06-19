@@ -1,5 +1,6 @@
 {
   "artifact_paths": {
+    "front_door_performance_equivalence": "website/assets/benchmarks/latest/front-door-performance-equivalence.json",
     "html": null,
     "json": "website/assets/benchmarks/latest/benchmark-results.json",
     "markdown": null,
@@ -191,6 +192,88 @@
   "benchmark_row_admission_manifest": "website/assets/benchmarks/latest/published-row-runs/rows-9e40c079fd2c793e/benchmark-row-admission-manifest.json",
   "benchmark_row_admission_schema_version": "shardloom.website.benchmark_row_admission_manifest.v1",
   "claim_boundary": "local_comparative_broad_formats_not_claim_grade",
+  "clickbench_olap_runtime_readiness": {
+    "admitted_query_count": 43,
+    "admitted_runtime_rows": 43,
+    "capillary_work_unit_counts": {
+      "aggregate_state": 36,
+      "count_distinct_set": 8,
+      "group_key_state": 29,
+      "having_filter": 2,
+      "offset_drain": 5,
+      "topk_heap_state": 32,
+      "utf8_predicate_scan": 18,
+      "vortex_scan": 43,
+      "wide_aggregate_projection": 1
+    },
+    "claim_boundary": "ClickBench route readiness only; not a ClickBench performance result, leaderboard, or superiority claim.",
+    "clickbench_olap_readiness_status": "all_queries_admitted_route_readiness",
+    "coverage_artifact": "target/clickbench-olap-runtime-coverage.json",
+    "default_pr_fast_lane_tier": "small_deterministic_local",
+    "fail_closed_if_spill_required_count": 42,
+    "feature_gated_query_count": 0,
+    "implementation_required_count": 0,
+    "implementation_required_rows": 0,
+    "max_parallelism_default": 1,
+    "memory_spill_diagnostic_status": "state_budget_declared_spill_fail_closed_no_spill_io",
+    "performance_claim_allowed": false,
+    "pulseweave_pressure_signal_counts": {
+      "aggregate_input_rows": 32,
+      "aggregate_measure_count": 32,
+      "aggregate_projection_width": 1,
+      "distinct_value_cardinality": 8,
+      "group_cardinality": 29,
+      "group_state_rows": 29,
+      "having_selectivity": 2,
+      "offset_drain_rows": 5,
+      "string_scan_selectivity": 18,
+      "topk_heap_rows": 32
+    },
+    "query_count": 43,
+    "readiness_surface": "clickbench_olap_route_readiness",
+    "route_family_counts": {
+      "native_vortex_count_all": 1,
+      "native_vortex_count_where": 1,
+      "native_vortex_filter_project": 1,
+      "native_vortex_grouped_aggregate": 1,
+      "native_vortex_grouped_aggregate_topk": 28,
+      "native_vortex_scalar_aggregate": 6,
+      "native_vortex_scalar_aggregate_wide_sum_offsets": 1,
+      "native_vortex_sorted_rows_topk": 4
+    },
+    "scale_fixture_strategy_id": "clickbench_scale_fixture_strategy_v1",
+    "scale_fixture_strategy_schema_version": "shardloom.clickbench_scale_fixture_strategy.v1",
+    "scale_fixture_tiers": [
+      "small_deterministic_local",
+      "medium_sequential_uat",
+      "full_100m_artifact_runner"
+    ],
+    "schema_version": "shardloom.clickbench_olap_site_readiness.v1",
+    "site_readiness_claim_boundary": "route readiness only; not a timing, performance, production, spill-runtime, larger-than-memory, or superiority claim",
+    "spill_policy": "fail_closed_before_uncertified_spill_for_stateful_scale_shapes",
+    "spill_policy_counts": {
+      "fail_closed_before_uncertified_spill": 42,
+      "not_applicable": 1
+    },
+    "spill_required_count": 0,
+    "spill_supported_count": 0,
+    "state_budget_required_count": 42,
+    "state_budget_schema_version": "shardloom.clickbench_olap_state_budget.v1",
+    "state_family_counts": {
+      "count_distinct_state": 2,
+      "grouped_aggregate_state": 1,
+      "grouped_aggregate_state+count_distinct+topk": 6,
+      "grouped_aggregate_state+topk": 17,
+      "grouped_aggregate_state+topk+offset": 5,
+      "raw_row_topk_sort_state": 4,
+      "scalar_aggregate_state": 7,
+      "stateless_scan_or_metadata": 1
+    },
+    "status": "ready_route_readiness_not_performance",
+    "timing_surface": "route_readiness_no_timing",
+    "validation_passed": true,
+    "validator": "scripts/check_clickbench_olap_runtime_coverage.py"
+  },
   "environment": {
     "artifact_environment": {
       "cpu_count": 10,
@@ -217,6 +300,11 @@
     "datafusion",
     "dask"
   ],
+  "front_door_performance_equivalence_artifact": "website/assets/benchmarks/latest/front-door-performance-equivalence.json",
+  "front_door_performance_equivalence_claim_allowed": false,
+  "front_door_performance_equivalence_row_count": 27,
+  "front_door_performance_equivalence_schema_version": "shardloom.front_door_performance_equivalence_artifact.v1",
+  "front_door_performance_equivalence_status": "passed",
   "generated_at_utc": "2026-06-15T16:28:51.414485+00:00",
   "lane_availability_reasons": {
     "dask": "available, version 2024.8.0",
@@ -908,87 +996,5 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "17cf9b795e746213355bfd1dca590959cf3898d1",
-  "clickbench_olap_runtime_readiness": {
-    "schema_version": "shardloom.clickbench_olap_site_readiness.v1",
-    "status": "ready_route_readiness_not_performance",
-    "clickbench_olap_readiness_status": "all_queries_admitted_route_readiness",
-    "query_count": 43,
-    "admitted_runtime_rows": 43,
-    "admitted_query_count": 43,
-    "implementation_required_rows": 0,
-    "implementation_required_count": 0,
-    "feature_gated_query_count": 0,
-    "readiness_surface": "clickbench_olap_route_readiness",
-    "timing_surface": "route_readiness_no_timing",
-    "state_budget_schema_version": "shardloom.clickbench_olap_state_budget.v1",
-    "state_budget_required_count": 42,
-    "scale_fixture_strategy_schema_version": "shardloom.clickbench_scale_fixture_strategy.v1",
-    "scale_fixture_strategy_id": "clickbench_scale_fixture_strategy_v1",
-    "scale_fixture_tiers": [
-      "small_deterministic_local",
-      "medium_sequential_uat",
-      "full_100m_artifact_runner"
-    ],
-    "default_pr_fast_lane_tier": "small_deterministic_local",
-    "max_parallelism_default": 1,
-    "spill_policy": "fail_closed_before_uncertified_spill_for_stateful_scale_shapes",
-    "spill_required_count": 0,
-    "spill_supported_count": 0,
-    "memory_spill_diagnostic_status": "state_budget_declared_spill_fail_closed_no_spill_io",
-    "performance_claim_allowed": false,
-    "claim_boundary": "ClickBench route readiness only; not a ClickBench performance result, leaderboard, or superiority claim.",
-    "site_readiness_claim_boundary": "route readiness only; not a timing, performance, production, spill-runtime, larger-than-memory, or superiority claim",
-    "coverage_artifact": "target/clickbench-olap-runtime-coverage.json",
-    "validator": "scripts/check_clickbench_olap_runtime_coverage.py",
-    "route_family_counts": {
-      "native_vortex_count_all": 1,
-      "native_vortex_count_where": 1,
-      "native_vortex_filter_project": 1,
-      "native_vortex_grouped_aggregate": 1,
-      "native_vortex_grouped_aggregate_topk": 28,
-      "native_vortex_scalar_aggregate": 6,
-      "native_vortex_scalar_aggregate_wide_sum_offsets": 1,
-      "native_vortex_sorted_rows_topk": 4
-    },
-    "state_family_counts": {
-      "count_distinct_state": 2,
-      "grouped_aggregate_state": 1,
-      "grouped_aggregate_state+count_distinct+topk": 6,
-      "grouped_aggregate_state+topk": 17,
-      "grouped_aggregate_state+topk+offset": 5,
-      "raw_row_topk_sort_state": 4,
-      "scalar_aggregate_state": 7,
-      "stateless_scan_or_metadata": 1
-    },
-    "capillary_work_unit_counts": {
-      "aggregate_state": 36,
-      "count_distinct_set": 8,
-      "group_key_state": 29,
-      "having_filter": 2,
-      "offset_drain": 5,
-      "topk_heap_state": 32,
-      "utf8_predicate_scan": 18,
-      "vortex_scan": 43,
-      "wide_aggregate_projection": 1
-    },
-    "pulseweave_pressure_signal_counts": {
-      "aggregate_input_rows": 32,
-      "aggregate_measure_count": 32,
-      "aggregate_projection_width": 1,
-      "distinct_value_cardinality": 8,
-      "group_cardinality": 29,
-      "group_state_rows": 29,
-      "having_selectivity": 2,
-      "offset_drain_rows": 5,
-      "string_scan_selectivity": 18,
-      "topk_heap_rows": 32
-    },
-    "spill_policy_counts": {
-      "fail_closed_before_uncertified_spill": 42,
-      "not_applicable": 1
-    },
-    "fail_closed_if_spill_required_count": 42,
-    "validation_passed": true
-  }
+  "shardloom_git_sha": "17cf9b795e746213355bfd1dca590959cf3898d1"
 }

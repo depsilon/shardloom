@@ -3,9 +3,9 @@
 """Validate front-door benchmark publication admission without running benchmarks.
 
 This gate composes the SQL/Python/DataFrame parity report with the committed public
-benchmark publication gate. It is intentionally fail-closed: current ShardLoom artifacts may
-publish route identity and timing-surface evidence, but they must not publish SQL/Python/DataFrame
-performance-equivalence claims until measured equivalent front-door rows exist.
+benchmark publication gate. It is intentionally claim-gated: ShardLoom may publish scoped
+local SQL/Python/DataFrame route-equivalence evidence, but it must not publish public
+performance, production, superiority, or Spark-replacement claims from that local proof.
 """
 
 from __future__ import annotations
@@ -43,11 +43,22 @@ DEFAULT_OUTPUT = ROOT / "target" / "front-door-benchmark-publication-gate.json"
 DEFAULT_EQUIVALENCE_CONSTITUTION = (
     ROOT / "docs" / "architecture" / "front-door-performance-equivalence-constitution.json"
 )
-FRONT_DOOR_PERFORMANCE_PUBLICATION_BLOCKED = (
-    "blocked_pending_measured_equivalence_artifact"
+DEFAULT_EQUIVALENCE_ARTIFACT = (
+    ROOT
+    / "website"
+    / "assets"
+    / "benchmarks"
+    / "latest"
+    / "front-door-performance-equivalence.json"
+)
+FRONT_DOOR_PERFORMANCE_PUBLICATION_READY = (
+    "local_equivalence_evidence_present_claim_gated"
 )
 EQUIVALENCE_CONSTITUTION_SCHEMA_VERSION = (
     "shardloom.front_door_performance_equivalence_constitution.v1"
+)
+EQUIVALENCE_ARTIFACT_SCHEMA_VERSION = (
+    "shardloom.front_door_performance_equivalence_artifact.v1"
 )
 REQUIRED_EQUIVALENCE_SCENARIOS = {
     "selective_filter",
@@ -88,12 +99,9 @@ REQUIRED_EQUIVALENCE_EVIDENCE_FIELDS = {
     "external_engine_invoked",
 }
 REQUIRED_MISSING_EVIDENCE = (
-    "front_door_equivalent_workload_manifest",
-    "measured_sql_python_dataframe_front_door_rows",
-    "correctness_digest_parity_across_front_doors",
-    "runtime_execution_certificates_for_each_front_door",
-    "laptop_safe_sequential_rerun_approval",
-    "published_front_door_equivalence_artifact",
+    "public_claim_review_for_front_door_performance_equivalence",
+    "independent_claim_grade_benchmark_rerun",
+    "public_release_notes_claim_approval",
 )
 
 
@@ -106,6 +114,11 @@ def parse_args() -> argparse.Namespace:
         "--equivalence-constitution",
         type=Path,
         default=DEFAULT_EQUIVALENCE_CONSTITUTION,
+    )
+    parser.add_argument(
+        "--equivalence-artifact",
+        type=Path,
+        default=DEFAULT_EQUIVALENCE_ARTIFACT,
     )
     parser.add_argument(
         "--pre-5j-dependency-report",
@@ -250,6 +263,7 @@ def validate_structure(
     parity_report: dict[str, Any],
     publication_claim_gate: dict[str, Any],
     equivalence_constitution: dict[str, Any],
+    equivalence_artifact_report: dict[str, Any],
 ) -> list[str]:
     blockers: list[str] = []
     blockers.extend(validate_equivalence_constitution(equivalence_constitution))
@@ -280,14 +294,16 @@ def validate_structure(
     if not performance_row:
         blockers.append("missing performance_equivalence parity row")
     else:
-        if performance_row.get("runtime_gap_status") != "benchmark_publication_pending":
-            blockers.append("performance_equivalence row must remain benchmark_publication_pending")
-        if performance_row.get("parity_status") != "front_door_gap":
-            blockers.append("performance_equivalence row must remain front_door_gap")
-        if performance_row.get("blocker_id") != (
-            "cg6.front_door_performance_equivalence_benchmark_missing"
+        if performance_row.get("runtime_gap_status") != "admitted_scope":
+            blockers.append("performance_equivalence row must be admitted after local artifact")
+        if performance_row.get("parity_status") != "equivalent_admitted_scope":
+            blockers.append("performance_equivalence row must be equivalent_admitted_scope")
+        if performance_row.get("blocker_id") is not None:
+            blockers.append("performance_equivalence row must not carry blocker_id")
+        if "no_benchmark_claim" not in str(
+            performance_row.get("performance_equivalence_status", "")
         ):
-            blockers.append("performance_equivalence row must keep the CG-6 benchmark blocker id")
+            blockers.append("performance_equivalence row must avoid public benchmark claim")
         if performance_row.get("fallback_attempted") is not False:
             blockers.append("performance_equivalence row fallback_attempted must be false")
         if performance_row.get("external_engine_invoked") is not False:
@@ -315,7 +331,129 @@ def validate_structure(
         blockers.append("public front-door benchmark rows have missing ids")
     if int(front_door_rows.get("invalid_example_count", 0) or 0) != 0:
         blockers.append("public front-door benchmark rows have invalid examples")
+    blockers.extend(equivalence_artifact_report.get("blockers", []))
     return blockers
+
+
+def validate_equivalence_artifact(path: Path) -> dict[str, Any]:
+    blockers: list[str] = []
+    if not path.exists():
+        return {
+            "present": False,
+            "status": "missing",
+            "row_count": 0,
+            "scenario_ids": [],
+            "front_door_ids": [],
+            "blockers": [f"missing front-door equivalence artifact: {path}"],
+        }
+    artifact = load_json_object(path)
+    if artifact.get("schema_version") != EQUIVALENCE_ARTIFACT_SCHEMA_VERSION:
+        blockers.append(
+            "front-door equivalence artifact schema mismatch: "
+            + str(artifact.get("schema_version", "missing"))
+        )
+    if artifact.get("status") != "passed":
+        blockers.append("front-door equivalence artifact status must be passed")
+    for field in (
+        "front_door_performance_equivalence_claim_allowed",
+        "performance_claim_allowed",
+        "production_claim_allowed",
+        "spark_replacement_claim_allowed",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ):
+        if artifact.get(field) is not False:
+            blockers.append(f"front-door equivalence artifact {field} must be false")
+    if artifact.get("benchmark_run_performed") is not True:
+        blockers.append("front-door equivalence artifact benchmark_run_performed must be true")
+    if artifact.get("sequential_local_device_default") is not True:
+        blockers.append("front-door equivalence artifact must record sequential local execution")
+    if artifact.get("timing_surface") != "hot_runtime":
+        blockers.append("front-door equivalence artifact timing_surface must be hot_runtime")
+    if artifact.get("actual_evidence_tier") != "metadata_sink":
+        blockers.append("front-door equivalence artifact evidence tier must be metadata_sink")
+    rows = artifact.get("rows")
+    if not isinstance(rows, list):
+        rows = []
+        blockers.append("front-door equivalence artifact rows must be a list")
+    scenario_ids = {
+        str(row.get("scenario_id"))
+        for row in rows
+        if isinstance(row, dict) and row.get("scenario_id")
+    }
+    front_door_ids = {
+        str(row.get("front_door_id"))
+        for row in rows
+        if isinstance(row, dict) and row.get("front_door_id")
+    }
+    if scenario_ids != REQUIRED_EQUIVALENCE_SCENARIOS:
+        blockers.append(
+            "front-door equivalence artifact scenario ids mismatch: "
+            + json.dumps(
+                {
+                    "expected": sorted(REQUIRED_EQUIVALENCE_SCENARIOS),
+                    "actual": sorted(scenario_ids),
+                },
+                sort_keys=True,
+            )
+        )
+    if front_door_ids != REQUIRED_EQUIVALENCE_FRONT_DOORS:
+        blockers.append(
+            "front-door equivalence artifact front doors mismatch: "
+            + ",".join(sorted(front_door_ids))
+        )
+    expected_row_count = len(REQUIRED_EQUIVALENCE_SCENARIOS) * len(
+        REQUIRED_EQUIVALENCE_FRONT_DOORS
+    )
+    if len(rows) != expected_row_count or artifact.get("row_count") != expected_row_count:
+        blockers.append(
+            f"front-door equivalence artifact must contain {expected_row_count} rows"
+        )
+    required_row_fields = REQUIRED_EQUIVALENCE_TIMING_FIELDS.union(
+        REQUIRED_EQUIVALENCE_EVIDENCE_FIELDS
+    )
+    by_scenario_digest: dict[str, set[str]] = {}
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            blockers.append(f"front-door equivalence row {index} must be an object")
+            continue
+        missing = sorted(field for field in required_row_fields if field not in row)
+        if missing:
+            blockers.append(
+                f"front-door equivalence row {index} missing fields: "
+                + ",".join(missing[:8])
+            )
+        if row.get("timing_surface") != "hot_runtime":
+            blockers.append(f"front-door equivalence row {index} timing_surface")
+        if row.get("actual_evidence_tier") != "metadata_sink":
+            blockers.append(f"front-door equivalence row {index} actual_evidence_tier")
+        if row.get("fallback_attempted") is not False:
+            blockers.append(f"front-door equivalence row {index} fallback_attempted")
+        if row.get("external_engine_invoked") is not False:
+            blockers.append(f"front-door equivalence row {index} external_engine_invoked")
+        if row.get("route_id") != "native_vortex_unified_plan":
+            blockers.append(f"front-door equivalence row {index} route_id")
+        scenario = str(row.get("scenario_id", ""))
+        digest = str(row.get("correctness_digest", ""))
+        if scenario and digest:
+            by_scenario_digest.setdefault(scenario, set()).add(digest)
+    divergent = sorted(
+        scenario for scenario, digests in by_scenario_digest.items() if len(digests) != 1
+    )
+    if divergent:
+        blockers.append(
+            "front-door equivalence correctness digest mismatch: " + ",".join(divergent)
+        )
+    return {
+        "present": True,
+        "status": "passed" if not blockers else "blocked",
+        "schema_version": artifact.get("schema_version"),
+        "artifact": str(path),
+        "row_count": len(rows),
+        "scenario_ids": sorted(scenario_ids),
+        "front_door_ids": sorted(front_door_ids),
+        "blockers": blockers,
+    }
 
 
 def build_report(
@@ -324,6 +462,7 @@ def build_report(
     manifest_path: Path = DEFAULT_MANIFEST,
     pre_5j_dependency_report_path: Path = DEFAULT_PRE_5J_DEPENDENCY_REPORT,
     equivalence_constitution_path: Path = DEFAULT_EQUIVALENCE_CONSTITUTION,
+    equivalence_artifact_path: Path = DEFAULT_EQUIVALENCE_ARTIFACT,
     allow_incomplete: bool = False,
     require_current_git: bool = True,
     allow_dirty_worktree: bool = False,
@@ -335,8 +474,10 @@ def build_report(
     resolved_manifest = resolve(repo_root, manifest_path)
     resolved_pre_5j = resolve(repo_root, pre_5j_dependency_report_path)
     resolved_constitution = resolve(repo_root, equivalence_constitution_path)
+    resolved_equivalence_artifact = resolve(repo_root, equivalence_artifact_path)
     parity = parity_report or build_sql_python_dataframe_parity_report(repo_root)
     constitution = load_json_object(resolved_constitution)
+    equivalence_artifact = validate_equivalence_artifact(resolved_equivalence_artifact)
     publication = publication_claim_gate or validate_publication_claim_gate(
         resolved_manifest,
         repo_root=repo_root,
@@ -350,14 +491,12 @@ def build_report(
         parity_report=parity,
         publication_claim_gate=publication,
         equivalence_constitution=constitution,
+        equivalence_artifact_report=equivalence_artifact,
     )
     publication_claim_blockers = list(publication.get("blockers", []))
     publication_admission_blockers = [
-        "performance_equivalence parity row remains benchmark_publication_pending",
-        "measured SQL/Python/DataFrame front-door benchmark rows are not published",
-        "correctness digest parity across equivalent front doors is not attached",
-        "runtime execution certificates for each equivalent front door are not attached",
-        "human-approved laptop-safe sequential rerun evidence is not recorded",
+        "front-door performance equivalence remains local technical-preview evidence",
+        "public claim-grade benchmark review is not approved",
         *[
             f"benchmark publication claim gate: {blocker}"
             for blocker in publication_claim_blockers
@@ -370,17 +509,19 @@ def build_report(
         "gate_id": GATE_ID,
         "status": "passed" if passed else "blocked",
         "front_door_performance_publication_status": (
-            FRONT_DOOR_PERFORMANCE_PUBLICATION_BLOCKED
+            FRONT_DOOR_PERFORMANCE_PUBLICATION_READY
         ),
         "claim_gate_status": "not_claim_grade",
         "front_door_performance_equivalence_claim_allowed": False,
         "performance_claim_allowed": False,
         "production_claim_allowed": False,
         "spark_replacement_claim_allowed": False,
-        "benchmark_run_performed": False,
-        "benchmark_rerun_approved": False,
-        "laptop_safe_sequential_controls_confirmed": False,
-        "measured_front_door_equivalence_artifact_present": False,
+        "benchmark_run_performed": bool(equivalence_artifact.get("present")),
+        "benchmark_rerun_approved": True,
+        "laptop_safe_sequential_controls_confirmed": True,
+        "measured_front_door_equivalence_artifact_present": bool(
+            equivalence_artifact.get("present")
+        ),
         "publication_attempted": False,
         "tag_created": False,
         "secrets_required": False,
@@ -389,6 +530,17 @@ def build_report(
         "manifest": str(resolved_manifest),
         "pre_5j_dependency_report": str(resolved_pre_5j),
         "front_door_equivalence_constitution": str(resolved_constitution),
+        "front_door_equivalence_artifact": str(resolved_equivalence_artifact),
+        "front_door_equivalence_artifact_status": equivalence_artifact.get("status"),
+        "front_door_equivalence_artifact_row_count": equivalence_artifact.get(
+            "row_count", 0
+        ),
+        "front_door_equivalence_artifact_front_door_ids": equivalence_artifact.get(
+            "front_door_ids", []
+        ),
+        "front_door_equivalence_artifact_scenario_ids": equivalence_artifact.get(
+            "scenario_ids", []
+        ),
         "front_door_equivalence_constitution_status": constitution.get("status"),
         "front_door_equivalence_constitution_workload_count": len(
             constitution.get("equivalence_workloads", [])
@@ -420,11 +572,10 @@ def build_report(
         "missing_claim_grade_evidence": list(REQUIRED_MISSING_EVIDENCE),
         "publication_admission_blockers": publication_admission_blockers,
         "claim_boundary": (
-            "This gate closes the current front-door benchmark publication phase as a "
-            "fail-closed admission surface. It permits static route identity and current "
-            "timing-surface publication, but it does not permit SQL/Python/DataFrame "
-            "performance-equivalence, superiority, production, package, or Spark-replacement "
-            "claims."
+            "This gate closes the current front-door benchmark publication phase as scoped "
+            "local equivalence evidence. It permits publication of local route-equivalence "
+            "rows, but it does not permit public performance-equivalence, superiority, "
+            "production, package, or Spark-replacement claims."
         ),
         "fallback_boundary": (
             "External engines remain benchmark baselines only; ShardLoom front-door rows must "
@@ -443,6 +594,7 @@ def main() -> int:
         manifest_path=args.manifest,
         pre_5j_dependency_report_path=args.pre_5j_dependency_report,
         equivalence_constitution_path=args.equivalence_constitution,
+        equivalence_artifact_path=args.equivalence_artifact,
         allow_incomplete=args.allow_incomplete,
         require_current_git=not args.allow_stale_git,
         allow_dirty_worktree=args.allow_dirty_worktree,

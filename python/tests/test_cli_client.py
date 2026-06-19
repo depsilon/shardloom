@@ -6837,10 +6837,7 @@ class ShardLoomClientTests(unittest.TestCase):
             "explicit_row_key_retention_state",
             dataframe_methods.row("drop_duplicates").required_evidence,
         )
-        self.assertIn(
-            "cg21.workflow.drop_duplicates.nested_or_index_contract_missing",
-            dataframe_methods.row("drop_duplicates").future_contract_blocker_ids,
-        )
+        self.assertFalse(dataframe_methods.row("drop_duplicates").future_contract_blocker_ids)
         self.assertEqual(
             dataframe_methods.row("unique").support_status,
             "production_admitted_local_workflow",
@@ -7147,10 +7144,7 @@ class ShardLoomClientTests(unittest.TestCase):
             "native_vortex_duplicate_mask_primitive",
             dataframe_methods.row("duplicated").required_evidence,
         )
-        self.assertIn(
-            "cg21.workflow.duplicated.nested_or_index_contract_missing",
-            dataframe_methods.row("duplicated").future_contract_blocker_ids,
-        )
+        self.assertFalse(dataframe_methods.row("duplicated").future_contract_blocker_ids)
         self.assertEqual(
             dataframe_methods.row("mask").support_status,
             "production_admitted_local_workflow",
@@ -7174,7 +7168,7 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("replace").required_evidence,
         )
         self.assertIn(
-            "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing",
+            "cg21.workflow.replace.method_nested_or_mixed_dtype_contract_missing",
             dataframe_methods.row("replace").future_contract_blocker_ids,
         )
         self.assertEqual(
@@ -7636,11 +7630,13 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsNone(broad.blocker_id)
         self.assertIn("documented local SQL/Python/DataFrame-style subset", broad.claim_boundary)
         performance = matrix.row("performance_equivalence")
-        self.assertEqual(performance.support_status, "benchmark_publication_pending")
-        self.assertEqual(performance.runtime_gap_status, "benchmark_publication_pending")
-        self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
-        self.assertEqual(len(matrix.admitted_rows), 9)
-        self.assertEqual(len(matrix.broad_gap_rows), 2)
+        self.assertEqual(performance.support_status, "scoped_runtime_supported")
+        self.assertEqual(performance.runtime_gap_status, "admitted_scope")
+        self.assertIn("no_benchmark_claim", performance.performance_equivalence_status)
+        self.assertTrue(performance.equivalent_admitted_scope)
+        self.assertIsNone(performance.blocker_id)
+        self.assertEqual(len(matrix.admitted_rows), 10)
+        self.assertEqual(len(matrix.broad_gap_rows), 1)
 
     def test_context_front_door_semantic_surface_matrix_scopes_claims(self) -> None:
         binary = self.fake_cli(
