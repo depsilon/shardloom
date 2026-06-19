@@ -7161,7 +7161,7 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("mask").required_evidence,
         )
         self.assertIn(
-            "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
+            "cg21.workflow.mask.alignment_callable_or_nested_contract_missing",
             dataframe_methods.row("mask").future_contract_blocker_ids,
         )
         self.assertEqual(
@@ -7174,7 +7174,7 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("replace").required_evidence,
         )
         self.assertIn(
-            "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing",
+            "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing",
             dataframe_methods.row("replace").future_contract_blocker_ids,
         )
         self.assertEqual(
@@ -7566,7 +7566,11 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(matrix.all_no_fallback_no_external_engine)
         self.assertTrue(matrix.all_broad_gaps_have_precise_runtime_status)
         self.assertNotIn("front_door_connection_pending", matrix.runtime_gap_status_counts)
-        self.assertEqual(matrix.runtime_gap_status_counts["runtime_expansion_pending"], 1)
+        self.assertNotIn("runtime_expansion_pending", matrix.runtime_gap_status_counts)
+        self.assertEqual(
+            matrix.runtime_gap_status_counts["external_environment_gate_pending"],
+            1,
+        )
         self.assertIn("local_file_filter_project_limit", matrix.row_order)
         self.assertIn("arbitrary_sql_python_dataframe_breadth", matrix.row_order)
         local = matrix.row("local_file_filter_project_limit")
@@ -7581,6 +7585,15 @@ class ShardLoomClientTests(unittest.TestCase):
         generated = matrix.row("generated_source_output")
         self.assertTrue(generated.equivalent_admitted_scope)
         self.assertTrue(generated.write_io)
+        production_io = matrix.row("object_store_lakehouse_catalog")
+        self.assertEqual(
+            production_io.runtime_gap_status,
+            "external_environment_gate_pending",
+        )
+        self.assertEqual(
+            production_io.support_status,
+            "external_production_io_gate_pending",
+        )
         schema_quality = matrix.row("schema_quality_preview")
         self.assertTrue(schema_quality.equivalent_admitted_scope)
         self.assertEqual(schema_quality.runtime_gap_status, "admitted_scope")

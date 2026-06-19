@@ -156,11 +156,11 @@ objects. Common supported or scoped methods include:
   primitive; `sum`/`mean` require numeric inputs, `count` admits scalar rows, and time/calendar
   windows, centered windows, callbacks, and broad pandas rolling parity remain deterministic
   blockers.
-- Conditional and value rewrites: scoped typed scalar `mask(predicate, scalar)`,
-  `replace(old, new)`/column-mapped full-cell scalar replacement, and in-place UTF-8
+- Conditional and value rewrites: scoped typed scalar/null `mask(predicate, scalar-or-null)`,
+  `replace(old, scalar-or-null)`/column-mapped full-cell scalar/null replacement, and in-place UTF-8
   `with_column("col", col("col").replace(...))` string replacement when the schema and projection
   admit the native Vortex expression-project primitive; broad pandas alignment, regex, callable,
-  method/limit, nested, mixed-dtype, or null rewrite variants remain deterministic blockers.
+  method/limit, nested, or mixed-dtype variants remain deterministic blockers.
 - Computed columns: `with_column(...)`, `with_columns(...)`, `assign(...)` when the expression
   lowers to the scoped ShardLoom expression surface.
 - Scoped expression runtime: `eval("amount = amount + 5")`-style in-place numeric scalar

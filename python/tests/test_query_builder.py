@@ -12940,6 +12940,27 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 }
             ],
         )
+        null_workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["id", "amount"])
+            .mask(sl.col("amount") < 0, other=None, axis=0, inplace=False, level=None)
+            .limit(2)
+        )
+        self.assertEqual(null_workflow.operations[-2].kind, "expression_project")
+        self.assertEqual(
+            json.loads(null_workflow.operations[-2].values[0])["rewrites"],
+            [
+                {
+                    "kind": "mask_scalar",
+                    "predicate": "lt:amount:0",
+                    "replacement": {"type": "null", "value": None},
+                    "target_column": "amount",
+                }
+            ],
+        )
         self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
         self.assertEqual(
             report.preparation_envelope.field("vortex_ingest_performed"), "true"
@@ -13009,6 +13030,27 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 }
             ],
         )
+        null_workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["label"])
+            .replace("bad", None, regex=False, inplace=False, method=None, limit=None)
+            .limit(2)
+        )
+        self.assertEqual(null_workflow.operations[-2].kind, "expression_project")
+        self.assertEqual(
+            json.loads(null_workflow.operations[-2].values[0])["rewrites"],
+            [
+                {
+                    "kind": "replace_scalar",
+                    "replacement": {"type": "null", "value": None},
+                    "target_column": "label",
+                    "to_replace": {"type": "utf8", "value": "bad"},
+                }
+            ],
+        )
         self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
         self.assertEqual(
             report.envelope.field("public_workflow_route_id"),
@@ -13066,6 +13108,26 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "target_column": "label",
                     "to_replace": {"type": "utf8", "value": "ugly"},
                 },
+            ],
+        )
+        nested_null_mapping = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["label"])
+            .replace({"label": {"bad": None}}, regex=False, inplace=False)
+        )
+        self.assertEqual(nested_null_mapping.operations[-1].kind, "expression_project")
+        self.assertEqual(
+            json.loads(nested_null_mapping.operations[-1].values[0])["rewrites"],
+            [
+                {
+                    "kind": "replace_scalar",
+                    "replacement": {"type": "null", "value": None},
+                    "target_column": "label",
+                    "to_replace": {"type": "utf8", "value": "bad"},
+                }
             ],
         )
 

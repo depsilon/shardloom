@@ -5327,6 +5327,7 @@ fn stat_value_equal(left: &StatValue, right: &StatValue) -> bool {
 #[allow(clippy::cast_precision_loss)]
 fn coerce_rewrite_value(target_value: &StatValue, value: &StatValue) -> Result<StatValue> {
     match (target_value, value) {
+        (_, StatValue::Null) => Ok(StatValue::Null),
         (StatValue::Boolean(_), StatValue::Boolean(value)) => Ok(StatValue::Boolean(*value)),
         (StatValue::Int64(_), StatValue::Int64(value)) => Ok(StatValue::Int64(*value)),
         (StatValue::Int64(_), StatValue::UInt64(value)) => {
@@ -14540,6 +14541,52 @@ mod tests {
         assert!(!report.evidence.side_effects.external_effects_executed);
         assert!(!report.evidence.side_effects.fallback_attempted);
         assert!(!report.evidence.side_effects.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn expression_project_row_export_writes_null_rewrite_without_fallback() {
+        let path = unique_vortex_path("expression-project-null-row-export");
+        let output_path =
+            unique_vortex_path("expression-project-null-row-export-output").with_extension("jsonl");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::expression_project_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+            VortexExpressionProjectionRequest::new(vec![VortexExpressionRewrite::ReplaceScalar {
+                target_column: ColumnRef::new("metric").expect("column"),
+                to_replace: StatValue::Int64(20),
+                replacement: StatValue::Null,
+            }]),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::ExpressionProjectRows
+        );
+        assert_eq!(report.rows_written, 5);
+        assert_eq!(
+            rows,
+            "{\"metric\":10}\n{\"metric\":null}\n{\"metric\":30}\n{\"metric\":40}\n{\"metric\":50}\n"
+        );
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.external_effects_executed);
     }
 
     #[cfg(feature = "universal-format-io")]

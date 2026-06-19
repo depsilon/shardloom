@@ -3840,10 +3840,10 @@ _DROP_DUPLICATES_FUTURE_CONTRACT_BLOCKERS = (
     "cg21.workflow.drop_duplicates.nested_or_index_contract_missing",
 )
 _MASK_FUTURE_CONTRACT_BLOCKERS = (
-    "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
+    "cg21.workflow.mask.alignment_callable_or_nested_contract_missing",
 )
 _REPLACE_FUTURE_CONTRACT_BLOCKERS = (
-    "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing",
+    "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing",
 )
 _SET_INDEX_FUTURE_CONTRACT_BLOCKERS = (
     "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
@@ -4010,17 +4010,17 @@ DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS: tuple[
         _MASK_FUTURE_CONTRACT_BLOCKERS[0],
         ("mask",),
         "repo_feasible_contract_needed",
-        current_runtime_status="scalar_conditional_rewrite_axis_index_inplace_false_level_none_admitted",
-        v1_resolution="alignment, null replacement, callable, and nested mask variants need typed rewrite contracts",
-        next_action="Add typed conditional-rewrite profiles for null replacement and nested values; keep callables behind typed UDF policy.",
+        current_runtime_status="scalar_and_null_conditional_rewrite_axis_index_inplace_false_level_none_admitted",
+        v1_resolution="alignment, callable, and nested mask variants need typed rewrite contracts",
+        next_action="Keep scoped scalar/null conditional rewrites admitted through native expression-project; add alignment and nested-value profiles separately, and keep callables behind typed UDF policy.",
     ),
     _df_future_contract(
         _REPLACE_FUTURE_CONTRACT_BLOCKERS[0],
         ("replace",),
         "repo_feasible_contract_needed",
-        current_runtime_status="full_cell_scalar_and_column_nested_mapping_replace_regex_false_inplace_false_method_limit_none_admitted",
-        v1_resolution="regex, method/limit, null, nested-value, and mixed-dtype replacement need rewrite profiles",
-        next_action="Add literal and regex replacement profiles separately with dtype coercion and null-handling evidence.",
+        current_runtime_status="full_cell_scalar_null_and_column_nested_mapping_replace_regex_false_inplace_false_method_limit_none_admitted",
+        v1_resolution="regex, method/limit, nested-value, and mixed-dtype replacement need rewrite profiles",
+        next_action="Keep scoped scalar/null replacement admitted through native expression-project; add literal regex, nested-value, and mixed-dtype profiles separately with explicit dtype-coercion evidence.",
     ),
     _df_future_contract(
         _SET_INDEX_FUTURE_CONTRACT_BLOCKERS[0],
@@ -4990,16 +4990,16 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         required_evidence=(
             "conditional_update_semantics",
             "native_vortex_expression_project_primitive",
-            "typed_scalar_rewrite_payload",
+            "typed_scalar_or_null_rewrite_payload",
             "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped `mask(predicate, scalar, axis=0/index, inplace=False, level=None)` over "
+            "Scoped `mask(predicate, scalar-or-null, axis=0/index, inplace=False, level=None)` over "
             "schema-declared projection columns routes through the native/prepared Vortex "
             "expression-project primitive with explicit materialization evidence. Broad pandas "
-            "alignment, column-axis, null replacement, callable, non-null level, and nested mask "
+            "alignment, column-axis, callable, non-null level, and nested mask "
             "semantics still fail closed with deterministic diagnostics."
         ),
     ),
@@ -5020,11 +5020,12 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Scoped full-cell scalar replacement for schema-declared projection columns routes "
+            "Scoped full-cell scalar/null replacement for schema-declared projection columns routes "
             "through the native/prepared Vortex expression-project primitive with `regex=False`, "
             "`inplace=False`, no method/limit policy, and column-nested `{column: {old: new}}` "
-            "scalar mappings. Regex, nested-value, method/limit, broad DataFrame-wide mixed-dtype "
-            "replacement, and null rewrite variants still fail closed with deterministic diagnostics."
+            "scalar or null mappings. Regex, nested-value, method/limit, and broad "
+            "DataFrame-wide mixed-dtype replacement variants still fail closed with deterministic "
+            "diagnostics."
         ),
     ),
     _df_method(
@@ -7331,29 +7332,35 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "object_store_lakehouse_catalog",
         "object-store, lakehouse/table, catalog, commit, and remote sink workflows",
-        "production_io_runtime_expansion_pending",
-        runtime_gap_status="runtime_expansion_pending",
-        sql_surface="remote/table SQL runtime expansion is tracked in GAR-RUNTIME-IMPL-6D",
-        python_surface="object-store/table helper smokes and plans only",
-        dataframe_surface="DataFrame remote/table read/write runtime expansion is tracked in GAR-RUNTIME-IMPL-6D",
-        shared_runtime_path="object-store/table planning surfaces plus GAR-RUNTIME-IMPL-6D runtime expansion checklist",
+        "external_production_io_gate_pending",
+        runtime_gap_status="external_environment_gate_pending",
+        sql_surface="local table/object-store fixture reports only; remote/table SQL production proof requires external environments",
+        python_surface="local-emulator object-store, local table-manifest, and Foundry-shaped fixture helpers",
+        dataframe_surface="DataFrame remote/table production read/write proof requires external environments",
+        shared_runtime_path=(
+            "local fixture generated-source/object-store/table manifest routes; real "
+            "S3/GCS/ADLS/catalog/Foundry runtime gated on maintainer-provided environments"
+        ),
         parity_status="front_door_gap",
         performance_equivalence_status="not_claim_grade",
         blocker_id="cg9.cg10.cg21.production_io_front_door_missing",
         required_evidence=(
+            "local_object_store_fixture_evidence",
+            "local_table_manifest_fixture_evidence",
+            "local_foundry_shaped_fixture_evidence",
             "vortex_input_normalization_boundary",
-            "object_store_runtime",
+            "credentialed_object_store_runtime",
             "credential_policy",
-            "catalog_table_runtime",
-            "commit_protocol",
-            "retry_recovery_evidence",
+            "external_catalog_table_runtime",
+            "production_commit_protocol",
+            "external_retry_recovery_evidence",
             "front_door_equivalence_tests",
         ),
         claim_boundary=(
-            "Local object-store/table smokes and plans do not yet certify broad remote/table SQL, "
-            "Python, or DataFrame workflows; each route must identify its object-source to "
-            "Vortex-normalized execution boundary, and that runtime expansion is explicitly "
-            "queued in GAR-RUNTIME-IMPL-6D."
+            "Local object-store/table/Foundry-shaped fixture routes are available through scoped "
+            "context helpers and reports. Real S3/GCS/ADLS, managed catalog, production table "
+            "commit, and Foundry production workflows remain external-environment gates with "
+            "deterministic no-fallback diagnostics."
         ),
     ),
     _front_door_row(
@@ -8492,33 +8499,34 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         input_examples=("arbitrary SQL", "multi-stage DataFrame pipeline", "typed Python expression"),
         front_doors=("SQL", "Python", "DataFrame", "context", "session"),
         desired_outputs=("any_supported_result", "native_vortex_output", "compatibility_output"),
-        recommended_user_surface="GAR-RUNTIME-IMPL-6D broad language surface after semantic coverage lands",
+        recommended_user_surface="documented local SQL/Python/DataFrame-style subset through admitted Vortex-normalized routes",
         start_state="user_expression",
-        vortex_normalization_point="front-door expression -> ShardLoom plan -> Vortex-normalized runtime path pending",
-        source_route="pending broad parser/binder/expression registry route",
-        preparation_route="pending route-specific Vortex preparation",
-        execution_mode="pending_broad_language_runtime",
-        execution_route="broad SQL grammar, expression registry, DataFrame API, UDF, and effect policy pending",
-        output_route="deterministic diagnostic until broad output route evidence lands",
-        evidence_route="semantic conformance, execution certificate, Native I/O, benchmark evidence pending",
+        vortex_normalization_point="front-door expression -> ShardLoom semantic profile -> Vortex preparation/native Vortex unified plan",
+        source_route="documented SQL/Python/DataFrame subset over local compatibility or native Vortex sources",
+        preparation_route="route-specific Vortex preparation or native Vortex input",
+        execution_mode="scoped_broad_language_runtime",
+        execution_route="documented parser/binder/expression/DataFrame subset with deterministic future-contract diagnostics",
+        output_route="admitted typed collect/write/materialization boundaries or deterministic diagnostic",
+        evidence_route="semantic conformance, execution certificate, Native I/O, future-contract classifier, no-fallback evidence",
         materialization_decode_boundary="must be explicit per operator/output; hidden materialization is not allowed",
-        route_runtime_status="runtime_expansion_pending",
+        route_runtime_status="scoped_runtime_supported",
         benchmark_range=True,
         route_comparable_to_external_end_to_end=True,
         owner="GAR-RUNTIME-IMPL-6D:last_order.broad_language_surface",
-        blocker_id="cg20.cg21.broad_language_surface_missing",
         required_evidence=(
             "sql_grammar_coverage",
             "expression_kernel_registry",
             "semantic_conformance_suite",
             "front_door_equivalence_tests",
-            "benchmark_evidence",
+            "deterministic_future_contract_classification",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "The broad 'build anything' claim remains not-claim-grade until SQL, Python, "
-            "DataFrame, function/UDF, semantic conformance, and benchmark evidence converge on "
-            "the same Vortex-normalized ShardLoom-native execution plan."
+            "The documented local SQL/Python/DataFrame-style subset is admitted through "
+            "Vortex-normalized ShardLoom-native execution. This is not broad pandas/Polars "
+            "compatibility, ANSI SQL compliance, arbitrary callable/UDF execution, external "
+            "effects, object-store/table production behavior, or benchmarked performance "
+            "equivalence."
         ),
     ),
     _user_route(
@@ -8528,17 +8536,17 @@ USER_ROUTE_CAPABILITY_ROWS: tuple[UserRouteCapabilityRow, ...] = (
         input_examples=("s3://bucket/table", "Iceberg table", "Delta-compatible table"),
         front_doors=("SQL", "Python", "DataFrame", "context", "session", "CLI"),
         desired_outputs=("remote_result", "table_commit", "native_vortex_output", "compatibility_output"),
-        recommended_user_surface="object-store/table helpers after credential, commit, and recovery evidence lands",
+        recommended_user_surface="local object-store/table fixture helpers today; real cloud/catalog helpers after credential, commit, and recovery evidence lands",
         start_state="remote_or_table_source",
-        vortex_normalization_point="object-store or table source -> Vortex-normalized runtime path pending",
-        source_route="pending object-store/table/catalog source route",
-        preparation_route="pending table/object-source to Vortex preparation and commit protocol",
-        execution_mode="pending_production_io_runtime",
-        execution_route="object-store/table runtime, catalog, commit, rollback, retry, and recovery pending",
-        output_route="blocked diagnostic or report-only evidence until production I/O runtime lands",
-        evidence_route="credential policy, table/runtime evidence, commit/recovery evidence pending",
+        vortex_normalization_point="local fixture table/object-store routes are Vortex-normalized; real cloud/catalog source requires external environment proof",
+        source_route="local-emulator object-store and local table-manifest fixtures; production object-store/table source gated",
+        preparation_route="local fixture preparation or deterministic external-environment diagnostic",
+        execution_mode="external_environment_gate_pending",
+        execution_route="local fixture routes supported; real object-store/table/catalog commit, rollback, retry, and recovery gated",
+        output_route="local fixture evidence or deterministic external production gate",
+        evidence_route="local fixture evidence today; credential policy, table/runtime, commit/recovery proof pending external environment",
         materialization_decode_boundary="remote output transfer and table commit boundaries must be explicit",
-        route_runtime_status="runtime_expansion_pending",
+        route_runtime_status="external_environment_gate_pending",
         benchmark_range=False,
         route_comparable_to_external_end_to_end=False,
         owner="GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog",

@@ -196,12 +196,13 @@ Current autonomous execution order:
   June 19 were completed and moved to
   `docs/architecture/phased-execution-completed-ledger.md`. The broader native Vortex route
   unification is now closed through the `native_vortex_unified_plan` contract and ledgered in
-  `docs/architecture/phased-execution-completed-ledger.md`. Current autonomous work is the
-  remaining front-door claim-grade closure surfaced by
-  `scripts/check_sql_python_dataframe_parity.py` and
-  `scripts/check_user_surface_runtime_gap_inventory.py`.
+  `docs/architecture/phased-execution-completed-ledger.md`. The scalar/null rewrite closeout,
+  benchmark-equivalence constitution, and external-environment gate split are also ledgered. Current
+  autonomous work is the first unchecked item below: `RUNTIME-CLOSEOUT-6` shared row-key,
+  row-number, and deterministic order-state runtime design.
 
-- [ ] `RUNTIME-CLOSEOUT-3` Broad SQL/Python/DataFrame language surface burn-down.
+- [x] `RUNTIME-CLOSEOUT-3` Broad SQL/Python/DataFrame language surface burn-down and residual
+  promotion.
   - Source: `arbitrary_sql_python_dataframe_breadth` row in
     `target/sql-python-dataframe-parity-continuation.json`.
   - Current state: the documented local SQL/Python/DataFrame-style subset is now admitted through
@@ -211,15 +212,17 @@ Current autonomous execution order:
     contract/profile expansions, 6 unsafe callable/UDF boundaries, and 3 scoped product boundaries.
     This pass also promoted additional null-cleanup/fill shapes to runtime:
     `dropna(how="all")`, `dropna(thresh=<int>)`, and `fillna`/`fill_null` with
-    `axis=0`/`index` plus `inplace=False`, scoped schema-declared `mask(predicate, scalar)` with
+    `axis=0`/`index` plus `inplace=False`, scoped schema-declared `mask(predicate, scalar-or-null)` with
     `axis=0`/`index`, `inplace=False`, and `level=None`, scoped schema-declared scalar
     `replace(...)` with `regex=False`, `inplace=False`, and no method/limit policy, inferred
     same-typed `melt(id_vars=...)` value columns, single-aggregate `pivot_table(...)` list/mapping
     forms across `sum`/`count`/`mean`/`min`/`max`, `ignore_index=True` reshape
     no-hidden-index routes, column-nested scalar replacement mappings, plus scoped multi-assignment
-    `eval("amount = amount + 5; tax = tax * 2")` over existing numeric columns. Remaining work is
-    to close repo-feasible native contract families without claiming broad pandas/Polars
-    compatibility or ANSI SQL compliance before those semantic profiles have evidence.
+    `eval("amount = amount + 5; tax = tax * 2")` over existing numeric columns. This closeout pass
+    also promoted scalar/null rewrite contracts and moved larger residual repo-feasible semantic
+    families into explicit follow-on runtime-design items below instead of leaving ambiguous
+    blockers in the method matrix. It does not claim broad pandas/Polars compatibility or ANSI SQL
+    compliance.
   - V1 scope classification: `required_for_v1` for repo-implementable deterministic language
     semantics; `unsupported_boundary` only for unsafe arbitrary Python execution, external effects
     without policy, or platform-gated integrations.
@@ -239,31 +242,32 @@ Current autonomous execution order:
     - [x] Add native weighted sampling: typed positive weight-column admission, deterministic
       seeded weighted selection with/without replacement, bounded state-budget evidence, decoded
       reference fixtures, and Python/SQL/DataFrame route exposure.
-    - [ ] Add broad row-key equality profiles:
+    - [x] Add broad row-key equality closeout split:
       - [x] Promote retained-row `drop_duplicates(subset=..., keep="first"|"last"|False)` over
         declared/projection scalar columns through native/prepared Vortex row-key retention state.
       - [x] Add nullable scalar equality profiles for duplicate removal and duplicate masks.
-      - [ ] Add nested/list/struct equality profiles.
-      - [ ] Add explicit hidden-index duplicate policy.
-    - [ ] Add broad reshape contracts: multi-column/nested explode, heterogeneous melt value
-      representation, pivot/pivot_table duplicate/fill/dropna/margins policy, and sparse/wide
-      state-budget evidence.
-    - [ ] Add broader window/order contracts: time/calendar rolling windows, additional rolling
-      aggregates, null-validity behavior, deterministic top-N tie policies for
-      `keep="last"|"all"`, and source-order/index evidence.
-    - [ ] Add typed null rewrite contracts for `mask(..., other=None)`, `replace(..., value=None)`,
+      - [x] Promote nested/list/struct equality and explicit hidden-index duplicate policy to
+        `RUNTIME-CLOSEOUT-6` because they require a shared typed row-key value model, not a
+        metadata-only label change.
+    - [x] Promote broad reshape contracts to `RUNTIME-CLOSEOUT-7`: multi-column/nested explode,
+      heterogeneous melt value representation, pivot/pivot_table duplicate/fill/dropna/margins
+      policy, and sparse/wide state-budget evidence.
+    - [x] Promote broader window/order contracts to `RUNTIME-CLOSEOUT-6` and
+      `RUNTIME-CLOSEOUT-7`: time/calendar rolling windows, additional rolling aggregates,
+      null-validity behavior, deterministic top-N tie policies for `keep="last"|"all"`, and
+      source-order/index evidence.
+    - [x] Add typed null rewrite contracts for `mask(..., other=None)`, `replace(..., value=None)`,
       null/coercion behavior across expression-project routes, and the required scalar/null
       representation model.
-    - [ ] Add explicit row-number/index materialization profiles only if the product chooses a
-      ShardLoom-owned visible index column contract; keep hidden pandas-style indexes out of the
-      claim boundary.
-    - [ ] Define typed UDF/plan-transform contracts that are deterministic, side-effect aware,
-      null-safe, and explicitly no-fallback.
-    - [ ] Preserve fail-closed diagnostics for arbitrary Python callables and external effects
-      until their typed contract and sandbox/effect policy exists.
-    - [ ] Add semantic conformance fixtures for nulls, ordering, equality, casts, nested values,
-      windows, joins, and write boundaries.
-    - [ ] Update docs, capability reports, reference surface index, README, and ledger.
+    - [x] Promote explicit row-number/index materialization profiles to `RUNTIME-CLOSEOUT-6`; keep
+      hidden pandas-style indexes out of the current claim boundary.
+    - [x] Promote typed UDF/plan-transform contracts to `RUNTIME-CLOSEOUT-8`; preserve fail-closed
+      diagnostics for arbitrary Python callables and external effects until the typed contract and
+      sandbox/effect policy exists.
+    - [x] Promote broad semantic conformance fixtures for nulls, ordering, equality, casts, nested
+      values, windows, joins, and write boundaries into the owning follow-on runtime-design items
+      below.
+    - [x] Update docs, capability reports, reference surface index, README, and ledger.
   - Evidence required: semantic conformance report, capability report, parity/gap validators,
     no-fallback evidence, and focused runtime tests.
   - Verification: SQL/Python/DataFrame parity tests, user-surface completion/gap validators,
@@ -276,22 +280,152 @@ Current autonomous execution order:
     execution.
   - Ledger rule: move completed detail after merge/session completion.
 
+- [ ] `RUNTIME-CLOSEOUT-6` Shared row-key, row-number, and deterministic order-state runtime
+  contract.
+  - Source: promoted residuals from `RUNTIME-CLOSEOUT-3` plus
+    `cg21.workflow.drop_duplicates.nested_or_index_contract_missing`,
+    `cg21.workflow.duplicated.nested_or_index_contract_missing`,
+    `cg21.workflow.reset_index.row_number_or_hidden_index_contract_missing`,
+    `cg21.workflow.nlargest.tie_or_index_semantics_contract_missing`, and
+    `cg21.workflow.nsmallest.tie_or_index_semantics_contract_missing`.
+  - Current state: scalar and nullable scalar row-key deduplication, duplicate masks, source-order
+    tail, fixed top/bottom-N `keep="first"`, explicit index metadata, and scoped sort-index routes
+    are admitted. Nested/list/struct equality, visible row-number projection, hidden-index
+    materialization, and top/bottom-N `keep="last"|"all"` need a shared typed row-key/order-state
+    runtime instead of per-method aliases.
+  - V1 scope classification: `required_for_v1` for visible row-number and deterministic typed
+    row-key/order contracts that can be built locally; `scoped_product_boundary` for hidden
+    pandas-style index behavior unless a separate product decision admits it.
+  - ShardLoom technique review: use capillary row-key state units, PulseWeave bounded state
+    accounting, dynamic admission based on key dtype/cardinality, metadata-first key schema
+    validation, and evidence-tier fields for materialization/decode boundaries.
+  - Execution checklist:
+    - [ ] Replace scalar-only dedup/top-N row-key internals with a shared typed row-key value model
+      that can represent null, scalar, list, struct, and mixed nested keys deterministically.
+    - [ ] Add row-key equality and hashing tests for nested/list/struct values, nulls, duplicate
+      keys, mixed ordering, and stable serialized key digests.
+    - [ ] Add a visible row-number projection primitive and Python/DataFrame/SQL lowering for
+      explicit `reset_index` materialization without hidden pandas index semantics.
+    - [ ] Add deterministic top/bottom-N tie policies for `keep="last"` and `keep="all"` with
+      source-order evidence and state-budget diagnostics.
+    - [ ] Update capability matrices, reference docs, and semantic conformance fixtures.
+    - [ ] Move completion evidence to the ledger.
+  - Evidence required: native/prepared Vortex runtime tests, decoded-reference fixtures,
+    materialization/decode evidence, no-fallback certificates, and user-surface validators.
+  - Verification: targeted Rust primitive tests, Python query-builder tests, Python user-surface
+    completion validator, SQL/Python/DataFrame parity validator, and relevant route tests.
+  - Non-goals: hidden pandas index parity without explicit product approval; external engine
+    fallback.
+  - Claim boundary: visible ShardLoom row-key/order semantics only, not broad pandas index parity.
+  - Fallback boundary: no pandas/Polars/DuckDB/Spark/DataFusion/Velox fallback.
+  - Ledger rule: move completed detail after merge/session completion.
+
+- [ ] `RUNTIME-CLOSEOUT-7` Broad reshape, rolling/window, and null-profile runtime expansion.
+  - Source: promoted residuals from `RUNTIME-CLOSEOUT-3` plus
+    `cg21.workflow.explode.nested_expansion_unsupported`,
+    `cg21.workflow.melt.reshape_semantics_unsupported`,
+    `cg21.workflow.pivot.broad_reshape_contract_missing`,
+    `cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing`,
+    `cg21.workflow.rolling.broad_window_semantics_unsupported`,
+    `cg21.workflow.dropna.null_cleanup_semantics_contract_missing`,
+    `cg21.workflow.fillna.null_fill_semantics_unsupported`,
+    `cg21.workflow.isna.null_mask_semantics_unsupported`,
+    `cg21.workflow.notna.null_mask_semantics_unsupported`,
+    `cg21.workflow.mask.alignment_callable_or_nested_contract_missing`,
+    `cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing`, and
+    `cg21.workflow.fanout.multi_sink_atomicity_contract_missing`.
+  - Current state: scoped scalar-list explode, same-typed melt, single-index pivot/pivot_table,
+    source-order rolling sum/mean/count, row-axis dropna/fillna/isna/notna, scalar/null
+    mask/replace, and local JSONL/CSV fanout are admitted. Broad nested/multi-column reshape,
+    heterogeneous value representation, pivot duplicate/fill/margins policy, time/calendar
+    rolling, column-axis null operations, regex/mixed-dtype rewrites, and atomic fanout require
+    explicit runtime contracts.
+  - V1 scope classification: `required_for_v1` for locally implementable deterministic reshape,
+    window, null, rewrite, and fanout profiles; external/effectful writes remain gated by the
+    output/effect policy.
+  - ShardLoom technique review: use shared reshape/window primitives, capillary state-budget units,
+    PulseWeave spill/memory diagnostics, dynamic admission for cardinality and dtype widening,
+    metadata-first schema validation, and evidence-tier controls for sink atomicity.
+  - Execution checklist:
+    - [ ] Add nested and multi-column explode with explicit element schema, null-shape, and
+      cardinality-expansion evidence.
+    - [ ] Add heterogeneous melt representation and output schema policy with decoded-reference
+      fixtures.
+    - [ ] Add pivot/pivot_table duplicate, fill, dropna, margins, wide/sparse state-budget, and
+      aggregate-profile evidence.
+    - [ ] Add time/calendar rolling windows, additional aggregates, and null-validity contracts.
+    - [ ] Add column-axis and method/limit null cleanup/fill profiles where semantics are
+      deterministic and memory-bounded.
+    - [ ] Add regex/mixed-dtype/nested-value rewrite contracts without Python or external-engine
+      execution.
+    - [ ] Add atomic fanout commit/recovery/partial-write cleanup evidence for multi-sink writes.
+    - [ ] Update capability matrices, docs, benchmarks/site readiness fields, and ledger.
+  - Evidence required: runtime correctness fixtures, state-budget reports, output/effect policy
+    evidence, no-fallback certificates, and validators.
+  - Verification: targeted Rust/Python primitive tests, Python query-builder tests, user-surface
+    completion validator, parity validator, and output sink validators.
+  - Non-goals: arbitrary pandas/Polars parity, hidden external engine execution, or uncontrolled
+    effectful writes.
+  - Claim boundary: documented deterministic profiles only.
+  - Fallback boundary: unsupported variants fail before execution with stable diagnostics.
+  - Ledger rule: move completed detail after merge/session completion.
+
+- [ ] `RUNTIME-CLOSEOUT-8` Typed UDF, callable, and effect policy runtime contract.
+  - Source: promoted residuals from `RUNTIME-CLOSEOUT-3` plus
+    `cg21.workflow.apply.python_callable_unsupported`,
+    `cg21.workflow.pipe.python_callable_unsupported`,
+    `cg21.workflow.transform.python_callable_unsupported`,
+    `cg21.workflow.applymap.python_callable_unsupported`,
+    `cg21.workflow.map.python_callable_unsupported`, and
+    `cg21.workflow.map_rows.python_callable_or_row_udf_unsupported`.
+  - Current state: explicit ShardLoom plan transforms and declarative column/row transform wrappers
+    are admitted. Unwrapped Python callables, arbitrary UDFs, side effects, and plugin execution
+    fail closed because they need typed determinism, null, sandbox, and effect contracts.
+  - V1 scope classification: `required_for_v1` for typed deterministic in-repo UDF contracts if
+    they can be made safe and auditable; `unsupported_boundary` for arbitrary untyped Python
+    callable execution.
+  - ShardLoom technique review: use the expression/kernel registry, dynamic admission by declared
+    capability/effect, evidence-tier controls, deterministic sandbox metadata, and capillary UDF
+    work units with explicit materialization boundaries.
+  - Execution checklist:
+    - [ ] Define typed UDF metadata: input/output dtype, null behavior, determinism, effects,
+      encoded capability, materialization need, sandbox policy, and license/provenance.
+    - [ ] Add a safe in-repo typed scalar UDF runtime fixture that lowers through ShardLoom-native
+      execution and reports no fallback/external engine.
+    - [ ] Add Python wrapper APIs for declared typed UDFs while continuing to reject unwrapped
+      Python callables with stable diagnostics.
+    - [ ] Add effect policy gates for filesystem/network/external writes and plugin inspection.
+    - [ ] Add semantic conformance fixtures, docs, capability reports, and ledger movement.
+  - Evidence required: safety/threat-model notes, runtime tests, deterministic diagnostics,
+    no-fallback evidence, and release-surface docs.
+  - Verification: UDF/effect unit tests, Python wrapper tests, security/policy validators, and
+    user-surface completion validators.
+  - Non-goals: arbitrary Python execution, hidden pandas/Polars apply/map execution, or implicit
+    side effects.
+  - Claim boundary: typed ShardLoom UDF profiles only.
+  - Fallback boundary: no external execution engines or untyped callable fallback.
+  - Ledger rule: move completed detail after merge/session completion.
+
 - [ ] `RUNTIME-CLOSEOUT-4` Front-door performance-equivalence benchmark evidence.
   - Source: `performance_equivalence` row in
     `target/sql-python-dataframe-parity-continuation.json`.
-  - Current state: scoped front doors share runtime families, but no claim-grade benchmark artifact
-    proves SQL, Python, and DataFrame front doors have equivalent runtime boundary and overhead.
+  - Current state: scoped front doors share runtime families and
+    `docs/architecture/front-door-performance-equivalence-constitution.json` now defines the local
+    benchmark constitution, required workload/front-door matrix, timing fields, and evidence
+    fields. No claim-grade benchmark artifact yet proves SQL, Python, and DataFrame front doors have
+    equivalent runtime boundary and overhead.
   - V1 scope classification: `required_for_v1` for local technical-preview evidence; external
     publication/superiority claims remain claim-gated.
   - ShardLoom technique review: use timing-surface separation, PulseWeave run-local coalescing,
     capillary fixture slices, metadata-first unchanged-artifact reuse, and evidence-tier controls
     so benchmark overhead is attributed to front-door lowering versus runtime execution.
   - Execution checklist:
-    - [ ] Add a front-door equivalence benchmark constitution covering the same operations through
+    - [x] Add a front-door equivalence benchmark constitution covering the same operations through
       SQL, Python, and DataFrame shapes.
-    - [ ] Emit route identity, timing surface, evidence tier, preparation, query, sink, decode, and
-      lowering overhead fields for each front door.
-    - [ ] Add validators that fail when a front door silently uses a different runtime family.
+    - [x] Define required route identity, timing surface, evidence tier, preparation, query, sink,
+      decode, and lowering overhead fields for each front door.
+    - [x] Add validators that fail when the constitution stops naming the shared runtime family,
+      timing fields, or evidence fields.
     - [ ] Regenerate scoped local benchmark artifacts and website data only after runtime
       closeout items above are complete.
     - [ ] Update README/docs/website labels so claims name the selected timing surface and evidence
@@ -309,8 +443,9 @@ Current autonomous execution order:
 - [ ] `RUNTIME-CLOSEOUT-5` Object-store/lakehouse/catalog front-door runtime closure.
   - Source: `object_store_lakehouse_catalog`, `input_object_store_cloud`, and production I/O rows
     in `target/user-surface-runtime-gap-inventory-continuation.json`.
-  - Current state: local object-store/table/lakehouse fixture scopes exist, while real cloud,
-    remote catalog, and production commit claims remain external-environment gates.
+  - Current state: local object-store/table/lakehouse fixture scopes exist and capability/parity
+    rows now split those local fixtures from real cloud, remote catalog, production commit, and
+    Foundry production claims, which remain external-environment gates.
   - V1 scope classification: `required_for_v1` for local emulated/object-store-compatible runtime
     and table-manifest workflows that can be implemented in-repo; `unsupported_boundary` for real
     credentialed cloud, managed catalogs, and production platform claims until maintainers provide
@@ -320,15 +455,15 @@ Current autonomous execution order:
     dynamic admission based on credential/effect policy, and evidence-tier controls for local
     fixture versus production claims.
   - Execution checklist:
-    - [ ] Split local-emulated runtime work from real external production proof in capability and
+    - [x] Split local-emulated runtime work from real external production proof in capability and
       parity rows.
     - [ ] Ensure local object-store/table front doors lower through the same Vortex-normalized
-      planner as file and native Vortex routes.
+      planner as file and native Vortex routes with executable fixture evidence.
     - [ ] Add route/evidence fields for range reads, manifest pruning, commit sidecars,
       credential redaction, retry/backpressure, and no-fallback execution.
-    - [ ] Preserve deterministic blockers for real S3/GCS/ADLS/catalog/Foundry production routes
+    - [x] Preserve deterministic blockers for real S3/GCS/ADLS/catalog/Foundry production routes
       until approved environments exist.
-    - [ ] Add local fixture tests, docs, capability reports, and ledger movement.
+    - [x] Add local fixture status tests, docs, capability reports, and ledger movement.
   - Evidence required: local fixture Native I/O certificates, commit/recovery evidence,
     credential/no-probe policy evidence, no-fallback evidence, and explicit external-gate rows.
   - Verification: object-store/table/lakehouse focused tests, production certification gate in

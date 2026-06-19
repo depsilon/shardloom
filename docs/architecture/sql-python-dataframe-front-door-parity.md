@@ -232,8 +232,9 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
 - Broad unbounded decoded pandas, Arrow, NumPy, and notebook-display materialization outside the
   admitted local-source/materialized-input scope.
 - `object_store_lakehouse_catalog`
-  (`runtime_gap_status=runtime_expansion_pending`): object-store, lakehouse/table, catalog, commit,
-  and remote sink workflows.
+  (`runtime_gap_status=external_environment_gate_pending`): local object-store/table/Foundry-shaped
+  fixture helpers are available, while real S3/GCS/ADLS, managed catalogs, production table commits,
+  Foundry production workflows, and remote sink proof remain external-environment gates.
 - `arbitrary_sql_python_dataframe_breadth` is admitted for the documented v1 scoped surface, not as
   broad pandas/Polars compatibility or ANSI SQL compliance. Scoped row-level `SELECT DISTINCT` over
   bounded local-source projection, aggregate/HAVING, join, and window output rows is admitted.
@@ -287,11 +288,11 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   per-column literals with `axis=0`/`index` and immutable `inplace=False`, and scoped
   schema-declared `isna`/`isnull`/`notna`/`notnull` lowers to `IS NULL` / `IS NOT NULL` boolean
   projection rewrites. Scoped schema-declared
-  `mask(predicate, scalar, axis=0/index, inplace=False, level=None)` lowers to native/prepared
+  `mask(predicate, scalar-or-null, axis=0/index, inplace=False, level=None)` lowers to native/prepared
   Vortex expression-project conditional rewrites, and scoped schema-declared
-  `replace(old, new, regex=False, inplace=False, method=None, limit=None)` lowers to native/prepared
-  Vortex expression-project scalar replacement, including column-nested `{column: {old: new}}`
-  scalar mapping forms. Scoped SQL/Python `IS DISTINCT FROM` and
+  `replace(old, scalar-or-null, regex=False, inplace=False, method=None, limit=None)` lowers to
+  native/prepared Vortex expression-project scalar/null replacement, including column-nested
+  `{column: {old: new}}` scalar/null mapping forms. Scoped SQL/Python `IS DISTINCT FROM` and
   `IS NOT DISTINCT FROM` null-safe
   comparisons lower to the same ShardLoom-owned null/comparison/logical predicate runtime for
   admitted filters and predicate projections over column-literal, date/timestamp/binary literal,
@@ -304,8 +305,8 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   assignment, non-assignment expressions, callables, and side effects remain deterministic
   future-contract boundaries.
 - The DataFrame method matrix currently emits 27 future-contract variant IDs, all classified by
-  `DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS`: 19 are repo-feasible broad-profile expansion
-  items, 6 are unsafe callable/UDF boundaries that require a typed/sandboxed contract, and 2 are
+  `DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS`: 18 are repo-feasible broad-profile expansion
+  items, 6 are unsafe callable/UDF boundaries that require a typed/sandboxed contract, and 3 are
   scoped product boundaries around hidden pandas-style index behavior. These IDs are not active
   base-method blockers; they identify where broad pandas/Polars-style parity would require
   additional contracts and evidence.

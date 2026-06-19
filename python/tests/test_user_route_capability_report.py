@@ -237,12 +237,20 @@ class UserRouteCapabilityReportTests(unittest.TestCase):
 
         broad = by_id["broad_sql_python_dataframe_runtime"]
         self.assertEqual(
-            broad["nearest_runnable_route"],
-            "local_file_prepare_once_first_query",
+            broad["route_runtime_status"],
+            "scoped_runtime_supported",
         )
         self.assertEqual(
             broad["runtime_blocker_code"],
-            "cg20.cg21.broad_language_surface_missing",
+            "none",
+        )
+        self.assertIn(
+            "Vortex preparation/native Vortex unified plan",
+            broad["vortex_normalization_point"],
+        )
+        self.assertIn(
+            "documented local SQL/Python/DataFrame-style subset",
+            broad["recommended_user_surface"],
         )
         performance_evidence = by_id["performance_equivalence_evidence"]
         self.assertEqual(

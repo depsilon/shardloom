@@ -40,9 +40,53 @@ from check_sql_python_dataframe_parity import (  # noqa: E402
 SCHEMA_VERSION = "shardloom.front_door_benchmark_publication_gate.v1"
 GATE_ID = "gar-runtime-impl-6d.front_door_performance_benchmark_publication"
 DEFAULT_OUTPUT = ROOT / "target" / "front-door-benchmark-publication-gate.json"
+DEFAULT_EQUIVALENCE_CONSTITUTION = (
+    ROOT / "docs" / "architecture" / "front-door-performance-equivalence-constitution.json"
+)
 FRONT_DOOR_PERFORMANCE_PUBLICATION_BLOCKED = (
     "blocked_pending_measured_equivalence_artifact"
 )
+EQUIVALENCE_CONSTITUTION_SCHEMA_VERSION = (
+    "shardloom.front_door_performance_equivalence_constitution.v1"
+)
+REQUIRED_EQUIVALENCE_SCENARIOS = {
+    "selective_filter",
+    "filter_projection_limit",
+    "group_by_aggregation",
+    "hash_join",
+    "global_top_n",
+    "clean_cast_filter_write",
+    "malformed_timestamp_cast",
+    "null_heavy_aggregate",
+    "nested_json_field_scan",
+}
+REQUIRED_EQUIVALENCE_FRONT_DOORS = {"SQL", "Python", "DataFrame"}
+REQUIRED_EQUIVALENCE_TIMING_FIELDS = {
+    "front_door_id",
+    "scenario_id",
+    "route_id",
+    "route_lane_id",
+    "timing_surface",
+    "actual_evidence_tier",
+    "preparation_millis",
+    "query_runtime_millis",
+    "result_sink_millis",
+    "evidence_render_millis",
+    "front_door_lowering_overhead_millis",
+    "route_total_ms",
+    "route_total_formula",
+    "fallback_attempted",
+    "external_engine_invoked",
+}
+REQUIRED_EQUIVALENCE_EVIDENCE_FIELDS = {
+    "vortex_input_normalization_boundary",
+    "native_vortex_unified_plan_contract",
+    "runtime_execution_certificate_id",
+    "native_io_certificate_id",
+    "correctness_digest",
+    "fallback_attempted",
+    "external_engine_invoked",
+}
 REQUIRED_MISSING_EVIDENCE = (
     "front_door_equivalent_workload_manifest",
     "measured_sql_python_dataframe_front_door_rows",
@@ -58,6 +102,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo-root", type=Path, default=ROOT)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--equivalence-constitution",
+        type=Path,
+        default=DEFAULT_EQUIVALENCE_CONSTITUTION,
+    )
     parser.add_argument(
         "--pre-5j-dependency-report",
         type=Path,
@@ -88,12 +137,122 @@ def public_front_door_summary(publication_claim_gate: dict[str, Any]) -> dict[st
     return summary if isinstance(summary, dict) else {}
 
 
+def load_json_object(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return payload
+
+
+def validate_equivalence_constitution(constitution: dict[str, Any]) -> list[str]:
+    blockers: list[str] = []
+    if constitution.get("schema_version") != EQUIVALENCE_CONSTITUTION_SCHEMA_VERSION:
+        blockers.append(
+            "front-door equivalence constitution schema mismatch: "
+            + str(constitution.get("schema_version", "missing"))
+        )
+    if constitution.get("status") != "local_constitution_ready":
+        blockers.append("front-door equivalence constitution must be local_constitution_ready")
+    for field in (
+        "benchmark_run_performed",
+        "performance_claim_allowed",
+        "front_door_performance_equivalence_claim_allowed",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ):
+        if constitution.get(field) is not False:
+            blockers.append(f"front-door equivalence constitution {field} must be false")
+    if constitution.get("claim_gate_status") != "not_claim_grade":
+        blockers.append(
+            "front-door equivalence constitution claim_gate_status="
+            + str(constitution.get("claim_gate_status", "missing"))
+        )
+    if constitution.get("default_timing_surface") != "hot_runtime":
+        blockers.append("front-door equivalence constitution must default to hot_runtime")
+    if constitution.get("proof_surfaces_separated") is not True:
+        blockers.append("front-door equivalence constitution must separate proof surfaces")
+    if constitution.get("sequential_local_device_default") is not True:
+        blockers.append("front-door equivalence constitution must default to sequential local runs")
+    front_doors = {
+        str(value)
+        for value in constitution.get("required_front_doors", [])
+        if isinstance(value, str)
+    }
+    if front_doors != REQUIRED_EQUIVALENCE_FRONT_DOORS:
+        blockers.append(
+            "front-door equivalence constitution required_front_doors mismatch: "
+            + ",".join(sorted(front_doors))
+        )
+    timing_fields = {
+        str(value)
+        for value in constitution.get("required_timing_fields", [])
+        if isinstance(value, str)
+    }
+    missing_timing_fields = sorted(REQUIRED_EQUIVALENCE_TIMING_FIELDS - timing_fields)
+    if missing_timing_fields:
+        blockers.append(
+            "front-door equivalence constitution missing timing fields: "
+            + ",".join(missing_timing_fields)
+        )
+    evidence_fields = {
+        str(value)
+        for value in constitution.get("required_evidence_fields", [])
+        if isinstance(value, str)
+    }
+    missing_evidence_fields = sorted(REQUIRED_EQUIVALENCE_EVIDENCE_FIELDS - evidence_fields)
+    if missing_evidence_fields:
+        blockers.append(
+            "front-door equivalence constitution missing evidence fields: "
+            + ",".join(missing_evidence_fields)
+        )
+    workloads = constitution.get("equivalence_workloads")
+    if not isinstance(workloads, list):
+        blockers.append("front-door equivalence constitution workloads must be a list")
+        return blockers
+    scenario_ids = {
+        str(row.get("scenario_id"))
+        for row in workloads
+        if isinstance(row, dict) and row.get("scenario_id")
+    }
+    if scenario_ids != REQUIRED_EQUIVALENCE_SCENARIOS:
+        blockers.append(
+            "front-door equivalence constitution scenario ids mismatch: "
+            + json.dumps(
+                {
+                    "expected": sorted(REQUIRED_EQUIVALENCE_SCENARIOS),
+                    "actual": sorted(scenario_ids),
+                },
+                sort_keys=True,
+            )
+        )
+    for row in workloads:
+        if not isinstance(row, dict):
+            blockers.append("front-door equivalence constitution workload rows must be objects")
+            continue
+        scenario_id = str(row.get("scenario_id", "missing"))
+        row_front_doors = {
+            str(value)
+            for value in row.get("required_front_doors", [])
+            if isinstance(value, str)
+        }
+        if row_front_doors != REQUIRED_EQUIVALENCE_FRONT_DOORS:
+            blockers.append(f"{scenario_id}: workload front-door set mismatch")
+        if row.get("runtime_family") != "native_vortex_unified_plan":
+            blockers.append(f"{scenario_id}: workload must use native_vortex_unified_plan")
+        if row.get("timing_surface") != "hot_runtime":
+            blockers.append(f"{scenario_id}: workload must use hot_runtime timing surface")
+    return blockers
+
+
 def validate_structure(
     *,
     parity_report: dict[str, Any],
     publication_claim_gate: dict[str, Any],
+    equivalence_constitution: dict[str, Any],
 ) -> list[str]:
     blockers: list[str] = []
+    blockers.extend(validate_equivalence_constitution(equivalence_constitution))
     if parity_report.get("schema_version") != SQL_PYTHON_DATAFRAME_PARITY_SCHEMA_VERSION:
         blockers.append(
             "SQL/Python/DataFrame parity schema mismatch: "
@@ -164,6 +323,7 @@ def build_report(
     *,
     manifest_path: Path = DEFAULT_MANIFEST,
     pre_5j_dependency_report_path: Path = DEFAULT_PRE_5J_DEPENDENCY_REPORT,
+    equivalence_constitution_path: Path = DEFAULT_EQUIVALENCE_CONSTITUTION,
     allow_incomplete: bool = False,
     require_current_git: bool = True,
     allow_dirty_worktree: bool = False,
@@ -174,7 +334,9 @@ def build_report(
     repo_root = repo_root.resolve()
     resolved_manifest = resolve(repo_root, manifest_path)
     resolved_pre_5j = resolve(repo_root, pre_5j_dependency_report_path)
+    resolved_constitution = resolve(repo_root, equivalence_constitution_path)
     parity = parity_report or build_sql_python_dataframe_parity_report(repo_root)
+    constitution = load_json_object(resolved_constitution)
     publication = publication_claim_gate or validate_publication_claim_gate(
         resolved_manifest,
         repo_root=repo_root,
@@ -187,6 +349,7 @@ def build_report(
     structural_blockers = validate_structure(
         parity_report=parity,
         publication_claim_gate=publication,
+        equivalence_constitution=constitution,
     )
     publication_claim_blockers = list(publication.get("blockers", []))
     publication_admission_blockers = [
@@ -225,6 +388,19 @@ def build_report(
         "external_engine_invoked": False,
         "manifest": str(resolved_manifest),
         "pre_5j_dependency_report": str(resolved_pre_5j),
+        "front_door_equivalence_constitution": str(resolved_constitution),
+        "front_door_equivalence_constitution_status": constitution.get("status"),
+        "front_door_equivalence_constitution_workload_count": len(
+            constitution.get("equivalence_workloads", [])
+        )
+        if isinstance(constitution.get("equivalence_workloads"), list)
+        else 0,
+        "front_door_equivalence_constitution_timing_fields": constitution.get(
+            "required_timing_fields", []
+        ),
+        "front_door_equivalence_constitution_evidence_fields": constitution.get(
+            "required_evidence_fields", []
+        ),
         "sql_python_dataframe_parity_status": parity.get("status"),
         "scoped_local_front_door_parity_supported": parity.get(
             "scoped_local_front_door_parity_supported"
@@ -266,6 +442,7 @@ def main() -> int:
         repo_root,
         manifest_path=args.manifest,
         pre_5j_dependency_report_path=args.pre_5j_dependency_report,
+        equivalence_constitution_path=args.equivalence_constitution,
         allow_incomplete=args.allow_incomplete,
         require_current_git=not args.allow_stale_git,
         allow_dirty_worktree=args.allow_dirty_worktree,

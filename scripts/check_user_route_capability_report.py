@@ -29,6 +29,7 @@ ROUTE_RUNTIME_STATUSES = {
     "scoped_runtime_supported",
     "output_route_pending",
     "runtime_expansion_pending",
+    "external_environment_gate_pending",
     "claim_evidence_pending",
     "benchmark_publication_pending",
 }

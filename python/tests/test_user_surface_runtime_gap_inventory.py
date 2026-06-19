@@ -81,6 +81,19 @@ class UserSurfaceRuntimeGapInventoryTests(unittest.TestCase):
         )
         self.assertEqual(performance["observed_status"], "benchmark_publication_pending")
         self.assertIn("benchmark", performance["output_or_evidence_route"])
+        object_store = by_id[("front_door_parity_matrix", "object_store_lakehouse_catalog")]
+        self.assertEqual(object_store["classification"], "external_environment_gate")
+        self.assertEqual(
+            object_store["observed_status"],
+            "external_environment_gate_pending",
+        )
+        self.assertIn("Local object-store/table", object_store["claim_boundary"])
+        self.assertEqual(
+            by_id[("runs_today_support_matrix", "input_object_store_cloud")][
+                "classification"
+            ],
+            "external_environment_gate",
+        )
 
     def test_inventory_validator_rejects_unclassified_and_fallback_rows(self) -> None:
         module = load_inventory_module()

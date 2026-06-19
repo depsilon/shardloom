@@ -237,8 +237,8 @@
       "sl.dense_rank"
     ],
     "scoped_conditional_rewrite_methods": {
-      "mask": "typed scalar mask(predicate, scalar) over declared/projection columns through native Vortex expression-project",
-      "replace": "typed full-cell scalar replace(old, new), column-mapped scalar replacement, and in-place UTF-8 with_column(\"col\", col(\"col\").replace(...)) through native Vortex expression-project"
+      "mask": "typed scalar/null mask(predicate, scalar-or-null) over declared/projection columns through native Vortex expression-project",
+      "replace": "typed full-cell scalar/null replace(old, scalar-or-null), column-mapped scalar/null replacement, and in-place UTF-8 with_column(\"col\", col(\"col\").replace(...)) through native Vortex expression-project"
     },
     "scoped_duplicate_mask_methods": {
       "duplicated": "subset-aware duplicated(..., keep='first'|'last'|False) boolean mask over declared/projection scalar columns through native/prepared Vortex duplicate-mask row-key state"

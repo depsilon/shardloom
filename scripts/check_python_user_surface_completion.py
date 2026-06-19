@@ -265,9 +265,9 @@ REQUIRED_FUTURE_CONTRACT_BLOCKERS = {
     "unique": {
         "cg21.workflow.drop_duplicates.nested_or_index_contract_missing"
     },
-    "mask": {"cg21.workflow.mask.null_callable_or_alignment_contract_missing"},
+    "mask": {"cg21.workflow.mask.alignment_callable_or_nested_contract_missing"},
     "replace": {
-        "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing"
+        "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing"
     },
     "set_index": {
         "cg21.workflow.set_index.hidden_index_materialization_contract_missing"

@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: RUNTIME-CLOSEOUT scalar/null rewrites, front-door constitution, and external
+      I/O gate split
+  - Date: 2026-06-19
+  - Branch/PR: `codex/runtime-null-rewrite-closeout` / PR pending.
+  - Source:
+    - Phase-plan `RUNTIME-CLOSEOUT-3`, `RUNTIME-CLOSEOUT-4`, and `RUNTIME-CLOSEOUT-5` follow-up
+      after scoped semantic surface and native Vortex route unification closeout.
+  - Scope:
+    - Promoted scoped `mask(..., other=None)` and `replace(..., value=None)` through the
+      native/prepared Vortex expression-project runtime by adding typed JSON null payload support
+      across the Python payload builder, CLI parser, and Vortex local primitive coercion path.
+    - Updated DataFrame future-contract IDs and capability docs so null rewrites are no longer
+      represented as unsupported while alignment/callable/nested/regex/mixed-dtype variants remain
+      explicit future contracts.
+    - Added `docs/architecture/front-door-performance-equivalence-constitution.json` and wired the
+      front-door benchmark publication validator/tests to require the shared
+      `native_vortex_unified_plan` runtime family, explicit hot-runtime timing surface, timing
+      fields, and evidence fields before any measured equivalence claim can be made.
+    - Split local object-store/table/Foundry-shaped fixture support from real S3/GCS/ADLS,
+      managed-catalog, production table-commit, and Foundry production proof. Capability/parity
+      rows now use `external_environment_gate_pending` for real external environments instead of a
+      generic runtime-expansion label.
+    - Promoted the broad semantic residuals that need shared row-key/order-state, reshape/window
+      state, fanout atomicity, or typed UDF/effect contracts into `RUNTIME-CLOSEOUT-6`,
+      `RUNTIME-CLOSEOUT-7`, and `RUNTIME-CLOSEOUT-8` in the phase plan.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_sql_python_dataframe_parity python.tests.test_user_surface_runtime_gap_inventory python.tests.test_front_door_benchmark_publication python.tests.test_v1_front_door_runtime_scope python.tests.test_user_route_capability_report.UserRouteCapabilityReportTests.test_current_route_report_names_vortex_boundaries_and_no_fallback python.tests.test_cli_client.ShardLoomClientTests.test_context_front_door_parity_matrix_exposes_broad_gaps`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_mask_routes_through_prepared_vortex_expression_project python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_replace_write_jsonl_routes_through_prepared_vortex_expression_project python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_string_replace_with_column_routes_through_expression_project`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-runtime-closeout.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-runtime-closeout.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-runtime-closeout.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_front_door_benchmark_publication.py --allow-stale-git --allow-dirty-worktree --output target/front-door-benchmark-publication-runtime-closeout.json`
+      passed.
+  - Claim boundary:
+    - Scoped scalar/null expression-project rewrites are admitted through ShardLoom/Vortex-native
+      routes. The new front-door equivalence constitution is local benchmark design evidence only;
+      it is not a measured performance-equivalence, superiority, Spark-displacement, or production
+      claim. Real cloud/catalog/table/Foundry production behavior remains externally gated.
+  - Fallback boundary:
+    - No pandas, Polars, DuckDB, Spark, DataFusion, Velox, Vortex query-engine integration, or
+      external engine fallback is used by the admitted surfaces. External-environment rows remain
+      deterministic no-fallback gates.
+
 - [x] Session label: RUNTIME-CLOSEOUT-claim-surface scoped semantic claim matrix
   - Date: 2026-06-19
   - Branch/PR: `codex/runtime-semantic-surface-closeout` / PR pending.

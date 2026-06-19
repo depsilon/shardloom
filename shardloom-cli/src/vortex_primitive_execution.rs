@@ -4031,6 +4031,15 @@ fn parse_typed_expression_scalar(
     field: &str,
 ) -> Result<StatValue, ShardLoomError> {
     match dtype {
+        "null" => {
+            if value.is_null() {
+                Ok(StatValue::Null)
+            } else {
+                Err(ShardLoomError::InvalidOperation(format!(
+                    "expression-project scalar {field} null value must be JSON null"
+                )))
+            }
+        }
         "boolean" | "bool" => value.as_bool().map(StatValue::Boolean).ok_or_else(|| {
             ShardLoomError::InvalidOperation(format!(
                 "expression-project scalar {field} boolean value must be true or false"
@@ -4074,6 +4083,7 @@ fn parse_untyped_expression_scalar(
     field: &str,
 ) -> Result<StatValue, ShardLoomError> {
     match value {
+        serde_json::Value::Null => Ok(StatValue::Null),
         serde_json::Value::Bool(value) => Ok(StatValue::Boolean(*value)),
         serde_json::Value::Number(value) => {
             if let Some(value) = value.as_i64() {
@@ -4090,7 +4100,7 @@ fn parse_untyped_expression_scalar(
         }
         serde_json::Value::String(value) => Ok(StatValue::Utf8(value.clone())),
         _ => Err(ShardLoomError::InvalidOperation(format!(
-            "expression-project scalar {field} must be a typed scalar object, boolean, finite number, or string"
+            "expression-project scalar {field} must be a typed scalar object, null, boolean, finite number, or string"
         ))),
     }
 }
@@ -8116,5 +8126,35 @@ mod tests {
         );
         let explode_projection = request.explode_projection.expect("explode projection");
         assert_eq!(explode_projection.column.as_str(), "items");
+    }
+
+    #[test]
+    fn parse_expression_project_payload_accepts_typed_json_null_rewrite() {
+        let uri = DatasetUri::new("target/input.vortex").expect("uri");
+        let request = parse_vortex_primitive_request(
+            uri,
+            r#"expression_project:{"columns":["id","amount"],"rewrites":[{"kind":"mask_scalar","target_column":"amount","predicate":"lt:amount:0","replacement":{"type":"null","value":null}}]}"#,
+        )
+        .expect("expression project request");
+
+        assert_eq!(
+            request.kind,
+            shardloom_vortex::VortexQueryPrimitiveKind::ExpressionProjectRows
+        );
+        let projection = request
+            .expression_projection
+            .expect("expression projection");
+        let [
+            VortexExpressionRewrite::MaskScalar {
+                target_column,
+                replacement,
+                ..
+            },
+        ] = projection.rewrites.as_slice()
+        else {
+            panic!("expected one mask rewrite");
+        };
+        assert_eq!(target_column.as_str(), "amount");
+        assert_eq!(*replacement, StatValue::Null);
     }
 }

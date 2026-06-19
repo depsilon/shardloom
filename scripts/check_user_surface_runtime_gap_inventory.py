@@ -36,6 +36,7 @@ CLASSIFICATIONS = {
     "runtime_available_needs_output_route",
     "runtime_available_needs_claim_evidence",
     "true_runtime_expansion_item",
+    "external_environment_gate",
     "policy_rejected",
 }
 
@@ -61,10 +62,10 @@ DOC_STATUS_FILES = (
 
 FRONT_DOOR_GAP_ROUTES: dict[str, dict[str, str]] = {
     "object_store_lakehouse_catalog": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "object_store_or_table_source_to_vortex_pending",
-        "runtime_route": "object-store/table runtime, commit, rollback, and catalog work pending",
-        "output_or_evidence_route": "blocked diagnostic or report-only evidence until runtime lands",
+        "classification": "external_environment_gate",
+        "vortex_normalization_point": "local_fixture_manifest_to_vortex_normalized_route_supported; real_object_store_or_table_source_to_vortex_requires_external_environment",
+        "runtime_route": "local-emulator object-store and local table-manifest fixtures are supported; credentialed cloud/catalog/table runtime requires maintainer-provided environments",
+        "output_or_evidence_route": "local fixture evidence today; deterministic external-environment gate for S3/GCS/ADLS/catalog/Foundry production proof",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.object_store_lakehouse_catalog",
     },
     "arbitrary_sql_python_dataframe_breadth": {
@@ -136,10 +137,10 @@ RUNS_TODAY_GAP_ROUTES: dict[str, dict[str, str]] = {
         "owner": "GAR-RUNTIME-IMPL-6D:vortex_middle_public_local_workflow",
     },
     "input_object_store_cloud": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "credentialed_object_store_source_to_vortex_pending",
-        "runtime_route": "cloud object-store runtime and credential policy pending",
-        "output_or_evidence_route": "blocked diagnostic until credentialed runtime lands",
+        "classification": "external_environment_gate",
+        "vortex_normalization_point": "credentialed_object_store_source_to_vortex_requires_external_environment",
+        "runtime_route": "local object-store fixtures exist; real cloud object-store runtime requires credentials and approved backend profiles",
+        "output_or_evidence_route": "deterministic credential/environment gate until maintainer provides S3/GCS/ADLS-compatible proof target",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.object_store_runtime",
     },
     "execution_report_only_surfaces": {
@@ -180,20 +181,20 @@ RUNS_TODAY_GAP_ROUTES: dict[str, dict[str, str]] = {
         "owner": "release.package_publication_gate",
     },
     "claim_object_store_lakehouse_foundry_production": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "platform_or_table_source_to_vortex_pending",
-        "runtime_route": "object-store/lakehouse/Foundry production runtime pending",
-        "output_or_evidence_route": "platform production evidence pending",
+        "classification": "external_environment_gate",
+        "vortex_normalization_point": "platform_or_table_source_to_vortex_requires_external_environment",
+        "runtime_route": "local object-store/table/Foundry-shaped fixtures exist; production platform proof requires real environments",
+        "output_or_evidence_route": "external production evidence gate pending maintainer-provided cloud/catalog/Foundry targets",
         "owner": "platform.production_integration_evidence_required",
     },
 }
 
 WEBSITE_STATUS_ROUTES: dict[str, dict[str, str]] = {
     "iceberg-delta-hudi": {
-        "classification": "true_runtime_expansion_item",
-        "vortex_normalization_point": "lakehouse_table_source_to_vortex_pending",
-        "runtime_route": "Iceberg/Delta/Hudi production runtime and commits pending",
-        "output_or_evidence_route": "blocked diagnostic and local rehearsal evidence only",
+        "classification": "external_environment_gate",
+        "vortex_normalization_point": "local_table_manifest_to_vortex_supported; production_lakehouse_source_to_vortex_requires_external_environment",
+        "runtime_route": "local manifest/table rehearsal evidence exists; Iceberg/Delta/Hudi production commits require real protocol/environment proof",
+        "output_or_evidence_route": "local rehearsal evidence plus deterministic external production gate",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.lakehouse_table_runtime",
     },
     "package-release": {

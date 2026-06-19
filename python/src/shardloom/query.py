@@ -5523,7 +5523,6 @@ class LazyFrame:
             and _normalize_dropna_axis(axis) == "rows"
             and not inplace
             and level is None
-            and other is not None
         ):
             predicate = _vortex_tiny_predicate_from_sql(_predicate_sql(cond))
             target_column = (
@@ -9295,8 +9294,6 @@ class LazyFrame:
                     if not old_value:
                         return None
                     for nested_old, nested_new in old_value.items():
-                        if nested_new is None:
-                            return None
                         specs.append(
                             {
                                 "kind": "replace_scalar",
@@ -9312,8 +9309,6 @@ class LazyFrame:
                     new_value = replacement_map.get(raw_column, replacement_map.get(column))
                 else:
                     new_value = value
-                if new_value is None:
-                    return None
                 specs.append(
                     {
                         "kind": "replace_scalar",
@@ -12960,7 +12955,7 @@ def _vortex_expression_scalar_payload(
     target_dtype: str,
 ) -> dict[str, object] | None:
     if value is None:
-        return None
+        return {"type": "null", "value": None}
     dtype = target_dtype.strip().lower().replace("-", "_")
     if dtype in {"bool", "boolean"}:
         if isinstance(value, bool):

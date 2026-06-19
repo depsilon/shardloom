@@ -187,6 +187,20 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         )
         self.assertIn("object_store_lakehouse_catalog", report["remaining_gap_row_ids"])
         self.assertIn("performance_equivalence", report["remaining_gap_row_ids"])
+        object_store = next(
+            row
+            for row in report["rows"]
+            if row["row_id"] == "object_store_lakehouse_catalog"
+        )
+        self.assertEqual(
+            object_store["runtime_gap_status"],
+            "external_environment_gate_pending",
+        )
+        self.assertEqual(
+            object_store["support_status"],
+            "external_production_io_gate_pending",
+        )
+        self.assertIn("Local object-store/table", object_store["claim_boundary"])
         local = next(
             row
             for row in report["rows"]

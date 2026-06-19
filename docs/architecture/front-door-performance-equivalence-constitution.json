@@ -1,0 +1,108 @@
+{
+  "schema_version": "shardloom.front_door_performance_equivalence_constitution.v1",
+  "constitution_id": "runtime-closeout-4.front_door_performance_equivalence",
+  "status": "local_constitution_ready",
+  "claim_gate_status": "not_claim_grade",
+  "benchmark_run_performed": false,
+  "performance_claim_allowed": false,
+  "front_door_performance_equivalence_claim_allowed": false,
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "default_timing_surface": "hot_runtime",
+  "proof_surfaces_separated": true,
+  "sequential_local_device_default": true,
+  "required_front_doors": [
+    "SQL",
+    "Python",
+    "DataFrame"
+  ],
+  "optional_front_doors": [
+    "context",
+    "session",
+    "CLI"
+  ],
+  "required_timing_fields": [
+    "front_door_id",
+    "scenario_id",
+    "route_id",
+    "route_lane_id",
+    "timing_surface",
+    "actual_evidence_tier",
+    "preparation_millis",
+    "query_runtime_millis",
+    "result_sink_millis",
+    "evidence_render_millis",
+    "front_door_lowering_overhead_millis",
+    "route_total_ms",
+    "route_total_formula",
+    "fallback_attempted",
+    "external_engine_invoked"
+  ],
+  "required_evidence_fields": [
+    "vortex_input_normalization_boundary",
+    "native_vortex_unified_plan_contract",
+    "runtime_execution_certificate_id",
+    "native_io_certificate_id",
+    "correctness_digest",
+    "fallback_attempted",
+    "external_engine_invoked"
+  ],
+  "equivalence_workloads": [
+    {
+      "scenario_id": "selective_filter",
+      "runtime_family": "native_vortex_unified_plan",
+      "required_front_doors": ["SQL", "Python", "DataFrame"],
+      "timing_surface": "hot_runtime"
+    },
+    {
+      "scenario_id": "filter_projection_limit",
+      "runtime_family": "native_vortex_unified_plan",
+      "required_front_doors": ["SQL", "Python", "DataFrame"],
+      "timing_surface": "hot_runtime"
+    },
+    {
+      "scenario_id": "group_by_aggregation",
+      "runtime_family": "native_vortex_unified_plan",
+      "required_front_doors": ["SQL", "Python", "DataFrame"],
+      "timing_surface": "hot_runtime"
+    },
+    {
+      "scenario_id": "hash_join",
+      "runtime_family": "native_vortex_unified_plan",
+      "required_front_doors": ["SQL", "Python", "DataFrame"],
+      "timing_surface": "hot_runtime"
+    },
+    {
+      "scenario_id": "global_top_n",
+      "runtime_family": "native_vortex_unified_plan",
+      "required_front_doors": ["SQL", "Python", "DataFrame"],
+      "timing_surface": "hot_runtime"
+    },
+    {
+      "scenario_id": "clean_cast_filter_write",
+      "runtime_family": "native_vortex_unified_plan",
+      "required_front_doors": ["SQL", "Python", "DataFrame"],
+      "timing_surface": "hot_runtime"
+    },
+    {
+      "scenario_id": "malformed_timestamp_cast",
+      "runtime_family": "native_vortex_unified_plan",
+      "required_front_doors": ["SQL", "Python", "DataFrame"],
+      "timing_surface": "hot_runtime"
+    },
+    {
+      "scenario_id": "null_heavy_aggregate",
+      "runtime_family": "native_vortex_unified_plan",
+      "required_front_doors": ["SQL", "Python", "DataFrame"],
+      "timing_surface": "hot_runtime"
+    },
+    {
+      "scenario_id": "nested_json_field_scan",
+      "runtime_family": "native_vortex_unified_plan",
+      "required_front_doors": ["SQL", "Python", "DataFrame"],
+      "timing_surface": "hot_runtime"
+    }
+  ],
+  "claim_boundary": "This constitution defines the local workload, timing-field, timing-surface, and evidence contract required before ShardLoom can publish SQL/Python/DataFrame front-door performance equivalence. It does not run benchmarks or authorize a performance, superiority, production, or Spark-replacement claim.",
+  "fallback_boundary": "Every measured row admitted under this constitution must report fallback_attempted=false and external_engine_invoked=false."
+}

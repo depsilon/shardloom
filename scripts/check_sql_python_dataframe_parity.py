@@ -58,6 +58,7 @@ PRECISE_RUNTIME_GAP_STATUSES = {
     "claim_evidence_pending",
     "benchmark_publication_pending",
     "runtime_expansion_pending",
+    "external_environment_gate_pending",
 }
 GENERIC_GAP_TERMS = {"unsupported", "blocked", "not complete", "not_complete"}
 
@@ -186,8 +187,8 @@ REQUIRED_SOURCE_MARKERS = {
         "cg21.workflow.rolling.broad_window_semantics_unsupported",
         "cg21.workflow.duplicated.nested_or_index_contract_missing",
         "cg21.workflow.drop_duplicates.nested_or_index_contract_missing",
-        "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
-        "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing",
+        "cg21.workflow.mask.alignment_callable_or_nested_contract_missing",
+        "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing",
         "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
         "cg21.workflow.reset_index.row_number_or_hidden_index_contract_missing",
         "cg21.workflow.sort_index.hidden_index_order_contract_missing",
@@ -209,8 +210,8 @@ REQUIRED_SOURCE_MARKERS = {
         "cg21.workflow.rolling.broad_window_semantics_unsupported",
         "cg21.workflow.duplicated.nested_or_index_contract_missing",
         "cg21.workflow.drop_duplicates.nested_or_index_contract_missing",
-        "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
-        "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing",
+        "cg21.workflow.mask.alignment_callable_or_nested_contract_missing",
+        "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing",
         "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
         "cg21.workflow.reset_index.row_number_or_hidden_index_contract_missing",
         "cg21.workflow.sort_index.hidden_index_order_contract_missing",
@@ -321,9 +322,9 @@ REQUIRED_DATAFRAME_METHOD_FUTURE_CONTRACT_BLOCKERS = {
     "unique": {
         "cg21.workflow.drop_duplicates.nested_or_index_contract_missing"
     },
-    "mask": {"cg21.workflow.mask.null_callable_or_alignment_contract_missing"},
+    "mask": {"cg21.workflow.mask.alignment_callable_or_nested_contract_missing"},
     "replace": {
-        "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing"
+        "cg21.workflow.replace.regex_method_nested_or_mixed_dtype_contract_missing"
     },
     "set_index": {
         "cg21.workflow.set_index.hidden_index_materialization_contract_missing"
