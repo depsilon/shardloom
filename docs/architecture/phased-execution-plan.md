@@ -191,10 +191,152 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
-- No open autonomous implementation items are active as of June 19, 2026. The ClickBench
-  route-readiness polish, Python/DataFrame runtime-surface polish, and future-contract blocker
-  field alignment requested on June 19 were completed and moved to
-  `docs/architecture/phased-execution-completed-ledger.md`.
+- The ClickBench route-readiness polish, Python/DataFrame runtime-surface polish, future-contract
+  blocker field alignment, and native Vortex-derived structured export closeout requested on
+  June 19 were completed and moved to
+  `docs/architecture/phased-execution-completed-ledger.md`. Current autonomous work is the broader
+  native Vortex route unification and remaining front-door claim-grade closure surfaced by
+  `scripts/check_sql_python_dataframe_parity.py` and
+  `scripts/check_user_surface_runtime_gap_inventory.py`.
+
+- [ ] `RUNTIME-CLOSEOUT-2`: General native Vortex front-door route unification.
+  - Source: `native_vortex_general_runtime` row in
+    `target/sql-python-dataframe-parity-continuation.json`.
+  - Current state: scoped local Vortex primitive/provider routes exist for count, filter/project,
+    aggregate, join, top-N, cast/try-cast, contains, distinct, sample, reshape, rolling/window,
+    profile, and JSONL/CSV row exports, but broad `read_vortex(...).filter(...).select(...).group_by(...).join(...).write_*()`
+    still relies on many named primitive/provider shapes instead of one reusable native route
+    family.
+  - V1 scope classification: `required_for_v1`.
+  - ShardLoom technique review: collapse aliases into capillary operator units inside one
+    Vortex-normalized planner, use PulseWeave to choose bounded row-stream versus stateful
+    operator execution, preserve metadata-first pruning and timing-surface separation, and keep
+    route evidence shared across SQL/Python/DataFrame front doors.
+  - Execution checklist:
+    - [ ] Inventory native Vortex primitive/provider aliases and collapse duplicate route labels
+      into shared operator-family contracts where source state, operator semantics, and output
+      boundary are identical.
+    - [ ] Add a general native Vortex plan payload that can bind one or more Vortex inputs,
+      operator capillaries, state budgets, sink requirements, and evidence-tier choices.
+    - [ ] Route Python `read_vortex` and SQL `.vortex` front doors through the shared plan payload
+      before falling back to named primitive/provider shortcuts.
+    - [ ] Add deterministic diagnostics only for shapes with a recorded external or safety
+      boundary; do not preserve blockers for repo-implementable operator chains.
+    - [ ] Update benchmark route evidence so named benchmark scenarios prove the same runtime
+      family used by public front doors.
+    - [ ] Add Rust/Python fixtures for multi-input join, aggregate, top-N, cast/try-cast,
+      contains, and declared sinks through the general route.
+    - [ ] Update capability docs, agent surface index, README, website data, and ledger.
+  - Evidence required: execution certificate, Native I/O certificate, multi-input state evidence,
+    typed collect/write evidence, no-fallback evidence, and front-door parity validator output.
+  - Verification: focused native Vortex route tests, Python query-builder tests, parity/gap
+    inventory validators, and targeted benchmark route-equivalence checks.
+  - Non-goals: external query-engine fallback, object-store production claims, or a public
+    performance-equivalence claim without benchmark evidence.
+  - Claim boundary: scoped native Vortex route unification, not arbitrary SQL/DataFrame parity.
+  - Fallback boundary: no DataFusion, DuckDB, Polars, pandas, Spark, Velox, or Vortex query-engine
+    integration may execute residual work.
+  - Ledger rule: move completed detail after merge/session completion.
+
+- [ ] `RUNTIME-CLOSEOUT-3`: Broad SQL/Python/DataFrame language surface burn-down.
+  - Source: `arbitrary_sql_python_dataframe_breadth` row in
+    `target/sql-python-dataframe-parity-continuation.json`.
+  - Current state: method-level DataFrame blockers are at zero for the scoped matrix, but broad SQL
+    grammar, expression/UDF, effectful-operation, arbitrary callable, and semantic-conformance
+    parity remain not-claim-grade.
+  - V1 scope classification: `required_for_v1` for repo-implementable deterministic language
+    semantics; `unsupported_boundary` only for unsafe arbitrary Python execution, external effects
+    without policy, or platform-gated integrations.
+  - ShardLoom technique review: use the expression/kernel registry as the shared lowering layer,
+    capillary operator units for function families, dynamic admission for semantic profiles,
+    metadata-first rewrites where possible, and evidence-tier controls for effectful/UDF routes.
+  - Execution checklist:
+    - [ ] Generate the authoritative unsupported/future-contract operation list from current
+      capability reports and classify every row as implemented, repo-feasible, unsafe, or
+      external-gated.
+    - [ ] Promote every repo-feasible SQL/DataFrame/Python shape into the shared Vortex-normalized
+      runtime family instead of adding one-off route aliases.
+    - [ ] Define typed UDF/plan-transform contracts that are deterministic, side-effect aware,
+      null-safe, and explicitly no-fallback.
+    - [ ] Preserve fail-closed diagnostics for arbitrary Python callables and external effects
+      until their typed contract and sandbox/effect policy exists.
+    - [ ] Add semantic conformance fixtures for nulls, ordering, equality, casts, nested values,
+      windows, joins, and write boundaries.
+    - [ ] Update docs, capability reports, reference surface index, README, and ledger.
+  - Evidence required: semantic conformance report, capability report, parity/gap validators,
+    no-fallback evidence, and focused runtime tests.
+  - Verification: SQL/Python/DataFrame parity tests, user-surface completion/gap validators,
+    expression/kernel tests, and targeted CLI route tests.
+  - Non-goals: hidden pandas/Polars execution, unsafe arbitrary Python execution, or external
+    effects without explicit policy.
+  - Claim boundary: broad language surface support only for implemented and certified semantic
+    profiles.
+  - Fallback boundary: unsupported residuals must be native ShardLoom diagnostics, not delegated
+    execution.
+  - Ledger rule: move completed detail after merge/session completion.
+
+- [ ] `RUNTIME-CLOSEOUT-4`: Front-door performance-equivalence benchmark evidence.
+  - Source: `performance_equivalence` row in
+    `target/sql-python-dataframe-parity-continuation.json`.
+  - Current state: scoped front doors share runtime families, but no claim-grade benchmark artifact
+    proves SQL, Python, and DataFrame front doors have equivalent runtime boundary and overhead.
+  - V1 scope classification: `required_for_v1` for local technical-preview evidence; external
+    publication/superiority claims remain claim-gated.
+  - ShardLoom technique review: use timing-surface separation, PulseWeave run-local coalescing,
+    capillary fixture slices, metadata-first unchanged-artifact reuse, and evidence-tier controls
+    so benchmark overhead is attributed to front-door lowering versus runtime execution.
+  - Execution checklist:
+    - [ ] Add a front-door equivalence benchmark constitution covering the same operations through
+      SQL, Python, and DataFrame shapes.
+    - [ ] Emit route identity, timing surface, evidence tier, preparation, query, sink, decode, and
+      lowering overhead fields for each front door.
+    - [ ] Add validators that fail when a front door silently uses a different runtime family.
+    - [ ] Regenerate scoped local benchmark artifacts and website data only after runtime
+      closeout items above are complete.
+    - [ ] Update README/docs/website labels so claims name the selected timing surface and evidence
+      tier.
+    - [ ] Move completion evidence to the ledger.
+  - Evidence required: reproducible benchmark artifact, website/static generated data, validator
+    output, and no-fallback route evidence.
+  - Verification: benchmark constitution checks, benchmark artifact completeness, website
+    readiness, and front-door benchmark publication gates.
+  - Non-goals: public superiority/Spark-displacement claim without separate CG-5/CG-6 approval.
+  - Claim boundary: local front-door equivalence evidence only until public claim gates pass.
+  - Fallback boundary: benchmark rows must execute ShardLoom runtime routes, not external engines.
+  - Ledger rule: move completed detail after merge/session completion.
+
+- [ ] `RUNTIME-CLOSEOUT-5`: Object-store/lakehouse/catalog front-door runtime closure.
+  - Source: `object_store_lakehouse_catalog`, `input_object_store_cloud`, and production I/O rows
+    in `target/user-surface-runtime-gap-inventory-continuation.json`.
+  - Current state: local object-store/table/lakehouse fixture scopes exist, while real cloud,
+    remote catalog, and production commit claims remain external-environment gates.
+  - V1 scope classification: `required_for_v1` for local emulated/object-store-compatible runtime
+    and table-manifest workflows that can be implemented in-repo; `unsupported_boundary` for real
+    credentialed cloud, managed catalogs, and production platform claims until maintainers provide
+    environments.
+  - ShardLoom technique review: use capillary split planning for object ranges/files, PulseWeave
+    retry/backpressure and bounded work-in-progress, metadata-first manifest/stat pruning,
+    dynamic admission based on credential/effect policy, and evidence-tier controls for local
+    fixture versus production claims.
+  - Execution checklist:
+    - [ ] Split local-emulated runtime work from real external production proof in capability and
+      parity rows.
+    - [ ] Ensure local object-store/table front doors lower through the same Vortex-normalized
+      planner as file and native Vortex routes.
+    - [ ] Add route/evidence fields for range reads, manifest pruning, commit sidecars,
+      credential redaction, retry/backpressure, and no-fallback execution.
+    - [ ] Preserve deterministic blockers for real S3/GCS/ADLS/catalog/Foundry production routes
+      until approved environments exist.
+    - [ ] Add local fixture tests, docs, capability reports, and ledger movement.
+  - Evidence required: local fixture Native I/O certificates, commit/recovery evidence,
+    credential/no-probe policy evidence, no-fallback evidence, and explicit external-gate rows.
+  - Verification: object-store/table/lakehouse focused tests, production certification gate in
+    local/no-publication mode, release architecture tracker, and user-surface gap inventory.
+  - Non-goals: credentialed cloud execution, managed catalog production writes, or Foundry
+    production proof without maintainer-provided environments.
+  - Claim boundary: local/emulated object-store and table workflow readiness only.
+  - Fallback boundary: no Spark/DataFusion/DuckDB/Polars/Velox execution fallback.
+  - Ledger rule: move completed detail after merge/session completion.
 
 ### v1 Local Closeout Status
 

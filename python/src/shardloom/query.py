@@ -3374,7 +3374,13 @@ class VortexWorkflowExecutionReport:
     def write_io(self) -> bool:
         """Whether the primitive wrote data."""
 
-        return self.envelope.field_bool("write_io", False) is True
+        return self.output_io_performed or self.envelope.field_bool("write_io", False) is True
+
+    @property
+    def output_io_performed(self) -> bool:
+        """Whether the primitive/export report wrote a local output artifact."""
+
+        return self.envelope.field_bool("output_io_performed", False) is True
 
     @property
     def claim_gate_status(self) -> str | None:
@@ -7446,7 +7452,13 @@ class LazyFrame:
             if requested_output in {"write_jsonl", "write_csv"}
             else None
         )
-        if provider_shape is None and primitive_payload is None:
+        structured_binary_payload = requested_output in {
+            "write_vortex",
+            "write_parquet",
+            "write_arrow_ipc",
+            "write_avro",
+        } and candidate.frame._has_structured_binary_export_shape()
+        if provider_shape is None and primitive_payload is None and not structured_binary_payload:
             return None
         preparation = self._prepare_vortex_candidate(candidate, check=check)
         if preparation.envelope.status != "success":
@@ -8092,11 +8104,38 @@ class LazyFrame:
                         check=check,
                         **primitive_payload,
                     ).envelope
-                    return VortexWorkflowExecutionReport(
-                        workflow=self,
-                        operation=operation,
-                        envelope=envelope,
-                    )
+                return VortexWorkflowExecutionReport(
+                    workflow=self,
+                    operation=operation,
+                    envelope=envelope,
+                )
+            if (
+                requested_output
+                in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro"}
+                and self._has_structured_binary_export_shape()
+            ):
+                write_method = requested_output.removeprefix("write_")
+                envelope = self.client.public_workflow_run(
+                    "dataframe",
+                    input_uri=self.source.uri,
+                    input_format="vortex",
+                    plan_summary=f"{self.operation_summary} -> write_{write_method}({target_uri})",
+                    requested_output=requested_output,
+                    output_ref=target_uri,
+                    fanout_outputs=fanout_outputs,
+                    execution_policy="native_vortex",
+                    materialization_policy="zero_decode",
+                    evidence_level="runtime_smoke",
+                    bounded=True,
+                    allow_overwrite=allow_overwrite,
+                    max_parallelism=1,
+                    check=check,
+                ).envelope
+                return VortexWorkflowExecutionReport(
+                    workflow=self,
+                    operation=operation,
+                    envelope=envelope,
+                )
             return self._unsupported_operation(
                 "native-vortex-sink",
                 str(target_uri),
@@ -8604,6 +8643,43 @@ class LazyFrame:
                 provider_scenario="nested-json-field-scan",
             )
         return None
+
+    def _has_structured_binary_export_shape(self) -> bool:
+        if self.source.source_format != "vortex":
+            return False
+        operations = [op for op in self.operations if op.kind != "set_index"]
+        if len(operations) < 1:
+            return False
+        if operations[-1].kind == "limit":
+            try:
+                if int(operations[-1].values[0]) <= 0:
+                    return False
+            except (TypeError, ValueError):
+                return False
+            operations = operations[:-1]
+        if not operations or operations[0].kind != "select":
+            return False
+        if not all(_is_sql_identifier(column) for column in operations[0].values):
+            return False
+        for operation in operations[1:]:
+            if operation.kind != "with_column" or len(operation.values) != 2:
+                return False
+            name, expression = operation.values
+            if not _is_sql_identifier(name):
+                return False
+            expression_text = str(expression).strip()
+            if expression_text.startswith("ARRAY[") and expression_text.endswith("]"):
+                continue
+            if expression_text.startswith("STRUCT(") and expression_text.endswith(")"):
+                inner = expression_text[len("STRUCT(") : -1].strip()
+                try:
+                    columns = _split_projection_function_args(inner)
+                except ValueError:
+                    return False
+                if columns and all(_is_sql_identifier(column) for column in columns):
+                    continue
+            return False
+        return True
 
     def _can_append_scalar_aggregate(self) -> bool:
         if not _is_query_builder_local_source(self.source):

@@ -22,6 +22,7 @@ The machine-readable sources for this scope are:
 
 - `docs/reference/shardloom-user-surface-index.json`
 - `ShardLoomContext.front_door_parity_matrix()`
+- `ShardLoomContext.front_door_semantic_surface_matrix()`
 - `ShardLoomContext.user_route_capability_report()`
 - `examples/local-python-benchmark-scenarios/run.py`
 - `examples/local-python-benchmark-scenarios/timing_review.py`
@@ -121,14 +122,29 @@ surfaces cannot silently reinterpret route readiness as timing evidence.
 | `feature_gated` | Requires an explicit build/runtime gate such as `universal-format-io`, `vortex-write`, `vortex-production-runtime`, or the aggregate release set `release-user-surfaces`. |
 | `production_admitted_local_workflow` | Product local workflow route admitted for normal local Python/SQL/DataFrame-facing usage without smoke-only synthetic caps, while still bounded by local v1 scope and no-fallback evidence. |
 
+## Semantic Claim Vocabulary
+
+ShardLoom does not use broad pandas, Polars, DataFrame, or SQL-standard/ANSI-style compatibility
+labels for v1. The supported language is:
+
+- `Python/DataFrame-style front door`: admitted operations lower into ShardLoom-native/Vortex-native
+  routes, while unsupported pandas/Polars-style behavior returns deterministic diagnostics with
+  `fallback_attempted=false` and `external_engine_invoked=false`.
+- `Documented DataFrame-style subset`: admitted operations have equivalent semantics for the
+  scoped shapes documented by `ShardLoomContext.front_door_semantic_surface_matrix()`.
+- `SQL-standard-inspired SELECT-query subset`: admitted SQL parser, binder, type, NULL, relational,
+  operator, aggregate, join, subquery, window, ordering, and error semantics are documented with
+  deviations and deterministic blockers.
+
 ## Unsupported V1 Forms
 
 The following are outside the v1 front-door runtime claim unless a later phase-plan item closes them
 with runtime and release evidence:
 
-- Arbitrary ANSI SQL, CTE/recursive SQL, arbitrary subqueries, arbitrary functions, unsupported
-  nested accessors/casts, broad SQL grammar coverage, and broad semantic parity.
-- Full pandas, Polars, Spark, DataFusion, DuckDB, PySpark, or dataframe-library API parity.
+- Broad SQL-standard/ANSI-style compliance, CTE/recursive SQL, arbitrary subqueries, arbitrary
+  functions, unsupported nested accessors/casts, broad SQL grammar coverage, and broad semantic
+  parity.
+- Broad pandas, Polars, Spark, DataFusion, DuckDB, PySpark, or dataframe-library API parity.
 - Hidden execution in pandas, Polars, DuckDB, Spark, DataFusion, Velox, or another engine.
 - Unbounded materialization as a convenience path.
 - Unsupported joins, subqueries, non-admitted window frames beyond scoped source-order rolling sum/mean/count, UDFs, plugins, LLM/API calls, embeddings, vector search,

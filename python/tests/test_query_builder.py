@@ -153,8 +153,11 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         requested_output = _shardloom_take_flag(args, "--request") or "collect"
         output_ref = _shardloom_take_flag(args, "--output")
         primitive = _shardloom_take_flag(args, "--vortex-primitive")
-        if ".shardloom/prepared/" not in input_uri and primitive != "sort_rows":
+        structured_export = requested_output in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro"}
+        if ".shardloom/prepared/" not in input_uri and primitive != "sort_rows" and not structured_export:
             return
+        if structured_export and primitive is None:
+            primitive = "expression_project"
         predicate = _shardloom_take_flag(args, "--vortex-predicate")
         columns = _shardloom_take_flag(args, "--vortex-columns")
         source_order_limit = _shardloom_take_flag(args, "--vortex-source-order-limit")
@@ -256,7 +259,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 "fields": [{"key": key, "value": value} for key, value in fields],
             }))
             raise SystemExit(0)
-        if requested_output in {"write_jsonl", "write_csv"} and primitive is not None:
+        if requested_output in {"write_vortex", "write_jsonl", "write_csv", "write_parquet", "write_arrow_ipc", "write_avro"} and primitive is not None:
             output_format = _shardloom_public_request_output_format(requested_output)
             fanout_outputs = _shardloom_values_after_flag(args, "--fanout-output")
             target_roles = ["primary"] + [f"fanout:{value.split('=', 1)[0]}" for value in fanout_outputs]
@@ -288,7 +291,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ["public_workflow_vortex_sample_fraction", sample_fraction or "none"],
                 ["public_workflow_vortex_sample_replacement", "true" if sample_replacement else "false"],
                 ["public_workflow_vortex_duplicate_keep", duplicate_keep],
-                ["public_workflow_vortex_expression_projection_present", "true" if expression_projection else "false"],
+                ["public_workflow_vortex_expression_projection_present", "true" if expression_projection or structured_export else "false"],
                 ["public_workflow_vortex_expression_projection_changed_columns", _shardloom_expression_projection_changed_columns(expression_projection)],
                 ["public_workflow_vortex_melt_projection_present", "true" if melt_projection else "false"],
                 ["public_workflow_vortex_explode_projection_present", "true" if explode_projection else "false"],
@@ -308,7 +311,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ["native_vortex_result_export_target_formats", ",".join(target_formats)],
                 ["native_vortex_result_export_target_paths", ",".join(target_paths)],
                 ["native_vortex_result_export_target_rows_written", ",".join(rows_written)],
-                ["typed_sink_contract", "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink"],
+                ["typed_sink_contract", "native_vortex_structured_row_stream_to_vortex_sink" if requested_output == "write_vortex" else ("native_vortex_structured_row_stream_to_parquet_arrow_avro_compatibility_sink" if structured_export else "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink")],
                 ["decode_materialization_boundary", "native_vortex_scan_pushdown_then_selected_column_decode_at_compatibility_sink"],
                 ["runtime_execution", "true"],
                 ["data_read", "true"],
@@ -14510,173 +14513,114 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_local_csv_query_builder_write_parquet_invokes_sql_smoke_output(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-
-                assert sys.argv[1:] == [
-                    "run",
-                    "dataframe",
-                    "--input",
-                    "target/input.csv",
-                    "--input-format",
-                    "csv",
-                    "--sql",
-                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
-                    "--plan",
-                    "read_csv(target/input.csv) -> select(id,label) -> limit(2)",
-                    "--request",
-                    "write_parquet",
-                    "--output",
-                    "target/out.parquet",
-                    "--execution-policy",
-                    "auto",
-                    "--materialization-policy",
-                    "bounded",
-                    "--evidence-level",
-                    "production_admitted_local_workflow",
-                    "--bounded",
-                    "true",
-                    "--allow-overwrite",
-                    "--max-parallelism",
-                    "1",
-                    "--format",
-                    "json",
-                ], sys.argv
-                fields = [
-                    ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
-                    ["public_workflow_route_attached", "true"],
-                    ["public_workflow_facade_command", "run"],
-                    ["public_workflow_route_id", "blocked"],
-                    ["public_workflow_route_status", "blocked"],
-                    ["public_workflow_resolved_internal_command", "not_resolved"],
-                    ["public_workflow_vortex_normalization_point", "not_applicable"],
-                    ["public_workflow_vortex_middle_status", "blocked_or_unsupported"],
-                    ["public_workflow_execution_mode", "blocked"],
-                    ["public_workflow_preparation_included", "false"],
-                    ["public_workflow_requested_output", "write_parquet"],
-                    ["public_workflow_output_ref", "target/out.parquet"],
-                    ["public_workflow_allow_overwrite", "true"],
-                    ["runtime_execution", "false"],
-                    ["output_io_performed", "false"],
-                    ["fallback_attempted", "false"],
-                    ["external_engine_invoked", "false"],
-                    ["public_workflow_fallback_attempted", "false"],
-                    ["public_workflow_external_engine_invoked", "false"],
-                    ["public_workflow_blocker_id", "cg21.route.local_file_vortex_middle_required"],
-                    ["claim_gate_status", "not_claim_grade"],
-                ]
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "run",
-                    "status": "unsupported",
-                    "summary": "sql local source blocked before execution",
-                    "human_text": "sql local source blocked before execution",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [{"key": key, "value": value} for key, value in fields],
-                }))
-                sys.exit(1)
-                """
-            ),
-            rewrite_public_run=False,
-        )
+    def test_local_csv_query_builder_write_structured_binary_uses_vortex_export(
+        self,
+    ) -> None:
+        binary = self.fake_cli("raise AssertionError('fake native Vortex export was not used')")
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
-        with self.assertRaises(sl.ShardLoomCommandError) as raised:
+        writers = (
             (
-                ctx.read_csv("target/input.csv")
-                .select(["id", "label"])
-                .limit(2)
-                .write_parquet("target/out.parquet", allow_overwrite=True)
-            )
-
-        self.assert_public_local_file_vortex_middle_blocked(
-            raised.exception.envelope,
-            requested_output="write_parquet",
+                "vortex",
+                "write_vortex",
+                "target/out.vortex",
+                lambda: (
+                    ctx.read_csv("target/input.csv")
+                    .select(["id", "label"])
+                    .limit(2)
+                    .write_vortex("target/out.vortex", allow_overwrite=True)
+                ),
+            ),
+            (
+                "parquet",
+                "write_parquet",
+                "target/out.parquet",
+                lambda: (
+                    ctx.read_csv("target/input.csv")
+                    .select(["id", "label"])
+                    .limit(2)
+                    .write_parquet("target/out.parquet", allow_overwrite=True)
+                ),
+            ),
+            (
+                "arrow-ipc",
+                "write_arrow_ipc",
+                "target/out.arrow",
+                lambda: (
+                    ctx.read_csv("target/input.csv")
+                    .select(["id", "label"])
+                    .limit(2)
+                    .write_arrow_ipc("target/out.arrow", allow_overwrite=True)
+                ),
+            ),
+            (
+                "avro",
+                "write_avro",
+                "target/out.avro",
+                lambda: (
+                    ctx.read_csv("target/input.csv")
+                    .select(["id", "label"])
+                    .limit(2)
+                    .write_avro("target/out.avro", allow_overwrite=True)
+                ),
+            ),
         )
+
+        for output_format, requested_output, output_path, writer in writers:
+            with self.subTest(output_format=output_format):
+                report = writer()
+                self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+                self.assertEqual(
+                    report.preparation_envelope.field("vortex_ingest_performed"),
+                    "true",
+                )
+                self.assertEqual(
+                    report.envelope.field("public_workflow_route_id"),
+                    "native_vortex_primitive_row_export",
+                )
+                self.assertEqual(
+                    report.envelope.field("public_workflow_resolved_internal_command"),
+                    "vortex-local-primitive-row-export",
+                )
+                self.assertEqual(
+                    report.envelope.field("public_workflow_requested_output"),
+                    requested_output,
+                )
+                self.assertEqual(
+                    report.envelope.field("native_vortex_result_export_format"),
+                    output_format,
+                )
+                self.assertEqual(
+                    report.envelope.field("native_vortex_result_export_path"),
+                    output_path,
+                )
+                self.assertEqual(
+                    report.envelope.field("typed_sink_contract"),
+                    "native_vortex_structured_row_stream_to_vortex_sink"
+                    if requested_output == "write_vortex"
+                    else "native_vortex_structured_row_stream_to_parquet_arrow_avro_compatibility_sink",
+                )
+                self.assertEqual(
+                    report.envelope.field(
+                        "public_workflow_vortex_expression_projection_present"
+                    ),
+                    "true",
+                )
+                self.assertEqual(
+                    report.envelope.field("public_workflow_vortex_middle_status"),
+                    "native_vortex_primitive_row_export",
+                )
+                self.assertTrue(report.output_io_performed)
+                self.assertFalse(report.fallback_attempted)
+                self.assertFalse(report.external_engine_invoked)
 
     def test_local_csv_query_builder_write_parquet_exposes_typed_nested_sink_boundary(
         self,
     ) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-
-                assert sys.argv[1:] == [
-                    "run",
-                    "dataframe",
-                    "--input",
-                    "target/input.csv",
-                    "--input-format",
-                    "csv",
-                    "--sql",
-                    "SELECT id,ARRAY[1,2,NULL] AS values,STRUCT(label, amount) AS payload FROM 'target/input.csv' LIMIT 2",
-                    "--plan",
-                    "read_csv(target/input.csv) -> select(id) -> with_column(values,ARRAY[1,2,NULL]) -> with_column(payload,STRUCT(label, amount)) -> limit(2)",
-                    "--request",
-                    "write_parquet",
-                    "--output",
-                    "target/nested.parquet",
-                    "--execution-policy",
-                    "auto",
-                    "--materialization-policy",
-                    "bounded",
-                    "--evidence-level",
-                    "production_admitted_local_workflow",
-                    "--bounded",
-                    "true",
-                    "--allow-overwrite",
-                    "--max-parallelism",
-                    "1",
-                    "--format",
-                    "json",
-                ], sys.argv
-                fields = [
-                    ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
-                    ["public_workflow_route_attached", "true"],
-                    ["public_workflow_facade_command", "run"],
-                    ["public_workflow_route_id", "blocked"],
-                    ["public_workflow_route_status", "blocked"],
-                    ["public_workflow_resolved_internal_command", "not_resolved"],
-                    ["public_workflow_vortex_normalization_point", "not_applicable"],
-                    ["public_workflow_vortex_middle_status", "blocked_or_unsupported"],
-                    ["public_workflow_execution_mode", "blocked"],
-                    ["public_workflow_preparation_included", "false"],
-                    ["public_workflow_requested_output", "write_parquet"],
-                    ["public_workflow_output_ref", "target/nested.parquet"],
-                    ["public_workflow_allow_overwrite", "true"],
-                    ["runtime_execution", "false"],
-                    ["output_io_performed", "false"],
-                    ["fallback_attempted", "false"],
-                    ["external_engine_invoked", "false"],
-                    ["public_workflow_fallback_attempted", "false"],
-                    ["public_workflow_external_engine_invoked", "false"],
-                    ["public_workflow_blocker_id", "cg21.route.local_file_vortex_middle_required"],
-                    ["claim_gate_status", "not_claim_grade"],
-                ]
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "run",
-                    "status": "unsupported",
-                    "summary": "typed nested parquet public workflow blocked before execution",
-                    "human_text": "typed nested parquet public workflow blocked before execution",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [{"key": key, "value": value} for key, value in fields],
-                }))
-                sys.exit(1)
-                """
-            ),
-            rewrite_public_run=False,
-        )
+        binary = self.fake_cli("raise AssertionError('fake native Vortex export was not used')")
         ctx = ShardLoomContext(ShardLoomClient(binary=binary))
 
-        with self.assertRaises(sl.ShardLoomCommandError) as raised:
-            (
+        report = (
                 ctx.read_csv("target/input.csv")
                 .select("id")
                 .with_columns(
@@ -14687,12 +14631,31 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 )
                 .limit(2)
                 .write_parquet("target/nested.parquet", allow_overwrite=True)
-            )
-
-        self.assert_public_local_file_vortex_middle_blocked(
-            raised.exception.envelope,
-            requested_output="write_parquet",
         )
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_primitive_row_export",
+        )
+        self.assertEqual(
+            report.envelope.field("native_vortex_result_export_format"),
+            "parquet",
+        )
+        self.assertEqual(
+            report.envelope.field("typed_sink_contract"),
+            "native_vortex_structured_row_stream_to_parquet_arrow_avro_compatibility_sink",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_present"),
+            "true",
+        )
+        self.assertTrue(report.output_io_performed)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_local_csv_query_builder_write_arrow_ipc_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
@@ -14759,7 +14722,37 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
-    def test_local_csv_query_builder_write_vortex_invokes_sql_smoke_output(self) -> None:
+    def test_local_csv_query_builder_write_vortex_uses_native_vortex_export(self) -> None:
+        binary = self.fake_cli("raise AssertionError('fake native Vortex export was not used')")
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .limit(2)
+            .write_vortex("target/out.vortex", allow_overwrite=True)
+        )
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_primitive_row_export",
+        )
+        self.assertEqual(
+            report.envelope.field("native_vortex_result_export_format"), "vortex"
+        )
+        self.assertEqual(
+            report.envelope.field("typed_sink_contract"),
+            "native_vortex_structured_row_stream_to_vortex_sink",
+        )
+        self.assertTrue(report.output_io_performed)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_write_orc_remains_structured_sink_blocked(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
@@ -14773,13 +14766,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "--input-format",
                     "csv",
                     "--sql",
-                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
+                    "SELECT id FROM 'target/input.csv' LIMIT 1",
                     "--plan",
-                    "read_csv(target/input.csv) -> select(id,label) -> limit(2)",
+                    "read_csv(target/input.csv) -> select(id) -> limit(1)",
                     "--request",
-                    "write_vortex",
+                    "write_orc",
                     "--output",
-                    "target/out.vortex",
+                    "target/out.orc",
                     "--execution-policy",
                     "auto",
                     "--materialization-policy",
@@ -14805,8 +14798,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ["public_workflow_vortex_middle_status", "blocked_or_unsupported"],
                     ["public_workflow_execution_mode", "blocked"],
                     ["public_workflow_preparation_included", "false"],
-                    ["public_workflow_requested_output", "write_vortex"],
-                    ["public_workflow_output_ref", "target/out.vortex"],
+                    ["public_workflow_requested_output", "write_orc"],
+                    ["public_workflow_output_ref", "target/out.orc"],
                     ["public_workflow_allow_overwrite", "true"],
                     ["runtime_execution", "false"],
                     ["output_io_performed", "false"],
@@ -14821,8 +14814,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "schema_version": "shardloom.output.v2",
                     "command": "run",
                     "status": "unsupported",
-                    "summary": "vortex public workflow sink blocked before execution",
-                    "human_text": "vortex public workflow sink blocked before execution",
+                    "summary": "ORC public workflow sink blocked before execution",
+                    "human_text": "ORC public workflow sink blocked before execution",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
                     "fields": [{"key": key, "value": value} for key, value in fields],
@@ -14837,84 +14830,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaises(sl.ShardLoomCommandError) as raised:
             (
                 ctx.read_csv("target/input.csv")
-                .select(["id", "label"])
-                .limit(2)
-                .write_vortex("target/out.vortex", allow_overwrite=True)
+                .select(["id"])
+                .limit(1)
+                .write_orc("target/out.orc", allow_overwrite=True)
             )
 
         self.assert_public_local_file_vortex_middle_blocked(
             raised.exception.envelope,
-            requested_output="write_vortex",
+            requested_output="write_orc",
         )
 
-    def test_local_csv_query_builder_write_avro_and_orc_normalize_formats(self) -> None:
-        binary = self.fake_cli(
-            textwrap.dedent(
-                """
-                import json, sys
-
-                args = sys.argv[1:]
-                assert args[0] == "sql-local-source-smoke", args
-                output_format = args[args.index("--output-format") + 1]
-                output_path = args[args.index("--output") + 1]
-                certificate_status = {
-                    "avro": "certified_local_avro_sink",
-                    "orc": "certified_local_orc_sink",
-                }[output_format]
-                certificate_ref = {
-                    "avro": "sql-local-source.local-avro-output.native-io.v1",
-                    "orc": "sql-local-source.local-orc-output.native-io.v1",
-                }[output_format]
-                print(json.dumps({
-                    "schema_version": "shardloom.output.v2",
-                    "command": "sql-local-source-smoke",
-                    "status": "success",
-                    "summary": "sql local source",
-                    "human_text": "sql local source",
-                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
-                    "diagnostics": [],
-                    "fields": [
-                        {"key": "result_jsonl", "value": "{\\"id\\":1}\\n"},
-                        {"key": "output_path", "value": output_path},
-                        {"key": "output_format", "value": output_format},
-                        {"key": "output_io_performed", "value": "true"},
-                        {"key": "output_native_io_certificate_status", "value": certificate_status},
-                        {"key": "output_certificate_ref", "value": certificate_ref},
-                        {"key": "fallback_attempted", "value": "false"},
-                        {"key": "external_engine_invoked", "value": "false"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
-                    ],
-                }))
-                """
-            )
-        )
-        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
-
-        avro_report = (
-            ctx.read_csv("target/input.csv")
-            .select(["id"])
-            .limit(1)
-            .write_avro("target/out.avro", allow_overwrite=True)
-        )
-        orc_report = (
-            ctx.read_csv("target/input.csv")
-            .select(["id"])
-            .limit(1)
-            .write_orc("target/out.orc", allow_overwrite=True)
-        )
-
-        self.assertEqual(avro_report.output_format, "avro")
-        self.assertEqual(
-            avro_report.output_native_io_certificate_status,
-            "certified_local_avro_sink",
-        )
-        self.assertEqual(orc_report.output_format, "orc")
-        self.assertEqual(
-            orc_report.output_native_io_certificate_status,
-            "certified_local_orc_sink",
-        )
-
-    def test_local_csv_query_builder_write_parquet_checks_errors_by_default(self) -> None:
+    def test_local_csv_query_builder_write_parquet_blocks_unadmitted_expression_shape(
+        self,
+    ) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
@@ -14922,8 +14850,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 args = sys.argv[1:]
                 assert args[:6] == ["run", "dataframe", "--input", "target/input.csv", "--input-format", "csv"], sys.argv
-                assert args[args.index("--sql") + 1] == "SELECT id,label FROM 'target/input.csv' LIMIT 2", sys.argv
-                assert args[args.index("--plan") + 1] == "read_csv(target/input.csv) -> select(id,label) -> limit(2)", sys.argv
+                assert args[args.index("--sql") + 1] == "SELECT id,amount + 5 AS adjusted FROM 'target/input.csv' LIMIT 2", sys.argv
+                assert args[args.index("--plan") + 1] == "read_csv(target/input.csv) -> select(id) -> with_column(adjusted,amount + 5) -> limit(2)", sys.argv
                 assert args[args.index("--request") + 1] == "write_parquet", sys.argv
                 assert args[args.index("--output") + 1] == "target/out.parquet", sys.argv
                 assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
@@ -14936,12 +14864,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 print(json.dumps({
                     "schema_version": "shardloom.output.v2",
                     "command": "run",
-                    "status": "error",
-                    "summary": "Parquet sink blocked",
-                    "human_text": "Parquet sink blocked",
+                    "status": "unsupported",
+                    "summary": "unadmitted structured Parquet expression blocked",
+                    "human_text": "unadmitted structured Parquet expression blocked",
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
                     "fields": [
+                        {"key": "public_workflow_route_id", "value": "blocked"},
+                        {"key": "public_workflow_route_status", "value": "blocked"},
+                        {"key": "public_workflow_requested_output", "value": "write_parquet"},
+                        {"key": "public_workflow_blocker_id", "value": "cg21.route.local_file_vortex_middle_required"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "output_io_performed", "value": "false"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "blocked"}
@@ -14957,7 +14891,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaises(sl.ShardLoomCommandError):
             (
                 ctx.read_csv("target/input.csv")
-                .select(["id", "label"])
+                .select("id")
+                .with_column("adjusted", sl.col("amount") + 5)
                 .limit(2)
                 .write_parquet("target/out.parquet", allow_overwrite=True)
             )

@@ -10,8 +10,25 @@
     "cli_registry_status_doc": "docs/status/cli-command-registry.md",
     "agent_contract_pack_doc": "docs/architecture/agent-contract-pack.md",
     "v1_front_door_runtime_scope": "docs/architecture/v1-front-door-runtime-scope.md",
+    "front_door_parity_matrix": "ctx.front_door_parity_matrix()",
+    "front_door_semantic_surface_matrix": "ctx.front_door_semantic_surface_matrix()",
     "native_vortex_provider_route_certificate_report": "ctx.native_vortex_provider_route_certificate_report()",
     "python_package_readme": "python/README.md"
+  },
+  "semantic_claim_surface": {
+    "schema_version": "shardloom.front_door_semantic_surface_matrix.v1",
+    "human_reference": "docs/architecture/sql-python-dataframe-front-door-parity.md",
+    "agent_source": "ctx.front_door_semantic_surface_matrix()",
+    "dataframe_claim": "documented subset of pandas/Polars-style operations with equivalent semantics for admitted operations, deterministic blockers for non-admitted operations, and no fallback execution",
+    "sql_claim": "documented SQL-standard-inspired SELECT-query subset for admitted local and Vortex-native routes with documented deviations and deterministic blockers",
+    "disallowed_broad_claims": [
+      "broad pandas compatibility",
+      "broad Polars compatibility",
+      "broad DataFrame compatibility",
+      "broad SQL-standard/ANSI-style compliance"
+    ],
+    "fallback_attempted": false,
+    "external_engine_invoked": false
   },
   "cli": {
     "registered_command_count": 213,
@@ -290,7 +307,7 @@
       "generated range or generate_series forms where admitted"
     ],
     "not_claimed": [
-      "arbitrary ANSI SQL",
+      "broad SQL-standard/ANSI-style compliance",
       "recursive CTEs",
       "arbitrary dialect functions",
       "arbitrary subqueries",

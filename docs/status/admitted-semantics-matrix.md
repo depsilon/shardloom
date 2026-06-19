@@ -198,7 +198,7 @@ Covered fixture rows:
 - `source_qualified_not_exists_subquery_semantics`
 - `source_qualified_quantified_subquery_semantics`
 
-Current remaining gaps are broad ANSI subquery parity beyond the admitted bounded local
+Current remaining gaps are broad SQL-standard subquery parity beyond the admitted bounded local
 scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN,
 projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified,
 source-qualified scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references,
@@ -217,7 +217,7 @@ access-or-cast, struct access-or-cast, complex subquery membership materializati
 union dtype families, binary literal predicates against non-binary source columns,
 non-binary source ordering predicates against binary literals, outer references outside admitted
 column-to-column subquery comparisons, outer-to-outer subquery comparisons, and remaining
-non-admitted broad ANSI subquery shapes now have deterministic unsupported diagnostics with no
+non-admitted broad SQL-standard subquery shapes now have deterministic unsupported diagnostics with no
 fallback. Scoped
 scalar-expression `JOIN ON` predicates over qualified local sources are executable through the
 bounded expression-join route, including scoped logical `OR` over admitted qualified scalar leaves;
@@ -230,7 +230,7 @@ through canonical structural result-boundary sort keys. Feature-gated local stru
 decoding now admits Arrow list/large-list/fixed-size-list and struct arrays into ShardLoom
 `ScalarValue::List` / `ScalarValue::Struct` values through the JSONL result boundary and local CSV
 JSON-text output cells, with Arrow IPC CLI smoke evidence and shared materializer coverage for the
-admitted Arrow array families surfaced by local Parquet/Arrow IPC/Avro/ORC readers. Broad ANSI
+admitted Arrow array families surfaced by local Parquet/Arrow IPC/Avro/ORC readers. Broad SQL-standard
 nested ordering, nested accessors/casts, complex subquery membership materialization, complex-key
 joins, broader non-scalar join predicates, and ORC nested output remain outside the claim
 boundary. ORC nested output now has a validator-backed output-plan blocker,
@@ -247,15 +247,15 @@ operands plus integer operands are executable through the same generic-expressio
 runtime and exact JSONL/CSV text result boundary. Mixed-scale decimal comparisons and exact
 fixed-scale division are executable within the scoped decimal route. Exact exponent notation that
 normalizes to the declared `decimal128(p,s)` scale is admitted through the scoped decimal cast route.
-Non-exact decimal division, broad ANSI decimal coercion beyond that exact exponent normalization,
+Non-exact decimal division, broad SQL-standard decimal coercion beyond that exact exponent normalization,
 decimal/float comparison, typed decimal sink preservation outside feature-gated Parquet/Arrow
 IPC/Avro compatibility outputs and scoped local Vortex known flat scalar output, and ORC typed
 decimal sinks remain outside the claim boundary. ORC typed decimal sinks now have a
 validator-backed output-plan blocker, `typed_decimal128_preservation_not_admitted`, before provider
 conversion, local write, or fallback.
-Scoped ANSI interval literals are
+Scoped SQL interval literals are
 executable only inside `DATE_ADD_DAYS`/`DATE_SUB_DAYS` and
-`TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary ANSI interval arithmetic now blocks with
+`TIMESTAMP_ADD_SECONDS`/`TIMESTAMP_SUB_SECONDS`; arbitrary SQL interval arithmetic now blocks with
 a deterministic unsupported diagnostic before fallback. Scoped SQL `X'<hex>'` binary literal
 projections are executable with exact hex evidence. Scoped `BINARY '<utf8>'` and `BLOB '<utf8>'`
 text byte literal projections are executable with exact byte evidence. Scoped `CAST`/`TRY_CAST` to
@@ -297,7 +297,7 @@ add/subtract/multiply projections are executable for same-scale and mixed-scale 
 plus integer operands through generic expression projection evidence, mixed-scale decimal
 comparisons are admitted, exact fixed-scale decimal division emits
 `decimal128(38,max(input_scales,6))` when the quotient is exact, and exact exponent notation is
-admitted when it normalizes to the declared target scale. Non-exact decimal division, broad ANSI
+admitted when it normalizes to the declared target scale. Non-exact decimal division, broad SQL-standard
 decimal coercion beyond exact exponent normalization, decimal/float comparison, and ORC typed
 decimal sink preservation remain outside the claim boundary with a validator-backed
 `typed_decimal128_preservation_not_admitted` output-plan blocker. Feature-gated Parquet/Arrow IPC/Avro
@@ -312,5 +312,6 @@ ShardLoom-owned string predicate lowering, and scoped UTF-8 regex predicates are
 outside the claim boundary.
 
 Claim boundary: admitted SQL local-source expression/operator correctness evidence only. This does
-not authorize ANSI SQL parity, production semantic parity, broad SQL/DataFrame support, performance
+not authorize broad SQL-standard/ANSI-style compliance, production semantic parity, broad
+SQL/DataFrame support, performance
 claims, package publication, fallback execution, or external-engine runtime delegation.

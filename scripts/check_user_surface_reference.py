@@ -23,6 +23,7 @@ REQUIRED_MD_MARKERS = (
     "shardloom --version",
     "shardloom command-metadata --format json",
     "shardloom agent-contract-pack --format json",
+    "ctx.front_door_semantic_surface_matrix()",
     "ctx.read(path)",
     "ctx.sql(\"SELECT ...\")",
     "fallback_attempted=false",
@@ -59,6 +60,8 @@ REQUIRED_JSON_POINTERS = (
     "cli.agent_contract_pack_command",
     "python.context_readers",
     "python.query_builder_methods",
+    "semantic_claim_surface.agent_source",
+    "semantic_claim_surface.disallowed_broad_claims",
     "sql.entrypoints",
     "guardrails.no_fallback_policy",
 )

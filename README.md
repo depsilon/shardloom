@@ -139,7 +139,7 @@ This table is a README summary; the canonical public status matrix and claim bou
 | SQL/DataFrame-style use | Many scoped local-source projections, filters, joins, aggregates, subqueries, aliases, bounded collects, metadata profiles, native Vortex writes, and scoped Vortex-derived JSONL/CSV row exports are admitted through ShardLoom routes. | Arbitrary compatibility exports still require a native Vortex-derived export contract; not PySpark/pandas/Polars parity and not broad production SQL/DataFrame support. |
 | OLAP query-family coverage | ClickBench query-family readiness is tracked by `benchmarks/clickbench/queries.sql` and `scripts/check_clickbench_olap_runtime_coverage.py`; the current local map validates 43 admitted rows and 0 implementation-required rows. Rows lower through reusable native Vortex SQL primitive routes for aggregate, grouped expression, predicate, and sorted-row families, with capillary work-unit, PulseWeave pressure, scale-fixture, and fail-closed spill fields. | Coverage map only; no ClickBench performance or superiority claim without a promoted benchmark artifact. |
 | Vortex preparation | Feature-gated local `vortex_ingest` creates local `.vortex` artifacts with SourceState and VortexPreparedState evidence. | Scoped local flat-schema evidence; no broad writer, object-store, table, or performance claim. |
-| Local output/sink scope | `write_vortex(...)` is the highest-fidelity admitted native local sink for provider-backed routes. Exact provider-backed Vortex result summaries can export bounded `result_json` to workspace-safe `write_jsonl(...)` and `write_csv(...)`; scoped primitive filter/project/filter-project/distinct/tail/sample/expression-project/melt/explode/pivot/rolling-window row streams and scalar/grouped aggregate result rows can export JSONL/CSV and JSONL+CSV fanout through `native_vortex_primitive_row_export`. Scoped pivot/pivot_table JSONL emits sparse wide cells as `null`; CSV emits sparse cells as empty fields. Broader `write(...)`, unsupported formats, unsafe fanout, and arbitrary compatibility exports block until a native Vortex-derived export contract exists. | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
+| Local output/sink scope | `write_vortex(...)` is the highest-fidelity admitted native local sink for provider-backed routes and scoped structured Vortex-derived exports. Exact provider-backed Vortex result summaries can export bounded `result_json` to workspace-safe `write_jsonl(...)` and `write_csv(...)`; scoped primitive filter/project/filter-project/distinct/tail/sample/expression-project/melt/explode/pivot/rolling-window row streams and scalar/grouped aggregate result rows can export JSONL/CSV and JSONL+CSV fanout through `native_vortex_primitive_row_export`. Scoped structured expression-project row streams can export Vortex, Parquet, Arrow IPC, and Avro with explicit materialization evidence. Scoped pivot/pivot_table JSONL emits sparse wide cells as `null`; CSV emits sparse cells as empty fields. Broader `write(...)`, unsupported formats, unsafe fanout, ORC nested output, and arbitrary compatibility exports block until a native Vortex-derived export contract exists. | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
 | Prepared/native benchmark routes | Local benchmark artifacts expose cold, prepare-once, warm prepared, native Vortex, direct transient, and external-baseline lanes. | Claims depend on the selected timing surface and claim gate. |
 | Object store, lakehouse, Foundry, live/hybrid | Mostly fixture-scoped with report-only or blocked status for broader platform routes. | No production platform claim. |
 | Package/release status | The latest published technical-preview package is available through GitHub pre-release assets, TestPyPI, PyPI, and the `depsilon/tap` Homebrew formula with checked-in channel proof. | No production/platform, performance, or broad runtime claim. |
@@ -148,6 +148,21 @@ User surface graduation is tracked separately from runtime breadth. Public CLI/P
 classified as `high_level_context`, `client_only`, `diagnostic_only`, `feature_gated`, or
 `not_user_facing` by the user surface graduation matrix. A surface name alone is not a runtime
 claim.
+
+### Python/DataFrame and SQL Semantics
+
+ShardLoom does not claim broad pandas, Polars, DataFrame, or SQL-standard/ANSI-style compatibility
+labels. It claims a documented subset: admitted Python/DataFrame-style
+operations and admitted SQL-standard-inspired SELECT-query forms lower into
+ShardLoom-native/Vortex-native routes, while non-admitted behavior returns deterministic diagnostics
+with `fallback_attempted=false` and `external_engine_invoked=false`.
+
+The human-readable semantic surface lives in
+[`docs/architecture/sql-python-dataframe-front-door-parity.md`](docs/architecture/sql-python-dataframe-front-door-parity.md).
+The agent-facing source is `ctx.front_door_semantic_surface_matrix()`, which covers read APIs,
+projection, filtering, types, casts, missing data, aggregates, joins, ordering/window-ish behavior,
+reshaping, materialization, index semantics, callable/expression APIs, determinism, errors,
+fallback boundaries, and SQL parser/binder/null/subquery/window/operator semantics.
 
 ## Try It
 
@@ -249,7 +264,7 @@ declarative column rewrites, `map_rows(sl.row_transform(...))` declarative row-s
 column, scoped
 `rolling(window=<positive int>, min_periods<=window, center=False).sum/mean/count(column, alias=...)`, and
 explicit `apply(sl.plan_transform(...))` / `pipe(sl.plan_transform(...))` lazy plan composition, native
-`write_vortex` sinks, and
+`write_vortex` sinks, scoped structured Vortex/Parquet/Arrow IPC/Avro expression-project exports, and
 provider-backed bounded
 `write_jsonl`/`write_csv` result exports are listed by
 `ctx.native_vortex_provider_route_certificate_report()`; broader arbitrary Vortex SQL/DataFrame

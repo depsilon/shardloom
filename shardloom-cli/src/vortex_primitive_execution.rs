@@ -13,7 +13,7 @@ use std::process::ExitCode;
 use shardloom_core::{
     ColumnRef, CommandStatus, ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan,
     DatasetRef, DatasetUri, ExecutionCertificate, ExpectedOutcome, NativeIoCertificate,
-    OutputFormat, PredicateExpr, ShardLoomError, StatValue,
+    OutputFormat, PredicateExpr, ScalarValue, ShardLoomError, StatValue,
 };
 use shardloom_exec::{
     AdaptiveSizingPolicy, BoundedMemoryPolicy, ByteSize, EncodedStreamingBatchPlanInput,
@@ -37,13 +37,14 @@ use shardloom_vortex::{
     VortexRollingWindowRequest, VortexSelectionVectorFilterKernelAdmissionReport,
     VortexSelectionVectorFilterKernelReport, VortexSimpleAggregateMeasure,
     VortexSimpleAggregateRequest, VortexSortRowsRequest, VortexStreamingBatchRuntimeReport,
-    VortexTaskSchedulingDecision, VortexWorkAvoidedMetricKind, VortexWorkAvoidedReport,
-    admit_vortex_encoded_count_kernel, admit_vortex_selection_vector_filter_kernel,
-    build_vortex_runtime_task_graph, evaluate_vortex_encoded_predicate_segments,
-    evaluate_vortex_encoded_read_readiness, evaluate_vortex_local_encoded_count_physical_kernel,
-    evaluate_vortex_query_primitive, evaluate_vortex_query_primitive_with_analysis,
-    evaluate_vortex_selection_vector_filter_kernel, execute_vortex_bounded_local_query,
-    execute_vortex_count_all_from_approved_local_scan,
+    VortexStructuredProjectionColumn, VortexStructuredProjectionExpr,
+    VortexStructuredProjectionRequest, VortexTaskSchedulingDecision, VortexWorkAvoidedMetricKind,
+    VortexWorkAvoidedReport, admit_vortex_encoded_count_kernel,
+    admit_vortex_selection_vector_filter_kernel, build_vortex_runtime_task_graph,
+    evaluate_vortex_encoded_predicate_segments, evaluate_vortex_encoded_read_readiness,
+    evaluate_vortex_local_encoded_count_physical_kernel, evaluate_vortex_query_primitive,
+    evaluate_vortex_query_primitive_with_analysis, evaluate_vortex_selection_vector_filter_kernel,
+    execute_vortex_bounded_local_query, execute_vortex_count_all_from_approved_local_scan,
     execute_vortex_count_all_from_approved_local_scan_result,
     execute_vortex_local_primitive_with_policy, execute_vortex_local_query_primitive,
     local_encoded_count_execution_certificate, local_encoded_count_native_io_certificate,
@@ -3560,6 +3561,9 @@ fn parse_expression_project_primitive_request(
             "expression-project payload must be a JSON object".to_string(),
         )
     })?;
+    if object.contains_key("structured_columns") {
+        return parse_structured_expression_project_primitive_request(uri, object);
+    }
     let columns_value = object.get("columns").ok_or_else(|| {
         ShardLoomError::InvalidOperation(
             "expression-project payload requires a columns field".to_string(),
@@ -3611,6 +3615,137 @@ fn parse_expression_project_primitive_request(
             VortexExpressionProjectionRequest::new(rewrites),
         ),
     )
+}
+
+fn parse_structured_expression_project_primitive_request(
+    uri: DatasetUri,
+    object: &serde_json::Map<String, serde_json::Value>,
+) -> Result<shardloom_vortex::VortexQueryPrimitiveRequest, ShardLoomError> {
+    let columns_value = object.get("structured_columns").ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "expression-project structured payload requires structured_columns".to_string(),
+        )
+    })?;
+    let columns_array = columns_value.as_array().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "expression-project structured_columns must be an array".to_string(),
+        )
+    })?;
+    if columns_array.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "expression-project structured_columns must not be empty".to_string(),
+        ));
+    }
+    let mut columns = Vec::with_capacity(columns_array.len());
+    for column in columns_array {
+        columns.push(parse_structured_projection_column(column)?);
+    }
+    Ok(
+        shardloom_vortex::VortexQueryPrimitiveRequest::structured_project_rows(
+            uri,
+            VortexStructuredProjectionRequest::new(columns),
+        ),
+    )
+}
+
+fn parse_structured_projection_column(
+    value: &serde_json::Value,
+) -> Result<VortexStructuredProjectionColumn, ShardLoomError> {
+    let object = value.as_object().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "expression-project structured column must be a JSON object".to_string(),
+        )
+    })?;
+    let name = json_string_field_any(object, &["name", "alias", "output_column"])?.to_string();
+    if object.get("source").is_some() || object.get("source_column").is_some() {
+        let source = json_string_field_any(object, &["source", "source_column"])?;
+        return Ok(VortexStructuredProjectionColumn::new(
+            name,
+            VortexStructuredProjectionExpr::SourceColumn(ColumnRef::new(source)?),
+        ));
+    }
+    if let Some(array) = object.get("array").or_else(|| object.get("array_literal")) {
+        let values = array.as_array().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "expression-project structured array column requires an array literal".to_string(),
+            )
+        })?;
+        let mut scalars = Vec::with_capacity(values.len());
+        for (index, value) in values.iter().enumerate() {
+            scalars.push(parse_structured_scalar(
+                value,
+                &format!("structured array literal element {index}"),
+            )?);
+        }
+        return Ok(VortexStructuredProjectionColumn::new(
+            name,
+            VortexStructuredProjectionExpr::ArrayLiteral(scalars),
+        ));
+    }
+    if let Some(struct_value) = object
+        .get("struct")
+        .or_else(|| object.get("struct_columns"))
+    {
+        let columns = match struct_value {
+            serde_json::Value::String(value) => match parse_projection_columns(value)? {
+                ProjectionRequest::All => {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "expression-project structured struct column must name explicit source columns, not *"
+                            .to_string(),
+                    ));
+                }
+                ProjectionRequest::Columns(columns) => columns,
+            },
+            serde_json::Value::Array(values) => {
+                let mut columns = Vec::with_capacity(values.len());
+                for value in values {
+                    let Some(column) = value.as_str() else {
+                        return Err(ShardLoomError::InvalidOperation(
+                            "expression-project structured struct array must contain strings"
+                                .to_string(),
+                        ));
+                    };
+                    columns.push(ColumnRef::new(column)?);
+                }
+                columns
+            }
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(
+                    "expression-project structured struct column must be a string or string array"
+                        .to_string(),
+                ));
+            }
+        };
+        if columns.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "expression-project structured struct column requires at least one source column"
+                    .to_string(),
+            ));
+        }
+        return Ok(VortexStructuredProjectionColumn::new(
+            name,
+            VortexStructuredProjectionExpr::StructColumns(columns),
+        ));
+    }
+    Err(ShardLoomError::InvalidOperation(
+        "expression-project structured column requires source, array, or struct".to_string(),
+    ))
+}
+
+fn parse_structured_scalar(
+    value: &serde_json::Value,
+    field: &str,
+) -> Result<ScalarValue, ShardLoomError> {
+    if value.is_null() {
+        return Ok(ScalarValue::Null);
+    }
+    Ok(match parse_expression_scalar(value, field)? {
+        StatValue::Boolean(value) => ScalarValue::Boolean(value),
+        StatValue::Int64(value) => ScalarValue::Int64(value),
+        StatValue::UInt64(value) => ScalarValue::UInt64(value),
+        StatValue::Float64(value) => ScalarValue::Float64(value),
+        StatValue::Utf8(value) => ScalarValue::Utf8(value),
+    })
 }
 
 fn parse_expression_project_rewrite(

@@ -22,6 +22,29 @@ to close broad "build anything" parity and performance-equivalence evidence.
 The Python package exposes `ShardLoomContext.front_door_parity_matrix()` with schema
 `shardloom.front_door_parity_matrix.v1`.
 
+The Python package also exposes `ShardLoomContext.front_door_semantic_surface_matrix()` with schema
+`shardloom.front_door_semantic_surface_matrix.v1`. That matrix is the agent-facing source for
+semantic claim language. ShardLoom does not claim broad pandas, Polars, DataFrame, or
+SQL-standard/ANSI-style compatibility labels. The supported claims
+are:
+
+- ShardLoom exposes a familiar Python/DataFrame-style front door that lowers admitted operations
+  into ShardLoom-native/Vortex-native routes.
+- ShardLoom supports a documented subset of pandas/Polars-style DataFrame operations with
+  equivalent semantics for admitted operations, deterministic blockers for non-admitted operations,
+  and no fallback execution into pandas, Polars, DuckDB, Spark, DataFusion, or another engine.
+- ShardLoom supports a documented SQL-standard-inspired SELECT-query subset for admitted local and
+  Vortex-native routes, with documented deviations, deterministic blockers for non-admitted syntax
+  or semantics, and no external query-engine fallback.
+
+The semantic matrix covers Python/DataFrame-style construction/read APIs, selection/projection,
+filtering, type system, casts/coercion, missing data, aggregation, joins, ordering/window-ish
+behavior, reshaping, materialization, index semantics, expression/callable APIs, determinism,
+errors/blockers, and fallback boundaries. It also covers SQL parser grammar, binder/name
+resolution, type system, casts/coercion, NULL semantics, relational semantics, operator semantics,
+aggregates, joins, subqueries, windows, ordering/collation, errors/edge cases, and fallback
+boundaries.
+
 For route selection, the Python package also exposes
 `ShardLoomContext.user_route_capability_report()` with schema
 `shardloom.user_route_capability_report.v1`. The route report is the agent-facing answer to
@@ -231,10 +254,12 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   runtime and Python/DataFrame aliases as scoped `UNION`, with `sql_set_operation_*` evidence over
   already-admitted branch `SELECT` plans. Scoped decimal casts plus mixed-scale add/subtract/multiply, comparison, and exact fixed-scale
   division lower through the same ShardLoom generic-expression route from SQL and Python/DataFrame
-  helpers. Public local-source compatibility sinks, including typed nested Parquet/Arrow/Avro/CSV/
-  JSONL-style exports, remain blocked until output is derived from a certified native Vortex
-  result/export contract; local Vortex remains the highest-fidelity sink where the provider route is
-  admitted. Scoped scalar-expression `JOIN ON` predicates over qualified local sources lower through
+  helpers. Public local-source compatibility sinks must derive from a certified native Vortex
+  result/export contract: scoped structured Vortex/Parquet/Arrow IPC/Avro expression-project
+  exports are admitted through Vortex preparation plus native Vortex row export, while arbitrary
+  compatibility exports and ORC nested output remain deterministic blockers. Local Vortex remains
+  the highest-fidelity sink where the provider or scoped structured route is admitted. Scoped
+  scalar-expression `JOIN ON` predicates over qualified local sources lower through
   the bounded expression-join route, including Python `LazyFrame.join(condition=...)` predicate
   objects and logical `OR` over admitted qualified scalar leaves; complex-key and broader
   non-scalar join predicates remain deterministic blockers. Schema-declared local-source

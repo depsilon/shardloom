@@ -94,21 +94,6 @@ FRONT_DOOR_GAP_ROUTES: dict[str, dict[str, str]] = {
         "output_or_evidence_route": "front-door equivalent benchmark manifest and claim evidence pending",
         "owner": "GAR-RUNTIME-IMPL-6D:last_order.performance_equivalence",
     },
-    "typed_nested_compatibility_sink": {
-        "classification": "runtime_available_needs_output_route",
-        "vortex_normalization_point": "computed_typed_nested_to_vortex_compatibility_export_pending",
-        "runtime_route": (
-            "native Vortex/local prepared runtime exists for admitted primitive/provider query "
-            "and JSONL/CSV export shapes; computed ARRAY/STRUCT compatibility export remains "
-            "blocked until expressions lower through a certified Vortex-prepared/native route"
-        ),
-        "output_or_evidence_route": (
-            "deterministic computed typed-nested compatibility export blocker today; typed "
-            "expression lowering, structured sink replay, and metadata-loss evidence required "
-            "before Parquet/Arrow IPC/Avro compatibility output admission"
-        ),
-        "owner": "PY-VORTEX-LOCAL-EXPORT-DISTINCT-CLOSEOUT-1.typed_nested_narrowed_blocker",
-    },
 }
 
 DATAFRAME_METHOD_FRONT_DOOR_GAPS = (

@@ -686,7 +686,7 @@ plan before coding.
   runtime, exact exponent notation that normalizes to the declared target scale, plus feature-gated
   Parquet/Arrow IPC/Avro typed decimal sink preservation plus scoped local Vortex known flat scalar
   output, including nullable/all-null decimal rows when dtype evidence is present, while keeping
-  non-exact division, broad ANSI coercion beyond exact exponent normalization, decimal/float
+  non-exact division, broad SQL-standard coercion beyond exact exponent normalization, decimal/float
   comparison, and ORC typed decimal sinks blocked. The remaining advanced scalar blockers still fail
   through shared policy guards before execution with no fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D-F2 complex dtype closeout added executed conformance blockers and

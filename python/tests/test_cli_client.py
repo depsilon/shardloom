@@ -46,6 +46,7 @@ from shardloom import (
     ExecutionResultEnvelopeView,
     FoundryGeneratedOutputReport,
     FrontDoorParityMatrix,
+    FrontDoorSemanticSurfaceMatrix,
     GeneratedObjectStoreOutputReport,
     GeneratedPartitionedObjectStoreOutputReport,
     GeneratedSourceCertificateContract,
@@ -7550,22 +7551,13 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsNone(vortex.blocker_id)
         self.assertIn("Vortex-normalized", vortex.claim_boundary)
         typed_nested = matrix.row("typed_nested_compatibility_sink")
-        self.assertEqual(
-            typed_nested.parity_status,
-            "deterministic_blocker_until_native_export_contract",
-        )
-        self.assertEqual(
-            typed_nested.runtime_gap_status,
-            "native_compatibility_export_contract_missing",
-        )
-        self.assertFalse(typed_nested.write_io)
-        self.assertFalse(typed_nested.materialization_required)
-        self.assertEqual(
-            typed_nested.blocker_id,
-            "cg21.route.local_file_compatibility_sink_contract_missing",
-        )
-        self.assertIn("Computed ARRAY/STRUCT compatibility sinks", typed_nested.claim_boundary)
-        self.assertIn("separate admitted rows", typed_nested.claim_boundary)
+        self.assertTrue(typed_nested.equivalent_admitted_scope)
+        self.assertEqual(typed_nested.runtime_gap_status, "admitted_scope")
+        self.assertTrue(typed_nested.write_io)
+        self.assertTrue(typed_nested.materialization_required)
+        self.assertIsNone(typed_nested.blocker_id)
+        self.assertIn("Scoped ARRAY literal", typed_nested.claim_boundary)
+        self.assertIn("ORC nested output", typed_nested.claim_boundary)
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
         self.assertTrue(broad.broad_gap)
         self.assertEqual(broad.parity_status, "front_door_gap")
@@ -7578,8 +7570,56 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(performance.support_status, "benchmark_publication_pending")
         self.assertEqual(performance.runtime_gap_status, "benchmark_publication_pending")
         self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
-        self.assertEqual(len(matrix.admitted_rows), 6)
+        self.assertEqual(len(matrix.admitted_rows), 7)
         self.assertGreaterEqual(len(matrix.broad_gap_rows), 4)
+
+    def test_context_front_door_semantic_surface_matrix_scopes_claims(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                raise AssertionError("front-door semantic matrix must not invoke CLI")
+                """
+            )
+        )
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+
+        matrix = ctx.front_door_semantic_surface_matrix()
+
+        self.assertIsInstance(matrix, FrontDoorSemanticSurfaceMatrix)
+        self.assertEqual(
+            matrix.schema_version,
+            "shardloom.front_door_semantic_surface_matrix.v1",
+        )
+        self.assertFalse(matrix.pandas_compatible_claim_allowed)
+        self.assertFalse(matrix.polars_compatible_claim_allowed)
+        self.assertFalse(matrix.broad_dataframe_compatible_claim_allowed)
+        self.assertFalse(matrix.ansi_sql_compliant_claim_allowed)
+        self.assertTrue(matrix.all_no_fallback_no_external_engine)
+        self.assertTrue(matrix.all_deterministic_blockers)
+        self.assertIn("dataframe_materialization", matrix.dataframe_row_ids)
+        self.assertIn("sql_null_semantics", matrix.sql_row_ids)
+        self.assertIn("shared_claim_vocabulary", matrix.shared_row_ids)
+        self.assertIn(
+            "ShardLoom-native/Vortex-native routes",
+            matrix.dataframe_claim_statement,
+        )
+        self.assertIn(
+            "documented subset of pandas/Polars-style DataFrame operations",
+            matrix.dataframe_subset_claim_statement,
+        )
+        self.assertIn(
+            "SQL-standard-inspired SELECT-query subset",
+            matrix.sql_claim_statement,
+        )
+        materialization = matrix.row("dataframe_materialization")
+        self.assertEqual(materialization.surface, "dataframe")
+        self.assertIn("Decoded containers", materialization.claim_boundary)
+        sql_parser = matrix.row("sql_parser_grammar_scope")
+        self.assertEqual(sql_parser.surface, "sql")
+        self.assertIn(
+            "not broad SQL-standard/ANSI-style compliance",
+            sql_parser.claim_boundary,
+        )
 
     def test_engine_capability_matrix_streaming_capability_view(self) -> None:
         binary = self.fake_cli(

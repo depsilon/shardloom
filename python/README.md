@@ -898,6 +898,19 @@ print(parity.row("local_file_filter_project_limit").shared_runtime_path)
 print(parity.row("arbitrary_sql_python_dataframe_breadth").blocker_id)
 ```
 
+Use the semantic surface matrix when the question is "which API/SQL semantic family is covered?"
+instead of "which route is selected?" It is the agent-facing companion to the human parity doc:
+
+```python
+semantic = ctx.front_door_semantic_surface_matrix()
+
+print(semantic.dataframe_subset_claim_statement)
+print(semantic.sql_claim_statement)
+print(semantic.pandas_compatible_claim_allowed)
+print(semantic.ansi_sql_compliant_claim_allowed)
+print(semantic.row("dataframe_materialization").claim_boundary)
+```
+
 Scoped local-file rows are admitted only when they normalize through Vortex preparation or start
 from native Vortex input and then match an admitted primitive/provider route. Generated-output rows
 remain separate source-free local-output contracts. Bounded schema/data-quality previews and decoded
