@@ -5574,124 +5574,195 @@ fn apply_expression_projection_columns(
 ) -> Result<()> {
     let row_count = row_export_materialized_row_count(column_values, 0)?;
     for rewrite in &expression_projection.rewrites {
-        let target = rewrite.target_column().as_str();
-        let target_index = if let Some(index) = columns.iter().position(|column| column == target) {
-            index
-        } else if matches!(rewrite, VortexExpressionRewrite::RowNumber { .. }) {
-            columns.push(target.to_string());
-            column_values.push(vec![StatValue::Null; row_count]);
-            columns.len() - 1
-        } else {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "local Vortex expression projection target column '{target}' was not found; no fallback execution was attempted"
-            )));
-        };
-        let regex_replace = match rewrite {
-            VortexExpressionRewrite::RegexReplaceScalar { pattern, .. } => {
-                Some(Regex::new(pattern).map_err(|error| {
-                    ShardLoomError::InvalidOperation(format!(
-                        "local Vortex expression projection regex replacement pattern was invalid: {error}; no fallback execution was attempted"
-                    ))
-                })?)
-            }
-            _ => None,
-        };
+        let target_index =
+            expression_projection_target_index(columns, column_values, rewrite, row_count)?;
+        let regex_replace = expression_projection_regex_replacement(rewrite)?;
         for row_index in 0..row_count {
-            let current = column_values[target_index]
-                .get(row_index)
-                .cloned()
-                .ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex expression projection row index was out of bounds; no fallback execution was attempted"
-                            .to_string(),
-                    )
-                })?;
-            let updated = match rewrite {
-                VortexExpressionRewrite::MaskScalar {
-                    predicate,
-                    replacement,
-                    ..
-                } => {
-                    if predicate_matches_materialized_row(
-                        predicate,
-                        columns,
-                        column_values,
-                        row_index,
-                    )? {
-                        coerce_rewrite_value(&current, replacement)?
-                    } else {
-                        current
-                    }
-                }
-                VortexExpressionRewrite::ReplaceScalar {
-                    to_replace,
-                    replacement,
-                    ..
-                } => {
-                    let comparable = coerce_rewrite_value(&current, to_replace)?;
-                    if stat_value_equal(&current, &comparable) {
-                        coerce_rewrite_value(&current, replacement)?
-                    } else {
-                        current
-                    }
-                }
-                VortexExpressionRewrite::StringReplaceScalar {
-                    needle,
-                    replacement,
-                    ..
-                } => match current {
-                    StatValue::Utf8(value) => StatValue::Utf8(value.replace(needle, replacement)),
-                    _ => {
-                        return Err(ShardLoomError::InvalidOperation(
-                            "local Vortex expression projection string replacement requires a UTF-8 target column; no fallback execution was attempted"
-                                .to_string(),
-                        ));
-                    }
-                },
-                VortexExpressionRewrite::RegexReplaceScalar { replacement, .. } => match current {
-                    StatValue::Utf8(value) => {
-                        let regex = regex_replace.as_ref().ok_or_else(|| {
-                            ShardLoomError::InvalidOperation(
-                                "local Vortex expression projection regex replacement was not prepared; no fallback execution was attempted"
-                                    .to_string(),
-                            )
-                        })?;
-                        StatValue::Utf8(
-                            regex
-                                .replace_all(value.as_str(), replacement.as_str())
-                                .into_owned(),
-                        )
-                    }
-                    _ => {
-                        return Err(ShardLoomError::InvalidOperation(
-                            "local Vortex expression projection regex replacement requires a UTF-8 target column; no fallback execution was attempted"
-                                .to_string(),
-                        ));
-                    }
-                },
-                VortexExpressionRewrite::NumericScalarArithmetic {
-                    operator, operand, ..
-                } => apply_numeric_scalar_arithmetic(&current, operator, operand)?,
-                VortexExpressionRewrite::ForwardFillNull { limit, .. } => {
-                    state.apply_forward_fill(target, current, *limit)?
-                }
-                VortexExpressionRewrite::RowNumber { start, .. } => {
-                    let row_ordinal = row_number_offset
-                        .checked_add(usize_to_u64(row_index)?)
-                        .and_then(|value| value.checked_add(*start))
-                        .ok_or_else(|| {
-                            ShardLoomError::InvalidOperation(
-                                "local Vortex expression projection row-number overflowed; no fallback execution was attempted"
-                                    .to_string(),
-                            )
-                        })?;
-                    StatValue::UInt64(row_ordinal)
-                }
+            let current =
+                expression_projection_current_value(column_values, target_index, row_index)?;
+            let context = ExpressionProjectionRewriteContext {
+                columns,
+                column_values,
+                row_index,
+                row_number_offset,
+                regex_replace: regex_replace.as_ref(),
             };
+            let updated = apply_expression_projection_rewrite(rewrite, current, &context, state)?;
             column_values[target_index][row_index] = updated;
         }
     }
     Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn expression_projection_target_index(
+    columns: &mut Vec<String>,
+    column_values: &mut Vec<Vec<StatValue>>,
+    rewrite: &VortexExpressionRewrite,
+    row_count: usize,
+) -> Result<usize> {
+    let target = rewrite.target_column().as_str();
+    if let Some(index) = columns.iter().position(|column| column == target) {
+        return Ok(index);
+    }
+    if matches!(rewrite, VortexExpressionRewrite::RowNumber { .. }) {
+        columns.push(target.to_string());
+        column_values.push(vec![StatValue::Null; row_count]);
+        return Ok(columns.len() - 1);
+    }
+    Err(ShardLoomError::InvalidOperation(format!(
+        "local Vortex expression projection target column '{target}' was not found; no fallback execution was attempted"
+    )))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn expression_projection_regex_replacement(
+    rewrite: &VortexExpressionRewrite,
+) -> Result<Option<(Regex, String)>> {
+    match rewrite {
+        VortexExpressionRewrite::RegexReplaceScalar {
+            pattern,
+            replacement,
+            ..
+        } => {
+            let regex = Regex::new(pattern).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "local Vortex expression projection regex replacement pattern was invalid: {error}; no fallback execution was attempted"
+                ))
+            })?;
+            Ok(Some((
+                regex,
+                python_regex_replacement_for_rust_regex(replacement),
+            )))
+        }
+        _ => Ok(None),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn expression_projection_current_value(
+    column_values: &[Vec<StatValue>],
+    target_index: usize,
+    row_index: usize,
+) -> Result<StatValue> {
+    column_values[target_index]
+        .get(row_index)
+        .cloned()
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex expression projection row index was out of bounds; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+struct ExpressionProjectionRewriteContext<'a> {
+    columns: &'a [String],
+    column_values: &'a [Vec<StatValue>],
+    row_index: usize,
+    row_number_offset: u64,
+    regex_replace: Option<&'a (Regex, String)>,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn apply_expression_projection_rewrite(
+    rewrite: &VortexExpressionRewrite,
+    current: StatValue,
+    context: &ExpressionProjectionRewriteContext<'_>,
+    state: &mut ExpressionProjectionState,
+) -> Result<StatValue> {
+    match rewrite {
+        VortexExpressionRewrite::MaskScalar {
+            predicate,
+            replacement,
+            ..
+        } => {
+            if predicate_matches_materialized_row(
+                predicate,
+                context.columns,
+                context.column_values,
+                context.row_index,
+            )? {
+                coerce_rewrite_value(&current, replacement)
+            } else {
+                Ok(current)
+            }
+        }
+        VortexExpressionRewrite::ReplaceScalar {
+            to_replace,
+            replacement,
+            ..
+        } => {
+            let comparable = coerce_rewrite_value(&current, to_replace)?;
+            if stat_value_equal(&current, &comparable) {
+                coerce_rewrite_value(&current, replacement)
+            } else {
+                Ok(current)
+            }
+        }
+        VortexExpressionRewrite::StringReplaceScalar {
+            needle,
+            replacement,
+            ..
+        } => match current {
+            StatValue::Utf8(value) => Ok(StatValue::Utf8(value.replace(needle, replacement))),
+            _ => Err(ShardLoomError::InvalidOperation(
+                "local Vortex expression projection string replacement requires a UTF-8 target column; no fallback execution was attempted"
+                    .to_string(),
+            )),
+        },
+        VortexExpressionRewrite::RegexReplaceScalar { .. } => {
+            apply_regex_expression_projection_rewrite(current, context.regex_replace)
+        }
+        VortexExpressionRewrite::NumericScalarArithmetic {
+            operator, operand, ..
+        } => apply_numeric_scalar_arithmetic(&current, operator, operand),
+        VortexExpressionRewrite::ForwardFillNull { limit, .. } => state.apply_forward_fill(
+            rewrite.target_column().as_str(),
+            current,
+            *limit,
+        ),
+        VortexExpressionRewrite::RowNumber { start, .. } => {
+            let row_ordinal = context
+                .row_number_offset
+                .checked_add(usize_to_u64(context.row_index)?)
+                .and_then(|value| value.checked_add(*start))
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex expression projection row-number overflowed; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+            Ok(StatValue::UInt64(row_ordinal))
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn apply_regex_expression_projection_rewrite(
+    current: StatValue,
+    regex_replace: Option<&(Regex, String)>,
+) -> Result<StatValue> {
+    match current {
+        StatValue::Utf8(value) => {
+            let (regex, replacement) = regex_replace.ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex expression projection regex replacement was not prepared; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            Ok(StatValue::Utf8(
+                regex
+                    .replace_all(value.as_str(), replacement.as_str())
+                    .into_owned(),
+            ))
+        }
+        _ => Err(ShardLoomError::InvalidOperation(
+            "local Vortex expression projection regex replacement requires a UTF-8 target column; no fallback execution was attempted"
+                .to_string(),
+        )),
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -5736,6 +5807,60 @@ impl ExpressionProjectionState {
             }
         }
     }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn python_regex_replacement_for_rust_regex(replacement: &str) -> String {
+    let mut translated = String::with_capacity(replacement.len());
+    let mut chars = replacement.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '$' {
+            translated.push_str("$$");
+            continue;
+        }
+        if ch != '\\' {
+            translated.push(ch);
+            continue;
+        }
+        let Some(next) = chars.next() else {
+            translated.push('\\');
+            break;
+        };
+        if next.is_ascii_digit() && next != '0' {
+            let mut group = String::from(next);
+            while chars.peek().is_some_and(char::is_ascii_digit) {
+                group.push(chars.next().expect("peeked digit"));
+            }
+            translated.push_str("${");
+            translated.push_str(&group);
+            translated.push('}');
+            continue;
+        }
+        if next == 'g' && chars.peek() == Some(&'<') {
+            let _ = chars.next();
+            let mut name = String::new();
+            let mut closed = false;
+            for part in chars.by_ref() {
+                if part == '>' {
+                    closed = true;
+                    break;
+                }
+                name.push(part);
+            }
+            if closed && !name.is_empty() {
+                translated.push_str("${");
+                translated.push_str(&name);
+                translated.push('}');
+            } else {
+                translated.push_str("\\g<");
+                translated.push_str(&name);
+            }
+            continue;
+        }
+        translated.push('\\');
+        translated.push(next);
+    }
+    translated
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -16509,6 +16634,18 @@ mod tests {
     }
 
     #[test]
+    fn expression_project_regex_replacement_translates_python_backrefs() {
+        assert_eq!(
+            python_regex_replacement_for_rust_regex(r"\1foo$\g<name>\g<2>"),
+            "${1}foo$$${name}${2}"
+        );
+        assert_eq!(
+            python_regex_replacement_for_rust_regex(r"\g<unterminated"),
+            r"\g<unterminated"
+        );
+    }
+
+    #[test]
     fn expression_project_row_export_writes_regex_replacement_rows_without_fallback() {
         let path = unique_vortex_path("expression-project-regex-replace");
         let output_path =
@@ -16520,8 +16657,8 @@ mod tests {
             VortexExpressionProjectionRequest::new(vec![
                 VortexExpressionRewrite::RegexReplaceScalar {
                     target_column: ColumnRef::new("label").expect("column"),
-                    pattern: "^bad".to_string(),
-                    replacement: "ok".to_string(),
+                    pattern: "^(bad)(.*)$".to_string(),
+                    replacement: "\\1-fixed\\2".to_string(),
                 },
             ]),
         );
@@ -16549,7 +16686,7 @@ mod tests {
         assert_eq!(report.projected_columns, vec!["label".to_string()]);
         assert_eq!(
             rows,
-            "{\"label\":\"ok\"}\n{\"label\":\"good\"}\n{\"label\":\"okly\"}\n"
+            "{\"label\":\"bad-fixed\"}\n{\"label\":\"good\"}\n{\"label\":\"bad-fixedly\"}\n"
         );
         assert!(report.evidence.pushdown.projection_pushdown_applied);
         assert!(!report.evidence.side_effects.fallback_attempted);

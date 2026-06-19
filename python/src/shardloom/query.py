@@ -13343,9 +13343,25 @@ def _vortex_expression_scalar_payload(
     *,
     target_dtype: str,
 ) -> dict[str, object] | None:
-    if value is None:
-        return {"type": "null", "value": None}
     dtype = target_dtype.strip().lower().replace("-", "_")
+    supported_dtype = dtype in {
+        "bool",
+        "boolean",
+        "int64",
+        "int",
+        "integer",
+        "uint64",
+        "uint",
+        "unsigned",
+        "float64",
+        "float",
+        "double",
+        "utf8",
+        "string",
+        "str",
+    }
+    if value is None:
+        return {"type": "null", "value": None} if supported_dtype else None
     if dtype in {"bool", "boolean"}:
         if isinstance(value, bool):
             return {"type": "boolean", "value": value}
