@@ -49,6 +49,24 @@ Publication completion addendum, 2026-06-16:
 
 Patch train addendum, 2026-06-16:
 
+- v0.1.7 is prepared as the next compatible post-v0.1.6 patch train for release-evidence
+  hardening and native Vortex runtime review polish after PRs #1307 and #1308. It must receive its
+  own GitHub, TestPyPI, PyPI, and Homebrew channel proofs before package-channel matrices or public
+  install docs mark v0.1.7 published.
+- Patch release notes live in `docs/release/v0.1.7-release-notes.md`.
+
+- v0.1.6 is published as a GitHub pre-release at source revision
+  `3d6dca279ca965c9d128e4963273590f584956df`. TestPyPI, PyPI, Homebrew, and checked-in
+  channel-proof transcript status remain governed by the selected package-channel matrix until a
+  later release pass advances them.
+- Patch release notes live in `docs/release/v0.1.6-release-notes.md`.
+
+- v0.1.5 is published as a GitHub pre-release at source revision
+  `4d1bd2e4d9d16af300566a87de66b9a09da51eee`. TestPyPI, PyPI, Homebrew, and checked-in
+  channel-proof transcript status remain governed by the selected package-channel matrix until a
+  later release pass advances them.
+- Patch release notes live in `docs/release/v0.1.5-release-notes.md`.
+
 - v0.1.4 is published and proof-backed through GitHub pre-release assets, TestPyPI, PyPI, and
   Homebrew. It is the compatible post-v0.1.3 patch train for runtime activation summaries, bundled
   CLI package resolution, provider runtime feature wiring, and release-user surface documentation.
