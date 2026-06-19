@@ -5,15 +5,15 @@
   "public_release_ready": true,
   "post_release_verification_ready": true,
   "approval_artifact_ref": "target/final-release-approval/maintainer-approval.json",
-  "approved_release_tag": "v0.1.4",
-  "approved_release_commit": "184ce3161f3ae280e7b17bcfc5bf2d647d6fb8b8",
+  "approved_release_tag": "v0.1.8",
+  "approved_release_commit": "7fad4188e9d6eaac21ca8c2634e168a683bfef15",
   "approved_package_channels": [
     "github_prerelease",
     "testpypi",
     "pypi",
     "homebrew_tap"
   ],
-  "claim_boundary": "Maintainer approval and selected-channel proof exist for the v0.1.4 GitHub release, TestPyPI, PyPI, and Homebrew publication sequence. This allows technical-preview install access only. It does not allow production, performance, Spark-replacement, object-store, lakehouse, Foundry, broad SQL/DataFrame, broad runtime, future package-channel, or fallback-execution claims.",
+  "claim_boundary": "Maintainer approval and selected-channel proof exist for the v0.1.8 GitHub release, TestPyPI, PyPI, and Homebrew publication sequence. This allows technical-preview install access only. It does not allow production, performance, Spark-replacement, object-store, lakehouse, Foundry, broad SQL/DataFrame, broad runtime, future package-channel, or fallback-execution claims.",
   "fallback_boundary": "Post-release verification must prove ShardLoom runtime paths keep fallback_attempted=false and external_engine_invoked=false. Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or another external query engine as fallback execution.",
   "verification_rows": [
     {
@@ -28,7 +28,7 @@
       "row_id": "first_10_minutes_public_smoke",
       "verification_status": "passed",
       "required_evidence": "public package install followed by first-10-minutes commands and transcript",
-      "evidence_ref": "docs/release/channel-proofs/pypi-v0.1.4-transcript.json",
+      "evidence_ref": "docs/release/channel-proofs/pypi-v0.1.8-transcript.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
@@ -37,7 +37,7 @@
       "verification_status": "passed",
       "required_evidence": "golden workflow validator transcript over the public package or approved release artifact",
       "evidence_ref": "target/golden-workflow-report.json",
-      "approved_release_artifact_ref": "docs/release/channel-proofs/github-prerelease-v0.1.4-transcript.json",
+      "approved_release_artifact_ref": "docs/release/channel-proofs/github-prerelease-v0.1.8-transcript.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
@@ -45,7 +45,7 @@
       "row_id": "no_fallback_runtime_smoke",
       "verification_status": "passed",
       "required_evidence": "runtime envelope or Python client smoke showing fallback_attempted=false and external_engine_invoked=false",
-      "evidence_ref": "docs/release/channel-proofs/homebrew-v0.1.4-transcript.json",
+      "evidence_ref": "docs/release/channel-proofs/homebrew-v0.1.8-transcript.json",
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
@@ -75,5 +75,5 @@
   "signing_key_used": false,
   "fallback_attempted": false,
   "external_engine_invoked": false,
-  "selected_v0_1_0_publication_status": "published_and_verified_v0.1.4"
+  "selected_v0_1_0_publication_status": "published_and_verified_v0.1.8"
 }

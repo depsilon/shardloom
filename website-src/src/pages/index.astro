@@ -31,6 +31,7 @@ const firstHotRows: Record<string, unknown>[] = hotShardLoomRows
   .filter((row: Record<string, unknown>) => ["ShardLoom Warm Prepared Query", "ShardLoom Native Vortex Query", "ShardLoom Cold Certified Route"].includes(value(row, "Route")))
   .sort((left: Record<string, unknown>, right: Record<string, unknown>) => value(left, "Surface route geomean").localeCompare(value(right, "Surface route geomean")));
 const manifestAny = manifest as any;
+const selectedPackageReleaseTag = "v0.1.8";
 ---
 
 <SiteLayout title="ShardLoom" description="Evidence-gated compute over Vortex-native routes, explicit outputs, and claim-safe benchmark proof." path="/" active="home">
@@ -107,7 +108,7 @@ const manifestAny = manifest as any;
     <div>
       <p class="eyebrow">Try it</p>
       <h2>Start with the package surface.</h2>
-      <p class="narrow">The public site shows runnable local posture and the selected local/source/package v1 release track without implying production support or broad SQL/DataFrame readiness. GitHub pre-release assets, TestPyPI, PyPI, and Homebrew are the current v0.1.0 package channels with proof refs.</p>
+      <p class="narrow">The public site shows runnable local posture and the selected local/source/package v1 release track without implying production support or broad SQL/DataFrame readiness. GitHub pre-release assets, TestPyPI, PyPI, and Homebrew are the current {selectedPackageReleaseTag} package channels with proof refs.</p>
     </div>
     <div class="code-panel">
       <div class="panel-label">Python surface shape</div>

@@ -15,9 +15,10 @@ The goal is to reduce friction without overclaiming:
 - Foundry dev-stack starter kit
 - workflow recipes library
 
-This document records the package-channel architecture and current v0.1.0 approval path. It does
-not itself publish packages, create release tags, expand runtime behavior, invoke external services,
-claim Foundry production support, make performance claims, or authorize fallback execution.
+This document records the package-channel architecture and current v0.1.8 proof-backed selected
+channel path. It does not itself publish packages, create release tags, expand runtime behavior,
+invoke external services, claim Foundry production support, make performance claims, or authorize
+fallback execution.
 
 ## External Channel Grounding
 
@@ -39,8 +40,8 @@ Reference docs:
 
 ## Current ShardLoom State
 
-Current local proof exists and v0.1.0 publication is approved for GitHub, TestPyPI, PyPI, and
-Homebrew, but public distribution is not complete:
+Current local proof exists and v0.1.8 selected-channel publication is proof-backed for GitHub,
+TestPyPI, PyPI, and Homebrew:
 
 - `scripts/release_dry_run_proof.py` builds local artifacts, installs the local wheel in a clean
   virtual environment, resolves the local CLI, runs smoke checks, runs scoped generated-source local
@@ -58,10 +59,9 @@ Homebrew, but public distribution is not complete:
   optional Markdown summaries, and redaction reports.
 - `website/status.html` is a public posture board with a generated buyer-facing "Can I use this?"
   matrix sourced from the universal compatibility scoreboard and package-channel readiness matrix.
-- Real package publication, release tags, OCI pushes, Scoop/winget/conda-forge submission,
-  crates.io publication, lineage/telemetry backend export, and managed observability integration
-  remain blocked until release and opt-in evidence gates pass. Homebrew is selected for v0.1.0, but
-  its formula/install proof remains missing until the GitHub release assets exist.
+- Future release tags, OCI pushes, Scoop/winget/conda-forge submission, crates.io publication,
+  lineage/telemetry backend export, and managed observability integration remain blocked until
+  release and opt-in evidence gates pass. Homebrew is selected and proof-backed for v0.1.8.
 
 ## One-Command Local Proof Target
 
@@ -97,10 +97,10 @@ python scripts\check_package_channel_readiness.py
 
 | Channel | Target | Current status | Required proof before ready |
 | --- | --- | --- | --- |
-| GitHub pre-release | Source archive plus built artifacts | `ready` / proof-backed selected v0.1.0 channel | Tag/release creation, checksums, SBOM, provenance, install/smoke transcript, rollback/delete policy. |
-| TestPyPI | Python package `shardloom` | `ready` / proof-backed selected v0.1.0 channel | Trusted Publisher upload, clean install, uninstall, CLI-backed smoke, no token committed. |
-| PyPI | Python package `shardloom` | `ready` / proof-backed selected v0.1.0 channel | PyPI Trusted Publisher/OIDC, prior TestPyPI proof, clean install, uninstall, CLI-backed smoke, SBOM/checksum/provenance, yank policy. |
-| Homebrew tap | CLI formula | `ready` / proof-backed selected v0.1.0 channel | Tap/formula proof against immutable GitHub v0.1.0 source archive, versioned artifact checksum, install/uninstall, smoke, rollback/deprecate policy. |
+| GitHub pre-release | Source archive plus built artifacts | `ready` / proof-backed selected v0.1.8 channel | Tag/release creation, checksums, SBOM, provenance, install/smoke transcript, rollback/delete policy. |
+| TestPyPI | Python package `shardloom` | `ready` / proof-backed selected v0.1.8 channel | Trusted Publisher upload, clean install, uninstall, CLI-backed smoke, no token committed. |
+| PyPI | Python package `shardloom` | `ready` / proof-backed selected v0.1.8 channel | PyPI Trusted Publisher/OIDC, prior TestPyPI proof, clean install, uninstall, CLI-backed smoke, SBOM/checksum/provenance, yank policy. |
+| Homebrew tap | CLI formula | `ready` / proof-backed selected v0.1.8 channel | Tap/formula proof against immutable GitHub v0.1.8 source archive, versioned artifact checksum, install/uninstall, smoke, rollback/deprecate policy. |
 | Scoop | Windows CLI manifest | `blocked` | Bucket manifest, checksum, install/uninstall, smoke, update policy. |
 | winget | Windows package manifest | `blocked` | winget manifest, repository submission validation, install/uninstall, smoke, update/rollback policy. |
 | conda-forge | `shardloom-cli`, `shardloom-python`, `shardloom` | `blocked` | staged-recipes/feedstock proof, clean Conda install, smoke, no fallback dependencies, maintainer policy. |

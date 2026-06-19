@@ -14,6 +14,9 @@ This gate keeps ShardLoom's active Rust/Vortex version surfaces centralized:
   `scripts/sync_workspace_package_versions.py`.
 - CI and release evidence use `scripts/release_report_utils.py` instead of
   duplicating current-version literals.
+- The selected already-published package-channel proof version is centralized in
+  `scripts/release_channel_contract.py`; it may intentionally lag the source
+  version during a release-prep window.
 """
 
 from __future__ import annotations
@@ -24,6 +27,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+from release_channel_contract import (
+    SELECTED_PACKAGE_CHANNEL_STATUS_MARKER,
+    SELECTED_PACKAGE_RELEASE_TAG,
+    SELECTED_PACKAGE_RELEASE_VERSION,
+)
 from release_report_utils import (
     fail_closed_fields,
     load_json,
@@ -308,6 +316,22 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             marker,
         )
 
+    release_channel_contract = read_text(
+        repo_root / "scripts" / "release_channel_contract.py",
+        missing_ok=True,
+    )
+    for marker in [
+        "SELECTED_PACKAGE_RELEASE_VERSION",
+        "SELECTED_PACKAGE_RELEASE_TAG",
+        "SELECTED_PACKAGE_CHANNEL_STATUS_MARKER",
+    ]:
+        require_marker(
+            blockers,
+            "scripts/release_channel_contract.py",
+            release_channel_contract,
+            marker,
+        )
+
     ci_env_writer = read_text(repo_root / "scripts/write_ci_version_env.py", missing_ok=True)
     require_marker(
         blockers,
@@ -454,6 +478,12 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "version_env": version_env,
         "workspace_package_version_source": "Cargo.toml#[workspace.package].version",
         "workspace_package_version": package_version,
+        "selected_package_release_version_source": (
+            "scripts/release_channel_contract.py#SELECTED_PACKAGE_RELEASE_VERSION"
+        ),
+        "selected_package_release_version": SELECTED_PACKAGE_RELEASE_VERSION,
+        "selected_package_release_tag": SELECTED_PACKAGE_RELEASE_TAG,
+        "selected_package_channel_status_marker": SELECTED_PACKAGE_CHANNEL_STATUS_MARKER,
         "derived_package_version_sources": [
             "python/src/shardloom/_version.py",
             "website-src/package.json",

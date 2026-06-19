@@ -31,6 +31,9 @@ from release_report_utils import (
     workspace_version_env,
 )
 from release_channel_contract import (
+    SELECTED_PACKAGE_CHANNEL_STATUS_MARKER,
+    SELECTED_PACKAGE_RELEASE_TAG,
+    SELECTED_PACKAGE_RELEASE_VERSION,
     SELECTED_V0_1_0_FEASIBILITY_STATUS,
     SELECTED_V0_1_0_PUBLICATION_AUTHORIZATION_STATUS,
     SELECTED_V0_1_0_RELEASE_CHANNEL_IDS,
@@ -7241,6 +7244,14 @@ class ReleaseScriptTests(unittest.TestCase):
             "--check\n",
             encoding="utf-8",
         )
+        release_channel_contract = root / "scripts" / "release_channel_contract.py"
+        release_channel_contract.write_text(
+            f"SELECTED_PACKAGE_RELEASE_VERSION = {SELECTED_PACKAGE_RELEASE_VERSION!r}\n"
+            f"SELECTED_PACKAGE_RELEASE_TAG = {SELECTED_PACKAGE_RELEASE_TAG!r}\n"
+            "SELECTED_PACKAGE_CHANNEL_STATUS_MARKER = "
+            f"{SELECTED_PACKAGE_CHANNEL_STATUS_MARKER!r}\n",
+            encoding="utf-8",
+        )
         (root / "scripts" / "write_ci_version_env.py").write_text(
             (
                 "from release_report_utils import rust_toolchain_version\n"
@@ -10006,6 +10017,19 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIn(
             "docs/architecture/effectful-operation-admission-matrix.md",
             report["active_doc_version_literal_audit_paths"],
+        )
+        self.assertEqual(
+            report["selected_package_release_version_source"],
+            "scripts/release_channel_contract.py#SELECTED_PACKAGE_RELEASE_VERSION",
+        )
+        self.assertEqual(
+            report["selected_package_release_version"],
+            SELECTED_PACKAGE_RELEASE_VERSION,
+        )
+        self.assertEqual(report["selected_package_release_tag"], SELECTED_PACKAGE_RELEASE_TAG)
+        self.assertEqual(
+            report["selected_package_channel_status_marker"],
+            SELECTED_PACKAGE_CHANNEL_STATUS_MARKER,
         )
         self.assertFalse(report["fallback_attempted"])
         self.assertFalse(report["external_engine_invoked"])
@@ -13028,6 +13052,7 @@ jobs:
                 clean_conda_required=False,
                 package_python=repo_root / "tools" / "python3.12",
                 package_python_version="3.12.13",
+                clean_conda_python_version="3.12",
             )
 
             report = json.loads(transcript.read_text(encoding="utf-8"))
@@ -13042,6 +13067,7 @@ jobs:
             self.assertEqual(report["package_python"], "tools/python3.12")
             self.assertEqual(report["package_python_version"], "3.12.13")
             self.assertEqual(report["package_python_min_version"], "3.10")
+            self.assertEqual(report["clean_conda_env_python_version_requested"], "3.12")
             self.assertNotIn(str(repo_root), json.dumps(report, sort_keys=True))
 
     def test_release_dry_run_transcript_redacts_command_paths(self) -> None:
@@ -13090,6 +13116,25 @@ jobs:
 
             self.assertEqual(selected, py312.resolve())
             self.assertEqual(version, "3.12.13")
+
+    def test_release_dry_run_clean_conda_python_matches_package_wheel_by_default(self) -> None:
+        module = self._load_script_module(
+            "release_dry_run_proof.py",
+            "release_dry_run_proof_conda_python_selection_for_test",
+        )
+
+        self.assertEqual(
+            module.conda_python_version_for_package_wheel("match-package", "3.12.13"),
+            "3.12",
+        )
+        self.assertEqual(
+            module.conda_python_version_for_package_wheel("auto", "3.13.1"),
+            "3.13",
+        )
+        self.assertEqual(
+            module.conda_python_version_for_package_wheel("3.11", "3.12.13"),
+            "3.11",
+        )
 
     def test_release_dry_run_python_artifact_build_falls_back_to_wheel_and_sdist(self) -> None:
         module = self._load_script_module(

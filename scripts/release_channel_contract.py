@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 # SPDX-License-Identifier: Apache-2.0
-"""Shared release-channel contract for ShardLoom technical-preview publication."""
+"""Shared selected-channel contract for ShardLoom technical-preview publication.
+
+This file owns the already-published package-channel proof version. The current
+source/package-prep version remains rooted in Cargo.toml and may be ahead of
+this contract while a patch release is being prepared.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +19,7 @@ SELECTED_V0_1_0_RELEASE_CHANNEL_IDS = [
     "homebrew_tap",
 ]
 
-SELECTED_PACKAGE_RELEASE_VERSION = "0.1.4"
+SELECTED_PACKAGE_RELEASE_VERSION = "0.1.8"
 SELECTED_PACKAGE_RELEASE_TAG = f"v{SELECTED_PACKAGE_RELEASE_VERSION}"
 SELECTED_PACKAGE_CHANNEL_STATUS_MARKER = (
     f"published_v{SELECTED_PACKAGE_RELEASE_VERSION}_selected_channels"

@@ -2,10 +2,10 @@
 
 # Maintainer Publication Handoff
 
-Status: release handoff packet after `RELEASE-PACKAGE-15`, amended for approved v0.1.0
-GitHub/TestPyPI/PyPI/Homebrew publication sequencing. This document does not itself create tags,
-publish packages, sign artifacts, upload SBOMs, submit package-channel manifests, add secrets, or
-authorize fallback execution.
+Status: release handoff packet after `RELEASE-PACKAGE-15`, amended through the proof-backed v0.1.8
+GitHub/TestPyPI/PyPI/Homebrew selected-channel publication sequence. This document does not itself
+create tags, publish packages, sign artifacts, upload SBOMs, submit package-channel manifests, add
+secrets, or authorize fallback execution.
 
 Date: 2026-06-13
 
@@ -38,7 +38,7 @@ V1 local/source/package track addendum, 2026-06-15:
 
 Publication completion addendum, 2026-06-16:
 
-- The selected v0.1.0 channels are published and proof-backed: GitHub pre-release assets,
+- The selected v0.1.8 channels are published and proof-backed: GitHub pre-release assets,
   TestPyPI, PyPI, and Homebrew.
 - Channel proofs are checked in under `docs/release/channel-proofs/`.
 - Future channels remain blocked: Scoop, winget, conda-forge, GHCR, and crates.io public API
@@ -49,11 +49,17 @@ Publication completion addendum, 2026-06-16:
 
 Patch train addendum, 2026-06-16:
 
-- v0.1.8 is prepared as the next compatible post-v0.1.7 patch train for ClickBench runtime
+- v0.1.9 is prepared as the next compatible post-v0.1.8 patch train for PR #1319 Codex review
+  closeout: expression-project null-scalar admission, fail-closed arithmetic/replace scalar
+  parsing, Python-style regex replacement backreference lowering, and selected-channel proof
+  cleanup. It must receive its own GitHub, TestPyPI, PyPI, and Homebrew channel proofs before
+  package-channel matrices or public install docs mark v0.1.9 published.
+- Patch release notes live in `docs/release/v0.1.9-release-notes.md`.
+
+- v0.1.8 is published and proof-backed through GitHub pre-release, TestPyPI, PyPI, and Homebrew.
+  It is the compatible post-v0.1.7 patch train for ClickBench runtime
   readiness fields, capillary/PulseWeave memory and spill diagnostics, DataFrame future-contract
   blocker IDs, and native Vortex explode companion-column preservation after PRs #1311 and #1312.
-  It must receive its own GitHub, TestPyPI, PyPI, and Homebrew channel proofs before
-  package-channel matrices or public install docs mark v0.1.8 published.
 - Patch release notes live in `docs/release/v0.1.8-release-notes.md`.
 
 - v0.1.7 is prepared as the next compatible post-v0.1.6 patch train for release-evidence
@@ -198,12 +204,12 @@ handoff packet.
 
 ## Decision Summary
 
-Maintainer approval is recorded for the v0.1.0 GitHub pre-release, TestPyPI, PyPI, and Homebrew
-publication sequence. The current repository has local release-candidate evidence for build,
-package smoke, SBOM/checksum/provenance dry run, package-channel readiness classification,
-production-usability blocking, final no-publication rehearsal, and current benchmark-publication
-artifacts. Public release/package claims remain disallowed until the selected channels are actually
-published and verified with channel-specific proof.
+Maintainer approval and proof are recorded for the v0.1.8 GitHub pre-release, TestPyPI, PyPI, and
+Homebrew selected-channel publication sequence. The current repository has release-candidate
+evidence for build, package smoke, SBOM/checksum/provenance dry run, package-channel readiness
+classification, production-usability blocking, final no-publication rehearsal, and current
+benchmark-publication artifacts. Public package install claims are allowed only for the selected
+proof-backed technical-preview channels.
 
 Allowed now:
 
@@ -212,18 +218,17 @@ Allowed now:
 - Scoped local usability evidence with `public_release_claim_allowed=false`.
 - Current scoped full-local benchmark-publication evidence with public performance claims still
   disallowed.
-- Package-channel planning and maintainer review.
-- v0.1.0 release preparation for GitHub pre-release, TestPyPI, PyPI, and Homebrew, subject to the
-  ordered channel-proof sequence.
+- Selected v0.1.8 package-channel install proof for GitHub pre-release, TestPyPI, PyPI, and
+  Homebrew.
 
 Not allowed now:
 
 - conda-forge, Scoop, winget, GHCR, or crates.io publication.
 - Signing key use or public attestation generation.
-- Uploading unrelated feedstocks, manifests, images, or package artifacts outside the approved
-  v0.1.0 GitHub/TestPyPI/PyPI/Homebrew sequence.
-- Production, performance, Spark-replacement, Foundry/platform, broad SQL/DataFrame,
-  object-store/lakehouse, or package-availability claims before channel verification.
+- Uploading unrelated feedstocks, manifests, images, or package artifacts outside a newly approved
+  release sequence.
+- Production, performance, Spark-replacement, Foundry/platform, broad SQL/DataFrame, or
+  object-store/lakehouse claims.
 
 ## Evidence Packet
 
@@ -277,9 +282,9 @@ signing/attestation policy, and destination channels.
 
 The hard release gate remains blocked by:
 
-- Package-channel readiness is no longer blocked for the selected v0.1.0 channels; GitHub
+- Package-channel readiness is no longer blocked for the selected v0.1.8 channels; GitHub
   pre-release, TestPyPI, PyPI, and Homebrew proofs are attached.
-- Publication/API/schema stability: functional v1 surfaces are approved as stable for v0.1.0, but
+- Publication/API/schema stability: functional v1 surfaces are approved as stable for v0.1.8, but
   production compatibility, signing, future package-channel, and broad runtime claims still require
   separate proof.
 - Per-claim evidence: release, package, performance, Spark-displacement, production, platform, and
@@ -312,10 +317,10 @@ Current local release evidence that is no longer a hard-gate blocker:
 
 | Channel | Current status | Remaining action required before publication/proof |
 | --- | --- | --- |
-| GitHub pre-release | Ready for v0.1.0 | Release/tag/assets/checksum/SBOM/provenance download proof: `docs/release/channel-proofs/github-prerelease-v0.1.0-transcript.json`. |
-| TestPyPI | Ready for v0.1.0 | Trusted Publisher upload and clean registry install/uninstall/smoke proof: `docs/release/channel-proofs/testpypi-v0.1.0-transcript.json`. |
-| PyPI | Ready for v0.1.0 | Trusted Publisher upload after TestPyPI proof and clean public install/uninstall/smoke proof: `docs/release/channel-proofs/pypi-v0.1.0-transcript.json`. |
-| Homebrew tap | Ready for v0.1.0 | Tap/formula audit/style/test plus source build install/uninstall/smoke proof: `docs/release/channel-proofs/homebrew-v0.1.0-transcript.json`. |
+| GitHub pre-release | Published/proof-backed for v0.1.8 | Release/tag/assets/checksum/SBOM/provenance download proof: `docs/release/channel-proofs/github-prerelease-v0.1.8-transcript.json`. |
+| TestPyPI | Published/proof-backed for v0.1.8 | Trusted Publisher upload and clean registry install/uninstall/smoke proof: `docs/release/channel-proofs/testpypi-v0.1.8-transcript.json`. |
+| PyPI | Published/proof-backed for v0.1.8 | Trusted Publisher upload after TestPyPI proof and clean public install/uninstall/smoke proof: `docs/release/channel-proofs/pypi-v0.1.8-transcript.json`. |
+| Homebrew tap | Published/proof-backed for v0.1.8 | Tap/formula audit/style/test plus source build install/uninstall/smoke proof: `docs/release/channel-proofs/homebrew-v0.1.8-transcript.json`. |
 | Scoop | Blocked | Approve bucket manifest, checksums, install/uninstall/smoke transcript, update/rollback policy. |
 | winget | Blocked | Approve manifest/submission, installer proof, install/uninstall/smoke transcript, update/rollback policy. |
 | conda-forge | Blocked | Approve staged-recipes/feedstock submission, clean feedstock install/uninstall/smoke, maintainer policy. |
@@ -324,7 +329,7 @@ Current local release evidence that is no longer a hard-gate blocker:
 
 ## Approval Record
 
-Publication approval for v0.1.0 is recorded in
+Publication approval for v0.1.8 is recorded in
 `docs/release/final-release-approval-post-release-verification.json`. The approved channels are
 GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof now records:
 
@@ -336,7 +341,7 @@ GitHub pre-release, TestPyPI, PyPI, and Homebrew. Channel proof now records:
 - Approved secrets/OIDC/environment setup for each selected channel.
 - Passing strict hard release gate for the approved source revision.
 
-Selected-channel package install claims are now allowed for v0.1.0. Production, performance,
+Selected-channel package install claims are now allowed for v0.1.8. Production, performance,
 Spark-replacement, platform, broad runtime, future package-channel, and fallback-execution claims
 remain prohibited.
 

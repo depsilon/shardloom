@@ -103,8 +103,8 @@ CI evidence for the checked-in release-hardening surface.
 
 It does not allow:
 
-- GitHub Release creation, release tags, TestPyPI/PyPI upload, or Homebrew publication without the
-  approved v0.1.0 channel-proof sequence
+- GitHub Release creation, release tags, TestPyPI/PyPI upload, or Homebrew publication without a
+  fresh approved channel-proof sequence
 - Scoop, winget, conda-forge, GHCR, or crates.io publication
 - signing key use or public attestation publication
 - production readiness claims
