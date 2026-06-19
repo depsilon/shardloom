@@ -31,7 +31,7 @@ Foundry-style imports:
 python -m pip install -e python
 ```
 
-The source package exposes the v0.1.5 technical-preview version through
+The source package exposes the v0.1.6 technical-preview version through
 `shardloom.__version__`. The selected published package channels are currently proof-backed at
 v0.1.4 until the next release pass advances the checked-in channel-proof contract. The PyPI package
 is published as `shardloom==0.1.4`; GitHub release assets and the `depsilon/tap/shardloom` Homebrew
@@ -1547,7 +1547,7 @@ report-only surfaces into runtime support.
 
 ## Package Build Smoke
 
-The current source package is v0.1.5; the latest selected published channel proof remains v0.1.4
+The current source package is v0.1.6; the latest selected published channel proof remains v0.1.4
 until the next release pass updates the release contract. It is a Python client surface over
 ShardLoom's CLI, with bundled CLI resources in supported platform wheels.
 Bundled platform-wheel readiness can be checked locally without publishing:
