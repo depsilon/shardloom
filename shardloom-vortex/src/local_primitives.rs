@@ -21,11 +21,11 @@ use shardloom_plan::ProjectionRequest;
 
 #[cfg(feature = "vortex-local-primitives")]
 use crate::{
-    VortexAggregateExpression, VortexAggregateHavingExpr, VortexEncodedValuePredicateBatch,
-    VortexExplodeProjectionRequest, VortexExpressionProjectionRequest, VortexExpressionRewrite,
-    VortexMeltProjectionRequest, VortexPivotProjectionRequest,
-    VortexReaderGeneratedEncodedKernelInput, VortexRollingWindowRequest,
-    VortexSimpleAggregateRequest, VortexSortRowsRequest,
+    VortexAggregateExpression, VortexAggregateHavingExpr, VortexDuplicateKeepPolicy,
+    VortexEncodedValuePredicateBatch, VortexExplodeProjectionRequest,
+    VortexExpressionProjectionRequest, VortexExpressionRewrite, VortexMeltProjectionRequest,
+    VortexPivotProjectionRequest, VortexReaderGeneratedEncodedKernelInput,
+    VortexRollingWindowRequest, VortexSimpleAggregateRequest, VortexSortRowsRequest,
     plan_vortex_reader_generated_prepared_batch_envelopes,
     plan_vortex_reader_generated_prepared_batch_kernel_inputs,
 };
@@ -88,6 +88,109 @@ impl VortexLocalPrimitiveExecutionMode {
     }
 }
 
+/// State-budget evidence for local Vortex primitive work that can grow with input scale.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexLocalPrimitiveStateBudgetReport {
+    pub schema_version: String,
+    pub state_budget_required: bool,
+    pub state_budget_status: String,
+    pub state_family: String,
+    pub capillary_work_units: Vec<String>,
+    pub pulseweave_pressure_signals: Vec<String>,
+    pub observed_state_items: u64,
+    pub estimated_state_items: Option<u64>,
+    pub budget_scope: String,
+    pub spill_policy: String,
+    pub spill_required: bool,
+    pub spill_supported: bool,
+    pub spill_io_performed: bool,
+    pub fail_closed_if_spill_required: bool,
+    pub diagnostic_code: String,
+    pub next_action: String,
+}
+impl VortexLocalPrimitiveStateBudgetReport {
+    const SCHEMA_VERSION: &'static str = "shardloom.local_vortex_state_budget.v1";
+
+    #[must_use]
+    pub fn not_required() -> Self {
+        Self {
+            schema_version: Self::SCHEMA_VERSION.to_string(),
+            state_budget_required: false,
+            state_budget_status: "not_required".to_string(),
+            state_family: "stateless_scan_or_metadata".to_string(),
+            capillary_work_units: Vec::new(),
+            pulseweave_pressure_signals: Vec::new(),
+            observed_state_items: 0,
+            estimated_state_items: None,
+            budget_scope: "local_vortex_primitive".to_string(),
+            spill_policy: "not_applicable".to_string(),
+            spill_required: false,
+            spill_supported: false,
+            spill_io_performed: false,
+            fail_closed_if_spill_required: false,
+            diagnostic_code: "none".to_string(),
+            next_action: "none".to_string(),
+        }
+    }
+
+    #[must_use]
+    pub fn bounded_in_memory(
+        state_family: impl Into<String>,
+        capillary_work_units: Vec<&str>,
+        pulseweave_pressure_signals: Vec<&str>,
+        observed_state_items: u64,
+        estimated_state_items: Option<u64>,
+        budget_scope: impl Into<String>,
+    ) -> Self {
+        Self {
+            schema_version: Self::SCHEMA_VERSION.to_string(),
+            state_budget_required: true,
+            state_budget_status: "bounded_in_memory_observed_spill_not_certified".to_string(),
+            state_family: state_family.into(),
+            capillary_work_units: capillary_work_units
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            pulseweave_pressure_signals: pulseweave_pressure_signals
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            observed_state_items,
+            estimated_state_items,
+            budget_scope: budget_scope.into(),
+            spill_policy: "fail_closed_before_uncertified_spill".to_string(),
+            spill_required: false,
+            spill_supported: false,
+            spill_io_performed: false,
+            fail_closed_if_spill_required: true,
+            diagnostic_code: "none".to_string(),
+            next_action: "certify native spill before admitting spill-required scale shapes"
+                .to_string(),
+        }
+    }
+
+    #[must_use]
+    pub fn compact_summary(&self) -> String {
+        format!(
+            "schema={};required={};status={};family={};capillary={};pulseweave={};observed_state_items={};estimated_state_items={};spill_policy={};spill_required={};spill_supported={};fail_closed_if_spill_required={};diagnostic_code={}",
+            self.schema_version,
+            self.state_budget_required,
+            self.state_budget_status,
+            self.state_family,
+            self.capillary_work_units.join(","),
+            self.pulseweave_pressure_signals.join(","),
+            self.observed_state_items,
+            self.estimated_state_items
+                .map_or_else(|| "none".to_string(), |value| value.to_string()),
+            self.spill_policy,
+            self.spill_required,
+            self.spill_supported,
+            self.fail_closed_if_spill_required,
+            self.diagnostic_code
+        )
+    }
+}
+
 /// Report emitted by the narrow local Vortex primitive executor.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -116,6 +219,7 @@ pub struct VortexLocalPrimitiveExecutionReport {
     pub source_order_limit_applied: bool,
     pub source_order_limit_input_rows: Option<u64>,
     pub source_order_limit_rows_output: Option<u64>,
+    pub state_budget: VortexLocalPrimitiveStateBudgetReport,
     pub data_read: bool,
     pub data_decoded: bool,
     pub data_materialized: bool,
@@ -157,6 +261,7 @@ impl VortexLocalPrimitiveExecutionReport {
             source_order_limit_applied: false,
             source_order_limit_input_rows: None,
             source_order_limit_rows_output: None,
+            state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
             data_read: false,
             data_decoded: false,
             data_materialized: false,
@@ -261,6 +366,7 @@ impl VortexLocalPrimitiveExecutionReport {
             self.projection_pushdown_applied
         );
         self.write_source_order_limit_text(&mut out);
+        let _ = writeln!(out, "state budget: {}", self.state_budget.compact_summary());
         let _ = writeln!(out, "data read: {}", self.data_read);
         let _ = writeln!(out, "data decoded: {}", self.data_decoded);
         let _ = writeln!(out, "data materialized: {}", self.data_materialized);
@@ -362,6 +468,7 @@ pub struct VortexLocalPrimitiveRowExportReport {
     pub max_parallelism_requested: usize,
     pub scan_concurrency_per_worker: usize,
     pub source_order_limit_requested: Option<u64>,
+    pub state_budget: VortexLocalPrimitiveStateBudgetReport,
     pub evidence: VortexLocalPrimitiveRowExportEvidence,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -459,6 +566,7 @@ impl VortexLocalPrimitiveRowExportReport {
             max_parallelism_requested: 1,
             scan_concurrency_per_worker: 1,
             source_order_limit_requested: None,
+            state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
             evidence: disabled_row_export_evidence(),
             diagnostics: vec![Diagnostic::unsupported(
                 DiagnosticCode::NotImplemented,
@@ -1122,7 +1230,7 @@ fn local_primitive_pushdown_guarantee(
             "exact_pivot_from_vortex_scan_with_explicit_shardloom_wide_reshape_boundary"
         }
         VortexQueryPrimitiveKind::RollingWindowRows => {
-            "exact_source_order_rolling_sum_from_vortex_scan_with_explicit_shardloom_window_state"
+            "exact_source_order_rolling_window_from_vortex_scan_with_explicit_shardloom_window_state"
         }
         VortexQueryPrimitiveKind::SimpleAggregate => {
             "exact_scalar_aggregate_from_vortex_scan_with_explicit_shardloom_aggregate_state"
@@ -1926,10 +2034,18 @@ fn execute_vortex_local_primitive_row_export_enabled(
         let distinct_requested = request.kind == VortexQueryPrimitiveKind::DistinctRows;
         let mut distinct_keys = std::collections::BTreeSet::new();
         let mut duplicate_keys = std::collections::BTreeSet::new();
+        let duplicate_keep = request.duplicate_keep;
+        let duplicate_needs_full_scan =
+            duplicate_mask_requested && duplicate_keep != VortexDuplicateKeepPolicy::First;
+        let mut duplicate_counts = std::collections::BTreeMap::<String, usize>::new();
+        let mut duplicate_last_positions = std::collections::BTreeMap::<String, usize>::new();
+        let mut duplicate_output_keys = Vec::<(usize, String)>::new();
+        let mut duplicate_global_index = 0usize;
         let tail_requested = request.kind == VortexQueryPrimitiveKind::TailRows;
         let sample_requested = request.kind == VortexQueryPrimitiveKind::SampleRows;
         let mut tail_rows = std::collections::VecDeque::<Vec<StatValue>>::new();
         let mut sample_rows = Vec::<(u64, usize, Vec<StatValue>)>::new();
+        let mut sample_replacement_population = Vec::<Vec<StatValue>>::new();
         let mut melt_value_dtype: Option<LogicalDType> = None;
         let mut rolling_state =
             rolling_window.map(|request| RollingWindowState::new(request.window_size));
@@ -2043,24 +2159,44 @@ fn execute_vortex_local_primitive_row_export_enabled(
                                     .to_string(),
                             )
                         })?;
-                let output_rows = source_order_limit.map_or(materialized_rows, |limit| {
-                    limit.saturating_sub(rows_written).min(materialized_rows)
-                });
-                let duplicate_values =
-                    duplicate_mask_values(&columns, &mut duplicate_keys, output_rows)?;
-                write_row_export_chunk(
-                    &mut output,
-                    output_format,
-                    &output_columns,
-                    &[duplicate_values],
-                    output_rows,
-                )?;
-                rows_written = rows_written.checked_add(output_rows).ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "local Vortex duplicate-mask row export row count overflowed usize"
-                            .to_string(),
-                    )
-                })?;
+                if duplicate_needs_full_scan {
+                    for row_index in 0..materialized_rows {
+                        let key = distinct_row_key(&columns, row_index)?;
+                        *duplicate_counts.entry(key.clone()).or_insert(0) += 1;
+                        duplicate_last_positions.insert(key.clone(), duplicate_global_index);
+                        if source_order_limit
+                            .map_or(true, |limit| duplicate_output_keys.len() < limit)
+                        {
+                            duplicate_output_keys.push((duplicate_global_index, key));
+                        }
+                        duplicate_global_index =
+                            duplicate_global_index.checked_add(1).ok_or_else(|| {
+                                ShardLoomError::InvalidOperation(
+                                    "local Vortex duplicate-mask row ordinal overflowed usize"
+                                        .to_string(),
+                                )
+                            })?;
+                    }
+                } else {
+                    let output_rows = source_order_limit.map_or(materialized_rows, |limit| {
+                        limit.saturating_sub(rows_written).min(materialized_rows)
+                    });
+                    let duplicate_values =
+                        duplicate_mask_values(&columns, &mut duplicate_keys, output_rows)?;
+                    write_row_export_chunk(
+                        &mut output,
+                        output_format,
+                        &output_columns,
+                        &[duplicate_values],
+                        output_rows,
+                    )?;
+                    rows_written = rows_written.checked_add(output_rows).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex duplicate-mask row export row count overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+                }
             } else if let Some(melt_projection) = melt_projection {
                 let materialized_rows = row_export_materialized_row_count(&columns, chunk_rows)?;
                 validate_melt_value_dtype(&columns, melt_projection, &mut melt_value_dtype)?;
@@ -2152,7 +2288,9 @@ fn execute_vortex_local_primitive_row_export_enabled(
                         })?;
                     let score = deterministic_sample_score(sample_seed, row_index);
                     let row = row_export_materialized_row(&columns, local_index)?;
-                    if let Some(limit) = source_order_limit {
+                    if request.sample_with_replacement {
+                        sample_replacement_population.push(row);
+                    } else if let Some(limit) = source_order_limit {
                         insert_sample_row_export_candidate(
                             &mut sample_rows,
                             limit,
@@ -2199,11 +2337,28 @@ fn execute_vortex_local_primitive_row_export_enabled(
             }
             max_chunk_rows = max_chunk_rows.max(chunk_rows);
             arrays_read_count += 1;
-            if source_order_limit.is_some_and(|limit| rows_written >= limit) {
+            if !duplicate_needs_full_scan
+                && source_order_limit.is_some_and(|limit| rows_written >= limit)
+            {
                 break;
             }
         }
-        if tail_requested {
+        if duplicate_needs_full_scan {
+            let duplicate_values = duplicate_mask_values_from_policy(
+                &duplicate_output_keys,
+                &duplicate_counts,
+                &duplicate_last_positions,
+                duplicate_keep,
+            )?;
+            write_row_export_chunk(
+                &mut output,
+                output_format,
+                &output_columns,
+                &[duplicate_values],
+                duplicate_output_keys.len(),
+            )?;
+            rows_written = duplicate_output_keys.len();
+        } else if tail_requested {
             let selected_rows = tail_rows.into_iter().collect::<Vec<_>>();
             write_row_export_materialized_rows(
                 &mut output,
@@ -2214,11 +2369,24 @@ fn execute_vortex_local_primitive_row_export_enabled(
             rows_written = selected_rows.len();
         } else if sample_requested {
             let target_count = sample_target_count(request, pre_limit_result_row_count)?;
-            truncate_sample_candidates_to_target(&mut sample_rows, target_count);
-            let selected_rows = sample_rows
-                .into_iter()
-                .map(|(_score, _row_index, row)| row)
-                .collect::<Vec<_>>();
+            let selected_rows = if request.sample_with_replacement {
+                (0..target_count)
+                    .map(|draw_index| {
+                        let row_index = deterministic_sample_replacement_index(
+                            sample_seed,
+                            draw_index,
+                            sample_replacement_population.len(),
+                        );
+                        sample_replacement_population[row_index].clone()
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                truncate_sample_candidates_to_target(&mut sample_rows, target_count);
+                sample_rows
+                    .into_iter()
+                    .map(|(_score, _row_index, row)| row)
+                    .collect::<Vec<_>>()
+            };
             write_row_export_materialized_rows(
                 &mut output,
                 output_format,
@@ -2256,6 +2424,11 @@ fn execute_vortex_local_primitive_row_export_enabled(
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             source_order_limit_requested: source_order_limit.map(usize_to_u64).transpose()?,
+            state_budget: row_export_state_budget_report(
+                request,
+                pre_limit_result_row_count,
+                rows_written,
+            )?,
             evidence: executed_row_export_evidence(
                 filter_pushdown_applied,
                 projection_pushdown_applied,
@@ -2444,6 +2617,10 @@ fn execute_vortex_local_pivot_row_export_enabled(
             max_parallelism_requested: policy.max_parallelism,
             scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
             source_order_limit_requested: plan.source_order_limit.map(usize_to_u64).transpose()?,
+            state_budget: pivot_row_export_state_budget_report(
+                pre_limit_result_row_count,
+                rows_written,
+            )?,
             evidence: executed_row_export_evidence(
                 false,
                 projection_pushdown_applied,
@@ -2550,6 +2727,7 @@ fn execute_vortex_local_simple_aggregate_row_export_enabled(
                 .source_order_limit
                 .map(usize_to_u64)
                 .transpose()?,
+            state_budget: scan.state_budget.clone(),
             evidence: executed_row_export_evidence(
                 false,
                 scan.scan.projection_pushdown_applied,
@@ -2654,6 +2832,11 @@ fn execute_vortex_local_sort_rows_row_export_enabled(
                 .source_order_limit
                 .map(usize_to_u64)
                 .transpose()?,
+            state_budget: sort_rows_state_budget_report(
+                request,
+                &scan.scan,
+                usize_to_u64(scan.scan.pre_limit_result_row_count)?,
+            )?,
             evidence: executed_row_export_evidence(
                 scan.scan.filter_pushdown_applied,
                 scan.scan.projection_pushdown_applied,
@@ -3627,9 +3810,9 @@ fn validate_rolling_window_request(rolling_window: &VortexRollingWindowRequest) 
                 .to_string(),
         ));
     }
-    if rolling_window.aggregate != "sum" {
+    if !matches!(rolling_window.aggregate.as_str(), "sum" | "mean" | "count") {
         return Err(ShardLoomError::InvalidOperation(
-            "local Vortex rolling window supports only aggregate='sum' in the scoped v1 route; no fallback execution was attempted"
+            "local Vortex rolling window supports aggregate='sum', 'mean', or 'count' in the scoped v1 route; no fallback execution was attempted"
                 .to_string(),
         ));
     }
@@ -3673,6 +3856,10 @@ impl RollingWindowState {
         self.values.len() >= min_periods
     }
 
+    fn current_count(&self) -> usize {
+        self.values.len()
+    }
+
     fn input_rows_needed_for_outputs(&self, min_periods: usize, output_rows: usize) -> usize {
         if output_rows == 0 {
             return 0;
@@ -3707,9 +3894,40 @@ fn rolling_window_values(
     }
     let mut output = Vec::new();
     for value in values.iter().take(source_rows) {
-        state.push(stat_value_to_f64(value)?, rolling_window.window_size)?;
+        if rolling_window.aggregate == "count" {
+            state.push(0.0, rolling_window.window_size)?;
+        } else {
+            state.push(stat_value_to_f64(value)?, rolling_window.window_size)?;
+        }
         if state.ready(rolling_window.min_periods) {
-            output.push(StatValue::Float64(state.sum));
+            let value = match rolling_window.aggregate.as_str() {
+                "sum" => StatValue::Float64(state.sum),
+                "mean" => {
+                    let count = state.current_count();
+                    if count == 0 {
+                        return Err(ShardLoomError::InvalidOperation(
+                            "local Vortex rolling mean had zero rows in state; no fallback execution was attempted"
+                                .to_string(),
+                        ));
+                    }
+                    let mean = state.sum / count as f64;
+                    if !mean.is_finite() {
+                        return Err(ShardLoomError::InvalidOperation(
+                            "local Vortex rolling mean produced a non-finite value; no fallback execution was attempted"
+                                .to_string(),
+                        ));
+                    }
+                    StatValue::Float64(mean)
+                }
+                "count" => StatValue::UInt64(usize_to_u64(state.current_count())?),
+                _ => {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "local Vortex rolling window aggregate was not admitted; no fallback execution was attempted"
+                            .to_string(),
+                    ));
+                }
+            };
+            output.push(value);
         }
     }
     Ok(output)
@@ -3831,6 +4049,9 @@ fn sample_target_count(request: &VortexQueryPrimitiveRequest, row_count: usize) 
                 "local Vortex sample size must be >= 1".to_string(),
             ));
         }
+        if request.sample_with_replacement {
+            return Ok(if row_count == 0 { 0 } else { limit });
+        }
         return Ok(limit.min(row_count));
     }
     if let Some(fraction) = sample_fraction {
@@ -3861,16 +4082,38 @@ fn format_sample_fraction(value: f64) -> String {
 
 #[cfg(feature = "vortex-local-primitives")]
 fn sample_shape_summary(request: &VortexQueryPrimitiveRequest) -> String {
+    let replacement = if request.sample_with_replacement {
+        " sample_replacement=true"
+    } else {
+        ""
+    };
     if let Some(fraction) = request.sample_fraction {
-        format!("sample_fraction={}", format_sample_fraction(fraction))
+        format!(
+            "sample_fraction={}{}",
+            format_sample_fraction(fraction),
+            replacement
+        )
     } else {
         format!(
-            "sample_size={}",
+            "sample_size={}{}",
             request
                 .source_order_limit
-                .map_or_else(|| "none".to_string(), |limit| limit.to_string())
+                .map_or_else(|| "none".to_string(), |limit| limit.to_string()),
+            replacement
         )
     }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn deterministic_sample_replacement_index(
+    seed: u64,
+    draw_index: usize,
+    population_size: usize,
+) -> usize {
+    if population_size == 0 {
+        return 0;
+    }
+    (deterministic_sample_score(seed, draw_index) as usize) % population_size
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -4291,6 +4534,40 @@ fn duplicate_mask_values(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn duplicate_mask_values_from_policy(
+    output_keys: &[(usize, String)],
+    counts: &std::collections::BTreeMap<String, usize>,
+    last_positions: &std::collections::BTreeMap<String, usize>,
+    keep: VortexDuplicateKeepPolicy,
+) -> Result<Vec<StatValue>> {
+    output_keys
+        .iter()
+        .map(|(position, key)| {
+            let duplicated = match keep {
+                VortexDuplicateKeepPolicy::First => false,
+                VortexDuplicateKeepPolicy::Last => {
+                    last_positions.get(key).copied().ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex duplicate-mask missing last-position state; no fallback execution was attempted"
+                                .to_string(),
+                        )
+                    })? != *position
+                }
+                VortexDuplicateKeepPolicy::AllDuplicates => {
+                    counts.get(key).copied().ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex duplicate-mask missing count state; no fallback execution was attempted"
+                                .to_string(),
+                        )
+                    })? > 1
+                }
+            };
+            Ok(StatValue::Boolean(duplicated))
+        })
+        .collect()
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn distinct_row_key(column_values: &[Vec<StatValue>], row_index: usize) -> Result<String> {
     let mut out = String::new();
     for values in column_values {
@@ -4462,7 +4739,7 @@ fn execute_vortex_local_primitive_enabled(
         }
         VortexQueryPrimitiveKind::DuplicateMaskRows => {
             let scan = read_local_vortex_duplicate_mask_scan(uri, &path, request, policy)?;
-            duplicate_mask_rows_report(&scan)
+            duplicate_mask_rows_report(&scan, request)
         }
         VortexQueryPrimitiveKind::TailRows => {
             let scan = read_local_vortex_tail_scan(uri, &path, request, policy)?;
@@ -4537,6 +4814,7 @@ struct LocalVortexScan {
 struct LocalVortexAggregateScan {
     scan: LocalVortexScan,
     result_summary: String,
+    state_budget: VortexLocalPrimitiveStateBudgetReport,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -4571,6 +4849,204 @@ impl LocalVortexScanPlan {
             source_order_limit: None,
         }
     }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn sort_rows_state_budget_report(
+    request: &VortexQueryPrimitiveRequest,
+    scan: &LocalVortexScan,
+    input_rows: u64,
+) -> Result<VortexLocalPrimitiveStateBudgetReport> {
+    let sort_rows = request.sort_rows.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex sort state budget requires a typed sort payload; no fallback execution was attempted"
+                .to_string(),
+        )
+    })?;
+    let has_offset = sort_rows.offset > 0;
+    let mut capillary_work_units = vec!["vortex_scan", "sort_key_projection", "topk_heap_state"];
+    let mut pulseweave_pressure_signals = vec![
+        "sort_candidate_rows",
+        "topk_heap_rows",
+        "materialized_sort_rows",
+    ];
+    if has_offset {
+        capillary_work_units.push("offset_drain");
+        pulseweave_pressure_signals.push("offset_drain_rows");
+    }
+    let family = if has_offset {
+        "raw_row_topk_sort_state+offset"
+    } else {
+        "raw_row_topk_sort_state"
+    };
+    Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+        family,
+        capillary_work_units,
+        pulseweave_pressure_signals,
+        input_rows,
+        Some(input_rows.max(usize_to_u64(scan.result_row_count)?)),
+        "local_vortex_sort_rows",
+    ))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn rolling_window_state_budget_report(
+    request: &VortexQueryPrimitiveRequest,
+    scan: &LocalVortexScan,
+) -> Result<VortexLocalPrimitiveStateBudgetReport> {
+    let rolling = request.rolling_window.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex rolling-window state budget requires a typed rolling payload; no fallback execution was attempted"
+                .to_string(),
+        )
+    })?;
+    Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+        "rolling_window_state",
+        vec![
+            "vortex_scan",
+            "source_order_boundary",
+            "rolling_window_state_fragment",
+        ],
+        vec![
+            "window_rows",
+            "min_periods",
+            "source_order_rows",
+            "window_state_memory",
+        ],
+        usize_to_u64(rolling.window_size)?,
+        Some(usize_to_u64(
+            scan.pre_limit_result_row_count.max(rolling.window_size),
+        )?),
+        "local_vortex_rolling_window",
+    ))
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn row_export_state_budget_report(
+    request: &VortexQueryPrimitiveRequest,
+    input_rows: usize,
+    output_rows: usize,
+) -> Result<VortexLocalPrimitiveStateBudgetReport> {
+    match request.kind {
+        VortexQueryPrimitiveKind::RollingWindowRows => {
+            let rolling = request.rolling_window.as_ref().ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex rolling-window row export state budget requires a typed rolling payload; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+                "rolling_window_state",
+                vec![
+                    "vortex_scan",
+                    "source_order_boundary",
+                    "rolling_window_state_fragment",
+                    "compatibility_sink",
+                ],
+                vec![
+                    "window_rows",
+                    "min_periods",
+                    "source_order_rows",
+                    "window_state_memory",
+                    "sink_rows",
+                ],
+                usize_to_u64(rolling.window_size)?,
+                Some(usize_to_u64(input_rows.max(rolling.window_size))?),
+                "local_vortex_rolling_window_row_export",
+            ))
+        }
+        VortexQueryPrimitiveKind::DistinctRows => {
+            Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+                "row_key_distinct_state",
+                vec!["vortex_scan", "row_key_state", "compatibility_sink"],
+                vec!["distinct_key_cardinality", "input_rows", "sink_rows"],
+                usize_to_u64(output_rows)?,
+                Some(usize_to_u64(input_rows.max(output_rows))?),
+                "local_vortex_distinct_row_export",
+            ))
+        }
+        VortexQueryPrimitiveKind::DuplicateMaskRows => {
+            Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+                "duplicate_mask_row_key_state",
+                vec![
+                    "vortex_scan",
+                    "row_key_state",
+                    "duplicate_mask",
+                    "compatibility_sink",
+                ],
+                vec!["duplicate_key_cardinality", "input_rows", "sink_rows"],
+                usize_to_u64(input_rows)?,
+                Some(usize_to_u64(input_rows.max(output_rows))?),
+                "local_vortex_duplicate_mask_row_export",
+            ))
+        }
+        VortexQueryPrimitiveKind::SampleRows => {
+            let (family, capillary_work_units, pressure_signals) =
+                if request.sample_with_replacement {
+                    (
+                        "sample_replacement_population_state",
+                        vec![
+                            "vortex_scan",
+                            "seeded_population_state",
+                            "compatibility_sink",
+                        ],
+                        vec!["population_rows", "sample_output_rows", "sink_rows"],
+                    )
+                } else {
+                    (
+                        "sample_selection_state",
+                        vec![
+                            "vortex_scan",
+                            "seeded_selection_state",
+                            "compatibility_sink",
+                        ],
+                        vec!["candidate_rows", "sample_output_rows", "sink_rows"],
+                    )
+                };
+            Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+                family,
+                capillary_work_units,
+                pressure_signals,
+                usize_to_u64(output_rows)?,
+                Some(usize_to_u64(input_rows.max(output_rows))?),
+                "local_vortex_sample_row_export",
+            ))
+        }
+        VortexQueryPrimitiveKind::MeltRows | VortexQueryPrimitiveKind::ExplodeRows => {
+            Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+                "row_expansion_stream_state",
+                vec![
+                    "vortex_scan",
+                    "capillary_row_expansion",
+                    "compatibility_sink",
+                ],
+                vec!["expanded_rows", "input_rows", "sink_rows"],
+                usize_to_u64(output_rows)?,
+                Some(usize_to_u64(input_rows.max(output_rows))?),
+                "local_vortex_row_expansion_export",
+            ))
+        }
+        _ => Ok(VortexLocalPrimitiveStateBudgetReport::not_required()),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn pivot_row_export_state_budget_report(
+    input_rows: usize,
+    output_rows: usize,
+) -> Result<VortexLocalPrimitiveStateBudgetReport> {
+    Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+        "pivot_wide_reshape_state",
+        vec![
+            "vortex_scan",
+            "capillary_wide_reshape",
+            "compatibility_sink",
+        ],
+        vec!["pivot_cell_cardinality", "wide_output_columns", "sink_rows"],
+        usize_to_u64(input_rows.max(output_rows))?,
+        Some(usize_to_u64(input_rows.max(output_rows))?),
+        "local_vortex_pivot_row_export",
+    ))
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -5508,6 +5984,7 @@ fn count_all_report(
         source_order_limit_applied: false,
         source_order_limit_input_rows: None,
         source_order_limit_rows_output: None,
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: false,
         data_materialized: false,
@@ -5558,6 +6035,7 @@ fn predicate_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: false,
         data_materialized: false,
@@ -5611,6 +6089,7 @@ fn projection_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: false,
         data_materialized: false,
@@ -5664,6 +6143,7 @@ fn filter_and_project_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: false,
         data_materialized: false,
@@ -5717,6 +6197,7 @@ fn distinct_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -5736,6 +6217,7 @@ fn distinct_rows_report(
 #[cfg(feature = "vortex-local-primitives")]
 fn duplicate_mask_rows_report(
     scan: &LocalVortexScan,
+    request: &VortexQueryPrimitiveRequest,
 ) -> Result<VortexLocalPrimitiveExecutionReport> {
     let rows = usize_to_u64(scan.result_row_count)?;
     Ok(VortexLocalPrimitiveExecutionReport {
@@ -5743,9 +6225,10 @@ fn duplicate_mask_rows_report(
         mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
         primitive_kind: VortexQueryPrimitiveKind::DuplicateMaskRows,
         result_summary: Some(format!(
-            "duplicate_mask_rows={} subset_columns={} output_columns=duplicated keep=first",
+            "duplicate_mask_rows={} subset_columns={} output_columns=duplicated keep={}",
             rows,
-            scan.projected_columns.join(",")
+            scan.projected_columns.join(","),
+            request.duplicate_keep.as_str()
         )),
         rows_scanned: scan.source_row_count,
         rows_selected: Some(rows),
@@ -5769,6 +6252,7 @@ fn duplicate_mask_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -5822,6 +6306,7 @@ fn tail_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -5879,6 +6364,7 @@ fn sample_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -5937,6 +6423,7 @@ fn expression_project_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -5999,6 +6486,7 @@ fn melt_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -6057,6 +6545,7 @@ fn explode_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -6115,6 +6604,7 @@ fn pivot_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
+        state_budget: VortexLocalPrimitiveStateBudgetReport::not_required(),
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -6450,6 +6940,7 @@ fn rolling_window_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
         source_order_limit_rows_output: Some(rows),
+        state_budget: rolling_window_state_budget_report(request, scan)?,
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -6512,6 +7003,7 @@ fn simple_aggregate_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(input_rows),
         source_order_limit_rows_output: Some(rows),
+        state_budget: aggregate.state_budget.clone(),
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -6574,6 +7066,7 @@ fn sort_rows_report(
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(input_rows),
         source_order_limit_rows_output: Some(rows),
+        state_budget: sort_rows_state_budget_report(request, scan, input_rows)?,
         data_read: true,
         data_decoded: true,
         data_materialized: true,
@@ -6755,6 +7248,8 @@ fn read_local_vortex_duplicate_mask_scan(
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
 
     let mut seen = std::collections::BTreeSet::new();
+    let duplicate_keep = request.duplicate_keep;
+    let duplicate_needs_full_scan = duplicate_keep != VortexDuplicateKeepPolicy::First;
     let mut result_row_count = 0usize;
     let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
@@ -6786,14 +7281,25 @@ fn read_local_vortex_duplicate_mask_scan(
                 .saturating_sub(result_row_count)
                 .min(materialized_rows)
         });
-        let duplicate_values = duplicate_mask_values(&columns, &mut seen, output_rows)?;
-        result_row_count = result_row_count
-            .checked_add(duplicate_values.len())
-            .ok_or_else(|| {
+        if duplicate_needs_full_scan {
+            for row_index in 0..materialized_rows {
+                let _ = distinct_row_key(&columns, row_index)?;
+            }
+            result_row_count = result_row_count.checked_add(output_rows).ok_or_else(|| {
                 ShardLoomError::InvalidOperation(
                     "local Vortex duplicate-mask result row count overflowed usize".to_string(),
                 )
             })?;
+        } else {
+            let duplicate_values = duplicate_mask_values(&columns, &mut seen, output_rows)?;
+            result_row_count = result_row_count
+                .checked_add(duplicate_values.len())
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex duplicate-mask result row count overflowed usize".to_string(),
+                    )
+                })?;
+        }
         pre_limit_result_row_count = pre_limit_result_row_count
             .checked_add(output_rows)
             .ok_or_else(|| {
@@ -6803,7 +7309,9 @@ fn read_local_vortex_duplicate_mask_scan(
             })?;
         max_chunk_rows = max_chunk_rows.max(rows);
         arrays_read_count += 1;
-        if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
+        if !duplicate_needs_full_scan
+            && source_order_limit.is_some_and(|limit| result_row_count >= limit)
+        {
             break;
         }
     }
@@ -7045,7 +7553,10 @@ fn read_local_vortex_sample_scan(
                     )
                 })?;
             let score = deterministic_sample_score(sample_seed, row_index);
-            if let Some(limit) = source_order_limit {
+            if request.sample_with_replacement {
+                // Replacement collect only needs the admitted population count;
+                // row export performs the deterministic duplicate-row draw.
+            } else if let Some(limit) = source_order_limit {
                 if sample_scores.len() < limit {
                     sample_scores.push(Reverse(score));
                 } else if let Some(Reverse(lowest_score)) = sample_scores.peek().copied()
@@ -7074,8 +7585,8 @@ fn read_local_vortex_sample_scan(
         max_chunk_rows = max_chunk_rows.max(rows);
         arrays_read_count += 1;
     }
-    let result_row_count = if let Some(fraction) = sample_fraction {
-        fractional_sample_size(fraction_candidate_count, fraction)?
+    let result_row_count = if sample_fraction.is_some() || request.sample_with_replacement {
+        sample_target_count(request, pre_limit_result_row_count)?
     } else {
         sample_scores.len()
     };
@@ -7925,10 +8436,12 @@ fn read_local_vortex_simple_aggregate_scan(
         arrays_read_count += 1;
     }
     let result_limit = request.source_order_limit;
-    let (result_row_count, result_summary) = if let Some(states) = grouped_states {
+    let (result_row_count, result_summary, state_budget) = if let Some(states) = grouped_states {
+        let result_row_count = states.result_row_count(result_limit)?;
         (
-            states.result_row_count(result_limit)?,
+            result_row_count,
             states.result_summary(result_limit)?,
+            states.state_budget_report(aggregate, pre_limit_result_row_count, result_row_count)?,
         )
     } else {
         let states = scalar_states.ok_or_else(|| {
@@ -7938,7 +8451,11 @@ fn read_local_vortex_simple_aggregate_scan(
             )
         })?;
         let result_row_count = if aggregate.measures.is_empty() { 0 } else { 1 };
-        (result_row_count, states.result_summary()?)
+        (
+            result_row_count,
+            states.result_summary()?,
+            states.state_budget_report(aggregate, pre_limit_result_row_count, result_row_count)?,
+        )
     };
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
     let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
@@ -7967,6 +8484,7 @@ fn read_local_vortex_simple_aggregate_scan(
             source_order_limit: result_limit,
         },
         result_summary,
+        state_budget,
     })
 }
 
@@ -8270,7 +8788,7 @@ fn required_simple_aggregate(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum SimpleAggregateFunction {
     Count,
     CountDistinct,
@@ -8436,6 +8954,69 @@ impl SimpleAggregateStates {
             "values": self.result_values()?,
         });
         Ok(payload.to_string())
+    }
+
+    fn has_count_distinct(&self) -> bool {
+        self.states
+            .iter()
+            .any(|state| state.function == SimpleAggregateFunction::CountDistinct)
+    }
+
+    fn count_distinct_state_entries(&self) -> Result<u64> {
+        self.states
+            .iter()
+            .filter(|state| state.function == SimpleAggregateFunction::CountDistinct)
+            .try_fold(0_u64, |total, state| {
+                total
+                    .checked_add(usize_to_u64(state.distinct_values.len())?)
+                    .ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex count-distinct state entry count overflowed u64; no fallback execution was attempted"
+                                .to_string(),
+                        )
+                    })
+            })
+    }
+
+    fn state_slot_count(&self) -> Result<u64> {
+        usize_to_u64(self.states.len())
+    }
+
+    fn state_budget_report(
+        &self,
+        _request: &VortexSimpleAggregateRequest,
+        input_rows: usize,
+        result_row_count: usize,
+    ) -> Result<VortexLocalPrimitiveStateBudgetReport> {
+        let mut capillary_work_units = vec!["vortex_scan", "aggregate_state"];
+        let mut pulseweave_pressure_signals =
+            vec!["aggregate_measure_count", "aggregate_input_rows"];
+        let has_count_distinct = self.has_count_distinct();
+        if has_count_distinct {
+            capillary_work_units.push("count_distinct_set");
+            pulseweave_pressure_signals.push("distinct_value_cardinality");
+        }
+        let observed_state_items = self
+            .state_slot_count()?
+            .checked_add(self.count_distinct_state_entries()?)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex scalar aggregate observed state count overflowed u64; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+            if has_count_distinct {
+                "scalar_count_distinct_state"
+            } else {
+                "scalar_aggregate_state"
+            },
+            capillary_work_units,
+            pulseweave_pressure_signals,
+            observed_state_items,
+            Some(usize_to_u64(input_rows.max(result_row_count))?),
+            "local_vortex_scalar_aggregate",
+        ))
     }
 }
 
@@ -8777,6 +9358,83 @@ impl<'a> GroupedAggregateStates<'a> {
             }
             left.0.cmp(&right.0)
         });
+    }
+
+    fn count_distinct_state_entries(&self) -> Result<u64> {
+        self.groups.values().try_fold(0_u64, |total, group| {
+            total
+                .checked_add(group.states.count_distinct_state_entries()?)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex grouped count-distinct state entry count overflowed u64; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })
+        })
+    }
+
+    fn state_budget_report(
+        &self,
+        request: &VortexSimpleAggregateRequest,
+        input_rows: usize,
+        result_row_count: usize,
+    ) -> Result<VortexLocalPrimitiveStateBudgetReport> {
+        let has_count_distinct = request.measures.iter().any(|measure| {
+            matches!(
+                SimpleAggregateFunction::parse(&measure.function),
+                Ok(SimpleAggregateFunction::CountDistinct)
+            )
+        });
+        let has_grouped_topk = !request.order_by.is_empty() || result_row_count < self.groups.len();
+        let has_offset = request.offset > 0;
+        let mut state_family = "grouped_aggregate_state".to_string();
+        if has_count_distinct {
+            state_family.push_str("+count_distinct");
+        }
+        if has_grouped_topk {
+            state_family.push_str("+topk");
+        }
+        if has_offset {
+            state_family.push_str("+offset");
+        }
+        let mut capillary_work_units = vec!["vortex_scan", "group_key_state", "aggregate_state"];
+        let mut pulseweave_pressure_signals = vec![
+            "group_cardinality",
+            "aggregate_input_rows",
+            "group_state_rows",
+        ];
+        if has_count_distinct {
+            capillary_work_units.push("count_distinct_set");
+            pulseweave_pressure_signals.push("distinct_value_cardinality");
+        }
+        if has_grouped_topk {
+            capillary_work_units.push("grouped_topk_heap");
+            pulseweave_pressure_signals.push("topk_heap_rows");
+        }
+        if has_offset {
+            capillary_work_units.push("offset_drain");
+            pulseweave_pressure_signals.push("offset_drain_rows");
+        }
+        if !request.having.is_empty() {
+            capillary_work_units.push("having_filter");
+            pulseweave_pressure_signals.push("having_selectivity");
+        }
+        let observed_state_items = usize_to_u64(self.groups.len())?
+            .checked_add(self.count_distinct_state_entries()?)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex grouped aggregate observed state count overflowed u64; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        Ok(VortexLocalPrimitiveStateBudgetReport::bounded_in_memory(
+            state_family,
+            capillary_work_units,
+            pulseweave_pressure_signals,
+            observed_state_items,
+            Some(usize_to_u64(input_rows.max(result_row_count))?),
+            "local_vortex_grouped_aggregate",
+        ))
     }
 }
 
@@ -11218,6 +11876,106 @@ mod tests {
     }
 
     #[test]
+    fn sample_rows_materialize_replacement_rows_without_fallback() {
+        let path = unique_vortex_path("sample-replacement-rows");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::sample_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+            Some(PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(2),
+            }),
+            7,
+            11,
+        )
+        .with_sample_replacement(true);
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::SampleRows);
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(7));
+        assert_eq!(report.rows_projected, Some(7));
+        assert_eq!(report.projected_columns, vec!["metric".to_string()]);
+        assert_eq!(
+            report.result_summary.as_deref(),
+            Some(
+                "sample_rows=7 projected_columns=metric sample_seed=11 sample_size=7 sample_replacement=true"
+            )
+        );
+        assert_eq!(report.source_order_limit_requested, Some(7));
+        assert!(report.source_order_limit_applied);
+        assert_eq!(report.source_order_limit_input_rows, Some(4));
+        assert_eq!(report.source_order_limit_rows_output, Some(7));
+        assert!(report.filter_pushdown_applied);
+        assert!(report.projection_pushdown_applied);
+        assert!(report.data_read);
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(report.row_read);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.materialization_boundary_reported);
+    }
+
+    #[test]
+    fn sample_rows_materialize_fractional_replacement_rows_without_fallback() {
+        let path = unique_vortex_path("sample-fraction-replacement-rows");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::sample_fraction_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+            Some(PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(2),
+            }),
+            0.5,
+            19,
+        )
+        .with_sample_replacement(true);
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::SampleRows);
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(2));
+        assert_eq!(report.rows_projected, Some(2));
+        assert_eq!(report.projected_columns, vec!["metric".to_string()]);
+        assert_eq!(
+            report.result_summary.as_deref(),
+            Some(
+                "sample_rows=2 projected_columns=metric sample_seed=19 sample_fraction=0.5 sample_replacement=true"
+            )
+        );
+        assert_eq!(report.source_order_limit_requested, None);
+        assert!(!report.source_order_limit_applied);
+        assert_eq!(report.source_order_limit_input_rows, Some(4));
+        assert_eq!(report.source_order_limit_rows_output, Some(2));
+        assert!(report.filter_pushdown_applied);
+        assert!(report.projection_pushdown_applied);
+        assert!(report.data_read);
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(report.row_read);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.materialization_boundary_reported);
+    }
+
+    #[test]
     fn expression_project_rows_materialize_typed_rewrites_without_fallback() {
         let path = unique_vortex_path("expression-project-rows");
         write_struct_fixture(&path).expect("fixture");
@@ -11348,6 +12106,22 @@ mod tests {
         assert!(!report.external_effects_executed);
         assert!(!report.fallback_execution_allowed);
         assert!(report.materialization_boundary_reported);
+        assert!(report.state_budget.state_budget_required);
+        assert_eq!(report.state_budget.state_family, "rolling_window_state");
+        assert_eq!(report.state_budget.observed_state_items, 3);
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
+                .contains(&"rolling_window_state_fragment".to_string())
+        );
+        assert!(
+            report
+                .state_budget
+                .pulseweave_pressure_signals
+                .contains(&"window_state_memory".to_string())
+        );
+        assert!(report.state_budget.fail_closed_if_spill_required);
         assert!(certificate.is_certified());
         assert_eq!(
             certificate
@@ -11360,6 +12134,124 @@ mod tests {
             "vortex_encoded->decoded_columnar,decoded_columnar->materialized_rows"
         );
         assert!(!certificate.side_effects.fallback_attempted);
+    }
+
+    #[test]
+    fn rolling_window_row_export_writes_mean_rows_without_fallback() {
+        let path = unique_vortex_path("rolling-window-mean-row-export");
+        let output_path =
+            unique_vortex_path("rolling-window-mean-row-export-output").with_extension("jsonl");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::rolling_window_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexRollingWindowRequest::new(
+                ColumnRef::new("metric").expect("column"),
+                "rolling_metric_mean".to_string(),
+                2,
+                2,
+                "mean".to_string(),
+            ),
+        )
+        .with_source_order_limit(3);
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::RollingWindowRows
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_written, 3);
+        assert_eq!(report.pre_limit_result_row_count, 4);
+        assert_eq!(
+            report.projected_columns,
+            vec!["rolling_metric_mean".to_string()]
+        );
+        assert_eq!(
+            rows,
+            "{\"rolling_metric_mean\":15.0}\n{\"rolling_metric_mean\":25.0}\n{\"rolling_metric_mean\":35.0}\n"
+        );
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(report.state_budget.state_budget_required);
+        assert_eq!(report.state_budget.state_family, "rolling_window_state");
+        assert_eq!(report.state_budget.observed_state_items, 2);
+        assert!(report.state_budget.fail_closed_if_spill_required);
+    }
+
+    #[test]
+    fn rolling_window_row_export_writes_count_rows_without_fallback() {
+        let path = unique_vortex_path("rolling-window-count-row-export");
+        let output_path =
+            unique_vortex_path("rolling-window-count-row-export-output").with_extension("jsonl");
+        write_string_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::rolling_window_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexRollingWindowRequest::new(
+                ColumnRef::new("label").expect("column"),
+                "rolling_label_count".to_string(),
+                3,
+                1,
+                "count".to_string(),
+            ),
+        )
+        .with_source_order_limit(3);
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::RollingWindowRows
+        );
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_written, 3);
+        assert_eq!(report.pre_limit_result_row_count, 3);
+        assert_eq!(
+            report.projected_columns,
+            vec!["rolling_label_count".to_string()]
+        );
+        assert_eq!(
+            rows,
+            "{\"rolling_label_count\":1}\n{\"rolling_label_count\":2}\n{\"rolling_label_count\":3}\n"
+        );
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(report.state_budget.state_budget_required);
+        assert_eq!(report.state_budget.state_family, "rolling_window_state");
+        assert_eq!(report.state_budget.observed_state_items, 3);
+        assert!(report.state_budget.fail_closed_if_spill_required);
     }
 
     #[test]
@@ -11534,6 +12426,81 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_mask_row_export_writes_keep_last_mask_without_fallback() {
+        let path = unique_vortex_path("duplicate-mask-row-export-last");
+        let output_path =
+            unique_vortex_path("duplicate-mask-row-export-last-output").with_extension("jsonl");
+        write_duplicate_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::duplicate_mask_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("value").expect("column")]),
+        )
+        .with_source_order_limit(2)
+        .with_duplicate_keep(VortexDuplicateKeepPolicy::Last);
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_written, 2);
+        assert_eq!(report.pre_limit_result_row_count, 5);
+        assert_eq!(report.source_order_limit_requested, Some(2));
+        assert_eq!(rows, "{\"duplicated\":true}\n{\"duplicated\":false}\n");
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+    }
+
+    #[test]
+    fn duplicate_mask_row_export_writes_all_duplicate_mask_without_fallback() {
+        let path = unique_vortex_path("duplicate-mask-row-export-all");
+        let output_path =
+            unique_vortex_path("duplicate-mask-row-export-all-output").with_extension("jsonl");
+        write_duplicate_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::duplicate_mask_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("value").expect("column")]),
+        )
+        .with_duplicate_keep(VortexDuplicateKeepPolicy::AllDuplicates);
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_written, 5);
+        assert_eq!(report.pre_limit_result_row_count, 5);
+        assert_eq!(
+            rows,
+            "{\"duplicated\":true}\n{\"duplicated\":true}\n{\"duplicated\":true}\n{\"duplicated\":true}\n{\"duplicated\":false}\n"
+        );
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+    }
+
+    #[test]
     fn tail_row_export_writes_source_order_tail_rows_without_fallback() {
         let path = unique_vortex_path("tail-row-export");
         let output_path = unique_vortex_path("tail-row-export-output").with_extension("jsonl");
@@ -11692,6 +12659,120 @@ mod tests {
         assert!(report.evidence.side_effects.data_materialized);
         assert!(report.evidence.side_effects.row_read);
         assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+    }
+
+    #[test]
+    fn sample_row_export_writes_replacement_rows_without_fallback() {
+        let path = unique_vortex_path("sample-row-export-replacement");
+        let output_path =
+            unique_vortex_path("sample-row-export-replacement-output").with_extension("jsonl");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::sample_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+            None,
+            7,
+            11,
+        )
+        .with_sample_replacement(true);
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        let metrics = [10_i64, 20, 30, 40, 50];
+        let expected = (0..7)
+            .map(|draw_index| {
+                let row_index =
+                    deterministic_sample_replacement_index(11, draw_index, metrics.len());
+                format!("{{\"metric\":{}}}", metrics[row_index])
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::SampleRows);
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_written, 7);
+        assert_eq!(report.pre_limit_result_row_count, 5);
+        assert_eq!(report.projected_columns, vec!["metric".to_string()]);
+        assert_eq!(report.source_order_limit_requested, Some(7));
+        assert_eq!(rows, expected);
+        assert!(report.evidence.pushdown.projection_pushdown_applied);
+        assert!(report.evidence.pushdown.source_order_limit_applied);
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+    }
+
+    #[test]
+    fn sample_row_export_writes_fractional_replacement_rows_without_fallback() {
+        let path = unique_vortex_path("sample-row-export-fraction-replacement");
+        let output_path = unique_vortex_path("sample-row-export-fraction-replacement-output")
+            .with_extension("jsonl");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::sample_fraction_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+            None,
+            0.4,
+            23,
+        )
+        .with_sample_replacement(true);
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        let metrics = [10_i64, 20, 30, 40, 50];
+        let expected = (0..2)
+            .map(|draw_index| {
+                let row_index =
+                    deterministic_sample_replacement_index(23, draw_index, metrics.len());
+                format!("{{\"metric\":{}}}", metrics[row_index])
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::SampleRows);
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_written, 2);
+        assert_eq!(report.pre_limit_result_row_count, 5);
+        assert_eq!(report.projected_columns, vec!["metric".to_string()]);
+        assert_eq!(report.source_order_limit_requested, None);
+        assert_eq!(rows, expected);
+        assert!(report.evidence.pushdown.projection_pushdown_applied);
+        assert!(!report.evidence.pushdown.source_order_limit_applied);
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
         assert!(!report.evidence.side_effects.fallback_attempted);
     }
 
@@ -12479,6 +13560,24 @@ mod tests {
         assert!(report.row_read);
         assert!(!report.external_effects_executed);
         assert!(!report.fallback_execution_allowed);
+        assert!(report.state_budget.state_budget_required);
+        assert_eq!(report.state_budget.state_family, "scalar_aggregate_state");
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
+                .contains(&"aggregate_state".to_string())
+        );
+        assert!(
+            report
+                .state_budget
+                .pulseweave_pressure_signals
+                .contains(&"aggregate_input_rows".to_string())
+        );
+        assert_eq!(
+            report.state_budget.spill_policy,
+            "fail_closed_before_uncertified_spill"
+        );
         let summary = report.result_summary.expect("summary");
         assert!(summary.contains("\"rows\":5"));
         assert!(summary.contains("\"sum_metric\":150.0"));
@@ -12560,6 +13659,19 @@ mod tests {
         assert!(report.data_materialized);
         assert!(!report.external_effects_executed);
         assert!(!report.fallback_execution_allowed);
+        assert!(report.state_budget.state_budget_required);
+        assert!(
+            report
+                .state_budget
+                .state_family
+                .contains("grouped_aggregate_state")
+        );
+        assert!(
+            report
+                .state_budget
+                .pulseweave_pressure_signals
+                .contains(&"group_cardinality".to_string())
+        );
         let summary = report.result_summary.expect("summary");
         assert!(summary.contains("\"group_by\":\"label\""));
         assert!(summary.contains("\"label\":\"paid\""));
@@ -12626,11 +13738,81 @@ mod tests {
         assert!(report.row_read);
         assert!(!report.external_effects_executed);
         assert!(!report.fallback_execution_allowed);
+        assert!(report.state_budget.state_budget_required);
+        assert_eq!(
+            report.state_budget.state_family,
+            "grouped_aggregate_state+topk"
+        );
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
+                .contains(&"grouped_topk_heap".to_string())
+        );
+        assert!(
+            report
+                .state_budget
+                .pulseweave_pressure_signals
+                .contains(&"topk_heap_rows".to_string())
+        );
         let summary = report.result_summary.expect("summary");
         assert!(summary.contains("\"rows\":1"));
         assert!(summary.contains("\"label\":\"paid\""));
         assert!(summary.contains("\"total_amount\":10.0"));
         assert!(!summary.contains("\"label\":\"trial\""));
+    }
+
+    #[test]
+    fn sort_rows_reports_topk_offset_state_budget_without_fallback() {
+        let path = unique_vortex_path("sort-rows-state-budget");
+        write_pivot_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::sort_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![
+                ColumnRef::new("id").expect("column"),
+                ColumnRef::new("label").expect("column"),
+                ColumnRef::new("amount").expect("column"),
+            ]),
+            None,
+            VortexSortRowsRequest::new(vec![crate::VortexAggregateOrderExpr::new("amount", true)])
+                .with_offset(1),
+            1,
+        );
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::SortRows);
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_selected, Some(1));
+        assert!(report.full_stream_collected);
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.state_budget.state_budget_required);
+        assert_eq!(
+            report.state_budget.state_family,
+            "raw_row_topk_sort_state+offset"
+        );
+        assert!(
+            report
+                .state_budget
+                .capillary_work_units
+                .contains(&"offset_drain".to_string())
+        );
+        assert!(
+            report
+                .state_budget
+                .pulseweave_pressure_signals
+                .contains(&"materialized_sort_rows".to_string())
+        );
+        assert!(report.state_budget.fail_closed_if_spill_required);
     }
 
     #[test]
@@ -12773,6 +13955,16 @@ mod tests {
         );
         assert_eq!(scalar_report.rows_scanned, 5);
         assert_eq!(scalar_report.rows_projected, Some(1));
+        assert_eq!(
+            scalar_report.state_budget.state_family,
+            "scalar_count_distinct_state"
+        );
+        assert!(
+            scalar_report
+                .state_budget
+                .capillary_work_units
+                .contains(&"count_distinct_set".to_string())
+        );
         let scalar_summary = scalar_report.result_summary.expect("scalar summary");
         assert!(scalar_summary.contains("\"unique_values\":3"));
         assert!(!scalar_report.external_effects_executed);
@@ -12784,6 +13976,18 @@ mod tests {
         );
         assert_eq!(grouped_report.rows_scanned, 3);
         assert_eq!(grouped_report.rows_projected, Some(2));
+        assert!(
+            grouped_report
+                .state_budget
+                .state_family
+                .contains("count_distinct")
+        );
+        assert!(
+            grouped_report
+                .state_budget
+                .pulseweave_pressure_signals
+                .contains(&"distinct_value_cardinality".to_string())
+        );
         let grouped_summary = grouped_report.result_summary.expect("grouped summary");
         assert!(grouped_summary.contains("\"label\":\"paid\""));
         assert!(grouped_summary.contains("\"label\":\"trial\""));

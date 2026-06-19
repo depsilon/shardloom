@@ -11190,6 +11190,8 @@ class ShardLoomClient:
         vortex_source_order_limit: int | None = None,
         vortex_sample_seed: int | None = None,
         vortex_sample_fraction: float | None = None,
+        vortex_sample_replacement: bool = False,
+        vortex_duplicate_keep: str | None = None,
         vortex_expression_projection: str | None = None,
         vortex_melt_projection: str | None = None,
         vortex_explode_projection: str | None = None,
@@ -11245,6 +11247,8 @@ class ShardLoomClient:
             vortex_source_order_limit=vortex_source_order_limit,
             vortex_sample_seed=vortex_sample_seed,
             vortex_sample_fraction=vortex_sample_fraction,
+            vortex_sample_replacement=vortex_sample_replacement,
+            vortex_duplicate_keep=vortex_duplicate_keep,
             vortex_expression_projection=vortex_expression_projection,
             vortex_melt_projection=vortex_melt_projection,
             vortex_explode_projection=vortex_explode_projection,
@@ -11287,6 +11291,8 @@ class ShardLoomClient:
         vortex_source_order_limit: int | None = None,
         vortex_sample_seed: int | None = None,
         vortex_sample_fraction: float | None = None,
+        vortex_sample_replacement: bool = False,
+        vortex_duplicate_keep: str | None = None,
         vortex_expression_projection: str | None = None,
         vortex_melt_projection: str | None = None,
         vortex_explode_projection: str | None = None,
@@ -11329,6 +11335,8 @@ class ShardLoomClient:
             vortex_source_order_limit=vortex_source_order_limit,
             vortex_sample_seed=vortex_sample_seed,
             vortex_sample_fraction=vortex_sample_fraction,
+            vortex_sample_replacement=vortex_sample_replacement,
+            vortex_duplicate_keep=vortex_duplicate_keep,
             vortex_expression_projection=vortex_expression_projection,
             vortex_melt_projection=vortex_melt_projection,
             vortex_explode_projection=vortex_explode_projection,
@@ -11404,6 +11412,8 @@ class ShardLoomClient:
         vortex_source_order_limit: int | None = None,
         vortex_sample_seed: int | None = None,
         vortex_sample_fraction: float | None = None,
+        vortex_sample_replacement: bool = False,
+        vortex_duplicate_keep: str | None = None,
         vortex_expression_projection: str | None = None,
         vortex_melt_projection: str | None = None,
         vortex_explode_projection: str | None = None,
@@ -11458,6 +11468,8 @@ class ShardLoomClient:
             vortex_source_order_limit=vortex_source_order_limit,
             vortex_sample_seed=vortex_sample_seed,
             vortex_sample_fraction=vortex_sample_fraction,
+            vortex_sample_replacement=vortex_sample_replacement,
+            vortex_duplicate_keep=vortex_duplicate_keep,
             vortex_expression_projection=vortex_expression_projection,
             vortex_melt_projection=vortex_melt_projection,
             vortex_explode_projection=vortex_explode_projection,
@@ -13935,6 +13947,8 @@ def _append_public_vortex_payload_args(
     vortex_source_order_limit: int | None,
     vortex_sample_seed: int | None,
     vortex_sample_fraction: float | None,
+    vortex_sample_replacement: bool,
+    vortex_duplicate_keep: str | None,
     vortex_expression_projection: str | None,
     vortex_melt_projection: str | None,
     vortex_explode_projection: str | None,
@@ -13976,6 +13990,10 @@ def _append_public_vortex_payload_args(
                 _sample_fraction_arg(vortex_sample_fraction),
             ]
         )
+    if vortex_sample_replacement:
+        args.append("--vortex-sample-replacement")
+    if vortex_duplicate_keep is not None:
+        args.extend(["--vortex-duplicate-keep", _duplicate_keep_arg(vortex_duplicate_keep)])
     if vortex_expression_projection is not None:
         payload = str(vortex_expression_projection).strip()
         if not payload:
@@ -14030,6 +14048,15 @@ def _sample_fraction_arg(value: float) -> str:
     if not math.isfinite(parsed) or parsed <= 0 or parsed > 1:
         raise ValueError("vortex_sample_fraction must be finite and in the range (0, 1]")
     return f"{parsed:.12g}"
+
+
+def _duplicate_keep_arg(value: str) -> str:
+    normalized = str(value).strip().lower().replace("_", "-")
+    if normalized in {"first", "last"}:
+        return normalized
+    if normalized in {"false", "all", "none"}:
+        return "false"
+    raise ValueError("vortex_duplicate_keep must be 'first', 'last', or False")
 
 
 def _bundled_cli_platform_tags() -> tuple[str, ...]:

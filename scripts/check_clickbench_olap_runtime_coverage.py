@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_QUERY_MANIFEST = ROOT / "benchmarks" / "clickbench" / "queries.sql"
 DEFAULT_OUTPUT = ROOT / "target" / "clickbench-olap-runtime-coverage.json"
 SCHEMA_VERSION = "shardloom.clickbench_olap_runtime_coverage.v1"
+STATE_BUDGET_SCHEMA_VERSION = "shardloom.clickbench_olap_state_budget.v1"
+SCALE_FIXTURE_STRATEGY_SCHEMA_VERSION = "shardloom.clickbench_scale_fixture_strategy.v1"
 CANONICAL_SOURCE_URL = (
     "https://raw.githubusercontent.com/ClickHouse/ClickBench/main/clickhouse/queries.sql"
 )
@@ -217,6 +219,131 @@ def input_columns(statement: str) -> list[str]:
     return columns
 
 
+def unique(values: list[str]) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        if value not in out:
+            out.append(value)
+    return out
+
+
+def state_budget_profile(tags: list[str], route_family: str) -> dict[str, Any]:
+    capillary_work_units = ["vortex_scan"]
+    pulseweave_pressure_signals: list[str] = []
+    state_family = "stateless_scan_or_metadata"
+    required = False
+
+    if "aggregate" in tags:
+        required = True
+        state_family = "scalar_aggregate_state"
+        capillary_work_units.append("aggregate_state")
+        pulseweave_pressure_signals.extend(["aggregate_input_rows", "aggregate_measure_count"])
+    if "group_by" in tags:
+        required = True
+        state_family = "grouped_aggregate_state"
+        capillary_work_units.extend(["group_key_state", "aggregate_state"])
+        pulseweave_pressure_signals.extend(["group_cardinality", "group_state_rows"])
+    if "distinct_aggregate" in tags:
+        required = True
+        state_family = (
+            f"{state_family}+count_distinct"
+            if state_family != "stateless_scan_or_metadata"
+            else "count_distinct_state"
+        )
+        capillary_work_units.append("count_distinct_set")
+        pulseweave_pressure_signals.append("distinct_value_cardinality")
+    if "top_k" in tags or route_family.endswith("_topk"):
+        required = True
+        state_family = (
+            f"{state_family}+topk"
+            if state_family != "stateless_scan_or_metadata"
+            else "raw_row_topk_sort_state"
+        )
+        capillary_work_units.append("topk_heap_state")
+        pulseweave_pressure_signals.append("topk_heap_rows")
+    if "offset" in tags:
+        required = True
+        state_family = (
+            f"{state_family}+offset"
+            if state_family != "stateless_scan_or_metadata"
+            else "offset_drain_state"
+        )
+        capillary_work_units.append("offset_drain")
+        pulseweave_pressure_signals.append("offset_drain_rows")
+    if "like_predicate" in tags or "not_like_predicate" in tags or "string_non_empty_predicate" in tags:
+        capillary_work_units.append("utf8_predicate_scan")
+        pulseweave_pressure_signals.append("string_scan_selectivity")
+    if "wide_repeated_aggregate_projection" in tags:
+        required = True
+        capillary_work_units.append("wide_aggregate_projection")
+        pulseweave_pressure_signals.append("aggregate_projection_width")
+    if "having" in tags:
+        capillary_work_units.append("having_filter")
+        pulseweave_pressure_signals.append("having_selectivity")
+
+    if not required and len(capillary_work_units) == 1:
+        status = "not_required"
+        spill_policy = "not_applicable"
+        fail_closed = False
+    else:
+        status = "bounded_in_memory_route_budget_declared_spill_not_certified"
+        spill_policy = "fail_closed_before_uncertified_spill"
+        fail_closed = True
+
+    return {
+        "state_budget_schema_version": STATE_BUDGET_SCHEMA_VERSION,
+        "state_budget_required": required,
+        "state_budget_status": status,
+        "state_family": state_family,
+        "capillary_work_units": unique(capillary_work_units),
+        "pulseweave_pressure_signals": unique(pulseweave_pressure_signals),
+        "spill_required": False,
+        "spill_supported": False,
+        "spill_io_performed": False,
+        "spill_policy": spill_policy,
+        "fail_closed_if_spill_required": fail_closed,
+        "state_budget_diagnostic_code": "none",
+        "state_budget_next_action": (
+            "certify native spill before admitting spill-required ClickBench scale shapes"
+            if fail_closed
+            else "none"
+        ),
+    }
+
+
+def scale_fixture_strategy() -> dict[str, Any]:
+    return {
+        "schema_version": SCALE_FIXTURE_STRATEGY_SCHEMA_VERSION,
+        "strategy_id": "clickbench_scale_fixture_strategy_v1",
+        "default_pr_fast_lane_tier": "small_deterministic_local",
+        "performance_claim_allowed": False,
+        "max_parallelism_default": 1,
+        "tiers": [
+            {
+                "tier_id": "small_deterministic_local",
+                "purpose": "correctness and route-readiness coverage for all 43 query families",
+                "required_for_pr_fast_lane": True,
+                "sequential_default": True,
+                "full_clickbench_performance_claim_allowed": False,
+            },
+            {
+                "tier_id": "medium_sequential_uat",
+                "purpose": "optional local stress/UAT over larger generated hits-like data",
+                "required_for_pr_fast_lane": False,
+                "sequential_default": True,
+                "full_clickbench_performance_claim_allowed": False,
+            },
+            {
+                "tier_id": "full_100m_artifact_runner",
+                "purpose": "manual/offline full-scale artifact production after maintainer approval",
+                "required_for_pr_fast_lane": False,
+                "sequential_default": True,
+                "full_clickbench_performance_claim_allowed": False,
+            },
+        ],
+    }
+
+
 def runtime_status(query_id: str, tags: list[str], statement: str) -> dict[str, str]:
     sql = lowered(statement)
     if query_id == "CB-Q01":
@@ -313,6 +440,7 @@ def coverage_report(queries: list[str]) -> dict[str, Any]:
         query_id = f"CB-Q{index:02d}"
         tags = operator_tags(statement)
         status = runtime_status(query_id, tags, statement)
+        state_budget = state_budget_profile(tags, status["route_family"])
         rows.append(
             {
                 "query_id": query_id,
@@ -327,6 +455,13 @@ def coverage_report(queries: list[str]) -> dict[str, Any]:
                 "route_id": status["route_id"],
                 "blocker_id": status["blocker_id"],
                 "next_action": status["next_action"],
+                "benchmark_site_readiness_status": "ready_route_readiness_not_performance",
+                "readiness_surface": "clickbench_olap_route_readiness",
+                "timing_surface": "route_readiness_no_timing",
+                "scale_fixture_strategy_id": "clickbench_scale_fixture_strategy_v1",
+                "scale_fixture_default_tier": "small_deterministic_local",
+                "max_parallelism_default": 1,
+                **state_budget,
                 "fallback_attempted": False,
                 "external_engine_invoked": False,
                 "performance_claim_allowed": False,
@@ -335,12 +470,24 @@ def coverage_report(queries: list[str]) -> dict[str, Any]:
     status_counts: dict[str, int] = {}
     blocker_counts: dict[str, int] = {}
     tag_counts: dict[str, int] = {}
+    state_family_counts: dict[str, int] = {}
+    capillary_work_unit_counts: dict[str, int] = {}
+    pulseweave_pressure_signal_counts: dict[str, int] = {}
+    spill_policy_counts: dict[str, int] = {}
     for row in rows:
         status_counts[row["runtime_status"]] = status_counts.get(row["runtime_status"], 0) + 1
         if row["blocker_id"] != "none":
             blocker_counts[row["blocker_id"]] = blocker_counts.get(row["blocker_id"], 0) + 1
         for tag in row["operator_tags"]:
             tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        state_family_counts[row["state_family"]] = state_family_counts.get(row["state_family"], 0) + 1
+        spill_policy_counts[row["spill_policy"]] = spill_policy_counts.get(row["spill_policy"], 0) + 1
+        for unit in row["capillary_work_units"]:
+            capillary_work_unit_counts[unit] = capillary_work_unit_counts.get(unit, 0) + 1
+        for signal in row["pulseweave_pressure_signals"]:
+            pulseweave_pressure_signal_counts[signal] = (
+                pulseweave_pressure_signal_counts.get(signal, 0) + 1
+            )
     return {
         "schema_version": SCHEMA_VERSION,
         "canonical_source_url": CANONICAL_SOURCE_URL,
@@ -351,6 +498,20 @@ def coverage_report(queries: list[str]) -> dict[str, Any]:
         "runtime_status_counts": status_counts,
         "blocker_counts": blocker_counts,
         "operator_tag_counts": tag_counts,
+        "state_budget_schema_version": STATE_BUDGET_SCHEMA_VERSION,
+        "state_budget_required_count": sum(1 for row in rows if row["state_budget_required"]),
+        "state_family_counts": state_family_counts,
+        "capillary_work_unit_counts": capillary_work_unit_counts,
+        "pulseweave_pressure_signal_counts": pulseweave_pressure_signal_counts,
+        "spill_policy_counts": spill_policy_counts,
+        "spill_required_count": sum(1 for row in rows if row["spill_required"]),
+        "spill_supported_count": sum(1 for row in rows if row["spill_supported"]),
+        "fail_closed_if_spill_required_count": sum(
+            1 for row in rows if row["fail_closed_if_spill_required"]
+        ),
+        "scale_fixture_strategy": scale_fixture_strategy(),
+        "benchmark_site_readiness_status": "ready_route_readiness_not_performance",
+        "benchmark_site_readiness_fields_present": True,
         "claim_gate_status": "not_claim_grade",
         "performance_claim_allowed": False,
         "fallback_attempted": False,
@@ -388,6 +549,31 @@ def validate(report: dict[str, Any]) -> list[str]:
             blockers.append(f"{row['query_id']} missing stable blocker/implementation ID")
         if row["runtime_status"] == "admitted_current_runtime" and row["blocker_id"] != "none":
             blockers.append(f"{row['query_id']} admitted row still has blocker_id")
+        if row["state_budget_schema_version"] != STATE_BUDGET_SCHEMA_VERSION:
+            blockers.append(f"{row['query_id']} has stale state-budget schema")
+        if row["benchmark_site_readiness_status"] != "ready_route_readiness_not_performance":
+            blockers.append(f"{row['query_id']} has invalid benchmark site readiness status")
+        if row["timing_surface"] != "route_readiness_no_timing":
+            blockers.append(f"{row['query_id']} has invalid ClickBench timing surface")
+        if row["scale_fixture_strategy_id"] != "clickbench_scale_fixture_strategy_v1":
+            blockers.append(f"{row['query_id']} missing scale fixture strategy linkage")
+        if row["spill_required"] or row["spill_io_performed"]:
+            blockers.append(f"{row['query_id']} unexpectedly reports spill execution")
+        if row["spill_required"] and not row["fail_closed_if_spill_required"]:
+            blockers.append(f"{row['query_id']} lacks fail-closed spill policy")
+        if row["performance_claim_allowed"]:
+            blockers.append(f"{row['query_id']} incorrectly allows a performance claim")
+        if row["state_budget_required"] and not row["capillary_work_units"]:
+            blockers.append(f"{row['query_id']} missing capillary work units")
+        if row["state_budget_required"] and not row["pulseweave_pressure_signals"]:
+            blockers.append(f"{row['query_id']} missing PulseWeave pressure signals")
+    strategy = report.get("scale_fixture_strategy", {})
+    if strategy.get("schema_version") != SCALE_FIXTURE_STRATEGY_SCHEMA_VERSION:
+        blockers.append("ClickBench scale fixture strategy has invalid schema version")
+    if strategy.get("default_pr_fast_lane_tier") != "small_deterministic_local":
+        blockers.append("ClickBench scale fixture strategy must keep PR fast lane small/local")
+    if strategy.get("max_parallelism_default") != 1:
+        blockers.append("ClickBench scale fixture strategy must default to sequential execution")
     return blockers
 
 

@@ -7177,6 +7177,96 @@ fn append_vortex_run_local_primitive_execution_fields(
                 .is_some_and(|local| local.materialization_boundary_reported)
                 .to_string(),
         ),
+        (
+            "local_primitive_state_budget_schema_version".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.state_budget.schema_version.clone(),
+            ),
+        ),
+        (
+            "local_primitive_state_budget_required".to_string(),
+            local
+                .is_some_and(|local| local.state_budget.state_budget_required)
+                .to_string(),
+        ),
+        (
+            "local_primitive_state_budget_status".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.state_budget.state_budget_status.clone(),
+            ),
+        ),
+        (
+            "local_primitive_state_family".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.state_budget.state_family.clone(),
+            ),
+        ),
+        (
+            "local_primitive_capillary_work_units".to_string(),
+            local.map_or_else(String::new, |local| {
+                local.state_budget.capillary_work_units.join(",")
+            }),
+        ),
+        (
+            "local_primitive_pulseweave_pressure_signals".to_string(),
+            local.map_or_else(String::new, |local| {
+                local.state_budget.pulseweave_pressure_signals.join(",")
+            }),
+        ),
+        (
+            "local_primitive_observed_state_items".to_string(),
+            local.map_or_else(
+                || "0".to_string(),
+                |local| local.state_budget.observed_state_items.to_string(),
+            ),
+        ),
+        (
+            "local_primitive_estimated_state_items".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| {
+                    local
+                        .state_budget
+                        .estimated_state_items
+                        .map_or_else(|| "none".to_string(), |value| value.to_string())
+                },
+            ),
+        ),
+        (
+            "local_primitive_spill_policy".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.state_budget.spill_policy.clone(),
+            ),
+        ),
+        (
+            "local_primitive_spill_required".to_string(),
+            local
+                .is_some_and(|local| local.state_budget.spill_required)
+                .to_string(),
+        ),
+        (
+            "local_primitive_spill_supported".to_string(),
+            local
+                .is_some_and(|local| local.state_budget.spill_supported)
+                .to_string(),
+        ),
+        (
+            "local_primitive_fail_closed_if_spill_required".to_string(),
+            local
+                .is_some_and(|local| local.state_budget.fail_closed_if_spill_required)
+                .to_string(),
+        ),
+        (
+            "local_primitive_state_budget_diagnostic_code".to_string(),
+            local.map_or_else(
+                || "none".to_string(),
+                |local| local.state_budget.diagnostic_code.clone(),
+            ),
+        ),
     ]);
 }
 

@@ -166,6 +166,23 @@ impl VortexExpressionProjectionRequest {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexDuplicateKeepPolicy {
+    First,
+    Last,
+    AllDuplicates,
+}
+impl VortexDuplicateKeepPolicy {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::First => "first",
+            Self::Last => "last",
+            Self::AllDuplicates => "false",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct VortexMeltProjectionRequest {
     pub id_columns: Vec<ColumnRef>,
@@ -799,6 +816,8 @@ pub struct VortexQueryPrimitiveRequest {
     pub source_order_limit: Option<usize>,
     pub sample_seed: Option<u64>,
     pub sample_fraction: Option<f64>,
+    pub sample_with_replacement: bool,
+    pub duplicate_keep: VortexDuplicateKeepPolicy,
     pub expression_projection: Option<VortexExpressionProjectionRequest>,
     pub melt_projection: Option<VortexMeltProjectionRequest>,
     pub explode_projection: Option<VortexExplodeProjectionRequest>,
@@ -819,6 +838,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -839,6 +860,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -859,6 +882,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -879,6 +904,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -903,6 +930,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -927,6 +956,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -947,6 +978,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -967,6 +1000,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: Some(limit),
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -993,6 +1028,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: Some(limit),
             sample_seed: Some(seed),
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -1019,6 +1056,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: Some(seed),
             sample_fraction: Some(fraction),
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -1043,6 +1082,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: Some(expression_projection),
             melt_projection: None,
             explode_projection: None,
@@ -1064,6 +1105,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: Some(melt_projection),
             explode_projection: None,
@@ -1088,6 +1131,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: Some(explode_projection),
@@ -1109,6 +1154,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -1133,6 +1180,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -1157,6 +1206,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -1183,6 +1234,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: Some(limit),
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -1208,6 +1261,17 @@ impl VortexQueryPrimitiveRequest {
     pub fn with_sample_fraction(mut self, fraction: f64) -> Self {
         self.sample_fraction = Some(fraction);
         self.source_order_limit = None;
+        self.sample_with_replacement = false;
+        self
+    }
+    #[must_use]
+    pub const fn with_sample_replacement(mut self, replacement: bool) -> Self {
+        self.sample_with_replacement = replacement;
+        self
+    }
+    #[must_use]
+    pub const fn with_duplicate_keep(mut self, keep: VortexDuplicateKeepPolicy) -> Self {
+        self.duplicate_keep = keep;
         self
     }
     #[must_use]
@@ -1220,6 +1284,8 @@ impl VortexQueryPrimitiveRequest {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
@@ -1252,7 +1318,7 @@ impl VortexQueryPrimitiveRequest {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "kind={} uri={} projection={} predicate={} source_order_limit={} sample_seed={} sample_fraction={} expression_projection={} melt_projection={} explode_projection={} pivot_projection={} rolling_window={} simple_aggregate={} sort_rows={} diagnostics={}",
+            "kind={} uri={} projection={} predicate={} source_order_limit={} sample_seed={} sample_fraction={} sample_with_replacement={} duplicate_keep={} expression_projection={} melt_projection={} explode_projection={} pivot_projection={} rolling_window={} simple_aggregate={} sort_rows={} diagnostics={}",
             self.kind.as_str(),
             self.source_uri
                 .as_ref()
@@ -1267,6 +1333,8 @@ impl VortexQueryPrimitiveRequest {
                 .map_or_else(|| "none".to_string(), |seed| seed.to_string()),
             self.sample_fraction
                 .map_or_else(|| "none".to_string(), format_fraction),
+            self.sample_with_replacement,
+            self.duplicate_keep.as_str(),
             self.expression_projection.as_ref().map_or_else(
                 || "none".to_string(),
                 VortexExpressionProjectionRequest::family_summary,

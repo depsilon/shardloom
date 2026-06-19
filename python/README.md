@@ -353,8 +353,8 @@ print(native_vortex.command, native_vortex.route_id, native_vortex.vortex_primit
 
 For direct `.vortex` inputs, `route()` and `run()` infer the admitted primitive/provider payloads
 for scoped count/filter/project/limit, no-argument row-level distinct, bounded source-order tail,
-deterministic no-replacement `sample(n=..., seed=...|random_state=<int>, replace=False)` or
-`sample(frac|fraction=..., seed=...|random_state=<int>)`,
+deterministic row-count `sample(n=..., seed=...|random_state=<int>, replace=False|True)` or
+fractional `sample(frac|fraction=..., seed=...|random_state=<int>, replace=False|True)`,
 and exact benchmark-family grouped aggregate, hash join, global top-N, cast/try-cast,
 substring contains, and native
 `write_vortex` sink shapes. Manual
@@ -1699,10 +1699,11 @@ execution, so envelopes have `command=run` plus
 `public_workflow_resolved_internal_command` set to `vortex-run`,
 `vortex-count-where`, `vortex-filter`, `vortex-project`, or
 `vortex-filter-project`. Count-all, no-argument row-level distinct, scoped source-order tail, and
-deterministic no-replacement sampling map through `vortex-run`; count-where, filter, project, and
+deterministic row-count sampling map through `vortex-run`; count-where, filter, project, and
 filter-project map through their scoped primitive commands. Distinct, tail, and sample use explicit
 projection, source-order limit or sample fraction, sample seed or integer `random_state`,
-without-replacement sampling, `memory_gb`, and `max_parallelism` payloads where relevant.
+row-count or fractional replacement-aware sampling, `memory_gb`, and `max_parallelism`
+payloads where relevant.
 The lower `vortex-*` commands remain available for direct diagnostics, tests,
 and benchmark evidence. Calls without explicit local primitive execution use
 the existing metadata/plan evidence surfaces where the CLI supports them.

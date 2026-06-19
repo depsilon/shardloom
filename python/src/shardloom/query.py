@@ -3472,10 +3472,12 @@ class _VortexPrimitiveWorkflowShape:
     limit: int | None = None
     distinct: bool = False
     duplicate_mask: bool = False
+    duplicate_keep: str = "first"
     tail_limit: int | None = None
     sample_count: int | None = None
     sample_seed: int | None = None
     sample_fraction: float | None = None
+    sample_with_replacement: bool = False
     expression_projection: str | None = None
     melt_projection: str | None = None
     explode_projection: str | None = None
@@ -3569,6 +3571,42 @@ class RollingFrame:
     min_periods: int
     center: bool = False
 
+    def _aggregate(
+        self,
+        aggregate: str,
+        column: object,
+        *,
+        alias: object | None = None,
+        check: bool = False,
+        **kwargs: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        target_ref = _normalize_rolling_aggregate_target(
+            aggregate,
+            column,
+            alias=alias,
+            kwargs=kwargs,
+        )
+        if kwargs:
+            return self.frame._unsupported_operation(
+                f"rolling-{aggregate}",
+                target_ref,
+                check=check,
+            )
+        payload = _vortex_rolling_window_payload(
+            column,
+            output_column=alias,
+            window_size=self.window,
+            min_periods=self.min_periods,
+            aggregate=aggregate,
+        )
+        if payload is None:
+            return self.frame._unsupported_operation(
+                f"rolling-{aggregate}",
+                target_ref,
+                check=check,
+            )
+        return self.frame._append(WorkflowOperation("rolling_window", (payload,)))
+
     def sum(
         self,
         column: object,
@@ -3579,32 +3617,31 @@ class RollingFrame:
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped source-order rolling sum over one numeric column."""
 
-        target_ref = _normalize_rolling_aggregate_target(
-            "sum",
-            column,
-            alias=alias,
-            kwargs=kwargs,
-        )
-        if kwargs:
-            return self.frame._unsupported_operation(
-                "rolling-sum",
-                target_ref,
-                check=check,
-            )
-        payload = _vortex_rolling_window_payload(
-            column,
-            output_column=alias,
-            window_size=self.window,
-            min_periods=self.min_periods,
-            aggregate="sum",
-        )
-        if payload is None:
-            return self.frame._unsupported_operation(
-                "rolling-sum",
-                target_ref,
-                check=check,
-            )
-        return self.frame._append(WorkflowOperation("rolling_window", (payload,)))
+        return self._aggregate("sum", column, alias=alias, check=check, **kwargs)
+
+    def mean(
+        self,
+        column: object,
+        *,
+        alias: object | None = None,
+        check: bool = False,
+        **kwargs: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped source-order rolling mean over one numeric column."""
+
+        return self._aggregate("mean", column, alias=alias, check=check, **kwargs)
+
+    def count(
+        self,
+        column: object,
+        *,
+        alias: object | None = None,
+        check: bool = False,
+        **kwargs: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped source-order rolling row count over one scalar column."""
+
+        return self._aggregate("count", column, alias=alias, check=check, **kwargs)
 
 
 def _native_vortex_operation_family_for_primitive(primitive: str) -> str:
@@ -3627,7 +3664,14 @@ def _native_vortex_operation_family_for_primitive(primitive: str) -> str:
         return "explode"
     if normalized in {"pivot", "pivot_rows", "pivot_table", "pivot_wide_reshape"}:
         return "pivot"
-    if normalized in {"rolling", "rolling_window", "rolling_rows", "rolling_sum"}:
+    if normalized in {
+        "rolling",
+        "rolling_window",
+        "rolling_rows",
+        "rolling_sum",
+        "rolling_mean",
+        "rolling_count",
+    }:
         return "rolling_window"
     return "filter_project_limit"
 
@@ -3723,6 +3767,8 @@ def _native_vortex_row_export_payload_from_primitive_shape(
     columns = getattr(shape, "columns", None)
     sample_count = getattr(shape, "sample_count", None)
     sample_fraction = getattr(shape, "sample_fraction", None)
+    sample_with_replacement = bool(getattr(shape, "sample_with_replacement", False))
+    duplicate_keep = getattr(shape, "duplicate_keep", None)
     tail_limit = getattr(shape, "tail_limit", None)
     expression_projection = getattr(shape, "expression_projection", None)
     melt_projection = getattr(shape, "melt_projection", None)
@@ -3775,6 +3821,10 @@ def _native_vortex_row_export_payload_from_primitive_shape(
         "vortex_source_order_limit": source_order_limit,
         "vortex_sample_seed": getattr(shape, "sample_seed", None),
         "vortex_sample_fraction": sample_fraction,
+        "vortex_sample_replacement": sample_with_replacement,
+        "vortex_duplicate_keep": duplicate_keep
+        if primitive == "duplicate_mask"
+        else None,
         "vortex_expression_projection": expression_projection,
         "vortex_melt_projection": melt_projection,
         "vortex_explode_projection": explode_projection,
@@ -3995,7 +4045,7 @@ def _vortex_rolling_window_columns_from_payload(payload: str) -> tuple[str, ...]
         )
     except (TypeError, ValueError):
         return None
-    if parsed_min_periods > parsed_window or aggregate != "sum":
+    if parsed_min_periods > parsed_window or aggregate not in {"sum", "mean", "count"}:
         return None
     return (source_column,)
 
@@ -4014,14 +4064,18 @@ def _vortex_rolling_window_payload(
     output = (
         _normalize_output_column_name(output_column)
         if output_column is not None
-        else _normalize_output_column_name(f"{source_column}_rolling_sum")
+        else _normalize_output_column_name(f"{source_column}_rolling_{aggregate}")
     )
     if output == source_column:
         return None
     normalized_window = _normalize_positive_int("rolling window", window_size)
     normalized_min_periods = _normalize_positive_int("rolling min_periods", min_periods)
     normalized_aggregate = aggregate.strip().lower()
-    if normalized_min_periods > normalized_window or normalized_aggregate != "sum":
+    if normalized_min_periods > normalized_window or normalized_aggregate not in {
+        "sum",
+        "mean",
+        "count",
+    }:
         return None
     return json.dumps(
         {
@@ -4736,7 +4790,7 @@ class LazyFrame:
         replace: bool = False,
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
-        """Return a scoped deterministic no-replacement sample over admitted Vortex-backed rows."""
+        """Return a scoped deterministic sample over admitted Vortex-backed rows."""
 
         effective_fraction = _normalize_sample_fraction_alias(
             fraction=fraction,
@@ -4753,7 +4807,7 @@ class LazyFrame:
             weights=weights,
             replace=replace,
         )
-        if weights is not None or replace is not False:
+        if weights is not None:
             return self._unsupported_operation("sample", target_ref, check=check)
         sample_seed = (
             0
@@ -4762,14 +4816,21 @@ class LazyFrame:
         )
         if effective_fraction is not None:
             sample_fraction = _normalize_sample_fraction_value(effective_fraction)
+            values = ["fraction", f"{sample_fraction:.12g}", str(sample_seed)]
+            if replace is True:
+                values.append("replacement")
             return self._append(
                 WorkflowOperation(
                     "sample",
-                    ("fraction", f"{sample_fraction:.12g}", str(sample_seed)),
+                    tuple(values),
                 )
             )
         sample_n = 1 if n is None else _normalize_non_negative_int("sample n", n)
         _validate_positive_row_count("sample n", sample_n)
+        if replace is True:
+            return self._append(
+                WorkflowOperation("sample", (str(sample_n), str(sample_seed), "replacement"))
+            )
         return self._append(WorkflowOperation("sample", (str(sample_n), str(sample_seed))))
 
     def explode(
@@ -4988,10 +5049,13 @@ class LazyFrame:
         """Return a scoped row-duplicate mask for admitted Vortex-backed rows."""
 
         target_ref = _normalize_duplicated_target(subset=subset, keep=keep, kwargs=kwargs)
-        if not kwargs and keep == "first":
+        normalized_keep = _normalize_duplicate_keep_value(keep)
+        if not kwargs and normalized_keep in {"first", "last", "false"}:
             columns = self._duplicate_mask_projection_columns(subset)
             if columns is not None:
-                return self._append(WorkflowOperation("duplicate_mask", columns))
+                return self._append(
+                    WorkflowOperation("duplicate_mask", (*columns, f"keep={normalized_keep}"))
+                )
         return self._unsupported_operation("duplicated", target_ref, check=check)
 
     def tail(
@@ -5558,7 +5622,21 @@ class LazyFrame:
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Drop non-existent DataFrame index state without changing the ShardLoom plan."""
 
+        if not kwargs and _workflow_index_columns(self.operations):
+            return LazyFrame(
+                source=self.source,
+                client=self.client,
+                operations=_strip_index_metadata_operations(self.operations),
+                engine_mode=self.engine_mode,
+            )
         if kwargs == {"drop": True}:
+            if _workflow_index_columns(self.operations):
+                return LazyFrame(
+                    source=self.source,
+                    client=self.client,
+                    operations=_strip_index_metadata_operations(self.operations),
+                    engine_mode=self.engine_mode,
+                )
             return self
         target_ref = _normalize_index_target("reset_index", keys=None, kwargs=kwargs)
         return self._unsupported_operation("reset-index", target_ref, check=check)
@@ -5572,8 +5650,12 @@ class LazyFrame:
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Preserve source order when no explicit DataFrame index state exists."""
 
-        if ascending is True and not kwargs and not _workflow_has_index_metadata(self.operations):
-            return self
+        if not kwargs:
+            index_columns = _workflow_index_columns(self.operations)
+            if index_columns:
+                return self.sort(*index_columns, descending=not ascending, check=check)
+            if ascending is True:
+                return self
         target_ref = _normalize_sort_index_target(ascending=ascending, kwargs=kwargs)
         return self._unsupported_operation("sort-index", target_ref, check=check)
 
@@ -5745,6 +5827,10 @@ class LazyFrame:
                     ),
                     "vortex_sample_seed": primitive_shape.sample_seed,
                     "vortex_sample_fraction": primitive_shape.sample_fraction,
+                    "vortex_sample_replacement": primitive_shape.sample_with_replacement,
+                    "vortex_duplicate_keep": primitive_shape.duplicate_keep
+                    if primitive == "duplicate_mask"
+                    else None,
                     "vortex_expression_projection": primitive_shape.expression_projection,
                     "vortex_melt_projection": primitive_shape.melt_projection,
                     "vortex_explode_projection": primitive_shape.explode_projection,
@@ -7539,6 +7625,8 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=shape.expression_projection,
                 melt_projection=None,
                 explode_projection=None,
@@ -7556,6 +7644,8 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=shape.melt_projection,
                 explode_projection=None,
@@ -7573,6 +7663,8 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=shape.explode_projection,
@@ -7590,6 +7682,8 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7607,6 +7701,8 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7624,6 +7720,8 @@ class LazyFrame:
                 source_order_limit=shape.sample_count,
                 sample_seed=shape.sample_seed,
                 sample_fraction=None,
+                sample_with_replacement=shape.sample_with_replacement,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7641,6 +7739,8 @@ class LazyFrame:
                 source_order_limit=None,
                 sample_seed=shape.sample_seed,
                 sample_fraction=shape.sample_fraction,
+                sample_with_replacement=shape.sample_with_replacement,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7658,6 +7758,8 @@ class LazyFrame:
                 source_order_limit=shape.tail_limit,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7675,6 +7777,8 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7692,6 +7796,8 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=shape.duplicate_keep,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7709,6 +7815,8 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7726,6 +7834,8 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7743,6 +7853,8 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7794,6 +7906,8 @@ class LazyFrame:
                 source_order_limit=None,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7811,6 +7925,8 @@ class LazyFrame:
                 source_order_limit=None,
                 sample_seed=None,
                 sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
                 expression_projection=None,
                 melt_projection=None,
                 explode_projection=None,
@@ -7956,6 +8072,8 @@ class LazyFrame:
         source_order_limit: int | None,
         sample_seed: int | None,
         sample_fraction: float | None,
+        sample_with_replacement: bool,
+        duplicate_keep: str | None,
         expression_projection: str | None,
         melt_projection: str | None,
         explode_projection: str | None,
@@ -7984,6 +8102,8 @@ class LazyFrame:
             vortex_source_order_limit=source_order_limit,
             vortex_sample_seed=sample_seed,
             vortex_sample_fraction=sample_fraction,
+            vortex_sample_replacement=sample_with_replacement,
+            vortex_duplicate_keep=duplicate_keep,
             vortex_expression_projection=expression_projection,
             vortex_melt_projection=melt_projection,
             vortex_explode_projection=explode_projection,
@@ -8002,10 +8122,12 @@ class LazyFrame:
         limit: int | None = None
         distinct = False
         duplicate_mask = False
+        duplicate_keep = "first"
         tail_limit: int | None = None
         sample_count: int | None = None
         sample_seed: int | None = None
         sample_fraction: float | None = None
+        sample_with_replacement = False
         expression_projection: str | None = None
         melt_projection: str | None = None
         explode_projection: str | None = None
@@ -8089,16 +8211,18 @@ class LazyFrame:
                     or rolling_window is not None
                 ):
                     return None
-                if not operation.values or any(
-                    not _is_sql_identifier(column) for column in operation.values
-                ):
+                duplicate_columns, parsed_duplicate_keep = _duplicate_mask_operation_parts(
+                    operation.values
+                )
+                if duplicate_columns is None:
                     return None
                 if columns is not None and any(
-                    column not in columns for column in operation.values
+                    column not in columns for column in duplicate_columns
                 ):
                     return None
-                columns = operation.values
+                columns = duplicate_columns
                 duplicate_mask = True
+                duplicate_keep = parsed_duplicate_keep
             elif operation.kind == "tail":
                 if (
                     predicate is not None
@@ -8139,6 +8263,11 @@ class LazyFrame:
                         return None
                     parsed_fraction = float(operation.values[1])
                     parsed_seed = int(operation.values[2]) if len(operation.values) > 2 else 0
+                    parsed_replacement = (
+                        len(operation.values) > 3 and operation.values[3] == "replacement"
+                    )
+                    if len(operation.values) > (4 if parsed_replacement else 3):
+                        return None
                     if (
                         not math.isfinite(parsed_fraction)
                         or parsed_fraction <= 0
@@ -8148,13 +8277,18 @@ class LazyFrame:
                         return None
                     sample_fraction = parsed_fraction
                     sample_seed = parsed_seed
+                    sample_with_replacement = parsed_replacement
                 else:
                     parsed_sample = int(operation.values[0])
                     parsed_seed = int(operation.values[1]) if len(operation.values) > 1 else 0
+                    parsed_replacement = len(operation.values) > 2 and operation.values[2] == "replacement"
+                    if len(operation.values) > (3 if parsed_replacement else 2):
+                        return None
                     if parsed_sample <= 0 or parsed_seed < 0:
                         return None
                     sample_count = parsed_sample
                     sample_seed = parsed_seed
+                    sample_with_replacement = parsed_replacement
             elif operation.kind == "expression_project":
                 if (
                     predicate is not None
@@ -8312,10 +8446,12 @@ class LazyFrame:
             limit=limit,
             distinct=distinct,
             duplicate_mask=duplicate_mask,
+            duplicate_keep=duplicate_keep,
             tail_limit=tail_limit,
             sample_count=sample_count,
             sample_seed=sample_seed,
             sample_fraction=sample_fraction,
+            sample_with_replacement=sample_with_replacement,
             expression_projection=expression_projection,
             melt_projection=melt_projection,
             explode_projection=explode_projection,
@@ -11545,18 +11681,22 @@ def _normalize_duplicated_target(
     keep: str | bool,
     kwargs: Mapping[str, object],
 ) -> str:
-    if keep is False:
-        normalized_keep = "false"
-    else:
-        normalized_keep = _require_non_empty("duplicate keep", keep).lower().replace("_", "-")
-        if normalized_keep not in {"first", "last"}:
-            raise ValueError("duplicate keep must be 'first', 'last', or False")
+    normalized_keep = _normalize_duplicate_keep_value(keep)
     parts = [
         f"subset={_optional_columns_for_target(subset)}",
         f"keep={normalized_keep}",
     ]
     parts.extend(_normalize_extra_kwargs("duplicated", kwargs))
     return ";".join(parts)
+
+
+def _normalize_duplicate_keep_value(keep: str | bool) -> str:
+    if keep is False:
+        return "false"
+    normalized_keep = _require_non_empty("duplicate keep", keep).lower().replace("_", "-")
+    if normalized_keep not in {"first", "last"}:
+        raise ValueError("duplicate keep must be 'first', 'last', or False")
+    return normalized_keep
 
 
 def _normalize_mask_target(
@@ -13538,6 +13678,34 @@ def _workflow_has_index_metadata(operations: Sequence[WorkflowOperation]) -> boo
     """Whether a lazy workflow carries explicit index-state metadata."""
 
     return any(operation.kind == "set_index" for operation in operations)
+
+
+def _workflow_index_columns(operations: Sequence[WorkflowOperation]) -> tuple[str, ...]:
+    """Return the explicit ShardLoom index columns, if the lazy plan records them."""
+
+    for operation in reversed(operations):
+        if operation.kind == "set_index":
+            return operation.values
+    return ()
+
+
+def _duplicate_mask_operation_parts(
+    values: Sequence[str],
+) -> tuple[tuple[str, ...] | None, str]:
+    if not values:
+        return None, "first"
+    keep = "first"
+    columns: list[str] = []
+    for value in values:
+        if value.startswith("keep="):
+            keep = value.removeprefix("keep=")
+        else:
+            columns.append(value)
+    if keep not in {"first", "last", "false"}:
+        return None, "first"
+    if not columns or any(not _is_sql_identifier(column) for column in columns):
+        return None, keep
+    return tuple(columns), keep
 
 
 def _workflow_has_top_n_shape(operations: Sequence[WorkflowOperation]) -> bool:
