@@ -513,6 +513,59 @@ fn public_route_admits_native_vortex_sample_row_export_payloads() {
 }
 
 #[test]
+fn public_route_admits_native_vortex_sort_row_export_payloads() {
+    let _ = std::fs::remove_file("target/native-vortex-sort-output.jsonl");
+    let stdout = run_route(&[
+        "route",
+        "cli",
+        "--input",
+        "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
+        "--input-format",
+        "vortex",
+        "--request",
+        "write_jsonl",
+        "--execution-policy",
+        "native_vortex",
+        "--output",
+        "target/native-vortex-sort-output.jsonl",
+        "--bounded",
+        "true",
+        "--vortex-primitive",
+        "sort_rows",
+        "--vortex-columns",
+        "value,metric",
+        "--vortex-source-order-limit",
+        "2",
+        "--vortex-sort-rows",
+        r#"{"order_by":[{"column":"metric","descending":true}]}"#,
+        "--format",
+        "json",
+    ]);
+
+    assert!(stdout.contains("\"command\":\"route\""));
+    if cfg!(feature = "vortex-local-primitives") {
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("route_id", "native_vortex_primitive_row_export")));
+        assert!(stdout.contains(&field("vortex_primitive", "sort_rows")));
+        assert!(stdout.contains(&field("vortex_source_order_limit", "2")));
+        assert!(stdout.contains(&field("vortex_sort_rows_present", "true")));
+        assert!(stdout.contains(&field(
+            "typed_sink_contract",
+            "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink"
+        )));
+    } else {
+        assert!(stdout.contains("\"status\":\"unsupported\""));
+        assert!(stdout.contains(&field("route_id", "blocked")));
+        assert!(stdout.contains(&field(
+            "blocker_id",
+            "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+        )));
+    }
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn public_route_admits_native_vortex_sample_fraction_payloads() {
     let stdout = run_route(&[
         "route",

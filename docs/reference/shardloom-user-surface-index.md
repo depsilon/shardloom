@@ -88,8 +88,8 @@ For direct `.vortex` inputs, use
 Python/SQL provider routes for grouped aggregation, hash join, global top-N, cast/try-cast,
 substring contains, and native `write_vortex` sink shapes. Scoped primitive routes also cover
 count/filter/project/limit, no-argument row-level distinct, bounded source-order tail, and
-deterministic no-replacement `sample(n=..., seed=...|random_state=<int>, replace=False)` or
-`sample(frac|fraction=..., seed=...|random_state=<int>)`, and scoped
+deterministic row-count `sample(n=..., seed=...|random_state=<int>, replace=False|True)` or
+fractional `sample(frac|fraction=..., seed=...|random_state=<int>, replace=False|True)`, and scoped
 `melt(id_vars=..., value_vars=...)` over same-typed value columns plus scoped
 `explode("list_column")` over one declared scalar list column. These
 reports are route evidence, not broad arbitrary Vortex SQL/DataFrame parity or performance claims.
@@ -104,8 +104,8 @@ objects. Common supported or scoped methods include:
 - Projection and schema rewrites: `select(...)`, `project(...)`, `rename(...)`,
   `rename_columns(...)`, `drop(...)`, `drop_columns(...)`, `astype(...)`.
 - Row bounds: `limit(...)`, `head(...)`, `take(...)`, scoped `tail(...)`, and scoped deterministic
-  `sample(n=..., seed=...|random_state=<int>, replace=False)` or
-  `sample(frac|fraction=..., seed=...|random_state=<int>)`.
+  `sample(n=..., seed=...|random_state=<int>, replace=False|True)` or fractional
+  `sample(frac|fraction=..., seed=...|random_state=<int>, replace=False|True)`.
 - Aggregation: `group_by(...).agg(...)`, `groupby(...).agg(...)`, scalar `agg(...)`,
   `aggregate(...)`, `nunique(...)`, `value_counts(...)`.
 - Joins and set operations: scoped `join(...)`, `merge(...)` when it lowers to the same join,
@@ -116,7 +116,7 @@ objects. Common supported or scoped methods include:
   `reset_index(drop=True)`/`sort_index(ascending=True)`, `nlargest(...)`, `nsmallest(...)`.
 - Null and duplicate helpers: `dropna(...)`, `fillna(...)`, `fill_null(...)`, `isna(...)`,
   `isnull(...)`, `notna(...)`, `notnull(...)`, `distinct()`, `drop_duplicates()`, `unique()`,
-  and scoped `duplicated(subset=..., keep="first")` duplicate masks.
+  and scoped `duplicated(subset=..., keep="first"|"last"|False)` duplicate masks.
 - Reshape: scoped `melt(id_vars=..., value_vars=..., var_name=..., value_name=...)` for explicit
   flat scalar id/value columns with same-typed value columns through the native/prepared Vortex
   melt primitive, scoped `explode("list_column")` over one declared scalar list column through the
@@ -125,10 +125,10 @@ objects. Common supported or scoped methods include:
   primitive; heterogeneous unpivot, nullable/nested/multi-column explode, multi-index/multi-value
   pivot, custom pivot aggregates, hidden index-state reshape, and broad reshape parity remain
   deterministic blockers.
-- Windows: scoped `rolling(window=<positive int>, min_periods<=window, center=False).sum(column,
-  alias=...)` for one scalar numeric column through the native/prepared Vortex rolling-window
-  primitive; time/calendar windows, centered windows, callbacks, and broad pandas rolling parity
-  remain deterministic blockers.
+- Windows: scoped `rolling(window=<positive int>, min_periods<=window, center=False).sum/mean/count(column, alias=...)` for one scalar source-order column through the native/prepared Vortex rolling-window
+  primitive; `sum`/`mean` require numeric inputs, `count` admits scalar rows, and time/calendar
+  windows, centered windows, callbacks, and broad pandas rolling parity remain deterministic
+  blockers.
 - Conditional and value rewrites: scoped typed scalar `mask(predicate, scalar)`,
   `replace(old, new)`/column-mapped full-cell scalar replacement, and in-place UTF-8
   `with_column("col", col("col").replace(...))` string replacement when the schema and projection
@@ -285,8 +285,8 @@ future-gated unless the dynamic capability row says otherwise:
 - Broad SQL grammar or arbitrary SQL execution.
 - Hidden fallback execution in DuckDB, DataFusion, Spark, Polars, pandas, Velox, or another engine.
 - Unbounded materialization as a convenience path.
-- Duplicate-mask variants outside scoped `keep="first"` scalar subset semantics, including
-  `keep="last"`, `keep=False`, nested equality, and nullable equality parity.
+- Duplicate-mask variants outside scoped scalar-subset `keep="first"|"last"|False` semantics,
+  including nested equality, nullable equality parity, and hidden-index duplicate-mask semantics.
 - Object-store, lakehouse/table, catalog, remote API, Foundry, live/hybrid, distributed, and
   production workflows without the matching evidence gate.
 - Effectful external writes, credentials, network calls, UDFs, plugins, LLM/API calls, embeddings,

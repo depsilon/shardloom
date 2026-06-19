@@ -164,6 +164,20 @@ const artifactRows = [
   ["Benchmark constitution gate", textValue(manifestAny.benchmark_constitution_claim_gate_status)],
   ["Route timing instrument status", textValue(manifestAny.route_timing_instrument_status)],
 ];
+const clickbenchReadiness = manifestAny.clickbench_olap_runtime_readiness ?? {};
+const clickbenchReadinessRows = [
+  ["Status", textValue(clickbenchReadiness.status)],
+  ["Queries admitted", `${textValue(clickbenchReadiness.admitted_runtime_rows)} / ${textValue(clickbenchReadiness.query_count)}`],
+  ["Readiness surface", textValue(clickbenchReadiness.readiness_surface)],
+  ["Timing surface", textValue(clickbenchReadiness.timing_surface)],
+  ["State budget schema", textValue(clickbenchReadiness.state_budget_schema_version)],
+  ["State-budgeted rows", textValue(clickbenchReadiness.state_budget_required_count)],
+  ["Fixture tiers", Array.isArray(clickbenchReadiness.scale_fixture_tiers) ? clickbenchReadiness.scale_fixture_tiers.join(", ") : "not reported"],
+  ["PR fast lane tier", textValue(clickbenchReadiness.default_pr_fast_lane_tier)],
+  ["Sequential default", textValue(clickbenchReadiness.max_parallelism_default)],
+  ["Spill policy", textValue(clickbenchReadiness.spill_policy)],
+  ["Performance claim allowed", String(clickbenchReadiness.performance_claim_allowed ?? false)],
+];
 const artifactMirrorRows = [
   [
     "Canonical public artifact",
@@ -275,6 +289,31 @@ const localOutputSinkScopeRef = {
       </table>
     </div>
     <p class="table-note">Artifact gate: <code>performance_claim_allowed=false</code>.</p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">ClickBench route readiness</p>
+    <h2>OLAP coverage reports state pressure without making timing claims.</h2>
+    <p class="narrow">
+      The ClickBench lane is a route-readiness surface. Capillary work units, PulseWeave pressure signals, fixture tiers, and fail-closed spill posture are visible before a full benchmark artifact is promoted.
+    </p>
+  </div>
+  <div class="artifact-panel">
+    <div class="table-wrap compact-table secondary-table">
+      <table>
+        <thead><tr><th>Readiness field</th><th>Value</th></tr></thead>
+        <tbody>
+          {clickbenchReadinessRows.map((row) => (
+            <tr><td>{row[0]}</td><td>{row[1]}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">
+      Coverage artifact: <code>{textValue(clickbenchReadiness.coverage_artifact)}</code>.
+    </p>
   </div>
 </section>
 

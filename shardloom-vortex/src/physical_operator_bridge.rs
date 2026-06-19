@@ -554,6 +554,8 @@ mod tests {
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: crate::VortexDuplicateKeepPolicy::First,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,

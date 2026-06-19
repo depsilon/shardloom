@@ -556,6 +556,39 @@ impl PredicateExpr {
     }
 }
 
+fn predicate_single_column(
+    predicate: &PredicateExpr,
+) -> std::result::Result<Option<&ColumnRef>, String> {
+    match predicate {
+        PredicateExpr::IsNull { column }
+        | PredicateExpr::IsNotNull { column }
+        | PredicateExpr::Compare { column, .. }
+        | PredicateExpr::StringContains { column, .. }
+        | PredicateExpr::InList { column, .. } => Ok(Some(column)),
+        PredicateExpr::AlwaysTrue | PredicateExpr::AlwaysFalse => Ok(None),
+        PredicateExpr::And(predicates) => {
+            let mut selected: Option<&ColumnRef> = None;
+            for child in predicates {
+                let Some(column) = predicate_single_column(child)? else {
+                    continue;
+                };
+                if let Some(existing) = selected {
+                    if existing != column {
+                        return Err(format!(
+                            "predicate conjunction spans multiple columns: {} and {}",
+                            existing.as_str(),
+                            column.as_str()
+                        ));
+                    }
+                } else {
+                    selected = Some(column);
+                }
+            }
+            Ok(selected)
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PredicateProof {
     AlwaysTrue { reason: String },
@@ -939,7 +972,32 @@ pub fn evaluate_predicate_on_encoded_segment(
     predicate: &PredicateExpr,
     segment: &EncodedSegment,
 ) -> EncodedPredicateEvaluationReport {
-    if let Some(column) = predicate.column()
+    let predicate_column = match predicate_single_column(predicate) {
+        Ok(column) => column,
+        Err(reason) => {
+            return EncodedPredicateEvaluationReport::blocked(
+                segment,
+                predicate,
+                PredicateProof::Unsupported {
+                    reason: reason.clone(),
+                },
+                EncodedPredicateEvaluationStatus::Unsupported,
+                EncodedEvalCapability::Unsupported {
+                    reason: reason.clone(),
+                },
+                Some(Diagnostic::unsupported(
+                    DiagnosticCode::NotImplemented,
+                    "encoded_predicate_evaluation",
+                    reason,
+                    Some(
+                        "Evaluate multi-column conjunctions through a plan-level selection combiner."
+                            .to_string(),
+                    ),
+                )),
+            );
+        }
+    };
+    if let Some(column) = predicate_column
         && column != &segment.column
     {
         let reason = format!(
@@ -1064,7 +1122,11 @@ pub fn evaluate_predicate_on_encoded_values(
     segment: &EncodedSegment,
     values: &EncodedValueBatch,
 ) -> EncodedPredicateEvaluationReport {
-    if let Some(column) = predicate.column()
+    let predicate_column = match predicate_single_column(predicate) {
+        Ok(column) => column,
+        Err(reason) => return encoded_value_predicate_blocked(segment, predicate, reason),
+    };
+    if let Some(column) = predicate_column
         && column != &segment.column
     {
         let reason = format!(
@@ -1344,15 +1406,19 @@ fn code_nullity_indices(
 }
 
 fn u64_comparison_predicate(predicate: &PredicateExpr) -> Option<(ComparisonOp, u64)> {
-    let PredicateExpr::Compare {
-        op,
-        value: StatValue::UInt64(rhs),
-        ..
-    } = predicate
-    else {
-        return None;
-    };
-    Some((*op, *rhs))
+    match predicate {
+        PredicateExpr::Compare {
+            op,
+            value: StatValue::UInt64(rhs),
+            ..
+        } => Some((*op, *rhs)),
+        PredicateExpr::Compare {
+            op,
+            value: StatValue::Int64(rhs),
+            ..
+        } => u64::try_from(*rhs).ok().map(|rhs| (*op, rhs)),
+        _ => None,
+    }
 }
 
 fn compare_u64(left: u64, op: ComparisonOp, right: u64) -> bool {
@@ -1572,6 +1638,22 @@ fn cmp_stat_values(a: &StatValue, b: &StatValue) -> Option<i8> {
             std::cmp::Ordering::Less => -1,
             std::cmp::Ordering::Equal => 0,
             std::cmp::Ordering::Greater => 1,
+        }),
+        (StatValue::Int64(x), StatValue::UInt64(y)) => Some(match u64::try_from(*x) {
+            Ok(x) => match x.cmp(y) {
+                std::cmp::Ordering::Less => -1,
+                std::cmp::Ordering::Equal => 0,
+                std::cmp::Ordering::Greater => 1,
+            },
+            Err(_) => -1,
+        }),
+        (StatValue::UInt64(x), StatValue::Int64(y)) => Some(match u64::try_from(*y) {
+            Ok(y) => match x.cmp(&y) {
+                std::cmp::Ordering::Less => -1,
+                std::cmp::Ordering::Equal => 0,
+                std::cmp::Ordering::Greater => 1,
+            },
+            Err(_) => 1,
         }),
         (StatValue::Float64(x), StatValue::Float64(y)) => {
             x.partial_cmp(y).map(|ordering| match ordering {
@@ -2158,6 +2240,36 @@ mod tests {
     }
 
     #[test]
+    fn encoded_value_bit_packed_in_list_coerces_signed_integer_literals() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(5));
+        let values = EncodedValueBatch::BitPackedUnsigned {
+            bit_width: 3,
+            values: vec![0, 1, 2, 5, 7],
+        };
+        let report = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::InList {
+                column: ColumnRef::new("x").unwrap(),
+                values: vec![StatValue::Int64(2), StatValue::Int64(7)],
+                negated: false,
+            },
+            &segment,
+            &values,
+        );
+
+        assert_eq!(
+            report.status,
+            EncodedPredicateEvaluationStatus::SelectedIndices
+        );
+        assert_eq!(
+            report.selection_vector,
+            Some(SelectionVector::from_indices(vec![2, 4]))
+        );
+        assert_eq!(report.selected_count, Some(2));
+        assert!(report.is_side_effect_free());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
     fn encoded_value_bit_packed_nullity_fast_paths_select_all_or_none() {
         let segment = segment_with_stats("x", SegmentStats::with_row_count(5));
         let values = EncodedValueBatch::BitPackedUnsigned {
@@ -2277,6 +2389,41 @@ mod tests {
         assert!(report.has_errors());
         assert!(report.is_side_effect_free());
         assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    }
+
+    #[test]
+    fn encoded_value_multi_column_conjunction_is_unsupported_without_fallback() {
+        let segment = segment_with_stats("x", SegmentStats::with_row_count(1));
+        let values = EncodedValueBatch::Constant {
+            value: Some(StatValue::Int64(1)),
+            row_count: 1,
+        };
+        let report = evaluate_predicate_on_encoded_values(
+            &PredicateExpr::And(vec![
+                PredicateExpr::Compare {
+                    column: ColumnRef::new("x").unwrap(),
+                    op: ComparisonOp::Eq,
+                    value: StatValue::Int64(1),
+                },
+                PredicateExpr::Compare {
+                    column: ColumnRef::new("y").unwrap(),
+                    op: ComparisonOp::Eq,
+                    value: StatValue::Int64(1),
+                },
+            ]),
+            &segment,
+            &values,
+        );
+
+        assert_eq!(report.status, EncodedPredicateEvaluationStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(report.is_side_effect_free());
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.fallback.attempted)
+        );
     }
 
     #[test]

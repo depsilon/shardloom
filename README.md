@@ -137,7 +137,7 @@ This table is a README summary; the canonical public status matrix and claim bou
 | Local first-10-minutes smoke | Supported through local dry-run and Python examples. | Local technical-preview evidence only. |
 | CLI and Python front doors | Scoped local CSV, JSONL/NDJSON, flat JSON, generated rows, local Vortex, and selected feature-gated file/sink paths. | No broad SQL/DataFrame, package, production, or performance claim. |
 | SQL/DataFrame-style use | Many scoped local-source projections, filters, joins, aggregates, subqueries, aliases, bounded collects, metadata profiles, native Vortex writes, and scoped Vortex-derived JSONL/CSV row exports are admitted through ShardLoom routes. | Arbitrary compatibility exports still require a native Vortex-derived export contract; not PySpark/pandas/Polars parity and not broad production SQL/DataFrame support. |
-| OLAP query-family coverage | ClickBench query-family readiness is tracked by `benchmarks/clickbench/queries.sql` and `scripts/check_clickbench_olap_runtime_coverage.py`; the current local map validates 43 admitted rows and 0 implementation-required rows. Rows lower through reusable native Vortex SQL primitive routes for aggregate, grouped expression, predicate, and sorted-row families. | Coverage map only; no ClickBench performance or superiority claim without a promoted benchmark artifact. |
+| OLAP query-family coverage | ClickBench query-family readiness is tracked by `benchmarks/clickbench/queries.sql` and `scripts/check_clickbench_olap_runtime_coverage.py`; the current local map validates 43 admitted rows and 0 implementation-required rows. Rows lower through reusable native Vortex SQL primitive routes for aggregate, grouped expression, predicate, and sorted-row families, with capillary work-unit, PulseWeave pressure, scale-fixture, and fail-closed spill fields. | Coverage map only; no ClickBench performance or superiority claim without a promoted benchmark artifact. |
 | Vortex preparation | Feature-gated local `vortex_ingest` creates local `.vortex` artifacts with SourceState and VortexPreparedState evidence. | Scoped local flat-schema evidence; no broad writer, object-store, table, or performance claim. |
 | Local output/sink scope | `write_vortex(...)` is the highest-fidelity admitted native local sink for provider-backed routes. Exact provider-backed Vortex result summaries can export bounded `result_json` to workspace-safe `write_jsonl(...)` and `write_csv(...)`; scoped primitive filter/project/filter-project/distinct/tail/sample/expression-project/melt/explode/pivot/rolling-window row streams and scalar/grouped aggregate result rows can export JSONL/CSV and JSONL+CSV fanout through `native_vortex_primitive_row_export`. Scoped pivot/pivot_table JSONL emits sparse wide cells as `null`; CSV emits sparse cells as empty fields. Broader `write(...)`, unsupported formats, unsafe fanout, and arbitrary compatibility exports block until a native Vortex-derived export contract exists. | Local artifacts only; no append, object-store paths, table/catalog writes, production sink, or performance claim. |
 | Prepared/native benchmark routes | Local benchmark artifacts expose cold, prepare-once, warm prepared, native Vortex, direct transient, and external-baseline lanes. | Claims depend on the selected timing surface and claim gate. |
@@ -236,21 +236,20 @@ it admits feature-gated local Vortex primitives, prepared Vortex state, prepared
 artifacts, and generated local Vortex artifacts without claiming broad Vortex support.
 For direct `.vortex` inputs, exact benchmark-family Python and SQL shapes for grouped aggregation,
 hash join, global top-N, cast/try-cast, substring contains, no-argument row-level distinct, scoped
-bounded source-order tail, deterministic no-replacement
-`sample(n=..., seed=...|random_state=<int>, replace=False)` or
-`sample(frac|fraction=..., seed=...|random_state=<int>)`, scoped typed scalar
+bounded source-order tail, deterministic row-count
+`sample(n=..., seed=...|random_state=<int>, replace=False|True)` or fractional `sample(frac|fraction=..., seed=...|random_state=<int>, replace=False|True)`, scoped typed scalar
 `mask(predicate, scalar)` / full-cell `replace(old, new)` / in-place UTF-8
 `with_column("col", sl.col("col").replace(...))` expression-project rewrites,
 `eval("col = col + scalar")` and `transform({"col": sl.col("col") + scalar})`
 numeric scalar assignment, `map(sl.column_transform(...))` / `applymap(sl.column_transform(...))`
 declarative column rewrites, `map_rows(sl.row_transform(...))` declarative row-shaped rewrites, scoped
-`duplicated(subset=..., keep="first")` duplicate masks, explicit
+`duplicated(subset=..., keep="first"|"last"|False)` duplicate masks, explicit
 `melt(id_vars=..., value_vars=...)` flat scalar row expansion, scoped
 `explode("list_column")` over one declared scalar list column, scoped
 `pivot(index=..., columns=..., values=...)` and
 `pivot_table(values=..., index=..., columns=..., aggfunc=sum|count|mean)` over one index/pivot/value
 column, scoped
-`rolling(window=<positive int>, min_periods<=window, center=False).sum(column, alias=...)`, and
+`rolling(window=<positive int>, min_periods<=window, center=False).sum/mean/count(column, alias=...)`, and
 explicit `apply(sl.plan_transform(...))` / `pipe(sl.plan_transform(...))` lazy plan composition, native
 `write_vortex` sinks, and
 provider-backed bounded
@@ -403,6 +402,10 @@ ClickBench OLAP coverage is tracked as a runtime-readiness map, not a benchmark-
 ```bash
 python3 scripts/check_clickbench_olap_runtime_coverage.py
 ```
+
+The generated coverage report includes route readiness, state-budget families, capillary work
+units, PulseWeave pressure signals, fail-closed spill posture, and the small/medium/full fixture
+strategy. It does not contain ClickBench timing results.
 
 Current promoted local snapshot:
 

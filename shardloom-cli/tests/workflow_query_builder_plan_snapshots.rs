@@ -811,7 +811,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     assert!(sample.contains(&field("workflow_operation", "sample")));
     assert!(sample.contains(&field(
         "blocker_id",
-        "cg21.workflow.sample.variant_not_admitted"
+        "cg21.workflow.sample.weighted_or_rng_contract_missing"
     )));
     assert!(sample.contains(&field("target_ref", "n=5,seed=7")));
     assert!(explode.contains(&field("workflow_operation", "explode_nested")));
@@ -837,13 +837,13 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     assert!(pivot.contains(&field("workflow_operation", "pivot")));
     assert!(pivot.contains(&field(
         "blocker_id",
-        "cg21.workflow.pivot.variant_not_admitted"
+        "cg21.workflow.pivot.broad_reshape_contract_missing"
     )));
     assert!(pivot.contains(&field("target_ref", "index=id;columns=label;values=amount")));
     assert!(pivot_table.contains(&field("workflow_operation", "pivot_table")));
     assert!(pivot_table.contains(&field(
         "blocker_id",
-        "cg21.workflow.pivot_table.variant_not_admitted"
+        "cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing"
     )));
     assert!(pivot_table.contains(&field(
         "target_ref",

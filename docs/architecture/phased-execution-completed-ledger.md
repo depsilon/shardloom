@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: ClickBench and Python runtime-surface polish
+  - Date: 2026-06-18
+  - Branch/PR: `codex/clickbench-olap-polish` / pending PR.
+  - Source:
+    - Maintainer direction to finish ClickBench polish with capillary/PulseWeave memory and spill
+      diagnostics, state budgeting, scale fixture strategy, benchmark/site readiness fields, and
+      Python/DataFrame feasible sub-shapes before the next full workspace gate.
+  - Scope:
+    - Added ClickBench route readiness/state-budget fields across the coverage validator,
+      benchmark/site manifests, benchmark README, and benchmark dashboard so admitted ClickBench
+      rows report route family, capillary work units, PulseWeave pressure signals, spill-required
+      posture, fail-closed spill policy, and scale-fixture strategy.
+    - Promoted deterministic fractional replacement sampling through the native/prepared Vortex
+      sample primitive and Python `LazyFrame.sample(frac|fraction=..., replace=True)` lowering.
+      The remaining weighted-sampling blocker now names the missing hidden weight-column
+      scan/output contract instead of treating fractional replacement as unsupported.
+    - Promoted scoped duplicate masks for `duplicated(subset=..., keep="first"|"last"|False)`
+      through the native/prepared Vortex duplicate-mask row-key primitive, including row export and
+      Python route payloads.
+    - Promoted scoped `rolling(...).sum/mean/count(...)` through the shared native/prepared Vortex
+      rolling-window primitive. `sum`/`mean` require numeric input, `count` admits scalar rows, and
+      Python, CLI aliases, docs, and capability rows now share the same payload contract.
+    - Added state-budget evidence to native primitive row-export reports and public workflow
+      envelopes so JSONL/CSV write routes expose capillary work units, PulseWeave pressure signals,
+      observed/estimated state items, spill policy, and fail-closed spill posture just like collect
+      routes.
+    - Tightened public workflow blocker IDs for residual sample, duplicate, drop-duplicate,
+      mask/replace, index, top-N, fanout, pivot, and pivot-table variants so unsupported sub-shapes
+      name their missing contracts instead of using generic `variant_not_admitted` language.
+    - Updated README, Python README, v1 front-door/runtime scope docs, user-surface reference
+      index, release notes, and capability reports so public documentation matches the current
+      runtime surface.
+  - Evidence:
+    - `python3 -m py_compile python/src/shardloom/client.py python/src/shardloom/query.py python/src/shardloom/context.py python/tests/test_query_builder.py scripts/check_python_user_surface_completion.py scripts/check_clickbench_olap_runtime_coverage.py`
+      passed.
+    - Focused Python route tests passed for fractional sampling, fractional replacement sampling,
+      row-count replacement sampling, and duplicate-mask keep policies:
+      `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_sample_fraction_routes_through_prepared_vortex python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_sample_fraction_replacement_routes_through_prepared_vortex python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_sample_replacement_routes_through_prepared_vortex python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_duplicated_routes_through_prepared_vortex_duplicate_mask python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_duplicated_last_routes_through_duplicate_mask python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_duplicated_false_write_jsonl_routes_through_duplicate_mask`.
+    - `python3 scripts/check_python_user_surface_completion.py` passed.
+    - `python3 scripts/check_clickbench_olap_runtime_coverage.py` passed with 43 admitted rows and
+      0 implementation-required rows.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo check -p shardloom-vortex --features vortex-local-primitives && cargo check -p shardloom-cli --features vortex-local-primitives`
+      passed.
+    - Focused Rust tests passed:
+      `sample_rows_materialize_fractional_replacement_rows_without_fallback`,
+      `sample_row_export_writes_fractional_replacement_rows_without_fallback`,
+      `duplicate_mask_row_export_writes_keep_last_mask_without_fallback`, and
+      `duplicate_mask_row_export_writes_all_duplicate_mask_without_fallback`.
+    - Focused Python rolling route tests passed:
+      `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_rolling_sum_routes_through_prepared_vortex_rolling_window python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_rolling_mean_and_count_route_through_prepared_vortex`.
+    - Focused Rust rolling tests passed:
+      `rolling_window_rows_materialize_source_order_sums_without_fallback`,
+      `rolling_window_row_export_writes_mean_rows_without_fallback`, and
+      `rolling_window_row_export_writes_count_rows_without_fallback`.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This is local runtime-surface and ClickBench readiness polish. It does not claim ClickBench
+      performance superiority, broad pandas/DataFrame parity, weighted sampling, arbitrary Python
+      UDF/callable execution, nullable/nested duplicate equality, object-store/table/Foundry
+      production support, or external-environment proof.
+  - Fallback boundary:
+    - Successful and blocked paths continue to report `fallback_attempted=false` and
+      `external_engine_invoked=false`; no DuckDB, Polars, pandas, Spark, DataFusion, Vortex
+      query-engine integration, or other external engine fallback was added.
+
 - [x] Session label: feasible Python runtime-surface status alignment
   - Date: 2026-06-17
   - Source:
@@ -43970,6 +44036,34 @@ phase plan first.
       execution, distributed execution runtime, benchmark claim, superiority claim, or fallback
       behavior is added.
 
+- [x] CLICKBENCH-OLAP-RUNTIME-COVERAGE-1 completed the reusable Vortex-native OLAP route
+      coverage and readiness polish for the ClickBench query family. The repo-managed
+      `benchmarks/clickbench/queries.sql` fixture contains all 43 canonical query-family rows, and
+      `scripts/check_clickbench_olap_runtime_coverage.py` validates 43 admitted runtime rows with 0
+      implementation-required rows, `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `performance_claim_allowed=false`. Reusable native Vortex SQL primitive routes cover count,
+      filtered count, scalar aggregate projections, grouped aggregates, count-distinct, grouped
+      top-K/order/offset, raw-row sorted top-K/order/offset, string/LIKE/NOT LIKE and `IN`
+      predicates, date/time and regex-domain expression groups, `CASE`, `HAVING`, arithmetic group
+      keys, and wide repeated aggregate projection without scenario-only shims or external engine
+      delegation. The local Vortex primitive runtime report now carries
+      `shardloom.local_vortex_state_budget.v1` fields for capillary work units, PulseWeave pressure
+      signals, observed/estimated state items, spill policy, and fail-closed spill diagnostics for
+      scalar/grouped aggregate, count-distinct, grouped top-K, raw-row top-K/offset sort, and
+      rolling-window state. The ClickBench validator emits
+      `shardloom.clickbench_olap_state_budget.v1` and
+      `shardloom.clickbench_scale_fixture_strategy.v1` fields, including small deterministic local,
+      medium sequential UAT, and optional full 100M artifact tiers with `max_parallelism=1` default.
+      README, `benchmarks/clickbench/README.md`, benchmark manifests, and the benchmark dashboard now
+      expose ClickBench route-readiness/site fields while keeping performance and superiority claims
+      gated. Validation covered `python3 -m py_compile scripts/check_clickbench_olap_runtime_coverage.py`,
+      `python3 scripts/check_clickbench_olap_runtime_coverage.py`,
+      `cargo check -p shardloom-vortex --features vortex-local-primitives`,
+      `cargo check -p shardloom-cli --features vortex-local-primitives`, and
+      `cargo test -p shardloom-vortex --features vortex-local-primitives --lib` (808 passed, 1
+      ignored). Full workspace validation and benchmark performance reruns remain release/merge-gate
+      activities, not PR-fast-lane requirements.
+
 ### Reference: Competitive Engine Gates CG-1 through CG-23
 
 This section is a high-level rollup. Use it to check whether each competitive gate is open,
@@ -44039,7 +44133,7 @@ Status legend:
   - [x] CG-2.1e.32 checked-in local primitive struct fixture certification
   - [x] CG-2.1e.33 multi-layout local `CountAll` certification
   - [x] CG-2.1e.34 generalized local `CountAll` copied/non-fixture execution evidence
-  - [~] CG-2.1+ broader zero-decode encoded primitive execution remains deferred pending
+- [~] CG-2.1+ broader zero-decode encoded primitive execution remains deferred pending
     filter/project encoded-kernel guarantees
   - [x] CG-2.2c filtered-count metadata proof local guard
   - [x] CG-2.2d filtered-count metadata proof report

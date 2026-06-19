@@ -1099,6 +1099,9 @@ fn workflow_unsupported_dataframe_operation(token: &str) -> Option<WorkflowUnsup
         "to-python-objects" | "to-py" | "to-pylist" => {
             Some(workflow_unsupported_to_python_objects())
         }
+        "count" => Some(workflow_unsupported_count()),
+        "query" => Some(workflow_unsupported_query()),
+        "having" => Some(workflow_unsupported_having()),
         "with-column" | "with_column" => Some(workflow_unsupported_with_column()),
         "group-by" | "group_by" | "groupby" => Some(workflow_unsupported_group_by()),
         "agg" => Some(workflow_unsupported_agg()),
@@ -1106,7 +1109,10 @@ fn workflow_unsupported_dataframe_operation(token: &str) -> Option<WorkflowUnsup
         "limit" => Some(workflow_unsupported_limit()),
         "rename" | "rename-columns" | "rename_columns" => Some(workflow_unsupported_rename()),
         "drop" | "drop-columns" | "drop_columns" => Some(workflow_unsupported_drop()),
+        "dropna" | "drop-na" | "drop_nulls" | "drop-nulls" => Some(workflow_unsupported_dropna()),
+        "astype" | "cast" => Some(workflow_unsupported_astype()),
         "sample" => Some(workflow_unsupported_sample()),
+        "explode" => Some(workflow_unsupported_explode()),
         "explode-nested" | "explode_nested" | "nested-explode" | "nested_explode" => {
             Some(workflow_unsupported_explode())
         }
@@ -1123,6 +1129,16 @@ fn workflow_unsupported_dataframe_operation(token: &str) -> Option<WorkflowUnsup
         "fillna" | "fill-null" | "fill_null" => Some(workflow_unsupported_fillna()),
         "isna" | "isnull" | "is-null" | "is_null" => Some(workflow_unsupported_isna()),
         "notna" | "notnull" | "not-null" | "not_null" => Some(workflow_unsupported_notna()),
+        "duplicated" => Some(workflow_unsupported_duplicated()),
+        "drop-duplicates" | "drop_duplicates" => Some(workflow_unsupported_drop_duplicates()),
+        "mask" => Some(workflow_unsupported_mask()),
+        "replace" => Some(workflow_unsupported_replace()),
+        "set-index" | "set_index" => Some(workflow_unsupported_set_index()),
+        "reset-index" | "reset_index" => Some(workflow_unsupported_reset_index()),
+        "sort-index" | "sort_index" => Some(workflow_unsupported_sort_index()),
+        "nlargest" => Some(workflow_unsupported_nlargest()),
+        "nsmallest" => Some(workflow_unsupported_nsmallest()),
+        "fanout" => Some(workflow_unsupported_fanout()),
         "apply" => Some(workflow_unsupported_apply()),
         "pipe" => Some(workflow_unsupported_pipe()),
         "transform" => Some(workflow_unsupported_transform()),
@@ -1362,6 +1378,54 @@ fn workflow_unsupported_to_python_objects() -> WorkflowUnsupportedOperation {
     }
 }
 
+fn workflow_unsupported_count() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "count",
+        label: "DataFrame count",
+        surface: "dataframe_count",
+        feature: "cg21.workflow.count",
+        blocker_id: "cg21.workflow.count.runtime_not_admitted",
+        required_evidence: "count_operator_capability,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use admitted metadata/native count routes or add a scoped count runtime certificate for the requested shape.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_query() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "query",
+        label: "DataFrame query predicate",
+        surface: "dataframe_filter",
+        feature: "cg21.workflow.query",
+        blocker_id: "cg21.workflow.query.predicate_not_admitted",
+        required_evidence: "predicate_expression_contract,typed_filter_semantics,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped filter/where predicates that lower to ShardLoom predicate IR; broader query strings need expression parsing and type/null semantics.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_having() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "having",
+        label: "DataFrame aggregate having predicate",
+        surface: "dataframe_aggregate_filter",
+        feature: "cg21.workflow.having",
+        blocker_id: "cg21.workflow.having.predicate_not_admitted",
+        required_evidence: "aggregate_having_semantics,predicate_expression_contract,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped aggregate/having shapes that lower to admitted native aggregate predicates; broader having expressions need aggregate expression IR evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
 fn workflow_unsupported_with_column() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "with_column",
@@ -1474,15 +1538,47 @@ fn workflow_unsupported_drop() -> WorkflowUnsupportedOperation {
     }
 }
 
+fn workflow_unsupported_dropna() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "dropna",
+        label: "DataFrame drop nulls",
+        surface: "dataframe_null_cleanup",
+        feature: "cg21.workflow.dropna",
+        blocker_id: "cg21.workflow.dropna.null_cleanup_semantics_contract_missing",
+        required_evidence: "null_filter_semantics,projection_rewrite_semantics,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped dropna(subset=..., how='any') shapes that lower to ShardLoom IS NOT NULL filters; axis/thresh/how='all' variants require separate null semantics.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_astype() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "astype",
+        label: "DataFrame dtype cast",
+        surface: "dataframe_cast",
+        feature: "cg21.workflow.astype",
+        blocker_id: "cg21.workflow.astype.cast_semantics_contract_missing",
+        required_evidence: "typed_cast_semantics,failed_cast_policy,execution_certificate,native_io_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped declared casts that lower to admitted native/prepared Vortex cast routes; pandas extension dtypes and errors='ignore' need separate cast-policy evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
 fn workflow_unsupported_sample() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "sample",
         label: "DataFrame sampling",
         surface: "dataframe_sampling",
         feature: "cg21.workflow.sample",
-        blocker_id: "cg21.workflow.sample.variant_not_admitted",
-        required_evidence: "native_vortex_fractional_or_weighted_sample_contract,deterministic_seed_policy,semantic_conformance_suite,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use sample(n=..., seed=...), sample(n=..., random_state=<int>, replace=False), or sample(frac|fraction=..., seed|random_state=...); weighted, replacement, and pandas RNG-object variants need a separate native Vortex sampling contract before execution.",
+        blocker_id: "cg21.workflow.sample.weighted_or_rng_contract_missing",
+        required_evidence: "native_vortex_weighted_sample_contract,deterministic_seed_policy,semantic_conformance_suite,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use sample(n=..., seed|random_state=..., replace=False|True) or sample(frac|fraction=..., seed|random_state=..., replace=False|True); weighted sampling and pandas RNG-object variants need a separate native Vortex sampling contract before execution.",
         diagnostic_code: DiagnosticCode::NotImplemented,
         materialization_required: false,
         write_required: false,
@@ -1544,7 +1640,7 @@ fn workflow_unsupported_pivot() -> WorkflowUnsupportedOperation {
         label: "DataFrame pivot variant",
         surface: "dataframe_reshape",
         feature: "cg21.workflow.pivot",
-        blocker_id: "cg21.workflow.pivot.variant_not_admitted",
+        blocker_id: "cg21.workflow.pivot.broad_reshape_contract_missing",
         required_evidence: "scoped_pivot_contract,wide_schema_contract,grouping_key_contract,materialization_boundary,execution_certificate,no_fallback_evidence",
         suggested_next_action: "Use scoped pivot(index=..., columns=..., values=...) over one index column, one pivot column, and one value column, or add evidence for the broader pivot variant.",
         diagnostic_code: DiagnosticCode::NotImplemented,
@@ -1560,7 +1656,7 @@ fn workflow_unsupported_pivot_table() -> WorkflowUnsupportedOperation {
         label: "DataFrame pivot-table variant",
         surface: "dataframe_aggregate_reshape",
         feature: "cg21.workflow.pivot_table",
-        blocker_id: "cg21.workflow.pivot_table.variant_not_admitted",
+        blocker_id: "cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing",
         required_evidence: "scoped_pivot_table_contract,aggregate_operator_capability,grouping_key_contract,wide_schema_contract,execution_certificate,no_fallback_evidence",
         suggested_next_action: "Use scoped pivot_table(values=..., index=..., columns=..., aggfunc=sum|count|mean) over one index column, one pivot column, and one value column, or add evidence for the broader aggregate reshape variant.",
         diagnostic_code: DiagnosticCode::UnsupportedSql,
@@ -1578,7 +1674,7 @@ fn workflow_unsupported_melt() -> WorkflowUnsupportedOperation {
         feature: "cg21.workflow.melt",
         blocker_id: "cg21.workflow.melt.reshape_semantics_unsupported",
         required_evidence: "unpivot_semantics,schema_alignment_contract,materialization_boundary,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Keep melt/unpivot as an explicit reshape blocker until native unpivot semantics and materialization evidence are certified.",
+        suggested_next_action: "Use scoped melt(id_vars=..., value_vars=...) over flat same-typed value columns; heterogeneous, nested, hidden-index, and broad pandas melt variants require separate native unpivot evidence.",
         diagnostic_code: DiagnosticCode::NotImplemented,
         materialization_required: false,
         write_required: false,
@@ -1594,7 +1690,7 @@ fn workflow_unsupported_rolling() -> WorkflowUnsupportedOperation {
         feature: "cg21.workflow.rolling",
         blocker_id: "cg21.workflow.rolling.broad_window_semantics_unsupported",
         required_evidence: "time_calendar_window_semantics,centered_window_semantics,null_validity_window_semantics,window_operator_capability,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use rolling(window=<positive int>, min_periods<=window, center=false).sum(column, alias=...) for the admitted native/prepared Vortex route; broader rolling variants require certified frame, null, and spill semantics.",
+        suggested_next_action: "Use rolling(window=<positive int>, min_periods<=window, center=false).sum/mean/count(column, alias=...) for the admitted native/prepared Vortex route; broader rolling variants require certified frame, null, and spill semantics.",
         diagnostic_code: DiagnosticCode::UnsupportedSql,
         materialization_required: false,
         write_required: false,
@@ -1610,7 +1706,7 @@ fn workflow_unsupported_tail() -> WorkflowUnsupportedOperation {
         feature: "cg21.workflow.tail",
         blocker_id: "cg21.workflow.tail.source_order_unsupported",
         required_evidence: "source_order_semantics,reverse_scan_or_stable_ordering,materialization_boundary,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use scoped head/preview for bounded source-order inspection; tail requires stable source ordering or reverse-scan evidence before execution.",
+        suggested_next_action: "Use scoped tail(limit) over native/prepared Vortex-compatible local sources; broader reverse-scan, unbounded, or hidden-index tail variants require separate source-order evidence before execution.",
         diagnostic_code: DiagnosticCode::MaterializationRequired,
         materialization_required: true,
         write_required: false,
@@ -1710,6 +1806,166 @@ fn workflow_unsupported_notna() -> WorkflowUnsupportedOperation {
         diagnostic_code: DiagnosticCode::NotImplemented,
         materialization_required: false,
         write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_duplicated() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "duplicated",
+        label: "DataFrame duplicated mask variant",
+        surface: "dataframe_deduplication_runtime",
+        feature: "cg21.workflow.duplicated",
+        blocker_id: "cg21.workflow.duplicated.nullable_nested_or_index_contract_missing",
+        required_evidence: "native_vortex_duplicate_mask_primitive,duplicate_mask_semantics,keep_policy_contract,nullable_equality_contract,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped duplicated(subset=..., keep='first'|'last'|False) over declared/projection scalar columns; nullable, nested, and hidden-index variants need separate row-key equality evidence.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_drop_duplicates() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "drop_duplicates",
+        label: "DataFrame drop_duplicates variant",
+        surface: "dataframe_deduplication_runtime",
+        feature: "cg21.workflow.drop_duplicates",
+        blocker_id: "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing",
+        required_evidence: "native_vortex_distinct_primitive,subset_keep_policy_contract,nullable_equality_contract,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use no-argument drop_duplicates()/distinct()/unique() for row-level distinct; subset/keep variants need explicit row retention and nullable equality evidence.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_mask() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "mask",
+        label: "DataFrame mask variant",
+        surface: "dataframe_conditional_rewrite",
+        feature: "cg21.workflow.mask",
+        blocker_id: "cg21.workflow.mask.null_callable_or_alignment_contract_missing",
+        required_evidence: "native_vortex_expression_project_primitive,typed_scalar_rewrite_payload,null_validity_rewrite_contract,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped mask(predicate, scalar) over declared/projection columns; null replacement, callable/axis, and nested variants need explicit validity and expression-kernel evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_replace() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "replace",
+        label: "DataFrame replace variant",
+        surface: "dataframe_conditional_rewrite",
+        feature: "cg21.workflow.replace",
+        blocker_id: "cg21.workflow.replace.null_regex_method_or_mixed_dtype_contract_missing",
+        required_evidence: "native_vortex_expression_project_primitive,value_rewrite_semantics,null_validity_rewrite_contract,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped scalar replace(old, new), column-mapped scalar replacement, or UTF-8 string replacement; null rewrite, regex, method/limit, and mixed-dtype variants need separate validity/type evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_set_index() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "set_index",
+        label: "DataFrame set_index variant",
+        surface: "dataframe_index_metadata",
+        feature: "cg21.workflow.set_index",
+        blocker_id: "cg21.workflow.set_index.hidden_index_materialization_contract_missing",
+        required_evidence: "explicit_index_state_metadata,encoded_row_data_preserved,index_materialization_contract,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped set_index(keys, drop=false) to record explicit metadata; drop=true, hidden row-label state, and index-value materialization need separate contracts.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_reset_index() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "reset_index",
+        label: "DataFrame reset_index variant",
+        surface: "dataframe_index_metadata",
+        feature: "cg21.workflow.reset_index",
+        blocker_id: "cg21.workflow.reset_index.row_number_or_hidden_index_contract_missing",
+        required_evidence: "index_metadata_removal,row_number_projection_contract,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use reset_index(drop=true) or reset_index() after scoped set_index(drop=false); row-number projection, level handling, and hidden index output need separate evidence.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_sort_index() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "sort_index",
+        label: "DataFrame sort_index variant",
+        surface: "dataframe_index_metadata",
+        feature: "cg21.workflow.sort_index",
+        blocker_id: "cg21.workflow.sort_index.hidden_index_order_contract_missing",
+        required_evidence: "explicit_index_state_metadata,native_vortex_sort_primitive,source_order_semantics,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use sort_index(ascending=true) with no explicit index or sort_index(ascending=true|false) after set_index(drop=false); source-order descending, multi-index, and hidden row-label variants need separate evidence.",
+        diagnostic_code: DiagnosticCode::NotImplemented,
+        materialization_required: false,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_nlargest() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "nlargest",
+        label: "DataFrame nlargest variant",
+        surface: "dataframe_top_n",
+        feature: "cg21.workflow.nlargest",
+        blocker_id: "cg21.workflow.nlargest.tie_or_index_semantics_contract_missing",
+        required_evidence: "native_vortex_top_n_provider_route,tie_policy_contract,index_tie_semantics,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped nlargest(n, columns, keep='first') over admitted sort keys; keep='last'/'all' and pandas index tie semantics need separate evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_nsmallest() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "nsmallest",
+        label: "DataFrame nsmallest variant",
+        surface: "dataframe_top_n",
+        feature: "cg21.workflow.nsmallest",
+        blocker_id: "cg21.workflow.nsmallest.tie_or_index_semantics_contract_missing",
+        required_evidence: "native_vortex_top_n_provider_route,tie_policy_contract,index_tie_semantics,execution_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped nsmallest(n, columns, keep='first') over admitted sort keys; keep='last'/'all' and pandas index tie semantics need separate evidence.",
+        diagnostic_code: DiagnosticCode::UnsupportedSql,
+        materialization_required: true,
+        write_required: false,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_fanout() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "fanout",
+        label: "DataFrame fanout sink variant",
+        surface: "dataframe_sink_fanout",
+        feature: "cg21.workflow.fanout",
+        blocker_id: "cg21.workflow.fanout.multi_sink_atomicity_contract_missing",
+        required_evidence: "typed_sink_contract,fanout_atomicity_contract,write_certificate,no_fallback_evidence",
+        suggested_next_action: "Use scoped fanout outputs on admitted native/prepared row-export sinks; broad multi-sink atomicity and external destinations need separate write contracts.",
+        diagnostic_code: DiagnosticCode::UnsupportedEffect,
+        materialization_required: true,
+        write_required: true,
         runtime_required: true,
     }
 }

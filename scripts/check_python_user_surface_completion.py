@@ -814,7 +814,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         for evidence in [
             "native_vortex_duplicate_mask_primitive",
             "duplicate_mask_semantics",
-            "keep_first_subset_contract",
+            "keep_policy_subset_contract",
             "explicit_decode_materialization_boundary",
         ]:
             if evidence not in required_evidence:
@@ -862,7 +862,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             "native_vortex_rolling_window_primitive",
             "source_order_window_contract",
             "bounded_window_state",
-            "complete_window_sum_semantics",
+            "complete_window_sum_mean_count_semantics",
             "explicit_decode_materialization_boundary",
         ]:
             if evidence not in required_evidence:

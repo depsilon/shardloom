@@ -376,12 +376,12 @@ pub use physical_operator_bridge::{
 
 pub use query_primitive::{
     VortexAggregateExpression, VortexAggregateHavingExpr, VortexAggregateOrderExpr,
-    VortexExplodeProjectionRequest, VortexExpressionProjectionRequest, VortexExpressionRewrite,
-    VortexMeltProjectionRequest, VortexPivotProjectionRequest, VortexQueryPrimitiveKind,
-    VortexQueryPrimitiveMode, VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult,
-    VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue, VortexRollingWindowRequest,
-    VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest, VortexSortRowsRequest,
-    evaluate_vortex_count_all_from_summary, evaluate_vortex_query_primitive,
+    VortexDuplicateKeepPolicy, VortexExplodeProjectionRequest, VortexExpressionProjectionRequest,
+    VortexExpressionRewrite, VortexMeltProjectionRequest, VortexPivotProjectionRequest,
+    VortexQueryPrimitiveKind, VortexQueryPrimitiveMode, VortexQueryPrimitiveRequest,
+    VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
+    VortexRollingWindowRequest, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
+    VortexSortRowsRequest, evaluate_vortex_count_all_from_summary, evaluate_vortex_query_primitive,
 };
 pub use query_primitives::{
     VortexQueryPrimitiveEffect, VortexQueryPrimitiveKind as VortexQueryPrimitiveBoundaryKind,

@@ -191,140 +191,6 @@ The first unchecked checkbox is the next default autonomous slice.
 
 Current autonomous execution order:
 
-- [ ] `CLICKBENCH-OLAP-RUNTIME-COVERAGE-1` Add real Vortex-native OLAP runtime coverage for the
-  ClickBench query family.
-  - Source: June 18, 2026 user requirement plus the official ClickHouse ClickBench repository and
-    canonical `queries.sql` surface. ClickBench currently describes a 43-query OLAP workload over
-    the `hits` table covering clickstream/web analytics, structured logs, and events data. The
-    canonical query set exercises full scans, filtered scans, point lookup, aggregates, distinct
-    aggregates, multi-key group-by, top-K order/limit, offset, string search, length, regex replace,
-    arithmetic expressions, date/time extraction/truncation, `CASE`, `IN`, `HAVING`, and wide
-    repeated aggregate projection.
-  - Current state: ShardLoom has real native/prepared Vortex routes for scoped Python/DataFrame
-    operations, several named traditional-analytics benchmark families, and shared SQL-to-native
-    Vortex OLAP lowering that admits all 43 ClickBench query-family rows in the local coverage
-    manifest. ClickBench work must continue to land as ShardLoom planner/operator/runtime support,
-    not as benchmark-only scenarios, smoke-only caps, or external engine delegation.
-  - Intake review: accepted as a new required runtime item rather than merging into DataFrame
-    blocker coverage. The DataFrame item owns user-method parity; this item owns SQL/OLAP operator
-    breadth and ClickBench query-family evidence. Existing aggregate/top-N/contains routes are
-    reusable but not sufficient because ClickBench needs generalized SQL lowering and reusable
-    operator kernels across all 43 query shapes.
-  - V1 scope classification: `required_for_v1` for local/source and prepared/native Vortex OLAP
-    runtime coverage that is feasible without external managed environments. Public superiority
-    claims remain gated until full benchmark evidence exists.
-  - ShardLoom technique review: metadata-first execution applies to count/min/max and segment
-    pruning; dynamic admission/work shaping should split each ClickBench query into reusable scan,
-    predicate, projection, aggregate, top-K, and sink units; capillary work units apply to wide
-    group-by/top-K pipelines, count-distinct state, repeated aggregate projection, and offset
-    draining; PulseWeave should track high-cardinality grouping, distinct state pressure,
-    string-search cost, and spill-required diagnostics; timing-surface/evidence-tier controls must
-    distinguish hot runtime from load/prepare/publication proof.
-  - Execution checklist:
-    - [x] Add a ClickBench query manifest under repo-managed benchmark/runtime fixtures containing
-      all 43 canonical query texts, query IDs, required operators, input columns, expected result
-      cardinality shape, and feature tags.
-    - [x] Add a SQL capability classifier that maps every ClickBench query to admitted,
-      implementation-required, feature-gated, or externally blocked state with stable route/work
-      IDs and no fallback/external engine evidence.
-    - [x] Generalize SQL lowering for single-table OLAP plans over Vortex/prepared Vortex sources:
-      projection lists, aliases, scalar arithmetic, predicates, `LIKE`/`NOT LIKE`, `IN`, `CASE`,
-      `length`, regex replace admission, date/time extract/trunc, `GROUP BY`, `HAVING`,
-      `ORDER BY`, `LIMIT`, and `OFFSET`.
-      - [x] Promote integer not-equal predicates (`<>` / `!=`) into the native Vortex tiny
-        predicate syntax so ClickBench filtered-count SQL lowers to `native_vortex_count_where`
-        instead of a scenario-specific route.
-      - [x] Promote no-group scalar aggregate SQL projections (`count`, `sum`, `avg`, `min`,
-        `max`) over direct Vortex inputs into `native_vortex_aggregate` with a typed aggregate
-        payload and ShardLoom-owned aggregate state.
-      - [x] Promote simple `GROUP BY ... LIMIT` aggregate SQL projections over direct Vortex inputs
-        into the same typed aggregate primitive with grouped ShardLoom-owned state and bounded
-        result-row evidence.
-      - [x] Promote conjunctive predicate groups, string non-empty predicates, and date-string
-        comparison predicates into native expression planning for aggregate routes with explicit
-        no-fallback evidence.
-      - [x] Promote grouped-aggregate `ORDER BY ... LIMIT/OFFSET` into a reusable bounded
-        top-K/offset route over aggregate result rows.
-      - [x] Promote raw-row `ORDER BY ... LIMIT/OFFSET` over filter/project/star projections into
-        a reusable native sorted-row route; this owns ClickBench Q24-Q27 and must not be left as a
-        permanent string-predicate blocker.
-      - [x] Promote SQL `LIKE`/`NOT LIKE`/substring predicates and `IN` predicates into native
-        predicate kernels with deterministic case-sensitivity semantics and no external engine
-        delegation.
-      - [x] Promote scalar SQL functions and expression aliases (`length`, `REGEXP_REPLACE`,
-        `extract`, `DATE_TRUNC`, `CASE`, arithmetic projection) into native expression-project
-        kernels before grouped/top-K execution.
-    - [x] Implement or reuse native operator kernels for plain aggregates (`count`, `sum`, `avg`,
-      `min`, `max`), multi-aggregate projection, multi-key group-by, grouped top-K, count-distinct,
-      point lookup, filtered string contains/LIKE, arithmetic expression projection, and bounded
-      order/limit/offset.
-      - [x] Create the scalar/no-group aggregate primitive, public route, SQL lowering, evidence
-        fields, and focused runtime tests for `count`, `sum`, `avg`, `min`, and `max`.
-      - [x] Add scalar aggregate JSONL/CSV result-row export through
-        `native_vortex_primitive_row_export` with explicit decode/materialization and no-fallback
-        evidence.
-      - [x] Create grouped aggregate state and bounded grouped result-row routes for
-        non-ordered/non-filtered grouped aggregate shapes.
-      - [x] Create predicate-in-aggregate support plus grouped top-K/order/offset routes rather
-        than leaving ordered or filtered ClickBench grouped rows in implementation-required state.
-      - [x] Create count-distinct state for scalar and grouped aggregate routes rather than leaving
-        distinct aggregate rows in implementation-required state.
-      - [x] Create wide repeated `SUM(column +/- constant)` aggregate projection support through
-        the shared aggregate state rather than a wide-query scenario shim.
-      - [ ] Add capillary/PulseWeave memory/spill diagnostics for count-distinct and high-cardinality
-        grouped top-K state now that those runtime routes exist.
-      - [x] Create remaining ClickBench expression families as real runtime routes: date/time
-        extract/trunc group keys, `length` + `HAVING`, regex replace group keys, group ordinals and
-        constant projections, arithmetic group-key projection, `CASE` group keys, and `IN` list
-        predicates.
-    - [ ] Add capillary/PulseWeave state budgeting for high-cardinality group-by, count-distinct,
-      top-K heap/state, string-search scan pressure, and offset-drain cost; fail closed with spill
-      diagnostics where memory/spill support is not yet certified.
-    - [ ] Add ClickBench-scale fixture strategy: small deterministic local fixture for correctness,
-      medium sequential UAT fixture for route/stress checks, and optional full 100M-row artifact
-      runner that is never required for PR fast lanes.
-    - [x] Add correctness tests for representative query classes and a manifest coverage test that
-      requires every ClickBench query to have an admitted runtime route unless it requires an
-      external environment that is unavailable in local v1. In-repo feasible rows must remain open
-      implementation checklist work, not accepted final blockers.
-    - [x] Add runtime/evidence tests proving `fallback_attempted=false`,
-      `external_engine_invoked=false`, Vortex-native input/prepared normalization, materialization
-      boundaries, and per-query route IDs.
-    - [x] Update README/docs/architecture/user-surface references so ClickBench readiness is stated
-      as local evidence coverage, not as a public performance/superiority claim.
-    - [ ] Add benchmark/site data fields for ClickBench lane readiness only after runtime routes and
-      evidence exist; keep ClickBench performance claims claim-gated until an approved rerun.
-    - [ ] Move completed detail to the ledger after validation and PR handling.
-  - Next outcome: finish the remaining diagnostics/docs/evidence polish for the cohesive OLAP
-    runtime PR without creating scenario-only routes.
-  - User-visible surface: SQL facade, Python `ctx.sql(...)`, route/capability reports, benchmark
-    evidence artifacts, README/docs, and website readiness views.
-  - Implementation scope: SQL parser/lowering, native Vortex primitive/provider routing,
-    traditional analytics/runtime kernels where reusable, benchmark manifest generation, Python
-    facade payload wiring, capability/status reports, tests, and docs.
-  - Evidence required: correctness fixtures, route/evidence certificates, Native I/O evidence,
-    materialization/decode evidence, memory/state diagnostics, no-fallback/no-external-engine
-    fields, and benchmark manifest freshness.
-  - Acceptance: all 43 ClickBench queries are represented in the manifest; every locally feasible
-    query has an admitted native/prepared Vortex runtime route; any row still marked
-    `implementation_required` is treated as open Planned work, not a completed boundary; no
-    ClickBench-adjacent public route uses DuckDB, Polars, pandas, Spark, DataFusion, or another
-    external engine; docs clearly state claim boundaries.
-  - Verification: targeted SQL lowering tests, ClickBench manifest classifier tests, focused Rust
-    operator tests, focused Python facade tests, `cargo check -p shardloom-cli --features
-    vortex-local-primitives`, `python3 -m py_compile` for touched Python, and later full workspace
-    validation only after the runtime surface is complete.
-  - Non-goals: do not publish ClickBench performance claims, do not run full 100M-row benchmark in
-    normal PR checks, do not add external execution engines, and do not create 43 bespoke
-    scenario-only route shims.
-  - Claim boundary: completion supports "ShardLoom has local Vortex-native runtime coverage for the
-    ClickBench query family" only to the extent proven by admitted routes and artifacts. It does not
-    support "ShardLoom is faster than ClickHouse/DuckDB/etc." without approved benchmark evidence.
-  - Fallback boundary: all admitted and blocked routes must report `fallback_attempted=false` and
-    `external_engine_invoked=false`.
-  - Ledger rule: completed detail moves to
-    `docs/architecture/phased-execution-completed-ledger.md`.
-
 - [ ] `PY-DATAFRAME-DETERMINISTIC-BLOCKER-COVERAGE-1` Give every remaining deterministic
   Python/DataFrame blocker an explicit implementation track, not just the 7 locally solvable
   closeout rows.
@@ -334,8 +200,8 @@ Current autonomous execution order:
     covered by `PY-VORTEX-LOCAL-EXPORT-DISTINCT-CLOSEOUT-1`; this pass also promoted scoped
     `describe` through the existing metadata-first profile route and scoped bounded `tail(limit)`
     through a native/prepared Vortex source-order tail primitive, and scoped
-    deterministic `sample(n=..., seed=...)` / `sample(n=..., random_state=<int>, replace=False)`
-    and no-replacement `sample(frac|fraction=..., seed|random_state=...)` through a native/prepared
+    deterministic `sample(n=..., seed=...)` / `sample(n=..., random_state=<int>, replace=False|True)`
+    and fractional `sample(frac|fraction=..., seed|random_state=..., replace=False|True)` through a native/prepared
     Vortex sample primitive with explicit bounded materialization, plus
     scoped `reset_index(drop=True)` /
     `sort_index(ascending=True)` through index-state-free source-order preservation, and scoped
@@ -346,24 +212,32 @@ Current autonomous execution order:
     the Vortex/export/distinct closeout. Each method below must either become an admitted native or
     prepared Vortex route, or be narrowed to a more precise sub-shape blocker with the missing
     semantic/runtime evidence recorded. Generic "unsupported" wording is not acceptable.
+  - Current-state note: the feasible local runtime sub-shapes from the June 18 polish pass are
+    implemented and ledgered. Remaining unchecked boxes below are future-contract work for broader
+    semantics that require explicit validity, state, typed-UDF, or provider contracts before
+    support can be claimed.
   - Blocked method coverage map:
-    - [ ] Sampling/order/index track: scoped deterministic `sample(n=..., seed=...)`,
-      integer `random_state` aliasing, `replace=False` without-replacement semantics, and
-      no-replacement fractional sampling are admitted; weighted/replacement sample variants, pandas
-      RNG object parity, and broader `duplicated` variants remain open; scoped
-      `duplicated(subset=..., keep="first")` is admitted through a native/prepared Vortex
+    - Sampling/order/index track: scoped deterministic `sample(n=..., seed=...)`,
+      integer `random_state` aliasing, row-count `replace=False|True` sampling, and
+      fractional `replace=False|True` sampling are admitted; weighted sampling, pandas RNG object parity, and broader nullable/nested/index `duplicated` variants remain open; scoped
+      `duplicated(subset=..., keep="first"|"last"|False)` is admitted through a native/prepared Vortex
       duplicate-mask primitive with explicit row-key state evidence.
-      Scoped `set_index(keys, drop=False)`, `reset_index(drop=True)`, and
-      `sort_index(ascending=True)` are admitted as explicit/index-state-free
-      source-order-preserving shapes.
-      - Admitted components: seeded no-replacement sampling, source-order `tail`, index metadata
-        recording without hidden pandas state, and ascending source-order preservation.
-      - Open components: weighted sampling, replacement sampling, portable RNG parity,
-        `duplicated(keep="last"|False)` and nullable/nested equality parity, and index-state
+      Scoped `set_index(keys, drop=False)`, `reset_index(drop=True)`,
+      `reset_index()` over explicit `set_index(keys, drop=False)` metadata, and source-order
+      `sort_index(ascending=True)` are admitted as index-state-free/source-order-preserving
+      shapes; `sort_index(ascending=True|False)` over explicit `set_index(keys, drop=False)`
+      metadata lowers to native/prepared sort because the index keys remain ordinary ShardLoom
+      columns.
+      - Admitted components: seeded row-count sampling with or without replacement,
+        fractional sampling with or without replacement, source-order `tail`, index metadata recording/removal
+        without hidden pandas state, ascending source-order preservation, and explicit-index sort
+        lowering.
+      - Open components: weighted sampling hidden weight-column scan/output contract, portable RNG parity,
+        nullable/nested equality parity and index-state
         materialization when users ask for index values as data.
       - Unique ShardLoom components: source-order evidence, deterministic seed contracts,
         metadata-first duplicate checks where possible, and PulseWeave bounded selection state.
-    - [ ] Reshape/nested-expansion track: scoped `melt`, scoped single-column scalar-list
+    - Reshape/nested-expansion track: scoped `melt`, scoped single-column scalar-list
       `explode`, scoped single-index/single-pivot/single-value `pivot`, and scoped
       `pivot_table` with explicit sum/count/mean aggregate policy are admitted; broader reshape
       variants remain open.
@@ -385,19 +259,20 @@ Current autonomous execution order:
         parity.
       - Unique ShardLoom components: capillary expansion units, spill/memory diagnostics,
         dynamic fanout admission, and no external reshape engine execution.
-    - [ ] Window/summary track: scoped row-count `rolling(...).sum(...)` and scoped no-kwargs
+    - Window/summary track: scoped row-count `rolling(...).sum/mean/count(...)` and scoped no-kwargs
       `describe` are admitted, while broader pandas-style percentile/options/window semantics
       remain outside the claim.
       - Admitted components: scoped `describe` over native/prepared profile evidence; scoped
-        `rolling(window=<positive int>, min_periods<=window, center=False).sum(column, alias=...)`
-        over one scalar numeric source-order column through the native/prepared Vortex
-        rolling-window primitive.
+        `rolling(window=<positive int>, min_periods<=window, center=False).sum/mean/count(column, alias=...)`
+        over one scalar source-order column through the native/prepared Vortex rolling-window
+        primitive; `sum`/`mean` require numeric input and `count` admits scalar rows.
       - Open components: time-like/calendar windows when a declared order column exists, centered
-        or arbitrary frame bounds, null-skipping/validity-specific semantics, additional rolling
-        aggregates beyond `sum`, and bounded state spill diagnostics.
+        or arbitrary frame bounds, null-skipping/validity-specific semantics, custom rolling
+        aggregates beyond sum/mean/count, and certified native spill execution beyond the current
+        fail-closed state-budget diagnostics.
       - Unique ShardLoom components: metadata-first summary routes, PulseWeave bounded window state,
         and capillary state fragments that avoid whole-frame materialization.
-    - [ ] Conditional/value rewrite track: `mask`, `replace`.
+    - Conditional/value rewrite track: `mask`, `replace`.
       - `mask`: predicate-to-expression lowering, scalar replacement, null/type coercion, and
         evidence for changed columns.
       - `replace`: full-cell value rewrite, null-aware equality, scoped string replacement, and
@@ -408,7 +283,7 @@ Current autonomous execution order:
         native route.
       - Unique ShardLoom components: native expression registry kernels, per-column capillary
         rewrite units, and materialization evidence for rewritten outputs.
-    - [ ] Callable/expression track: `apply`, scoped `pipe`, `transform`, `applymap`, `map`,
+    - Callable/expression track: `apply`, scoped `pipe`, `transform`, `applymap`, `map`,
       `map_rows`, `eval`.
       - Expression-only components: scoped `eval("col = col + scalar")` numeric scalar assignment
         and `transform({"col": col("col") + scalar})` mapping-style numeric assignment are
@@ -446,30 +321,36 @@ Current autonomous execution order:
     - [x] Promote scoped index metadata shapes: `set_index(keys, drop=False)` records explicit
       ShardLoom index metadata while preserving encoded row data; `reset_index(drop=True)` and
       `sort_index(ascending=True)` preserve the normalized ShardLoom plan when no hidden
-      pandas-style index state exists. Default/drop=True set-index, materialized reset-index,
-      descending index sort, and index-value output remain deterministic blockers.
+      pandas-style index state exists; `reset_index()` over explicit `set_index(keys, drop=False)`
+      metadata removes only the explicit index marker; `sort_index(ascending=True|False)` over
+      explicit `set_index(keys, drop=False)` metadata lowers to native/prepared sort.
+      Default/drop=True set-index, row-number reset-index materialization, source-order descending
+      without an explicit index, and hidden index-value output remain deterministic blockers.
     - [x] Implement scoped deterministic `sample(n=..., seed=...)` and
       `sample(n=..., random_state=<int>, replace=False)` through native/prepared Vortex scan plus
       ShardLoom seeded bounded row selection without replacement, with explicit
       decode/materialization evidence and no fallback or external engine invocation.
-    - [x] Implement scoped deterministic no-replacement `sample(frac|fraction=..., seed|random_state=...)`
+    - [x] Implement scoped deterministic `sample(frac|fraction=..., seed|random_state=..., replace=False|True)`
       through native/prepared Vortex scan plus ShardLoom seeded fractional row selection, with
       explicit decode/materialization evidence and no fallback or external engine invocation.
+    - [x] Implement scoped deterministic row-count replacement
+      `sample(n=..., seed|random_state=..., replace=True)` through native/prepared Vortex scan plus
+      ShardLoom seeded replacement row selection, with explicit duplicate-output provenance,
+      bounded materialization evidence, and no fallback or external engine invocation.
     - [ ] Implement remaining deterministic sampling/order/index sub-shapes where semantics are
-      explicit: weighted/replacement sample variants, pandas RNG object parity if a portable seed
-      contract exists, row-mask `duplicated`, and explicit index-state
+      explicit: weighted sampling and pandas RNG object parity if a portable seed
+      contract exists, broader duplicate-mask equality variants, and explicit index-state
       creation/materialization if it can be represented without hidden pandas-style state.
       - [ ] Decide and document the portable RNG contract for non-integer RNG objects; if parity
         would require pandas/numpy execution semantics, keep it blocked with a precise blocker ID.
-      - [ ] Add weighted sampling only after weight-column type/null validation, cumulative-weight
-        kernel evidence, and deterministic bounded selection evidence exist.
-      - [ ] Add replacement sampling only after duplicate output provenance, seed replay, and bounded
-        materialization evidence exist.
-      - [x] Add scoped `duplicated(subset=..., keep="first")` row-mask output through a
+      - [ ] Add weighted sampling only after hidden weight-column scan/output separation,
+        weight-column type/null validation, cumulative-weight kernel evidence, and deterministic
+        bounded selection evidence exist.
+      - [x] Add scoped `duplicated(subset=..., keep="first"|"last"|False)` row-mask output through a
         ShardLoom-native row-key state kernel over native/prepared Vortex scans, including
         explicit decode/materialization evidence and no external engine execution.
-      - [ ] Add broader `duplicated` semantics only after nullable/nested equality,
-        `keep="last"`, `keep=False`, and index-state parity evidence exists.
+      - [ ] Add broader `duplicated` semantics only after nullable/nested equality and
+        index-state parity evidence exists.
       - [ ] Promote explicit index-state materialization only where index values can be represented
         as ordinary ShardLoom columns without hidden frame state.
     - [ ] Implement reshape/nested-expansion routes for feasible flat/nested Vortex shapes:
@@ -496,14 +377,17 @@ Current autonomous execution order:
         support, unsupported aggregate semantics, and spill-required shapes without spill evidence.
     - [ ] Implement rolling/window routes for feasible scalar columns using native stateful kernels
       where row windows are required.
-      - [x] Admit scoped row-count rolling sum over declared source-order input with positive
+      - [x] Admit scoped row-count rolling sum/mean/count over declared source-order input with positive
         integer window/min-period validation, bounded state, deterministic ordering evidence,
         native/prepared Vortex primitive routing, and explicit decode/materialization evidence.
       - [x] Add capillary window-state fragments so scoped rolling work can stream without whole-frame
         materialization.
-      - [ ] Add PulseWeave pressure feedback for window-state memory and spill-required diagnostics.
+      - [x] Add PulseWeave pressure feedback for window-state memory and spill-required diagnostics.
+      - [x] Expose local primitive state-budget fields on rolling-window row-export reports and
+        public workflow envelopes so JSONL/CSV write routes carry the same capillary,
+        PulseWeave, and fail-closed spill posture as collect routes.
       - [ ] Keep time/calendar/window-function variants, centered windows, null-skipping validity
-        variants, and additional rolling aggregates blocked until their order/time-zone/null/spill
+        variants, and custom rolling aggregates blocked until their order/time-zone/null/spill
         semantics are explicitly certified.
     - [ ] Implement conditional/value rewrite routes for `mask` and `replace` through the native
       expression/kernel registry with explicit null/type semantics and materialization evidence.
@@ -565,10 +449,10 @@ Current autonomous execution order:
     `PY-VORTEX-LOCAL-EXPORT-DISTINCT-CLOSEOUT-1`, scoped `describe` is admitted through the
     profile family, scoped bounded `tail(limit)` is admitted through the native/prepared Vortex
     tail primitive, scoped deterministic `sample(n=..., seed=...)` / integer `random_state`
-    aliasing with `replace=False` and no-replacement fractional sampling are admitted through the
+    aliasing with row-count `replace=False|True` and fractional sampling with or without replacement are admitted through the
     native/prepared Vortex sample primitive, scoped index metadata no-op shapes, scoped
     `melt(id_vars=..., value_vars=...)`, and scoped row-count
-    `rolling(...).sum(...)` are admitted, and remaining broad variants have
+    `rolling(...).sum/mean/count(...)` are admitted, and remaining broad variants have
     track-level implementation checklists with no generic
     unowned blocker bucket.
   - Non-goals: hidden pandas/Polars/DuckDB/DataFusion/Spark fallback, arbitrary unsafe Python

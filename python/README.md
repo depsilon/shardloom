@@ -12,8 +12,8 @@ a caller explicitly invokes a CLI command through `ShardLoomClient` or one of th
 helpers that wraps an evidence-backed CLI smoke.
 
 Public status is owned by `docs/release/public-status-matrix.md`. This README may describe scoped
-local Python surfaces and the approved v0.1.4 package track, but it does not authorize production
-support, performance claims, Spark displacement, or hidden external execution.
+local Python surfaces, the current source version, and the approved package track, but it does not
+authorize production support, performance claims, Spark displacement, or hidden external execution.
 
 ## Local Use
 
@@ -31,11 +31,12 @@ Foundry-style imports:
 python -m pip install -e python
 ```
 
-The source package exposes the v0.1.4 technical-preview version through
-`shardloom.__version__`. The selected published package channels are proof-backed at v0.1.4.
-The PyPI package is published as `shardloom==0.1.4`; GitHub release assets and the
-`depsilon/tap/shardloom` Homebrew formula are also published for v0.1.4. These channels are install
-access only and do not imply production readiness, broad runtime support, or performance claims.
+The source package exposes the v0.1.5 technical-preview version through
+`shardloom.__version__`. Until the v0.1.5 release train lands, the selected published package
+channels remain proof-backed at v0.1.4. The PyPI package is published as `shardloom==0.1.4`;
+GitHub release assets and the `depsilon/tap/shardloom` Homebrew formula are also published for
+v0.1.4. These channels are install access only and do not imply production readiness, broad runtime
+support, or performance claims.
 
 ```sh
 python -m pip install shardloom==0.1.4
@@ -353,8 +354,8 @@ print(native_vortex.command, native_vortex.route_id, native_vortex.vortex_primit
 
 For direct `.vortex` inputs, `route()` and `run()` infer the admitted primitive/provider payloads
 for scoped count/filter/project/limit, no-argument row-level distinct, bounded source-order tail,
-deterministic no-replacement `sample(n=..., seed=...|random_state=<int>, replace=False)` or
-`sample(frac|fraction=..., seed=...|random_state=<int>)`,
+deterministic row-count `sample(n=..., seed=...|random_state=<int>, replace=False|True)` or
+fractional `sample(frac|fraction=..., seed=...|random_state=<int>, replace=False|True)`,
 and exact benchmark-family grouped aggregate, hash join, global top-N, cast/try-cast,
 substring contains, and native
 `write_vortex` sink shapes. Manual
@@ -1546,8 +1547,9 @@ report-only surfaces into runtime support.
 
 ## Package Build Smoke
 
-The current published v0.1.4 package is a Python client surface over ShardLoom's CLI, with bundled
-CLI resources in supported platform wheels. Bundled platform-wheel readiness can be checked locally
+The current source package is v0.1.5; the latest published channel proof remains v0.1.4 until the
+v0.1.5 release train lands. It is a Python client surface over ShardLoom's CLI, with bundled CLI
+resources in supported platform wheels. Bundled platform-wheel readiness can be checked locally
 without publishing:
 
 ```powershell
@@ -1699,10 +1701,11 @@ execution, so envelopes have `command=run` plus
 `public_workflow_resolved_internal_command` set to `vortex-run`,
 `vortex-count-where`, `vortex-filter`, `vortex-project`, or
 `vortex-filter-project`. Count-all, no-argument row-level distinct, scoped source-order tail, and
-deterministic no-replacement sampling map through `vortex-run`; count-where, filter, project, and
+deterministic row-count sampling map through `vortex-run`; count-where, filter, project, and
 filter-project map through their scoped primitive commands. Distinct, tail, and sample use explicit
 projection, source-order limit or sample fraction, sample seed or integer `random_state`,
-without-replacement sampling, `memory_gb`, and `max_parallelism` payloads where relevant.
+row-count or fractional replacement-aware sampling, `memory_gb`, and `max_parallelism`
+payloads where relevant.
 The lower `vortex-*` commands remain available for direct diagnostics, tests,
 and benchmark evidence. Calls without explicit local primitive execution use
 the existing metadata/plan evidence surfaces where the CLI supports them.

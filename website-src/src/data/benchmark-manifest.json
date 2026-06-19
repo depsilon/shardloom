@@ -908,5 +908,71 @@
     "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
   },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "17cf9b795e746213355bfd1dca590959cf3898d1"
+  "shardloom_git_sha": "17cf9b795e746213355bfd1dca590959cf3898d1",
+  "clickbench_olap_runtime_readiness": {
+    "schema_version": "shardloom.clickbench_olap_site_readiness.v1",
+    "status": "ready_route_readiness_not_performance",
+    "query_count": 43,
+    "admitted_runtime_rows": 43,
+    "implementation_required_rows": 0,
+    "readiness_surface": "clickbench_olap_route_readiness",
+    "timing_surface": "route_readiness_no_timing",
+    "state_budget_schema_version": "shardloom.clickbench_olap_state_budget.v1",
+    "state_budget_required_count": 42,
+    "scale_fixture_strategy_schema_version": "shardloom.clickbench_scale_fixture_strategy.v1",
+    "scale_fixture_strategy_id": "clickbench_scale_fixture_strategy_v1",
+    "scale_fixture_tiers": [
+      "small_deterministic_local",
+      "medium_sequential_uat",
+      "full_100m_artifact_runner"
+    ],
+    "default_pr_fast_lane_tier": "small_deterministic_local",
+    "max_parallelism_default": 1,
+    "spill_policy": "fail_closed_before_uncertified_spill_for_stateful_scale_shapes",
+    "spill_required_count": 0,
+    "spill_supported_count": 0,
+    "performance_claim_allowed": false,
+    "claim_boundary": "ClickBench route readiness only; not a ClickBench performance result, leaderboard, or superiority claim.",
+    "coverage_artifact": "target/clickbench-olap-runtime-coverage.json",
+    "validator": "scripts/check_clickbench_olap_runtime_coverage.py",
+    "state_family_counts": {
+      "count_distinct_state": 2,
+      "grouped_aggregate_state": 1,
+      "grouped_aggregate_state+count_distinct+topk": 6,
+      "grouped_aggregate_state+topk": 17,
+      "grouped_aggregate_state+topk+offset": 5,
+      "raw_row_topk_sort_state": 4,
+      "scalar_aggregate_state": 7,
+      "stateless_scan_or_metadata": 1
+    },
+    "capillary_work_unit_counts": {
+      "aggregate_state": 36,
+      "count_distinct_set": 8,
+      "group_key_state": 29,
+      "having_filter": 2,
+      "offset_drain": 5,
+      "topk_heap_state": 32,
+      "utf8_predicate_scan": 18,
+      "vortex_scan": 43,
+      "wide_aggregate_projection": 1
+    },
+    "pulseweave_pressure_signal_counts": {
+      "aggregate_input_rows": 32,
+      "aggregate_measure_count": 32,
+      "aggregate_projection_width": 1,
+      "distinct_value_cardinality": 8,
+      "group_cardinality": 29,
+      "group_state_rows": 29,
+      "having_selectivity": 2,
+      "offset_drain_rows": 5,
+      "string_scan_selectivity": 18,
+      "topk_heap_rows": 32
+    },
+    "spill_policy_counts": {
+      "fail_closed_before_uncertified_spill": 42,
+      "not_applicable": 1
+    },
+    "fail_closed_if_spill_required_count": 42,
+    "validation_passed": true
+  }
 }

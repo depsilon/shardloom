@@ -3934,6 +3934,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "deterministic_seed_policy",
             "bounded_result_contract",
             "bounded_or_fractional_result_contract",
+            "replacement_sample_contract",
+            "duplicate_output_provenance",
             "explicit_decode_materialization_boundary",
             "execution_certificate",
             "native_io_certificate",
@@ -3941,11 +3943,13 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
         claim_boundary=(
             "Scoped `sample(n=..., seed=...)`, `sample(n=..., random_state=<int>, "
-            "replace=False)`, and no-replacement `sample(frac|fraction=..., seed|random_state=...)` "
+            "replace=False|True)`, and `sample(frac|fraction=..., seed|random_state=..., "
+            "replace=False|True)` "
             "lower local compatibility sources through prepared Vortex or native Vortex input, then "
             "apply deterministic ShardLoom seeded row selection at an explicit bounded "
-            "materialization boundary. Unbounded sampling, weighted sampling, replacement sampling, "
-            "pandas RNG object parity, and performance claims remain outside this route and fail closed."
+            "materialization boundary. Replacement sampling carries explicit duplicate-output "
+            "provenance. Unbounded sampling, weighted sampling, pandas RNG object parity, and "
+            "performance claims remain outside this route and fail closed."
         ),
     ),
     _df_method(
@@ -4105,17 +4109,18 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "native_vortex_rolling_window_primitive",
             "source_order_window_contract",
             "bounded_window_state",
-            "complete_window_sum_semantics",
+            "complete_window_sum_mean_count_semantics",
             "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
             "Scoped rolling is admitted for rolling(window=<positive int>, "
-            "min_periods<=window, center=False).sum(column, alias=...) over one scalar "
-            "numeric column through the native/prepared Vortex rolling-window primitive; "
-            "time/calendar windows, centered windows, Python callbacks, and broad pandas "
-            "rolling parity remain deterministic blockers."
+            "min_periods<=window, center=False).sum(...), .mean(...), or .count(...) over "
+            "one scalar source-order column through the native/prepared Vortex rolling-window "
+            "primitive; time/calendar windows, centered windows, Python callbacks, custom "
+            "aggregates, null-validity variants, and broad pandas rolling parity remain "
+            "deterministic blockers."
         ),
     ),
     _df_method(
@@ -4129,16 +4134,16 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "vortex_prepared_state_or_native_vortex_input",
             "native_vortex_duplicate_mask_primitive",
             "duplicate_mask_semantics",
-            "keep_first_subset_contract",
+            "keep_policy_subset_contract",
             "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "`duplicated(subset=..., keep='first')` is admitted for declared/projection scalar "
+            "`duplicated(subset=..., keep='first'|'last'|False)` is admitted for declared/projection scalar "
             "columns through Vortex preparation or native Vortex input and ShardLoom row-key "
-            "state. `keep='last'`, `keep=False`, nested equality, and nullable equality variants "
-            "remain deterministic blockers until their own evidence exists."
+            "state. Nested equality, nullable equality parity, hidden-index variants, and broad "
+            "pandas parity remain deterministic blockers until their own evidence exists."
         ),
     ),
     _df_method(
@@ -4851,6 +4856,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "scoped_runtime_supported",
         required_evidence=(
             "no_explicit_index_state_contract",
+            "explicit_index_state_metadata",
+            "index_metadata_removal",
             "source_order_preservation",
             "execution_certificate",
             "no_fallback_evidence",
@@ -4859,9 +4866,11 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         claim_boundary=(
             "Scoped reset_index(drop=True) is a no-op over ShardLoom frames because no hidden "
-            "pandas-style index state is carried in the runtime plan. Reset-index materialization, "
-            "row-number projection, level handling, and index column output remain deterministic "
-            "blockers with no fallback or external engine execution."
+            "pandas-style index state is carried in the runtime plan; scoped reset_index() over "
+            "explicit set_index(keys, drop=False) metadata removes only ShardLoom index metadata "
+            "because the index keys remain ordinary columns. Reset-index row-number projection, "
+            "level handling, and hidden index column output remain deterministic blockers with no "
+            "fallback or external engine execution."
         ),
     ),
     _df_method(
@@ -4870,6 +4879,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "scoped_runtime_supported",
         required_evidence=(
             "no_explicit_index_state_contract",
+            "explicit_index_state_metadata",
+            "native_vortex_sort_primitive",
             "source_order_preservation",
             "execution_certificate",
             "no_fallback_evidence",
@@ -4878,8 +4889,11 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         claim_boundary=(
             "Scoped sort_index(ascending=True) preserves source order when no explicit index state "
-            "exists. Descending index sort, materialized index state, multi-index ordering, and "
-            "hidden pandas-style row identity remain deterministic blockers."
+            "exists; scoped sort_index(ascending=True|False) over explicit "
+            "set_index(keys, drop=False) metadata lowers to the native/prepared Vortex sort route "
+            "because the index keys remain ordinary ShardLoom columns. Materialized index state, "
+            "multi-index ordering, source-order descending without an explicit index, and hidden "
+            "pandas-style row identity remain deterministic blockers."
         ),
     ),
     _df_method(
@@ -12317,10 +12331,15 @@ class ShardLoomContext:
             check=check,
         )
 
-    def read_vortex(self, uri: str | os.PathLike[str]) -> LazyFrame:
+    def read_vortex(
+        self,
+        uri: str | os.PathLike[str],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> LazyFrame:
         """Declare a lazy native Vortex source using this context's client."""
 
-        return read_vortex(uri, client=self.client, engine_mode=self.engine)
+        return read_vortex(uri, schema=schema, client=self.client, engine_mode=self.engine)
 
     def native_vortex_route(
         self,

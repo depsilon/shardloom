@@ -66,6 +66,8 @@ struct PublicWorkflowRouteRequest {
     vortex_source_order_limit: Option<String>,
     vortex_sample_seed: Option<String>,
     vortex_sample_fraction: Option<String>,
+    vortex_sample_replacement: bool,
+    vortex_duplicate_keep: Option<String>,
     vortex_expression_projection: Option<String>,
     vortex_melt_projection: Option<String>,
     vortex_explode_projection: Option<String>,
@@ -316,6 +318,19 @@ fn native_vortex_primitive_row_export_execution(
         primitive_request = primitive_request
             .with_source_order_limit(positive_usize_arg("source-order limit", limit)?);
     }
+    if let Some(seed) = request.vortex_sample_seed.as_ref() {
+        primitive_request =
+            primitive_request.with_sample_seed(non_negative_u64_arg("sample seed", seed)?);
+    }
+    if let Some(fraction) = request.vortex_sample_fraction.as_ref() {
+        primitive_request = primitive_request
+            .with_sample_fraction(sample_fraction_arg("sample fraction", fraction)?);
+    }
+    primitive_request =
+        primitive_request.with_sample_replacement(request.vortex_sample_replacement);
+    primitive_request = primitive_request.with_duplicate_keep(duplicate_keep_policy_arg(
+        request.vortex_duplicate_keep.as_deref(),
+    )?);
     let policy = shardloom_vortex::VortexLocalPrimitiveExecutionPolicy::new(
         request
             .max_parallelism
@@ -651,6 +666,7 @@ fn sort_rows_payload_with_columns(
     Ok(value.to_string())
 }
 
+#[allow(clippy::too_many_lines)]
 fn append_native_vortex_primitive_row_export_fields(
     fields: &mut Vec<(String, String)>,
     report: &shardloom_vortex::VortexLocalPrimitiveRowExportReport,
@@ -731,6 +747,74 @@ fn append_native_vortex_primitive_row_export_fields(
         fields,
         "materialization_boundary_reported",
         report.evidence.materialization_boundary_reported,
+    );
+    push_field(
+        fields,
+        "local_primitive_state_budget_schema_version",
+        &report.state_budget.schema_version,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_state_budget_required",
+        report.state_budget.state_budget_required,
+    );
+    push_field(
+        fields,
+        "local_primitive_state_budget_status",
+        &report.state_budget.state_budget_status,
+    );
+    push_field(
+        fields,
+        "local_primitive_state_family",
+        &report.state_budget.state_family,
+    );
+    push_field(
+        fields,
+        "local_primitive_capillary_work_units",
+        report.state_budget.capillary_work_units.join(","),
+    );
+    push_field(
+        fields,
+        "local_primitive_pulseweave_pressure_signals",
+        report.state_budget.pulseweave_pressure_signals.join(","),
+    );
+    push_field(
+        fields,
+        "local_primitive_observed_state_items",
+        report.state_budget.observed_state_items.to_string(),
+    );
+    push_field(
+        fields,
+        "local_primitive_estimated_state_items",
+        report
+            .state_budget
+            .estimated_state_items
+            .map_or_else(|| "none".to_string(), |value| value.to_string()),
+    );
+    push_field(
+        fields,
+        "local_primitive_spill_policy",
+        &report.state_budget.spill_policy,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_spill_required",
+        report.state_budget.spill_required,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_spill_supported",
+        report.state_budget.spill_supported,
+    );
+    push_bool_field(
+        fields,
+        "local_primitive_fail_closed_if_spill_required",
+        report.state_budget.fail_closed_if_spill_required,
+    );
+    push_field(
+        fields,
+        "local_primitive_state_budget_diagnostic_code",
+        &report.state_budget.diagnostic_code,
     );
     push_field(fields, "claim_gate_status", "not_claim_grade");
 }
@@ -1071,6 +1155,11 @@ fn native_vortex_materializing_request_and_arg(
         primitive_request = primitive_request
             .with_sample_fraction(sample_fraction_arg("sample fraction", fraction)?);
     }
+    primitive_request =
+        primitive_request.with_sample_replacement(request.vortex_sample_replacement);
+    primitive_request = primitive_request.with_duplicate_keep(duplicate_keep_policy_arg(
+        request.vortex_duplicate_keep.as_deref(),
+    )?);
     Ok((primitive_request, primitive_arg))
 }
 
@@ -1159,7 +1248,9 @@ fn native_vortex_materializing_public_primitive_name(
 ) -> &'static str {
     match kind {
         shardloom_vortex::VortexQueryPrimitiveKind::DistinctRows => "distinct",
+        shardloom_vortex::VortexQueryPrimitiveKind::DuplicateMaskRows => "duplicate_mask",
         shardloom_vortex::VortexQueryPrimitiveKind::TailRows => "tail",
+        shardloom_vortex::VortexQueryPrimitiveKind::SampleRows => "sample",
         shardloom_vortex::VortexQueryPrimitiveKind::ExpressionProjectRows => "expression_project",
         shardloom_vortex::VortexQueryPrimitiveKind::MeltRows => "melt",
         shardloom_vortex::VortexQueryPrimitiveKind::ExplodeRows => "explode",
@@ -1878,7 +1969,7 @@ impl PublicWorkflowRouteRequest {
         let mut args = args.peekable();
         let Some(surface) = args.next() else {
             return Err(ShardLoomError::InvalidOperation(
-                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate|sort_rows>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--vortex-sort-rows <json>] [--memory-gb <n>] [--max-parallelism <n>]"
+                "usage: shardloom route <sql|python|dataframe|cli> [--input <uri>] [--input-format <format>] [--sql <statement>] [--plan <summary>] [--request <collect|prepare|write_vortex|write_parquet|write_arrow_ipc|write_avro|write_orc|write_csv|write_jsonl|explain|route|evidence>] [--output <ref>] [--fanout-output <format=local-path>]... [--execution-policy <auto|direct|native_vortex|prepare_once>] [--materialization-policy <bounded|materialized|zero_decode|explicit>] [--evidence-level <report_only|runtime_smoke|production_admitted_local_workflow|claim_grade>] [--bounded true|false] [--allow-overwrite] [--generated-source-kind <kind>] [--generated-schema <schema>] [--generated-rows <rows>] [--generated-range-start <int>] [--generated-range-end <int>] [--generated-range-step <int>] [--generated-range-column <name>] [--native-vortex-operation-family <family>] [--vortex-primitive <count|count_where|filter|project|filter_project|distinct|tail|sample|expression_project|melt|explode|pivot|rolling_window|aggregate|sort_rows>] [--vortex-predicate <tiny-predicate>] [--vortex-columns <columns>] [--vortex-source-order-limit <rows>] [--vortex-sample-fraction <fraction>] [--vortex-sample-seed <seed>] [--vortex-sample-replacement] [--vortex-expression-projection <json>] [--vortex-melt-projection <json>] [--vortex-explode-projection <json>] [--vortex-pivot-projection <json>] [--vortex-rolling-window <json>] [--vortex-aggregate <json>] [--vortex-sort-rows <json>] [--memory-gb <n>] [--max-parallelism <n>]"
                     .to_string(),
             ));
         };
@@ -1924,6 +2015,8 @@ impl PublicWorkflowRouteRequest {
             vortex_source_order_limit: None,
             vortex_sample_seed: None,
             vortex_sample_fraction: None,
+            vortex_sample_replacement: false,
+            vortex_duplicate_keep: None,
             vortex_expression_projection: None,
             vortex_melt_projection: None,
             vortex_explode_projection: None,
@@ -2025,6 +2118,15 @@ impl PublicWorkflowRouteRequest {
             "--vortex-sample-fraction" => {
                 self.vortex_sample_fraction =
                     Some(required_value(args, "--vortex-sample-fraction")?);
+            }
+            "--vortex-sample-replacement" => {
+                self.vortex_sample_replacement = true;
+            }
+            "--vortex-duplicate-keep" => {
+                self.vortex_duplicate_keep = Some(normalize_duplicate_keep(&required_value(
+                    args,
+                    "--vortex-duplicate-keep",
+                )?)?);
             }
             "--vortex-expression-projection" => {
                 self.vortex_expression_projection =
@@ -2213,9 +2315,9 @@ impl PublicVortexPrimitive {
             "pivot" | "pivot_rows" | "pivot-rows" | "pivot_table" | "pivot-table" => {
                 Some(Self::Pivot)
             }
-            "rolling" | "rolling_window" | "rolling-window" | "rolling_sum" | "rolling-sum" => {
-                Some(Self::RollingWindow)
-            }
+            "rolling" | "rolling_window" | "rolling-window" | "rolling_rows" | "rolling-rows"
+            | "rolling_sum" | "rolling-sum" | "rolling_mean" | "rolling-mean" | "rolling_count"
+            | "rolling-count" => Some(Self::RollingWindow),
             "aggregate" | "aggregation" | "simple_aggregate" | "simple-aggregate"
             | "scalar_aggregate" | "scalar-aggregate" => Some(Self::Aggregate),
             "sort" | "sort_rows" | "sort-rows" | "order_by" | "order-rows" | "order_rows" => {
@@ -2427,9 +2529,8 @@ impl NativeVortexOperationFamily {
             "melt" | "melt_rows" | "reshape" | "unpivot" => Some(Self::Melt),
             "explode" | "explode_rows" | "list_explode" | "nested_expansion" => Some(Self::Explode),
             "pivot" | "pivot_rows" | "pivot_table" | "pivot_wide_reshape" => Some(Self::Pivot),
-            "rolling" | "rolling_window" | "rolling_rows" | "rolling_sum" | "window" => {
-                Some(Self::RollingWindow)
-            }
+            "rolling" | "rolling_window" | "rolling_rows" | "rolling_sum" | "rolling_mean"
+            | "rolling_count" | "window" => Some(Self::RollingWindow),
             "profile" | "schema_profile" | "bounded_profile" => Some(Self::Profile),
             "sink" | "write" | "write_vortex" | "write_jsonl" | "write_csv" | "write_parquet"
             | "write_arrow_ipc" => Some(Self::Sink),
@@ -2592,7 +2693,7 @@ impl NativeVortexOperationFamily {
                 "native_vortex_distinct_state;null_equality_semantics;bounded_result_contract;decoded_reference_correctness;route_certificate"
             }
             Self::DuplicateMask => {
-                "native_vortex_duplicate_mask_state;keep_first_semantics;bounded_result_contract;decoded_reference_correctness;route_certificate"
+                "native_vortex_duplicate_mask_state;keep_policy_semantics;bounded_result_contract;decoded_reference_correctness;route_certificate"
             }
             Self::Sample => {
                 "native_vortex_sample_scan;deterministic_seed_policy;bounded_result_contract;decoded_reference_correctness;route_certificate"
@@ -2610,7 +2711,7 @@ impl NativeVortexOperationFamily {
                 "native_vortex_pivot;single_index_column;single_pivot_column;single_value_column;wide_reshape_state;decode_materialization_boundary;decoded_reference_correctness;route_certificate"
             }
             Self::RollingWindow => {
-                "native_vortex_rolling_window;source_order_window_state;numeric_sum_semantics;decode_materialization_boundary;decoded_reference_correctness;route_certificate"
+                "native_vortex_rolling_window;source_order_window_state;sum_mean_count_semantics;decode_materialization_boundary;decoded_reference_correctness;route_certificate"
             }
             Self::Profile => {
                 "metadata_first_profile;vortex_statistics_or_bounded_decode_contract;schema_correctness;route_certificate"
@@ -2648,7 +2749,7 @@ impl NativeVortexOperationFamily {
                 "implement and certify native Vortex row-level distinct/dedup state before admitting this family"
             }
             Self::DuplicateMask => {
-                "route duplicated(keep='first') through the admitted native Vortex duplicate-mask primitive with declared subset columns"
+                "route duplicated(keep='first'|'last'|False) through the admitted native Vortex duplicate-mask primitive with declared subset columns"
             }
             Self::Sample => {
                 "route deterministic sample through the admitted native Vortex sample primitive with a bounded sample size and seed"
@@ -2666,7 +2767,7 @@ impl NativeVortexOperationFamily {
                 "route scoped pivot/pivot_table through the admitted native Vortex pivot primitive with one index, one pivot, and one value column"
             }
             Self::RollingWindow => {
-                "route scoped rolling-window sum through the admitted native Vortex rolling-window primitive with explicit source/order/window payload"
+                "route scoped rolling-window sum/mean/count through the admitted native Vortex rolling-window primitive with explicit source/order/window payload"
             }
             Self::Profile => {
                 "implement and certify metadata-first Vortex profile/statistics route before admitting this family"
@@ -2885,6 +2986,22 @@ fn native_vortex_primitive_payload_blocker(
             "use --vortex-sample-fraction only with --vortex-primitive sample",
         ));
     }
+    if request.vortex_sample_replacement && !matches!(primitive, PublicVortexPrimitive::Sample) {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_replacement",
+            "native Vortex sample replacement is only valid for sample primitives",
+            "use --vortex-sample-replacement only with --vortex-primitive sample",
+        ));
+    }
+    if request.vortex_duplicate_keep.is_some()
+        && !matches!(primitive, PublicVortexPrimitive::DuplicateMask)
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_duplicate_keep",
+            "native Vortex duplicate keep policy is only valid for duplicate-mask primitives",
+            "use --vortex-duplicate-keep only with --vortex-primitive duplicate_mask",
+        ));
+    }
     if request.vortex_expression_projection.is_some()
         && !matches!(primitive, PublicVortexPrimitive::ExpressionProject)
     {
@@ -2990,9 +3107,11 @@ fn native_vortex_primitive_row_export_route(
             | PublicVortexPrimitive::Sample
             | PublicVortexPrimitive::ExpressionProject
             | PublicVortexPrimitive::Melt
+            | PublicVortexPrimitive::Explode
             | PublicVortexPrimitive::Pivot
             | PublicVortexPrimitive::RollingWindow
             | PublicVortexPrimitive::Aggregate
+            | PublicVortexPrimitive::SortRows
     ) {
         return native_vortex_operation_blocked_route(NativeVortexOperationFamily::Sink);
     }
@@ -3141,6 +3260,22 @@ fn native_vortex_primitive_row_export_payload_blocker(
             "public_workflow_route.vortex_sample_fraction",
             "native Vortex sample fraction is only valid for sample row export",
             "use --vortex-sample-fraction only with --vortex-primitive sample",
+        ));
+    }
+    if request.vortex_sample_replacement && !matches!(primitive, PublicVortexPrimitive::Sample) {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_replacement",
+            "native Vortex sample replacement is only valid for sample row export",
+            "use --vortex-sample-replacement only with --vortex-primitive sample",
+        ));
+    }
+    if request.vortex_duplicate_keep.is_some()
+        && !matches!(primitive, PublicVortexPrimitive::DuplicateMask)
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_duplicate_keep",
+            "native Vortex duplicate keep policy is only valid for duplicate-mask row export",
+            "use --vortex-duplicate-keep only with --vortex-primitive duplicate_mask",
         ));
     }
     if request.vortex_expression_projection.is_some()
@@ -3703,6 +3838,8 @@ struct InferredNativeVortexRoutePayload {
     source_order_limit: Option<String>,
     sample_seed: Option<String>,
     sample_fraction: Option<String>,
+    sample_replacement: bool,
+    duplicate_keep: Option<String>,
     explode_projection: Option<String>,
     pivot_projection: Option<String>,
     rolling_window: Option<String>,
@@ -3738,6 +3875,10 @@ impl InferredNativeVortexRoutePayload {
         }
         if request.vortex_sample_fraction.is_none() {
             request.vortex_sample_fraction = self.sample_fraction;
+        }
+        request.vortex_sample_replacement |= self.sample_replacement;
+        if request.vortex_duplicate_keep.is_none() {
+            request.vortex_duplicate_keep = self.duplicate_keep;
         }
         if request.vortex_explode_projection.is_none() {
             request.vortex_explode_projection = self.explode_projection;
@@ -3848,6 +3989,8 @@ fn infer_native_vortex_provider_payload(
         source_order_limit: None,
         sample_seed: None,
         sample_fraction: None,
+        sample_replacement: false,
+        duplicate_keep: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -3936,6 +4079,8 @@ fn infer_native_vortex_sql_provider_payload(
         source_order_limit: None,
         sample_seed: None,
         sample_fraction: None,
+        sample_replacement: false,
+        duplicate_keep: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -3994,6 +4139,8 @@ fn infer_native_vortex_sql_primitive_payload(
                 source_order_limit: None,
                 sample_seed: None,
                 sample_fraction: None,
+                sample_replacement: false,
+                duplicate_keep: None,
                 explode_projection: None,
                 pivot_projection: None,
                 rolling_window: None,
@@ -4020,6 +4167,8 @@ fn infer_native_vortex_sql_primitive_payload(
             source_order_limit: None,
             sample_seed: None,
             sample_fraction: None,
+            sample_replacement: false,
+            duplicate_keep: None,
             explode_projection: None,
             pivot_projection: None,
             rolling_window: None,
@@ -4049,6 +4198,8 @@ fn infer_native_vortex_sql_primitive_payload(
             source_order_limit: Some(limit.to_string()),
             sample_seed: None,
             sample_fraction: None,
+            sample_replacement: false,
+            duplicate_keep: None,
             explode_projection: None,
             pivot_projection: None,
             rolling_window: None,
@@ -4081,6 +4232,8 @@ fn infer_native_vortex_sql_primitive_payload(
             source_order_limit: shape.limit,
             sample_seed: None,
             sample_fraction: None,
+            sample_replacement: false,
+            duplicate_keep: None,
             explode_projection: None,
             pivot_projection: None,
             rolling_window: None,
@@ -4112,6 +4265,8 @@ fn infer_native_vortex_sql_primitive_payload(
         source_order_limit: shape.limit,
         sample_seed: None,
         sample_fraction: None,
+        sample_replacement: false,
+        duplicate_keep: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -5029,6 +5184,7 @@ struct SummarySampleShape {
     source_order_limit: Option<String>,
     sample_fraction: Option<String>,
     sample_seed: String,
+    sample_replacement: bool,
 }
 
 fn parse_plan_summary_operations(summary: &str) -> Option<Vec<SummaryOperation<'_>>> {
@@ -5222,6 +5378,8 @@ fn native_vortex_primitive_payload_with_seed(
         source_order_limit,
         sample_seed,
         sample_fraction: None,
+        sample_replacement: false,
+        duplicate_keep: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -5245,6 +5403,8 @@ fn native_vortex_sample_primitive_payload(
         source_order_limit: sample_shape.source_order_limit,
         sample_seed: Some(sample_shape.sample_seed),
         sample_fraction: sample_shape.sample_fraction,
+        sample_replacement: sample_shape.sample_replacement,
+        duplicate_keep: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -5268,6 +5428,8 @@ fn native_vortex_explode_primitive_payload(
         source_order_limit,
         sample_seed: None,
         sample_fraction: None,
+        sample_replacement: false,
+        duplicate_keep: None,
         explode_projection: Some(payload),
         pivot_projection: None,
         rolling_window: None,
@@ -5324,6 +5486,8 @@ fn native_vortex_rolling_window_primitive_payload(
         source_order_limit,
         sample_seed: None,
         sample_fraction: None,
+        sample_replacement: false,
+        duplicate_keep: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: Some(payload),
@@ -5390,6 +5554,8 @@ fn native_vortex_sort_rows_primitive_payload(
         source_order_limit: Some(source_order_limit),
         sample_seed: None,
         sample_fraction: None,
+        sample_replacement: false,
+        duplicate_keep: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -5627,14 +5793,21 @@ fn summary_sample_shape(value: &str) -> Option<SummarySampleShape> {
     if parts.first().copied() == Some("fraction") {
         let fraction = *parts.get(1)?;
         let seed = parts.get(2).copied().unwrap_or("0");
-        if parts.len() <= 3
+        let replacement = matches!(parts.get(3).copied(), Some("replacement" | "replace=true"));
+        let valid_replacement_marker = match parts.get(3).copied() {
+            None | Some("replacement" | "replace=true") => true,
+            Some(_) => false,
+        };
+        if parts.len() <= if replacement { 4 } else { 3 }
             && sample_fraction_arg("sample fraction", fraction).is_ok()
             && seed.parse::<u64>().is_ok()
+            && valid_replacement_marker
         {
             return Some(SummarySampleShape {
                 source_order_limit: None,
                 sample_fraction: Some(fraction.to_string()),
                 sample_seed: seed.to_string(),
+                sample_replacement: replacement,
             });
         }
         return None;
@@ -5642,6 +5815,7 @@ fn summary_sample_shape(value: &str) -> Option<SummarySampleShape> {
     let mut source_order_limit = None;
     let mut sample_fraction = None;
     let mut sample_seed = "0".to_string();
+    let mut sample_replacement = false;
     let mut saw_seed = false;
     for (index, part) in parts.iter().enumerate() {
         if let Some(value) = part.strip_prefix("n=") {
@@ -5666,6 +5840,11 @@ fn summary_sample_shape(value: &str) -> Option<SummarySampleShape> {
             }
             sample_seed = value.to_string();
             saw_seed = true;
+        } else if *part == "replacement" || *part == "replace=true" {
+            if sample_replacement {
+                return None;
+            }
+            sample_replacement = true;
         } else if index == 0 && source_order_limit.is_none() && summary_positive_limit(part) {
             source_order_limit = Some((*part).to_string());
         } else if index == 1 && !saw_seed && part.parse::<u64>().is_ok() {
@@ -5682,6 +5861,7 @@ fn summary_sample_shape(value: &str) -> Option<SummarySampleShape> {
             source_order_limit,
             sample_fraction,
             sample_seed,
+            sample_replacement,
         })
     }
 }
@@ -6788,6 +6968,16 @@ fn add_route_native_vortex_request_fields(
     );
     push_field(
         fields,
+        "vortex_sample_replacement",
+        request.vortex_sample_replacement.to_string(),
+    );
+    push_field(
+        fields,
+        "vortex_duplicate_keep",
+        request.vortex_duplicate_keep.as_deref().unwrap_or("first"),
+    );
+    push_field(
+        fields,
         "vortex_expression_projection_present",
         request.vortex_expression_projection.is_some().to_string(),
     );
@@ -7181,7 +7371,7 @@ fn admitted_native_vortex_next_action(
             "execute the admitted native Vortex bounded source-order tail primitive route"
         }
         PublicVortexPrimitive::Sample => {
-            "execute the admitted native Vortex deterministic no-replacement sample primitive route with a declared seed and row count or fraction"
+            "execute the admitted native Vortex deterministic sample primitive route with a declared seed and row-count or fractional replacement policy"
         }
         PublicVortexPrimitive::ExpressionProject => {
             "execute the admitted native Vortex expression-project primitive route with explicit rewrite materialization evidence"
@@ -7745,6 +7935,17 @@ fn execution_attachment_fields(
             optional_or_none(effective_request.vortex_sample_fraction.as_ref()),
         ),
         (
+            "public_workflow_vortex_sample_replacement".to_string(),
+            effective_request.vortex_sample_replacement.to_string(),
+        ),
+        (
+            "public_workflow_vortex_duplicate_keep".to_string(),
+            effective_request
+                .vortex_duplicate_keep
+                .clone()
+                .unwrap_or_else(|| "first".to_string()),
+        ),
+        (
             "public_workflow_vortex_expression_projection_present".to_string(),
             effective_request
                 .vortex_expression_projection
@@ -8092,6 +8293,31 @@ fn sample_fraction_arg(label: &str, value: &str) -> Result<f64, ShardLoomError> 
         )));
     }
     Ok(parsed)
+}
+
+fn normalize_duplicate_keep(value: &str) -> Result<String, ShardLoomError> {
+    let normalized = value.trim().to_ascii_lowercase().replace('_', "-");
+    match normalized.as_str() {
+        "first" => Ok("first".to_string()),
+        "last" => Ok("last".to_string()),
+        "false" | "all" | "none" => Ok("false".to_string()),
+        _ => Err(ShardLoomError::InvalidOperation(format!(
+            "duplicate keep must be first, last, or false: {value}"
+        ))),
+    }
+}
+
+fn duplicate_keep_policy_arg(
+    value: Option<&str>,
+) -> Result<shardloom_vortex::VortexDuplicateKeepPolicy, ShardLoomError> {
+    match value {
+        None | Some("first") => Ok(shardloom_vortex::VortexDuplicateKeepPolicy::First),
+        Some("last") => Ok(shardloom_vortex::VortexDuplicateKeepPolicy::Last),
+        Some("false") => Ok(shardloom_vortex::VortexDuplicateKeepPolicy::AllDuplicates),
+        Some(other) => Err(ShardLoomError::InvalidOperation(format!(
+            "duplicate keep must be first, last, or false: {other}"
+        ))),
+    }
 }
 
 fn positive_usize_arg(label: &str, value: &str) -> Result<usize, ShardLoomError> {
