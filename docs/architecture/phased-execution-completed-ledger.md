@@ -46589,6 +46589,25 @@ the current queue; promote any actionable unfinished work into Planned before im
       Cloudflare Workers build checks. Arbitrary pandas/SQL parity, Python callable UDFs/effects,
       object-store/table production output, broad structured compatibility sinks, benchmark
       superiority claims, and external-engine fallback remain gated.
+- [x] RUNTIME-CLOSEOUT-2 general native Vortex front-door route unification is closed through a
+      shared `native_vortex_unified_plan` evidence contract instead of a pending broad gap row.
+      Public route and run envelopes now emit
+      `native_vortex_plan_contract_schema_version`, `native_vortex_plan_contract_status`,
+      `native_vortex_plan_route_family`, `native_vortex_plan_route_alias`,
+      `native_vortex_plan_payload_kind`, `native_vortex_plan_operator_capillaries`,
+      `native_vortex_plan_source_count`, and typed result/sink contract fields for admitted native
+      `.vortex` inputs, Vortex-prepared local compatibility sources, primitive routes, provider
+      routes, profile routes, and declared sink routes. The exact primitive/provider route IDs
+      remain visible as aliases for diagnostics and tests, while the parity matrix now treats
+      `native_vortex_general_runtime` as `equivalent_admitted_scope` under the documented scoped
+      contract. Validation covered `cargo fmt --all -- --check`, focused public workflow route
+      integration tests, SQL/Python/DataFrame parity, v1 front-door scope, v1 Vortex scope,
+      user-surface runtime gap inventory, v1 correctness/conformance, and focused Python
+      parity/gap unit tests. The current front-door parity report passes with
+      `admitted_row_count=8`, `remaining_gap_count=3`, and `v1_scope_ready=true`. Remaining work is
+      broad arbitrary SQL/Python/DataFrame language semantics, front-door performance-equivalence
+      benchmark evidence, and object-store/lakehouse runtime closure; external-engine fallback
+      remains disallowed.
 - [~] CG-2.1+ broader zero-decode encoded primitive execution remains blocked pending filter/project
   encoded-kernel guarantees, correctness, benchmark, and certificate evidence.
 - [x] CG-3.1 first real native Vortex count-result payload write path is implemented behind

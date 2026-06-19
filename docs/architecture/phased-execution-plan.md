@@ -194,49 +194,12 @@ Current autonomous execution order:
 - The ClickBench route-readiness polish, Python/DataFrame runtime-surface polish, future-contract
   blocker field alignment, and native Vortex-derived structured export closeout requested on
   June 19 were completed and moved to
-  `docs/architecture/phased-execution-completed-ledger.md`. Current autonomous work is the broader
-  native Vortex route unification and remaining front-door claim-grade closure surfaced by
+  `docs/architecture/phased-execution-completed-ledger.md`. The broader native Vortex route
+  unification is now closed through the `native_vortex_unified_plan` contract and ledgered in
+  `docs/architecture/phased-execution-completed-ledger.md`. Current autonomous work is the
+  remaining front-door claim-grade closure surfaced by
   `scripts/check_sql_python_dataframe_parity.py` and
   `scripts/check_user_surface_runtime_gap_inventory.py`.
-
-- [ ] `RUNTIME-CLOSEOUT-2` General native Vortex front-door route unification.
-  - Source: `native_vortex_general_runtime` row in
-    `target/sql-python-dataframe-parity-continuation.json`.
-  - Current state: scoped local Vortex primitive/provider routes exist for count, filter/project,
-    aggregate, join, top-N, cast/try-cast, contains, distinct, sample, reshape, rolling/window,
-    profile, and JSONL/CSV row exports, but broad `read_vortex(...).filter(...).select(...).group_by(...).join(...).write_*()`
-    still relies on many named primitive/provider shapes instead of one reusable native route
-    family.
-  - V1 scope classification: `required_for_v1`.
-  - ShardLoom technique review: collapse aliases into capillary operator units inside one
-    Vortex-normalized planner, use PulseWeave to choose bounded row-stream versus stateful
-    operator execution, preserve metadata-first pruning and timing-surface separation, and keep
-    route evidence shared across SQL/Python/DataFrame front doors.
-  - Execution checklist:
-    - [ ] Inventory native Vortex primitive/provider aliases and collapse duplicate route labels
-      into shared operator-family contracts where source state, operator semantics, and output
-      boundary are identical.
-    - [ ] Add a general native Vortex plan payload that can bind one or more Vortex inputs,
-      operator capillaries, state budgets, sink requirements, and evidence-tier choices.
-    - [ ] Route Python `read_vortex` and SQL `.vortex` front doors through the shared plan payload
-      before falling back to named primitive/provider shortcuts.
-    - [ ] Add deterministic diagnostics only for shapes with a recorded external or safety
-      boundary; do not preserve blockers for repo-implementable operator chains.
-    - [ ] Update benchmark route evidence so named benchmark scenarios prove the same runtime
-      family used by public front doors.
-    - [ ] Add Rust/Python fixtures for multi-input join, aggregate, top-N, cast/try-cast,
-      contains, and declared sinks through the general route.
-    - [ ] Update capability docs, agent surface index, README, website data, and ledger.
-  - Evidence required: execution certificate, Native I/O certificate, multi-input state evidence,
-    typed collect/write evidence, no-fallback evidence, and front-door parity validator output.
-  - Verification: focused native Vortex route tests, Python query-builder tests, parity/gap
-    inventory validators, and targeted benchmark route-equivalence checks.
-  - Non-goals: external query-engine fallback, object-store production claims, or a public
-    performance-equivalence claim without benchmark evidence.
-  - Claim boundary: scoped native Vortex route unification, not arbitrary SQL/DataFrame parity.
-  - Fallback boundary: no DataFusion, DuckDB, Polars, pandas, Spark, Velox, or Vortex query-engine
-    integration may execute residual work.
-  - Ledger rule: move completed detail after merge/session completion.
 
 - [ ] `RUNTIME-CLOSEOUT-3` Broad SQL/Python/DataFrame language surface burn-down.
   - Source: `arbitrary_sql_python_dataframe_breadth` row in

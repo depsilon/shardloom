@@ -27,6 +27,8 @@ const ROUTE_SCHEMA_VERSION: &str = "shardloom.public_workflow_route.v1";
 const FACADE_SCHEMA_VERSION: &str = "shardloom.public_workflow_execution_facade.v1";
 const NATIVE_VORTEX_USER_ROUTE_CONTRACT_SCHEMA_VERSION: &str =
     "shardloom.native_vortex_user_route_contract.v1";
+const NATIVE_VORTEX_PLAN_CONTRACT_SCHEMA_VERSION: &str =
+    "shardloom.native_vortex_unified_plan_contract.v1";
 const TYPED_RESULT_SINK_CONTRACT_SCHEMA_VERSION: &str = "shardloom.typed_result_sink_contract.v1";
 const ROUTE_REPORT_ID: &str = "gar-runtime-impl-6d.public_workflow_route_facade";
 const ROUTE_DOCS_REF: &str = "docs/status/cli-command-registry.md#public-route-facade-command";
@@ -7370,6 +7372,7 @@ fn push_native_vortex_contract_fields(
         format!("{prefix}typed_result_sink_contract_schema_version"),
         TYPED_RESULT_SINK_CONTRACT_SCHEMA_VERSION,
     );
+    push_native_vortex_plan_contract_fields(fields, prefix, request, plan);
     push_field(
         fields,
         format!("{prefix}native_vortex_operation_family"),
@@ -7420,6 +7423,213 @@ fn push_native_vortex_contract_fields(
         format!("{prefix}decode_materialization_boundary"),
         decode_materialization_boundary(request, plan),
     );
+}
+
+fn push_native_vortex_plan_contract_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) {
+    push_field(
+        fields,
+        format!("{prefix}native_vortex_plan_contract_schema_version"),
+        NATIVE_VORTEX_PLAN_CONTRACT_SCHEMA_VERSION,
+    );
+    push_field(
+        fields,
+        format!("{prefix}native_vortex_plan_contract_status"),
+        native_vortex_plan_contract_status(request, plan),
+    );
+    push_field(
+        fields,
+        format!("{prefix}native_vortex_plan_route_family"),
+        native_vortex_plan_route_family(request, plan),
+    );
+    push_field(
+        fields,
+        format!("{prefix}native_vortex_plan_route_alias"),
+        native_vortex_plan_route_alias(request, plan),
+    );
+    push_field(
+        fields,
+        format!("{prefix}native_vortex_plan_payload_kind"),
+        native_vortex_plan_payload_kind(request, plan),
+    );
+    push_field(
+        fields,
+        format!("{prefix}native_vortex_plan_operator_capillaries"),
+        native_vortex_plan_operator_capillaries(request, plan),
+    );
+    push_field(
+        fields,
+        format!("{prefix}native_vortex_plan_source_count"),
+        native_vortex_plan_source_count(request, plan).to_string(),
+    );
+    push_field(
+        fields,
+        format!("{prefix}native_vortex_plan_result_or_sink_contract"),
+        native_vortex_plan_result_or_sink_contract(request, plan),
+    );
+    push_field(
+        fields,
+        format!("{prefix}native_vortex_plan_fallback_attempted"),
+        "false",
+    );
+    push_field(
+        fields,
+        format!("{prefix}native_vortex_plan_external_engine_invoked"),
+        "false",
+    );
+}
+
+fn native_vortex_plan_contract_applies(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> bool {
+    if is_native_vortex_route(request) || native_vortex_family_from_plan_blocker(plan).is_some() {
+        return true;
+    }
+    matches!(
+        plan.route_id,
+        "local_file_prepare_once" | "local_file_prepare_once_first_query"
+    ) || matches!(
+        plan.blocker_id,
+        "cg21.route.local_file_vortex_ingest_feature_gated"
+            | "cg21.route.local_file_vortex_primitive_feature_gated"
+    )
+}
+
+fn native_vortex_plan_contract_status(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> &'static str {
+    if !native_vortex_plan_contract_applies(request, plan) {
+        return "not_applicable";
+    }
+    if plan.status == CommandStatus::Success && plan.route_status == "admitted" {
+        "admitted"
+    } else {
+        "blocked_before_execution"
+    }
+}
+
+fn native_vortex_plan_route_family(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> &'static str {
+    if native_vortex_plan_contract_applies(request, plan) {
+        "native_vortex_unified_plan"
+    } else {
+        "not_applicable"
+    }
+}
+
+fn native_vortex_plan_route_alias(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> &'static str {
+    if native_vortex_plan_contract_applies(request, plan) {
+        plan.route_id
+    } else {
+        "not_applicable"
+    }
+}
+
+fn native_vortex_plan_payload_kind(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> &'static str {
+    if !native_vortex_plan_contract_applies(request, plan) {
+        return "not_applicable";
+    }
+    match plan.route_id {
+        "local_file_prepare_once" | "local_file_prepare_once_first_query" => {
+            "prepared_compatibility_source"
+        }
+        "native_vortex_user_aggregate"
+        | "native_vortex_user_join"
+        | "native_vortex_user_top_n"
+        | "native_vortex_user_cast"
+        | "native_vortex_user_contains"
+        | "native_vortex_user_sink" => "provider_operator",
+        "native_vortex_user_profile" => "metadata_profile",
+        "native_vortex_primitive_row_export" => "primitive_row_export",
+        "native_vortex_count_all"
+        | "native_vortex_count_where"
+        | "native_vortex_filter"
+        | "native_vortex_project"
+        | "native_vortex_filter_project"
+        | "native_vortex_distinct"
+        | "native_vortex_duplicate_mask"
+        | "native_vortex_tail"
+        | "native_vortex_sample"
+        | "native_vortex_expression_project"
+        | "native_vortex_melt"
+        | "native_vortex_explode"
+        | "native_vortex_pivot"
+        | "native_vortex_rolling_window"
+        | "native_vortex_aggregate"
+        | "native_vortex_sort_rows" => "primitive_operator",
+        _ if plan.status != CommandStatus::Success => "blocked_native_vortex_operator",
+        _ => "native_vortex_operator",
+    }
+}
+
+fn native_vortex_plan_operator_capillaries(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> String {
+    if !native_vortex_plan_contract_applies(request, plan) {
+        return "not_applicable".to_string();
+    }
+    let family = native_vortex_operation_family_field(request, plan);
+    match native_vortex_plan_payload_kind(request, plan) {
+        "prepared_compatibility_source" => {
+            "compatibility_import,prepared_vortex_state,native_vortex_query".to_string()
+        }
+        "provider_operator" => format!("vortex_scan,{family},typed_result_certificate"),
+        "metadata_profile" => "metadata_profile,typed_profile_certificate".to_string(),
+        "primitive_row_export" => format!("vortex_scan,{family},typed_sink_materialization"),
+        "primitive_operator" => format!("vortex_scan,{family},bounded_materialization"),
+        "blocked_native_vortex_operator" => {
+            format!("admission_diagnostic,{family},no_fallback_boundary")
+        }
+        _ => format!("vortex_scan,{family},typed_boundary"),
+    }
+}
+
+fn native_vortex_plan_source_count(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> usize {
+    if !native_vortex_plan_contract_applies(request, plan) {
+        return 0;
+    }
+    if request.native_vortex_right_input.is_some()
+        || request
+            .native_vortex_provider_scenario
+            .as_deref()
+            .is_some_and(|scenario| matches!(scenario, "hash-join" | "join-aggregate"))
+    {
+        2
+    } else {
+        1
+    }
+}
+
+fn native_vortex_plan_result_or_sink_contract(
+    request: &PublicWorkflowRouteRequest,
+    plan: &PublicWorkflowRoutePlan,
+) -> &'static str {
+    if !native_vortex_plan_contract_applies(request, plan) {
+        return "not_applicable";
+    }
+    if is_write_request(request) {
+        typed_sink_contract(request, plan)
+    } else {
+        typed_result_contract(request, plan)
+    }
 }
 
 fn native_vortex_operation_family_field(
@@ -9143,6 +9353,54 @@ mod tests {
             .unwrap_or_else(|| panic!("missing route field: {key}"))
     }
 
+    fn assert_native_vortex_plan_contract_fields(
+        fields: &[(String, String)],
+        route_alias: &str,
+        payload_kind: &str,
+        operator_capillaries: &str,
+        source_count: &str,
+    ) {
+        assert_eq!(
+            field(fields, "native_vortex_plan_contract_schema_version"),
+            NATIVE_VORTEX_PLAN_CONTRACT_SCHEMA_VERSION
+        );
+        assert_eq!(
+            field(fields, "native_vortex_plan_contract_status"),
+            "admitted"
+        );
+        assert_eq!(
+            field(fields, "native_vortex_plan_route_family"),
+            "native_vortex_unified_plan"
+        );
+        assert_eq!(field(fields, "native_vortex_plan_route_alias"), route_alias);
+        assert_eq!(
+            field(fields, "native_vortex_plan_payload_kind"),
+            payload_kind
+        );
+        assert_eq!(
+            field(fields, "native_vortex_plan_operator_capillaries"),
+            operator_capillaries
+        );
+        assert_eq!(
+            field(fields, "native_vortex_plan_source_count"),
+            source_count
+        );
+    }
+
+    fn assert_public_workflow_plan_contract_fields(
+        fields: &[(String, String)],
+        payload_kind: &str,
+    ) {
+        assert_eq!(
+            field(fields, "public_workflow_native_vortex_plan_route_family"),
+            "native_vortex_unified_plan"
+        );
+        assert_eq!(
+            field(fields, "public_workflow_native_vortex_plan_payload_kind"),
+            payload_kind
+        );
+    }
+
     fn assert_provider_schema_shape_blocked(plan: &PublicWorkflowRoutePlan) {
         assert_eq!(plan.status, CommandStatus::Unsupported);
         assert_eq!(
@@ -9552,6 +9810,13 @@ mod tests {
             field(&fields, "native_vortex_user_route_contract_schema_version"),
             NATIVE_VORTEX_USER_ROUTE_CONTRACT_SCHEMA_VERSION
         );
+        assert_native_vortex_plan_contract_fields(
+            &fields,
+            "native_vortex_filter_project",
+            "primitive_operator",
+            "vortex_scan,filter_project_limit,bounded_materialization",
+            "1",
+        );
         assert_eq!(
             field(&fields, "native_vortex_operation_family"),
             "filter_project_limit"
@@ -9579,6 +9844,7 @@ mod tests {
             ),
             "filter_project_limit"
         );
+        assert_public_workflow_plan_contract_fields(&attachments, "primitive_operator");
         assert_eq!(
             field(&attachments, "public_workflow_source_format"),
             "vortex"
@@ -10682,6 +10948,18 @@ mod tests {
             "production_admitted_local_workflow"
         );
         assert_eq!(
+            field(&aggregate_fields, "native_vortex_plan_route_family"),
+            "native_vortex_unified_plan"
+        );
+        assert_eq!(
+            field(&aggregate_fields, "native_vortex_plan_payload_kind"),
+            "provider_operator"
+        );
+        assert_eq!(
+            field(&aggregate_fields, "native_vortex_plan_operator_capillaries"),
+            "vortex_scan,aggregate,typed_result_certificate"
+        );
+        assert_eq!(
             field(&aggregate_fields, "vortex_middle_status"),
             "native_vortex_user_operator_provider"
         );
@@ -10717,6 +10995,7 @@ mod tests {
             field(&join_fields, "native_vortex_right_input"),
             "target/dim.vortex"
         );
+        assert_eq!(field(&join_fields, "native_vortex_plan_source_count"), "2");
     }
 
     #[cfg(feature = "vortex-production-runtime")]

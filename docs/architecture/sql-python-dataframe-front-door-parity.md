@@ -130,6 +130,9 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
 - `local_vortex_primitive_runtime`: SQL, Python, and DataFrame-style local Vortex primitive report
   workflows lower to ShardLoom's explicit Vortex primitive command family for count, count-where,
   filter, project, and filter-project with optional source-order limit.
+- `native_vortex_general_runtime`: admitted native `.vortex` inputs and Vortex-prepared local
+  compatibility sources share the `native_vortex_unified_plan` evidence contract for documented
+  primitive, provider, profile, and declared sink operator capillaries.
 
 These rows allow scoped local parity, not broad production claims.
 
@@ -187,10 +190,12 @@ mapping, source-order limit coverage, Vortex-native start state, output route, e
 no-fallback boundary.
 
 All admitted Vortex primitive terminal paths use explicit local primitive execution flags and emit
-no-fallback ShardLoom/Vortex evidence. This is intentionally a scoped parity row, not a full
-front-door parity claim: general Vortex SQL, broad read-transform-write workflows, decoded row
-materialization, object-store sources, and benchmark-backed performance equivalence remain tracked
-runtime-expansion work until the required evidence lands.
+no-fallback ShardLoom/Vortex evidence. The broader `native_vortex_general_runtime` parity row is
+now admitted only for documented `native_vortex_unified_plan` families that share
+primitive/provider/profile/sink capillaries across SQL, Python, and DataFrame-style front doors.
+Arbitrary SQL/DataFrame breadth, object-store/table sources, non-admitted operator families, and
+benchmark-backed performance equivalence remain tracked runtime-expansion work until the required
+evidence lands.
 
 The benchmark-family native route is separate from those primitive helpers:
 `ctx.native_vortex_route('fact.vortex', 'dim.vortex', execution_mode='native_vortex',
@@ -205,9 +210,6 @@ benchmark-range workflows.
 Rows with `parity_status=front_door_gap` are not generic engine-unsupported claims. They are
 runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME-IMPL-6D`:
 
-- `native_vortex_general_runtime`
-  (`runtime_gap_status=front_door_connection_pending`): general Vortex-native SQL/Python/DataFrame
-  read-transform-write workflows beyond the scoped local primitive runtime above.
 - Explicit adapter-to-Vortex normalization/preparation evidence for every non-Vortex input route.
 - Compatibility-file prepare-once routes now have a concrete context/session handle:
   `ctx.prepare_vortex('fact.csv', dim='dim.csv', workspace='target/shardloom-prepared')`

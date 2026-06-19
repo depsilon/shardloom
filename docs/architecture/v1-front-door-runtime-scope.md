@@ -79,7 +79,9 @@ built with `vortex-production-runtime` or `release-user-surfaces`: grouped count
 join with a declared right Vortex input, global top-N, clean/cast/filter, malformed timestamp cast,
 substring contains, and native `write_vortex` result sinks lower through
 `vortex-production-runtime-run` with provider scenario evidence. General Vortex SQL/DataFrame
-planning remains explicitly blocked until its own native route contracts exist. Exact provider-backed
+planning now uses the same `native_vortex_unified_plan` contract for documented primitive,
+provider, profile, and declared sink capillaries; arbitrary or unshaped SQL/DataFrame breadth
+remains explicitly blocked until the specific operator contract exists. Exact provider-backed
 result summaries can export bounded `result_json` to workspace-safe `write_jsonl()`/`write_csv()`
 sinks with explicit decode/materialization evidence. Primitive filter/project/filter-project,
 row-level distinct, bounded source-order tail, deterministic row-count or fractional sample, scoped rolling-window row-streams,
@@ -91,6 +93,10 @@ compatibility-file residual workflows that first normalize through Vortex prepar
 when the remaining transformed operator, row-level materialization, or compatibility sink lacks a native
 Vortex-derived route; they must not execute `sql-local-source-smoke` as the public runtime middle.
 The route report and run envelope identify all of this with
+`native_vortex_plan_contract_schema_version`,
+`native_vortex_plan_route_family`,
+`native_vortex_plan_payload_kind`,
+`native_vortex_plan_operator_capillaries`,
 `native_vortex_operation_family`,
 `native_vortex_provider_scenario`, `native_vortex_capability_status`, `typed_result_contract`,
 `typed_sink_contract`, and `decode_materialization_boundary` fields so agents and users can tell

@@ -68,8 +68,8 @@
     }
   ],
   "expected_counts": {
-    "front_door_supported_rows": 7,
-    "front_door_pending_rows": 4,
+    "front_door_supported_rows": 8,
+    "front_door_pending_rows": 3,
     "front_door_example_scenarios": 9,
     "front_door_expected_error_scenarios": 0,
     "vortex_primitive_routes": 11,

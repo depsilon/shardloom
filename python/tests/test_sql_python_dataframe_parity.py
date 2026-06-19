@@ -46,8 +46,8 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertEqual(report["v1_expected_error_scenario_ids"], [])
         self.assertFalse(report["flexible_anything_claim_allowed"])
         self.assertFalse(report["performance_equivalence_claim_allowed"])
-        self.assertEqual(report["admitted_row_count"], 7)
-        self.assertGreaterEqual(report["remaining_gap_count"], 4)
+        self.assertEqual(report["admitted_row_count"], 8)
+        self.assertGreaterEqual(report["remaining_gap_count"], 3)
         self.assertEqual(report["dataframe_method_blocker_count"], 0)
         self.assertEqual(report["dataframe_method_pending_or_unsupported_count"], 0)
         self.assertEqual(report["dataframe_named_runtime_surface_status"], "passed")
@@ -202,7 +202,9 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             for row in report["rows"]
             if row["row_id"] == "native_vortex_general_runtime"
         )
-        self.assertEqual(native["runtime_gap_status"], "front_door_connection_pending")
+        self.assertEqual(native["runtime_gap_status"], "admitted_scope")
+        self.assertEqual(native["parity_status"], "equivalent_admitted_scope")
+        self.assertIn("native_vortex_unified_plan", native["shared_runtime_path"])
         performance = next(
             row
             for row in report["rows"]

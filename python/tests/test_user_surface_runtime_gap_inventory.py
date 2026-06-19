@@ -69,11 +69,10 @@ class UserSurfaceRuntimeGapInventoryTests(unittest.TestCase):
             (row["source"], row["row_id"]): row
             for row in report["inventory_rows"]
         }
-        native_vortex = by_id[("front_door_parity_matrix", "native_vortex_general_runtime")]
-        self.assertEqual(native_vortex["classification"], "true_runtime_expansion_item")
-        self.assertEqual(native_vortex["observed_status"], "front_door_connection_pending")
-        self.assertEqual(native_vortex["vortex_normalization_point"], "native_vortex_boundary")
-        self.assertIn("scoped local Vortex primitives exist", native_vortex["runtime_route"])
+        self.assertNotIn(
+            ("front_door_parity_matrix", "native_vortex_general_runtime"),
+            by_id,
+        )
 
         performance = by_id[("front_door_parity_matrix", "performance_equivalence")]
         self.assertEqual(
