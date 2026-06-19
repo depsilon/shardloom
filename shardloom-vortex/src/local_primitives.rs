@@ -1393,6 +1393,7 @@ fn local_primitive_native_io_side_effect_report(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn local_primitive_output_ref(report: &VortexLocalPrimitiveExecutionReport) -> Option<String> {
     match report.primitive_kind {
         VortexQueryPrimitiveKind::CountAll => Some(format!("count_result={}", report.rows_scanned)),

@@ -529,7 +529,7 @@ fn prove_conjunction_from_segment_stats(
                     reason: format!("conjunction child unsupported: {reason}"),
                 };
             }
-        };
+        }
     }
     if let Some(reason) = unknown_reason {
         return PredicateProof::Unknown {

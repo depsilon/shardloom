@@ -1025,9 +1025,10 @@ impl VortexQueryPrimitiveRequest {
                 .map_or_else(|| "none".to_string(), |seed| seed.to_string()),
             self.sample_fraction
                 .map_or_else(|| "none".to_string(), format_fraction),
-            self.expression_projection
-                .as_ref()
-                .map_or_else(|| "none".to_string(), |expr| expr.family_summary()),
+            self.expression_projection.as_ref().map_or_else(
+                || "none".to_string(),
+                VortexExpressionProjectionRequest::family_summary,
+            ),
             self.melt_projection
                 .as_ref()
                 .map_or_else(|| "none".to_string(), VortexMeltProjectionRequest::summary),
@@ -1487,6 +1488,7 @@ pub fn plan_vortex_encoded_predicate(
 /// Evaluates a minimal `Vortex` query primitive against metadata summary.
 /// # Errors
 /// Returns an error only if metadata count evaluation overflows while summing rows.
+#[allow(clippy::too_many_lines)]
 pub fn evaluate_vortex_query_primitive(
     request: VortexQueryPrimitiveRequest,
     summary: &crate::VortexMetadataSummaryReport,

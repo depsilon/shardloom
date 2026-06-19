@@ -181,6 +181,7 @@ impl VortexPhysicalOperatorBridgeReport {
 ///
 /// # Errors
 /// Returns an error only if an internal static operator id is malformed.
+#[allow(clippy::too_many_lines)]
 pub fn physical_operator_plan_for_vortex_query_primitive(
     request: &VortexQueryPrimitiveRequest,
 ) -> Result<PhysicalOperatorPlan> {

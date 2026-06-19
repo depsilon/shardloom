@@ -1334,15 +1334,16 @@ fn parse_simple_aggregate_measure(
     let column = json_optional_string_field_any(object, &["column", "source_column", "on"])?
         .map(ColumnRef::new)
         .transpose()?;
-    let alias = json_optional_string_field_any(object, &["alias", "output_column"])?
-        .map(str::to_string)
-        .unwrap_or_else(|| {
+    let alias = json_optional_string_field_any(object, &["alias", "output_column"])?.map_or_else(
+        || {
             format!(
                 "{}_{}",
                 function.trim().to_ascii_lowercase(),
                 column.as_ref().map_or("all", ColumnRef::as_str)
             )
-        });
+        },
+        str::to_string,
+    );
     Ok(VortexSimpleAggregateMeasure::new(function, column, alias))
 }
 

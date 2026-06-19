@@ -1169,7 +1169,7 @@ fn dictionary_selection_vector(
     match predicate {
         PredicateExpr::AlwaysTrue => return Ok(SelectionVector::all(row_count)),
         PredicateExpr::AlwaysFalse => return Ok(SelectionVector::none()),
-        PredicateExpr::And(_) => {}
+        PredicateExpr::And(_) | PredicateExpr::Compare { .. } => {}
         PredicateExpr::IsNull { .. } => {
             return Ok(selection_vector_from_indices(
                 code_nullity_indices(codes, true)?,
@@ -1185,7 +1185,6 @@ fn dictionary_selection_vector(
                 row_count,
             ));
         }
-        PredicateExpr::Compare { .. } => {}
     }
     let dictionary_matches = dictionary
         .iter()

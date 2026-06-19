@@ -2832,6 +2832,7 @@ pub(crate) fn parse_projection_columns(value: &str) -> Result<ProjectionRequest,
     Ok(ProjectionRequest::columns(columns?))
 }
 
+#[allow(clippy::too_many_lines)]
 pub(crate) fn parse_vortex_primitive_request(
     uri: DatasetUri,
     primitive_arg: &str,
@@ -3165,15 +3166,16 @@ fn parse_simple_aggregate_measure(
     let column = json_optional_string_field_any(object, &["column", "source_column", "on"])?
         .map(ColumnRef::new)
         .transpose()?;
-    let alias = json_optional_string_field_any(object, &["alias", "output_column"])?
-        .map(str::to_string)
-        .unwrap_or_else(|| {
+    let alias = json_optional_string_field_any(object, &["alias", "output_column"])?.map_or_else(
+        || {
             format!(
                 "{}_{}",
                 function.trim().to_ascii_lowercase(),
                 column.as_ref().map_or("all", ColumnRef::as_str)
             )
-        });
+        },
+        str::to_string,
+    );
     let argument_offset =
         json_optional_i64_field_any(object, &["argument_offset", "arg_offset", "offset"])?;
     let mut measure = VortexSimpleAggregateMeasure::new(function, column, alias);
@@ -5839,91 +5841,6 @@ pub(crate) fn handle_vortex_query_trace(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_grouped_aggregate_payload_preserves_group_columns() {
-        let uri = DatasetUri::new("target/input.vortex").expect("uri");
-        let request = parse_vortex_primitive_request(
-            uri,
-            r#"aggregate:{"group_by":["label"],"measures":[{"function":"count","alias":"rows"},{"function":"sum","column":"amount","alias":"total_amount"}]}"#,
-        )
-        .expect("grouped aggregate request");
-        let aggregate = request.simple_aggregate.expect("aggregate payload");
-
-        assert_eq!(
-            aggregate
-                .group_by
-                .iter()
-                .map(ColumnRef::as_str)
-                .collect::<Vec<_>>(),
-            vec!["label"]
-        );
-        assert_eq!(aggregate.measures.len(), 2);
-        assert_eq!(
-            aggregate.output_columns(),
-            vec!["label", "rows", "total_amount"]
-        );
-        let ProjectionRequest::Columns(columns) = &request.projection else {
-            panic!("expected explicit projected columns");
-        };
-        assert_eq!(
-            columns.iter().map(ColumnRef::as_str).collect::<Vec<_>>(),
-            vec!["label", "amount"]
-        );
-    }
-
-    #[test]
-    fn parse_filtered_ordered_aggregate_payload_preserves_runtime_shape() {
-        let uri = DatasetUri::new("target/input.vortex").expect("uri");
-        let request = parse_vortex_primitive_request(
-            uri,
-            r#"aggregate-filter:and(neq:SearchPhrase:;gte:EventDate:2013-07-01)|{"group_by":["SearchPhrase"],"measures":[{"function":"count","alias":"c"}],"order_by":[{"column":"c","descending":true}],"offset":5}"#,
-        )
-        .expect("filtered ordered aggregate request");
-        let aggregate = request.simple_aggregate.expect("aggregate payload");
-        let predicate = request.predicate.expect("predicate");
-
-        let PredicateExpr::And(predicates) = predicate else {
-            panic!("expected conjunctive predicate");
-        };
-        assert_eq!(predicates.len(), 2);
-        assert_eq!(
-            predicates[0],
-            PredicateExpr::Compare {
-                column: ColumnRef::new("SearchPhrase").expect("column"),
-                op: ComparisonOp::NotEq,
-                value: StatValue::Utf8(String::new()),
-            }
-        );
-        assert_eq!(
-            predicates[1],
-            PredicateExpr::Compare {
-                column: ColumnRef::new("EventDate").expect("column"),
-                op: ComparisonOp::GtEq,
-                value: StatValue::Utf8("2013-07-01".to_string()),
-            }
-        );
-        assert_eq!(
-            aggregate
-                .group_by
-                .iter()
-                .map(ColumnRef::as_str)
-                .collect::<Vec<_>>(),
-            vec!["SearchPhrase"]
-        );
-        assert_eq!(aggregate.measures.len(), 1);
-        assert_eq!(aggregate.measures[0].alias, "c");
-        assert_eq!(aggregate.order_by.len(), 1);
-        assert_eq!(aggregate.order_by[0].column, "c");
-        assert!(aggregate.order_by[0].descending);
-        assert_eq!(aggregate.offset, 5);
-        assert_eq!(aggregate.output_columns(), vec!["SearchPhrase", "c"]);
-    }
-}
-
 pub(crate) fn handle_vortex_count_where(
     args: std::vec::IntoIter<String>,
     format: OutputFormat,
@@ -7537,5 +7454,90 @@ fn handle_vortex_count_local_encoded(
         ExitCode::from(1)
     } else {
         ExitCode::SUCCESS
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_grouped_aggregate_payload_preserves_group_columns() {
+        let uri = DatasetUri::new("target/input.vortex").expect("uri");
+        let request = parse_vortex_primitive_request(
+            uri,
+            r#"aggregate:{"group_by":["label"],"measures":[{"function":"count","alias":"rows"},{"function":"sum","column":"amount","alias":"total_amount"}]}"#,
+        )
+        .expect("grouped aggregate request");
+        let aggregate = request.simple_aggregate.expect("aggregate payload");
+
+        assert_eq!(
+            aggregate
+                .group_by
+                .iter()
+                .map(ColumnRef::as_str)
+                .collect::<Vec<_>>(),
+            vec!["label"]
+        );
+        assert_eq!(aggregate.measures.len(), 2);
+        assert_eq!(
+            aggregate.output_columns(),
+            vec!["label", "rows", "total_amount"]
+        );
+        let ProjectionRequest::Columns(columns) = &request.projection else {
+            panic!("expected explicit projected columns");
+        };
+        assert_eq!(
+            columns.iter().map(ColumnRef::as_str).collect::<Vec<_>>(),
+            vec!["label", "amount"]
+        );
+    }
+
+    #[test]
+    fn parse_filtered_ordered_aggregate_payload_preserves_runtime_shape() {
+        let uri = DatasetUri::new("target/input.vortex").expect("uri");
+        let request = parse_vortex_primitive_request(
+            uri,
+            r#"aggregate-filter:and(neq:SearchPhrase:;gte:EventDate:2013-07-01)|{"group_by":["SearchPhrase"],"measures":[{"function":"count","alias":"c"}],"order_by":[{"column":"c","descending":true}],"offset":5}"#,
+        )
+        .expect("filtered ordered aggregate request");
+        let aggregate = request.simple_aggregate.expect("aggregate payload");
+        let predicate = request.predicate.expect("predicate");
+
+        let PredicateExpr::And(predicates) = predicate else {
+            panic!("expected conjunctive predicate");
+        };
+        assert_eq!(predicates.len(), 2);
+        assert_eq!(
+            predicates[0],
+            PredicateExpr::Compare {
+                column: ColumnRef::new("SearchPhrase").expect("column"),
+                op: ComparisonOp::NotEq,
+                value: StatValue::Utf8(String::new()),
+            }
+        );
+        assert_eq!(
+            predicates[1],
+            PredicateExpr::Compare {
+                column: ColumnRef::new("EventDate").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Utf8("2013-07-01".to_string()),
+            }
+        );
+        assert_eq!(
+            aggregate
+                .group_by
+                .iter()
+                .map(ColumnRef::as_str)
+                .collect::<Vec<_>>(),
+            vec!["SearchPhrase"]
+        );
+        assert_eq!(aggregate.measures.len(), 1);
+        assert_eq!(aggregate.measures[0].alias, "c");
+        assert_eq!(aggregate.order_by.len(), 1);
+        assert_eq!(aggregate.order_by[0].column, "c");
+        assert!(aggregate.order_by[0].descending);
+        assert_eq!(aggregate.offset, 5);
+        assert_eq!(aggregate.output_columns(), vec!["SearchPhrase", "c"]);
     }
 }

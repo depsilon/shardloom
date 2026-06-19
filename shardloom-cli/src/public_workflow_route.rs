@@ -1888,6 +1888,7 @@ impl PublicWorkflowRouteRequest {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn parse_flag(
         &mut self,
         flag: &str,
@@ -2687,6 +2688,7 @@ fn native_vortex_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRo
     )
 }
 
+#[allow(clippy::too_many_lines)]
 fn native_vortex_primitive_payload_blocker(
     request: &PublicWorkflowRouteRequest,
     primitive: PublicVortexPrimitive,
@@ -2928,6 +2930,7 @@ fn native_vortex_primitive_row_export_route(
     )
 }
 
+#[allow(clippy::too_many_lines)]
 fn native_vortex_primitive_row_export_payload_blocker(
     request: &PublicWorkflowRouteRequest,
     primitive: PublicVortexPrimitive,
@@ -4192,7 +4195,7 @@ fn scalar_aggregate_measure_from_sql(
         let alias = alias
             .filter(|alias| is_summary_identifier(alias))
             .map_or_else(
-                || format!("count_distinct_{}_{}", column, index),
+                || format!("count_distinct_{column}_{index}"),
                 str::to_string,
             );
         return Some(ParsedSqlAggregateMeasure {
@@ -4216,10 +4219,7 @@ fn scalar_aggregate_measure_from_sql(
     }
     let alias = alias
         .filter(|alias| is_summary_identifier(alias))
-        .map_or_else(
-            || format!("{}_{}_{}", function, column, index),
-            str::to_string,
-        );
+        .map_or_else(|| format!("{function}_{column}_{index}"), str::to_string);
     let mut payload = serde_json::json!({
         "function": function,
         "column": column,
@@ -4270,7 +4270,7 @@ fn parse_sql_aggregate_order_by(
     split_sql_projection_list(order_by)
         .into_iter()
         .map(|item| {
-            let (expression, descending) = parse_sql_order_item(item)?;
+            let (expression, descending) = parse_sql_order_item(item);
             let expression = strip_sql_alias(expression).trim();
             let column = normalize_sql_group_item(expression)
                 .filter(|column| group_columns.iter().any(|group| group == column))
@@ -4291,15 +4291,15 @@ fn parse_sql_aggregate_order_by(
         .collect()
 }
 
-fn parse_sql_order_item(item: &str) -> Option<(&str, bool)> {
+fn parse_sql_order_item(item: &str) -> (&str, bool) {
     let item = item.trim();
     if let Some(position) = find_sql_trailing_keyword(item, "DESC") {
-        return Some((item[..position].trim(), true));
+        return (item[..position].trim(), true);
     }
     if let Some(position) = find_sql_trailing_keyword(item, "ASC") {
-        return Some((item[..position].trim(), false));
+        return (item[..position].trim(), false);
     }
-    Some((item, false))
+    (item, false)
 }
 
 fn find_sql_trailing_keyword(value: &str, keyword: &str) -> Option<usize> {
@@ -4802,77 +4802,47 @@ fn infer_native_vortex_distinct_primitive_payload(
 fn infer_native_vortex_duplicate_mask_primitive_payload(
     operations: &[SummaryOperation<'_>],
 ) -> Option<InferredNativeVortexRoutePayload> {
-    if matches_summary_kinds(
-        operations,
-        &["read_vortex", "select", "duplicate_mask", "limit"],
-    ) && summary_positive_limit(operations[3].arg)
-    {
-        Some(native_vortex_primitive_payload(
-            PublicVortexPrimitive::DuplicateMask,
-            None,
-            Some(operations[2].arg.trim().to_string()),
-            Some(operations[3].arg.trim().to_string()),
-        ))
-    } else if matches_summary_kinds(
-        operations,
-        &["read_vortex", "select", "duplicated", "limit"],
-    ) && summary_positive_limit(operations[3].arg)
-    {
-        Some(native_vortex_primitive_payload(
-            PublicVortexPrimitive::DuplicateMask,
-            None,
-            Some(operations[2].arg.trim().to_string()),
-            Some(operations[3].arg.trim().to_string()),
-        ))
-    } else if matches_summary_kinds(operations, &["read_vortex", "select", "duplicate_mask"]) {
-        Some(native_vortex_primitive_payload(
-            PublicVortexPrimitive::DuplicateMask,
-            None,
-            Some(operations[2].arg.trim().to_string()),
-            None,
-        ))
-    } else if matches_summary_kinds(operations, &["read_vortex", "select", "duplicated"]) {
-        Some(native_vortex_primitive_payload(
-            PublicVortexPrimitive::DuplicateMask,
-            None,
-            Some(operations[2].arg.trim().to_string()),
-            None,
-        ))
-    } else if matches_summary_kinds(operations, &["read_vortex", "duplicate_mask", "limit"])
-        && summary_positive_limit(operations[2].arg)
-    {
-        Some(native_vortex_primitive_payload(
-            PublicVortexPrimitive::DuplicateMask,
-            None,
-            Some(operations[1].arg.trim().to_string()),
-            Some(operations[2].arg.trim().to_string()),
-        ))
-    } else if matches_summary_kinds(operations, &["read_vortex", "duplicated", "limit"])
-        && summary_positive_limit(operations[2].arg)
-    {
-        Some(native_vortex_primitive_payload(
-            PublicVortexPrimitive::DuplicateMask,
-            None,
-            Some(operations[1].arg.trim().to_string()),
-            Some(operations[2].arg.trim().to_string()),
-        ))
-    } else if matches_summary_kinds(operations, &["read_vortex", "duplicate_mask"]) {
-        Some(native_vortex_primitive_payload(
-            PublicVortexPrimitive::DuplicateMask,
-            None,
-            Some(operations[1].arg.trim().to_string()),
-            None,
-        ))
-    } else if matches_summary_kinds(operations, &["read_vortex", "duplicated"]) {
-        Some(native_vortex_primitive_payload(
-            PublicVortexPrimitive::DuplicateMask,
-            None,
-            Some(operations[1].arg.trim().to_string()),
-            None,
-        ))
-    } else {
-        None
+    for duplicate_kind in ["duplicate_mask", "duplicated"] {
+        if matches_summary_kinds(
+            operations,
+            &["read_vortex", "select", duplicate_kind, "limit"],
+        ) && summary_positive_limit(operations[3].arg)
+        {
+            return Some(native_vortex_primitive_payload(
+                PublicVortexPrimitive::DuplicateMask,
+                None,
+                Some(operations[2].arg.trim().to_string()),
+                Some(operations[3].arg.trim().to_string()),
+            ));
+        }
+        if matches_summary_kinds(operations, &["read_vortex", "select", duplicate_kind]) {
+            return Some(native_vortex_primitive_payload(
+                PublicVortexPrimitive::DuplicateMask,
+                None,
+                Some(operations[2].arg.trim().to_string()),
+                None,
+            ));
+        }
+        if matches_summary_kinds(operations, &["read_vortex", duplicate_kind, "limit"])
+            && summary_positive_limit(operations[2].arg)
+        {
+            return Some(native_vortex_primitive_payload(
+                PublicVortexPrimitive::DuplicateMask,
+                None,
+                Some(operations[1].arg.trim().to_string()),
+                Some(operations[2].arg.trim().to_string()),
+            ));
+        }
+        if matches_summary_kinds(operations, &["read_vortex", duplicate_kind]) {
+            return Some(native_vortex_primitive_payload(
+                PublicVortexPrimitive::DuplicateMask,
+                None,
+                Some(operations[1].arg.trim().to_string()),
+                None,
+            ));
+        }
     }
+    None
 }
 
 fn infer_native_vortex_sample_primitive_payload(
