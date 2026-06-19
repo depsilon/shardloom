@@ -228,6 +228,7 @@ impl StatisticsExactness {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StatValue {
+    Null,
     Boolean(bool),
     Int64(i64),
     UInt64(u64),
@@ -238,6 +239,7 @@ impl StatValue {
     #[must_use]
     pub fn dtype(&self) -> LogicalDType {
         match self {
+            Self::Null => LogicalDType::Unknown,
             Self::Boolean(_) => LogicalDType::Boolean,
             Self::Int64(_) => LogicalDType::Int64,
             Self::UInt64(_) => LogicalDType::UInt64,

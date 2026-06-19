@@ -204,9 +204,22 @@ Current autonomous execution order:
 - [ ] `RUNTIME-CLOSEOUT-3` Broad SQL/Python/DataFrame language surface burn-down.
   - Source: `arbitrary_sql_python_dataframe_breadth` row in
     `target/sql-python-dataframe-parity-continuation.json`.
-  - Current state: method-level DataFrame blockers are at zero for the scoped matrix, but broad SQL
-    grammar, expression/UDF, effectful-operation, arbitrary callable, and semantic-conformance
-    parity remain not-claim-grade.
+  - Current state: the documented local SQL/Python/DataFrame-style subset is now admitted through
+    the shared Vortex-normalized runtime family, and method-level DataFrame blockers are at zero for
+    the scoped matrix. The future-contract classifier is now source-of-truth in
+    `python/src/shardloom/context.py`: 27 broad variants are classified as 18 repo-feasible
+    contract/profile expansions, 6 unsafe callable/UDF boundaries, and 3 scoped product boundaries.
+    This pass also promoted additional null-cleanup/fill shapes to runtime:
+    `dropna(how="all")`, `dropna(thresh=<int>)`, and `fillna`/`fill_null` with
+    `axis=0`/`index` plus `inplace=False`, scoped schema-declared `mask(predicate, scalar)` with
+    `axis=0`/`index`, `inplace=False`, and `level=None`, scoped schema-declared scalar
+    `replace(...)` with `regex=False`, `inplace=False`, and no method/limit policy, inferred
+    same-typed `melt(id_vars=...)` value columns, single-aggregate `pivot_table(...)` list/mapping
+    forms across `sum`/`count`/`mean`/`min`/`max`, `ignore_index=True` reshape
+    no-hidden-index routes, column-nested scalar replacement mappings, plus scoped multi-assignment
+    `eval("amount = amount + 5; tax = tax * 2")` over existing numeric columns. Remaining work is
+    to close repo-feasible native contract families without claiming broad pandas/Polars
+    compatibility or ANSI SQL compliance before those semantic profiles have evidence.
   - V1 scope classification: `required_for_v1` for repo-implementable deterministic language
     semantics; `unsupported_boundary` only for unsafe arbitrary Python execution, external effects
     without policy, or platform-gated integrations.
@@ -214,11 +227,36 @@ Current autonomous execution order:
     capillary operator units for function families, dynamic admission for semantic profiles,
     metadata-first rewrites where possible, and evidence-tier controls for effectful/UDF routes.
   - Execution checklist:
-    - [ ] Generate the authoritative unsupported/future-contract operation list from current
+    - [x] Generate the authoritative unsupported/future-contract operation list from current
       capability reports and classify every row as implemented, repo-feasible, unsafe, or
       external-gated.
-    - [ ] Promote every repo-feasible SQL/DataFrame/Python shape into the shared Vortex-normalized
-      runtime family instead of adding one-off route aliases.
+    - [x] Promote facade-level aliases and scoped parameter variants that already lower to existing
+      Vortex-normalized primitives: `dropna(how="all"|thresh=...)`, `fillna(axis=0/index)`,
+      `mask(axis=0/index, inplace=False, level=None)`, scalar/nested-mapping `replace(...)`,
+      inferred same-typed `melt(...)`, `ignore_index=True` reshape options,
+      `pivot_table(...)` scalar/list/mapping aggregates over `sum`/`count`/`mean`/`min`/`max`,
+      and multi-assignment numeric `eval(...)`.
+    - [x] Add native weighted sampling: typed positive weight-column admission, deterministic
+      seeded weighted selection with/without replacement, bounded state-budget evidence, decoded
+      reference fixtures, and Python/SQL/DataFrame route exposure.
+    - [ ] Add broad row-key equality profiles:
+      - [x] Promote retained-row `drop_duplicates(subset=..., keep="first"|"last"|False)` over
+        declared/projection scalar columns through native/prepared Vortex row-key retention state.
+      - [x] Add nullable scalar equality profiles for duplicate removal and duplicate masks.
+      - [ ] Add nested/list/struct equality profiles.
+      - [ ] Add explicit hidden-index duplicate policy.
+    - [ ] Add broad reshape contracts: multi-column/nested explode, heterogeneous melt value
+      representation, pivot/pivot_table duplicate/fill/dropna/margins policy, and sparse/wide
+      state-budget evidence.
+    - [ ] Add broader window/order contracts: time/calendar rolling windows, additional rolling
+      aggregates, null-validity behavior, deterministic top-N tie policies for
+      `keep="last"|"all"`, and source-order/index evidence.
+    - [ ] Add typed null rewrite contracts for `mask(..., other=None)`, `replace(..., value=None)`,
+      null/coercion behavior across expression-project routes, and the required scalar/null
+      representation model.
+    - [ ] Add explicit row-number/index materialization profiles only if the product chooses a
+      ShardLoom-owned visible index column contract; keep hidden pandas-style indexes out of the
+      claim boundary.
     - [ ] Define typed UDF/plan-transform contracts that are deterministic, side-effect aware,
       null-safe, and explicitly no-fallback.
     - [ ] Preserve fail-closed diagnostics for arbitrary Python callables and external effects

@@ -250,17 +250,18 @@ artifacts, and generated local Vortex artifacts without claiming broad Vortex su
 For direct `.vortex` inputs, exact benchmark-family Python and SQL shapes for grouped aggregation,
 hash join, global top-N, cast/try-cast, substring contains, no-argument row-level distinct, scoped
 bounded source-order tail, deterministic row-count
-`sample(n=..., seed=...|random_state=<int>, replace=False|True)` or fractional `sample(frac|fraction=..., seed=...|random_state=<int>, replace=False|True)`, scoped typed scalar
+`sample(n=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)` or fractional `sample(frac|fraction=..., seed=...|random_state=<int>, weights="<numeric-column>", replace=False|True)`, scoped typed scalar
 `mask(predicate, scalar)` / full-cell `replace(old, new)` / in-place UTF-8
 `with_column("col", sl.col("col").replace(...))` expression-project rewrites,
 `eval("col = col + scalar")` and `transform({"col": sl.col("col") + scalar})`
 numeric scalar assignment, `map(sl.column_transform(...))` / `applymap(sl.column_transform(...))`
 declarative column rewrites, `map_rows(sl.row_transform(...))` declarative row-shaped rewrites, scoped
+`drop_duplicates(subset=..., keep="first"|"last"|False)` retained-row deduplication, scoped
 `duplicated(subset=..., keep="first"|"last"|False)` duplicate masks, explicit
 `melt(id_vars=..., value_vars=...)` flat scalar row expansion, scoped
 `explode("list_column")` over one declared scalar list column, scoped
 `pivot(index=..., columns=..., values=...)` and
-`pivot_table(values=..., index=..., columns=..., aggfunc=sum|count|mean)` over one index/pivot/value
+`pivot_table(values=..., index=..., columns=..., aggfunc=sum|count|mean|min|max)` over one index/pivot/value
 column, scoped
 `rolling(window=<positive int>, min_periods<=window, center=False).sum/mean/count(column, alias=...)`, and
 explicit `apply(sl.plan_transform(...))` / `pipe(sl.plan_transform(...))` lazy plan composition, native

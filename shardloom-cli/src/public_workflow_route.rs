@@ -69,7 +69,9 @@ struct PublicWorkflowRouteRequest {
     vortex_sample_seed: Option<String>,
     vortex_sample_fraction: Option<String>,
     vortex_sample_replacement: bool,
+    vortex_sample_weight_column: Option<String>,
     vortex_duplicate_keep: Option<String>,
+    vortex_deduplicate_key_columns: Option<String>,
     vortex_expression_projection: Option<String>,
     vortex_melt_projection: Option<String>,
     vortex_explode_projection: Option<String>,
@@ -153,6 +155,7 @@ pub(crate) fn handle_public_workflow_run(
         | "native_vortex_project"
         | "native_vortex_filter_project"
         | "native_vortex_distinct"
+        | "native_vortex_drop_duplicates"
         | "native_vortex_duplicate_mask"
         | "native_vortex_tail"
         | "native_vortex_sample"
@@ -330,6 +333,15 @@ fn native_vortex_primitive_row_export_execution(
     }
     primitive_request =
         primitive_request.with_sample_replacement(request.vortex_sample_replacement);
+    if let Some(column) = request.vortex_sample_weight_column.as_ref() {
+        primitive_request =
+            primitive_request.with_sample_weight_column(shardloom_core::ColumnRef::new(column)?);
+    }
+    if let Some(columns) = request.vortex_deduplicate_key_columns.as_ref() {
+        primitive_request = primitive_request.with_deduplicate_key_projection(
+            vortex_primitive_execution::parse_projection_columns(columns)?,
+        );
+    }
     primitive_request = primitive_request.with_duplicate_keep(duplicate_keep_policy_arg(
         request.vortex_duplicate_keep.as_deref(),
     )?);
@@ -557,6 +569,23 @@ fn native_vortex_primitive_arg_for_request(
                 Ok(format!("distinct:{columns}"))
             }
         }
+        PublicVortexPrimitive::DropDuplicates => {
+            let output_columns = request
+                .vortex_columns
+                .as_ref()
+                .map_or("*", String::as_str);
+            let key_columns = required_native_vortex_payload(
+                request.vortex_deduplicate_key_columns.as_ref(),
+                "vortex deduplicate key columns",
+            )?;
+            if let Some(predicate) = request.vortex_predicate.as_ref() {
+                Ok(format!(
+                    "drop-duplicates-filter-project:{predicate}|{output_columns}|{key_columns}"
+                ))
+            } else {
+                Ok(format!("drop-duplicates:{output_columns}|{key_columns}"))
+            }
+        }
         PublicVortexPrimitive::DuplicateMask => Ok(format!(
             "duplicate-mask:{}",
             required_native_vortex_payload(request.vortex_columns.as_ref(), "vortex columns")?
@@ -652,7 +681,7 @@ fn native_vortex_primitive_arg_for_request(
         }
         PublicVortexPrimitive::Count | PublicVortexPrimitive::CountWhere => Err(
             ShardLoomError::InvalidOperation(
-                "native Vortex primitive row export supports filter, project, filter-project, distinct, duplicate-mask, tail, sample, expression-project, melt, explode, pivot, rolling-window, aggregate, and sort-row primitives only"
+                "native Vortex primitive row export supports filter, project, filter-project, distinct, drop-duplicates, duplicate-mask, tail, sample, expression-project, melt, explode, pivot, rolling-window, aggregate, and sort-row primitives only"
                     .to_string(),
             ),
         ),
@@ -999,13 +1028,14 @@ fn execute_native_vortex_primitive_run_with_extra(
         let blocked = native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_primitive",
             "public native Vortex run requires a primitive payload",
-            "pass --vortex-primitive with count, count_where, filter, project, filter_project, distinct, duplicate_mask, tail, sample, expression_project, melt, explode, pivot, rolling_window, aggregate, or sort_rows",
+            "pass --vortex-primitive with count, count_where, filter, project, filter_project, distinct, drop_duplicates, duplicate_mask, tail, sample, expression_project, melt, explode, pivot, rolling_window, aggregate, or sort_rows",
         );
         return emit_blocked_facade("run", format, request, &blocked);
     };
     if matches!(
         primitive,
         PublicVortexPrimitive::Distinct
+            | PublicVortexPrimitive::DropDuplicates
             | PublicVortexPrimitive::DuplicateMask
             | PublicVortexPrimitive::Tail
             | PublicVortexPrimitive::Sample
@@ -1073,6 +1103,7 @@ fn execute_native_vortex_primitive_run_with_extra(
             )
         }
         PublicVortexPrimitive::Distinct
+        | PublicVortexPrimitive::DropDuplicates
         | PublicVortexPrimitive::DuplicateMask
         | PublicVortexPrimitive::Tail
         | PublicVortexPrimitive::Sample
@@ -1181,6 +1212,15 @@ fn native_vortex_materializing_request_and_arg(
     }
     primitive_request =
         primitive_request.with_sample_replacement(request.vortex_sample_replacement);
+    if let Some(column) = request.vortex_sample_weight_column.as_ref() {
+        primitive_request =
+            primitive_request.with_sample_weight_column(shardloom_core::ColumnRef::new(column)?);
+    }
+    if let Some(columns) = request.vortex_deduplicate_key_columns.as_ref() {
+        primitive_request = primitive_request.with_deduplicate_key_projection(
+            vortex_primitive_execution::parse_projection_columns(columns)?,
+        );
+    }
     primitive_request = primitive_request.with_duplicate_keep(duplicate_keep_policy_arg(
         request.vortex_duplicate_keep.as_deref(),
     )?);
@@ -1272,6 +1312,7 @@ fn native_vortex_materializing_public_primitive_name(
 ) -> &'static str {
     match kind {
         shardloom_vortex::VortexQueryPrimitiveKind::DistinctRows => "distinct",
+        shardloom_vortex::VortexQueryPrimitiveKind::DropDuplicateRows => "drop_duplicates",
         shardloom_vortex::VortexQueryPrimitiveKind::DuplicateMaskRows => "duplicate_mask",
         shardloom_vortex::VortexQueryPrimitiveKind::TailRows => "tail",
         shardloom_vortex::VortexQueryPrimitiveKind::SampleRows => "sample",
@@ -1632,6 +1673,7 @@ fn execute_prepared_local_native_route(
         | "native_vortex_project"
         | "native_vortex_filter_project"
         | "native_vortex_distinct"
+        | "native_vortex_drop_duplicates"
         | "native_vortex_duplicate_mask"
         | "native_vortex_tail"
         | "native_vortex_sample"
@@ -2045,7 +2087,9 @@ impl PublicWorkflowRouteRequest {
             vortex_sample_seed: None,
             vortex_sample_fraction: None,
             vortex_sample_replacement: false,
+            vortex_sample_weight_column: None,
             vortex_duplicate_keep: None,
+            vortex_deduplicate_key_columns: None,
             vortex_expression_projection: None,
             vortex_melt_projection: None,
             vortex_explode_projection: None,
@@ -2151,11 +2195,18 @@ impl PublicWorkflowRouteRequest {
             "--vortex-sample-replacement" => {
                 self.vortex_sample_replacement = true;
             }
+            "--vortex-sample-weight-column" => {
+                self.vortex_sample_weight_column =
+                    Some(required_value(args, "--vortex-sample-weight-column")?);
+            }
             "--vortex-duplicate-keep" => {
                 self.vortex_duplicate_keep = Some(normalize_duplicate_keep(&required_value(
                     args,
                     "--vortex-duplicate-keep",
                 )?)?);
+            }
+            "--vortex-deduplicate-key-columns" | "--vortex-drop-duplicate-key-columns" => {
+                self.vortex_deduplicate_key_columns = Some(required_value(args, flag)?);
             }
             "--vortex-expression-projection" => {
                 self.vortex_expression_projection =
@@ -2302,6 +2353,7 @@ enum PublicVortexPrimitive {
     Project,
     FilterProject,
     Distinct,
+    DropDuplicates,
     DuplicateMask,
     Tail,
     Sample,
@@ -2324,9 +2376,13 @@ impl PublicVortexPrimitive {
             "filter" | "filter_predicate" => Some(Self::Filter),
             "project" | "project_columns" => Some(Self::Project),
             "filter_project" | "filter-project" | "filter_and_project" => Some(Self::FilterProject),
-            "distinct" | "distinct_rows" | "deduplicate" | "drop_duplicates" | "unique" => {
-                Some(Self::Distinct)
-            }
+            "distinct" | "distinct_rows" | "unique" => Some(Self::Distinct),
+            "drop_duplicates"
+            | "drop-duplicates"
+            | "drop_duplicate_rows"
+            | "drop-duplicate-rows"
+            | "deduplicate"
+            | "dedup" => Some(Self::DropDuplicates),
             "duplicate_mask" | "duplicate-mask" | "duplicate_mask_rows" | "duplicated" => {
                 Some(Self::DuplicateMask)
             }
@@ -2364,6 +2420,7 @@ impl PublicVortexPrimitive {
             Self::Project => "project",
             Self::FilterProject => "filter_project",
             Self::Distinct => "distinct",
+            Self::DropDuplicates => "drop_duplicates",
             Self::DuplicateMask => "duplicate_mask",
             Self::Tail => "tail",
             Self::Sample => "sample",
@@ -2385,6 +2442,7 @@ impl PublicVortexPrimitive {
             Self::Project => "native_vortex_project",
             Self::FilterProject => "native_vortex_filter_project",
             Self::Distinct => "native_vortex_distinct",
+            Self::DropDuplicates => "native_vortex_drop_duplicates",
             Self::DuplicateMask => "native_vortex_duplicate_mask",
             Self::Tail => "native_vortex_tail",
             Self::Sample => "native_vortex_sample",
@@ -2406,6 +2464,7 @@ impl PublicVortexPrimitive {
             Self::FilterProject => "vortex-filter-project",
             Self::Count
             | Self::Distinct
+            | Self::DropDuplicates
             | Self::DuplicateMask
             | Self::Tail
             | Self::Sample
@@ -2432,6 +2491,10 @@ impl PublicVortexPrimitive {
                 | Self::ExpressionProject
                 | Self::Explode
         )
+    }
+
+    const fn requires_deduplicate_key_columns(self) -> bool {
+        matches!(self, Self::DropDuplicates)
     }
 
     const fn requires_expression_projection(self) -> bool {
@@ -2469,6 +2532,7 @@ impl PublicVortexPrimitive {
                 | Self::Project
                 | Self::FilterProject
                 | Self::Distinct
+                | Self::DropDuplicates
                 | Self::DuplicateMask
                 | Self::Tail
                 | Self::Sample
@@ -2486,6 +2550,7 @@ impl PublicVortexPrimitive {
         matches!(
             self,
             Self::Distinct
+                | Self::DropDuplicates
                 | Self::DuplicateMask
                 | Self::Tail
                 | Self::Sample
@@ -2544,7 +2609,8 @@ impl NativeVortexOperationFamily {
             }
             "cast" | "try_cast" | "trycast" => Some(Self::Cast),
             "contains" | "substring_contains" | "string_contains" => Some(Self::Contains),
-            "distinct" | "deduplicate" | "dedup" | "drop_duplicates" | "unique" => {
+            "distinct" | "unique" => Some(Self::Distinct),
+            "deduplicate" | "dedup" | "drop_duplicates" | "drop_duplicate_rows" => {
                 Some(Self::Distinct)
             }
             "duplicate_mask" | "duplicate_mask_rows" | "duplicated" => Some(Self::DuplicateMask),
@@ -2574,7 +2640,9 @@ impl NativeVortexOperationFamily {
             PublicVortexPrimitive::Filter
             | PublicVortexPrimitive::Project
             | PublicVortexPrimitive::FilterProject => Self::FilterProjectLimit,
-            PublicVortexPrimitive::Distinct => Self::Distinct,
+            PublicVortexPrimitive::Distinct | PublicVortexPrimitive::DropDuplicates => {
+                Self::Distinct
+            }
             PublicVortexPrimitive::DuplicateMask => Self::DuplicateMask,
             PublicVortexPrimitive::Tail | PublicVortexPrimitive::SortRows => Self::TopN,
             PublicVortexPrimitive::Sample => Self::Sample,
@@ -2621,8 +2689,10 @@ impl NativeVortexOperationFamily {
                 PublicVortexPrimitive::Filter
                     | PublicVortexPrimitive::Project
                     | PublicVortexPrimitive::FilterProject
-            ) | (Self::Distinct, PublicVortexPrimitive::Distinct)
-                | (Self::DuplicateMask, PublicVortexPrimitive::DuplicateMask)
+            ) | (
+                Self::Distinct,
+                PublicVortexPrimitive::Distinct | PublicVortexPrimitive::DropDuplicates
+            ) | (Self::DuplicateMask, PublicVortexPrimitive::DuplicateMask)
                 | (
                     Self::TopN,
                     PublicVortexPrimitive::Tail | PublicVortexPrimitive::SortRows
@@ -2904,6 +2974,15 @@ fn native_vortex_primitive_payload_blocker(
             "pass --vortex-columns with comma-separated projected columns",
         ));
     }
+    if primitive.requires_deduplicate_key_columns()
+        && request.vortex_deduplicate_key_columns.is_none()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_deduplicate_key_columns",
+            "native Vortex drop_duplicates requires explicit row-key columns",
+            "pass --vortex-deduplicate-key-columns with comma-separated key columns",
+        ));
+    }
     if primitive.requires_expression_projection() && request.vortex_expression_projection.is_none()
     {
         return Some(native_vortex_payload_blocked_route(
@@ -2958,7 +3037,7 @@ fn native_vortex_primitive_payload_blocker(
         return Some(native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_source_order_limit",
             "native Vortex primitive does not admit a source-order limit",
-            "use --vortex-source-order-limit only with filter, project, filter_project, distinct, duplicate_mask, tail, sample, expression_project, melt, explode, pivot, rolling_window, aggregate, or sort_rows",
+            "use --vortex-source-order-limit only with filter, project, filter_project, distinct, drop_duplicates, duplicate_mask, tail, sample, expression_project, melt, explode, pivot, rolling_window, aggregate, or sort_rows",
         ));
     }
     if matches!(primitive, PublicVortexPrimitive::Tail)
@@ -3022,13 +3101,52 @@ fn native_vortex_primitive_payload_blocker(
             "use --vortex-sample-replacement only with --vortex-primitive sample",
         ));
     }
+    if request.vortex_sample_weight_column.is_some()
+        && !matches!(primitive, PublicVortexPrimitive::Sample)
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_weight_column",
+            "native Vortex sample weights are only valid for sample primitives",
+            "use --vortex-sample-weight-column only with --vortex-primitive sample",
+        ));
+    }
+    if let Some(column) = request.vortex_sample_weight_column.as_ref()
+        && shardloom_core::ColumnRef::new(column).is_err()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_weight_column",
+            "native Vortex sample weight column must be a valid column name",
+            "pass --vortex-sample-weight-column with one scoped numeric column name",
+        ));
+    }
     if request.vortex_duplicate_keep.is_some()
-        && !matches!(primitive, PublicVortexPrimitive::DuplicateMask)
+        && !matches!(
+            primitive,
+            PublicVortexPrimitive::DuplicateMask | PublicVortexPrimitive::DropDuplicates
+        )
     {
         return Some(native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_duplicate_keep",
-            "native Vortex duplicate keep policy is only valid for duplicate-mask primitives",
-            "use --vortex-duplicate-keep only with --vortex-primitive duplicate_mask",
+            "native Vortex duplicate keep policy is only valid for duplicate-mask or drop-duplicates primitives",
+            "use --vortex-duplicate-keep only with --vortex-primitive duplicate_mask or drop_duplicates",
+        ));
+    }
+    if request.vortex_deduplicate_key_columns.is_some()
+        && !matches!(primitive, PublicVortexPrimitive::DropDuplicates)
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_deduplicate_key_columns",
+            "native Vortex deduplicate key columns are only valid for drop-duplicates primitives",
+            "use --vortex-deduplicate-key-columns only with --vortex-primitive drop_duplicates",
+        ));
+    }
+    if let Some(columns) = request.vortex_deduplicate_key_columns.as_ref()
+        && vortex_primitive_execution::parse_projection_columns(columns).is_err()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_deduplicate_key_columns",
+            "native Vortex drop_duplicates key columns must be a valid projection list",
+            "pass --vortex-deduplicate-key-columns with comma-separated scoped column names",
         ));
     }
     if request.vortex_expression_projection.is_some()
@@ -3145,6 +3263,7 @@ fn native_vortex_primitive_row_export_route(
             | PublicVortexPrimitive::Project
             | PublicVortexPrimitive::FilterProject
             | PublicVortexPrimitive::Distinct
+            | PublicVortexPrimitive::DropDuplicates
             | PublicVortexPrimitive::DuplicateMask
             | PublicVortexPrimitive::Tail
             | PublicVortexPrimitive::Sample
@@ -3312,13 +3431,61 @@ fn native_vortex_primitive_row_export_payload_blocker(
             "use --vortex-sample-replacement only with --vortex-primitive sample",
         ));
     }
+    if request.vortex_sample_weight_column.is_some()
+        && !matches!(primitive, PublicVortexPrimitive::Sample)
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_weight_column",
+            "native Vortex sample weights are only valid for sample row export",
+            "use --vortex-sample-weight-column only with --vortex-primitive sample",
+        ));
+    }
+    if let Some(column) = request.vortex_sample_weight_column.as_ref()
+        && shardloom_core::ColumnRef::new(column).is_err()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_sample_weight_column",
+            "native Vortex sample weight column must be a valid column name",
+            "pass --vortex-sample-weight-column with one scoped numeric column name",
+        ));
+    }
     if request.vortex_duplicate_keep.is_some()
-        && !matches!(primitive, PublicVortexPrimitive::DuplicateMask)
+        && !matches!(
+            primitive,
+            PublicVortexPrimitive::DuplicateMask | PublicVortexPrimitive::DropDuplicates
+        )
     {
         return Some(native_vortex_payload_blocked_route(
             "public_workflow_route.vortex_duplicate_keep",
-            "native Vortex duplicate keep policy is only valid for duplicate-mask row export",
-            "use --vortex-duplicate-keep only with --vortex-primitive duplicate_mask",
+            "native Vortex duplicate keep policy is only valid for duplicate-mask or drop-duplicates row export",
+            "use --vortex-duplicate-keep only with --vortex-primitive duplicate_mask or drop_duplicates",
+        ));
+    }
+    if request.vortex_deduplicate_key_columns.is_some()
+        && !matches!(primitive, PublicVortexPrimitive::DropDuplicates)
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_deduplicate_key_columns",
+            "native Vortex deduplicate key columns are only valid for drop-duplicates row export",
+            "use --vortex-deduplicate-key-columns only with --vortex-primitive drop_duplicates",
+        ));
+    }
+    if matches!(primitive, PublicVortexPrimitive::DropDuplicates)
+        && request.vortex_deduplicate_key_columns.is_none()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_deduplicate_key_columns",
+            "native Vortex drop_duplicates row export requires explicit row-key columns",
+            "pass --vortex-deduplicate-key-columns with comma-separated key columns",
+        ));
+    }
+    if let Some(columns) = request.vortex_deduplicate_key_columns.as_ref()
+        && vortex_primitive_execution::parse_projection_columns(columns).is_err()
+    {
+        return Some(native_vortex_payload_blocked_route(
+            "public_workflow_route.vortex_deduplicate_key_columns",
+            "native Vortex drop_duplicates key columns must be a valid projection list",
+            "pass --vortex-deduplicate-key-columns with comma-separated scoped column names",
         ));
     }
     if request.vortex_expression_projection.is_some()
@@ -3882,7 +4049,9 @@ struct InferredNativeVortexRoutePayload {
     sample_seed: Option<String>,
     sample_fraction: Option<String>,
     sample_replacement: bool,
+    sample_weight_column: Option<String>,
     duplicate_keep: Option<String>,
+    deduplicate_key_columns: Option<String>,
     expression_projection: Option<String>,
     explode_projection: Option<String>,
     pivot_projection: Option<String>,
@@ -3921,8 +4090,14 @@ impl InferredNativeVortexRoutePayload {
             request.vortex_sample_fraction = self.sample_fraction;
         }
         request.vortex_sample_replacement |= self.sample_replacement;
+        if request.vortex_sample_weight_column.is_none() {
+            request.vortex_sample_weight_column = self.sample_weight_column;
+        }
         if request.vortex_duplicate_keep.is_none() {
             request.vortex_duplicate_keep = self.duplicate_keep;
+        }
+        if request.vortex_deduplicate_key_columns.is_none() {
+            request.vortex_deduplicate_key_columns = self.deduplicate_key_columns;
         }
         if request.vortex_expression_projection.is_none() {
             request.vortex_expression_projection = self.expression_projection;
@@ -4037,7 +4212,10 @@ fn infer_native_vortex_provider_payload(
         sample_seed: None,
         sample_fraction: None,
         sample_replacement: false,
+        sample_weight_column: None,
         duplicate_keep: None,
+
+        deduplicate_key_columns: None,
         expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
@@ -4128,7 +4306,10 @@ fn infer_native_vortex_sql_provider_payload(
         sample_seed: None,
         sample_fraction: None,
         sample_replacement: false,
+        sample_weight_column: None,
         duplicate_keep: None,
+
+        deduplicate_key_columns: None,
         expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
@@ -4195,7 +4376,10 @@ fn infer_native_vortex_sql_primitive_payload(
                 sample_seed: None,
                 sample_fraction: None,
                 sample_replacement: false,
+                sample_weight_column: None,
                 duplicate_keep: None,
+
+                deduplicate_key_columns: None,
                 expression_projection: None,
                 explode_projection: None,
                 pivot_projection: None,
@@ -4224,7 +4408,10 @@ fn infer_native_vortex_sql_primitive_payload(
             sample_seed: None,
             sample_fraction: None,
             sample_replacement: false,
+            sample_weight_column: None,
             duplicate_keep: None,
+
+            deduplicate_key_columns: None,
             expression_projection: None,
             explode_projection: None,
             pivot_projection: None,
@@ -4256,7 +4443,10 @@ fn infer_native_vortex_sql_primitive_payload(
             sample_seed: None,
             sample_fraction: None,
             sample_replacement: false,
+            sample_weight_column: None,
             duplicate_keep: None,
+
+            deduplicate_key_columns: None,
             expression_projection: None,
             explode_projection: None,
             pivot_projection: None,
@@ -4291,7 +4481,10 @@ fn infer_native_vortex_sql_primitive_payload(
             sample_seed: None,
             sample_fraction: None,
             sample_replacement: false,
+            sample_weight_column: None,
             duplicate_keep: None,
+
+            deduplicate_key_columns: None,
             expression_projection: None,
             explode_projection: None,
             pivot_projection: None,
@@ -4325,7 +4518,10 @@ fn infer_native_vortex_sql_primitive_payload(
         sample_seed: None,
         sample_fraction: None,
         sample_replacement: false,
+        sample_weight_column: None,
         duplicate_keep: None,
+
+        deduplicate_key_columns: None,
         expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
@@ -5245,6 +5441,7 @@ struct SummarySampleShape {
     sample_fraction: Option<String>,
     sample_seed: String,
     sample_replacement: bool,
+    sample_weight_column: Option<String>,
 }
 
 fn parse_plan_summary_operations(summary: &str) -> Option<Vec<SummaryOperation<'_>>> {
@@ -5409,6 +5606,7 @@ fn infer_native_vortex_primitive_payload(
         .or_else(|| infer_native_vortex_rolling_window_primitive_payload(&operations))
         .or_else(|| infer_native_vortex_sort_rows_primitive_payload(&operations))
         .or_else(|| infer_native_vortex_tail_primitive_payload(&operations))
+        .or_else(|| infer_native_vortex_drop_duplicates_primitive_payload(&operations))
         .or_else(|| infer_native_vortex_duplicate_mask_primitive_payload(&operations))
         .or_else(|| infer_native_vortex_distinct_primitive_payload(&operations))
         .or_else(|| infer_native_vortex_basic_primitive_payload(&operations))
@@ -5446,7 +5644,10 @@ fn native_vortex_primitive_payload_with_seed(
         sample_seed,
         sample_fraction: None,
         sample_replacement: false,
+        sample_weight_column: None,
         duplicate_keep: None,
+
+        deduplicate_key_columns: None,
         expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
@@ -5472,7 +5673,10 @@ fn native_vortex_structured_export_payload(
         sample_seed: None,
         sample_fraction: None,
         sample_replacement: false,
+        sample_weight_column: None,
         duplicate_keep: None,
+
+        deduplicate_key_columns: None,
         expression_projection: Some(structured_projection.to_string()),
         explode_projection: None,
         pivot_projection: None,
@@ -5498,7 +5702,40 @@ fn native_vortex_duplicate_mask_primitive_payload(
         sample_seed: None,
         sample_fraction: None,
         sample_replacement: false,
+        sample_weight_column: None,
         duplicate_keep,
+
+        deduplicate_key_columns: None,
+        expression_projection: None,
+        explode_projection: None,
+        pivot_projection: None,
+        rolling_window: None,
+        aggregate: None,
+        sort_rows: None,
+        right_input: None,
+    }
+}
+
+fn native_vortex_drop_duplicates_primitive_payload(
+    predicate: Option<String>,
+    output_columns: Option<String>,
+    key_columns: String,
+    source_order_limit: Option<String>,
+    duplicate_keep: Option<String>,
+) -> InferredNativeVortexRoutePayload {
+    InferredNativeVortexRoutePayload {
+        family: NativeVortexOperationFamily::Distinct,
+        provider_scenario: None,
+        primitive: Some(PublicVortexPrimitive::DropDuplicates),
+        predicate,
+        columns: output_columns,
+        source_order_limit,
+        sample_seed: None,
+        sample_fraction: None,
+        sample_replacement: false,
+        sample_weight_column: None,
+        duplicate_keep,
+        deduplicate_key_columns: Some(key_columns),
         expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
@@ -5524,7 +5761,10 @@ fn native_vortex_sample_primitive_payload(
         sample_seed: Some(sample_shape.sample_seed),
         sample_fraction: sample_shape.sample_fraction,
         sample_replacement: sample_shape.sample_replacement,
+        sample_weight_column: sample_shape.sample_weight_column,
         duplicate_keep: None,
+
+        deduplicate_key_columns: None,
         expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
@@ -5675,7 +5915,10 @@ fn native_vortex_explode_primitive_payload(
         sample_seed: None,
         sample_fraction: None,
         sample_replacement: false,
+        sample_weight_column: None,
         duplicate_keep: None,
+
+        deduplicate_key_columns: None,
         expression_projection: None,
         explode_projection: Some(payload),
         pivot_projection: None,
@@ -5734,7 +5977,10 @@ fn native_vortex_rolling_window_primitive_payload(
         sample_seed: None,
         sample_fraction: None,
         sample_replacement: false,
+        sample_weight_column: None,
         duplicate_keep: None,
+
+        deduplicate_key_columns: None,
         expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
@@ -5803,7 +6049,10 @@ fn native_vortex_sort_rows_primitive_payload(
         sample_seed: None,
         sample_fraction: None,
         sample_replacement: false,
+        sample_weight_column: None,
         duplicate_keep: None,
+
+        deduplicate_key_columns: None,
         expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
@@ -5946,6 +6195,134 @@ fn infer_native_vortex_distinct_primitive_payload(
     }
 }
 
+fn infer_native_vortex_drop_duplicates_primitive_payload(
+    operations: &[SummaryOperation<'_>],
+) -> Option<InferredNativeVortexRoutePayload> {
+    for duplicate_kind in ["drop_duplicates", "drop-duplicates", "drop_duplicate_rows"] {
+        if let Some(payload) = infer_native_vortex_drop_duplicates_variant(
+            operations,
+            &["read_vortex", "filter", "select", duplicate_kind, "limit"],
+            Some(1),
+            Some(2),
+            3,
+            Some(4),
+        ) {
+            return Some(payload);
+        }
+        if let Some(payload) = infer_native_vortex_drop_duplicates_variant(
+            operations,
+            &["read_vortex", "filter", "select", duplicate_kind],
+            Some(1),
+            Some(2),
+            3,
+            None,
+        ) {
+            return Some(payload);
+        }
+        if let Some(payload) = infer_native_vortex_drop_duplicates_variant(
+            operations,
+            &["read_vortex", "filter", duplicate_kind, "limit"],
+            Some(1),
+            None,
+            2,
+            Some(3),
+        ) {
+            return Some(payload);
+        }
+        if let Some(payload) = infer_native_vortex_drop_duplicates_variant(
+            operations,
+            &["read_vortex", "filter", duplicate_kind],
+            Some(1),
+            None,
+            2,
+            None,
+        ) {
+            return Some(payload);
+        }
+        if let Some(payload) = infer_native_vortex_drop_duplicates_variant(
+            operations,
+            &["read_vortex", "select", duplicate_kind, "limit"],
+            None,
+            Some(1),
+            2,
+            Some(3),
+        ) {
+            return Some(payload);
+        }
+        if let Some(payload) = infer_native_vortex_drop_duplicates_variant(
+            operations,
+            &["read_vortex", "select", duplicate_kind],
+            None,
+            Some(1),
+            2,
+            None,
+        ) {
+            return Some(payload);
+        }
+        if let Some(payload) = infer_native_vortex_drop_duplicates_variant(
+            operations,
+            &["read_vortex", duplicate_kind, "limit"],
+            None,
+            None,
+            1,
+            Some(2),
+        ) {
+            return Some(payload);
+        }
+        if let Some(payload) = infer_native_vortex_drop_duplicates_variant(
+            operations,
+            &["read_vortex", duplicate_kind],
+            None,
+            None,
+            1,
+            None,
+        ) {
+            return Some(payload);
+        }
+    }
+    None
+}
+
+fn infer_native_vortex_drop_duplicates_variant(
+    operations: &[SummaryOperation<'_>],
+    kinds: &[&str],
+    predicate_index: Option<usize>,
+    output_index: Option<usize>,
+    duplicate_index: usize,
+    limit_index: Option<usize>,
+) -> Option<InferredNativeVortexRoutePayload> {
+    if !matches_summary_kinds(operations, kinds) {
+        return None;
+    }
+    let source_order_limit = if let Some(index) = limit_index {
+        if !summary_positive_limit(operations[index].arg) {
+            return None;
+        }
+        Some(operations[index].arg.trim().to_string())
+    } else {
+        None
+    };
+    let predicate = if let Some(index) = predicate_index {
+        Some(summary_tiny_predicate_from_sql(operations[index].arg)?)
+    } else {
+        None
+    };
+    let output_columns = if let Some(index) = output_index {
+        Some(normalize_sql_projection_columns(operations[index].arg)?)
+    } else {
+        None
+    };
+    let (key_columns, duplicate_keep) =
+        summary_duplicate_mask_columns_and_keep(operations[duplicate_index].arg)?;
+    Some(native_vortex_drop_duplicates_primitive_payload(
+        predicate,
+        output_columns,
+        key_columns,
+        source_order_limit,
+        duplicate_keep,
+    ))
+}
+
 fn infer_native_vortex_duplicate_mask_primitive_payload(
     operations: &[SummaryOperation<'_>],
 ) -> Option<InferredNativeVortexRoutePayload> {
@@ -6084,6 +6461,7 @@ fn summary_sample_shape(value: &str) -> Option<SummarySampleShape> {
                 sample_fraction: Some(fraction.to_string()),
                 sample_seed: seed.to_string(),
                 sample_replacement: replacement,
+                sample_weight_column: None,
             });
         }
         return None;
@@ -6092,6 +6470,7 @@ fn summary_sample_shape(value: &str) -> Option<SummarySampleShape> {
     let mut sample_fraction = None;
     let mut sample_seed = "0".to_string();
     let mut sample_replacement = false;
+    let mut sample_weight_column = None;
     let mut saw_seed = false;
     for (index, part) in parts.iter().enumerate() {
         if let Some(value) = part.strip_prefix("n=") {
@@ -6121,6 +6500,14 @@ fn summary_sample_shape(value: &str) -> Option<SummarySampleShape> {
                 return None;
             }
             sample_replacement = true;
+        } else if let Some(value) = part
+            .strip_prefix("weights=")
+            .or_else(|| part.strip_prefix("weight="))
+        {
+            if sample_weight_column.is_some() || shardloom_core::ColumnRef::new(value).is_err() {
+                return None;
+            }
+            sample_weight_column = Some(value.to_string());
         } else if index == 0 && source_order_limit.is_none() && summary_positive_limit(part) {
             source_order_limit = Some((*part).to_string());
         } else if index == 1 && !saw_seed && part.parse::<u64>().is_ok() {
@@ -6138,6 +6525,7 @@ fn summary_sample_shape(value: &str) -> Option<SummarySampleShape> {
             sample_fraction,
             sample_seed,
             sample_replacement,
+            sample_weight_column,
         })
     }
 }
@@ -6617,6 +7005,7 @@ fn local_file_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoute
                 | "native_vortex_project"
                 | "native_vortex_filter_project"
                 | "native_vortex_distinct"
+                | "native_vortex_drop_duplicates"
                 | "native_vortex_duplicate_mask"
                 | "native_vortex_tail"
                 | "native_vortex_sample"
@@ -7261,6 +7650,15 @@ fn add_route_native_vortex_request_fields(
     plan: &PublicWorkflowRoutePlan,
 ) {
     push_native_vortex_contract_fields(fields, "", request, plan);
+    add_route_native_vortex_primitive_input_fields(fields, request);
+    add_route_native_vortex_extended_payload_fields(fields, request);
+    add_route_native_vortex_resource_fields(fields, request);
+}
+
+fn add_route_native_vortex_primitive_input_fields(
+    fields: &mut Vec<(String, String)>,
+    request: &PublicWorkflowRouteRequest,
+) {
     push_field(
         fields,
         "vortex_primitive",
@@ -7281,6 +7679,12 @@ fn add_route_native_vortex_request_fields(
         "vortex_source_order_limit",
         optional_or_none(request.vortex_source_order_limit.as_ref()),
     );
+}
+
+fn add_route_native_vortex_extended_payload_fields(
+    fields: &mut Vec<(String, String)>,
+    request: &PublicWorkflowRouteRequest,
+) {
     push_field(
         fields,
         "vortex_sample_seed",
@@ -7298,8 +7702,18 @@ fn add_route_native_vortex_request_fields(
     );
     push_field(
         fields,
+        "vortex_sample_weight_column",
+        optional_or_none(request.vortex_sample_weight_column.as_ref()),
+    );
+    push_field(
+        fields,
         "vortex_duplicate_keep",
         request.vortex_duplicate_keep.as_deref().unwrap_or("first"),
+    );
+    push_field(
+        fields,
+        "vortex_deduplicate_key_columns",
+        optional_or_none(request.vortex_deduplicate_key_columns.as_ref()),
     );
     push_field(
         fields,
@@ -7341,6 +7755,12 @@ fn add_route_native_vortex_request_fields(
         "vortex_sort_rows_present",
         request.vortex_sort_rows.is_some().to_string(),
     );
+}
+
+fn add_route_native_vortex_resource_fields(
+    fields: &mut Vec<(String, String)>,
+    request: &PublicWorkflowRouteRequest,
+) {
     push_field(
         fields,
         "memory_gb",
@@ -7561,6 +7981,7 @@ fn native_vortex_plan_payload_kind(
         | "native_vortex_project"
         | "native_vortex_filter_project"
         | "native_vortex_distinct"
+        | "native_vortex_drop_duplicates"
         | "native_vortex_duplicate_mask"
         | "native_vortex_tail"
         | "native_vortex_sample"
@@ -7770,6 +8191,7 @@ fn native_vortex_required_feature_gate(
             | "native_vortex_project"
             | "native_vortex_filter_project"
             | "native_vortex_distinct"
+            | "native_vortex_drop_duplicates"
             | "native_vortex_duplicate_mask"
             | "native_vortex_tail"
             | "native_vortex_sample"
@@ -7794,6 +8216,7 @@ fn native_vortex_capability_status(
             | "native_vortex_project"
             | "native_vortex_filter_project"
             | "native_vortex_distinct"
+            | "native_vortex_drop_duplicates"
             | "native_vortex_duplicate_mask"
             | "native_vortex_tail"
             | "native_vortex_sample"
@@ -7905,6 +8328,9 @@ fn admitted_native_vortex_next_action(
         PublicVortexPrimitive::Distinct => {
             "execute the admitted native Vortex row-level distinct primitive route with explicit materialization evidence"
         }
+        PublicVortexPrimitive::DropDuplicates => {
+            "execute the admitted native Vortex retained-row drop_duplicates primitive route with explicit row-key retention evidence"
+        }
         PublicVortexPrimitive::DuplicateMask => {
             "execute the admitted native Vortex duplicate-mask primitive route with explicit row-key state evidence"
         }
@@ -7953,6 +8379,7 @@ fn typed_result_contract(
         | "native_vortex_project"
         | "native_vortex_filter_project"
         | "native_vortex_distinct"
+        | "native_vortex_drop_duplicates"
         | "native_vortex_duplicate_mask"
         | "native_vortex_tail"
         | "native_vortex_sample"
@@ -8112,6 +8539,7 @@ fn route_support_status(plan: &PublicWorkflowRoutePlan) -> &'static str {
         | "native_vortex_user_cast"
         | "native_vortex_user_contains"
         | "native_vortex_distinct"
+        | "native_vortex_drop_duplicates"
         | "native_vortex_tail"
         | "native_vortex_sample"
         | "native_vortex_expression_project"
@@ -8489,11 +8917,19 @@ fn execution_attachment_fields(
             effective_request.vortex_sample_replacement.to_string(),
         ),
         (
+            "public_workflow_vortex_sample_weight_column".to_string(),
+            optional_or_none(effective_request.vortex_sample_weight_column.as_ref()),
+        ),
+        (
             "public_workflow_vortex_duplicate_keep".to_string(),
             effective_request
                 .vortex_duplicate_keep
                 .clone()
                 .unwrap_or_else(|| "first".to_string()),
+        ),
+        (
+            "public_workflow_vortex_deduplicate_key_columns".to_string(),
+            optional_or_none(effective_request.vortex_deduplicate_key_columns.as_ref()),
         ),
         (
             "public_workflow_vortex_expression_projection_present".to_string(),
@@ -8765,6 +9201,7 @@ fn native_vortex_primitive_runtime_args(
             required_native_vortex_payload(request.vortex_columns.as_ref(), "vortex columns")?,
         ],
         PublicVortexPrimitive::Distinct
+        | PublicVortexPrimitive::DropDuplicates
         | PublicVortexPrimitive::DuplicateMask
         | PublicVortexPrimitive::Tail
         | PublicVortexPrimitive::Sample
@@ -10128,6 +10565,117 @@ mod tests {
             field(&attachments, "public_workflow_vortex_duplicate_keep"),
             "last"
         );
+    }
+
+    #[test]
+    fn route_planner_infers_payloadless_native_vortex_drop_duplicates_route() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "orders.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(orders.vortex) -> select(id,label) -> drop_duplicates(id,keep=last) -> limit(2)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("payloadless native drop-duplicates route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+        let attachments = execution_attachment_fields("run", &request, &plan);
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_drop_duplicates");
+            assert_eq!(
+                field(&fields, "route_runtime_status"),
+                "production_admitted_local_workflow"
+            );
+            assert_eq!(
+                field(&fields, "typed_result_contract"),
+                "bounded_python_rows_with_explicit_materialization_boundary"
+            );
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(plan.route_id, "blocked");
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_materializing_primitive_feature_gated"
+            );
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "drop_duplicates");
+        assert_eq!(field(&fields, "vortex_columns"), "id,label");
+        assert_eq!(field(&fields, "vortex_deduplicate_key_columns"), "id");
+        assert_eq!(field(&fields, "vortex_duplicate_keep"), "last");
+        assert_eq!(field(&fields, "native_vortex_operation_family"), "distinct");
+        assert_eq!(
+            field(&attachments, "public_workflow_vortex_primitive"),
+            "drop_duplicates"
+        );
+        assert_eq!(
+            field(
+                &attachments,
+                "public_workflow_vortex_deduplicate_key_columns"
+            ),
+            "id"
+        );
+        assert_eq!(
+            field(&attachments, "public_workflow_vortex_duplicate_keep"),
+            "last"
+        );
+    }
+
+    #[test]
+    fn route_planner_blocks_native_vortex_drop_duplicates_without_key_columns() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "orders.vortex",
+                "--input-format",
+                "vortex",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+                "--native-vortex-operation-family",
+                "distinct",
+                "--vortex-primitive",
+                "drop_duplicates",
+                "--vortex-columns",
+                "id,label",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("drop-duplicates without key columns route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(plan.status, CommandStatus::Unsupported);
+        assert_eq!(plan.route_id, "blocked");
+        assert_eq!(plan.blocker_id, "cg21.route.native_vortex_payload_invalid");
+        assert_eq!(
+            plan.diagnostics
+                .first()
+                .and_then(|diagnostic| diagnostic.feature.as_deref()),
+            Some("public_workflow_route.vortex_deduplicate_key_columns")
+        );
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
     #[test]

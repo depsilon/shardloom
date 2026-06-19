@@ -11191,7 +11191,9 @@ class ShardLoomClient:
         vortex_sample_seed: int | None = None,
         vortex_sample_fraction: float | None = None,
         vortex_sample_replacement: bool = False,
+        vortex_sample_weight_column: str | None = None,
         vortex_duplicate_keep: str | None = None,
+        vortex_deduplicate_key_columns: str | Sequence[str] | None = None,
         vortex_expression_projection: str | None = None,
         vortex_melt_projection: str | None = None,
         vortex_explode_projection: str | None = None,
@@ -11249,7 +11251,9 @@ class ShardLoomClient:
             vortex_sample_seed=vortex_sample_seed,
             vortex_sample_fraction=vortex_sample_fraction,
             vortex_sample_replacement=vortex_sample_replacement,
+            vortex_sample_weight_column=vortex_sample_weight_column,
             vortex_duplicate_keep=vortex_duplicate_keep,
+            vortex_deduplicate_key_columns=vortex_deduplicate_key_columns,
             vortex_expression_projection=vortex_expression_projection,
             vortex_melt_projection=vortex_melt_projection,
             vortex_explode_projection=vortex_explode_projection,
@@ -11294,7 +11298,9 @@ class ShardLoomClient:
         vortex_sample_seed: int | None = None,
         vortex_sample_fraction: float | None = None,
         vortex_sample_replacement: bool = False,
+        vortex_sample_weight_column: str | None = None,
         vortex_duplicate_keep: str | None = None,
+        vortex_deduplicate_key_columns: str | Sequence[str] | None = None,
         vortex_expression_projection: str | None = None,
         vortex_melt_projection: str | None = None,
         vortex_explode_projection: str | None = None,
@@ -11339,7 +11345,9 @@ class ShardLoomClient:
             vortex_sample_seed=vortex_sample_seed,
             vortex_sample_fraction=vortex_sample_fraction,
             vortex_sample_replacement=vortex_sample_replacement,
+            vortex_sample_weight_column=vortex_sample_weight_column,
             vortex_duplicate_keep=vortex_duplicate_keep,
+            vortex_deduplicate_key_columns=vortex_deduplicate_key_columns,
             vortex_expression_projection=vortex_expression_projection,
             vortex_melt_projection=vortex_melt_projection,
             vortex_explode_projection=vortex_explode_projection,
@@ -11417,7 +11425,9 @@ class ShardLoomClient:
         vortex_sample_seed: int | None = None,
         vortex_sample_fraction: float | None = None,
         vortex_sample_replacement: bool = False,
+        vortex_sample_weight_column: str | None = None,
         vortex_duplicate_keep: str | None = None,
+        vortex_deduplicate_key_columns: str | Sequence[str] | None = None,
         vortex_expression_projection: str | None = None,
         vortex_melt_projection: str | None = None,
         vortex_explode_projection: str | None = None,
@@ -11474,7 +11484,9 @@ class ShardLoomClient:
             vortex_sample_seed=vortex_sample_seed,
             vortex_sample_fraction=vortex_sample_fraction,
             vortex_sample_replacement=vortex_sample_replacement,
+            vortex_sample_weight_column=vortex_sample_weight_column,
             vortex_duplicate_keep=vortex_duplicate_keep,
+            vortex_deduplicate_key_columns=vortex_deduplicate_key_columns,
             vortex_expression_projection=vortex_expression_projection,
             vortex_melt_projection=vortex_melt_projection,
             vortex_explode_projection=vortex_explode_projection,
@@ -13954,7 +13966,9 @@ def _append_public_vortex_payload_args(
     vortex_sample_seed: int | None,
     vortex_sample_fraction: float | None,
     vortex_sample_replacement: bool,
+    vortex_sample_weight_column: str | None,
     vortex_duplicate_keep: str | None,
+    vortex_deduplicate_key_columns: str | Sequence[str] | None,
     vortex_expression_projection: str | None,
     vortex_melt_projection: str | None,
     vortex_explode_projection: str | None,
@@ -13999,8 +14013,20 @@ def _append_public_vortex_payload_args(
         )
     if vortex_sample_replacement:
         args.append("--vortex-sample-replacement")
+    if vortex_sample_weight_column is not None:
+        column = str(vortex_sample_weight_column).strip()
+        if not column:
+            raise ValueError("vortex_sample_weight_column must not be empty")
+        args.extend(["--vortex-sample-weight-column", column])
     if vortex_duplicate_keep is not None:
         args.extend(["--vortex-duplicate-keep", _duplicate_keep_arg(vortex_duplicate_keep)])
+    if vortex_deduplicate_key_columns is not None:
+        args.extend(
+            [
+                "--vortex-deduplicate-key-columns",
+                _columns_arg(vortex_deduplicate_key_columns),
+            ]
+        )
     if vortex_expression_projection is not None:
         payload = str(vortex_expression_projection).strip()
         if not payload:

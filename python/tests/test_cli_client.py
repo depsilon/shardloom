@@ -36,6 +36,7 @@ from shardloom import (
     CompatibilityPreparedVortexRoute,
     ContextCapabilities,
     CapabilityView,
+    DataFrameFutureContractClassificationMatrix,
     DataFrameMethodCapabilityMatrix,
     DataFrameNotebookPackageReadinessReport,
     ETLWorkflowCapabilityMatrix,
@@ -6826,6 +6827,20 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("drop_duplicates").support_status,
             "production_admitted_local_workflow",
         )
+        self.assertTrue(dataframe_methods.row("drop_duplicates").runtime_execution)
+        self.assertTrue(dataframe_methods.row("drop_duplicates").materialization_required)
+        self.assertIn(
+            "native_vortex_drop_duplicates_primitive",
+            dataframe_methods.row("drop_duplicates").required_evidence,
+        )
+        self.assertIn(
+            "explicit_row_key_retention_state",
+            dataframe_methods.row("drop_duplicates").required_evidence,
+        )
+        self.assertIn(
+            "cg21.workflow.drop_duplicates.nested_or_index_contract_missing",
+            dataframe_methods.row("drop_duplicates").future_contract_blocker_ids,
+        )
         self.assertEqual(
             dataframe_methods.row("unique").support_status,
             "production_admitted_local_workflow",
@@ -7025,7 +7040,7 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("sample").required_evidence,
         )
         self.assertIn(
-            "cg21.workflow.sample.weighted_or_rng_contract_missing",
+            "cg21.workflow.sample.rng_object_contract_missing",
             dataframe_methods.row("sample").future_contract_blocker_ids,
         )
         self.assertEqual(
@@ -7133,7 +7148,7 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("duplicated").required_evidence,
         )
         self.assertIn(
-            "cg21.workflow.duplicated.nullable_nested_or_index_contract_missing",
+            "cg21.workflow.duplicated.nested_or_index_contract_missing",
             dataframe_methods.row("duplicated").future_contract_blocker_ids,
         )
         self.assertEqual(
@@ -7206,6 +7221,46 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn(
             "cg21.workflow.fanout.multi_sink_atomicity_contract_missing",
             dataframe_methods.future_contract_blocker_ids,
+        )
+        future_contracts = capabilities.dataframe_future_contract_matrix
+        self.assertIsInstance(
+            future_contracts,
+            DataFrameFutureContractClassificationMatrix,
+        )
+        self.assertEqual(
+            future_contracts.classification_counts,
+            {
+                "repo_feasible_contract_needed": 18,
+                "scoped_product_boundary": 3,
+                "unsafe_callable_boundary": 6,
+            },
+        )
+        self.assertEqual(len(future_contracts.repo_feasible_rows), 18)
+        self.assertEqual(len(future_contracts.unsafe_callable_rows), 6)
+        self.assertTrue(future_contracts.all_no_fallback_no_external_engine)
+        self.assertEqual(
+            future_contracts.row(
+                "cg21.workflow.sample.rng_object_contract_missing"
+            ).classification,
+            "scoped_product_boundary",
+        )
+        self.assertEqual(
+            future_contracts.row(
+                "cg21.workflow.apply.python_callable_unsupported"
+            ).classification,
+            "unsafe_callable_boundary",
+        )
+        self.assertIn(
+            "typed UDF",
+            future_contracts.row(
+                "cg21.workflow.apply.python_callable_unsupported"
+            ).v1_resolution,
+        )
+        self.assertEqual(
+            future_contracts.row(
+                "cg21.workflow.set_index.hidden_index_materialization_contract_missing"
+            ).classification,
+            "scoped_product_boundary",
         )
         self.assertEqual(
             dataframe_methods.row("to_python_objects").support_status,
@@ -7510,10 +7565,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(matrix.performance_equivalence_claim_allowed)
         self.assertTrue(matrix.all_no_fallback_no_external_engine)
         self.assertTrue(matrix.all_broad_gaps_have_precise_runtime_status)
-        self.assertEqual(
-            matrix.runtime_gap_status_counts["front_door_connection_pending"],
-            1,
-        )
+        self.assertNotIn("front_door_connection_pending", matrix.runtime_gap_status_counts)
         self.assertEqual(matrix.runtime_gap_status_counts["runtime_expansion_pending"], 1)
         self.assertIn("local_file_filter_project_limit", matrix.row_order)
         self.assertIn("arbitrary_sql_python_dataframe_breadth", matrix.row_order)
@@ -7564,19 +7616,18 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn("native_vortex_unified_plan", native_general.shared_runtime_path)
         self.assertIsNone(native_general.blocker_id)
         broad = matrix.row("arbitrary_sql_python_dataframe_breadth")
-        self.assertTrue(broad.broad_gap)
-        self.assertEqual(broad.parity_status, "front_door_gap")
-        self.assertEqual(broad.runtime_gap_status, "front_door_connection_pending")
-        self.assertEqual(
-            broad.blocker_id,
-            "cg20.cg21.broad_language_surface_missing",
-        )
+        self.assertFalse(broad.broad_gap)
+        self.assertTrue(broad.equivalent_admitted_scope)
+        self.assertEqual(broad.parity_status, "equivalent_admitted_scope")
+        self.assertEqual(broad.runtime_gap_status, "admitted_scope")
+        self.assertIsNone(broad.blocker_id)
+        self.assertIn("documented local SQL/Python/DataFrame-style subset", broad.claim_boundary)
         performance = matrix.row("performance_equivalence")
         self.assertEqual(performance.support_status, "benchmark_publication_pending")
         self.assertEqual(performance.runtime_gap_status, "benchmark_publication_pending")
         self.assertEqual(performance.performance_equivalence_status, "not_claim_grade")
-        self.assertEqual(len(matrix.admitted_rows), 8)
-        self.assertGreaterEqual(len(matrix.broad_gap_rows), 3)
+        self.assertEqual(len(matrix.admitted_rows), 9)
+        self.assertEqual(len(matrix.broad_gap_rows), 2)
 
     def test_context_front_door_semantic_surface_matrix_scopes_claims(self) -> None:
         binary = self.fake_cli(

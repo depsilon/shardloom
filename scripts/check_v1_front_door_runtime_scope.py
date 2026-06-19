@@ -38,13 +38,13 @@ SUPPORTED_PARITY_ROWS = {
     "typed_nested_compatibility_sink",
     "native_vortex_general_runtime",
     "decoded_materialization_interop",
+    "arbitrary_sql_python_dataframe_breadth",
 }
 
 EXPORT_PENDING_PARITY_ROWS: set[str] = set()
 
 BROAD_PENDING_PARITY_ROWS = {
     "object_store_lakehouse_catalog",
-    "arbitrary_sql_python_dataframe_breadth",
     "performance_equivalence",
 }
 

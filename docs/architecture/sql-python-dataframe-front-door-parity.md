@@ -74,10 +74,11 @@ Rows with `parity_status=equivalent_admitted_scope` are the current front-door p
   local-source `collect()` returns a deterministic no-fallback diagnostic. Familiar aliases
   `project`, `with_columns`, `assign`, `groupby`, `order_by`, `sort_by`, and `sort_values` lower to
   the same admitted ShardLoom operations instead of creating separate runtime paths. Row-level
-  duplicate removal remains a residual public local-source route: SQL `SELECT DISTINCT` and
-  Python/DataFrame `.distinct()`, `.drop_duplicates()`, and `.unique()` must lower to a native
-  Vortex distinct route before product support is claimed, and current public workflows block
-  instead of executing `sql-local-source-smoke` as the runtime middle. Scoped local-source set
+  duplicate removal is a native/prepared Vortex route family: SQL `SELECT DISTINCT`,
+  Python/DataFrame `.distinct()` and `.unique()` lower to the distinct primitive, while scoped
+  `.drop_duplicates(subset=..., keep="first"|"last"|False)` lowers to retained-row row-key state.
+  Non-admitted nested/list/struct or hidden-index equality variants block instead of executing
+  `sql-local-source-smoke` as the runtime middle. Scoped local-source set
   operations are admitted for already
   admitted branch `SELECT` plans through SQL `UNION`/`UNION ALL`/`INTERSECT`/`EXCEPT` and
   Python/DataFrame `.union(...)`, `.union_all(...)`, `.intersect(...)`, `.except_(...)`,
@@ -152,10 +153,10 @@ Every user input route should answer four questions:
 Rows that cannot answer those questions are runtime-expansion checklist items, not vague
 unsupported shapes. The parity matrix therefore exposes two separate fields for gap rows:
 `parity_status=front_door_gap` says the broad user story is not complete, while
-`runtime_gap_status` says what kind of work remains. Current precise statuses are
-`front_door_connection_pending`, `runtime_expansion_pending`, and
-`benchmark_publication_pending`; generic `unsupported`, `blocked`, or `not complete` labels are
-validator failures for engine-capable benchmark-range surfaces.
+`runtime_gap_status` says what kind of work remains. Current v1 gap statuses are
+`runtime_expansion_pending` and `benchmark_publication_pending`; generic no-route or incomplete
+labels are validator failures for engine-capable benchmark-range
+surfaces.
 
 ## Scoped Vortex Primitive Runtime
 
@@ -233,71 +234,81 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
 - `object_store_lakehouse_catalog`
   (`runtime_gap_status=runtime_expansion_pending`): object-store, lakehouse/table, catalog, commit,
   and remote sink workflows.
-- `arbitrary_sql_python_dataframe_breadth`
-  (`runtime_gap_status=front_door_connection_pending`): arbitrary SQL grammar, Python expressions,
-  DataFrame API parity, UDFs, and effectful operations. Scoped row-level `SELECT DISTINCT` over
-  bounded local-source projection, aggregate/HAVING, join, and window output rows is now admitted,
-  scoped row-value literal `IN`/`NOT IN` predicates are admitted through SQL and Python helpers,
-  scoped nested scalar local-source `IN` subqueries execute through depth-first ShardLoom-owned
-  materialization evidence, source-qualified scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and quantified
-  subquery refs are reachable through `source_alias=` plus `sl.col("alias.column")`, and scoped
-  correlated source-subquery filters are
-  reachable through the `sl.outer(...)` helper over the admitted local-source subquery families;
-  direct SQL predicate and CASE projections can now reuse those admitted subquery predicates.
-  Python `SqlLocalSourceSmokeReport` now exposes runtime unsupported diagnostics for non-admitted
-  correlated subquery shapes directly as `status`, `diagnostics`, and `unsupported_reasons`, so
-  Python users can inspect the same deterministic no-fallback blocker emitted by the CLI.
-  It also exposes source-qualified subquery evidence directly as
-  `source_qualified_subquery_runtime_execution`,
+- `arbitrary_sql_python_dataframe_breadth` is admitted for the documented v1 scoped surface, not as
+  broad pandas/Polars compatibility or ANSI SQL compliance. Scoped row-level `SELECT DISTINCT` over
+  bounded local-source projection, aggregate/HAVING, join, and window output rows is admitted.
+  Scoped row-value literal `IN`/`NOT IN` predicates are admitted through SQL and Python helpers.
+  Scoped nested scalar local-source `IN` subqueries execute through depth-first ShardLoom-owned
+  materialization evidence. Source-qualified scalar/row-value `IN`/`NOT IN`, `EXISTS`/`NOT EXISTS`,
+  and quantified subquery refs are reachable through `source_alias=` plus `sl.col("alias.column")`.
+  Scoped correlated source-subquery filters are reachable through the `sl.outer(...)` helper over
+  the admitted local-source subquery families; direct SQL predicate and CASE projections can reuse
+  those admitted subquery predicates. Python `SqlLocalSourceSmokeReport` exposes runtime
+  no-route diagnostics for non-admitted correlated subquery shapes directly as `status`,
+  `diagnostics`, and reason metadata, so Python users can inspect the same deterministic
+  no-fallback blocker emitted by the CLI. It also exposes source-qualified subquery evidence
+  directly as `source_qualified_subquery_runtime_execution`,
   `source_qualified_subquery_source_qualifiers`,
   `source_qualified_subquery_operator_families`, and
-  `source_qualified_subquery_source_columns`.
-  Scoped local-source `INTERSECT` and `EXCEPT` now reuse the same branch-bound set-operation
-  runtime and Python/DataFrame aliases as scoped `UNION`, with `sql_set_operation_*` evidence over
-  already-admitted branch `SELECT` plans. Scoped decimal casts plus mixed-scale add/subtract/multiply, comparison, and exact fixed-scale
-  division lower through the same ShardLoom generic-expression route from SQL and Python/DataFrame
-  helpers. Public local-source compatibility sinks must derive from a certified native Vortex
-  result/export contract: scoped structured Vortex/Parquet/Arrow IPC/Avro expression-project
-  exports are admitted through Vortex preparation plus native Vortex row export, while arbitrary
-  compatibility exports and ORC nested output remain deterministic blockers. Local Vortex remains
-  the highest-fidelity sink where the provider or scoped structured route is admitted. Scoped
-  scalar-expression `JOIN ON` predicates over qualified local sources lower through
-  the bounded expression-join route, including Python `LazyFrame.join(condition=...)` predicate
-  objects and logical `OR` over admitted qualified scalar leaves; complex-key and broader
-  non-scalar join predicates remain deterministic blockers. Schema-declared local-source
+  `source_qualified_subquery_source_columns`. Scoped local-source `INTERSECT` and `EXCEPT` reuse the
+  same branch-bound set-operation runtime and Python/DataFrame aliases as scoped `UNION`, with
+  `sql_set_operation_*` evidence over already-admitted branch `SELECT` plans. Scoped decimal casts
+  plus mixed-scale add/subtract/multiply, comparison, and exact fixed-scale division lower through
+  the same ShardLoom generic-expression route from SQL and Python/DataFrame helpers. Public
+  local-source compatibility sinks must derive from a certified native Vortex result/export
+  contract: scoped structured Vortex/Parquet/Arrow IPC/Avro expression-project exports are admitted
+  through Vortex preparation plus native Vortex row export, while arbitrary compatibility exports
+  and ORC nested output remain deterministic future-contract boundaries. Local Vortex remains the
+  highest-fidelity sink where the provider or scoped structured route is admitted. Scoped
+  `pivot_table` accepts one aggregate as a scalar string, one-element sequence, or one-column
+  mapping when it maps to the admitted sum/count/mean/min/max native Vortex pivot aggregate family. Scoped
+  `melt(id_vars=..., ignore_index=True)` can infer same-typed value columns from the current
+  schema/projection and lowers to the same native/prepared Vortex melt primitive as explicit
+  `value_vars`; scoped single-column `explode(..., ignore_index=True)` uses the existing native
+  Vortex explode primitive with no hidden pandas index materialization.
+  scalar-expression `JOIN ON` predicates over qualified local sources lower through the bounded
+  expression-join route, including Python `LazyFrame.join(condition=...)` predicate objects and
+  logical `OR` over admitted qualified scalar leaves; complex-key and broader non-scalar join
+  predicates remain deterministic future-contract boundaries. Schema-declared local-source
   `rename`/`rename_columns` and `drop`/`drop_columns` lower to projection alias/rewrite runtime
-  routes; inferred-schema and unsafe transform shapes still fail closed. Scoped local-source
-  `value_counts` lowers to the grouped `count(*) AS rows` route with optional `IS NOT NULL`
-  dropna filtering and rows-desc ordering; broader pandas summary semantics remain gated. Scoped
-  row-wise `concat` lowers to `UNION ALL` only for two local-source branches with explicit matching
-  projected columns; schema union/alignment, multi-branch, and axis=1 concat remain gated. Scoped
-  explicit-key `merge(on=..., how=...)` lowers to the admitted join route; implicit key inference,
-  suffix handling, and sided-key pandas merge remain gated. Scoped one-column
-  `nunique(..., dropna=True)` lowers to `count(DISTINCT column)` with SQL null semantics; broad
-  pandas result-shape semantics remain gated. Scoped schema-declared `astype` lowers to `CAST`
-  projection rewrites, scoped schema-declared `dropna(how="any")` lowers to `IS NOT NULL`
-  filters, and `query(...)` aliases the admitted ShardLoom predicate path when no pandas
-  expression-engine kwargs are requested. Scoped `nlargest` / `nsmallest` lower to
-  `ORDER BY ... LIMIT` when `keep="first"` and the sort keys are admitted. Scoped local-source
-  `sort(...)`/`order_by(...)`/`sort_values(...)` can now pass `nulls="first"|"last"` to lower to
-  explicit SQL `NULLS FIRST|LAST` top-N ordering; implicit null ordering and broader sort semantics
-  remain gated. Scoped schema-declared
-  `fillna`/`fill_null` lowers to `COALESCE` projection rewrites, and scoped schema-declared
-  `isna`/`isnull`/`notna`/`notnull` lowers to `IS NULL` / `IS NOT NULL` boolean projection rewrites;
-  scoped SQL/Python `IS DISTINCT FROM` and `IS NOT DISTINCT FROM` null-safe comparisons now lower
-  to the same ShardLoom-owned null/comparison/logical predicate runtime for admitted filters and
-  predicate projections over column-literal, date/timestamp/binary literal, NULL literal, and
-  column-column operands.
-  Inferred-schema, broad pandas null-fill/mask result-shape, and unsafe shapes remain gated. Scoped
-  duplicate-mask, conditional replacement, index metadata, sample, reshape, rolling, null, and
-  declarative expression routes are listed in the DataFrame method matrix with their current
-  runtime status and `future_contract_blocker_ids`. Broad inspection/summary variants and
-  arbitrary Python callable/UDF execution fail closed through `workflow-unsupported-plan`
-  diagnostics instead of missing attributes or hidden pandas/Polars execution. The parity report
-  emits `dataframe_future_contract_blocker_ids` so release gates can distinguish admitted scoped
-  runtime rows from future typed-UDF, hidden-index, broad reshape, nullable equality, weighted
-  sampling, and multi-sink atomicity contracts. Arbitrary expression/DataFrame breadth remains
-  pending until its runtime evidence lands.
+  routes. Scoped local-source `value_counts` lowers to the grouped `count(*) AS rows` route with
+  optional `IS NOT NULL` dropna filtering and rows-desc ordering. Scoped row-wise `concat` lowers to
+  `UNION ALL` only for two local-source branches with explicit matching projected columns. Scoped
+  explicit-key `merge(on=..., how=...)` lowers to the admitted join route. Scoped one-column
+  `nunique(..., dropna=True)` lowers to `count(DISTINCT column)` with SQL null semantics. Scoped
+  schema-declared `astype` lowers to `CAST` projection rewrites, scoped schema-declared
+  `dropna(how="any"|"all")` and `dropna(thresh=<int>)` lower to `IS NOT NULL` filters joined with
+  `AND`, `OR`, or threshold combinations, and `query(...)` aliases the admitted ShardLoom predicate
+  path when no pandas expression-engine kwargs are requested. Scoped
+  `nlargest` / `nsmallest` lower to `ORDER BY ... LIMIT` when `keep="first"` and the sort keys are
+  admitted. Scoped local-source `sort(...)`/`order_by(...)`/`sort_values(...)` can pass
+  `nulls="first"|"last"` to lower to explicit SQL `NULLS FIRST|LAST` top-N ordering. Scoped
+  schema-declared `fillna`/`fill_null` lowers to `COALESCE` projection rewrites for scalar or
+  per-column literals with `axis=0`/`index` and immutable `inplace=False`, and scoped
+  schema-declared `isna`/`isnull`/`notna`/`notnull` lowers to `IS NULL` / `IS NOT NULL` boolean
+  projection rewrites. Scoped schema-declared
+  `mask(predicate, scalar, axis=0/index, inplace=False, level=None)` lowers to native/prepared
+  Vortex expression-project conditional rewrites, and scoped schema-declared
+  `replace(old, new, regex=False, inplace=False, method=None, limit=None)` lowers to native/prepared
+  Vortex expression-project scalar replacement, including column-nested `{column: {old: new}}`
+  scalar mapping forms. Scoped SQL/Python `IS DISTINCT FROM` and
+  `IS NOT DISTINCT FROM` null-safe
+  comparisons lower to the same ShardLoom-owned null/comparison/logical predicate runtime for
+  admitted filters and predicate projections over column-literal, date/timestamp/binary literal,
+  NULL literal, and column-column operands. Broad pandas result-shape variants, arbitrary Python
+  callable/UDF execution, and external effects fail closed through deterministic workflow
+  diagnostics instead of missing attributes or hidden pandas/Polars
+  execution. Scoped `eval("amount = amount + 5")` and multi-assignment forms like
+  `eval("amount = amount + 5; tax = tax * 2")` lower to the same native/prepared Vortex
+  expression-project primitive for existing numeric columns; Python/numexpr engines, new-column
+  assignment, non-assignment expressions, callables, and side effects remain deterministic
+  future-contract boundaries.
+- The DataFrame method matrix currently emits 27 future-contract variant IDs, all classified by
+  `DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS`: 19 are repo-feasible broad-profile expansion
+  items, 6 are unsafe callable/UDF boundaries that require a typed/sandboxed contract, and 2 are
+  scoped product boundaries around hidden pandas-style index behavior. These IDs are not active
+  base-method blockers; they identify where broad pandas/Polars-style parity would require
+  additional contracts and evidence.
 - `performance_equivalence`
   (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
   across front doors.

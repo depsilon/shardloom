@@ -36904,6 +36904,7 @@ fn compare_stat_values(left: &StatValue, right: &StatValue) -> Option<i8> {
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn stat_value_kind(value: &StatValue) -> &'static str {
     match value {
+        StatValue::Null => "null",
         StatValue::Boolean(_) => "boolean",
         StatValue::Int64(_) => "int64",
         StatValue::UInt64(_) => "uint64",
@@ -37025,6 +37026,7 @@ enum TraditionalDictionaryEvidenceKey {
 impl TraditionalDictionaryEvidenceKey {
     fn from_stat_value(value: Option<&StatValue>) -> Self {
         match value {
+            Some(StatValue::Null) => Self::Null,
             Some(StatValue::Boolean(value)) => Self::Boolean(*value),
             Some(StatValue::Int64(value)) => Self::Int64(*value),
             Some(StatValue::UInt64(value)) => Self::UInt64(*value),

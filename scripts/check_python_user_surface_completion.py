@@ -162,6 +162,10 @@ REQUIRED_DEDUP_RUNTIME_METHODS = [
     "duplicated",
 ]
 
+REQUIRED_DROP_DUPLICATE_RUNTIME_METHODS = [
+    "drop_duplicates",
+]
+
 REQUIRED_RESHAPE_RUNTIME_METHODS = [
     "melt",
     "explode",
@@ -241,7 +245,7 @@ REQUIRED_INDEX_METADATA_METHODS = [
 REQUIRED_UNSUPPORTED_METHODS: list[str] = []
 
 REQUIRED_FUTURE_CONTRACT_BLOCKERS = {
-    "sample": {"cg21.workflow.sample.weighted_or_rng_contract_missing"},
+    "sample": {"cg21.workflow.sample.rng_object_contract_missing"},
     "explode": {"cg21.workflow.explode.nested_expansion_unsupported"},
     "pivot": {"cg21.workflow.pivot.broad_reshape_contract_missing"},
     "pivot_table": {"cg21.workflow.pivot_table.broad_aggregate_reshape_contract_missing"},
@@ -254,12 +258,12 @@ REQUIRED_FUTURE_CONTRACT_BLOCKERS = {
     "isnull": {"cg21.workflow.isna.null_mask_semantics_unsupported"},
     "notna": {"cg21.workflow.notna.null_mask_semantics_unsupported"},
     "notnull": {"cg21.workflow.notna.null_mask_semantics_unsupported"},
-    "duplicated": {"cg21.workflow.duplicated.nullable_nested_or_index_contract_missing"},
+    "duplicated": {"cg21.workflow.duplicated.nested_or_index_contract_missing"},
     "drop_duplicates": {
-        "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing"
+        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing"
     },
     "unique": {
-        "cg21.workflow.drop_duplicates.subset_keep_or_null_equality_contract_missing"
+        "cg21.workflow.drop_duplicates.nested_or_index_contract_missing"
     },
     "mask": {"cg21.workflow.mask.null_callable_or_alignment_contract_missing"},
     "replace": {
@@ -616,6 +620,83 @@ def _load_dataframe_method_rows(repo_root: Path) -> tuple[dict[str, Any], ...]:
             sys.path.remove(str(src))
 
 
+def _load_dataframe_future_contract_rows(repo_root: Path) -> tuple[dict[str, Any], ...]:
+    src = repo_root / "python" / "src"
+    inserted = False
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
+        inserted = True
+    try:
+        from shardloom.context import DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS
+
+        return tuple(
+            {
+                "blocker_id": row.blocker_id,
+                "affected_methods": list(row.affected_methods),
+                "classification": row.classification,
+                "current_runtime_status": row.current_runtime_status,
+                "v1_resolution": row.v1_resolution,
+                "next_action": row.next_action,
+                "fallback_attempted": row.fallback_attempted,
+                "external_engine_invoked": row.external_engine_invoked,
+            }
+            for row in DATAFRAME_FUTURE_CONTRACT_CLASSIFICATION_ROWS
+        )
+    finally:
+        if inserted:
+            sys.path.remove(str(src))
+
+
+def validate_future_contract_classifications(
+    rows: tuple[dict[str, Any], ...],
+    method_rows: tuple[dict[str, Any], ...],
+) -> tuple[dict[str, int], list[str]]:
+    blockers: list[str] = []
+    classification_counts: dict[str, int] = {}
+    method_names = {str(row["method"]) for row in method_rows}
+    emitted_ids = {
+        blocker_id
+        for row in method_rows
+        for blocker_id in row.get("future_contract_blocker_ids", [])
+    }
+    classified_ids = {str(row["blocker_id"]) for row in rows}
+
+    for row in rows:
+        blocker_id = str(row["blocker_id"])
+        classification = str(row["classification"])
+        classification_counts[classification] = (
+            classification_counts.get(classification, 0) + 1
+        )
+        if not row.get("affected_methods"):
+            blockers.append(f"{blocker_id}: affected_methods is required")
+        for method in row.get("affected_methods", []):
+            if method not in method_names:
+                blockers.append(
+                    f"{blocker_id}: affected method {method!r} is not in the method matrix"
+                )
+        if not classification.strip():
+            blockers.append(f"{blocker_id}: classification is required")
+        if not str(row.get("current_runtime_status", "")).strip():
+            blockers.append(f"{blocker_id}: current_runtime_status is required")
+        if not str(row.get("v1_resolution", "")).strip():
+            blockers.append(f"{blocker_id}: v1_resolution is required")
+        if not str(row.get("next_action", "")).strip():
+            blockers.append(f"{blocker_id}: next_action is required")
+        if row.get("fallback_attempted") or row.get("external_engine_invoked"):
+            blockers.append(
+                f"{blocker_id}: future-contract boundary must preserve no fallback and no external engine"
+            )
+
+    missing = sorted(emitted_ids - classified_ids)
+    extra = sorted(classified_ids - emitted_ids)
+    if missing:
+        blockers.append(f"missing future-contract classifications: {missing!r}")
+    if extra:
+        blockers.append(f"classified future-contract ids not emitted by method matrix: {extra!r}")
+
+    return classification_counts, blockers
+
+
 def validate_release_dry_run(dry_run: dict[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
     blockers: list[str] = []
     if dry_run is None:
@@ -663,6 +744,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         *REQUIRED_SOURCE_ORDER_RUNTIME_METHODS,
         *REQUIRED_SAMPLING_RUNTIME_METHODS,
         *REQUIRED_DEDUP_RUNTIME_METHODS,
+        *REQUIRED_DROP_DUPLICATE_RUNTIME_METHODS,
         *REQUIRED_RESHAPE_RUNTIME_METHODS,
         *REQUIRED_WINDOW_RUNTIME_METHODS,
         *REQUIRED_PLAN_TRANSFORM_METHODS,
@@ -707,6 +789,7 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         *REQUIRED_SOURCE_ORDER_RUNTIME_METHODS,
         *REQUIRED_SAMPLING_RUNTIME_METHODS,
         *REQUIRED_DEDUP_RUNTIME_METHODS,
+        *REQUIRED_DROP_DUPLICATE_RUNTIME_METHODS,
         *REQUIRED_RESHAPE_RUNTIME_METHODS,
         *REQUIRED_WINDOW_RUNTIME_METHODS,
         *REQUIRED_PLAN_TRANSFORM_METHODS,
@@ -878,6 +961,34 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         ]:
             if evidence not in required_evidence:
                 blockers.append(f"{method}: deduplication runtime row missing {evidence}")
+
+    for method in REQUIRED_DROP_DUPLICATE_RUNTIME_METHODS:
+        row = by_method.get(method)
+        if not row:
+            continue
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: retained-row deduplication support must be production_admitted_local_workflow"
+            )
+        if row.get("runtime_execution") is not True:
+            blockers.append(f"{method}: retained-row deduplication requires runtime_execution true")
+        if row.get("data_read") is not True:
+            blockers.append(f"{method}: retained-row deduplication requires data_read true")
+        if row.get("materialization_required") is not True:
+            blockers.append(f"{method}: retained-row deduplication must report materialization_required")
+        if row.get("blocker_id"):
+            blockers.append(f"{method}: retained-row deduplication row must not carry blocker_id")
+        required_evidence = set(row.get("required_evidence") or [])
+        for evidence in [
+            "native_vortex_drop_duplicates_primitive",
+            "explicit_row_key_retention_state",
+            "subset_keep_policy_contract",
+            "explicit_decode_materialization_boundary",
+        ]:
+            if evidence not in required_evidence:
+                blockers.append(
+                    f"{method}: retained-row deduplication row missing {evidence}"
+                )
 
     for method in REQUIRED_RESHAPE_RUNTIME_METHODS:
         row = by_method.get(method)
@@ -1271,7 +1382,13 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
             [
                 blocker
                 for blocker in blockers
-                if any(f"{method}:" in blocker for method in REQUIRED_DEDUP_RUNTIME_METHODS)
+                if any(
+                    f"{method}:" in blocker
+                    for method in [
+                        *REQUIRED_DEDUP_RUNTIME_METHODS,
+                        *REQUIRED_DROP_DUPLICATE_RUNTIME_METHODS,
+                    ]
+                )
             ],
             ["python/src/shardloom/context.py:DATAFRAME_METHOD_CAPABILITY_ROWS"],
             status_when_passed="scoped_runtime_rows_present",
@@ -1466,6 +1583,10 @@ def build_report(
     release_summary, release_blockers = validate_release_dry_run(dry_run)
     method_rows = _load_dataframe_method_rows(repo_root)
     method_completion_rows, method_blockers = validate_method_matrix(method_rows)
+    future_contract_rows = _load_dataframe_future_contract_rows(repo_root)
+    future_contract_classification_counts, future_contract_blockers = (
+        validate_future_contract_classifications(future_contract_rows, method_rows)
+    )
     docs_blockers = _missing_marker_blockers(repo_root, REQUIRED_DOC_MARKERS)
     source_blockers = _missing_marker_blockers(repo_root, REQUIRED_SOURCE_MARKERS)
     test_blockers = _missing_marker_blockers(repo_root, REQUIRED_TEST_MARKERS)
@@ -1531,6 +1652,7 @@ def build_report(
     blockers = [
         *release_blockers,
         *method_blockers,
+        *future_contract_blockers,
         *docs_blockers,
         *source_blockers,
         *test_blockers,
@@ -1579,6 +1701,25 @@ def build_report(
         "method_matrix_rows": method_rows,
         "method_future_contract_blocker_count": len(future_contract_blocker_ids),
         "method_future_contract_blocker_ids": future_contract_blocker_ids,
+        "method_future_contract_classification_count": len(future_contract_rows),
+        "method_future_contract_classification_counts": (
+            future_contract_classification_counts
+        ),
+        "method_future_contract_classification_rows": future_contract_rows,
+        "method_future_contract_repo_feasible_count": len(
+            [
+                row
+                for row in future_contract_rows
+                if row["classification"] == "repo_feasible_contract_needed"
+            ]
+        ),
+        "method_future_contract_unsafe_callable_count": len(
+            [
+                row
+                for row in future_contract_rows
+                if row["classification"] == "unsafe_callable_boundary"
+            ]
+        ),
         "completion_matrix": matrix_rows,
         "remaining_non_parity_gaps": [
             "Spark internals and PySpark API parity",

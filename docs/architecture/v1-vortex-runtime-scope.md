@@ -104,7 +104,7 @@ Every native Vortex public route also emits the route-unification contract field
 `public_workflow_` prefix. These fields are evidence metadata; they do not make a blocked operator
 supported. Count-style and scalar aggregate primitive routes report
 `native_vortex_capability_status=supported`;
-row-returning filter/project/filter-project/distinct/duplicate-mask/tail/sample/expression-project/melt/explode/rolling primitive routes report
+row-returning filter/project/filter-project/distinct/drop-duplicates/duplicate-mask/tail/sample/expression-project/melt/explode/rolling primitive routes report
 `native_vortex_capability_status=supported_with_materialization_boundary`. The matching
 `write_jsonl()` / `write_csv()` / JSONL+CSV `fanout()` shapes route to
 `native_vortex_primitive_row_export` and report
@@ -121,9 +121,9 @@ families:
 | Top-N shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_top_n_route_missing` |
 | Cast/try-cast shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_cast_route_missing` |
 | Substring contains shape outside admitted provider scenarios | `py-vortex-route-unify-1.native_vortex_contains_route_missing` |
-| Row-level distinct/deduplication outside no-argument scalar/bool/UTF-8 primitive shapes, such as subset/keep variants, nested equality, nullable equality, or broad SQL/DataFrame distinct semantics | `py-vortex-route-unify-1.native_vortex_distinct_route_missing` |
-| Duplicate-mask variants outside scoped `duplicated(subset=..., keep="first"|"last"|False)`, such as nested equality, nullable equality, or hidden pandas index-state parity | `py-vortex-route-unify-1.native_vortex_duplicate_mask_route_missing` or `cg21.workflow.duplicated.nullable_nested_or_index_contract_missing` |
-| Sampling outside deterministic row-count `sample(n=..., seed or random_state=<int>, replace=False or True)` or fractional `sample(frac or fraction=..., seed or random_state=<int>, replace=False or True)`, such as weighted sampling, pandas RNG-object parity, or unbounded sampling | `cg21.workflow.sample.weighted_or_rng_contract_missing` |
+| Row-level distinct/deduplication outside scoped scalar/bool/UTF-8 primitive shapes with nullable scalar equality, such as nested/list/struct equality, hidden pandas index-state parity, or broad SQL/DataFrame distinct semantics | `py-vortex-route-unify-1.native_vortex_distinct_route_missing` or `cg21.workflow.drop_duplicates.nested_or_index_contract_missing` |
+| Duplicate-mask variants outside scoped `duplicated(subset=..., keep="first"|"last"|False)` scalar keys with nullable scalar equality, such as nested/list/struct equality or hidden pandas index-state parity | `py-vortex-route-unify-1.native_vortex_duplicate_mask_route_missing` or `cg21.workflow.duplicated.nested_or_index_contract_missing` |
+| Sampling outside deterministic row-count `sample(n=..., seed or random_state=<int>, weights=<numeric column>, replace=False or True)` or fractional `sample(frac or fraction=..., seed or random_state=<int>, weights=<numeric column>, replace=False or True)`, such as opaque pandas/NumPy RNG-object parity or unbounded sampling | `cg21.workflow.sample.rng_object_contract_missing` |
 | Expression rewrite outside scoped typed scalar `mask(predicate, scalar)`, full-cell scalar `replace(old, new)`, in-place UTF-8 `with_column("col", col("col").replace(...))`, or `eval("col = col + scalar")` numeric scalar assignment over declared/projection columns, such as broad pandas alignment, Python/numexpr eval, regex/callable/method/limit, nested, mixed-dtype, or null rewrite variants | `py-vortex-route-unify-1.native_vortex_expression_project_route_missing` or scoped workflow blocker |
 | Reshape outside scoped `melt(id_vars=..., value_vars=...)` with explicit flat scalar id/value columns and same-typed value columns, scoped `explode("list_column")` over one declared scalar list column, or scoped `pivot(...)` / `pivot_table(...)` over one index column, one pivot column, and one value column, such as heterogeneous unpivot, nullable/nested/multi-column explode, multi-index/multi-value pivot, custom pivot aggregates, hidden index-state reshape, or broad pandas parity | `py-vortex-route-unify-1.native_vortex_melt_route_missing`, `py-vortex-route-unify-1.native_vortex_explode_route_missing`, `py-vortex-route-unify-1.native_vortex_pivot_route_missing`, or scoped workflow blocker |
 | Windowing outside scoped `rolling(window=<positive int>, min_periods<=window, center=false).sum/mean/count(column, alias=...)` over one scalar source-order stream (`sum`/`mean` require numeric input; `count` admits scalar rows), such as time/calendar windows, centered windows, arbitrary frame bounds, Python callbacks, or broad pandas parity | `py-vortex-route-unify-1.native_vortex_rolling_window_route_missing` or scoped workflow blocker |
@@ -145,16 +145,17 @@ The scoped local primitive report admits these route ids:
 | `vortex_select_star_limit_collect` | Select all columns with source-order limit. | Yes |
 | `vortex_filter_project_collect` | Filter and project supported columns. | No |
 | `vortex_filter_project_limit_collect` | Filter and project supported columns with source-order limit. | Yes |
-| `native_vortex_distinct` | Materialize no-argument row-level distinct/deduplication over supported scalar/bool/UTF-8 row streams with optional filter/projection and explicit decode/materialization evidence. | Yes |
-| `native_vortex_duplicate_mask` | Materialize scoped `duplicated(subset=..., keep="first"|"last"|False)` boolean masks over supported scalar/bool/UTF-8 row-key columns with explicit decode/materialization evidence. | Yes |
+| `native_vortex_distinct` | Materialize no-argument row-level distinct/deduplication over supported scalar/bool/UTF-8 row streams with nullable scalar equality, optional filter/projection, and explicit decode/materialization evidence. | Yes |
+| `native_vortex_drop_duplicates` | Materialize scoped retained-row `drop_duplicates(subset=..., keep="first"|"last"|False)` over supported scalar/bool/UTF-8 row-key columns with nullable scalar equality, optional filter/projection, source-order limit, and explicit ShardLoom row-key retention evidence. | Yes |
+| `native_vortex_duplicate_mask` | Materialize scoped `duplicated(subset=..., keep="first"|"last"|False)` boolean masks over supported scalar/bool/UTF-8 row-key columns with nullable scalar equality and explicit decode/materialization evidence. | Yes |
 | `vortex_tail_collect` | Materialize bounded source-order tail over supported scalar/bool/UTF-8 row streams with optional projection and explicit decode/materialization evidence. | Yes |
-| `vortex_sample_collect` | Materialize deterministic row-count sampling with or without replacement, and fractional sampling with or without replacement, over supported scalar/bool/UTF-8 row streams with optional filter/projection and explicit decode/materialization evidence. | Yes |
+| `vortex_sample_collect` | Materialize deterministic row-count sampling with or without replacement, fractional sampling with or without replacement, and positive numeric weight-column sampling over supported scalar/bool/UTF-8 row streams with optional filter/projection and explicit decode/materialization evidence. | Yes |
 | `vortex_expression_project_collect` | Materialize scoped typed scalar expression-project rewrites for `mask(predicate, scalar)`, full-cell scalar `replace(old, new)`, in-place UTF-8 string replacement, and numeric scalar assignment over declared/projection columns with explicit decode/materialization and changed-column evidence. | Yes |
 | `vortex_melt_collect` | Materialize scoped flat scalar melt/unpivot over explicit id/value columns with same-typed value columns and explicit row-expansion materialization evidence. | Yes |
 | `vortex_explode_collect` | Materialize scoped row expansion for one declared scalar list/fixed-size-list column with optional scalar companion columns, empty-list zero-row behavior, and explicit decode/materialization evidence. | Yes |
 | `vortex_pivot_collect` / `vortex_pivot_row_export` | Materialize scoped wide reshape for one index column, one pivot column, and one value column through first-unique or sum/count/mean aggregate policy with explicit decode/materialization evidence; sparse JSONL emits missing pivot cells as `null`, and CSV emits missing pivot cells as empty fields. | Yes |
 | `vortex_rolling_window_collect` | Materialize scoped source-order `rolling(...).sum/mean/count(...)` over one scalar column, with numeric input required for `sum`/`mean`, bounded window state, and explicit decode/materialization evidence. | Yes |
-| `native_vortex_primitive_row_export` | Write filter/project/filter-project/distinct/duplicate-mask/tail/sample/expression-project/melt/explode/rolling-window row streams and scalar aggregate result rows to JSONL/CSV, including JSONL+CSV fanout. | Yes |
+| `native_vortex_primitive_row_export` | Write filter/project/filter-project/distinct/drop-duplicates/duplicate-mask/tail/sample/expression-project/melt/explode/rolling-window row streams and scalar aggregate result rows to JSONL/CSV, including JSONL+CSV fanout. | Yes |
 
 Each route must expose SQL, Python, DataFrame-style, context, session, and CLI surfaces. Each route
 must name output route, evidence route, materialization/decode boundary, required evidence,
@@ -209,7 +210,7 @@ traditional-analytics runtime scenarios:
 These routes emit `public_workflow_native_vortex_provider_scenario` and
 `public_workflow_native_vortex_right_input` fields. Provider-backed `write_jsonl()` and
 `write_csv()` export the bounded provider `result_json` after native Vortex execution with explicit
-decode/materialization evidence. Primitive filter/project/filter-project/distinct/duplicate-mask/tail/sample/expression-project/melt/explode/rolling
+decode/materialization evidence. Primitive filter/project/filter-project/distinct/drop-duplicates/duplicate-mask/tail/sample/expression-project/melt/explode/rolling
 row-stream exports, scalar aggregate one-row result exports, and JSONL/CSV fanout are admitted
 through `native_vortex_primitive_row_export` with explicit selected-column or result-row
 decode/materialization evidence. Arbitrary compatibility exports, unsupported

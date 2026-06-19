@@ -811,7 +811,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     assert!(sample.contains(&field("workflow_operation", "sample")));
     assert!(sample.contains(&field(
         "blocker_id",
-        "cg21.workflow.sample.weighted_or_rng_contract_missing"
+        "cg21.workflow.sample.rng_object_contract_missing"
     )));
     assert!(sample.contains(&field("target_ref", "n=5,seed=7")));
     assert!(explode.contains(&field("workflow_operation", "explode_nested")));

@@ -262,6 +262,16 @@ pub fn physical_operator_plan_for_vortex_query_primitive(
                 PhysicalOperatorKind::Aggregate,
             )?,
         ],
+        VortexQueryPrimitiveKind::DropDuplicateRows => vec![
+            bridge_operator(
+                "vortex.query_primitive.drop_duplicate_rows.project",
+                PhysicalOperatorKind::Project,
+            )?,
+            bridge_operator(
+                "vortex.query_primitive.drop_duplicate_rows.row_key_retention_state",
+                PhysicalOperatorKind::Aggregate,
+            )?,
+        ],
         VortexQueryPrimitiveKind::ExpressionProjectRows => vec![
             bridge_operator(
                 "vortex.query_primitive.expression_project_rows.project",
@@ -386,6 +396,7 @@ pub fn physical_operator_plan_for_vortex_query_primitive_result(
         VortexQueryPrimitiveKind::ProjectColumns
         | VortexQueryPrimitiveKind::FilterAndProject
         | VortexQueryPrimitiveKind::DistinctRows
+        | VortexQueryPrimitiveKind::DropDuplicateRows
         | VortexQueryPrimitiveKind::DuplicateMaskRows
         | VortexQueryPrimitiveKind::TailRows
         | VortexQueryPrimitiveKind::SampleRows
@@ -555,7 +566,9 @@ mod tests {
             sample_seed: None,
             sample_fraction: None,
             sample_with_replacement: false,
+            sample_weight_column: None,
             duplicate_keep: crate::VortexDuplicateKeepPolicy::First,
+            deduplicate_key_projection: None,
             expression_projection: None,
             melt_projection: None,
             explode_projection: None,
