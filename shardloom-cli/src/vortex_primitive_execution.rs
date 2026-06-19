@@ -3839,14 +3839,16 @@ fn parse_structured_scalar(
     if value.is_null() {
         return Ok(ScalarValue::Null);
     }
-    Ok(match parse_expression_scalar(value, field)? {
-        StatValue::Null => ScalarValue::Null,
-        StatValue::Boolean(value) => ScalarValue::Boolean(value),
-        StatValue::Int64(value) => ScalarValue::Int64(value),
-        StatValue::UInt64(value) => ScalarValue::UInt64(value),
-        StatValue::Float64(value) => ScalarValue::Float64(value),
-        StatValue::Utf8(value) => ScalarValue::Utf8(value),
-    })
+    Ok(
+        match parse_expression_scalar(value, field, NullScalarPolicy::Allow)? {
+            StatValue::Null => ScalarValue::Null,
+            StatValue::Boolean(value) => ScalarValue::Boolean(value),
+            StatValue::Int64(value) => ScalarValue::Int64(value),
+            StatValue::UInt64(value) => ScalarValue::UInt64(value),
+            StatValue::Float64(value) => ScalarValue::Float64(value),
+            StatValue::Utf8(value) => ScalarValue::Utf8(value),
+        },
+    )
 }
 
 fn parse_expression_project_rewrite(
@@ -3898,7 +3900,7 @@ fn parse_mask_scalar_rewrite(
     Ok(VortexExpressionRewrite::MaskScalar {
         target_column,
         predicate: parse_tiny_predicate(predicate)?,
-        replacement: parse_expression_scalar(replacement, "replacement")?,
+        replacement: parse_expression_scalar(replacement, "replacement", NullScalarPolicy::Allow)?,
     })
 }
 
@@ -3924,8 +3926,8 @@ fn parse_replace_scalar_rewrite(
         })?;
     Ok(VortexExpressionRewrite::ReplaceScalar {
         target_column,
-        to_replace: parse_expression_scalar(to_replace, "to_replace")?,
-        replacement: parse_expression_scalar(replacement, "replacement")?,
+        to_replace: parse_expression_scalar(to_replace, "to_replace", NullScalarPolicy::Reject)?,
+        replacement: parse_expression_scalar(replacement, "replacement", NullScalarPolicy::Allow)?,
     })
 }
 
@@ -3983,7 +3985,7 @@ fn parse_numeric_scalar_arithmetic_rewrite(
     Ok(VortexExpressionRewrite::NumericScalarArithmetic {
         target_column,
         operator: operator.to_string(),
-        operand: parse_expression_scalar(operand, "operand")?,
+        operand: parse_expression_scalar(operand, "operand", NullScalarPolicy::Reject)?,
     })
 }
 
@@ -4203,9 +4205,16 @@ fn json_string_field_any<'a>(
     )))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NullScalarPolicy {
+    Allow,
+    Reject,
+}
+
 fn parse_expression_scalar(
     value: &serde_json::Value,
     field: &str,
+    null_policy: NullScalarPolicy,
 ) -> Result<StatValue, ShardLoomError> {
     if let Some(object) = value.as_object() {
         let dtype = json_string_field(object, "type")?
@@ -4217,18 +4226,24 @@ fn parse_expression_scalar(
                 "expression-project scalar {field} requires a value"
             )));
         };
-        return parse_typed_expression_scalar(&dtype, raw, field);
+        return parse_typed_expression_scalar(&dtype, raw, field, null_policy);
     }
-    parse_untyped_expression_scalar(value, field)
+    parse_untyped_expression_scalar(value, field, null_policy)
 }
 
 fn parse_typed_expression_scalar(
     dtype: &str,
     value: &serde_json::Value,
     field: &str,
+    null_policy: NullScalarPolicy,
 ) -> Result<StatValue, ShardLoomError> {
     match dtype {
         "null" => {
+            if null_policy == NullScalarPolicy::Reject {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "expression-project scalar {field} does not admit null"
+                )));
+            }
             if value.is_null() {
                 Ok(StatValue::Null)
             } else {
@@ -4278,9 +4293,18 @@ fn parse_typed_expression_scalar(
 fn parse_untyped_expression_scalar(
     value: &serde_json::Value,
     field: &str,
+    null_policy: NullScalarPolicy,
 ) -> Result<StatValue, ShardLoomError> {
     match value {
-        serde_json::Value::Null => Ok(StatValue::Null),
+        serde_json::Value::Null => {
+            if null_policy == NullScalarPolicy::Allow {
+                Ok(StatValue::Null)
+            } else {
+                Err(ShardLoomError::InvalidOperation(format!(
+                    "expression-project scalar {field} does not admit null"
+                )))
+            }
+        }
         serde_json::Value::Bool(value) => Ok(StatValue::Boolean(*value)),
         serde_json::Value::Number(value) => {
             if let Some(value) = value.as_i64() {
@@ -8384,6 +8408,27 @@ mod tests {
         };
         assert_eq!(target_column.as_str(), "amount");
         assert_eq!(*replacement, StatValue::Null);
+    }
+
+    #[test]
+    fn parse_expression_project_payload_rejects_null_non_replacement_scalars() {
+        let numeric_uri = DatasetUri::new("target/input.vortex").expect("uri");
+        let numeric_error = parse_vortex_primitive_request(
+            numeric_uri,
+            r#"expression_project:{"columns":["amount"],"rewrites":[{"kind":"numeric_scalar_arithmetic","target_column":"amount","operator":"+","operand":{"type":"null","value":null}}]}"#,
+        )
+        .expect_err("null arithmetic operands must fail closed");
+        assert!(numeric_error.to_string().contains("operand"));
+        assert!(numeric_error.to_string().contains("does not admit null"));
+
+        let replace_uri = DatasetUri::new("target/input.vortex").expect("uri");
+        let replace_error = parse_vortex_primitive_request(
+            replace_uri,
+            r#"expression_project:{"columns":["amount"],"rewrites":[{"kind":"replace_scalar","target_column":"amount","to_replace":{"type":"null","value":null},"replacement":{"type":"int64","value":0}}]}"#,
+        )
+        .expect_err("null match operands must fail closed");
+        assert!(replace_error.to_string().contains("to_replace"));
+        assert!(replace_error.to_string().contains("does not admit null"));
     }
 
     #[test]

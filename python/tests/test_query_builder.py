@@ -16,6 +16,7 @@ from shardloom import LazyFrame, ShardLoomClient, ShardLoomContext
 from shardloom.query import (
     _rewrite_predicate_with_computed_columns,
     _sql_native_vortex_public_workflow_kwargs,
+    _vortex_expression_scalar_payload,
 )
 
 _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
@@ -12959,6 +12960,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "target_column": "amount",
                 }
             ],
+        )
+        self.assertIsNone(
+            _vortex_expression_scalar_payload(None, target_dtype="list<int64>")
         )
         self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
         self.assertEqual(
