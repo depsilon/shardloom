@@ -3761,6 +3761,75 @@ def _sql_native_vortex_public_workflow_kwargs(
     return payload
 
 
+def _native_vortex_collect_payload_from_primitive_shape(
+    shape: _VortexPrimitiveWorkflowShape | None,
+) -> dict[str, Any] | None:
+    if shape is None:
+        return None
+    if shape.expression_projection is not None:
+        primitive = "expression_project"
+        source_order_limit = shape.limit
+    elif shape.melt_projection is not None:
+        primitive = "melt"
+        source_order_limit = shape.limit
+    elif shape.explode_projection is not None:
+        primitive = "explode"
+        source_order_limit = shape.limit
+    elif shape.pivot_projection is not None:
+        primitive = "pivot"
+        source_order_limit = shape.limit
+    elif shape.rolling_window is not None:
+        primitive = "rolling_window"
+        source_order_limit = shape.limit
+    elif shape.sort_rows is not None:
+        primitive = "sort_rows"
+        source_order_limit = shape.limit
+    elif shape.sample_count is not None or shape.sample_fraction is not None:
+        primitive = "sample"
+        source_order_limit = shape.sample_count
+    elif shape.tail_limit is not None:
+        primitive = "tail"
+        source_order_limit = shape.tail_limit
+    elif shape.distinct:
+        primitive = "distinct"
+        source_order_limit = shape.limit
+    elif shape.duplicate_mask:
+        primitive = "duplicate_mask"
+        source_order_limit = shape.limit
+    elif shape.predicate and shape.columns:
+        primitive = "filter_project"
+        source_order_limit = shape.limit
+    elif shape.predicate:
+        primitive = "filter"
+        source_order_limit = shape.limit
+    elif shape.columns:
+        primitive = "project"
+        source_order_limit = shape.limit
+    else:
+        return None
+    return {
+        "native_vortex_operation_family": _native_vortex_operation_family_for_primitive(
+            primitive
+        ),
+        "vortex_primitive": primitive,
+        "vortex_predicate": shape.predicate,
+        "vortex_columns": shape.columns,
+        "vortex_source_order_limit": source_order_limit,
+        "vortex_sample_seed": shape.sample_seed,
+        "vortex_sample_fraction": shape.sample_fraction,
+        "vortex_sample_replacement": shape.sample_with_replacement,
+        "vortex_duplicate_keep": shape.duplicate_keep
+        if primitive == "duplicate_mask"
+        else None,
+        "vortex_expression_projection": shape.expression_projection,
+        "vortex_melt_projection": shape.melt_projection,
+        "vortex_explode_projection": shape.explode_projection,
+        "vortex_pivot_projection": shape.pivot_projection,
+        "vortex_rolling_window": shape.rolling_window,
+        "vortex_sort_rows": shape.sort_rows,
+    }
+
+
 def _native_vortex_row_export_payload_from_primitive_shape(
     shape: Any | None,
 ) -> dict[str, Any] | None:
@@ -5807,57 +5876,11 @@ class LazyFrame:
             return {}
         primitive_shape = self._vortex_primitive_shape()
         if primitive_shape is not None:
-            primitive: str | None = None
-            if primitive_shape.expression_projection is not None:
-                primitive = "expression_project"
-            elif primitive_shape.melt_projection is not None:
-                primitive = "melt"
-            elif primitive_shape.explode_projection is not None:
-                primitive = "explode"
-            elif primitive_shape.pivot_projection is not None:
-                primitive = "pivot"
-            elif primitive_shape.rolling_window is not None:
-                primitive = "rolling_window"
-            elif (
-                primitive_shape.sample_count is not None
-                or primitive_shape.sample_fraction is not None
-            ):
-                primitive = "sample"
-            elif primitive_shape.tail_limit is not None:
-                primitive = "tail"
-            elif primitive_shape.predicate and primitive_shape.columns:
-                primitive = "filter_project"
-            elif primitive_shape.predicate:
-                primitive = "filter"
-            elif primitive_shape.columns:
-                primitive = "project"
-            if primitive is not None:
-                return {
-                    "native_vortex_operation_family": _native_vortex_operation_family_for_primitive(
-                        primitive
-                    ),
-                    "vortex_primitive": primitive,
-                    "vortex_predicate": primitive_shape.predicate,
-                    "vortex_columns": primitive_shape.columns,
-                    "vortex_source_order_limit": (
-                        primitive_shape.sample_count
-                        if primitive_shape.sample_count is not None
-                        else primitive_shape.tail_limit
-                        if primitive_shape.tail_limit is not None
-                        else primitive_shape.limit
-                    ),
-                    "vortex_sample_seed": primitive_shape.sample_seed,
-                    "vortex_sample_fraction": primitive_shape.sample_fraction,
-                    "vortex_sample_replacement": primitive_shape.sample_with_replacement,
-                    "vortex_duplicate_keep": primitive_shape.duplicate_keep
-                    if primitive == "duplicate_mask"
-                    else None,
-                    "vortex_expression_projection": primitive_shape.expression_projection,
-                    "vortex_melt_projection": primitive_shape.melt_projection,
-                    "vortex_explode_projection": primitive_shape.explode_projection,
-                    "vortex_pivot_projection": primitive_shape.pivot_projection,
-                    "vortex_rolling_window": primitive_shape.rolling_window,
-                }
+            primitive_payload = _native_vortex_collect_payload_from_primitive_shape(
+                primitive_shape
+            )
+            if primitive_payload is not None:
+                return primitive_payload
         provider_shape = self._native_vortex_user_route_shape()
         if provider_shape is None:
             return {}
