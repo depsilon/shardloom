@@ -313,21 +313,21 @@ pub(crate) fn parse_tiny_predicate(value: &str) -> Result<PredicateExpr, ShardLo
         ["is_not_null", column] => Ok(PredicateExpr::IsNotNull {
             column: ColumnRef::new(*column)?,
         }),
-        ["contains", column, needle] | ["string_contains", column, needle] => {
+        ["contains" | "string_contains", column, needle] => {
             Ok(PredicateExpr::StringContains {
                 column: ColumnRef::new(*column)?,
                 needle: (*needle).to_string(),
                 negated: false,
             })
         }
-        ["not_contains", column, needle] | ["not_string_contains", column, needle] => {
+        ["not_contains" | "not_string_contains", column, needle] => {
             Ok(PredicateExpr::StringContains {
                 column: ColumnRef::new(*column)?,
                 needle: (*needle).to_string(),
                 negated: true,
             })
         }
-        ["in", column, literals] | ["not_in", column, literals] => {
+        ["in" | "not_in", column, literals] => {
             let values = literals
                 .split(',')
                 .map(str::trim)
@@ -3307,8 +3307,7 @@ fn parse_aggregate_expression(
     let column = ColumnRef::new(json_string_field_any(
         object,
         &["column", "source_column", "on"],
-    )?)
-    .map_err(ShardLoomError::from)?;
+    )?)?;
     let extra_columns =
         json_optional_column_array_field_any(object, &["extra_columns", "extraColumns"])?
             .unwrap_or_default();

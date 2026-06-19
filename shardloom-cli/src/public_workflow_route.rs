@@ -506,6 +506,7 @@ fn native_vortex_row_export_output_safety_blocked_route(
     ))
 }
 
+#[allow(clippy::too_many_lines)]
 fn native_vortex_primitive_arg_for_request(
     request: &PublicWorkflowRouteRequest,
     primitive: PublicVortexPrimitive,
@@ -2445,7 +2446,7 @@ impl NativeVortexOperationFamily {
             | PublicVortexPrimitive::FilterProject => Self::FilterProjectLimit,
             PublicVortexPrimitive::Distinct => Self::Distinct,
             PublicVortexPrimitive::DuplicateMask => Self::DuplicateMask,
-            PublicVortexPrimitive::Tail => Self::TopN,
+            PublicVortexPrimitive::Tail | PublicVortexPrimitive::SortRows => Self::TopN,
             PublicVortexPrimitive::Sample => Self::Sample,
             PublicVortexPrimitive::ExpressionProject => Self::ExpressionProject,
             PublicVortexPrimitive::Melt => Self::Melt,
@@ -2453,7 +2454,6 @@ impl NativeVortexOperationFamily {
             PublicVortexPrimitive::Pivot => Self::Pivot,
             PublicVortexPrimitive::RollingWindow => Self::RollingWindow,
             PublicVortexPrimitive::Aggregate => Self::Aggregate,
-            PublicVortexPrimitive::SortRows => Self::TopN,
         }
     }
 
@@ -3957,6 +3957,7 @@ struct NativeVortexSqlSingleSourceShape {
     offset: Option<String>,
 }
 
+#[allow(clippy::too_many_lines)]
 fn infer_native_vortex_sql_primitive_payload(
     statement: &str,
     request: &PublicWorkflowRouteRequest,
@@ -4633,6 +4634,7 @@ fn parse_sql_group_by_spec(group_by: &str, projection: &str) -> Option<ParsedSql
     Some(spec)
 }
 
+#[allow(clippy::too_many_lines)]
 fn parse_sql_group_expression(item: &str) -> Option<ParsedSqlGroupExpression> {
     let alias = sql_explicit_alias(item)
         .filter(|alias| is_summary_identifier(alias))
@@ -4766,7 +4768,7 @@ fn parse_sql_date_trunc_minute_expression(expression: &str) -> Option<&str> {
     if parts.len() != 2 {
         return None;
     }
-    if parse_sql_single_quoted_literal(parts[0])?.to_ascii_lowercase() != "minute" {
+    if !parse_sql_single_quoted_literal(parts[0])?.eq_ignore_ascii_case("minute") {
         return None;
     }
     let column = parts[1]
@@ -4821,7 +4823,7 @@ fn parse_sql_case_search_adv_zero_referer_expression(
         .strip_suffix("END")
         .or_else(|| else_tail.strip_suffix("end"))?
         .trim();
-    if parse_sql_single_quoted_literal(else_value)? != "" {
+    if !parse_sql_single_quoted_literal(else_value)?.is_empty() {
         return None;
     }
     let referer = then_value
@@ -5431,11 +5433,8 @@ fn infer_native_vortex_sort_rows_primitive_payload(
 fn summary_sort_rows_payload(sort: &str, limit: &str) -> Option<String> {
     let parts = sort.split(',').map(str::trim).collect::<Vec<_>>();
     let (descending, column) = match parts.as_slice() {
-        ["desc" | "DESC", column] => (true, *column),
-        ["asc" | "ASC", column] => (false, *column),
-        [column, "desc" | "DESC"] => (true, *column),
-        [column, "asc" | "ASC"] => (false, *column),
-        [column] => (false, *column),
+        ["desc" | "DESC", column] | [column, "desc" | "DESC"] => (true, *column),
+        ["asc" | "ASC", column] | [column, "asc" | "ASC"] | [column] => (false, *column),
         _ => return None,
     };
     if !is_summary_identifier(column) {
@@ -5936,7 +5935,7 @@ fn tiny_predicate_requires_materialized_eval(value: &str) -> bool {
             .any(|part| tiny_predicate_requires_materialized_eval(part.trim()));
     }
     matches!(
-        value.splitn(3, ':').next(),
+        value.split(':').next(),
         Some(
             "contains"
                 | "string_contains"
@@ -10778,7 +10777,7 @@ mod tests {
             [
                 "sql",
                 "--sql",
-                r#"SELECT REGEXP_REPLACE(Referer, '^https?://(?:www\.)?([^/]+)/.*$', '\1') AS k, AVG(length(Referer)) AS l, COUNT(*) AS c, MIN(Referer) FROM 'hits.vortex' WHERE Referer <> '' GROUP BY k HAVING COUNT(*) > 100000 ORDER BY l DESC LIMIT 25"#,
+                r"SELECT REGEXP_REPLACE(Referer, '^https?://(?:www\.)?([^/]+)/.*$', '\1') AS k, AVG(length(Referer)) AS l, COUNT(*) AS c, MIN(Referer) FROM 'hits.vortex' WHERE Referer <> '' GROUP BY k HAVING COUNT(*) > 100000 ORDER BY l DESC LIMIT 25",
                 "--input-format",
                 "vortex",
                 "--request",

@@ -1019,104 +1019,67 @@ fn local_primitive_accepted_operations(
             vec!["filter".to_string(), "project".to_string()]
         }
         VortexQueryPrimitiveKind::DistinctRows => {
-            let mut out = Vec::new();
-            if report.filter_pushdown_applied {
-                out.push("filter".to_string());
-            }
-            if !report.projected_columns.is_empty() {
-                out.push("project".to_string());
-            }
-            out.push("distinct".to_string());
-            out
+            local_primitive_optional_filter_project_operation(report, "distinct")
         }
         VortexQueryPrimitiveKind::DuplicateMaskRows => {
-            let mut out = Vec::new();
-            if !report.projected_columns.is_empty() {
-                out.push("project".to_string());
-            }
-            out.push("duplicate_mask".to_string());
-            out
+            local_primitive_optional_project_operation(report, "duplicate_mask")
         }
         VortexQueryPrimitiveKind::TailRows => {
-            let mut out = Vec::new();
-            if !report.projected_columns.is_empty() {
-                out.push("project".to_string());
-            }
-            out.push("tail".to_string());
-            out
+            local_primitive_optional_project_operation(report, "tail")
         }
         VortexQueryPrimitiveKind::SampleRows => {
-            let mut out = Vec::new();
-            if report.filter_pushdown_applied {
-                out.push("filter".to_string());
-            }
-            if !report.projected_columns.is_empty() {
-                out.push("project".to_string());
-            }
-            out.push("sample".to_string());
-            out
+            local_primitive_optional_filter_project_operation(report, "sample")
         }
         VortexQueryPrimitiveKind::ExpressionProjectRows => {
-            let mut out = Vec::new();
-            if !report.projected_columns.is_empty() {
-                out.push("project".to_string());
-            }
-            out.push("expression_project".to_string());
-            out
+            local_primitive_optional_project_operation(report, "expression_project")
         }
         VortexQueryPrimitiveKind::MeltRows => {
-            let mut out = Vec::new();
-            if !report.projected_columns.is_empty() {
-                out.push("project".to_string());
-            }
-            out.push("melt".to_string());
-            out
+            local_primitive_optional_project_operation(report, "melt")
         }
         VortexQueryPrimitiveKind::ExplodeRows => {
-            let mut out = Vec::new();
-            if !report.projected_columns.is_empty() {
-                out.push("project".to_string());
-            }
-            out.push("explode".to_string());
-            out
+            local_primitive_optional_project_operation(report, "explode")
         }
         VortexQueryPrimitiveKind::PivotRows => {
-            let mut out = Vec::new();
-            if !report.projected_columns.is_empty() {
-                out.push("project".to_string());
-            }
-            out.push("pivot".to_string());
-            out
+            local_primitive_optional_project_operation(report, "pivot")
         }
         VortexQueryPrimitiveKind::RollingWindowRows => {
-            let mut out = Vec::new();
-            if !report.projected_columns.is_empty() {
-                out.push("project".to_string());
-            }
-            out.push("rolling_window".to_string());
-            out
+            local_primitive_optional_project_operation(report, "rolling_window")
         }
         VortexQueryPrimitiveKind::SimpleAggregate => {
-            let mut out = Vec::new();
-            if !report.projected_columns.is_empty() {
-                out.push("project".to_string());
-            }
-            out.push("aggregate".to_string());
-            out
+            local_primitive_optional_project_operation(report, "aggregate")
         }
         VortexQueryPrimitiveKind::SortRows => {
-            let mut out = Vec::new();
-            if report.filter_pushdown_applied {
-                out.push("filter".to_string());
-            }
-            if !report.projected_columns.is_empty() {
-                out.push("project".to_string());
-            }
-            out.push("sort".to_string());
-            out
+            local_primitive_optional_filter_project_operation(report, "sort")
         }
         VortexQueryPrimitiveKind::Unsupported => Vec::new(),
     }
+}
+
+fn local_primitive_optional_filter_project_operation(
+    report: &VortexLocalPrimitiveExecutionReport,
+    operation: &str,
+) -> Vec<String> {
+    let mut out = Vec::new();
+    if report.filter_pushdown_applied {
+        out.push("filter".to_string());
+    }
+    if !report.projected_columns.is_empty() {
+        out.push("project".to_string());
+    }
+    out.push(operation.to_string());
+    out
+}
+
+fn local_primitive_optional_project_operation(
+    report: &VortexLocalPrimitiveExecutionReport,
+    operation: &str,
+) -> Vec<String> {
+    let mut out = Vec::new();
+    if !report.projected_columns.is_empty() {
+        out.push("project".to_string());
+    }
+    out.push(operation.to_string());
+    out
 }
 
 fn local_primitive_pushdown_guarantee(
