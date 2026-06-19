@@ -7,6 +7,7 @@ import builtins
 import hashlib
 import html
 import importlib
+import json
 import math
 import os
 import re
@@ -104,6 +105,38 @@ class WorkflowOperation:
         if self.kind == "limit":
             return f"limit({self.values[0]})"
         return f"{self.kind}({','.join(self.values)})"
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowPlanTransform:
+    """Caller-declared plan transform accepted by `LazyFrame.pipe(...)`.
+
+    This is a plan-construction helper, not a data UDF. The callable receives a
+    `LazyFrame` and must return a `LazyFrame`; terminal execution still goes
+    through ShardLoom's normal no-fallback Vortex-prepared/native routes.
+    """
+
+    name: str
+    function: object
+
+    def apply(self, frame: "LazyFrame", *args: object, **kwargs: object) -> object:
+        """Apply the caller-owned transform to a lazy ShardLoom plan."""
+
+        return self.function(frame, *args, **kwargs)  # type: ignore[misc]
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowColumnTransform:
+    """Caller-declared column transform accepted by scoped map/applymap/transform paths."""
+
+    items: tuple[tuple[str, object], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowRowTransform:
+    """Caller-declared row transform accepted by scoped map_rows paths."""
+
+    items: tuple[tuple[str, object], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -3438,10 +3471,16 @@ class _VortexPrimitiveWorkflowShape:
     columns: tuple[str, ...] | None = None
     limit: int | None = None
     distinct: bool = False
+    duplicate_mask: bool = False
     tail_limit: int | None = None
     sample_count: int | None = None
     sample_seed: int | None = None
     sample_fraction: float | None = None
+    expression_projection: str | None = None
+    melt_projection: str | None = None
+    explode_projection: str | None = None
+    pivot_projection: str | None = None
+    rolling_window: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -3521,16 +3560,75 @@ class _ParsedVortexSqlSingleSourceRoute:
     clauses: _VortexSqlRouteClauses
 
 
+@dataclass(frozen=True, slots=True)
+class RollingFrame:
+    """Scoped source-order rolling builder for admitted native Vortex windows."""
+
+    frame: "LazyFrame"
+    window: int
+    min_periods: int
+    center: bool = False
+
+    def sum(
+        self,
+        column: object,
+        *,
+        alias: object | None = None,
+        check: bool = False,
+        **kwargs: object,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped source-order rolling sum over one numeric column."""
+
+        target_ref = _normalize_rolling_aggregate_target(
+            "sum",
+            column,
+            alias=alias,
+            kwargs=kwargs,
+        )
+        if kwargs:
+            return self.frame._unsupported_operation(
+                "rolling-sum",
+                target_ref,
+                check=check,
+            )
+        payload = _vortex_rolling_window_payload(
+            column,
+            output_column=alias,
+            window_size=self.window,
+            min_periods=self.min_periods,
+            aggregate="sum",
+        )
+        if payload is None:
+            return self.frame._unsupported_operation(
+                "rolling-sum",
+                target_ref,
+                check=check,
+            )
+        return self.frame._append(WorkflowOperation("rolling_window", (payload,)))
+
+
 def _native_vortex_operation_family_for_primitive(primitive: str) -> str:
     normalized = primitive.strip().lower().replace("-", "_")
     if normalized in {"count", "count_where", "filter_count", "filtered_count"}:
         return "count"
     if normalized in {"distinct", "distinct_rows", "drop_duplicates", "unique"}:
         return "distinct"
+    if normalized in {"duplicate_mask", "duplicate_mask_rows", "duplicated"}:
+        return "duplicate_mask"
     if normalized in {"tail", "tail_rows", "source_order_tail"}:
         return "top_n"
     if normalized in {"sample", "sample_rows", "deterministic_sample"}:
         return "sample"
+    if normalized in {"expression_project", "expression_project_rows", "mask", "replace"}:
+        return "expression_project"
+    if normalized in {"melt", "melt_rows", "unpivot"}:
+        return "melt"
+    if normalized in {"explode", "explode_rows", "list_explode"}:
+        return "explode"
+    if normalized in {"pivot", "pivot_rows", "pivot_table", "pivot_wide_reshape"}:
+        return "pivot"
+    if normalized in {"rolling", "rolling_window", "rolling_rows", "rolling_sum"}:
+        return "rolling_window"
     return "filter_project_limit"
 
 
@@ -3626,12 +3724,35 @@ def _native_vortex_row_export_payload_from_primitive_shape(
     sample_count = getattr(shape, "sample_count", None)
     sample_fraction = getattr(shape, "sample_fraction", None)
     tail_limit = getattr(shape, "tail_limit", None)
-    if sample_count is not None or sample_fraction is not None:
+    expression_projection = getattr(shape, "expression_projection", None)
+    melt_projection = getattr(shape, "melt_projection", None)
+    explode_projection = getattr(shape, "explode_projection", None)
+    pivot_projection = getattr(shape, "pivot_projection", None)
+    rolling_window = getattr(shape, "rolling_window", None)
+    if expression_projection is not None:
+        primitive = "expression_project"
+        source_order_limit = getattr(shape, "limit", None)
+    elif melt_projection is not None:
+        primitive = "melt"
+        source_order_limit = getattr(shape, "limit", None)
+    elif explode_projection is not None:
+        primitive = "explode"
+        source_order_limit = getattr(shape, "limit", None)
+    elif pivot_projection is not None:
+        primitive = "pivot"
+        source_order_limit = getattr(shape, "limit", None)
+    elif rolling_window is not None:
+        primitive = "rolling_window"
+        source_order_limit = getattr(shape, "limit", None)
+    elif sample_count is not None or sample_fraction is not None:
         primitive = "sample"
         source_order_limit = sample_count
     elif tail_limit is not None:
         primitive = "tail"
         source_order_limit = tail_limit
+    elif getattr(shape, "duplicate_mask", False):
+        primitive = "duplicate_mask"
+        source_order_limit = getattr(shape, "limit", None)
     elif getattr(shape, "distinct", False):
         primitive = "distinct"
         source_order_limit = getattr(shape, "limit", None)
@@ -3654,7 +3775,265 @@ def _native_vortex_row_export_payload_from_primitive_shape(
         "vortex_source_order_limit": source_order_limit,
         "vortex_sample_seed": getattr(shape, "sample_seed", None),
         "vortex_sample_fraction": sample_fraction,
+        "vortex_expression_projection": expression_projection,
+        "vortex_melt_projection": melt_projection,
+        "vortex_explode_projection": explode_projection,
+        "vortex_pivot_projection": pivot_projection,
+        "vortex_rolling_window": rolling_window,
     }
+
+
+def _vortex_expression_project_columns_from_payload(payload: str) -> tuple[str, ...] | None:
+    try:
+        decoded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(decoded, Mapping):
+        return None
+    columns = decoded.get("columns")
+    if isinstance(columns, str):
+        values = tuple(column.strip() for column in columns.split(",") if column.strip())
+    elif _is_non_string_sequence(columns):
+        values = tuple(str(column).strip() for column in columns if str(column).strip())
+    else:
+        return None
+    if not values or any(not _is_sql_identifier(column) for column in values):
+        return None
+    return values
+
+
+def _vortex_melt_projection_columns_from_payload(payload: str) -> tuple[str, ...] | None:
+    try:
+        decoded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(decoded, Mapping):
+        return None
+    id_columns = _json_column_tuple(decoded.get("id_columns"))
+    value_columns = _json_column_tuple(decoded.get("value_columns"))
+    if id_columns is None or value_columns is None or not value_columns:
+        return None
+    columns = (*id_columns, *value_columns)
+    if any(not _is_sql_identifier(column) for column in columns):
+        return None
+    return columns
+
+
+def _vortex_explode_projection_columns_from_payload(payload: str) -> tuple[str, ...] | None:
+    try:
+        decoded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(decoded, Mapping):
+        return None
+    column = (
+        decoded.get("column")
+        or decoded.get("explode_column")
+        or decoded.get("target_column")
+    )
+    if not isinstance(column, str) or not _is_sql_identifier(column):
+        return None
+    return (column,)
+
+
+def _vortex_explode_projection_payload(columns: Sequence[str]) -> str | None:
+    if len(columns) != 1:
+        return None
+    column = columns[0]
+    if not _is_sql_identifier(column):
+        return None
+    return json.dumps({"column": column}, separators=(",", ":"), sort_keys=True)
+
+
+def _vortex_pivot_projection_columns_from_payload(payload: str) -> tuple[str, ...] | None:
+    try:
+        decoded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(decoded, Mapping):
+        return None
+    index_column = decoded.get("index_column") or decoded.get("index")
+    pivot_column = decoded.get("pivot_column") or decoded.get("columns")
+    value_column = decoded.get("value_column") or decoded.get("values")
+    columns = (index_column, pivot_column, value_column)
+    if not all(isinstance(column, str) and _is_sql_identifier(column) for column in columns):
+        return None
+    if len(set(columns)) != len(columns):
+        return None
+    aggregate = str(decoded.get("aggregate") or decoded.get("aggfunc") or "").strip().lower()
+    if aggregate not in {"first_unique", "sum", "count", "mean"}:
+        return None
+    return tuple(columns)  # type: ignore[return-value]
+
+
+def _vortex_pivot_projection_payload(
+    *,
+    index: object | None,
+    columns: object | None,
+    values: object | None,
+    aggregate: str,
+    kwargs: Mapping[str, object],
+) -> str | None:
+    if kwargs or index is None or columns is None or values is None:
+        return None
+    try:
+        index_columns = _normalize_columns((index,))
+        pivot_columns = _normalize_columns((columns,))
+        value_columns = _normalize_columns((values,))
+    except (TypeError, ValueError):
+        return None
+    if len(index_columns) != 1 or len(pivot_columns) != 1 or len(value_columns) != 1:
+        return None
+    index_column = index_columns[0]
+    pivot_column = pivot_columns[0]
+    value_column = value_columns[0]
+    if (
+        not _is_sql_identifier(index_column)
+        or not _is_sql_identifier(pivot_column)
+        or not _is_sql_identifier(value_column)
+        or len({index_column, pivot_column, value_column}) != 3
+    ):
+        return None
+    normalized_aggregate = aggregate.strip().lower().replace("-", "_")
+    aliases = {
+        "first": "first_unique",
+        "first_unique": "first_unique",
+        "unique": "first_unique",
+        "sum": "sum",
+        "count": "count",
+        "mean": "mean",
+        "avg": "mean",
+    }
+    aggregate_value = aliases.get(normalized_aggregate)
+    if aggregate_value is None:
+        return None
+    payload = {
+        "aggregate": aggregate_value,
+        "index_column": index_column,
+        "pivot_column": pivot_column,
+        "value_column": value_column,
+    }
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
+
+def _json_column_tuple(value: object) -> tuple[str, ...] | None:
+    if isinstance(value, str):
+        columns = tuple(column.strip() for column in value.split(",") if column.strip())
+    elif _is_non_string_sequence(value):
+        columns = tuple(str(column).strip() for column in value if str(column).strip())
+    else:
+        return None
+    if any(not _is_sql_identifier(column) for column in columns):
+        return None
+    return columns
+
+
+def _vortex_melt_projection_payload(
+    *,
+    id_vars: object | None,
+    value_vars: object | None,
+    var_name: object | None,
+    value_name: object | None,
+    kwargs: Mapping[str, object],
+) -> str | None:
+    if kwargs or id_vars is None or value_vars is None:
+        return None
+    try:
+        id_columns = _normalize_columns((id_vars,))
+        value_columns = _normalize_columns((value_vars,))
+    except (TypeError, ValueError):
+        return None
+    variable_column = "variable" if var_name is None else str(var_name).strip()
+    value_column = "value" if value_name is None else str(value_name).strip()
+    if (
+        not id_columns
+        or not value_columns
+        or not variable_column
+        or not value_column
+        or variable_column == value_column
+        or any(not _is_sql_identifier(column) for column in id_columns)
+        or any(not _is_sql_identifier(column) for column in value_columns)
+        or not _is_sql_identifier(variable_column)
+        or not _is_sql_identifier(value_column)
+        or variable_column in id_columns
+        or value_column in id_columns
+    ):
+        return None
+    payload = {
+        "id_columns": list(id_columns),
+        "value_columns": list(value_columns),
+        "variable_column": variable_column,
+        "value_column": value_column,
+    }
+    return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
+
+def _vortex_rolling_window_columns_from_payload(payload: str) -> tuple[str, ...] | None:
+    try:
+        decoded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(decoded, Mapping):
+        return None
+    source_column = decoded.get("source_column") or decoded.get("column") or decoded.get("on")
+    if not isinstance(source_column, str) or not _is_sql_identifier(source_column):
+        return None
+    output_column = decoded.get("output_column") or decoded.get("alias")
+    if not isinstance(output_column, str) or not _is_sql_identifier(output_column):
+        return None
+    if source_column == output_column:
+        return None
+    window_size = decoded.get("window_size") or decoded.get("window")
+    min_periods = decoded.get("min_periods")
+    aggregate = str(decoded.get("aggregate") or decoded.get("agg") or "").strip().lower()
+    try:
+        parsed_window = _normalize_positive_int("rolling window", window_size)
+        parsed_min_periods = (
+            parsed_window
+            if min_periods is None
+            else _normalize_positive_int("rolling min_periods", min_periods)
+        )
+    except (TypeError, ValueError):
+        return None
+    if parsed_min_periods > parsed_window or aggregate != "sum":
+        return None
+    return (source_column,)
+
+
+def _vortex_rolling_window_payload(
+    column: object,
+    *,
+    output_column: object | None,
+    window_size: int,
+    min_periods: int,
+    aggregate: str,
+) -> str | None:
+    source_column = _normalize_expression_column(column)
+    if "." in source_column:
+        return None
+    output = (
+        _normalize_output_column_name(output_column)
+        if output_column is not None
+        else _normalize_output_column_name(f"{source_column}_rolling_sum")
+    )
+    if output == source_column:
+        return None
+    normalized_window = _normalize_positive_int("rolling window", window_size)
+    normalized_min_periods = _normalize_positive_int("rolling min_periods", min_periods)
+    normalized_aggregate = aggregate.strip().lower()
+    if normalized_min_periods > normalized_window or normalized_aggregate != "sum":
+        return None
+    return json.dumps(
+        {
+            "aggregate": normalized_aggregate,
+            "min_periods": normalized_min_periods,
+            "output_column": output,
+            "source_column": source_column,
+            "window_size": normalized_window,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -4397,10 +4776,14 @@ class LazyFrame:
         self,
         *columns: object,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for nested/list column expansion."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped native Vortex list explode plan when explicitly shaped."""
 
-        target_ref = ",".join(_normalize_columns(columns))
+        normalized_columns = _normalize_columns(columns)
+        target_ref = ",".join(normalized_columns)
+        payload = _vortex_explode_projection_payload(normalized_columns)
+        if payload is not None:
+            return self._append(WorkflowOperation("explode", (payload,)))
         return self._unsupported_operation("explode", target_ref, check=check)
 
     def merge(
@@ -4477,8 +4860,8 @@ class LazyFrame:
         values: object | None = None,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for DataFrame reshape/pivot semantics."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped native Vortex pivot plan when explicitly shaped."""
 
         target_ref = _normalize_pivot_target(
             index=index,
@@ -4486,6 +4869,15 @@ class LazyFrame:
             values=values,
             kwargs=kwargs,
         )
+        payload = _vortex_pivot_projection_payload(
+            index=index,
+            columns=columns,
+            values=values,
+            aggregate="first_unique",
+            kwargs=kwargs,
+        )
+        if payload is not None:
+            return self._append(WorkflowOperation("pivot", (payload,)))
         return self._unsupported_operation("pivot", target_ref, check=check)
 
     def pivot_table(
@@ -4497,8 +4889,8 @@ class LazyFrame:
         aggfunc: object | None = None,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for aggregate reshape semantics."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped native Vortex pivot-table plan when explicitly shaped."""
 
         target_ref = _normalize_pivot_table_target(
             values=values,
@@ -4507,6 +4899,15 @@ class LazyFrame:
             aggfunc=aggfunc,
             kwargs=kwargs,
         )
+        payload = _vortex_pivot_projection_payload(
+            index=index,
+            columns=columns,
+            values=values,
+            aggregate=str(aggfunc or "mean"),
+            kwargs=kwargs,
+        )
+        if payload is not None:
+            return self._append(WorkflowOperation("pivot", (payload,)))
         return self._unsupported_operation("pivot-table", target_ref, check=check)
 
     def melt(
@@ -4518,8 +4919,8 @@ class LazyFrame:
         value_name: object | None = None,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for DataFrame unpivot/melt semantics."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped native Vortex melt plan when explicitly shaped."""
 
         target_ref = _normalize_melt_target(
             id_vars=id_vars,
@@ -4528,6 +4929,15 @@ class LazyFrame:
             value_name=value_name,
             kwargs=kwargs,
         )
+        payload = _vortex_melt_projection_payload(
+            id_vars=id_vars,
+            value_vars=value_vars,
+            var_name=var_name,
+            value_name=value_name,
+            kwargs=kwargs,
+        )
+        if payload is not None:
+            return self._append(WorkflowOperation("melt", (payload,)))
         return self._unsupported_operation("melt", target_ref, check=check)
 
     def rolling(
@@ -4538,8 +4948,8 @@ class LazyFrame:
         center: bool = False,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for rolling-window DataFrame semantics."""
+    ) -> "RollingFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped source-order rolling builder when admitted."""
 
         target_ref = _normalize_rolling_target(
             window,
@@ -4547,7 +4957,25 @@ class LazyFrame:
             center=center,
             kwargs=kwargs,
         )
-        return self._unsupported_operation("rolling", target_ref, check=check)
+        if kwargs or center:
+            return self._unsupported_operation("rolling", target_ref, check=check)
+        try:
+            window_size = _normalize_positive_int("rolling window", window)
+            min_window_periods = (
+                window_size
+                if min_periods is None
+                else _normalize_positive_int("rolling min_periods", min_periods)
+            )
+        except (TypeError, ValueError):
+            return self._unsupported_operation("rolling", target_ref, check=check)
+        if min_window_periods > window_size:
+            return self._unsupported_operation("rolling", target_ref, check=check)
+        return RollingFrame(
+            frame=self,
+            window=window_size,
+            min_periods=min_window_periods,
+            center=False,
+        )
 
     def duplicated(
         self,
@@ -4556,10 +4984,14 @@ class LazyFrame:
         keep: str | bool = "first",
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for row-duplicate mask semantics."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped row-duplicate mask for admitted Vortex-backed rows."""
 
         target_ref = _normalize_duplicated_target(subset=subset, keep=keep, kwargs=kwargs)
+        if not kwargs and keep == "first":
+            columns = self._duplicate_mask_projection_columns(subset)
+            if columns is not None:
+                return self._append(WorkflowOperation("duplicate_mask", columns))
         return self._unsupported_operation("duplicated", target_ref, check=check)
 
     def tail(
@@ -4798,10 +5230,29 @@ class LazyFrame:
         *,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for conditional replacement semantics."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped scalar conditional rewrite when the native route can admit it."""
 
         target_ref = _normalize_mask_target(cond=cond, other=other, kwargs=kwargs)
+        if not kwargs and other is not None:
+            predicate = _vortex_tiny_predicate_from_sql(_predicate_sql(cond))
+            target_column = (
+                _vortex_tiny_predicate_column(predicate) if predicate is not None else None
+            )
+            if target_column is not None:
+                payload = self._expression_project_payload(
+                    (
+                        {
+                            "kind": "mask_scalar",
+                            "target_column": target_column,
+                            "predicate": predicate,
+                            "replacement": other,
+                        },
+                    ),
+                    required_columns=(target_column,),
+                )
+                if payload is not None:
+                    return self._append(WorkflowOperation("expression_project", (payload,)))
         return self._unsupported_operation("mask", target_ref, check=check)
 
     def replace(
@@ -4811,14 +5262,25 @@ class LazyFrame:
         *,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for broad value replacement semantics."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped scalar value rewrite when the native route can admit it."""
 
         target_ref = _normalize_replace_target(
             to_replace=to_replace,
             value=value,
             kwargs=kwargs,
         )
+        if not kwargs and to_replace is not None and value is not None:
+            rewrite_specs = self._replace_rewrite_specs(to_replace, value)
+            if rewrite_specs is not None:
+                payload = self._expression_project_payload(
+                    rewrite_specs,
+                    required_columns=tuple(
+                        str(spec["target_column"]) for spec in rewrite_specs
+                    ),
+                )
+                if payload is not None:
+                    return self._append(WorkflowOperation("expression_project", (payload,)))
         return self._unsupported_operation("replace", target_ref, check=check)
 
     def apply(
@@ -4827,9 +5289,18 @@ class LazyFrame:
         *args: object,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for Python callable DataFrame transforms."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped ShardLoom plan-transform apply when admitted."""
 
+        if isinstance(function, WorkflowPlanTransform):
+            result = function.apply(self, *args, **kwargs)
+            if isinstance(result, LazyFrame):
+                return result
+            return self._unsupported_operation(
+                "apply",
+                f"plan_transform={function.name};return_type={type(result).__name__}",
+                check=check,
+            )
         target_ref = _normalize_callable_transform_target(
             "apply",
             function,
@@ -4844,9 +5315,18 @@ class LazyFrame:
         *args: object,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for Python callable workflow piping."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped ShardLoom plan-transform pipe when admitted."""
 
+        if isinstance(function, WorkflowPlanTransform):
+            result = function.apply(self, *args, **kwargs)
+            if isinstance(result, LazyFrame):
+                return result
+            return self._unsupported_operation(
+                "pipe",
+                f"plan_transform={function.name};return_type={type(result).__name__}",
+                check=check,
+            )
         target_ref = _normalize_callable_transform_target(
             "pipe",
             function,
@@ -4861,9 +5341,13 @@ class LazyFrame:
         *args: object,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for pandas-style transform callables."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return scoped column transform mappings when admitted."""
 
+        if isinstance(function, WorkflowColumnTransform) and not args and not kwargs:
+            return self.with_columns(function.items, check=check)
+        if not args and not kwargs and isinstance(function, Mapping):
+            return self.with_columns(function, check=check)
         target_ref = _normalize_callable_transform_target(
             "transform",
             function,
@@ -4878,9 +5362,11 @@ class LazyFrame:
         *args: object,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for element-wise DataFrame callables."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return scoped column transforms while blocking Python cell callables."""
 
+        if isinstance(function, WorkflowColumnTransform) and not args and not kwargs:
+            return self.with_columns(function.items, check=check)
         target_ref = _normalize_callable_transform_target(
             "applymap",
             function,
@@ -4895,9 +5381,11 @@ class LazyFrame:
         *args: object,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for element-wise Python callable transforms."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return scoped column transforms while blocking Python element callables."""
 
+        if isinstance(function, WorkflowColumnTransform) and not args and not kwargs:
+            return self.with_columns(function.items, check=check)
         target_ref = _normalize_callable_transform_target("map", function, args, kwargs)
         return self._unsupported_operation("map", target_ref, check=check)
 
@@ -4907,9 +5395,11 @@ class LazyFrame:
         *args: object,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for row-wise Python callable transforms."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return scoped declarative row transforms while blocking Python row callables."""
 
+        if isinstance(function, WorkflowRowTransform) and not args and not kwargs:
+            return self.with_columns(function.items, check=check)
         target_ref = _normalize_callable_transform_target(
             "map_rows",
             function,
@@ -4924,10 +5414,20 @@ class LazyFrame:
         *,
         check: bool = False,
         **kwargs: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return a deterministic blocker for pandas expression-engine evaluation."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped expression-project assignment when admitted."""
 
         target_ref = _normalize_eval_target(expr, kwargs)
+        if not kwargs:
+            rewrite_spec = _eval_numeric_scalar_assignment_rewrite(expr)
+            if rewrite_spec is not None:
+                target_column = str(rewrite_spec["target_column"])
+                payload = self._expression_project_payload(
+                    (rewrite_spec,),
+                    required_columns=(target_column,),
+                )
+                if payload is not None:
+                    return self._append(WorkflowOperation("expression_project", (payload,)))
         return self._unsupported_operation("eval", target_ref, check=check)
 
     def distinct(self) -> "LazyFrame":
@@ -5106,6 +5606,20 @@ class LazyFrame:
                     f"{column_name}={expression_text}",
                     check=check,
                 )
+        if expression_project_payload := self._numeric_scalar_expression_project_payload(
+            column_name,
+            expression_sql,
+        ):
+            return self._append(
+                WorkflowOperation("expression_project", (expression_project_payload,))
+            )
+        if expression_project_payload := self._string_replace_expression_project_payload(
+            column_name,
+            expression_sql,
+        ):
+            return self._append(
+                WorkflowOperation("expression_project", (expression_project_payload,))
+            )
         if self._can_append_projection_column(column_name):
             return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
         if self.source.source_format == "vortex" and _sql_text_looks_like_cast(expression_sql):
@@ -5191,7 +5705,17 @@ class LazyFrame:
         primitive_shape = self._vortex_primitive_shape()
         if primitive_shape is not None:
             primitive: str | None = None
-            if (
+            if primitive_shape.expression_projection is not None:
+                primitive = "expression_project"
+            elif primitive_shape.melt_projection is not None:
+                primitive = "melt"
+            elif primitive_shape.explode_projection is not None:
+                primitive = "explode"
+            elif primitive_shape.pivot_projection is not None:
+                primitive = "pivot"
+            elif primitive_shape.rolling_window is not None:
+                primitive = "rolling_window"
+            elif (
                 primitive_shape.sample_count is not None
                 or primitive_shape.sample_fraction is not None
             ):
@@ -5221,6 +5745,11 @@ class LazyFrame:
                     ),
                     "vortex_sample_seed": primitive_shape.sample_seed,
                     "vortex_sample_fraction": primitive_shape.sample_fraction,
+                    "vortex_expression_projection": primitive_shape.expression_projection,
+                    "vortex_melt_projection": primitive_shape.melt_projection,
+                    "vortex_explode_projection": primitive_shape.explode_projection,
+                    "vortex_pivot_projection": primitive_shape.pivot_projection,
+                    "vortex_rolling_window": primitive_shape.rolling_window,
                 }
         provider_shape = self._native_vortex_user_route_shape()
         if provider_shape is None:
@@ -7002,7 +7531,92 @@ class LazyFrame:
         memory_gb = _normalize_positive_int("memory_gb", memory_gb)
         max_parallelism = _normalize_positive_int("max_parallelism", max_parallelism)
         envelope: OutputEnvelope | None = None
-        if shape.sample_count is not None:
+        if shape.expression_projection is not None:
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="expression_project",
+                predicate=None,
+                columns=shape.columns,
+                source_order_limit=shape.limit,
+                sample_seed=None,
+                sample_fraction=None,
+                expression_projection=shape.expression_projection,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.melt_projection is not None:
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="melt",
+                predicate=None,
+                columns=shape.columns,
+                source_order_limit=shape.limit,
+                sample_seed=None,
+                sample_fraction=None,
+                expression_projection=None,
+                melt_projection=shape.melt_projection,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.explode_projection is not None:
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="explode",
+                predicate=None,
+                columns=shape.columns,
+                source_order_limit=shape.limit,
+                sample_seed=None,
+                sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=shape.explode_projection,
+                pivot_projection=None,
+                rolling_window=None,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.pivot_projection is not None:
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="pivot",
+                predicate=None,
+                columns=shape.columns,
+                source_order_limit=shape.limit,
+                sample_seed=None,
+                sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=shape.pivot_projection,
+                rolling_window=None,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.rolling_window is not None:
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="rolling_window",
+                predicate=None,
+                columns=shape.columns,
+                source_order_limit=shape.limit,
+                sample_seed=None,
+                sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=shape.rolling_window,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.sample_count is not None:
             envelope = self._run_vortex_primitive_public_workflow(
                 primitive="sample",
                 predicate=shape.predicate,
@@ -7010,6 +7624,11 @@ class LazyFrame:
                 source_order_limit=shape.sample_count,
                 sample_seed=shape.sample_seed,
                 sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7022,6 +7641,11 @@ class LazyFrame:
                 source_order_limit=None,
                 sample_seed=shape.sample_seed,
                 sample_fraction=shape.sample_fraction,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7034,6 +7658,11 @@ class LazyFrame:
                 source_order_limit=shape.tail_limit,
                 sample_seed=None,
                 sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7046,6 +7675,28 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+            )
+        elif shape.duplicate_mask:
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="duplicate_mask",
+                predicate=None,
+                columns=shape.columns,
+                source_order_limit=shape.limit,
+                sample_seed=None,
+                sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7058,6 +7709,11 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7070,6 +7726,11 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7082,6 +7743,11 @@ class LazyFrame:
                 source_order_limit=shape.limit,
                 sample_seed=None,
                 sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7107,9 +7773,15 @@ class LazyFrame:
             or shape.columns is not None
             or shape.limit is not None
             or shape.distinct
+            or shape.duplicate_mask
             or shape.tail_limit is not None
             or shape.sample_count is not None
             or shape.sample_fraction is not None
+            or shape.expression_projection is not None
+            or shape.melt_projection is not None
+            or shape.explode_projection is not None
+            or shape.pivot_projection is not None
+            or shape.rolling_window is not None
         ):
             return None
         memory_gb = _normalize_positive_int("memory_gb", memory_gb)
@@ -7122,6 +7794,11 @@ class LazyFrame:
                 source_order_limit=None,
                 sample_seed=None,
                 sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7134,6 +7811,11 @@ class LazyFrame:
                 source_order_limit=None,
                 sample_seed=None,
                 sample_fraction=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
                 check=check,
@@ -7274,6 +7956,11 @@ class LazyFrame:
         source_order_limit: int | None,
         sample_seed: int | None,
         sample_fraction: float | None,
+        expression_projection: str | None,
+        melt_projection: str | None,
+        explode_projection: str | None,
+        pivot_projection: str | None,
+        rolling_window: str | None,
         memory_gb: int,
         max_parallelism: int,
         check: bool,
@@ -7297,6 +7984,11 @@ class LazyFrame:
             vortex_source_order_limit=source_order_limit,
             vortex_sample_seed=sample_seed,
             vortex_sample_fraction=sample_fraction,
+            vortex_expression_projection=expression_projection,
+            vortex_melt_projection=melt_projection,
+            vortex_explode_projection=explode_projection,
+            vortex_pivot_projection=pivot_projection,
+            vortex_rolling_window=rolling_window,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
             check=check,
@@ -7309,10 +8001,16 @@ class LazyFrame:
         columns: tuple[str, ...] | None = None
         limit: int | None = None
         distinct = False
+        duplicate_mask = False
         tail_limit: int | None = None
         sample_count: int | None = None
         sample_seed: int | None = None
         sample_fraction: float | None = None
+        expression_projection: str | None = None
+        melt_projection: str | None = None
+        explode_projection: str | None = None
+        pivot_projection: str | None = None
+        rolling_window: str | None = None
         for operation in self.operations:
             if operation.kind == "set_index":
                 continue
@@ -7321,9 +8019,15 @@ class LazyFrame:
                     predicate is not None
                     or limit is not None
                     or distinct
+                    or duplicate_mask
                     or tail_limit is not None
                     or sample_count is not None
                     or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
                 ):
                     return None
                 if _sql_filter_requires_native_vortex_expression_route(operation.values[0]):
@@ -7336,9 +8040,15 @@ class LazyFrame:
                     columns is not None
                     or limit is not None
                     or distinct
+                    or duplicate_mask
                     or tail_limit is not None
                     or sample_count is not None
                     or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
                 ):
                     return None
                 if any(
@@ -7351,20 +8061,58 @@ class LazyFrame:
                 if (
                     distinct
                     or limit is not None
+                    or duplicate_mask
                     or tail_limit is not None
                     or sample_count is not None
                     or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
                 ):
                     return None
                 distinct = True
-            elif operation.kind == "tail":
+            elif operation.kind == "duplicate_mask":
                 if (
-                    predicate is not None
+                    duplicate_mask
+                    or predicate is not None
                     or limit is not None
                     or distinct
                     or tail_limit is not None
                     or sample_count is not None
                     or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
+                ):
+                    return None
+                if not operation.values or any(
+                    not _is_sql_identifier(column) for column in operation.values
+                ):
+                    return None
+                if columns is not None and any(
+                    column not in columns for column in operation.values
+                ):
+                    return None
+                columns = operation.values
+                duplicate_mask = True
+            elif operation.kind == "tail":
+                if (
+                    predicate is not None
+                    or limit is not None
+                    or distinct
+                    or duplicate_mask
+                    or tail_limit is not None
+                    or sample_count is not None
+                    or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
                 ):
                     return None
                 parsed_tail = int(operation.values[0])
@@ -7375,9 +8123,15 @@ class LazyFrame:
                 if (
                     limit is not None
                     or distinct
+                    or duplicate_mask
                     or tail_limit is not None
                     or sample_count is not None
                     or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
                 ):
                     return None
                 if operation.values and operation.values[0] == "fraction":
@@ -7401,6 +8155,143 @@ class LazyFrame:
                         return None
                     sample_count = parsed_sample
                     sample_seed = parsed_seed
+            elif operation.kind == "expression_project":
+                if (
+                    predicate is not None
+                    or limit is not None
+                    or distinct
+                    or duplicate_mask
+                    or tail_limit is not None
+                    or sample_count is not None
+                    or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
+                ):
+                    return None
+                if len(operation.values) != 1:
+                    return None
+                parsed_columns = _vortex_expression_project_columns_from_payload(
+                    operation.values[0]
+                )
+                if parsed_columns is None:
+                    return None
+                if columns is not None and columns != parsed_columns:
+                    return None
+                columns = parsed_columns
+                expression_projection = operation.values[0]
+            elif operation.kind == "melt":
+                if (
+                    predicate is not None
+                    or limit is not None
+                    or distinct
+                    or duplicate_mask
+                    or tail_limit is not None
+                    or sample_count is not None
+                    or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
+                ):
+                    return None
+                if len(operation.values) != 1:
+                    return None
+                parsed_columns = _vortex_melt_projection_columns_from_payload(
+                    operation.values[0]
+                )
+                if parsed_columns is None:
+                    return None
+                if columns is not None and columns != parsed_columns:
+                    return None
+                columns = parsed_columns
+                melt_projection = operation.values[0]
+            elif operation.kind == "explode":
+                if (
+                    predicate is not None
+                    or limit is not None
+                    or distinct
+                    or duplicate_mask
+                    or tail_limit is not None
+                    or sample_count is not None
+                    or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
+                ):
+                    return None
+                if len(operation.values) != 1:
+                    return None
+                parsed_columns = _vortex_explode_projection_columns_from_payload(
+                    operation.values[0]
+                )
+                if parsed_columns is None:
+                    return None
+                if columns is not None:
+                    if any(column not in columns for column in parsed_columns):
+                        return None
+                else:
+                    columns = parsed_columns
+                explode_projection = operation.values[0]
+            elif operation.kind == "pivot":
+                if (
+                    predicate is not None
+                    or limit is not None
+                    or distinct
+                    or duplicate_mask
+                    or tail_limit is not None
+                    or sample_count is not None
+                    or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
+                ):
+                    return None
+                if len(operation.values) != 1:
+                    return None
+                parsed_columns = _vortex_pivot_projection_columns_from_payload(
+                    operation.values[0]
+                )
+                if parsed_columns is None:
+                    return None
+                if columns is not None and columns != parsed_columns:
+                    return None
+                columns = parsed_columns
+                pivot_projection = operation.values[0]
+            elif operation.kind == "rolling_window":
+                if (
+                    predicate is not None
+                    or limit is not None
+                    or distinct
+                    or duplicate_mask
+                    or tail_limit is not None
+                    or sample_count is not None
+                    or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
+                ):
+                    return None
+                if len(operation.values) != 1:
+                    return None
+                parsed_columns = _vortex_rolling_window_columns_from_payload(
+                    operation.values[0]
+                )
+                if parsed_columns is None:
+                    return None
+                if columns is not None and columns != parsed_columns:
+                    return None
+                columns = parsed_columns
+                rolling_window = operation.values[0]
             elif operation.kind == "limit":
                 if (
                     limit is not None
@@ -7420,10 +8311,16 @@ class LazyFrame:
             columns=columns,
             limit=limit,
             distinct=distinct,
+            duplicate_mask=duplicate_mask,
             tail_limit=tail_limit,
             sample_count=sample_count,
             sample_seed=sample_seed,
             sample_fraction=sample_fraction,
+            expression_projection=expression_projection,
+            melt_projection=melt_projection,
+            explode_projection=explode_projection,
+            pivot_projection=pivot_projection,
+            rolling_window=rolling_window,
         )
 
     def _native_vortex_user_route_shape(self) -> _NativeVortexUserRouteShape | None:
@@ -7599,6 +8496,249 @@ class LazyFrame:
                 and not other.operations
             )
         return _source_format_for_local_source_ref(str(other)) is not None
+
+    def _expression_project_projection_columns(
+        self,
+        required_columns: tuple[str, ...],
+    ) -> tuple[str, ...] | None:
+        if not self.source.schema:
+            return None
+        declared_columns = tuple(name for name, _dtype in self.source.schema)
+        if not declared_columns or any(not _is_sql_identifier(name) for name in declared_columns):
+            return None
+        projection_columns = declared_columns
+        for operation in self.operations:
+            if operation.kind == "select":
+                if any(not _is_sql_identifier(value) for value in operation.values):
+                    return None
+                projection_columns = operation.values
+            elif operation.kind == "set_index":
+                continue
+            else:
+                return None
+        required = tuple(dict.fromkeys(required_columns))
+        if any(not _is_sql_identifier(column) for column in required):
+            return None
+        if any(column not in projection_columns for column in required):
+            return None
+        return projection_columns
+
+    def _duplicate_mask_projection_columns(
+        self,
+        subset: object | None,
+    ) -> tuple[str, ...] | None:
+        if not self.source.schema:
+            return None
+        declared_columns = tuple(name for name, _dtype in self.source.schema)
+        if not declared_columns or any(not _is_sql_identifier(name) for name in declared_columns):
+            return None
+        projection_columns = declared_columns
+        for operation in self.operations:
+            if operation.kind == "select":
+                if any(not _is_sql_identifier(value) for value in operation.values):
+                    return None
+                projection_columns = operation.values
+            elif operation.kind == "set_index":
+                continue
+            else:
+                return None
+        if subset is None:
+            return projection_columns
+        subset_columns = _normalize_columns((subset,))
+        if not subset_columns or any(not _is_sql_identifier(column) for column in subset_columns):
+            return None
+        missing = tuple(column for column in subset_columns if column not in projection_columns)
+        if missing:
+            raise ValueError(
+                "duplicated subset referenced unknown declared/projection column(s): "
+                + ", ".join(missing)
+            )
+        return subset_columns
+
+    def _expression_project_payload(
+        self,
+        rewrite_specs: tuple[Mapping[str, object], ...],
+        *,
+        required_columns: tuple[str, ...],
+    ) -> str | None:
+        projection_columns = self._expression_project_projection_columns(required_columns)
+        if projection_columns is None:
+            return None
+        schema = self.source.schema_map
+        rewrites: list[dict[str, object]] = []
+        for spec in rewrite_specs:
+            kind = str(spec.get("kind", "")).strip()
+            target_column = str(spec.get("target_column", "")).strip()
+            if not kind or not target_column:
+                return None
+            target_dtype = schema.get(target_column)
+            if target_dtype is None:
+                return None
+            if kind == "mask_scalar":
+                predicate = str(spec.get("predicate", "")).strip()
+                replacement = _vortex_expression_scalar_payload(
+                    spec.get("replacement"),
+                    target_dtype=target_dtype,
+                )
+                if not predicate or replacement is None:
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "mask_scalar",
+                        "target_column": target_column,
+                        "predicate": predicate,
+                        "replacement": replacement,
+                    }
+                )
+            elif kind == "replace_scalar":
+                to_replace = _vortex_expression_scalar_payload(
+                    spec.get("to_replace"),
+                    target_dtype=target_dtype,
+                )
+                replacement = _vortex_expression_scalar_payload(
+                    spec.get("replacement"),
+                    target_dtype=target_dtype,
+                )
+                if to_replace is None or replacement is None:
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "replace_scalar",
+                        "target_column": target_column,
+                        "to_replace": to_replace,
+                        "replacement": replacement,
+                    }
+                )
+            elif kind == "string_replace_scalar":
+                dtype = target_dtype.strip().lower().replace("-", "_")
+                needle = spec.get("needle")
+                replacement = spec.get("replacement")
+                if (
+                    dtype not in {"utf8", "string", "str"}
+                    or not isinstance(needle, str)
+                    or needle == ""
+                    or not isinstance(replacement, str)
+                ):
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "string_replace_scalar",
+                        "target_column": target_column,
+                        "needle": needle,
+                        "replacement": replacement,
+                    }
+                )
+            elif kind == "numeric_scalar_arithmetic":
+                operator = str(spec.get("operator", "")).strip()
+                if operator not in {"+", "-", "*", "/"}:
+                    return None
+                operand = _vortex_expression_scalar_payload(
+                    spec.get("operand"),
+                    target_dtype=target_dtype,
+                )
+                if operand is None:
+                    return None
+                rewrites.append(
+                    {
+                        "kind": "numeric_scalar_arithmetic",
+                        "target_column": target_column,
+                        "operator": operator,
+                        "operand": operand,
+                    }
+                )
+            else:
+                return None
+        if not rewrites:
+            return None
+        payload = {
+            "columns": list(projection_columns),
+            "rewrites": rewrites,
+        }
+        return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+    def _replace_rewrite_specs(
+        self,
+        to_replace: object,
+        value: object,
+    ) -> tuple[Mapping[str, object], ...] | None:
+        projection_columns = self._expression_project_projection_columns(())
+        if projection_columns is None:
+            return None
+        specs: list[Mapping[str, object]] = []
+        if isinstance(to_replace, Mapping):
+            if not to_replace:
+                return None
+            replacement_map = value if isinstance(value, Mapping) else None
+            for raw_column, old_value in to_replace.items():
+                column = str(raw_column).strip()
+                if not _is_sql_identifier(column) or column not in projection_columns:
+                    return None
+                if replacement_map is not None:
+                    if raw_column not in replacement_map and column not in replacement_map:
+                        return None
+                    new_value = replacement_map.get(raw_column, replacement_map.get(column))
+                else:
+                    new_value = value
+                if new_value is None:
+                    return None
+                specs.append(
+                    {
+                        "kind": "replace_scalar",
+                        "target_column": column,
+                        "to_replace": old_value,
+                        "replacement": new_value,
+                    }
+                )
+            return tuple(specs)
+        if len(projection_columns) != 1:
+            return None
+        return (
+            {
+                "kind": "replace_scalar",
+                "target_column": projection_columns[0],
+                "to_replace": to_replace,
+                "replacement": value,
+            },
+        )
+
+    def _string_replace_expression_project_payload(
+        self,
+        column_name: str,
+        expression_sql: str,
+    ) -> str | None:
+        parsed = _vortex_string_replace_expression_parts(expression_sql)
+        if parsed is None:
+            return None
+        source_column, needle, replacement = parsed
+        if source_column != column_name:
+            return None
+        return self._expression_project_payload(
+            (
+                {
+                    "kind": "string_replace_scalar",
+                    "target_column": column_name,
+                    "needle": needle,
+                    "replacement": replacement,
+                },
+            ),
+            required_columns=(column_name,),
+        )
+
+    def _numeric_scalar_expression_project_payload(
+        self,
+        column_name: str,
+        expression_sql: str,
+    ) -> str | None:
+        rewrite = _numeric_scalar_assignment_rewrite_from_expression(
+            column_name,
+            expression_sql,
+        )
+        if rewrite is None:
+            return None
+        return self._expression_project_payload(
+            (rewrite,),
+            required_columns=(column_name,),
+        )
 
     def _schema_declared_projection_columns(self) -> tuple[str, ...] | None:
         if not _is_query_builder_local_source(self.source) or not self.source.schema:
@@ -8204,6 +9344,72 @@ def read_vortex(
         client=client,
         engine_mode=engine_mode,
         **client_config,
+    )
+
+
+def plan_transform(
+    function: object | None = None,
+    *,
+    name: object | None = None,
+) -> object:
+    """Declare a workflow-level transform admitted by `LazyFrame.pipe(...)`.
+
+    The wrapped callable runs only during lazy plan construction. It must
+    return a `LazyFrame`; data execution remains inside ShardLoom's terminal
+    Vortex-prepared/native routes.
+    """
+
+    if function is None:
+
+        def decorator(candidate: object) -> WorkflowPlanTransform:
+            return plan_transform(candidate, name=name)  # type: ignore[return-value]
+
+        return decorator
+    if not callable(function):
+        raise TypeError("plan_transform requires a callable")
+    default_name = getattr(function, "__name__", "plan_transform")
+    transform_name = _normalize_plan_transform_name(
+        default_name if name is None else name,
+    )
+    return WorkflowPlanTransform(transform_name, function)
+
+
+def column_transform(
+    columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
+    **named_expressions: object,
+) -> WorkflowColumnTransform:
+    """Declare scoped column rewrites for `map`, `applymap`, or `transform`.
+
+    The wrapper is declarative. It does not execute Python row/cell functions;
+    terminal execution still lowers through ShardLoom's native/prepared routes.
+    """
+
+    return WorkflowColumnTransform(
+        _normalize_named_projection_items(
+            "column_transform",
+            columns,
+            named_expressions,
+        )
+    )
+
+
+def row_transform(
+    columns: Mapping[str, object] | Sequence[tuple[object, object]] | None = None,
+    **named_expressions: object,
+) -> WorkflowRowTransform:
+    """Declare scoped row-shaped rewrites for `map_rows`.
+
+    The wrapper is declarative and may reference columns through ShardLoom
+    expressions. It does not execute Python row functions; terminal execution
+    still lowers through native/prepared Vortex expression-project routes.
+    """
+
+    return WorkflowRowTransform(
+        _normalize_named_projection_items(
+            "row_transform",
+            columns,
+            named_expressions,
+        )
     )
 
 
@@ -10173,6 +11379,23 @@ def _normalize_rolling_target(
     return ";".join(parts)
 
 
+def _normalize_rolling_aggregate_target(
+    aggregate: str,
+    column: object,
+    *,
+    alias: object | None,
+    kwargs: Mapping[str, object],
+) -> str:
+    parts = [
+        f"aggregate={_require_non_empty('rolling aggregate', aggregate)}",
+        f"column={_require_non_empty('rolling column', column)}",
+    ]
+    if alias is not None:
+        parts.append(f"alias={_require_non_empty('rolling alias', alias)}")
+    parts.extend(_normalize_extra_kwargs("rolling aggregate", kwargs))
+    return ";".join(parts)
+
+
 def _normalize_describe_target(
     columns: Sequence[object],
     kwargs: Mapping[str, object],
@@ -10419,6 +11642,13 @@ def _normalize_callable_transform_target(
     return ";".join(parts)
 
 
+def _normalize_plan_transform_name(value: object) -> str:
+    text = _require_non_empty("plan transform name", value)
+    if any(char in text for char in (";", "\n", "\r", "\t")):
+        raise ValueError("plan transform name must be a compact label")
+    return text
+
+
 def _normalize_eval_target(
     expr: object,
     kwargs: Mapping[str, object],
@@ -10426,6 +11656,96 @@ def _normalize_eval_target(
     parts = [f"expr={_require_non_empty('eval expression', expr)}"]
     parts.extend(_normalize_extra_kwargs("eval", kwargs))
     return ";".join(parts)
+
+
+def _eval_numeric_scalar_assignment_rewrite(expr: object) -> dict[str, object] | None:
+    if not isinstance(expr, str):
+        return None
+    try:
+        parsed = ast.parse(_require_non_empty("eval expression", expr), mode="exec")
+    except SyntaxError:
+        return None
+    if len(parsed.body) != 1 or not isinstance(parsed.body[0], ast.Assign):
+        return None
+    statement = parsed.body[0]
+    if len(statement.targets) != 1 or not isinstance(statement.targets[0], ast.Name):
+        return None
+    target_column = _normalize_output_column_name(statement.targets[0].id)
+    value = statement.value
+    if not isinstance(value, ast.BinOp) or not isinstance(value.left, ast.Name):
+        return None
+    if _normalize_output_column_name(value.left.id) != target_column:
+        return None
+    return _numeric_scalar_assignment_rewrite_from_binop(target_column, value)
+
+
+def _numeric_scalar_assignment_rewrite_from_expression(
+    target_column: str,
+    expression_sql: str,
+) -> dict[str, object] | None:
+    target_column = _normalize_output_column_name(target_column)
+    try:
+        parsed = ast.parse(
+            _require_non_empty("numeric assignment expression", expression_sql),
+            mode="eval",
+        )
+    except SyntaxError:
+        return None
+    value = parsed.body
+    if not isinstance(value, ast.BinOp) or not isinstance(value.left, ast.Name):
+        return None
+    if _normalize_output_column_name(value.left.id) != target_column:
+        return None
+    return _numeric_scalar_assignment_rewrite_from_binop(target_column, value)
+
+
+def _numeric_scalar_assignment_rewrite_from_binop(
+    target_column: str,
+    value: ast.BinOp,
+) -> dict[str, object] | None:
+    operator = _eval_numeric_scalar_operator(value.op)
+    if operator is None:
+        return None
+    operand = _eval_numeric_scalar_literal(value.right)
+    if operand is None:
+        return None
+    if operator == "/" and float(operand) == 0.0:
+        return None
+    return {
+        "kind": "numeric_scalar_arithmetic",
+        "target_column": target_column,
+        "operator": operator,
+        "operand": operand,
+    }
+
+
+def _eval_numeric_scalar_operator(operator: ast.operator) -> str | None:
+    if isinstance(operator, ast.Add):
+        return "+"
+    if isinstance(operator, ast.Sub):
+        return "-"
+    if isinstance(operator, ast.Mult):
+        return "*"
+    if isinstance(operator, ast.Div):
+        return "/"
+    return None
+
+
+def _eval_numeric_scalar_literal(node: ast.AST) -> int | float | None:
+    if isinstance(node, ast.Constant) and not isinstance(node.value, bool):
+        if isinstance(node.value, (int, float)) and math.isfinite(float(node.value)):
+            return node.value
+        return None
+    if (
+        isinstance(node, ast.UnaryOp)
+        and isinstance(node.op, ast.USub)
+        and isinstance(node.operand, ast.Constant)
+        and not isinstance(node.operand.value, bool)
+        and isinstance(node.operand.value, (int, float))
+    ):
+        value = -node.operand.value
+        return value if math.isfinite(float(value)) else None
+    return None
 
 
 def _stable_callable_name(function: object) -> str:
@@ -10808,6 +12128,40 @@ def _sql_literal(value: object) -> str:
     raise TypeError(
         "SQL predicate literals must be bool, int, float, str, bytes, date, datetime, or None"
     )
+
+
+def _vortex_expression_scalar_payload(
+    value: object,
+    *,
+    target_dtype: str,
+) -> dict[str, object] | None:
+    if value is None:
+        return None
+    dtype = target_dtype.strip().lower().replace("-", "_")
+    if dtype in {"bool", "boolean"}:
+        if isinstance(value, bool):
+            return {"type": "boolean", "value": value}
+        return None
+    if dtype in {"int64", "int", "integer"}:
+        if isinstance(value, bool) or not isinstance(value, int):
+            return None
+        return {"type": "int64", "value": value}
+    if dtype in {"uint64", "uint", "unsigned"}:
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+        return {"type": "uint64", "value": value}
+    if dtype in {"float64", "float", "double"}:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        parsed = float(value)
+        if not math.isfinite(parsed):
+            return None
+        return {"type": "float64", "value": parsed}
+    if dtype in {"utf8", "string", "str"}:
+        if isinstance(value, str):
+            return {"type": "utf8", "value": value}
+        return None
+    return None
 
 
 def _sql_complex_projection_literal(value: object) -> str:
@@ -11314,6 +12668,29 @@ def _sql_string_function_projection_expression(expression: object) -> str:
         f"{_sql_string_function_literal('replace search literal', needle, allow_empty=False)}, "
         f"{_sql_string_function_literal('replace replacement literal', replacement, allow_empty=True)})"
     )
+
+
+def _vortex_string_replace_expression_parts(
+    expression_sql: str,
+) -> tuple[str, str, str] | None:
+    text = expression_sql.strip()
+    upper = text.upper()
+    if not upper.startswith("REPLACE(") or not text.endswith(")"):
+        return None
+    args = _split_projection_function_args(text[len("REPLACE(") : -1].strip())
+    if len(args) != 3:
+        return None
+    try:
+        column, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        if not has_source_column or not _is_sql_identifier(column):
+            return None
+        needle = _parse_sql_string_literal_token(args[1])
+        replacement = _parse_sql_string_literal_token(args[2])
+    except (TypeError, ValueError):
+        return None
+    if needle == "":
+        return None
+    return column, needle, replacement
 
 
 def _sql_binary_helper_projection_expression(expression: object) -> str:
@@ -12384,6 +13761,22 @@ def _vortex_tiny_predicate_from_sql(predicate: str) -> str | None:
         "<=": "lte",
     }[operator]
     return f"{op}:{column}:{value}"
+
+
+def _vortex_tiny_predicate_column(predicate: str | None) -> str | None:
+    if predicate is None:
+        return None
+    text = predicate.strip()
+    null_match = _VORTEX_TINY_NULL_PREDICATE_RE.fullmatch(text)
+    if null_match:
+        return null_match.group(1)
+    compact_match = _VORTEX_TINY_COMPACT_RE.fullmatch(text)
+    if compact_match:
+        return compact_match.group(2) or compact_match.group(4)
+    compare_match = _VORTEX_TINY_INT_COMPARE_RE.fullmatch(text)
+    if compare_match:
+        return compare_match.group(1)
+    return None
 
 
 def _is_local_source_sql_ref(value: str) -> bool:

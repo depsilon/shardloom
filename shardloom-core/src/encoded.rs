@@ -485,6 +485,7 @@ impl ComparisonOp {
 pub enum PredicateExpr {
     AlwaysTrue,
     AlwaysFalse,
+    And(Vec<PredicateExpr>),
     IsNull {
         column: ColumnRef,
     },
@@ -504,7 +505,7 @@ impl PredicateExpr {
             Self::IsNull { column } | Self::IsNotNull { column } | Self::Compare { column, .. } => {
                 Some(column)
             }
-            Self::AlwaysTrue | Self::AlwaysFalse => None,
+            Self::AlwaysTrue | Self::AlwaysFalse | Self::And(_) => None,
         }
     }
 
@@ -512,6 +513,14 @@ impl PredicateExpr {
         match self {
             Self::AlwaysTrue => "always_true".to_string(),
             Self::AlwaysFalse => "always_false".to_string(),
+            Self::And(predicates) => format!(
+                "and({})",
+                predicates
+                    .iter()
+                    .map(Self::summary)
+                    .collect::<Vec<_>>()
+                    .join(";")
+            ),
             Self::IsNull { column } => format!("{} is null", column.as_str()),
             Self::IsNotNull { column } => format!("{} is not null", column.as_str()),
             Self::Compare { column, op, value } => {
@@ -808,6 +817,7 @@ pub fn prove_predicate_from_stats(
         PredicateExpr::AlwaysFalse => PredicateProof::AlwaysFalse {
             reason: "always false predicate".to_string(),
         },
+        PredicateExpr::And(predicates) => prove_conjunction_from_stats(predicates, stats),
         PredicateExpr::IsNull { .. } => match (stats.row_count, stats.null_count) {
             (Some(0), _) => PredicateProof::AlwaysFalse {
                 reason: "segment row_count == 0".to_string(),
@@ -837,6 +847,51 @@ pub fn prove_predicate_from_stats(
             },
         },
         PredicateExpr::Compare { op, value, .. } => prove_comparison_from_stats(*op, value, stats),
+    }
+}
+
+fn prove_conjunction_from_stats(
+    predicates: &[PredicateExpr],
+    stats: &SegmentStats,
+) -> PredicateProof {
+    if predicates.is_empty() {
+        return PredicateProof::AlwaysTrue {
+            reason: "empty conjunction".to_string(),
+        };
+    }
+    let mut saw_unknown = false;
+    let mut saw_may_match = false;
+    let mut unsupported = Vec::new();
+    for predicate in predicates {
+        match prove_predicate_from_stats(predicate, stats) {
+            PredicateProof::AlwaysFalse { reason } => {
+                return PredicateProof::AlwaysFalse {
+                    reason: format!("conjunction term proved false: {reason}"),
+                };
+            }
+            PredicateProof::AlwaysTrue { .. } => {}
+            PredicateProof::MayMatch { .. } => saw_may_match = true,
+            PredicateProof::Unknown { .. } => saw_unknown = true,
+            PredicateProof::Unsupported { reason } => unsupported.push(reason),
+        }
+    }
+    if !unsupported.is_empty() {
+        return PredicateProof::Unsupported {
+            reason: unsupported.join("; "),
+        };
+    }
+    if saw_may_match {
+        PredicateProof::MayMatch {
+            reason: "one or more conjunction terms may match".to_string(),
+        }
+    } else if saw_unknown {
+        PredicateProof::Unknown {
+            reason: "one or more conjunction terms require row evaluation".to_string(),
+        }
+    } else {
+        PredicateProof::AlwaysTrue {
+            reason: "all conjunction terms proved true".to_string(),
+        }
     }
 }
 
@@ -1114,6 +1169,7 @@ fn dictionary_selection_vector(
     match predicate {
         PredicateExpr::AlwaysTrue => return Ok(SelectionVector::all(row_count)),
         PredicateExpr::AlwaysFalse => return Ok(SelectionVector::none()),
+        PredicateExpr::And(_) | PredicateExpr::Compare { .. } => {}
         PredicateExpr::IsNull { .. } => {
             return Ok(selection_vector_from_indices(
                 code_nullity_indices(codes, true)?,
@@ -1129,7 +1185,6 @@ fn dictionary_selection_vector(
                 row_count,
             ));
         }
-        PredicateExpr::Compare { .. } => {}
     }
     let dictionary_matches = dictionary
         .iter()
@@ -1175,7 +1230,7 @@ fn bitpacked_unsigned_selection_vector(
         PredicateExpr::AlwaysFalse | PredicateExpr::IsNull { .. } => {
             return Ok(SelectionVector::none());
         }
-        PredicateExpr::Compare { .. } => {}
+        PredicateExpr::Compare { .. } | PredicateExpr::And(_) => {}
     }
     let mut indices = Vec::with_capacity(values.len().min(4_096));
     if let Some((op, rhs)) = u64_comparison_predicate(predicate) {
@@ -1290,7 +1345,7 @@ fn encoded_sequence_selection_vector(
         PredicateExpr::AlwaysTrue | PredicateExpr::IsNotNull { .. } => {
             return Ok(SelectionVector::all(row_count));
         }
-        PredicateExpr::Compare { .. } => {}
+        PredicateExpr::Compare { .. } | PredicateExpr::And(_) => {}
     }
 
     let mut indices = Vec::new();
@@ -1342,6 +1397,11 @@ fn predicate_matches_encoded_value(
     match predicate {
         PredicateExpr::AlwaysTrue => Ok(true),
         PredicateExpr::AlwaysFalse => Ok(false),
+        PredicateExpr::And(predicates) => {
+            predicates.iter().try_fold(true, |selected, predicate| {
+                Ok(selected && predicate_matches_encoded_value(predicate, value)?)
+            })
+        }
         PredicateExpr::IsNull { .. } => Ok(value.is_none()),
         PredicateExpr::IsNotNull { .. } => Ok(value.is_some()),
         PredicateExpr::Compare { op, value: rhs, .. } => {

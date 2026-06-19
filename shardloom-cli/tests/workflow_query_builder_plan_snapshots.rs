@@ -230,7 +230,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     let explode = run_command_json(
         &[
             "workflow-unsupported-plan",
-            "explode",
+            "explode-nested",
             "read_json(events.json)",
             "items",
             "--format",
@@ -814,7 +814,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
         "cg21.workflow.sample.variant_not_admitted"
     )));
     assert!(sample.contains(&field("target_ref", "n=5,seed=7")));
-    assert!(explode.contains(&field("workflow_operation", "explode")));
+    assert!(explode.contains(&field("workflow_operation", "explode_nested")));
     assert!(explode.contains(&field(
         "blocker_id",
         "cg21.workflow.explode.nested_expansion_unsupported"
@@ -837,13 +837,13 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     assert!(pivot.contains(&field("workflow_operation", "pivot")));
     assert!(pivot.contains(&field(
         "blocker_id",
-        "cg21.workflow.pivot.reshape_semantics_unsupported"
+        "cg21.workflow.pivot.variant_not_admitted"
     )));
     assert!(pivot.contains(&field("target_ref", "index=id;columns=label;values=amount")));
     assert!(pivot_table.contains(&field("workflow_operation", "pivot_table")));
     assert!(pivot_table.contains(&field(
         "blocker_id",
-        "cg21.workflow.pivot_table.aggregate_reshape_unsupported"
+        "cg21.workflow.pivot_table.variant_not_admitted"
     )));
     assert!(pivot_table.contains(&field(
         "target_ref",
@@ -858,7 +858,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     assert!(rolling.contains(&field("workflow_operation", "rolling")));
     assert!(rolling.contains(&field(
         "blocker_id",
-        "cg21.workflow.rolling.window_semantics_unsupported"
+        "cg21.workflow.rolling.broad_window_semantics_unsupported"
     )));
     assert!(rolling.contains(&field("target_ref", "window=3;center=false")));
     assert!(rolling.contains("\"code\":\"SL_UNSUPPORTED_SQL\""));
@@ -936,7 +936,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     assert!(map_rows.contains(&field("workflow_operation", "map_rows")));
     assert!(map_rows.contains(&field(
         "blocker_id",
-        "cg21.workflow.map_rows.python_callable_unsupported"
+        "cg21.workflow.map_rows.python_callable_or_row_udf_unsupported"
     )));
     assert!(eval.contains(&field("workflow_operation", "eval")));
     assert!(eval.contains(&field(

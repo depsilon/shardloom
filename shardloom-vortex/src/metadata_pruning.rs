@@ -474,6 +474,9 @@ pub fn prove_predicate_from_segment_stats(
                 reason: "always false predicate".to_string(),
             };
         }
+        PredicateExpr::And(predicates) => {
+            return prove_conjunction_from_segment_stats(predicates, segment);
+        }
         PredicateExpr::IsNull { .. }
         | PredicateExpr::IsNotNull { .. }
         | PredicateExpr::Compare { .. } => {}
@@ -486,7 +489,7 @@ pub fn prove_predicate_from_segment_stats(
             .columns
             .iter()
             .find(|c| c.column.as_ref() == Some(column)),
-        PredicateExpr::AlwaysTrue | PredicateExpr::AlwaysFalse => None,
+        PredicateExpr::AlwaysTrue | PredicateExpr::AlwaysFalse | PredicateExpr::And(_) => None,
     }) else {
         return PredicateProof::Unknown {
             reason: "missing segment stats for predicate column".to_string(),
@@ -494,6 +497,53 @@ pub fn prove_predicate_from_segment_stats(
     };
     let stats = &column_stats.stats;
     shardloom_core::prove_predicate_from_stats(predicate, stats)
+}
+
+fn prove_conjunction_from_segment_stats(
+    predicates: &[PredicateExpr],
+    segment: &crate::VortexSegmentMetadataSummary,
+) -> PredicateProof {
+    if predicates.is_empty() {
+        return PredicateProof::AlwaysTrue {
+            reason: "empty conjunction".to_string(),
+        };
+    }
+    let mut may_match_reason = None;
+    let mut unknown_reason = None;
+    for predicate in predicates {
+        match prove_predicate_from_segment_stats(predicate, segment) {
+            PredicateProof::AlwaysFalse { reason } => {
+                return PredicateProof::AlwaysFalse {
+                    reason: format!("conjunction child pruned segment: {reason}"),
+                };
+            }
+            PredicateProof::AlwaysTrue { .. } => {}
+            PredicateProof::MayMatch { reason } => {
+                may_match_reason.get_or_insert(reason);
+            }
+            PredicateProof::Unknown { reason } => {
+                unknown_reason.get_or_insert(reason);
+            }
+            PredicateProof::Unsupported { reason } => {
+                return PredicateProof::Unsupported {
+                    reason: format!("conjunction child unsupported: {reason}"),
+                };
+            }
+        }
+    }
+    if let Some(reason) = unknown_reason {
+        return PredicateProof::Unknown {
+            reason: format!("conjunction child unknown: {reason}"),
+        };
+    }
+    if let Some(reason) = may_match_reason {
+        return PredicateProof::MayMatch {
+            reason: format!("conjunction may match: {reason}"),
+        };
+    }
+    PredicateProof::AlwaysTrue {
+        reason: "all conjunction children always true".to_string(),
+    }
 }
 
 #[cfg(test)]

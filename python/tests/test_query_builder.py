@@ -81,6 +81,21 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 index += 1
         return values
 
+    def _shardloom_expression_projection_changed_columns(payload):
+        if not payload:
+            return "none"
+        try:
+            decoded = _shardloom_json.loads(payload)
+        except Exception:
+            return "invalid"
+        columns = sorted({
+            str(rewrite.get("target_column") or rewrite.get("target") or "").strip()
+            for rewrite in decoded.get("rewrites", [])
+            if isinstance(rewrite, dict)
+            and str(rewrite.get("target_column") or rewrite.get("target") or "").strip()
+        })
+        return ",".join(columns) if columns else "none"
+
     def _shardloom_emit_vortex_ingest_smoke_if_needed():
         args = _shardloom_sys.argv[1:]
         if not args or args[0] != "vortex-ingest-smoke":
@@ -145,6 +160,11 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         source_order_limit = _shardloom_take_flag(args, "--vortex-source-order-limit")
         sample_seed = _shardloom_take_flag(args, "--vortex-sample-seed")
         sample_fraction = _shardloom_take_flag(args, "--vortex-sample-fraction")
+        expression_projection = _shardloom_take_flag(args, "--vortex-expression-projection")
+        melt_projection = _shardloom_take_flag(args, "--vortex-melt-projection")
+        explode_projection = _shardloom_take_flag(args, "--vortex-explode-projection")
+        pivot_projection = _shardloom_take_flag(args, "--vortex-pivot-projection")
+        rolling_window = _shardloom_take_flag(args, "--vortex-rolling-window")
         if requested_output == "collect" and primitive is not None:
             route_id = {
                 "count": "native_vortex_count_all",
@@ -153,10 +173,16 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 "project": "native_vortex_project",
                 "filter_project": "native_vortex_filter_project",
                 "distinct": "native_vortex_distinct",
+                "duplicate_mask": "native_vortex_duplicate_mask",
                 "tail": "native_vortex_tail",
                 "sample": "native_vortex_sample",
+                "expression_project": "native_vortex_expression_project",
+                "melt": "native_vortex_melt",
+                "explode": "native_vortex_explode",
+                "pivot": "native_vortex_pivot",
+                "rolling_window": "native_vortex_rolling_window",
             }.get(primitive, "native_vortex_filter_project")
-            materializing_primitive = primitive in {"distinct", "tail", "sample"}
+            materializing_primitive = primitive in {"distinct", "duplicate_mask", "tail", "sample", "expression_project", "melt", "explode", "pivot", "rolling_window"}
             fields = [
                 ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
                 ["public_workflow_route_attached", "true"],
@@ -175,6 +201,12 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ["public_workflow_vortex_source_order_limit", source_order_limit or "none"],
                 ["public_workflow_vortex_sample_seed", sample_seed or "none"],
                 ["public_workflow_vortex_sample_fraction", sample_fraction or "none"],
+                ["public_workflow_vortex_expression_projection_present", "true" if expression_projection else "false"],
+                ["public_workflow_vortex_expression_projection_changed_columns", _shardloom_expression_projection_changed_columns(expression_projection)],
+                ["public_workflow_vortex_melt_projection_present", "true" if melt_projection else "false"],
+                ["public_workflow_vortex_explode_projection_present", "true" if explode_projection else "false"],
+                ["public_workflow_vortex_pivot_projection_present", "true" if pivot_projection else "false"],
+                ["public_workflow_vortex_rolling_window_present", "true" if rolling_window else "false"],
                 ["mode", "native_vortex_primitive"],
                 ["primitive", primitive],
                 ["execution", f"local_vortex_{primitive}_primitive_performed" if materializing_primitive else "local_vortex_primitive_performed"],
@@ -188,7 +220,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ["rows_projected", "2"],
                 ["output_row_count", "2"],
                 ["result_known", "true"],
-                ["local_primitive_projected_columns", "id,label"],
+                ["local_primitive_projected_columns", columns or "id,label"],
                 ["runtime_execution", "true"],
                 ["data_read", "true"],
                 ["data_decoded", "true" if materializing_primitive else "false"],
@@ -197,8 +229,8 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ["upstream_vortex_scan_called", "true"],
                 ["local_primitive_materialization_boundary_reported", "true" if materializing_primitive else "false"],
                 ["local_primitive_source_order_limit_requested", source_order_limit or "none"],
-                ["local_primitive_source_order_limit_applied", "true" if primitive in {"tail", "sample"} and source_order_limit else "false"],
-                ["local_primitive_source_order_limit_rows_output", "2" if primitive in {"tail", "sample"} and source_order_limit else "none"],
+                ["local_primitive_source_order_limit_applied", "true" if primitive in {"duplicate_mask", "tail", "sample", "expression_project", "melt", "explode", "pivot", "rolling_window"} and source_order_limit else "false"],
+                ["local_primitive_source_order_limit_rows_output", "2" if primitive in {"duplicate_mask", "tail", "sample", "expression_project", "melt", "explode", "pivot", "rolling_window"} and source_order_limit else "none"],
                 ["fallback_attempted", "false"],
                 ["external_engine_invoked", "false"],
                 ["public_workflow_fallback_attempted", "false"],
@@ -246,6 +278,12 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ["public_workflow_vortex_columns", columns or "none"],
                 ["public_workflow_vortex_source_order_limit", source_order_limit or "none"],
                 ["public_workflow_vortex_sample_seed", sample_seed or "none"],
+                ["public_workflow_vortex_expression_projection_present", "true" if expression_projection else "false"],
+                ["public_workflow_vortex_expression_projection_changed_columns", _shardloom_expression_projection_changed_columns(expression_projection)],
+                ["public_workflow_vortex_melt_projection_present", "true" if melt_projection else "false"],
+                ["public_workflow_vortex_explode_projection_present", "true" if explode_projection else "false"],
+                ["public_workflow_vortex_pivot_projection_present", "true" if pivot_projection else "false"],
+                ["public_workflow_vortex_rolling_window_present", "true" if rolling_window else "false"],
                 ["mode", "native_vortex_primitive_row_export"],
                 ["execution", "native_vortex_primitive_row_export_performed"],
                 ["native_vortex_result_export_kind", "primitive_row_stream"],
@@ -1029,6 +1067,132 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             )
             self.assertFalse(route.fallback_attempted)
             self.assertFalse(run.fallback_attempted)
+
+    def test_native_vortex_mask_route_run_attaches_expression_project_payload(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                command = args[0]
+                assert command in {"route", "run"}, sys.argv
+                assert args[1:6] == ["dataframe", "--input", "orders.vortex", "--input-format", "vortex"], sys.argv
+                primitive = args[args.index("--vortex-primitive") + 1]
+                assert primitive == "expression_project", sys.argv
+                expression_projection = args[args.index("--vortex-expression-projection") + 1]
+                payload = json.loads(expression_projection)
+                assert payload["columns"] == ["id", "amount"], payload
+                assert payload["rewrites"] == [{
+                    "kind": "mask_scalar",
+                    "predicate": "lt:amount:0",
+                    "replacement": {"type": "int64", "value": 0},
+                    "target_column": "amount",
+                }], payload
+                expected_plan = f"read_vortex(orders.vortex) -> select(id,amount) -> expression_project({expression_projection}) -> limit(2)"
+                assert args[args.index("--plan") + 1] == expected_plan, sys.argv
+                assert args[args.index("--request") + 1] == "collect", sys.argv
+                assert args[args.index("--execution-policy") + 1] == "auto", sys.argv
+                assert args[args.index("--materialization-policy") + 1] == "bounded", sys.argv
+                assert args[args.index("--bounded") + 1] == "true", sys.argv
+                assert args[args.index("--native-vortex-operation-family") + 1] == "expression_project", sys.argv
+                assert args[args.index("--vortex-columns") + 1] == "id,amount", sys.argv
+                assert args[args.index("--vortex-source-order-limit") + 1] == "2", sys.argv
+                if command == "route":
+                    fields = [
+                        ["public_workflow_route_schema_version", "shardloom.public_workflow_route.v1"],
+                        ["route_id", "native_vortex_expression_project"],
+                        ["route_status", "admitted"],
+                        ["resolved_internal_command", "vortex-run"],
+                        ["surface", "dataframe"],
+                        ["start_state", "native_vortex_file"],
+                        ["vortex_normalization_point", "native_vortex_boundary"],
+                        ["vortex_middle_status", "native_vortex"],
+                        ["execution_mode", "native_vortex"],
+                        ["preparation_included", "false"],
+                        ["route_side_effect_free", "true"],
+                        ["vortex_primitive", "expression_project"],
+                        ["vortex_columns", "id,amount"],
+                        ["vortex_source_order_limit", "2"],
+                        ["vortex_expression_projection_present", "true"],
+                        ["vortex_expression_projection_changed_columns", "amount"],
+                        ["fallback_attempted", "false"],
+                        ["external_engine_invoked", "false"],
+                        ["blocker_id", "none"],
+                    ]
+                    status = "success"
+                    summary = "expression_project route"
+                else:
+                    fields = [
+                        ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
+                        ["public_workflow_route_attached", "true"],
+                        ["public_workflow_facade_command", "run"],
+                        ["public_workflow_route_id", "native_vortex_expression_project"],
+                        ["public_workflow_route_status", "admitted"],
+                        ["public_workflow_resolved_internal_command", "vortex-run"],
+                        ["public_workflow_vortex_normalization_point", "native_vortex_boundary"],
+                        ["public_workflow_vortex_middle_status", "native_vortex"],
+                        ["public_workflow_execution_mode", "native_vortex"],
+                        ["public_workflow_preparation_included", "false"],
+                        ["public_workflow_requested_output", "collect"],
+                        ["public_workflow_vortex_primitive", "expression_project"],
+                        ["public_workflow_vortex_columns", "id,amount"],
+                        ["public_workflow_vortex_source_order_limit", "2"],
+                        ["public_workflow_vortex_expression_projection_present", "true"],
+                        ["public_workflow_vortex_expression_projection_changed_columns", "amount"],
+                        ["runtime_execution", "true"],
+                        ["fallback_attempted", "false"],
+                        ["external_engine_invoked", "false"],
+                        ["public_workflow_fallback_attempted", "false"],
+                        ["public_workflow_external_engine_invoked", "false"],
+                        ["public_workflow_blocker_id", "none"],
+                    ]
+                    status = "success"
+                    summary = "expression_project run"
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": status,
+                    "summary": summary,
+                    "human_text": summary,
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+        frame = (
+            sl.read_vortex(
+                "orders.vortex",
+                schema={"id": "int64", "amount": "int64"},
+                client=client,
+            )
+            .select("id", "amount")
+            .mask(sl.col("amount") < 0, other=0)
+            .limit(2)
+        )
+
+        route = frame.route(check=False)
+        run = frame.run(check=False)
+
+        self.assertEqual(route.route_id, "native_vortex_expression_project")
+        self.assertEqual(route.envelope.field("vortex_expression_projection_present"), "true")
+        self.assertEqual(
+            route.envelope.field("vortex_expression_projection_changed_columns"),
+            "amount",
+        )
+        self.assertEqual(
+            run.envelope.field("public_workflow_route_id"),
+            "native_vortex_expression_project",
+        )
+        self.assertEqual(
+            run.envelope.field("public_workflow_vortex_expression_projection_changed_columns"),
+            "amount",
+        )
+        self.assertFalse(route.fallback_attempted)
+        self.assertFalse(run.fallback_attempted)
 
     def test_workflow_route_blocks_unbounded_collect_at_admission(self) -> None:
         binary = self.fake_cli(
@@ -12585,6 +12749,917 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_local_csv_query_builder_mask_routes_through_prepared_vortex_expression_project(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["id", "amount"])
+            .mask(sl.col("amount") < 0, other=0)
+            .limit(2)
+        )
+        self.assertEqual(workflow.operations[-2].kind, "expression_project")
+        payload = json.loads(workflow.operations[-2].values[0])
+
+        report = workflow.collect()
+
+        self.assertEqual(payload["columns"], ["id", "amount"])
+        self.assertEqual(
+            payload["rewrites"],
+            [
+                {
+                    "kind": "mask_scalar",
+                    "predicate": "lt:amount:0",
+                    "replacement": {"type": "int64", "value": 0},
+                    "target_column": "amount",
+                }
+            ],
+        )
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_expression_project",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_middle_status"),
+            "native_vortex_primitive",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_primitive"),
+            "expression_project",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_present"),
+            "true",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_changed_columns"),
+            "amount",
+        )
+        self.assertEqual(report.projected_columns, ("id", "amount"))
+        self.assertEqual(report.envelope.field("data_decoded"), "true")
+        self.assertEqual(report.envelope.field("data_materialized"), "true")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_replace_write_jsonl_routes_through_prepared_vortex_expression_project(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64", "label": "utf8"},
+            )
+            .select(["label"])
+            .replace("bad", "good")
+            .limit(2)
+        )
+        self.assertEqual(workflow.operations[-2].kind, "expression_project")
+        payload = json.loads(workflow.operations[-2].values[0])
+
+        report = workflow.write_jsonl("target/replace-out.jsonl", allow_overwrite=True)
+
+        self.assertEqual(payload["columns"], ["label"])
+        self.assertEqual(
+            payload["rewrites"],
+            [
+                {
+                    "kind": "replace_scalar",
+                    "replacement": {"type": "utf8", "value": "good"},
+                    "target_column": "label",
+                    "to_replace": {"type": "utf8", "value": "bad"},
+                }
+            ],
+        )
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_primitive_row_export",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_resolved_internal_command"),
+            "vortex-local-primitive-row-export",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_primitive"),
+            "expression_project",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_present"),
+            "true",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_changed_columns"),
+            "label",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_columns"), "label")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "2"
+        )
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_jsonl")
+        self.assertEqual(
+            report.envelope.field("native_vortex_result_export_format"),
+            "jsonl",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_string_replace_with_column_routes_through_expression_project(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "label": "utf8"},
+            )
+            .select(["label"])
+            .with_column("label", sl.col("label").replace("bad", "ok"))
+            .limit(3)
+        )
+        self.assertEqual(workflow.operations[-2].kind, "expression_project")
+        payload = json.loads(workflow.operations[-2].values[0])
+
+        report = workflow.collect()
+
+        self.assertEqual(payload["columns"], ["label"])
+        self.assertEqual(
+            payload["rewrites"],
+            [
+                {
+                    "kind": "string_replace_scalar",
+                    "needle": "bad",
+                    "replacement": "ok",
+                    "target_column": "label",
+                }
+            ],
+        )
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_expression_project",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_present"),
+            "true",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_changed_columns"),
+            "label",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_columns"), "label")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "3"
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_eval_assignment_routes_through_expression_project(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64"},
+            )
+            .select(["id", "amount"])
+            .eval("amount = amount + 5")
+            .limit(2)
+        )
+        self.assertEqual(workflow.operations[-2].kind, "expression_project")
+        payload = json.loads(workflow.operations[-2].values[0])
+
+        report = workflow.collect()
+
+        self.assertEqual(payload["columns"], ["id", "amount"])
+        self.assertEqual(
+            payload["rewrites"],
+            [
+                {
+                    "kind": "numeric_scalar_arithmetic",
+                    "operand": {"type": "int64", "value": 5},
+                    "operator": "+",
+                    "target_column": "amount",
+                }
+            ],
+        )
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_expression_project",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_present"),
+            "true",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_changed_columns"),
+            "amount",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_columns"), "id,amount")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "2"
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_transform_mapping_routes_through_expression_project(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64"},
+            )
+            .select(["id", "amount"])
+            .transform({"amount": sl.col("amount") * 2})
+            .limit(2)
+        )
+        self.assertEqual(workflow.operations[-2].kind, "expression_project")
+        payload = json.loads(workflow.operations[-2].values[0])
+
+        report = workflow.collect()
+
+        self.assertEqual(payload["columns"], ["id", "amount"])
+        self.assertEqual(
+            payload["rewrites"],
+            [
+                {
+                    "kind": "numeric_scalar_arithmetic",
+                    "operand": {"type": "int64", "value": 2},
+                    "operator": "*",
+                    "target_column": "amount",
+                }
+            ],
+        )
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_expression_project",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_expression_projection_changed_columns"),
+            "amount",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_map_column_transform_routes_through_expression_project(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64"},
+            )
+            .select(["id", "amount"])
+            .map(sl.column_transform(amount=sl.col("amount") + 1))
+            .limit(2)
+        )
+        self.assertEqual(workflow.operations[-2].kind, "expression_project")
+        payload = json.loads(workflow.operations[-2].values[0])
+
+        report = workflow.collect()
+
+        self.assertEqual(payload["rewrites"][0]["kind"], "numeric_scalar_arithmetic")
+        self.assertEqual(payload["rewrites"][0]["operator"], "+")
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_expression_project",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_applymap_column_transform_routes_through_expression_project(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64"},
+            )
+            .select(["id", "amount"])
+            .applymap(sl.column_transform(amount=sl.col("amount") - 1))
+            .limit(2)
+        )
+        self.assertEqual(workflow.operations[-2].kind, "expression_project")
+        payload = json.loads(workflow.operations[-2].values[0])
+
+        report = workflow.collect()
+
+        self.assertEqual(payload["rewrites"][0]["kind"], "numeric_scalar_arithmetic")
+        self.assertEqual(payload["rewrites"][0]["operator"], "-")
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_expression_project",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_map_rows_row_transform_routes_through_expression_project(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "amount": "int64"},
+            )
+            .select(["id", "amount"])
+            .map_rows(sl.row_transform(amount=sl.col("amount") + 2))
+            .limit(2)
+        )
+        self.assertEqual(workflow.operations[-2].kind, "expression_project")
+        payload = json.loads(workflow.operations[-2].values[0])
+
+        report = workflow.collect()
+
+        self.assertEqual(payload["rewrites"][0]["kind"], "numeric_scalar_arithmetic")
+        self.assertEqual(payload["rewrites"][0]["operator"], "+")
+        self.assertEqual(payload["rewrites"][0]["operand"]["value"], 2)
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_expression_project",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_duplicated_routes_through_prepared_vortex_duplicate_mask(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={"id": "int64", "label": "utf8"},
+            )
+            .select(["id", "label"])
+        )
+        workflow = workflow.duplicated(subset=["id"]).limit(2)
+
+        self.assertIsInstance(workflow, sl.LazyFrame)
+        self.assertEqual(workflow.operations[-2].kind, "duplicate_mask")
+        self.assertEqual(workflow.operations[-2].values, ("id",))
+
+        report = workflow.collect()
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_duplicate_mask",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_middle_status"),
+            "native_vortex_primitive",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_primitive"),
+            "duplicate_mask",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_columns"), "id")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "2"
+        )
+        self.assertEqual(report.envelope.field("data_decoded"), "true")
+        self.assertEqual(report.envelope.field("data_materialized"), "true")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_melt_routes_through_prepared_vortex_melt(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={
+                    "id": "int64",
+                    "amount_a": "int64",
+                    "amount_b": "int64",
+                },
+            )
+            .melt(
+                id_vars=["id"],
+                value_vars=["amount_a", "amount_b"],
+                var_name="measure",
+                value_name="amount",
+            )
+            .limit(4)
+        )
+
+        self.assertIsInstance(workflow, sl.LazyFrame)
+        self.assertEqual(workflow.operations[-2].kind, "melt")
+        payload = json.loads(workflow.operations[-2].values[0])
+        self.assertEqual(payload["id_columns"], ["id"])
+        self.assertEqual(payload["value_columns"], ["amount_a", "amount_b"])
+        self.assertEqual(payload["variable_column"], "measure")
+        self.assertEqual(payload["value_column"], "amount")
+
+        report = workflow.collect()
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"), "native_vortex_melt"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_middle_status"),
+            "native_vortex_primitive",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "melt")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_columns"),
+            "id,amount_a,amount_b",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "4"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_melt_projection_present"), "true"
+        )
+        self.assertEqual(report.envelope.field("data_decoded"), "true")
+        self.assertEqual(report.envelope.field("data_materialized"), "true")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_explode_routes_through_prepared_vortex_explode(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={
+                    "id": "int64",
+                    "items": "list<int64>",
+                },
+            )
+            .select("id", "items")
+            .explode("items")
+            .limit(4)
+        )
+
+        self.assertIsInstance(workflow, sl.LazyFrame)
+        self.assertEqual(workflow.operations[-2].kind, "explode")
+        payload = json.loads(workflow.operations[-2].values[0])
+        self.assertEqual(payload["column"], "items")
+
+        report = workflow.collect()
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"), "native_vortex_explode"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_middle_status"),
+            "native_vortex_primitive",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_primitive"), "explode"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_columns"), "id,items"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "4"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_explode_projection_present"),
+            "true",
+        )
+        self.assertEqual(report.envelope.field("data_decoded"), "true")
+        self.assertEqual(report.envelope.field("data_materialized"), "true")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_pivot_routes_through_prepared_vortex_pivot(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={
+                    "id": "int64",
+                    "label": "utf8",
+                    "amount": "float64",
+                },
+            )
+            .pivot(index="id", columns="label", values="amount")
+            .limit(4)
+        )
+
+        self.assertIsInstance(workflow, sl.LazyFrame)
+        self.assertEqual(workflow.operations[-2].kind, "pivot")
+        payload = json.loads(workflow.operations[-2].values[0])
+        self.assertEqual(payload["index_column"], "id")
+        self.assertEqual(payload["pivot_column"], "label")
+        self.assertEqual(payload["value_column"], "amount")
+        self.assertEqual(payload["aggregate"], "first_unique")
+
+        report = workflow.collect()
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"), "native_vortex_pivot"
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "pivot")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_columns"), "id,label,amount"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "4"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_pivot_projection_present"),
+            "true",
+        )
+        self.assertEqual(report.envelope.field("data_decoded"), "true")
+        self.assertEqual(report.envelope.field("data_materialized"), "true")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_pivot_table_routes_through_prepared_vortex_pivot(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={
+                    "id": "int64",
+                    "label": "utf8",
+                    "amount": "float64",
+                },
+            )
+            .pivot_table(index="id", columns="label", values="amount", aggfunc="sum")
+            .limit(4)
+        )
+
+        self.assertIsInstance(workflow, sl.LazyFrame)
+        self.assertEqual(workflow.operations[-2].kind, "pivot")
+        payload = json.loads(workflow.operations[-2].values[0])
+        self.assertEqual(payload["aggregate"], "sum")
+
+        report = workflow.collect()
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"), "native_vortex_pivot"
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "pivot")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_pivot_projection_present"),
+            "true",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_pivot_write_jsonl_routes_through_prepared_vortex_row_export(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv(
+                "target/input.csv",
+                schema={
+                    "id": "int64",
+                    "label": "utf8",
+                    "amount": "float64",
+                },
+            )
+            .pivot_table(index="id", columns="label", values="amount", aggfunc="sum")
+            .limit(4)
+            .write_jsonl("target/pivot-out.jsonl", allow_overwrite=True)
+        )
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_primitive_row_export",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_resolved_internal_command"),
+            "vortex-local-primitive-row-export",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "pivot")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_columns"), "id,label,amount"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "4"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_pivot_projection_present"),
+            "true",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_requested_output"), "write_jsonl")
+        self.assertEqual(
+            report.envelope.field("native_vortex_result_export_format"),
+            "jsonl",
+        )
+        self.assertEqual(
+            report.envelope.field("typed_sink_contract"),
+            "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_rolling_sum_routes_through_prepared_vortex_rolling_window(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        rolling = ctx.read_csv(
+            "target/input.csv",
+            schema={"id": "int64", "amount": "float64"},
+        ).rolling(window=3)
+        self.assertNotIsInstance(rolling, sl.UnsupportedWorkflowOperationReport)
+        workflow = rolling.sum("amount", alias="rolling_amount").limit(4)
+
+        self.assertIsInstance(workflow, sl.LazyFrame)
+        self.assertEqual(workflow.operations[-2].kind, "rolling_window")
+        payload = json.loads(workflow.operations[-2].values[0])
+        self.assertEqual(payload["source_column"], "amount")
+        self.assertEqual(payload["output_column"], "rolling_amount")
+        self.assertEqual(payload["window_size"], 3)
+        self.assertEqual(payload["min_periods"], 3)
+        self.assertEqual(payload["aggregate"], "sum")
+
+        report = workflow.collect()
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_rolling_window",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_middle_status"),
+            "native_vortex_primitive",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_primitive"),
+            "rolling_window",
+        )
+        self.assertEqual(report.envelope.field("public_workflow_vortex_columns"), "amount")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "4"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_rolling_window_present"),
+            "true",
+        )
+        self.assertEqual(report.envelope.field("data_decoded"), "true")
+        self.assertEqual(report.envelope.field("data_materialized"), "true")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_pipe_accepts_declared_plan_transform(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        def project_ids(frame: sl.LazyFrame) -> sl.LazyFrame:
+            return frame.select(["id", "label"]).limit(2)
+
+        workflow = ctx.read_csv(
+            "target/input.csv",
+            schema={"id": "int64", "label": "utf8"},
+        ).pipe(sl.plan_transform(project_ids, name="project_ids"))
+
+        self.assertIsInstance(workflow, sl.LazyFrame)
+        self.assertEqual(
+            workflow.operation_summary,
+            "read_csv(target/input.csv) -> select(id,label) -> limit(2)",
+        )
+
+        report = workflow.collect()
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.preparation_envelope.field("vortex_ingest_performed"), "true"
+        )
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "native_vortex_project")
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "project")
+        self.assertEqual(report.envelope.field("public_workflow_vortex_columns"), "id,label")
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "2"
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_apply_accepts_declared_plan_transform(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        def project_ids(frame: sl.LazyFrame) -> sl.LazyFrame:
+            return frame.select(["id", "label"]).limit(2)
+
+        workflow = ctx.read_csv(
+            "target/input.csv",
+            schema={"id": "int64", "label": "utf8"},
+        ).apply(sl.plan_transform(project_ids, name="project_ids"))
+
+        self.assertIsInstance(workflow, sl.LazyFrame)
+        self.assertEqual(
+            workflow.operation_summary,
+            "read_csv(target/input.csv) -> select(id,label) -> limit(2)",
+        )
+
+        report = workflow.collect()
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(report.envelope.field("public_workflow_route_id"), "native_vortex_project")
+        self.assertEqual(report.envelope.field("public_workflow_vortex_primitive"), "project")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_sample_weighted_and_replacement_stay_deterministic_blockers(
         self,
     ) -> None:
@@ -16285,18 +17360,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.drop_columns("debug"),
             workflow.dropna(subset=["label"]),
             workflow.astype({"amount": "int64"}),
-            workflow.explode("items"),
+            workflow.explode("items", "other_items"),
             workflow.merge(
                 sl.read_csv("other.csv", client=ShardLoomClient(binary=binary)),
                 how="left",
             ),
             workflow.concat([sl.read_csv("other.csv", client=ShardLoomClient(binary=binary))]),
-            workflow.pivot(index="id", columns="label", values="amount"),
+            workflow.pivot(index=["id", "customer_id"], columns="label", values="amount"),
             workflow.pivot_table(
                 index="id",
                 columns="label",
                 values="amount",
-                aggfunc="sum",
+                aggfunc="median",
             ),
             workflow.melt(id_vars="id", value_vars=["amount"]),
             workflow.rolling(window=3),
@@ -16306,7 +17381,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.nlargest(5, "amount", keep="last"),
             workflow.nsmallest(3, "amount", keep="all"),
             workflow.drop_duplicates(subset=["id"]),
-            workflow.duplicated(subset=["id"]),
+            workflow.duplicated(subset=["id"], keep="last"),
             workflow.fillna({"amount": 0}),
             workflow.fill_null(0),
             workflow.isna("amount"),
@@ -16438,7 +17513,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             by_operation["astype"].envelope.field("target_ref"),
             "dtype={amount=int64};errors=raise",
         )
-        self.assertEqual(by_operation["explode"].envelope.field("target_ref"), "items")
+        self.assertEqual(
+            by_operation["explode"].envelope.field("target_ref"),
+            "items,other_items",
+        )
         self.assertEqual(
             by_operation["pipe"].envelope.field("target_ref"),
             "callable=workflow_udf;arg_count=1;config=strict",
@@ -16465,7 +17543,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertEqual(
             by_operation["pivot"].envelope.field("target_ref"),
-            "index=id;columns=label;values=amount",
+            "index=id,customer_id;columns=label;values=amount",
         )
         self.assertEqual(
             by_operation["pivot-table"].envelope.field("workflow_operation"),
@@ -16473,7 +17551,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertEqual(
             by_operation["pivot-table"].envelope.field("target_ref"),
-            "index=id;columns=label;values=amount;aggfunc=sum",
+            "index=id;columns=label;values=amount;aggfunc=median",
         )
         self.assertEqual(
             by_operation["melt"].envelope.field("target_ref"),

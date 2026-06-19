@@ -15,10 +15,11 @@ use crate::{
     VortexMetadataOpenReport, VortexMetadataOpenRequest, VortexMetadataOpenStatus,
     VortexMetadataProbeReport, VortexQueryPrimitiveAnalysisReport, VortexQueryPrimitiveKind,
     VortexQueryPrimitiveRequest, VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus,
-    VortexQueryPrimitiveValue, VortexWorkAvoidedMetric, VortexWorkAvoidedMetricKind,
-    VortexWorkAvoidedReport, execute_vortex_bounded_local_query,
-    execute_vortex_local_primitive_with_policy, execute_vortex_local_query_primitive,
-    open_vortex_metadata_only, summarize_vortex_metadata_probe,
+    VortexQueryPrimitiveValue, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
+    VortexWorkAvoidedMetric, VortexWorkAvoidedMetricKind, VortexWorkAvoidedReport,
+    execute_vortex_bounded_local_query, execute_vortex_local_primitive_with_policy,
+    execute_vortex_local_query_primitive, open_vortex_metadata_only,
+    summarize_vortex_metadata_probe,
 };
 
 /// Stable local-engine status for `ShardLoom` `Vortex` integration.
@@ -128,6 +129,7 @@ pub enum VortexLocalEnginePrimitive {
     Project(String),
     Filter(String),
     FilterAndProject { predicate: String, columns: String },
+    SimpleAggregate(String),
     Unsupported(String),
 }
 impl VortexLocalEnginePrimitive {
@@ -138,6 +140,7 @@ impl VortexLocalEnginePrimitive {
             Self::Project(_) => "project",
             Self::Filter(_) => "filter",
             Self::FilterAndProject { .. } => "filter-and-project",
+            Self::SimpleAggregate(_) => "aggregate",
             Self::Unsupported(_) => "unsupported",
         }
     }
@@ -150,6 +153,7 @@ impl VortexLocalEnginePrimitive {
             Self::FilterAndProject { predicate, columns } => {
                 format!("filter-project:{predicate}|{columns}")
             }
+            Self::SimpleAggregate(payload) => format!("aggregate:{payload}"),
             Self::Unsupported(v) => format!("unsupported:{v}"),
         }
     }
@@ -758,6 +762,13 @@ fn append_local_engine_primitive_next_action(
             );
             push_unique(actions, "complete encoded projection kernel certification");
         }
+        VortexLocalEnginePrimitive::SimpleAggregate(_) => {
+            push_unique(actions, "complete scalar aggregate route certification");
+            push_unique(
+                actions,
+                "promote grouped aggregate state for grouped OLAP queries",
+            );
+        }
         VortexLocalEnginePrimitive::Count => {
             push_unique(
                 actions,
@@ -1273,6 +1284,12 @@ fn primitive_to_query_request(
                 parse_projection_columns(columns)?,
             ))
         }
+        VortexLocalEnginePrimitive::SimpleAggregate(payload) => {
+            Ok(VortexQueryPrimitiveRequest::simple_aggregate(
+                request.uri.clone(),
+                parse_simple_aggregate_payload(payload)?,
+            ))
+        }
         VortexLocalEnginePrimitive::Unsupported(raw) => {
             Ok(VortexQueryPrimitiveRequest::unsupported(
                 raw.clone(),
@@ -1280,6 +1297,96 @@ fn primitive_to_query_request(
             ))
         }
     }
+}
+
+fn parse_simple_aggregate_payload(payload: &str) -> Result<VortexSimpleAggregateRequest> {
+    let value = serde_json::from_str::<serde_json::Value>(payload).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!("aggregate payload must be valid JSON: {error}"))
+    })?;
+    let measures = if let Some(array) = value.get("measures").and_then(serde_json::Value::as_array)
+    {
+        array
+            .iter()
+            .map(parse_simple_aggregate_measure)
+            .collect::<Result<Vec<_>>>()?
+    } else if value.is_object() {
+        vec![parse_simple_aggregate_measure(&value)?]
+    } else {
+        return Err(ShardLoomError::InvalidOperation(
+            "aggregate payload must be a JSON object with a measure or measures array".to_string(),
+        ));
+    };
+    if measures.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "aggregate payload requires at least one measure".to_string(),
+        ));
+    }
+    Ok(VortexSimpleAggregateRequest::new(measures))
+}
+
+fn parse_simple_aggregate_measure(
+    value: &serde_json::Value,
+) -> Result<VortexSimpleAggregateMeasure> {
+    let object = value.as_object().ok_or_else(|| {
+        ShardLoomError::InvalidOperation("aggregate measure must be a JSON object".to_string())
+    })?;
+    let function = json_string_field_any(object, &["function", "agg", "aggregate"])?.to_string();
+    let column = json_optional_string_field_any(object, &["column", "source_column", "on"])?
+        .map(ColumnRef::new)
+        .transpose()?;
+    let alias = json_optional_string_field_any(object, &["alias", "output_column"])?.map_or_else(
+        || {
+            format!(
+                "{}_{}",
+                function.trim().to_ascii_lowercase(),
+                column.as_ref().map_or("all", ColumnRef::as_str)
+            )
+        },
+        str::to_string,
+    );
+    Ok(VortexSimpleAggregateMeasure::new(function, column, alias))
+}
+
+fn json_string_field_any<'a>(
+    object: &'a serde_json::Map<String, serde_json::Value>,
+    fields: &[&str],
+) -> Result<&'a str> {
+    for field in fields {
+        if let Some(value) = object.get(*field) {
+            return value
+                .as_str()
+                .filter(|value| !value.trim().is_empty())
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "aggregate field {field} must be a non-empty string"
+                    ))
+                });
+        }
+    }
+    Err(ShardLoomError::InvalidOperation(format!(
+        "aggregate payload missing required field {}",
+        fields.join("/")
+    )))
+}
+
+fn json_optional_string_field_any<'a>(
+    object: &'a serde_json::Map<String, serde_json::Value>,
+    fields: &[&str],
+) -> Result<Option<&'a str>> {
+    for field in fields {
+        if let Some(value) = object.get(*field) {
+            return value
+                .as_str()
+                .filter(|value| !value.trim().is_empty())
+                .map(Some)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "aggregate field {field} must be a non-empty string"
+                    ))
+                });
+        }
+    }
+    Ok(None)
 }
 
 fn parse_tiny_predicate(value: &str) -> Result<PredicateExpr> {
@@ -1299,6 +1406,7 @@ fn parse_tiny_predicate(value: &str) -> Result<PredicateExpr> {
             })?;
             let op = match *op {
                 "eq" => ComparisonOp::Eq,
+                "neq" | "not_eq" => ComparisonOp::NotEq,
                 "gt" => ComparisonOp::Gt,
                 "gte" => ComparisonOp::GtEq,
                 "lt" => ComparisonOp::Lt,
@@ -1386,7 +1494,21 @@ pub fn parse_vortex_local_engine_primitive(input: &str) -> Result<VortexLocalEng
             });
         }
     }
-    Err(ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>, filter-project:<predicate>|<columns>".to_string()))
+    if let Some(v) = input
+        .strip_prefix("aggregate:")
+        .or_else(|| input.strip_prefix("simple-aggregate:"))
+        .or_else(|| input.strip_prefix("simple_aggregate:"))
+        .or_else(|| input.strip_prefix("scalar-aggregate:"))
+        .or_else(|| input.strip_prefix("scalar_aggregate:"))
+    {
+        if v.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "aggregate payload must not be empty".to_string(),
+            ));
+        }
+        return Ok(VortexLocalEnginePrimitive::SimpleAggregate(v.to_string()));
+    }
+    Err(ShardLoomError::InvalidOperation("invalid primitive; expected count, count-where:<predicate>, project:<columns>, filter:<predicate>, filter-project:<predicate>|<columns>, aggregate:<json>".to_string()))
 }
 
 /// # Errors
@@ -1430,6 +1552,10 @@ mod tests {
         assert_eq!(
             parse_vortex_local_engine_primitive("count-where:is_null:col").unwrap(),
             VortexLocalEnginePrimitive::CountWhere("is_null:col".to_string())
+        );
+        assert_eq!(
+            parse_vortex_local_engine_primitive("count-where:neq:AdvEngineID:0").unwrap(),
+            VortexLocalEnginePrimitive::CountWhere("neq:AdvEngineID:0".to_string())
         );
     }
     #[test]

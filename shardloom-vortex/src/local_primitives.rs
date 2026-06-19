@@ -21,7 +21,10 @@ use shardloom_plan::ProjectionRequest;
 
 #[cfg(feature = "vortex-local-primitives")]
 use crate::{
-    VortexEncodedValuePredicateBatch, VortexReaderGeneratedEncodedKernelInput,
+    VortexEncodedValuePredicateBatch, VortexExplodeProjectionRequest,
+    VortexExpressionProjectionRequest, VortexExpressionRewrite, VortexMeltProjectionRequest,
+    VortexPivotProjectionRequest, VortexReaderGeneratedEncodedKernelInput,
+    VortexRollingWindowRequest, VortexSimpleAggregateRequest,
     plan_vortex_reader_generated_prepared_batch_envelopes,
     plan_vortex_reader_generated_prepared_batch_kernel_inputs,
 };
@@ -616,8 +619,14 @@ pub fn local_primitive_correctness_fixture_for_request(
             }
         }
         VortexQueryPrimitiveKind::DistinctRows
+        | VortexQueryPrimitiveKind::DuplicateMaskRows
         | VortexQueryPrimitiveKind::TailRows
         | VortexQueryPrimitiveKind::SampleRows
+        | VortexQueryPrimitiveKind::ExpressionProjectRows
+        | VortexQueryPrimitiveKind::MeltRows
+        | VortexQueryPrimitiveKind::ExplodeRows
+        | VortexQueryPrimitiveKind::PivotRows
+        | VortexQueryPrimitiveKind::RollingWindowRows
         | VortexQueryPrimitiveKind::SimpleAggregate
         | VortexQueryPrimitiveKind::Unsupported => None,
     }
@@ -803,11 +812,26 @@ fn local_primitive_native_io_path_id(report: &VortexLocalPrimitiveExecutionRepor
         VortexQueryPrimitiveKind::DistinctRows => {
             "native_vortex_source_to_distinct_materialized_result"
         }
+        VortexQueryPrimitiveKind::DuplicateMaskRows => {
+            "native_vortex_source_to_duplicate_mask_materialized_result"
+        }
         VortexQueryPrimitiveKind::TailRows => "native_vortex_source_to_tail_source_order_result",
         VortexQueryPrimitiveKind::SampleRows => "native_vortex_source_to_sample_seeded_result",
-        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
-            "native_vortex_source_to_unsupported_result"
+        VortexQueryPrimitiveKind::ExpressionProjectRows => {
+            "native_vortex_source_to_expression_project_materialized_result"
         }
+        VortexQueryPrimitiveKind::MeltRows => "native_vortex_source_to_melt_materialized_result",
+        VortexQueryPrimitiveKind::ExplodeRows => {
+            "native_vortex_source_to_explode_materialized_result"
+        }
+        VortexQueryPrimitiveKind::PivotRows => "native_vortex_source_to_pivot_materialized_result",
+        VortexQueryPrimitiveKind::RollingWindowRows => {
+            "native_vortex_source_to_rolling_window_materialized_result"
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate => {
+            "native_vortex_source_to_scalar_aggregate_result"
+        }
+        VortexQueryPrimitiveKind::Unsupported => "native_vortex_source_to_unsupported_result",
     }
 }
 
@@ -849,12 +873,19 @@ fn local_primitive_pushdown_evidence_is_sufficient(
                 && local_primitive_projection_evidence_is_sufficient(report)
         }
         VortexQueryPrimitiveKind::DistinctRows
+        | VortexQueryPrimitiveKind::DuplicateMaskRows
         | VortexQueryPrimitiveKind::TailRows
-        | VortexQueryPrimitiveKind::SampleRows => {
+        | VortexQueryPrimitiveKind::SampleRows
+        | VortexQueryPrimitiveKind::ExpressionProjectRows
+        | VortexQueryPrimitiveKind::MeltRows
+        | VortexQueryPrimitiveKind::ExplodeRows
+        | VortexQueryPrimitiveKind::PivotRows
+        | VortexQueryPrimitiveKind::RollingWindowRows
+        | VortexQueryPrimitiveKind::SimpleAggregate => {
             local_primitive_materialization_declared(report)
                 && local_primitive_row_count(report).is_some()
         }
-        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => false,
+        VortexQueryPrimitiveKind::Unsupported => false,
     }
 }
 
@@ -994,6 +1025,14 @@ fn local_primitive_accepted_operations(
             out.push("distinct".to_string());
             out
         }
+        VortexQueryPrimitiveKind::DuplicateMaskRows => {
+            let mut out = Vec::new();
+            if !report.projected_columns.is_empty() {
+                out.push("project".to_string());
+            }
+            out.push("duplicate_mask".to_string());
+            out
+        }
         VortexQueryPrimitiveKind::TailRows => {
             let mut out = Vec::new();
             if !report.projected_columns.is_empty() {
@@ -1013,9 +1052,55 @@ fn local_primitive_accepted_operations(
             out.push("sample".to_string());
             out
         }
-        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
-            Vec::new()
+        VortexQueryPrimitiveKind::ExpressionProjectRows => {
+            let mut out = Vec::new();
+            if !report.projected_columns.is_empty() {
+                out.push("project".to_string());
+            }
+            out.push("expression_project".to_string());
+            out
         }
+        VortexQueryPrimitiveKind::MeltRows => {
+            let mut out = Vec::new();
+            if !report.projected_columns.is_empty() {
+                out.push("project".to_string());
+            }
+            out.push("melt".to_string());
+            out
+        }
+        VortexQueryPrimitiveKind::ExplodeRows => {
+            let mut out = Vec::new();
+            if !report.projected_columns.is_empty() {
+                out.push("project".to_string());
+            }
+            out.push("explode".to_string());
+            out
+        }
+        VortexQueryPrimitiveKind::PivotRows => {
+            let mut out = Vec::new();
+            if !report.projected_columns.is_empty() {
+                out.push("project".to_string());
+            }
+            out.push("pivot".to_string());
+            out
+        }
+        VortexQueryPrimitiveKind::RollingWindowRows => {
+            let mut out = Vec::new();
+            if !report.projected_columns.is_empty() {
+                out.push("project".to_string());
+            }
+            out.push("rolling_window".to_string());
+            out
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate => {
+            let mut out = Vec::new();
+            if !report.projected_columns.is_empty() {
+                out.push("project".to_string());
+            }
+            out.push("aggregate".to_string());
+            out
+        }
+        VortexQueryPrimitiveKind::Unsupported => Vec::new(),
     }
 }
 
@@ -1037,15 +1122,34 @@ fn local_primitive_pushdown_guarantee(
         VortexQueryPrimitiveKind::DistinctRows => {
             "exact_distinct_from_vortex_scan_with_explicit_shardloom_row_key_materialization"
         }
+        VortexQueryPrimitiveKind::DuplicateMaskRows => {
+            "exact_duplicate_mask_from_vortex_scan_with_explicit_shardloom_row_key_state"
+        }
         VortexQueryPrimitiveKind::TailRows => {
             "exact_source_order_tail_from_full_vortex_scan_with_explicit_shardloom_tail_boundary"
         }
         VortexQueryPrimitiveKind::SampleRows => {
             "exact_deterministic_sample_from_vortex_scan_with_explicit_shardloom_seeded_selection"
         }
-        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
-            "unsupported"
+        VortexQueryPrimitiveKind::ExpressionProjectRows => {
+            "exact_expression_project_from_vortex_scan_with_explicit_shardloom_rewrite_boundary"
         }
+        VortexQueryPrimitiveKind::MeltRows => {
+            "exact_melt_from_vortex_scan_with_explicit_shardloom_row_expansion_boundary"
+        }
+        VortexQueryPrimitiveKind::ExplodeRows => {
+            "exact_explode_from_vortex_list_scan_with_explicit_shardloom_row_expansion_boundary"
+        }
+        VortexQueryPrimitiveKind::PivotRows => {
+            "exact_pivot_from_vortex_scan_with_explicit_shardloom_wide_reshape_boundary"
+        }
+        VortexQueryPrimitiveKind::RollingWindowRows => {
+            "exact_source_order_rolling_sum_from_vortex_scan_with_explicit_shardloom_window_state"
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate => {
+            "exact_scalar_aggregate_from_vortex_scan_with_explicit_shardloom_aggregate_state"
+        }
+        VortexQueryPrimitiveKind::Unsupported => "unsupported",
     }
 }
 
@@ -1075,15 +1179,34 @@ fn local_primitive_pushdown_proof_basis(
         VortexQueryPrimitiveKind::DistinctRows => {
             "local Vortex scan applied optional filter/projection pushdown, then ShardLoom materialized scoped primitive row keys for deterministic row-level distinct"
         }
+        VortexQueryPrimitiveKind::DuplicateMaskRows => {
+            "local Vortex scan applied projection pushdown, then ShardLoom produced a deterministic duplicate mask from scoped primitive row keys without invoking an external engine"
+        }
         VortexQueryPrimitiveKind::TailRows => {
             "local Vortex scan applied projection pushdown, then ShardLoom retained the final source-order row window without invoking an external engine"
         }
         VortexQueryPrimitiveKind::SampleRows => {
             "local Vortex scan applied optional filter/projection pushdown, then ShardLoom applied deterministic seeded row selection without invoking an external engine"
         }
-        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
-            "unsupported local primitive"
+        VortexQueryPrimitiveKind::ExpressionProjectRows => {
+            "local Vortex scan applied projection pushdown, then ShardLoom applied a typed expression rewrite at the explicit materialization boundary without invoking an external engine"
         }
+        VortexQueryPrimitiveKind::MeltRows => {
+            "local Vortex scan applied projection pushdown, then ShardLoom expanded scoped same-typed value columns into rows at the explicit materialization boundary without invoking an external engine"
+        }
+        VortexQueryPrimitiveKind::ExplodeRows => {
+            "local Vortex scan applied projection pushdown, then ShardLoom expanded a scoped Vortex list/fixed-size-list column into scalar rows at the explicit materialization boundary without invoking an external engine"
+        }
+        VortexQueryPrimitiveKind::PivotRows => {
+            "local Vortex scan applied projection pushdown, then ShardLoom built scoped wide pivot state at the explicit materialization boundary without invoking an external engine"
+        }
+        VortexQueryPrimitiveKind::RollingWindowRows => {
+            "local Vortex scan applied projection pushdown, then ShardLoom maintained bounded source-order rolling window state without invoking an external engine"
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate => {
+            "local Vortex scan applied projection pushdown, then ShardLoom accumulated scalar aggregate state without invoking an external engine"
+        }
+        VortexQueryPrimitiveKind::Unsupported => "unsupported local primitive",
     }
 }
 
@@ -1120,11 +1243,16 @@ fn local_primitive_representation_transitions(
             RepresentationState::VortexEncoded
         }
         VortexQueryPrimitiveKind::DistinctRows
+        | VortexQueryPrimitiveKind::DuplicateMaskRows
         | VortexQueryPrimitiveKind::TailRows
-        | VortexQueryPrimitiveKind::SampleRows => RepresentationState::Unsupported,
-        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
-            RepresentationState::Unsupported
-        }
+        | VortexQueryPrimitiveKind::SampleRows
+        | VortexQueryPrimitiveKind::ExpressionProjectRows
+        | VortexQueryPrimitiveKind::MeltRows
+        | VortexQueryPrimitiveKind::ExplodeRows
+        | VortexQueryPrimitiveKind::PivotRows
+        | VortexQueryPrimitiveKind::RollingWindowRows
+        | VortexQueryPrimitiveKind::SimpleAggregate
+        | VortexQueryPrimitiveKind::Unsupported => RepresentationState::Unsupported,
     };
     vec![NativeIoRepresentationTransition::new(
         RepresentationState::VortexEncoded,
@@ -1167,11 +1295,16 @@ fn local_primitive_sink_target_format(
         VortexQueryPrimitiveKind::ProjectColumns => "local_projected_stream_summary",
         VortexQueryPrimitiveKind::FilterAndProject => "local_filtered_projected_stream_summary",
         VortexQueryPrimitiveKind::DistinctRows => "local_distinct_row_summary",
+        VortexQueryPrimitiveKind::DuplicateMaskRows => "local_duplicate_mask_row_summary",
         VortexQueryPrimitiveKind::TailRows => "local_tail_row_summary",
         VortexQueryPrimitiveKind::SampleRows => "local_sample_row_summary",
-        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
-            "unsupported_result"
-        }
+        VortexQueryPrimitiveKind::ExpressionProjectRows => "local_expression_project_row_summary",
+        VortexQueryPrimitiveKind::MeltRows => "local_melt_row_summary",
+        VortexQueryPrimitiveKind::ExplodeRows => "local_explode_row_summary",
+        VortexQueryPrimitiveKind::PivotRows => "local_pivot_row_summary",
+        VortexQueryPrimitiveKind::RollingWindowRows => "local_rolling_window_row_summary",
+        VortexQueryPrimitiveKind::SimpleAggregate => "scalar_aggregate_result",
+        VortexQueryPrimitiveKind::Unsupported => "unsupported_result",
     }
 }
 
@@ -1260,6 +1393,7 @@ fn local_primitive_native_io_side_effect_report(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn local_primitive_output_ref(report: &VortexLocalPrimitiveExecutionReport) -> Option<String> {
     match report.primitive_kind {
         VortexQueryPrimitiveKind::CountAll => Some(format!("count_result={}", report.rows_scanned)),
@@ -1294,6 +1428,17 @@ fn local_primitive_output_ref(report: &VortexLocalPrimitiveExecutionReport) -> O
                 )
             })
         }
+        VortexQueryPrimitiveKind::DuplicateMaskRows => {
+            local_primitive_row_count(report).map(|rows| {
+                format!(
+                    "duplicate_mask_rows={rows};projected_columns={};source_order_limit={}",
+                    report.projected_columns.join(","),
+                    report
+                        .source_order_limit_requested
+                        .map_or_else(|| "none".to_string(), |limit| limit.to_string())
+                )
+            })
+        }
         VortexQueryPrimitiveKind::TailRows => {
             local_primitive_row_count(report).map(|rows| {
                 format!(
@@ -1316,7 +1461,58 @@ fn local_primitive_output_ref(report: &VortexLocalPrimitiveExecutionReport) -> O
                 )
             })
         }
-        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => None,
+        VortexQueryPrimitiveKind::ExpressionProjectRows => {
+            local_primitive_row_count(report).map(|rows| {
+                format!(
+                    "expression_project_rows={rows};projected_columns={}",
+                    report.projected_columns.join(",")
+                )
+            })
+        }
+        VortexQueryPrimitiveKind::MeltRows => {
+            local_primitive_row_count(report).map(|rows| {
+                format!(
+                    "melt_rows={rows};output_columns={};source_order_limit={}",
+                    report.projected_columns.join(","),
+                    report
+                        .source_order_limit_requested
+                        .map_or_else(|| "none".to_string(), |limit| limit.to_string())
+                )
+            })
+        }
+        VortexQueryPrimitiveKind::ExplodeRows => {
+            local_primitive_row_count(report).map(|rows| {
+                format!(
+                    "explode_rows={rows};output_columns={};source_order_limit={}",
+                    report.projected_columns.join(","),
+                    report
+                        .source_order_limit_requested
+                        .map_or_else(|| "none".to_string(), |limit| limit.to_string())
+                )
+            })
+        }
+        VortexQueryPrimitiveKind::PivotRows => local_primitive_row_count(report).map(|rows| {
+            format!(
+                "pivot_rows={rows};output_columns={};source_order_limit={}",
+                report.projected_columns.join(","),
+                report
+                    .source_order_limit_requested
+                    .map_or_else(|| "none".to_string(), |limit| limit.to_string())
+            )
+        }),
+        VortexQueryPrimitiveKind::RollingWindowRows => {
+            local_primitive_row_count(report).map(|rows| {
+                format!(
+                    "rolling_window_rows={rows};output_columns={}",
+                    report.projected_columns.join(",")
+                )
+            })
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate => report
+            .result_summary
+            .as_ref()
+            .map(|summary| format!("scalar_aggregate_result={summary}")),
+        VortexQueryPrimitiveKind::Unsupported => None,
     }
 }
 
@@ -1348,14 +1544,26 @@ fn local_primitive_row_count(report: &VortexLocalPrimitiveExecutionReport) -> Op
         VortexQueryPrimitiveKind::ProjectColumns => report.rows_projected,
         VortexQueryPrimitiveKind::FilterAndProject
         | VortexQueryPrimitiveKind::DistinctRows
+        | VortexQueryPrimitiveKind::DuplicateMaskRows
         | VortexQueryPrimitiveKind::TailRows
-        | VortexQueryPrimitiveKind::SampleRows => {
+        | VortexQueryPrimitiveKind::SampleRows
+        | VortexQueryPrimitiveKind::ExpressionProjectRows
+        | VortexQueryPrimitiveKind::MeltRows
+        | VortexQueryPrimitiveKind::ExplodeRows
+        | VortexQueryPrimitiveKind::PivotRows
+        | VortexQueryPrimitiveKind::RollingWindowRows
+        | VortexQueryPrimitiveKind::SimpleAggregate => {
             match (report.rows_selected, report.rows_projected) {
                 (Some(selected), Some(projected)) if selected == projected => Some(selected),
+                (Some(selected), Some(1))
+                    if report.primitive_kind == VortexQueryPrimitiveKind::SimpleAggregate =>
+                {
+                    Some(selected)
+                }
                 _ => None,
             }
         }
-        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => None,
+        VortexQueryPrimitiveKind::Unsupported => None,
     }
 }
 
@@ -1376,11 +1584,32 @@ fn local_primitive_side_effects(report: &VortexLocalPrimitiveExecutionReport) ->
     if report.primitive_kind == VortexQueryPrimitiveKind::DistinctRows {
         effects.push("shardloom_distinct_row_key_materialization".to_string());
     }
+    if report.primitive_kind == VortexQueryPrimitiveKind::DuplicateMaskRows {
+        effects.push("shardloom_duplicate_mask_row_key_state".to_string());
+    }
     if report.primitive_kind == VortexQueryPrimitiveKind::TailRows {
         effects.push("shardloom_source_order_tail_window".to_string());
     }
     if report.primitive_kind == VortexQueryPrimitiveKind::SampleRows {
         effects.push("shardloom_deterministic_sample_selection".to_string());
+    }
+    if report.primitive_kind == VortexQueryPrimitiveKind::ExpressionProjectRows {
+        effects.push("shardloom_expression_projection_rewrite".to_string());
+    }
+    if report.primitive_kind == VortexQueryPrimitiveKind::MeltRows {
+        effects.push("shardloom_melt_row_expansion".to_string());
+    }
+    if report.primitive_kind == VortexQueryPrimitiveKind::ExplodeRows {
+        effects.push("shardloom_explode_list_row_expansion".to_string());
+    }
+    if report.primitive_kind == VortexQueryPrimitiveKind::PivotRows {
+        effects.push("shardloom_pivot_wide_reshape".to_string());
+    }
+    if report.primitive_kind == VortexQueryPrimitiveKind::RollingWindowRows {
+        effects.push("shardloom_rolling_window_state".to_string());
+    }
+    if report.primitive_kind == VortexQueryPrimitiveKind::SimpleAggregate {
+        effects.push("shardloom_scalar_aggregate_state".to_string());
     }
     effects
 }
@@ -1520,14 +1749,37 @@ fn execute_vortex_local_primitive_row_export_enabled(
     use vortex::io::session::RuntimeSessionExt as _;
     use vortex::session::VortexSession;
 
+    if request.kind == VortexQueryPrimitiveKind::PivotRows {
+        return execute_vortex_local_pivot_row_export_enabled(
+            request,
+            output_path,
+            output_format,
+            allow_overwrite,
+            policy,
+        );
+    }
+    if request.kind == VortexQueryPrimitiveKind::SimpleAggregate {
+        return execute_vortex_local_simple_aggregate_row_export_enabled(
+            request,
+            output_path,
+            output_format,
+            allow_overwrite,
+            policy,
+        );
+    }
     if !matches!(
         request.kind,
         VortexQueryPrimitiveKind::FilterPredicate
             | VortexQueryPrimitiveKind::ProjectColumns
             | VortexQueryPrimitiveKind::FilterAndProject
             | VortexQueryPrimitiveKind::DistinctRows
+            | VortexQueryPrimitiveKind::DuplicateMaskRows
             | VortexQueryPrimitiveKind::TailRows
             | VortexQueryPrimitiveKind::SampleRows
+            | VortexQueryPrimitiveKind::ExpressionProjectRows
+            | VortexQueryPrimitiveKind::MeltRows
+            | VortexQueryPrimitiveKind::ExplodeRows
+            | VortexQueryPrimitiveKind::RollingWindowRows
     ) {
         return Ok(VortexLocalPrimitiveRowExportReport::blocked(
             request.kind,
@@ -1536,7 +1788,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
             Diagnostic::unsupported(
                 DiagnosticCode::NotImplemented,
                 "vortex_local_primitive_row_export",
-                "local Vortex primitive row export supports filter, project, filter-project, distinct, tail, and sample row streams only",
+                "local Vortex primitive row export supports filter, project, filter-project, distinct, duplicate-mask, tail, sample, expression-project, melt, explode, pivot, and rolling-window row streams only",
                 Some("use scalar collect for count primitives, or an admitted provider sink for provider-backed result summaries".to_string()),
             ),
         ));
@@ -1580,11 +1832,58 @@ fn execute_vortex_local_primitive_row_export_enabled(
         })?;
     let source_row_count = file.row_count();
     let plan = row_export_scan_plan(request, file.dtype())?;
+    let duplicate_mask_requested = request.kind == VortexQueryPrimitiveKind::DuplicateMaskRows;
+    let melt_requested = request.kind == VortexQueryPrimitiveKind::MeltRows;
+    let explode_requested = request.kind == VortexQueryPrimitiveKind::ExplodeRows;
+    let rolling_requested = request.kind == VortexQueryPrimitiveKind::RollingWindowRows;
     let declared_columns = if plan.projected_columns.is_empty() {
         local_field_names(file.dtype(), request.kind)?
     } else {
         plan.projected_columns.clone()
     };
+    let melt_projection = if melt_requested {
+        Some(required_melt_projection(request)?)
+    } else {
+        None
+    };
+    let explode_projection = if explode_requested {
+        Some(required_explode_projection(request)?)
+    } else {
+        None
+    };
+    let rolling_window = if rolling_requested {
+        Some(required_rolling_window(request)?)
+    } else {
+        None
+    };
+    let output_columns = if duplicate_mask_requested {
+        vec!["duplicated".to_string()]
+    } else if let Some(melt_projection) = melt_projection {
+        melt_projection.output_columns()
+    } else if let Some(explode_projection) = explode_projection {
+        explode_projection.output_columns(&declared_columns)
+    } else if let Some(rolling_window) = rolling_window {
+        rolling_window.output_columns()
+    } else {
+        declared_columns.clone()
+    };
+    if request.kind == VortexQueryPrimitiveKind::ExpressionProjectRows
+        && request.expression_projection.is_none()
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex expression-project row export requires a typed expression projection payload; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    if request.kind == VortexQueryPrimitiveKind::ExpressionProjectRows {
+        let expression_projection = request.expression_projection.as_ref().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex expression-project row export requires a typed expression projection payload; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        validate_expression_projection_columns(expression_projection, &declared_columns)?;
+    }
 
     let temp_path = temporary_output_path(output_path)?;
     prepare_output_target(output_path, &temp_path, allow_overwrite)?;
@@ -1596,7 +1895,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
             ))
         })?;
         if output_format == VortexLocalPrimitiveRowExportFormat::Csv {
-            write_csv_header(&mut output, &declared_columns)?;
+            write_csv_header(&mut output, &output_columns)?;
         }
 
         let filter_pushdown_applied = plan.filter.is_some();
@@ -1615,12 +1914,16 @@ fn execute_vortex_local_primitive_row_export_enabled(
         let mut pre_limit_result_row_count = 0usize;
         let mut arrays_read_count = 0usize;
         let mut max_chunk_rows = 0usize;
-        let mut distinct_keys = std::collections::BTreeSet::new();
         let distinct_requested = request.kind == VortexQueryPrimitiveKind::DistinctRows;
+        let mut distinct_keys = std::collections::BTreeSet::new();
+        let mut duplicate_keys = std::collections::BTreeSet::new();
         let tail_requested = request.kind == VortexQueryPrimitiveKind::TailRows;
         let sample_requested = request.kind == VortexQueryPrimitiveKind::SampleRows;
         let mut tail_rows = std::collections::VecDeque::<Vec<StatValue>>::new();
         let mut sample_rows = Vec::<(u64, usize, Vec<StatValue>)>::new();
+        let mut melt_value_dtype: Option<LogicalDType> = None;
+        let mut rolling_state =
+            rolling_window.map(|request| RollingWindowState::new(request.window_size));
         let sample_seed = request.sample_seed.unwrap_or(0);
         let sample_fraction = normalized_sample_fraction(request.sample_fraction)?;
         if tail_requested && source_order_limit.is_none() {
@@ -1650,7 +1953,55 @@ fn execute_vortex_local_primitive_row_export_enabled(
         for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
             let chunk = chunk.map_err(vortex_error)?;
             let chunk_rows = chunk.len();
-            let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+            if let Some(explode_projection) = explode_projection {
+                let explode_columns =
+                    explode_columns_from_chunk(&chunk, &declared_columns, explode_projection)?;
+                pre_limit_result_row_count = pre_limit_result_row_count
+                    .checked_add(explode_columns.expanded_rows)
+                    .ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex explode row export pre-limit row count overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+                let output_rows =
+                    source_order_limit.map_or(explode_columns.expanded_rows, |limit| {
+                        limit
+                            .saturating_sub(rows_written)
+                            .min(explode_columns.expanded_rows)
+                    });
+                let written = write_row_export_explode_rows(
+                    &mut output,
+                    output_format,
+                    &explode_columns,
+                    output_rows,
+                )?;
+                rows_written = rows_written.checked_add(written).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex explode row export row count overflowed usize".to_string(),
+                    )
+                })?;
+                max_chunk_rows = max_chunk_rows.max(chunk_rows);
+                arrays_read_count += 1;
+                if source_order_limit.is_some_and(|limit| rows_written >= limit) {
+                    break;
+                }
+                continue;
+            }
+            let mut columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+            if request.kind == VortexQueryPrimitiveKind::ExpressionProjectRows {
+                let expression_projection = request.expression_projection.as_ref().ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex expression-project row export requires a typed expression projection payload; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+                apply_expression_projection_columns(
+                    &declared_columns,
+                    &mut columns,
+                    expression_projection,
+                )?;
+            }
             if distinct_requested {
                 let selected_rows = distinct_row_indices(
                     &columns,
@@ -1672,6 +2023,96 @@ fn execute_vortex_local_primitive_row_export_enabled(
                             "local Vortex row export row count overflowed usize".to_string(),
                         )
                     })?;
+            } else if duplicate_mask_requested {
+                let materialized_rows = row_export_materialized_row_count(&columns, chunk_rows)?;
+                pre_limit_result_row_count =
+                    pre_limit_result_row_count
+                        .checked_add(materialized_rows)
+                        .ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex duplicate-mask row export pre-limit row count overflowed usize"
+                                    .to_string(),
+                            )
+                        })?;
+                let output_rows = source_order_limit.map_or(materialized_rows, |limit| {
+                    limit.saturating_sub(rows_written).min(materialized_rows)
+                });
+                let duplicate_values =
+                    duplicate_mask_values(&columns, &mut duplicate_keys, output_rows)?;
+                write_row_export_chunk(
+                    &mut output,
+                    output_format,
+                    &output_columns,
+                    &[duplicate_values],
+                    output_rows,
+                )?;
+                rows_written = rows_written.checked_add(output_rows).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex duplicate-mask row export row count overflowed usize"
+                            .to_string(),
+                    )
+                })?;
+            } else if let Some(melt_projection) = melt_projection {
+                let materialized_rows = row_export_materialized_row_count(&columns, chunk_rows)?;
+                validate_melt_value_dtype(&columns, melt_projection, &mut melt_value_dtype)?;
+                let expanded_rows = checked_melt_expanded_rows(materialized_rows, melt_projection)?;
+                pre_limit_result_row_count = pre_limit_result_row_count
+                    .checked_add(expanded_rows)
+                    .ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex melt row export pre-limit row count overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+                let output_rows = source_order_limit.map_or(expanded_rows, |limit| {
+                    limit.saturating_sub(rows_written).min(expanded_rows)
+                });
+                let written = write_row_export_melt_rows(
+                    &mut output,
+                    output_format,
+                    melt_projection,
+                    &columns,
+                    materialized_rows,
+                    output_rows,
+                )?;
+                rows_written = rows_written.checked_add(written).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex melt row export row count overflowed usize".to_string(),
+                    )
+                })?;
+            } else if let Some(rolling_window) = rolling_window {
+                let materialized_rows = row_export_materialized_row_count(&columns, chunk_rows)?;
+                let Some(state) = rolling_state.as_mut() else {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "local Vortex rolling row export state was not initialized; no fallback execution was attempted"
+                            .to_string(),
+                    ));
+                };
+                let output_values =
+                    rolling_window_values(&columns, rolling_window, state, materialized_rows)?;
+                pre_limit_result_row_count = pre_limit_result_row_count
+                    .checked_add(output_values.len())
+                    .ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "local Vortex rolling row export pre-limit row count overflowed usize"
+                                .to_string(),
+                        )
+                    })?;
+                let output_rows = source_order_limit.map_or(output_values.len(), |limit| {
+                    limit.saturating_sub(rows_written).min(output_values.len())
+                });
+                write_row_export_chunk(
+                    &mut output,
+                    output_format,
+                    &output_columns,
+                    &[output_values],
+                    output_rows,
+                )?;
+                rows_written = rows_written.checked_add(output_rows).ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex rolling row export row count overflowed usize".to_string(),
+                    )
+                })?;
             } else if tail_requested {
                 let materialized_rows = row_export_materialized_row_count(&columns, chunk_rows)?;
                 pre_limit_result_row_count = pre_limit_result_row_count
@@ -1800,7 +2241,7 @@ fn execute_vortex_local_primitive_row_export_enabled(
             rows_scanned: source_row_count,
             rows_written: usize_to_u64(rows_written)?,
             pre_limit_result_row_count: usize_to_u64(pre_limit_result_row_count)?,
-            projected_columns: declared_columns,
+            projected_columns: output_columns,
             arrays_read_count,
             max_chunk_rows,
             max_parallelism_requested: policy.max_parallelism,
@@ -1818,6 +2259,425 @@ fn execute_vortex_local_primitive_row_export_enabled(
         let _ = std::fs::remove_file(&temp_path);
     }
     write_result
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
+fn execute_vortex_local_pivot_row_export_enabled(
+    request: &VortexQueryPrimitiveRequest,
+    output_path: &std::path::Path,
+    output_format: VortexLocalPrimitiveRowExportFormat,
+    allow_overwrite: bool,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<VortexLocalPrimitiveRowExportReport> {
+    use std::io::Write as _;
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let Some(uri) = request.source_uri.as_ref() else {
+        return Ok(VortexLocalPrimitiveRowExportReport::blocked(
+            request.kind,
+            output_path,
+            output_format,
+            Diagnostic::invalid_input(
+                "vortex_local_primitive_row_export",
+                "local Vortex pivot row export requires a source URI",
+                "provide a local `.vortex` source URI",
+            ),
+        ));
+    };
+    let Some(path) = local_vortex_path(uri, request.kind)? else {
+        return Ok(VortexLocalPrimitiveRowExportReport::blocked(
+            request.kind,
+            output_path,
+            output_format,
+            Diagnostic::invalid_input(
+                "vortex_local_primitive_row_export",
+                format!(
+                    "unsupported local Vortex pivot row export target: {}",
+                    uri.as_str()
+                ),
+                "provide an existing local path or file:// `.vortex` target",
+            ),
+        ));
+    };
+    let pivot_projection = required_pivot_projection(request)?;
+    let aggregate = normalized_pivot_aggregate(pivot_projection)?;
+    let temp_path = temporary_output_path(output_path)?;
+    prepare_output_target(output_path, &temp_path, allow_overwrite)?;
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(&path))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to open local Vortex target for pivot row export: {error}"
+            ))
+        })?;
+    let source_row_count = file.row_count();
+    let plan = row_export_scan_plan(request, file.dtype())?;
+    if plan.source_order_limit == Some(0) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex pivot row export row count must be >= 1".to_string(),
+        ));
+    }
+    let declared_columns = if plan.projected_columns.is_empty() {
+        vec![
+            pivot_projection.index_column.as_str().to_string(),
+            pivot_projection.pivot_column.as_str().to_string(),
+            pivot_projection.value_column.as_str().to_string(),
+        ]
+    } else {
+        plan.projected_columns.clone()
+    };
+    let expected_columns = [
+        pivot_projection.index_column.as_str(),
+        pivot_projection.pivot_column.as_str(),
+        pivot_projection.value_column.as_str(),
+    ];
+    if declared_columns
+        .iter()
+        .map(String::as_str)
+        .ne(expected_columns.into_iter())
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex pivot row export requires exactly index, pivot, and value projected columns; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+
+    let projection_pushdown_applied = plan.projection.is_some();
+    let mut scan = file.scan().map_err(vortex_error)?;
+    if let Some(projection) = plan.projection {
+        scan = scan.with_projection(projection);
+    }
+    scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+
+    let mut arrays_read_count = 0usize;
+    let mut max_chunk_rows = 0usize;
+    let mut state = PivotRowExportState::default();
+    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        let chunk = chunk.map_err(vortex_error)?;
+        let chunk_rows = chunk.len();
+        let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        if columns.len() != 3 {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex pivot row export requires exactly index, pivot, and value columns; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        state.update(
+            pivot_projection,
+            aggregate,
+            &columns[0],
+            &columns[1],
+            &columns[2],
+        )?;
+        max_chunk_rows = max_chunk_rows.max(chunk_rows);
+        arrays_read_count += 1;
+    }
+    let pre_limit_result_row_count = state.index_keys.len();
+    let rows_written = plan
+        .source_order_limit
+        .map_or(pre_limit_result_row_count, |limit| {
+            limit.min(pre_limit_result_row_count)
+        });
+    let output_columns = state.output_columns(pivot_projection);
+    let rows = state.materialized_rows(aggregate, rows_written)?;
+
+    let write_result = (|| -> Result<VortexLocalPrimitiveRowExportReport> {
+        let mut output = std::fs::File::create_new(&temp_path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create local Vortex pivot row export temp file {}: {error}",
+                temp_path.display()
+            ))
+        })?;
+        if output_format == VortexLocalPrimitiveRowExportFormat::Csv {
+            write_csv_header(&mut output, &output_columns)?;
+        }
+        write_row_export_sparse_materialized_rows(
+            &mut output,
+            output_format,
+            &output_columns,
+            &rows,
+        )?;
+        output.flush().map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to flush local Vortex pivot row export {}: {error}",
+                temp_path.display()
+            ))
+        })?;
+        drop(output);
+        std::fs::rename(&temp_path, output_path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to commit local Vortex pivot row export {} -> {}: {error}",
+                temp_path.display(),
+                output_path.display()
+            ))
+        })?;
+
+        Ok(VortexLocalPrimitiveRowExportReport {
+            status: VortexLocalPrimitiveExecutionStatus::Executed,
+            primitive_kind: request.kind,
+            output_path: output_path.display().to_string(),
+            output_format: output_format.as_str(),
+            rows_scanned: source_row_count,
+            rows_written: usize_to_u64(rows_written)?,
+            pre_limit_result_row_count: usize_to_u64(pre_limit_result_row_count)?,
+            projected_columns: output_columns,
+            arrays_read_count,
+            max_chunk_rows,
+            max_parallelism_requested: policy.max_parallelism,
+            scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
+            source_order_limit_requested: plan.source_order_limit.map(usize_to_u64).transpose()?,
+            evidence: executed_row_export_evidence(
+                false,
+                projection_pushdown_applied,
+                plan.source_order_limit.is_some(),
+            ),
+            diagnostics: Vec::new(),
+        })
+    })();
+    if write_result.is_err() {
+        let _ = std::fs::remove_file(&temp_path);
+    }
+    write_result
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn execute_vortex_local_simple_aggregate_row_export_enabled(
+    request: &VortexQueryPrimitiveRequest,
+    output_path: &std::path::Path,
+    output_format: VortexLocalPrimitiveRowExportFormat,
+    allow_overwrite: bool,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<VortexLocalPrimitiveRowExportReport> {
+    use std::io::Write as _;
+
+    let aggregate = required_simple_aggregate(request)?;
+    let Some(uri) = request.source_uri.as_ref() else {
+        return Ok(VortexLocalPrimitiveRowExportReport::blocked(
+            request.kind,
+            output_path,
+            output_format,
+            Diagnostic::invalid_input(
+                "vortex_local_primitive_row_export",
+                "local Vortex aggregate row export requires a source URI",
+                "provide a local `.vortex` source URI",
+            ),
+        ));
+    };
+    let Some(path) = local_vortex_path(uri, request.kind)? else {
+        return Ok(VortexLocalPrimitiveRowExportReport::blocked(
+            request.kind,
+            output_path,
+            output_format,
+            Diagnostic::invalid_input(
+                "vortex_local_primitive_row_export",
+                format!(
+                    "unsupported local Vortex aggregate row export target: {}",
+                    uri.as_str()
+                ),
+                "provide an existing local path or file:// `.vortex` target",
+            ),
+        ));
+    };
+    let scan = read_local_vortex_simple_aggregate_scan(uri, &path, request, policy)?;
+    let output_columns = aggregate.output_columns();
+    let result_rows = simple_aggregate_result_rows(&scan.result_summary, &output_columns)?;
+    let temp_path = temporary_output_path(output_path)?;
+    prepare_output_target(output_path, &temp_path, allow_overwrite)?;
+    let write_result = (|| -> Result<VortexLocalPrimitiveRowExportReport> {
+        let mut output = std::fs::File::create_new(&temp_path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create local Vortex aggregate row export temp file {}: {error}",
+                temp_path.display()
+            ))
+        })?;
+        if output_format == VortexLocalPrimitiveRowExportFormat::Csv {
+            write_csv_header(&mut output, &output_columns)?;
+        }
+        write_simple_aggregate_result_rows(
+            &mut output,
+            output_format,
+            &output_columns,
+            &result_rows,
+        )?;
+        output.flush().map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to flush local Vortex aggregate row export {}: {error}",
+                temp_path.display()
+            ))
+        })?;
+        drop(output);
+        std::fs::rename(&temp_path, output_path).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to commit local Vortex aggregate row export {} -> {}: {error}",
+                temp_path.display(),
+                output_path.display()
+            ))
+        })?;
+
+        Ok(VortexLocalPrimitiveRowExportReport {
+            status: VortexLocalPrimitiveExecutionStatus::Executed,
+            primitive_kind: request.kind,
+            output_path: output_path.display().to_string(),
+            output_format: output_format.as_str(),
+            rows_scanned: scan.scan.source_row_count,
+            rows_written: usize_to_u64(result_rows.len())?,
+            pre_limit_result_row_count: usize_to_u64(result_rows.len())?,
+            projected_columns: output_columns,
+            arrays_read_count: scan.scan.arrays_read_count,
+            max_chunk_rows: scan.scan.max_chunk_rows,
+            max_parallelism_requested: scan.scan.max_parallelism_requested,
+            scan_concurrency_per_worker: scan.scan.scan_concurrency_per_worker,
+            source_order_limit_requested: scan
+                .scan
+                .source_order_limit
+                .map(usize_to_u64)
+                .transpose()?,
+            evidence: executed_row_export_evidence(
+                false,
+                scan.scan.projection_pushdown_applied,
+                scan.scan.source_order_limit.is_some(),
+            ),
+            diagnostics: Vec::new(),
+        })
+    })();
+    if write_result.is_err() {
+        let _ = std::fs::remove_file(&temp_path);
+    }
+    write_result
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn simple_aggregate_result_rows(
+    result_summary: &str,
+    output_columns: &[String],
+) -> Result<Vec<Vec<serde_json::Value>>> {
+    let payload = serde_json::from_str::<serde_json::Value>(result_summary).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex aggregate result summary was not valid JSON: {error}; no fallback execution was attempted"
+        ))
+    })?;
+    let values = payload.get("values").ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex aggregate result summary did not include values; no fallback execution was attempted"
+                .to_string(),
+        )
+    })?;
+    let rows = match values {
+        serde_json::Value::Object(object) => vec![object],
+        serde_json::Value::Array(rows) => rows
+            .iter()
+            .map(|row| {
+                row.as_object().ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex grouped aggregate result row was not a JSON object; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>>>()?,
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex aggregate result summary values must be an object or row array; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+    };
+    rows.into_iter()
+        .map(|row| {
+            output_columns
+                .iter()
+                .map(|column| {
+                    row.get(column).cloned().ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "local Vortex aggregate result summary did not include output alias '{column}'; no fallback execution was attempted"
+                        ))
+                    })
+                })
+                .collect()
+        })
+        .collect()
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn write_simple_aggregate_result_rows(
+    output: &mut std::fs::File,
+    format: VortexLocalPrimitiveRowExportFormat,
+    output_columns: &[String],
+    result_rows: &[Vec<serde_json::Value>],
+) -> Result<()> {
+    for row_values in result_rows {
+        write_simple_aggregate_result_row(output, format, output_columns, row_values)?;
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn write_simple_aggregate_result_row(
+    output: &mut std::fs::File,
+    format: VortexLocalPrimitiveRowExportFormat,
+    output_columns: &[String],
+    row_values: &[serde_json::Value],
+) -> Result<()> {
+    use std::io::Write as _;
+
+    if output_columns.len() != row_values.len() {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex aggregate row export had mismatched output column/value counts; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    match format {
+        VortexLocalPrimitiveRowExportFormat::Jsonl => {
+            let mut row = serde_json::Map::with_capacity(output_columns.len());
+            for (column, value) in output_columns.iter().zip(row_values) {
+                row.insert(column.clone(), value.clone());
+            }
+            let line = serde_json::Value::Object(row).to_string();
+            writeln!(output, "{line}").map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to write local Vortex aggregate JSONL row: {error}"
+                ))
+            })?;
+        }
+        VortexLocalPrimitiveRowExportFormat::Csv => {
+            let line = row_values
+                .iter()
+                .map(json_value_to_csv_cell)
+                .collect::<Result<Vec<_>>>()?
+                .join(",");
+            writeln!(output, "{line}").map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to write local Vortex aggregate CSV row: {error}"
+                ))
+            })?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn json_value_to_csv_cell(value: &serde_json::Value) -> Result<String> {
+    match value {
+        serde_json::Value::Null => Ok(String::new()),
+        serde_json::Value::Bool(value) => Ok(value.to_string()),
+        serde_json::Value::Number(value) => Ok(value.to_string()),
+        serde_json::Value::String(value) => Ok(csv_escape(value)),
+        serde_json::Value::Array(_) | serde_json::Value::Object(_) => Err(
+            ShardLoomError::InvalidOperation(
+                "local Vortex aggregate CSV row export supports only scalar aggregate values; no fallback execution was attempted"
+                    .to_string(),
+            ),
+        ),
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -1841,7 +2701,14 @@ fn row_export_scan_plan(
             plan.source_order_limit = request.source_order_limit;
             Ok(plan)
         }
-        VortexQueryPrimitiveKind::ProjectColumns | VortexQueryPrimitiveKind::TailRows => {
+        VortexQueryPrimitiveKind::ProjectColumns
+        | VortexQueryPrimitiveKind::TailRows
+        | VortexQueryPrimitiveKind::DuplicateMaskRows
+        | VortexQueryPrimitiveKind::ExpressionProjectRows
+        | VortexQueryPrimitiveKind::MeltRows
+        | VortexQueryPrimitiveKind::ExplodeRows
+        | VortexQueryPrimitiveKind::PivotRows
+        | VortexQueryPrimitiveKind::RollingWindowRows => {
             let mut plan = projection_scan_plan(dtype, &request.projection, request.kind)?;
             plan.source_order_limit = request.source_order_limit;
             Ok(plan)
@@ -1870,7 +2737,7 @@ fn row_export_scan_plan(
         | VortexQueryPrimitiveKind::CountWhere
         | VortexQueryPrimitiveKind::SimpleAggregate
         | VortexQueryPrimitiveKind::Unsupported => Err(ShardLoomError::InvalidOperation(
-            "local Vortex row export supports filter, project, filter-project, distinct, tail, and sample primitives only"
+            "local Vortex row export supports filter, project, filter-project, distinct, duplicate-mask, tail, sample, expression-project, melt, explode, pivot, and rolling-window primitives only"
                 .to_string(),
         )),
     }
@@ -2097,6 +2964,602 @@ fn write_row_export_materialized_rows(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn write_row_export_sparse_materialized_rows(
+    output: &mut std::fs::File,
+    format: VortexLocalPrimitiveRowExportFormat,
+    columns: &[String],
+    rows: &[Vec<Option<StatValue>>],
+) -> Result<()> {
+    use std::io::Write as _;
+
+    for row_values in rows {
+        if row_values.len() != columns.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex sparse row export materialized rows had mismatched column counts; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        match format {
+            VortexLocalPrimitiveRowExportFormat::Jsonl => {
+                let mut row = serde_json::Map::with_capacity(columns.len());
+                for (column, value) in columns.iter().zip(row_values) {
+                    row.insert(
+                        column.clone(),
+                        value
+                            .as_ref()
+                            .map_or(Ok(serde_json::Value::Null), stat_value_to_json_value)?,
+                    );
+                }
+                let line = serde_json::Value::Object(row).to_string();
+                writeln!(output, "{line}").map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "failed to write local Vortex sparse row export JSONL row: {error}"
+                    ))
+                })?;
+            }
+            VortexLocalPrimitiveRowExportFormat::Csv => {
+                let line = row_values
+                    .iter()
+                    .map(|value| {
+                        value
+                            .as_ref()
+                            .map_or_else(String::new, stat_value_to_csv_cell)
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                writeln!(output, "{line}").map_err(|error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "failed to write local Vortex sparse row export CSV row: {error}"
+                    ))
+                })?;
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn required_melt_projection(
+    request: &VortexQueryPrimitiveRequest,
+) -> Result<&VortexMeltProjectionRequest> {
+    let Some(melt_projection) = request.melt_projection.as_ref() else {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex melt row export requires a typed melt projection payload; no fallback execution was attempted"
+                .to_string(),
+        ));
+    };
+    if melt_projection.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex melt row export requires at least one value column; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    if melt_projection.variable_column.trim().is_empty()
+        || melt_projection.value_column.trim().is_empty()
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex melt row export requires non-empty variable and value output column names; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    if melt_projection.variable_column == melt_projection.value_column
+        || melt_projection
+            .id_columns
+            .iter()
+            .any(|column| column.as_str() == melt_projection.variable_column)
+        || melt_projection
+            .id_columns
+            .iter()
+            .any(|column| column.as_str() == melt_projection.value_column)
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex melt row export output column names must not collide with id columns; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    Ok(melt_projection)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn checked_melt_expanded_rows(
+    source_rows: usize,
+    melt_projection: &VortexMeltProjectionRequest,
+) -> Result<usize> {
+    source_rows
+        .checked_mul(melt_projection.value_columns.len())
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex melt row count overflowed usize; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn validate_melt_value_dtype(
+    column_values: &[Vec<StatValue>],
+    melt_projection: &VortexMeltProjectionRequest,
+    observed_dtype: &mut Option<LogicalDType>,
+) -> Result<()> {
+    let id_count = melt_projection.id_columns.len();
+    let value_count = melt_projection.value_columns.len();
+    if column_values.len() < id_count + value_count {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex melt row export scanned fewer columns than requested; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    for column_values in &column_values[id_count..id_count + value_count] {
+        for value in column_values {
+            let dtype = value.dtype();
+            if let Some(observed) = observed_dtype {
+                if *observed != dtype {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "local Vortex melt row export requires same-typed value columns in the scoped v1 route; no fallback execution was attempted"
+                            .to_string(),
+                    ));
+                }
+            } else {
+                *observed_dtype = Some(dtype);
+            }
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn write_row_export_melt_rows(
+    output: &mut std::fs::File,
+    format: VortexLocalPrimitiveRowExportFormat,
+    melt_projection: &VortexMeltProjectionRequest,
+    column_values: &[Vec<StatValue>],
+    source_rows: usize,
+    output_rows: usize,
+) -> Result<usize> {
+    use std::io::Write as _;
+
+    let id_count = melt_projection.id_columns.len();
+    let value_count = melt_projection.value_columns.len();
+    if column_values.len() < id_count + value_count {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex melt row export scanned fewer columns than requested; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    let output_columns = melt_projection.output_columns();
+    let mut written = 0usize;
+    for row_index in 0..source_rows {
+        for value_offset in 0..value_count {
+            if written >= output_rows {
+                return Ok(written);
+            }
+            let value_column = melt_projection.value_columns[value_offset].as_str();
+            let value_index = id_count + value_offset;
+            match format {
+                VortexLocalPrimitiveRowExportFormat::Jsonl => {
+                    let mut row = serde_json::Map::with_capacity(output_columns.len());
+                    for (id_index, id_column) in melt_projection.id_columns.iter().enumerate() {
+                        row.insert(
+                            id_column.as_str().to_string(),
+                            stat_value_to_json_value(&column_values[id_index][row_index])?,
+                        );
+                    }
+                    row.insert(
+                        melt_projection.variable_column.clone(),
+                        serde_json::Value::String(value_column.to_string()),
+                    );
+                    row.insert(
+                        melt_projection.value_column.clone(),
+                        stat_value_to_json_value(&column_values[value_index][row_index])?,
+                    );
+                    let line = serde_json::Value::Object(row).to_string();
+                    writeln!(output, "{line}").map_err(|error| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "failed to write local Vortex melt JSONL row: {error}"
+                        ))
+                    })?;
+                }
+                VortexLocalPrimitiveRowExportFormat::Csv => {
+                    let mut cells = Vec::with_capacity(output_columns.len());
+                    for id_index in 0..id_count {
+                        cells.push(stat_value_to_csv_cell(&column_values[id_index][row_index]));
+                    }
+                    cells.push(csv_escape(value_column));
+                    cells.push(stat_value_to_csv_cell(
+                        &column_values[value_index][row_index],
+                    ));
+                    writeln!(output, "{}", cells.join(",")).map_err(|error| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "failed to write local Vortex melt CSV row: {error}"
+                        ))
+                    })?;
+                }
+            }
+            written = written.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex melt row export output count overflowed usize; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        }
+    }
+    Ok(written)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn required_explode_projection(
+    request: &VortexQueryPrimitiveRequest,
+) -> Result<&VortexExplodeProjectionRequest> {
+    request.explode_projection.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex explode row export requires a typed explode projection payload; no fallback execution was attempted"
+                .to_string(),
+        )
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+struct ExplodeChunkColumns {
+    output_columns: Vec<String>,
+    scalar_columns: Vec<Option<Vec<StatValue>>>,
+    element_rows: Vec<Vec<StatValue>>,
+    source_rows: usize,
+    expanded_rows: usize,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn explode_columns_from_chunk(
+    chunk: &vortex::array::ArrayRef,
+    declared_columns: &[String],
+    explode_projection: &VortexExplodeProjectionRequest,
+) -> Result<ExplodeChunkColumns> {
+    let explode_column = explode_projection.column.as_str();
+    let output_columns = explode_projection.output_columns(declared_columns);
+    if !output_columns.iter().any(|column| column == explode_column) {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local Vortex explode output columns must include explode column '{explode_column}'; no fallback execution was attempted"
+        )));
+    }
+
+    let mut scalar_columns = Vec::with_capacity(output_columns.len());
+    let mut element_rows: Option<Vec<Vec<StatValue>>> = None;
+    if chunk.dtype().is_struct() {
+        let children = chunk
+            .named_children()
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        for column in &output_columns {
+            let Some(array) = children.get(column.as_str()) else {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local Vortex explode column '{column}' was not present in scanned chunk; no fallback execution was attempted"
+                )));
+            };
+            if column == explode_column {
+                element_rows = Some(list_element_rows_from_vortex_array(column, array)?);
+                scalar_columns.push(None);
+            } else {
+                scalar_columns.push(Some(row_export_values_from_vortex_array(column, array)?));
+            }
+        }
+    } else {
+        if output_columns.len() != 1 || output_columns[0] != explode_column {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex top-level explode requires a single projected list column; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        element_rows = Some(list_element_rows_from_vortex_array(explode_column, chunk)?);
+        scalar_columns.push(None);
+    }
+    let element_rows = element_rows.ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex explode projection column '{explode_column}' was not materialized; no fallback execution was attempted"
+        ))
+    })?;
+    let source_rows = element_rows.len();
+    for (column, values) in output_columns.iter().zip(&scalar_columns) {
+        if let Some(values) = values
+            && values.len() != source_rows
+        {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local Vortex explode scalar companion column '{column}' row count did not match list row count; no fallback execution was attempted"
+            )));
+        }
+    }
+    let expanded_rows = element_rows.iter().try_fold(0usize, |acc, values| {
+        acc.checked_add(values.len()).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex explode expanded row count overflowed usize; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })
+    })?;
+    Ok(ExplodeChunkColumns {
+        output_columns,
+        scalar_columns,
+        element_rows,
+        source_rows,
+        expanded_rows,
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn list_element_rows_from_vortex_array(
+    column: &str,
+    array: &vortex::array::ArrayRef,
+) -> Result<Vec<Vec<StatValue>>> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::fixed_size_list::FixedSizeListArrayExt as _;
+    use vortex::array::arrays::listview::ListViewArrayExt as _;
+    use vortex::array::arrays::{FixedSizeListArray, ListViewArray};
+    use vortex::array::dtype::DType;
+    use vortex::array::validity::Validity;
+
+    match array.dtype() {
+        DType::List(_, _) => {
+            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let list = array
+                .clone()
+                .execute::<ListViewArray>(&mut ctx)
+                .map_err(vortex_error)?;
+            match list.listview_validity() {
+                Validity::NonNullable | Validity::AllValid => {}
+                Validity::AllInvalid | Validity::Array(_) => {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "local Vortex explode column '{column}' has nullable list rows; scoped v1 explode requires valid lists and fails closed without fallback"
+                    )));
+                }
+            }
+            let mut out = Vec::with_capacity(list.len());
+            for row_index in 0..list.len() {
+                let elements = list.list_elements_at(row_index).map_err(vortex_error)?;
+                out.push(list_scalar_values(column, &elements)?);
+            }
+            Ok(out)
+        }
+        DType::FixedSizeList(_, _, _) => {
+            let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+            let list = array
+                .clone()
+                .execute::<FixedSizeListArray>(&mut ctx)
+                .map_err(vortex_error)?;
+            match list.fixed_size_list_validity() {
+                Validity::NonNullable | Validity::AllValid => {}
+                Validity::AllInvalid | Validity::Array(_) => {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "local Vortex explode column '{column}' has nullable fixed-size-list rows; scoped v1 explode requires valid lists and fails closed without fallback"
+                    )));
+                }
+            }
+            let mut out = Vec::with_capacity(list.len());
+            for row_index in 0..list.len() {
+                let elements = list
+                    .fixed_size_list_elements_at(row_index)
+                    .map_err(vortex_error)?;
+                out.push(list_scalar_values(column, &elements)?);
+            }
+            Ok(out)
+        }
+        other => Err(ShardLoomError::InvalidOperation(format!(
+            "local Vortex explode column '{column}' requires a list or fixed-size-list dtype, got {other:?}; no fallback execution was attempted"
+        ))),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn list_scalar_values(column: &str, elements: &vortex::array::ArrayRef) -> Result<Vec<StatValue>> {
+    stat_values_from_vortex_array(elements).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex explode column '{column}' has unsupported nested element dtype or nullable element validity for scoped scalar row export; no fallback execution was attempted"
+        ))
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn write_row_export_explode_rows(
+    output: &mut std::fs::File,
+    format: VortexLocalPrimitiveRowExportFormat,
+    explode_columns: &ExplodeChunkColumns,
+    output_rows: usize,
+) -> Result<usize> {
+    use std::io::Write as _;
+
+    let mut written = 0usize;
+    for source_index in 0..explode_columns.source_rows {
+        for element in &explode_columns.element_rows[source_index] {
+            if written >= output_rows {
+                return Ok(written);
+            }
+            match format {
+                VortexLocalPrimitiveRowExportFormat::Jsonl => {
+                    let mut row =
+                        serde_json::Map::with_capacity(explode_columns.output_columns.len());
+                    for (column, values) in explode_columns
+                        .output_columns
+                        .iter()
+                        .zip(&explode_columns.scalar_columns)
+                    {
+                        let value = if let Some(values) = values {
+                            values.get(source_index).ok_or_else(|| {
+                                ShardLoomError::InvalidOperation(
+                                    "local Vortex explode scalar companion row index was out of bounds; no fallback execution was attempted"
+                                        .to_string(),
+                                )
+                            })?
+                        } else {
+                            element
+                        };
+                        row.insert(column.clone(), stat_value_to_json_value(value)?);
+                    }
+                    let line = serde_json::Value::Object(row).to_string();
+                    writeln!(output, "{line}").map_err(|error| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "failed to write local Vortex explode JSONL row: {error}"
+                        ))
+                    })?;
+                }
+                VortexLocalPrimitiveRowExportFormat::Csv => {
+                    let mut cells = Vec::with_capacity(explode_columns.output_columns.len());
+                    for values in &explode_columns.scalar_columns {
+                        let value = if let Some(values) = values {
+                            values.get(source_index).ok_or_else(|| {
+                                ShardLoomError::InvalidOperation(
+                                    "local Vortex explode scalar companion row index was out of bounds; no fallback execution was attempted"
+                                        .to_string(),
+                                )
+                            })?
+                        } else {
+                            element
+                        };
+                        cells.push(stat_value_to_csv_cell(value));
+                    }
+                    writeln!(output, "{}", cells.join(",")).map_err(|error| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "failed to write local Vortex explode CSV row: {error}"
+                        ))
+                    })?;
+                }
+            }
+            written = written.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex explode row export output count overflowed usize; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+        }
+    }
+    Ok(written)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn required_rolling_window(
+    request: &VortexQueryPrimitiveRequest,
+) -> Result<&VortexRollingWindowRequest> {
+    let Some(rolling_window) = request.rolling_window.as_ref() else {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex rolling window requires a typed rolling payload; no fallback execution was attempted"
+                .to_string(),
+        ));
+    };
+    validate_rolling_window_request(rolling_window)?;
+    Ok(rolling_window)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn validate_rolling_window_request(rolling_window: &VortexRollingWindowRequest) -> Result<()> {
+    if rolling_window.window_size == 0 {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex rolling window size must be >= 1; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    if rolling_window.min_periods == 0 || rolling_window.min_periods > rolling_window.window_size {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex rolling min_periods must be in the range [1, window_size]; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    if rolling_window.output_column.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex rolling output column must be non-empty; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    if rolling_window.output_column == rolling_window.source_column.as_str() {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex rolling output column must not collide with the source column; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    if rolling_window.aggregate != "sum" {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex rolling window supports only aggregate='sum' in the scoped v1 route; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+struct RollingWindowState {
+    values: std::collections::VecDeque<f64>,
+    sum: f64,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl RollingWindowState {
+    fn new(window_size: usize) -> Self {
+        Self {
+            values: std::collections::VecDeque::with_capacity(window_size),
+            sum: 0.0,
+        }
+    }
+
+    fn push(&mut self, value: f64, window_size: usize) -> Result<()> {
+        if self.values.len() == window_size
+            && let Some(expired) = self.values.pop_front()
+        {
+            self.sum -= expired;
+        }
+        self.values.push_back(value);
+        self.sum += value;
+        if self.sum.is_finite() {
+            Ok(())
+        } else {
+            Err(ShardLoomError::InvalidOperation(
+                "local Vortex rolling window produced a non-finite sum; no fallback execution was attempted"
+                    .to_string(),
+            ))
+        }
+    }
+
+    fn ready(&self, min_periods: usize) -> bool {
+        self.values.len() >= min_periods
+    }
+
+    fn input_rows_needed_for_outputs(&self, min_periods: usize, output_rows: usize) -> usize {
+        if output_rows == 0 {
+            return 0;
+        }
+        output_rows.saturating_add(
+            min_periods
+                .saturating_sub(self.values.len())
+                .saturating_sub(1),
+        )
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn rolling_window_values(
+    column_values: &[Vec<StatValue>],
+    rolling_window: &VortexRollingWindowRequest,
+    state: &mut RollingWindowState,
+    source_rows: usize,
+) -> Result<Vec<StatValue>> {
+    if column_values.len() != 1 {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex rolling window requires exactly one projected source column; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    let values = &column_values[0];
+    if values.len() < source_rows {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex rolling window scanned fewer values than rows; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    let mut output = Vec::new();
+    for value in values.iter().take(source_rows) {
+        state.push(stat_value_to_f64(value)?, rolling_window.window_size)?;
+        if state.ready(rolling_window.min_periods) {
+            output.push(StatValue::Float64(state.sum));
+        }
+    }
+    Ok(output)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn row_export_materialized_row_count(
     column_values: &[Vec<StatValue>],
     fallback_rows: usize,
@@ -2255,6 +3718,335 @@ fn sample_shape_summary(request: &VortexQueryPrimitiveRequest) -> String {
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn validate_expression_projection_columns(
+    expression_projection: &VortexExpressionProjectionRequest,
+    columns: &[String],
+) -> Result<()> {
+    let column_set = columns
+        .iter()
+        .map(String::as_str)
+        .collect::<std::collections::BTreeSet<_>>();
+    for rewrite in &expression_projection.rewrites {
+        let target = rewrite.target_column().as_str();
+        if !column_set.contains(target) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local Vortex expression projection target column '{target}' is not in the projected output; include it in the projection or use a narrower rewrite"
+            )));
+        }
+        if let VortexExpressionRewrite::MaskScalar { predicate, .. } = rewrite {
+            validate_expression_projection_predicate_columns(predicate, &column_set)?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn validate_expression_projection_predicate_columns(
+    predicate: &PredicateExpr,
+    columns: &std::collections::BTreeSet<&str>,
+) -> Result<()> {
+    let predicate_column = match predicate {
+        PredicateExpr::AlwaysTrue | PredicateExpr::AlwaysFalse => return Ok(()),
+        PredicateExpr::And(predicates) => {
+            for predicate in predicates {
+                validate_expression_projection_predicate_columns(predicate, columns)?;
+            }
+            return Ok(());
+        }
+        PredicateExpr::IsNull { column }
+        | PredicateExpr::IsNotNull { column }
+        | PredicateExpr::Compare { column, .. } => column.as_str(),
+    };
+    if !columns.contains(predicate_column) {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local Vortex expression projection predicate column '{predicate_column}' is not in the projected output; hidden predicate-only columns are not admitted for this scoped route"
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn apply_expression_projection_columns(
+    columns: &[String],
+    column_values: &mut [Vec<StatValue>],
+    expression_projection: &VortexExpressionProjectionRequest,
+) -> Result<()> {
+    let row_count = row_export_materialized_row_count(column_values, 0)?;
+    for rewrite in &expression_projection.rewrites {
+        let target_index = column_index(columns, rewrite.target_column().as_str())?;
+        for row_index in 0..row_count {
+            let current = column_values[target_index]
+                .get(row_index)
+                .cloned()
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex expression projection row index was out of bounds; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+            let updated = match rewrite {
+                VortexExpressionRewrite::MaskScalar {
+                    predicate,
+                    replacement,
+                    ..
+                } => {
+                    if predicate_matches_materialized_row(
+                        predicate,
+                        columns,
+                        column_values,
+                        row_index,
+                    )? {
+                        coerce_rewrite_value(&current, replacement)?
+                    } else {
+                        current
+                    }
+                }
+                VortexExpressionRewrite::ReplaceScalar {
+                    to_replace,
+                    replacement,
+                    ..
+                } => {
+                    let comparable = coerce_rewrite_value(&current, to_replace)?;
+                    if stat_value_equal(&current, &comparable) {
+                        coerce_rewrite_value(&current, replacement)?
+                    } else {
+                        current
+                    }
+                }
+                VortexExpressionRewrite::StringReplaceScalar {
+                    needle,
+                    replacement,
+                    ..
+                } => match current {
+                    StatValue::Utf8(value) => StatValue::Utf8(value.replace(needle, replacement)),
+                    _ => {
+                        return Err(ShardLoomError::InvalidOperation(
+                            "local Vortex expression projection string replacement requires a UTF-8 target column; no fallback execution was attempted"
+                                .to_string(),
+                        ));
+                    }
+                },
+                VortexExpressionRewrite::NumericScalarArithmetic {
+                    operator, operand, ..
+                } => apply_numeric_scalar_arithmetic(&current, operator, operand)?,
+            };
+            column_values[target_index][row_index] = updated;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn apply_numeric_scalar_arithmetic(
+    current: &StatValue,
+    operator: &str,
+    operand: &StatValue,
+) -> Result<StatValue> {
+    let operator = operator.trim();
+    let operand = coerce_rewrite_value(current, operand)?;
+    match (current, &operand) {
+        (StatValue::Int64(left), StatValue::Int64(right)) => match operator {
+            "+" => left.checked_add(*right).map(StatValue::Int64),
+            "-" => left.checked_sub(*right).map(StatValue::Int64),
+            "*" => left.checked_mul(*right).map(StatValue::Int64),
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local Vortex expression projection numeric scalar operator '{operator}' is not supported for int64 targets; no fallback execution was attempted"
+                )));
+            }
+        }
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex expression projection int64 arithmetic overflowed; no fallback execution was attempted"
+                    .to_string(),
+            )
+        }),
+        (StatValue::UInt64(left), StatValue::UInt64(right)) => match operator {
+            "+" => left.checked_add(*right).map(StatValue::UInt64),
+            "-" => left.checked_sub(*right).map(StatValue::UInt64),
+            "*" => left.checked_mul(*right).map(StatValue::UInt64),
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local Vortex expression projection numeric scalar operator '{operator}' is not supported for uint64 targets; no fallback execution was attempted"
+                )));
+            }
+        }
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex expression projection uint64 arithmetic overflowed or underflowed; no fallback execution was attempted"
+                    .to_string(),
+            )
+        }),
+        (StatValue::Float64(left), StatValue::Float64(right)) => {
+            let value = match operator {
+                "+" => left + right,
+                "-" => left - right,
+                "*" => left * right,
+                "/" => {
+                    if *right == 0.0 {
+                        return Err(ShardLoomError::InvalidOperation(
+                            "local Vortex expression projection float division by zero is not admitted; no fallback execution was attempted"
+                                .to_string(),
+                        ));
+                    }
+                    left / right
+                }
+                _ => {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "local Vortex expression projection numeric scalar operator '{operator}' is not supported; no fallback execution was attempted"
+                    )));
+                }
+            };
+            if value.is_finite() {
+                Ok(StatValue::Float64(value))
+            } else {
+                Err(ShardLoomError::InvalidOperation(
+                    "local Vortex expression projection float arithmetic produced a non-finite value; no fallback execution was attempted"
+                        .to_string(),
+                ))
+            }
+        }
+        _ => Err(ShardLoomError::InvalidOperation(
+            "local Vortex expression projection numeric scalar arithmetic requires an int64, uint64, or float64 target column; no fallback execution was attempted"
+                .to_string(),
+        )),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn column_index(columns: &[String], column: &str) -> Result<usize> {
+    columns.iter().position(|value| value == column).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "local Vortex expression projection column '{column}' was not found; no fallback execution was attempted"
+        ))
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn predicate_matches_materialized_row(
+    predicate: &PredicateExpr,
+    columns: &[String],
+    column_values: &[Vec<StatValue>],
+    row_index: usize,
+) -> Result<bool> {
+    match predicate {
+        PredicateExpr::AlwaysTrue => Ok(true),
+        PredicateExpr::AlwaysFalse => Ok(false),
+        PredicateExpr::And(predicates) => {
+            predicates.iter().try_fold(true, |selected, predicate| {
+                Ok(selected
+                    && predicate_matches_materialized_row(
+                        predicate,
+                        columns,
+                        column_values,
+                        row_index,
+                    )?)
+            })
+        }
+        PredicateExpr::IsNull { .. } => Ok(false),
+        PredicateExpr::IsNotNull { .. } => Ok(true),
+        PredicateExpr::Compare { column, op, value } => {
+            let column_index = column_index(columns, column.as_str())?;
+            let current = column_values[column_index]
+                .get(row_index)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex expression projection predicate row index was out of bounds; no fallback execution was attempted"
+                            .to_string(),
+                    )
+                })?;
+            compare_stat_value_with_op(current, op, value)
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn compare_stat_value_with_op(
+    left: &StatValue,
+    op: &ComparisonOp,
+    right: &StatValue,
+) -> Result<bool> {
+    let comparable = coerce_rewrite_value(left, right)?;
+    let ordering = stat_value_cmp(left, &comparable).ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex expression projection predicate has incompatible scalar types; no fallback execution was attempted"
+                .to_string(),
+        )
+    })?;
+    Ok(match op {
+        ComparisonOp::Eq => ordering == std::cmp::Ordering::Equal,
+        ComparisonOp::NotEq => ordering != std::cmp::Ordering::Equal,
+        ComparisonOp::Lt => ordering == std::cmp::Ordering::Less,
+        ComparisonOp::LtEq => {
+            matches!(
+                ordering,
+                std::cmp::Ordering::Less | std::cmp::Ordering::Equal
+            )
+        }
+        ComparisonOp::Gt => ordering == std::cmp::Ordering::Greater,
+        ComparisonOp::GtEq => {
+            matches!(
+                ordering,
+                std::cmp::Ordering::Greater | std::cmp::Ordering::Equal
+            )
+        }
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn stat_value_cmp(left: &StatValue, right: &StatValue) -> Option<std::cmp::Ordering> {
+    match (left, right) {
+        (StatValue::Boolean(left), StatValue::Boolean(right)) => Some(left.cmp(right)),
+        (StatValue::Int64(left), StatValue::Int64(right)) => Some(left.cmp(right)),
+        (StatValue::UInt64(left), StatValue::UInt64(right)) => Some(left.cmp(right)),
+        (StatValue::Float64(left), StatValue::Float64(right)) => left.partial_cmp(right),
+        (StatValue::Utf8(left), StatValue::Utf8(right)) => Some(left.cmp(right)),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn stat_value_equal(left: &StatValue, right: &StatValue) -> bool {
+    stat_value_cmp(left, right) == Some(std::cmp::Ordering::Equal)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::cast_precision_loss)]
+fn coerce_rewrite_value(target_value: &StatValue, value: &StatValue) -> Result<StatValue> {
+    match (target_value, value) {
+        (StatValue::Boolean(_), StatValue::Boolean(value)) => Ok(StatValue::Boolean(*value)),
+        (StatValue::Int64(_), StatValue::Int64(value)) => Ok(StatValue::Int64(*value)),
+        (StatValue::Int64(_), StatValue::UInt64(value)) => {
+            let value = i64::try_from(*value).map_err(|_| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex expression projection unsigned literal exceeds int64 target; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            Ok(StatValue::Int64(value))
+        }
+        (StatValue::UInt64(_), StatValue::UInt64(value)) => Ok(StatValue::UInt64(*value)),
+        (StatValue::UInt64(_), StatValue::Int64(value)) => {
+            let value = u64::try_from(*value).map_err(|_| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex expression projection negative literal cannot target unsigned column; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?;
+            Ok(StatValue::UInt64(value))
+        }
+        (StatValue::Float64(_), StatValue::Float64(value)) => Ok(StatValue::Float64(*value)),
+        (StatValue::Float64(_), StatValue::Int64(value)) => Ok(StatValue::Float64(*value as f64)),
+        (StatValue::Float64(_), StatValue::UInt64(value)) => Ok(StatValue::Float64(*value as f64)),
+        (StatValue::Utf8(_), StatValue::Utf8(value)) => Ok(StatValue::Utf8(value.clone())),
+        _ => Err(ShardLoomError::InvalidOperation(
+            "local Vortex expression projection literal type is incompatible with target column; no fallback execution was attempted"
+                .to_string(),
+        )),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn distinct_row_indices(
     column_values: &[Vec<StatValue>],
     seen: &mut std::collections::BTreeSet<String>,
@@ -2277,6 +4069,27 @@ fn distinct_row_indices(
         }
     }
     Ok(selected)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn duplicate_mask_values(
+    column_values: &[Vec<StatValue>],
+    seen: &mut std::collections::BTreeSet<String>,
+    rows: usize,
+) -> Result<Vec<StatValue>> {
+    let available_rows = row_export_materialized_row_count(column_values, rows)?;
+    if rows > available_rows {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex duplicate-mask requested more rows than the materialized chunk contains; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    let mut out = Vec::with_capacity(rows);
+    for row_index in 0..rows {
+        let key = distinct_row_key(column_values, row_index)?;
+        out.push(StatValue::Boolean(!seen.insert(key)));
+    }
+    Ok(out)
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -2449,6 +4262,10 @@ fn execute_vortex_local_primitive_enabled(
             let scan = read_local_vortex_distinct_scan(uri, &path, request, policy)?;
             distinct_rows_report(request.kind, &scan)
         }
+        VortexQueryPrimitiveKind::DuplicateMaskRows => {
+            let scan = read_local_vortex_duplicate_mask_scan(uri, &path, request, policy)?;
+            duplicate_mask_rows_report(&scan)
+        }
         VortexQueryPrimitiveKind::TailRows => {
             let scan = read_local_vortex_tail_scan(uri, &path, request, policy)?;
             tail_rows_report(request.kind, &scan)
@@ -2457,21 +4274,43 @@ fn execute_vortex_local_primitive_enabled(
             let scan = read_local_vortex_sample_scan(uri, &path, request, policy)?;
             sample_rows_report(request, &scan)
         }
-        VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
-            Ok(VortexLocalPrimitiveExecutionReport::blocked(
-                request.kind,
-                VortexLocalPrimitiveExecutionStatus::BlockedByUnsupportedPrimitive,
-                Diagnostic::unsupported(
-                    DiagnosticCode::NotImplemented,
-                    "vortex_local_primitive",
-                    format!(
-                        "local primitive execution does not yet support {}",
-                        request.kind.as_str()
-                    ),
-                    Some("Fallback attempted: false".to_string()),
-                ),
-            ))
+        VortexQueryPrimitiveKind::ExpressionProjectRows => {
+            let scan = read_local_vortex_expression_project_scan(uri, &path, request, policy)?;
+            expression_project_rows_report(request, &scan)
         }
+        VortexQueryPrimitiveKind::MeltRows => {
+            let scan = read_local_vortex_melt_scan(uri, &path, request, policy)?;
+            melt_rows_report(request, &scan)
+        }
+        VortexQueryPrimitiveKind::ExplodeRows => {
+            let scan = read_local_vortex_explode_scan(uri, &path, request, policy)?;
+            explode_rows_report(request, &scan)
+        }
+        VortexQueryPrimitiveKind::PivotRows => {
+            let scan = read_local_vortex_pivot_scan(uri, &path, request, policy)?;
+            pivot_rows_report(request, &scan)
+        }
+        VortexQueryPrimitiveKind::RollingWindowRows => {
+            let scan = read_local_vortex_rolling_window_scan(uri, &path, request, policy)?;
+            rolling_window_rows_report(request, &scan)
+        }
+        VortexQueryPrimitiveKind::SimpleAggregate => {
+            let aggregate = read_local_vortex_simple_aggregate_scan(uri, &path, request, policy)?;
+            simple_aggregate_report(request, &aggregate)
+        }
+        VortexQueryPrimitiveKind::Unsupported => Ok(VortexLocalPrimitiveExecutionReport::blocked(
+            request.kind,
+            VortexLocalPrimitiveExecutionStatus::BlockedByUnsupportedPrimitive,
+            Diagnostic::unsupported(
+                DiagnosticCode::NotImplemented,
+                "vortex_local_primitive",
+                format!(
+                    "local primitive execution does not yet support {}",
+                    request.kind.as_str()
+                ),
+                Some("Fallback attempted: false".to_string()),
+            ),
+        )),
     }
 }
 
@@ -2490,6 +4329,12 @@ struct LocalVortexScan {
     filter_pushdown_applied: bool,
     projection_pushdown_applied: bool,
     source_order_limit: Option<usize>,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+struct LocalVortexAggregateScan {
+    scan: LocalVortexScan,
+    result_summary: String,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -3681,6 +5526,58 @@ fn distinct_rows_report(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn duplicate_mask_rows_report(
+    scan: &LocalVortexScan,
+) -> Result<VortexLocalPrimitiveExecutionReport> {
+    let rows = usize_to_u64(scan.result_row_count)?;
+    Ok(VortexLocalPrimitiveExecutionReport {
+        status: VortexLocalPrimitiveExecutionStatus::Executed,
+        mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
+        primitive_kind: VortexQueryPrimitiveKind::DuplicateMaskRows,
+        result_summary: Some(format!(
+            "duplicate_mask_rows={} subset_columns={} output_columns=duplicated keep=first",
+            rows,
+            scan.projected_columns.join(",")
+        )),
+        rows_scanned: scan.source_row_count,
+        rows_selected: Some(rows),
+        rows_projected: Some(rows),
+        projected_columns: vec!["duplicated".to_string()],
+        arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: true,
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
+        filter_pushdown_applied: false,
+        projection_pushdown_applied: scan.projection_pushdown_applied,
+        upstream_filter_expression_used: false,
+        upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
+        source_order_limit_applied: scan.source_order_limit.is_some(),
+        source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
+        source_order_limit_rows_output: Some(rows),
+        data_read: true,
+        data_decoded: true,
+        data_materialized: true,
+        upstream_scan_called: true,
+        row_read: true,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        external_effects_executed: false,
+        fallback_execution_allowed: false,
+        materialization_boundary_reported: true,
+        diagnostics: Vec::new(),
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn tail_rows_report(
     primitive_kind: VortexQueryPrimitiveKind,
     scan: &LocalVortexScan,
@@ -3773,6 +5670,639 @@ fn sample_rows_report(
         source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
         source_order_limit_applied: scan.source_order_limit.is_some(),
         source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
+        source_order_limit_rows_output: Some(rows),
+        data_read: true,
+        data_decoded: true,
+        data_materialized: true,
+        upstream_scan_called: true,
+        row_read: true,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        external_effects_executed: false,
+        fallback_execution_allowed: false,
+        materialization_boundary_reported: true,
+        diagnostics: Vec::new(),
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn expression_project_rows_report(
+    request: &VortexQueryPrimitiveRequest,
+    scan: &LocalVortexScan,
+) -> Result<VortexLocalPrimitiveExecutionReport> {
+    let rows = usize_to_u64(scan.result_row_count)?;
+    let expression_summary = request.expression_projection.as_ref().map_or_else(
+        || "none".to_string(),
+        VortexExpressionProjectionRequest::family_summary,
+    );
+    Ok(VortexLocalPrimitiveExecutionReport {
+        status: VortexLocalPrimitiveExecutionStatus::Executed,
+        mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
+        primitive_kind: request.kind,
+        result_summary: Some(format!(
+            "expression_project_rows={} projected_columns={} expression_rewrites={}",
+            rows,
+            scan.projected_columns.join(","),
+            expression_summary
+        )),
+        rows_scanned: scan.source_row_count,
+        rows_selected: Some(rows),
+        rows_projected: Some(rows),
+        projected_columns: scan.projected_columns.clone(),
+        arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: true,
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
+        filter_pushdown_applied: false,
+        projection_pushdown_applied: scan.projection_pushdown_applied,
+        upstream_filter_expression_used: false,
+        upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
+        source_order_limit_applied: scan.source_order_limit.is_some(),
+        source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
+        source_order_limit_rows_output: Some(rows),
+        data_read: true,
+        data_decoded: true,
+        data_materialized: true,
+        upstream_scan_called: true,
+        row_read: true,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        external_effects_executed: false,
+        fallback_execution_allowed: false,
+        materialization_boundary_reported: true,
+        diagnostics: Vec::new(),
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn melt_rows_report(
+    request: &VortexQueryPrimitiveRequest,
+    scan: &LocalVortexScan,
+) -> Result<VortexLocalPrimitiveExecutionReport> {
+    let rows = usize_to_u64(scan.result_row_count)?;
+    let melt_summary = request
+        .melt_projection
+        .as_ref()
+        .map_or_else(|| "none".to_string(), VortexMeltProjectionRequest::summary);
+    let output_columns = request
+        .melt_projection
+        .as_ref()
+        .map_or_else(Vec::new, VortexMeltProjectionRequest::output_columns);
+    Ok(VortexLocalPrimitiveExecutionReport {
+        status: VortexLocalPrimitiveExecutionStatus::Executed,
+        mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
+        primitive_kind: request.kind,
+        result_summary: Some(format!(
+            "melt_rows={} projected_columns={} {}",
+            rows,
+            scan.projected_columns.join(","),
+            melt_summary
+        )),
+        rows_scanned: scan.source_row_count,
+        rows_selected: Some(rows),
+        rows_projected: Some(rows),
+        projected_columns: output_columns,
+        arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: true,
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
+        filter_pushdown_applied: false,
+        projection_pushdown_applied: scan.projection_pushdown_applied,
+        upstream_filter_expression_used: false,
+        upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
+        source_order_limit_applied: scan.source_order_limit.is_some(),
+        source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
+        source_order_limit_rows_output: Some(rows),
+        data_read: true,
+        data_decoded: true,
+        data_materialized: true,
+        upstream_scan_called: true,
+        row_read: true,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        external_effects_executed: false,
+        fallback_execution_allowed: false,
+        materialization_boundary_reported: true,
+        diagnostics: Vec::new(),
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn explode_rows_report(
+    request: &VortexQueryPrimitiveRequest,
+    scan: &LocalVortexScan,
+) -> Result<VortexLocalPrimitiveExecutionReport> {
+    let rows = usize_to_u64(scan.result_row_count)?;
+    let explode_summary = request.explode_projection.as_ref().map_or_else(
+        || "none".to_string(),
+        VortexExplodeProjectionRequest::summary,
+    );
+    Ok(VortexLocalPrimitiveExecutionReport {
+        status: VortexLocalPrimitiveExecutionStatus::Executed,
+        mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
+        primitive_kind: request.kind,
+        result_summary: Some(format!(
+            "explode_rows={} projected_columns={} {}",
+            rows,
+            scan.projected_columns.join(","),
+            explode_summary
+        )),
+        rows_scanned: scan.source_row_count,
+        rows_selected: Some(rows),
+        rows_projected: Some(rows),
+        projected_columns: scan.projected_columns.clone(),
+        arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: true,
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
+        filter_pushdown_applied: false,
+        projection_pushdown_applied: scan.projection_pushdown_applied,
+        upstream_filter_expression_used: false,
+        upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
+        source_order_limit_applied: scan.source_order_limit.is_some(),
+        source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
+        source_order_limit_rows_output: Some(rows),
+        data_read: true,
+        data_decoded: true,
+        data_materialized: true,
+        upstream_scan_called: true,
+        row_read: true,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        external_effects_executed: false,
+        fallback_execution_allowed: false,
+        materialization_boundary_reported: true,
+        diagnostics: Vec::new(),
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn pivot_rows_report(
+    request: &VortexQueryPrimitiveRequest,
+    scan: &LocalVortexScan,
+) -> Result<VortexLocalPrimitiveExecutionReport> {
+    let rows = usize_to_u64(scan.result_row_count)?;
+    let pivot_summary = request
+        .pivot_projection
+        .as_ref()
+        .map_or_else(|| "none".to_string(), VortexPivotProjectionRequest::summary);
+    Ok(VortexLocalPrimitiveExecutionReport {
+        status: VortexLocalPrimitiveExecutionStatus::Executed,
+        mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
+        primitive_kind: request.kind,
+        result_summary: Some(format!(
+            "pivot_rows={} projected_columns={} {}",
+            rows,
+            scan.projected_columns.join(","),
+            pivot_summary
+        )),
+        rows_scanned: scan.source_row_count,
+        rows_selected: Some(rows),
+        rows_projected: Some(rows),
+        projected_columns: scan.projected_columns.clone(),
+        arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: true,
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
+        filter_pushdown_applied: false,
+        projection_pushdown_applied: scan.projection_pushdown_applied,
+        upstream_filter_expression_used: false,
+        upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
+        source_order_limit_applied: scan.source_order_limit.is_some(),
+        source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
+        source_order_limit_rows_output: Some(rows),
+        data_read: true,
+        data_decoded: true,
+        data_materialized: true,
+        upstream_scan_called: true,
+        row_read: true,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        external_effects_executed: false,
+        fallback_execution_allowed: false,
+        materialization_boundary_reported: true,
+        diagnostics: Vec::new(),
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn required_pivot_projection(
+    request: &VortexQueryPrimitiveRequest,
+) -> Result<&VortexPivotProjectionRequest> {
+    request.pivot_projection.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex pivot requires a typed pivot projection payload; no fallback execution was attempted"
+                .to_string(),
+        )
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn normalized_pivot_aggregate(projection: &VortexPivotProjectionRequest) -> Result<&str> {
+    let aggregate = projection.aggregate.trim();
+    match aggregate {
+        "first" | "first_unique" | "sum" | "count" | "mean" => Ok(aggregate),
+        _ => Err(ShardLoomError::InvalidOperation(format!(
+            "local Vortex scoped pivot supports aggregate first_unique, first, sum, count, or mean, got '{aggregate}'; no fallback execution was attempted"
+        ))),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn pivot_value_key(value: &StatValue) -> String {
+    let mut out = String::new();
+    push_distinct_value_key(&mut out, value);
+    out
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn pivot_output_column_name(value: &StatValue) -> String {
+    let raw = stat_value_to_csv_cell(value);
+    let mut out = String::from("pivot_");
+    for ch in raw.chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch.to_ascii_lowercase());
+        } else if !out.ends_with('_') {
+            out.push('_');
+        }
+    }
+    while out.ends_with('_') {
+        out.pop();
+    }
+    if out == "pivot" {
+        out.push_str("_value");
+    }
+    out
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn ensure_pivot_output_column_name(
+    pivot_columns: &mut std::collections::BTreeMap<String, String>,
+    pivot_key: &str,
+    pivot_value: &StatValue,
+) {
+    if pivot_columns.contains_key(pivot_key) {
+        return;
+    }
+    let base = pivot_output_column_name(pivot_value);
+    let mut candidate = base.clone();
+    let mut suffix = 2usize;
+    while pivot_columns
+        .values()
+        .any(|existing| existing == &candidate)
+    {
+        candidate = format!("{base}_{suffix}");
+        suffix += 1;
+    }
+    pivot_columns.insert(pivot_key.to_string(), candidate);
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[derive(Debug, Clone, Copy, Default)]
+struct PivotAggregateCell {
+    count: u64,
+    sum: f64,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[derive(Debug, Default)]
+struct PivotRowExportState {
+    index_keys: std::collections::BTreeSet<String>,
+    index_values: std::collections::BTreeMap<String, StatValue>,
+    pivot_columns: std::collections::BTreeMap<String, String>,
+    first_cells: std::collections::BTreeMap<(String, String), StatValue>,
+    aggregate_cells: std::collections::BTreeMap<(String, String), PivotAggregateCell>,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl PivotRowExportState {
+    fn update(
+        &mut self,
+        projection: &VortexPivotProjectionRequest,
+        aggregate: &str,
+        index_values: &[StatValue],
+        pivot_values: &[StatValue],
+        value_values: &[StatValue],
+    ) -> Result<()> {
+        if index_values.len() != pivot_values.len() || index_values.len() != value_values.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex pivot row export scanned columns with mismatched row counts; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        for row_index in 0..index_values.len() {
+            let index_key = pivot_value_key(&index_values[row_index]);
+            let pivot_key = pivot_value_key(&pivot_values[row_index]);
+            self.index_keys.insert(index_key.clone());
+            self.index_values
+                .entry(index_key.clone())
+                .or_insert_with(|| index_values[row_index].clone());
+            ensure_pivot_output_column_name(
+                &mut self.pivot_columns,
+                &pivot_key,
+                &pivot_values[row_index],
+            );
+            let cell_key = (index_key, pivot_key);
+            match aggregate {
+                "first" | "first_unique" => {
+                    if let Some(existing) = self.first_cells.get(&cell_key) {
+                        if aggregate == "first_unique"
+                            && !stat_value_equal(existing, &value_values[row_index])
+                        {
+                            return Err(ShardLoomError::InvalidOperation(format!(
+                                "local Vortex scoped pivot row export found multiple values for index '{}' and pivot '{}'; use pivot_table with an explicit aggregate or provide unique cells; no fallback execution was attempted",
+                                projection.index_column.as_str(),
+                                projection.pivot_column.as_str()
+                            )));
+                        }
+                    } else {
+                        self.first_cells
+                            .insert(cell_key, value_values[row_index].clone());
+                    }
+                }
+                "count" => {
+                    self.aggregate_cells.entry(cell_key).or_default().count += 1;
+                }
+                "sum" | "mean" => {
+                    let value = stat_value_to_f64(&value_values[row_index]).map_err(|_| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "local Vortex scoped pivot_table row export aggregate '{aggregate}' requires a numeric value column '{}'; no fallback execution was attempted",
+                            projection.value_column.as_str()
+                        ))
+                    })?;
+                    if !value.is_finite() {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "local Vortex scoped pivot_table row export aggregate '{aggregate}' found non-finite value in '{}'; no fallback execution was attempted",
+                            projection.value_column.as_str()
+                        )));
+                    }
+                    let cell = self.aggregate_cells.entry(cell_key).or_default();
+                    cell.count += 1;
+                    cell.sum += value;
+                }
+                _ => unreachable!("pivot aggregate normalized before row export state update"),
+            }
+        }
+        Ok(())
+    }
+
+    fn output_columns(&self, projection: &VortexPivotProjectionRequest) -> Vec<String> {
+        let mut columns = Vec::with_capacity(1 + self.pivot_columns.len());
+        columns.push(projection.index_column.as_str().to_string());
+        columns.extend(self.pivot_columns.values().cloned());
+        columns
+    }
+
+    fn materialized_rows(
+        &self,
+        aggregate: &str,
+        limit: usize,
+    ) -> Result<Vec<Vec<Option<StatValue>>>> {
+        let mut rows = Vec::with_capacity(limit.min(self.index_keys.len()));
+        for index_key in self.index_keys.iter().take(limit) {
+            let Some(index_value) = self.index_values.get(index_key) else {
+                return Err(ShardLoomError::InvalidOperation(
+                    "local Vortex pivot row export lost index value state; no fallback execution was attempted"
+                        .to_string(),
+                ));
+            };
+            let mut row = Vec::with_capacity(1 + self.pivot_columns.len());
+            row.push(Some(index_value.clone()));
+            for pivot_key in self.pivot_columns.keys() {
+                let cell_key = (index_key.clone(), pivot_key.clone());
+                row.push(match aggregate {
+                    "first" | "first_unique" => self.first_cells.get(&cell_key).cloned(),
+                    "count" => self
+                        .aggregate_cells
+                        .get(&cell_key)
+                        .map(|cell| StatValue::UInt64(cell.count)),
+                    "sum" => self
+                        .aggregate_cells
+                        .get(&cell_key)
+                        .map(|cell| StatValue::Float64(cell.sum)),
+                    "mean" => self.aggregate_cells.get(&cell_key).and_then(|cell| {
+                        (cell.count > 0).then_some(StatValue::Float64(cell.sum / cell.count as f64))
+                    }),
+                    _ => unreachable!("pivot aggregate normalized before row materialization"),
+                });
+            }
+            rows.push(row);
+        }
+        Ok(rows)
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn update_pivot_state(
+    projection: &VortexPivotProjectionRequest,
+    aggregate: &str,
+    index_values: &[StatValue],
+    pivot_values: &[StatValue],
+    value_values: &[StatValue],
+    index_keys: &mut std::collections::BTreeSet<String>,
+    pivot_columns: &mut std::collections::BTreeMap<String, String>,
+    first_cells: &mut std::collections::BTreeMap<(String, String), StatValue>,
+    aggregate_cells: &mut std::collections::BTreeMap<(String, String), PivotAggregateCell>,
+) -> Result<()> {
+    if index_values.len() != pivot_values.len() || index_values.len() != value_values.len() {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex pivot scanned columns with mismatched row counts; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    for row_index in 0..index_values.len() {
+        let index_key = pivot_value_key(&index_values[row_index]);
+        let pivot_key = pivot_value_key(&pivot_values[row_index]);
+        index_keys.insert(index_key.clone());
+        ensure_pivot_output_column_name(pivot_columns, &pivot_key, &pivot_values[row_index]);
+        let cell_key = (index_key, pivot_key);
+        match aggregate {
+            "first" | "first_unique" => {
+                if let Some(existing) = first_cells.get(&cell_key) {
+                    if aggregate == "first_unique"
+                        && !stat_value_equal(existing, &value_values[row_index])
+                    {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "local Vortex scoped pivot found multiple values for index '{}' and pivot '{}'; use pivot_table with an explicit aggregate or provide unique cells; no fallback execution was attempted",
+                            projection.index_column.as_str(),
+                            projection.pivot_column.as_str()
+                        )));
+                    }
+                } else {
+                    first_cells.insert(cell_key, value_values[row_index].clone());
+                }
+            }
+            "count" => {
+                aggregate_cells.entry(cell_key).or_default().count += 1;
+            }
+            "sum" | "mean" => {
+                let value = stat_value_to_f64(&value_values[row_index]).map_err(|_| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "local Vortex scoped pivot_table aggregate '{aggregate}' requires a numeric value column '{}'; no fallback execution was attempted",
+                        projection.value_column.as_str()
+                    ))
+                })?;
+                if !value.is_finite() {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "local Vortex scoped pivot_table aggregate '{aggregate}' found non-finite value in '{}'; no fallback execution was attempted",
+                        projection.value_column.as_str()
+                    )));
+                }
+                let cell = aggregate_cells.entry(cell_key).or_default();
+                cell.count += 1;
+                cell.sum += value;
+            }
+            _ => unreachable!("pivot aggregate normalized before state update"),
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn rolling_window_rows_report(
+    request: &VortexQueryPrimitiveRequest,
+    scan: &LocalVortexScan,
+) -> Result<VortexLocalPrimitiveExecutionReport> {
+    let rows = usize_to_u64(scan.result_row_count)?;
+    let rolling_summary = request
+        .rolling_window
+        .as_ref()
+        .map_or_else(|| "none".to_string(), VortexRollingWindowRequest::summary);
+    let output_columns = request
+        .rolling_window
+        .as_ref()
+        .map_or_else(Vec::new, VortexRollingWindowRequest::output_columns);
+    Ok(VortexLocalPrimitiveExecutionReport {
+        status: VortexLocalPrimitiveExecutionStatus::Executed,
+        mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
+        primitive_kind: request.kind,
+        result_summary: Some(format!(
+            "rolling_window_rows={} projected_columns={} {}",
+            rows,
+            scan.projected_columns.join(","),
+            rolling_summary
+        )),
+        rows_scanned: scan.source_row_count,
+        rows_selected: Some(rows),
+        rows_projected: Some(rows),
+        projected_columns: output_columns,
+        arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: true,
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
+        filter_pushdown_applied: false,
+        projection_pushdown_applied: scan.projection_pushdown_applied,
+        upstream_filter_expression_used: false,
+        upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
+        source_order_limit_applied: scan.source_order_limit.is_some(),
+        source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
+        source_order_limit_rows_output: Some(rows),
+        data_read: true,
+        data_decoded: true,
+        data_materialized: true,
+        upstream_scan_called: true,
+        row_read: true,
+        arrow_converted: false,
+        object_store_io: false,
+        write_io: false,
+        spill_io_performed: false,
+        external_effects_executed: false,
+        fallback_execution_allowed: false,
+        materialization_boundary_reported: true,
+        diagnostics: Vec::new(),
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn simple_aggregate_report(
+    request: &VortexQueryPrimitiveRequest,
+    aggregate: &LocalVortexAggregateScan,
+) -> Result<VortexLocalPrimitiveExecutionReport> {
+    let scan = &aggregate.scan;
+    let input_rows = usize_to_u64(scan.pre_limit_result_row_count)?;
+    let rows = usize_to_u64(scan.result_row_count)?;
+    let aggregate_summary = request
+        .simple_aggregate
+        .as_ref()
+        .map_or_else(|| "none".to_string(), VortexSimpleAggregateRequest::summary);
+    Ok(VortexLocalPrimitiveExecutionReport {
+        status: VortexLocalPrimitiveExecutionStatus::Executed,
+        mode: VortexLocalPrimitiveExecutionMode::VortexScanPushdown,
+        primitive_kind: request.kind,
+        result_summary: Some(format!(
+            "simple_aggregate input_rows={} output_rows={} projected_columns={} measures={} values={}",
+            input_rows,
+            rows,
+            scan.projected_columns.join(","),
+            aggregate_summary,
+            aggregate.result_summary
+        )),
+        rows_scanned: scan.source_row_count,
+        rows_selected: Some(input_rows),
+        rows_projected: Some(rows),
+        projected_columns: scan.projected_columns.clone(),
+        arrays_read_count: scan.arrays_read_count,
+        reader_splits: scan.reader_splits.clone(),
+        reader_generated_prepared_batch_report: Some(
+            scan.reader_generated_prepared_batch_report.clone(),
+        ),
+        max_chunk_rows: scan.max_chunk_rows,
+        streaming_scan_used: true,
+        full_stream_collected: false,
+        max_parallelism_requested: scan.max_parallelism_requested,
+        scan_concurrency_per_worker: scan.scan_concurrency_per_worker,
+        filter_pushdown_applied: scan.filter_pushdown_applied,
+        projection_pushdown_applied: scan.projection_pushdown_applied,
+        upstream_filter_expression_used: scan.filter_pushdown_applied,
+        upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
+        source_order_limit_applied: scan.source_order_limit.is_some(),
+        source_order_limit_input_rows: Some(input_rows),
         source_order_limit_rows_output: Some(rows),
         data_read: true,
         data_decoded: true,
@@ -3904,6 +6434,131 @@ fn read_local_vortex_distinct_scan(
         scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
         projected_columns: declared_columns,
         filter_pushdown_applied,
+        projection_pushdown_applied,
+        source_order_limit,
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
+fn read_local_vortex_duplicate_mask_scan(
+    source_uri: &DatasetUri,
+    path: &std::path::Path,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<LocalVortexScan> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(path))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to open local Vortex target for {}: {error}",
+                request.kind.as_str()
+            ))
+        })?;
+    let source_row_count = file.row_count();
+    let plan = row_export_scan_plan(request, file.dtype())?;
+    if plan.source_order_limit == Some(0) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex duplicate-mask source-order limit must be >= 1".to_string(),
+        ));
+    }
+    let declared_columns = if plan.projected_columns.is_empty() {
+        local_field_names(file.dtype(), request.kind)?
+    } else {
+        plan.projected_columns.clone()
+    };
+    let projection_pushdown_applied = plan.projection.is_some();
+    let source_order_limit = plan.source_order_limit;
+    let mut scan = file.scan().map_err(vortex_error)?;
+    if let Some(projection) = plan.projection {
+        scan = scan.with_projection(projection);
+    }
+    scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+
+    let mut seen = std::collections::BTreeSet::new();
+    let mut result_row_count = 0usize;
+    let mut pre_limit_result_row_count = 0usize;
+    let mut arrays_read_count = 0usize;
+    let mut reader_splits = Vec::new();
+    let mut encoded_kernel_inputs = Vec::new();
+    let mut max_chunk_rows = 0usize;
+    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        let chunk = chunk.map_err(vortex_error)?;
+        let rows = chunk.len();
+        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+            source_uri.clone(),
+            arrays_read_count,
+            rows,
+            chunk.dtype().to_string(),
+            chunk.encoding_id().to_string(),
+            chunk.nchildren(),
+            chunk.nbuffers(),
+        )?;
+        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            source_uri,
+            &split.split_ref,
+            &chunk,
+        )?);
+        reader_splits.push(split);
+        let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+        let output_rows = source_order_limit.map_or(materialized_rows, |limit| {
+            limit
+                .saturating_sub(result_row_count)
+                .min(materialized_rows)
+        });
+        let duplicate_values = duplicate_mask_values(&columns, &mut seen, output_rows)?;
+        result_row_count = result_row_count
+            .checked_add(duplicate_values.len())
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex duplicate-mask result row count overflowed usize".to_string(),
+                )
+            })?;
+        pre_limit_result_row_count = pre_limit_result_row_count
+            .checked_add(output_rows)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex duplicate-mask pre-limit row count overflowed usize".to_string(),
+                )
+            })?;
+        max_chunk_rows = max_chunk_rows.max(rows);
+        arrays_read_count += 1;
+        if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
+            break;
+        }
+    }
+    let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
+    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
+    } else {
+        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+            &source,
+            &reader_splits,
+            &encoded_kernel_inputs,
+        )
+    };
+    Ok(LocalVortexScan {
+        source_row_count,
+        result_row_count,
+        pre_limit_result_row_count,
+        arrays_read_count,
+        reader_splits,
+        reader_generated_prepared_batch_report,
+        max_chunk_rows,
+        max_parallelism_requested: policy.max_parallelism,
+        scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
+        projected_columns: declared_columns,
+        filter_pushdown_applied: false,
         projection_pushdown_applied,
         source_order_limit,
     })
@@ -4182,6 +6837,1453 @@ fn read_local_vortex_sample_scan(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
+fn read_local_vortex_expression_project_scan(
+    source_uri: &DatasetUri,
+    path: &std::path::Path,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<LocalVortexScan> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let expression_projection = request.expression_projection.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex expression projection requires a typed expression payload".to_string(),
+        )
+    })?;
+    if expression_projection.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex expression projection requires at least one rewrite".to_string(),
+        ));
+    }
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(path))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to open local Vortex target for {}: {error}",
+                request.kind.as_str()
+            ))
+        })?;
+    let source_row_count = file.row_count();
+    let mut plan = projection_scan_plan(file.dtype(), &request.projection, request.kind)?;
+    plan.source_order_limit = request.source_order_limit;
+    if plan.source_order_limit == Some(0) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex expression projection source-order limit must be >= 1".to_string(),
+        ));
+    }
+    let declared_columns = if plan.projected_columns.is_empty() {
+        local_field_names(file.dtype(), request.kind)?
+    } else {
+        plan.projected_columns.clone()
+    };
+    validate_expression_projection_columns(expression_projection, &declared_columns)?;
+
+    let projection_pushdown_applied = plan.projection.is_some();
+    let source_order_limit = plan.source_order_limit;
+    let mut scan = file.scan().map_err(vortex_error)?;
+    if let Some(projection) = plan.projection {
+        scan = scan.with_projection(projection);
+    }
+    scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+
+    let mut result_row_count = 0usize;
+    let mut pre_limit_result_row_count = 0usize;
+    let mut arrays_read_count = 0usize;
+    let mut reader_splits = Vec::new();
+    let mut encoded_kernel_inputs = Vec::new();
+    let mut max_chunk_rows = 0usize;
+    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        let chunk = chunk.map_err(vortex_error)?;
+        let rows = chunk.len();
+        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+            source_uri.clone(),
+            arrays_read_count,
+            rows,
+            chunk.dtype().to_string(),
+            chunk.encoding_id().to_string(),
+            chunk.nchildren(),
+            chunk.nbuffers(),
+        )?;
+        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            source_uri,
+            &split.split_ref,
+            &chunk,
+        )?);
+        reader_splits.push(split);
+        let mut columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        apply_expression_projection_columns(
+            &declared_columns,
+            &mut columns,
+            expression_projection,
+        )?;
+        let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+        pre_limit_result_row_count = pre_limit_result_row_count
+            .checked_add(materialized_rows)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex expression projection pre-limit row count overflowed usize"
+                        .to_string(),
+                )
+            })?;
+        let output_rows = source_order_limit.map_or(materialized_rows, |limit| {
+            limit
+                .saturating_sub(result_row_count)
+                .min(materialized_rows)
+        });
+        result_row_count = result_row_count.checked_add(output_rows).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex expression projection result row count overflowed usize".to_string(),
+            )
+        })?;
+        max_chunk_rows = max_chunk_rows.max(rows);
+        arrays_read_count += 1;
+        if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
+            break;
+        }
+    }
+    let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
+    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
+    } else {
+        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+            &source,
+            &reader_splits,
+            &encoded_kernel_inputs,
+        )
+    };
+    Ok(LocalVortexScan {
+        source_row_count,
+        result_row_count,
+        pre_limit_result_row_count,
+        arrays_read_count,
+        reader_splits,
+        reader_generated_prepared_batch_report,
+        max_chunk_rows,
+        max_parallelism_requested: policy.max_parallelism,
+        scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
+        projected_columns: declared_columns,
+        filter_pushdown_applied: false,
+        projection_pushdown_applied,
+        source_order_limit,
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
+fn read_local_vortex_melt_scan(
+    source_uri: &DatasetUri,
+    path: &std::path::Path,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<LocalVortexScan> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let melt_projection = required_melt_projection(request)?;
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(path))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to open local Vortex target for {}: {error}",
+                request.kind.as_str()
+            ))
+        })?;
+    let source_row_count = file.row_count();
+    let mut plan = projection_scan_plan(file.dtype(), &request.projection, request.kind)?;
+    plan.source_order_limit = request.source_order_limit;
+    if plan.source_order_limit == Some(0) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex melt source-order limit must be >= 1".to_string(),
+        ));
+    }
+    let declared_columns = if plan.projected_columns.is_empty() {
+        local_field_names(file.dtype(), request.kind)?
+    } else {
+        plan.projected_columns.clone()
+    };
+    let projection_pushdown_applied = plan.projection.is_some();
+    let source_order_limit = plan.source_order_limit;
+    let mut scan = file.scan().map_err(vortex_error)?;
+    if let Some(projection) = plan.projection {
+        scan = scan.with_projection(projection);
+    }
+    scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+
+    let mut result_row_count = 0usize;
+    let mut pre_limit_result_row_count = 0usize;
+    let mut arrays_read_count = 0usize;
+    let mut reader_splits = Vec::new();
+    let mut encoded_kernel_inputs = Vec::new();
+    let mut max_chunk_rows = 0usize;
+    let mut melt_value_dtype: Option<LogicalDType> = None;
+    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        let chunk = chunk.map_err(vortex_error)?;
+        let rows = chunk.len();
+        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+            source_uri.clone(),
+            arrays_read_count,
+            rows,
+            chunk.dtype().to_string(),
+            chunk.encoding_id().to_string(),
+            chunk.nchildren(),
+            chunk.nbuffers(),
+        )?;
+        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            source_uri,
+            &split.split_ref,
+            &chunk,
+        )?);
+        reader_splits.push(split);
+        let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        validate_melt_value_dtype(&columns, melt_projection, &mut melt_value_dtype)?;
+        let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+        let expanded_rows = checked_melt_expanded_rows(materialized_rows, melt_projection)?;
+        pre_limit_result_row_count = pre_limit_result_row_count
+            .checked_add(expanded_rows)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex melt pre-limit row count overflowed usize".to_string(),
+                )
+            })?;
+        let output_rows = source_order_limit.map_or(expanded_rows, |limit| {
+            limit.saturating_sub(result_row_count).min(expanded_rows)
+        });
+        result_row_count = result_row_count.checked_add(output_rows).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex melt result row count overflowed usize".to_string(),
+            )
+        })?;
+        max_chunk_rows = max_chunk_rows.max(rows);
+        arrays_read_count += 1;
+        if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
+            break;
+        }
+    }
+    let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
+    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
+    } else {
+        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+            &source,
+            &reader_splits,
+            &encoded_kernel_inputs,
+        )
+    };
+    Ok(LocalVortexScan {
+        source_row_count,
+        result_row_count,
+        pre_limit_result_row_count,
+        arrays_read_count,
+        reader_splits,
+        reader_generated_prepared_batch_report,
+        max_chunk_rows,
+        max_parallelism_requested: policy.max_parallelism,
+        scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
+        projected_columns: declared_columns,
+        filter_pushdown_applied: false,
+        projection_pushdown_applied,
+        source_order_limit,
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
+fn read_local_vortex_pivot_scan(
+    source_uri: &DatasetUri,
+    path: &std::path::Path,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<LocalVortexScan> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let pivot_projection = required_pivot_projection(request)?;
+    let aggregate = normalized_pivot_aggregate(pivot_projection)?;
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(path))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to open local Vortex target for {}: {error}",
+                request.kind.as_str()
+            ))
+        })?;
+    let source_row_count = file.row_count();
+    let mut plan = projection_scan_plan(file.dtype(), &request.projection, request.kind)?;
+    plan.source_order_limit = request.source_order_limit;
+    if plan.source_order_limit == Some(0) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex pivot source-order limit must be >= 1".to_string(),
+        ));
+    }
+    let declared_columns = vec![
+        pivot_projection.index_column.as_str().to_string(),
+        pivot_projection.pivot_column.as_str().to_string(),
+        pivot_projection.value_column.as_str().to_string(),
+    ];
+    let projection_pushdown_applied = plan.projection.is_some();
+    let source_order_limit = plan.source_order_limit;
+    let mut scan = file.scan().map_err(vortex_error)?;
+    if let Some(projection) = plan.projection {
+        scan = scan.with_projection(projection);
+    }
+    scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+
+    let mut arrays_read_count = 0usize;
+    let mut reader_splits = Vec::new();
+    let mut encoded_kernel_inputs = Vec::new();
+    let mut max_chunk_rows = 0usize;
+    let mut index_keys = std::collections::BTreeSet::<String>::new();
+    let mut pivot_columns = std::collections::BTreeMap::<String, String>::new();
+    let mut first_cells = std::collections::BTreeMap::<(String, String), StatValue>::new();
+    let mut aggregate_cells =
+        std::collections::BTreeMap::<(String, String), PivotAggregateCell>::new();
+    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        let chunk = chunk.map_err(vortex_error)?;
+        let rows = chunk.len();
+        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+            source_uri.clone(),
+            arrays_read_count,
+            rows,
+            chunk.dtype().to_string(),
+            chunk.encoding_id().to_string(),
+            chunk.nchildren(),
+            chunk.nbuffers(),
+        )?;
+        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            source_uri,
+            &split.split_ref,
+            &chunk,
+        )?);
+        reader_splits.push(split);
+        let column_values = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        if column_values.len() != 3 {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex pivot requires exactly index, pivot, and value columns; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        update_pivot_state(
+            pivot_projection,
+            aggregate,
+            &column_values[0],
+            &column_values[1],
+            &column_values[2],
+            &mut index_keys,
+            &mut pivot_columns,
+            &mut first_cells,
+            &mut aggregate_cells,
+        )?;
+        max_chunk_rows = max_chunk_rows.max(rows);
+        arrays_read_count += 1;
+    }
+    let pre_limit_result_row_count = index_keys.len();
+    let result_row_count = source_order_limit.map_or(pre_limit_result_row_count, |limit| {
+        limit.min(pre_limit_result_row_count)
+    });
+    let mut projected_columns = Vec::with_capacity(1 + pivot_columns.len());
+    projected_columns.push(pivot_projection.index_column.as_str().to_string());
+    projected_columns.extend(pivot_columns.into_values());
+    let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
+    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
+    } else {
+        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+            &source,
+            &reader_splits,
+            &encoded_kernel_inputs,
+        )
+    };
+    Ok(LocalVortexScan {
+        source_row_count,
+        result_row_count,
+        pre_limit_result_row_count,
+        arrays_read_count,
+        reader_splits,
+        reader_generated_prepared_batch_report,
+        max_chunk_rows,
+        max_parallelism_requested: policy.max_parallelism,
+        scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
+        projected_columns,
+        filter_pushdown_applied: false,
+        projection_pushdown_applied,
+        source_order_limit,
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
+fn read_local_vortex_explode_scan(
+    source_uri: &DatasetUri,
+    path: &std::path::Path,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<LocalVortexScan> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let explode_projection = required_explode_projection(request)?;
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(path))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to open local Vortex target for {}: {error}",
+                request.kind.as_str()
+            ))
+        })?;
+    let source_row_count = file.row_count();
+    let mut plan = projection_scan_plan(file.dtype(), &request.projection, request.kind)?;
+    plan.source_order_limit = request.source_order_limit;
+    if plan.source_order_limit == Some(0) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex explode source-order limit must be >= 1".to_string(),
+        ));
+    }
+    let declared_columns = if plan.projected_columns.is_empty() {
+        local_field_names(file.dtype(), request.kind)?
+    } else {
+        plan.projected_columns.clone()
+    };
+    let output_columns = explode_projection.output_columns(&declared_columns);
+    let projection_pushdown_applied = plan.projection.is_some();
+    let source_order_limit = plan.source_order_limit;
+    let mut scan = file.scan().map_err(vortex_error)?;
+    if let Some(projection) = plan.projection {
+        scan = scan.with_projection(projection);
+    }
+    scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+
+    let mut result_row_count = 0usize;
+    let mut pre_limit_result_row_count = 0usize;
+    let mut arrays_read_count = 0usize;
+    let mut reader_splits = Vec::new();
+    let mut encoded_kernel_inputs = Vec::new();
+    let mut max_chunk_rows = 0usize;
+    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        let chunk = chunk.map_err(vortex_error)?;
+        let rows = chunk.len();
+        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+            source_uri.clone(),
+            arrays_read_count,
+            rows,
+            chunk.dtype().to_string(),
+            chunk.encoding_id().to_string(),
+            chunk.nchildren(),
+            chunk.nbuffers(),
+        )?;
+        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            source_uri,
+            &split.split_ref,
+            &chunk,
+        )?);
+        reader_splits.push(split);
+        let explode_columns =
+            explode_columns_from_chunk(&chunk, &declared_columns, explode_projection)?;
+        pre_limit_result_row_count = pre_limit_result_row_count
+            .checked_add(explode_columns.expanded_rows)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex explode pre-limit row count overflowed usize".to_string(),
+                )
+            })?;
+        let output_rows = source_order_limit.map_or(explode_columns.expanded_rows, |limit| {
+            limit
+                .saturating_sub(result_row_count)
+                .min(explode_columns.expanded_rows)
+        });
+        result_row_count = result_row_count.checked_add(output_rows).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex explode result row count overflowed usize".to_string(),
+            )
+        })?;
+        max_chunk_rows = max_chunk_rows.max(rows);
+        arrays_read_count += 1;
+        if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
+            break;
+        }
+    }
+    let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
+    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
+    } else {
+        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+            &source,
+            &reader_splits,
+            &encoded_kernel_inputs,
+        )
+    };
+    Ok(LocalVortexScan {
+        source_row_count,
+        result_row_count,
+        pre_limit_result_row_count,
+        arrays_read_count,
+        reader_splits,
+        reader_generated_prepared_batch_report,
+        max_chunk_rows,
+        max_parallelism_requested: policy.max_parallelism,
+        scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
+        projected_columns: output_columns,
+        filter_pushdown_applied: false,
+        projection_pushdown_applied,
+        source_order_limit,
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
+fn read_local_vortex_rolling_window_scan(
+    source_uri: &DatasetUri,
+    path: &std::path::Path,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<LocalVortexScan> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let rolling_window = required_rolling_window(request)?;
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(path))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to open local Vortex target for {}: {error}",
+                request.kind.as_str()
+            ))
+        })?;
+    let source_row_count = file.row_count();
+    let mut plan = projection_scan_plan(file.dtype(), &request.projection, request.kind)?;
+    plan.source_order_limit = request.source_order_limit;
+    if plan.source_order_limit == Some(0) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex rolling source-order limit must be >= 1".to_string(),
+        ));
+    }
+    let declared_columns = if plan.projected_columns.is_empty() {
+        local_field_names(file.dtype(), request.kind)?
+    } else {
+        plan.projected_columns.clone()
+    };
+    if declared_columns.len() != 1
+        || declared_columns.first().map(String::as_str)
+            != Some(rolling_window.source_column.as_str())
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex rolling window requires exactly the declared source column projection; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    let projection_pushdown_applied = plan.projection.is_some();
+    let source_order_limit = plan.source_order_limit;
+    let mut scan = file.scan().map_err(vortex_error)?;
+    if let Some(projection) = plan.projection {
+        scan = scan.with_projection(projection);
+    }
+    scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+
+    let mut result_row_count = 0usize;
+    let mut pre_limit_result_row_count = 0usize;
+    let mut arrays_read_count = 0usize;
+    let mut reader_splits = Vec::new();
+    let mut encoded_kernel_inputs = Vec::new();
+    let mut max_chunk_rows = 0usize;
+    let mut rolling_state = RollingWindowState::new(rolling_window.window_size);
+    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        let chunk = chunk.map_err(vortex_error)?;
+        let rows = chunk.len();
+        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+            source_uri.clone(),
+            arrays_read_count,
+            rows,
+            chunk.dtype().to_string(),
+            chunk.encoding_id().to_string(),
+            chunk.nchildren(),
+            chunk.nbuffers(),
+        )?;
+        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            source_uri,
+            &split.split_ref,
+            &chunk,
+        )?);
+        reader_splits.push(split);
+        let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        let materialized_rows = row_export_materialized_row_count(&columns, rows)?;
+        let rows_to_process = source_order_limit.map_or(materialized_rows, |limit| {
+            let output_rows_needed = limit.saturating_sub(result_row_count);
+            materialized_rows.min(
+                rolling_state
+                    .input_rows_needed_for_outputs(rolling_window.min_periods, output_rows_needed),
+            )
+        });
+        let output_values = rolling_window_values(
+            &columns,
+            rolling_window,
+            &mut rolling_state,
+            rows_to_process,
+        )?;
+        pre_limit_result_row_count = pre_limit_result_row_count
+            .checked_add(output_values.len())
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex rolling pre-limit row count overflowed usize".to_string(),
+                )
+            })?;
+        let output_rows = source_order_limit.map_or(output_values.len(), |limit| {
+            limit
+                .saturating_sub(result_row_count)
+                .min(output_values.len())
+        });
+        result_row_count = result_row_count.checked_add(output_rows).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex rolling result row count overflowed usize".to_string(),
+            )
+        })?;
+        max_chunk_rows = max_chunk_rows.max(rows);
+        arrays_read_count += 1;
+        if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
+            break;
+        }
+    }
+    let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
+    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
+    } else {
+        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+            &source,
+            &reader_splits,
+            &encoded_kernel_inputs,
+        )
+    };
+    Ok(LocalVortexScan {
+        source_row_count,
+        result_row_count,
+        pre_limit_result_row_count,
+        arrays_read_count,
+        reader_splits,
+        reader_generated_prepared_batch_report,
+        max_chunk_rows,
+        max_parallelism_requested: policy.max_parallelism,
+        scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
+        projected_columns: rolling_window.output_columns(),
+        filter_pushdown_applied: false,
+        projection_pushdown_applied,
+        source_order_limit,
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn read_local_vortex_simple_aggregate_scan(
+    source_uri: &DatasetUri,
+    path: &std::path::Path,
+    request: &VortexQueryPrimitiveRequest,
+    policy: VortexLocalPrimitiveExecutionPolicy,
+) -> Result<LocalVortexAggregateScan> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let aggregate = required_simple_aggregate(request)?;
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(path))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to open local Vortex target for {}: {error}",
+                request.kind.as_str()
+            ))
+        })?;
+    let source_row_count = file.row_count();
+    let mut plan = projection_scan_plan(file.dtype(), &request.projection, request.kind)?;
+    if let Some(predicate) = request.predicate.as_ref() {
+        plan.filter = Some(predicate_to_vortex_expr(
+            predicate,
+            file.dtype(),
+            request.kind,
+        )?);
+    }
+    let declared_columns = if plan.projected_columns.is_empty() {
+        Vec::new()
+    } else {
+        plan.projected_columns.clone()
+    };
+    let filter_pushdown_applied = plan.filter.is_some();
+    let projection_pushdown_applied = plan.projection.is_some();
+    let mut scalar_states = if aggregate.group_by.is_empty() {
+        Some(SimpleAggregateStates::new(aggregate, &declared_columns)?)
+    } else {
+        None
+    };
+    let mut grouped_states = if aggregate.group_by.is_empty() {
+        None
+    } else {
+        Some(GroupedAggregateStates::new(aggregate, &declared_columns)?)
+    };
+    let mut scan = file.scan().map_err(vortex_error)?;
+    if let Some(filter) = plan.filter {
+        scan = scan.with_filter(filter);
+    }
+    if let Some(projection) = plan.projection {
+        scan = scan.with_projection(projection);
+    }
+    scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
+
+    let mut pre_limit_result_row_count = 0usize;
+    let mut arrays_read_count = 0usize;
+    let mut reader_splits = Vec::new();
+    let mut encoded_kernel_inputs = Vec::new();
+    let mut max_chunk_rows = 0usize;
+    for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
+        let chunk = chunk.map_err(vortex_error)?;
+        let rows = chunk.len();
+        let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
+            source_uri.clone(),
+            arrays_read_count,
+            rows,
+            chunk.dtype().to_string(),
+            chunk.encoding_id().to_string(),
+            chunk.nchildren(),
+            chunk.nbuffers(),
+        )?;
+        encoded_kernel_inputs.extend(reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            source_uri,
+            &split.split_ref,
+            &chunk,
+        )?);
+        reader_splits.push(split);
+        let columns = row_export_columns_from_chunk(&chunk, &declared_columns)?;
+        let materialized_rows = if columns.is_empty() {
+            rows
+        } else {
+            row_export_materialized_row_count(&columns, rows)?
+        };
+        if let Some(states) = scalar_states.as_mut() {
+            states.update(&columns, materialized_rows)?;
+        }
+        if let Some(states) = grouped_states.as_mut() {
+            states.update(&columns, materialized_rows)?;
+        }
+        pre_limit_result_row_count = pre_limit_result_row_count
+            .checked_add(materialized_rows)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex simple aggregate input row count overflowed usize".to_string(),
+                )
+            })?;
+        max_chunk_rows = max_chunk_rows.max(rows);
+        arrays_read_count += 1;
+    }
+    let result_limit = request.source_order_limit;
+    let (result_row_count, result_summary) = if let Some(states) = grouped_states {
+        (
+            states.result_row_count(result_limit),
+            states.result_summary(result_limit)?,
+        )
+    } else {
+        let states = scalar_states.ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex simple aggregate state was not initialized; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        let result_row_count = if aggregate.measures.is_empty() { 0 } else { 1 };
+        (result_row_count, states.result_summary()?)
+    };
+    let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
+    let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
+        plan_vortex_reader_generated_prepared_batch_envelopes(&source, &reader_splits)
+    } else {
+        plan_vortex_reader_generated_prepared_batch_kernel_inputs(
+            &source,
+            &reader_splits,
+            &encoded_kernel_inputs,
+        )
+    };
+    Ok(LocalVortexAggregateScan {
+        scan: LocalVortexScan {
+            source_row_count,
+            result_row_count,
+            pre_limit_result_row_count,
+            arrays_read_count,
+            reader_splits,
+            reader_generated_prepared_batch_report,
+            max_chunk_rows,
+            max_parallelism_requested: policy.max_parallelism,
+            scan_concurrency_per_worker: policy.scan_concurrency_per_worker(),
+            projected_columns: aggregate.output_columns(),
+            filter_pushdown_applied,
+            projection_pushdown_applied,
+            source_order_limit: result_limit,
+        },
+        result_summary,
+    })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn required_simple_aggregate(
+    request: &VortexQueryPrimitiveRequest,
+) -> Result<&VortexSimpleAggregateRequest> {
+    let aggregate = request.simple_aggregate.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "local Vortex simple aggregate requires a typed aggregate payload; no fallback execution was attempted"
+                .to_string(),
+        )
+    })?;
+    if aggregate.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex simple aggregate requires at least one measure; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+    Ok(aggregate)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[derive(Clone, Copy)]
+enum SimpleAggregateFunction {
+    Count,
+    CountDistinct,
+    Sum,
+    Avg,
+    Min,
+    Max,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl SimpleAggregateFunction {
+    fn parse(value: &str) -> Result<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "count" => Ok(Self::Count),
+            "count_distinct" | "count-distinct" | "distinct_count" | "distinct-count" => {
+                Ok(Self::CountDistinct)
+            }
+            "sum" => Ok(Self::Sum),
+            "avg" | "mean" => Ok(Self::Avg),
+            "min" => Ok(Self::Min),
+            "max" => Ok(Self::Max),
+            other => Err(ShardLoomError::InvalidOperation(format!(
+                "local Vortex simple aggregate function '{other}' is not supported; expected count, count_distinct, sum, avg, min, or max; no fallback execution was attempted"
+            ))),
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Count => "count",
+            Self::CountDistinct => "count_distinct",
+            Self::Sum => "sum",
+            Self::Avg => "avg",
+            Self::Min => "min",
+            Self::Max => "max",
+        }
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+struct SimpleAggregateStates {
+    states: Vec<SimpleAggregateState>,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl SimpleAggregateStates {
+    fn new(request: &VortexSimpleAggregateRequest, columns: &[String]) -> Result<Self> {
+        let mut aliases = std::collections::BTreeSet::new();
+        let states = request
+            .measures
+            .iter()
+            .map(|measure| {
+                if measure.alias.trim().is_empty() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "local Vortex simple aggregate measure alias must not be empty; no fallback execution was attempted"
+                            .to_string(),
+                    ));
+                }
+                if !aliases.insert(measure.alias.clone()) {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "local Vortex simple aggregate duplicate output alias '{}'; no fallback execution was attempted",
+                        measure.alias
+                    )));
+                }
+                let function = SimpleAggregateFunction::parse(&measure.function)?;
+                if measure.argument_offset.is_some()
+                    && !matches!(
+                        function,
+                        SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg
+                    )
+                {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "local Vortex simple aggregate argument offset is only admitted for sum/avg measures, not {}; no fallback execution was attempted",
+                        function.as_str()
+                    )));
+                }
+                let column_index = match &measure.column {
+                    Some(column) => Some(
+                        columns
+                            .iter()
+                            .position(|value| value == column.as_str())
+                            .ok_or_else(|| {
+                                ShardLoomError::InvalidOperation(format!(
+                                    "local Vortex simple aggregate column '{}' was not projected; no fallback execution was attempted",
+                                    column.as_str()
+                                ))
+                            })?,
+                    ),
+                    None if matches!(function, SimpleAggregateFunction::Count) => None,
+                    None => {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "local Vortex simple aggregate {} requires a column; no fallback execution was attempted",
+                            function.as_str()
+                        )));
+                    }
+                };
+                Ok(SimpleAggregateState::new(
+                    function,
+                    column_index,
+                    measure.alias.clone(),
+                    measure.argument_offset,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self { states })
+    }
+
+    fn update(&mut self, columns: &[Vec<StatValue>], rows: usize) -> Result<()> {
+        for state in &mut self.states {
+            state.update(columns, rows)?;
+        }
+        Ok(())
+    }
+
+    fn update_row(&mut self, columns: &[Vec<StatValue>], row_index: usize) -> Result<()> {
+        for state in &mut self.states {
+            state.update_row(columns, row_index)?;
+        }
+        Ok(())
+    }
+
+    fn functions_summary(&self) -> String {
+        self.states
+            .iter()
+            .map(|state| state.function.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn result_value_pairs(&self) -> Result<Vec<(String, serde_json::Value)>> {
+        let mut functions = Vec::with_capacity(self.states.len());
+        self.states
+            .iter()
+            .map(|state| {
+                functions.push(state.function.as_str());
+                Ok((state.alias.clone(), state.result_json()?))
+            })
+            .collect()
+    }
+
+    fn result_values(&self) -> Result<serde_json::Map<String, serde_json::Value>> {
+        let mut values = serde_json::Map::new();
+        for (alias, value) in self.result_value_pairs()? {
+            values.insert(alias, value);
+        }
+        Ok(values)
+    }
+
+    fn result_summary(&self) -> Result<String> {
+        let payload = serde_json::json!({
+            "rows": 1,
+            "functions": self.functions_summary(),
+            "values": self.result_values()?,
+        });
+        Ok(payload.to_string())
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+struct GroupedAggregateStates<'a> {
+    request: &'a VortexSimpleAggregateRequest,
+    declared_columns: &'a [String],
+    group_columns: Vec<(String, usize)>,
+    groups: std::collections::BTreeMap<String, GroupedAggregateState>,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+struct GroupedAggregateState {
+    group_values: Vec<StatValue>,
+    states: SimpleAggregateStates,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl<'a> GroupedAggregateStates<'a> {
+    fn new(
+        request: &'a VortexSimpleAggregateRequest,
+        declared_columns: &'a [String],
+    ) -> Result<Self> {
+        let group_columns = request
+            .group_by
+            .iter()
+            .map(|column| {
+                let index = declared_columns
+                    .iter()
+                    .position(|value| value == column.as_str())
+                    .ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "local Vortex grouped aggregate column '{}' was not projected; no fallback execution was attempted",
+                            column.as_str()
+                        ))
+                    })?;
+                Ok((column.as_str().to_string(), index))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if group_columns.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate requires at least one group column; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        let output_columns = request.output_columns();
+        for order in &request.order_by {
+            if !output_columns.iter().any(|column| column == &order.column) {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local Vortex grouped aggregate order column '{}' is not a group column or aggregate alias; no fallback execution was attempted",
+                    order.column
+                )));
+            }
+        }
+        Ok(Self {
+            request,
+            declared_columns,
+            group_columns,
+            groups: std::collections::BTreeMap::new(),
+        })
+    }
+
+    fn update(&mut self, columns: &[Vec<StatValue>], rows: usize) -> Result<()> {
+        for row_index in 0..rows {
+            let group_values = self
+                .group_columns
+                .iter()
+                .map(|(_name, column_index)| {
+                    columns
+                        .get(*column_index)
+                        .and_then(|values| values.get(row_index))
+                        .cloned()
+                        .ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(
+                                "local Vortex grouped aggregate group column row was missing; no fallback execution was attempted"
+                                    .to_string(),
+                            )
+                        })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let key = grouped_aggregate_key(&group_values);
+            let entry = match self.groups.entry(key) {
+                std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    entry.insert(GroupedAggregateState {
+                        group_values,
+                        states: SimpleAggregateStates::new(self.request, self.declared_columns)?,
+                    })
+                }
+            };
+            entry.states.update_row(columns, row_index)?;
+        }
+        Ok(())
+    }
+
+    fn len(&self) -> usize {
+        self.groups.len()
+    }
+
+    fn result_row_count(&self, limit: Option<usize>) -> usize {
+        let available = self.len().saturating_sub(self.request.offset);
+        limit.map_or(available, |limit| available.min(limit))
+    }
+
+    fn result_summary(&self, limit: Option<usize>) -> Result<String> {
+        let group_by = self
+            .group_columns
+            .iter()
+            .map(|(name, _index)| name.as_str())
+            .collect::<Vec<_>>();
+        let mut rows = self.result_rows()?;
+        self.sort_rows(&mut rows);
+        let row_count = self.result_row_count(limit);
+        let rows = rows
+            .into_iter()
+            .skip(self.request.offset)
+            .take(row_count)
+            .map(|(_key, row)| serde_json::Value::Object(row))
+            .collect::<Vec<_>>();
+        let functions = self
+            .groups
+            .values()
+            .next()
+            .map_or_else(String::new, |group| group.states.functions_summary());
+        let payload = serde_json::json!({
+            "rows": rows.len(),
+            "group_by": group_by.join(","),
+            "functions": functions,
+            "order_by": self
+                .request
+                .order_by
+                .iter()
+                .map(|order| order.summary())
+                .collect::<Vec<_>>()
+                .join(","),
+            "offset": self.request.offset,
+            "values": rows,
+        });
+        Ok(payload.to_string())
+    }
+
+    fn result_rows(&self) -> Result<Vec<(String, serde_json::Map<String, serde_json::Value>)>> {
+        let mut rows = Vec::with_capacity(self.groups.len());
+        for (key, group) in &self.groups {
+            let mut row = serde_json::Map::new();
+            for ((name, _index), value) in self.group_columns.iter().zip(&group.group_values) {
+                row.insert(name.clone(), stat_value_to_json_value(value)?);
+            }
+            for (alias, value) in group.states.result_value_pairs()? {
+                row.insert(alias, value);
+            }
+            rows.push((key.clone(), row));
+        }
+        Ok(rows)
+    }
+
+    fn sort_rows(&self, rows: &mut [(String, serde_json::Map<String, serde_json::Value>)]) {
+        if self.request.order_by.is_empty() {
+            return;
+        }
+        rows.sort_by(|left, right| {
+            for order in &self.request.order_by {
+                let left_value = left
+                    .1
+                    .get(&order.column)
+                    .unwrap_or(&serde_json::Value::Null);
+                let right_value = right
+                    .1
+                    .get(&order.column)
+                    .unwrap_or(&serde_json::Value::Null);
+                let ordering = compare_json_values(left_value, right_value);
+                if ordering != std::cmp::Ordering::Equal {
+                    return if order.descending {
+                        ordering.reverse()
+                    } else {
+                        ordering
+                    };
+                }
+            }
+            left.0.cmp(&right.0)
+        });
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn compare_json_values(left: &serde_json::Value, right: &serde_json::Value) -> std::cmp::Ordering {
+    use serde_json::Value;
+    match (left, right) {
+        (Value::Null, Value::Null) => std::cmp::Ordering::Equal,
+        (Value::Null, _) => std::cmp::Ordering::Less,
+        (_, Value::Null) => std::cmp::Ordering::Greater,
+        (Value::Bool(left), Value::Bool(right)) => left.cmp(right),
+        (Value::Number(left), Value::Number(right)) => left
+            .as_f64()
+            .and_then(|left| right.as_f64().and_then(|right| left.partial_cmp(&right)))
+            .unwrap_or(std::cmp::Ordering::Equal),
+        (Value::String(left), Value::String(right)) => left.cmp(right),
+        _ => json_type_rank(left).cmp(&json_type_rank(right)),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn json_type_rank(value: &serde_json::Value) -> u8 {
+    match value {
+        serde_json::Value::Null => 0,
+        serde_json::Value::Bool(_) => 1,
+        serde_json::Value::Number(_) => 2,
+        serde_json::Value::String(_) => 3,
+        serde_json::Value::Array(_) => 4,
+        serde_json::Value::Object(_) => 5,
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn grouped_aggregate_key(values: &[StatValue]) -> String {
+    values
+        .iter()
+        .map(stat_value_group_key)
+        .collect::<Vec<_>>()
+        .join("\u{1f}")
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn stat_value_group_key(value: &StatValue) -> String {
+    match value {
+        StatValue::Boolean(value) => format!("b:{value}"),
+        StatValue::Int64(value) => format!("i:{value}"),
+        StatValue::UInt64(value) => format!("u:{value}"),
+        StatValue::Float64(value) => format!("f:{:016x}", value.to_bits()),
+        StatValue::Utf8(value) => format!("s:{}", value.replace('\u{1f}', "\\u001f")),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+struct SimpleAggregateState {
+    function: SimpleAggregateFunction,
+    column_index: Option<usize>,
+    alias: String,
+    count: u64,
+    sum: f64,
+    min: Option<StatValue>,
+    max: Option<StatValue>,
+    distinct_values: std::collections::BTreeSet<String>,
+    argument_offset: Option<i64>,
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+impl SimpleAggregateState {
+    fn new(
+        function: SimpleAggregateFunction,
+        column_index: Option<usize>,
+        alias: String,
+        argument_offset: Option<i64>,
+    ) -> Self {
+        Self {
+            function,
+            column_index,
+            alias,
+            count: 0,
+            sum: 0.0,
+            min: None,
+            max: None,
+            distinct_values: std::collections::BTreeSet::new(),
+            argument_offset,
+        }
+    }
+
+    fn update(&mut self, columns: &[Vec<StatValue>], rows: usize) -> Result<()> {
+        let Some(column_index) = self.column_index else {
+            self.count = self.count.checked_add(usize_to_u64(rows)?).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex simple aggregate count overflowed u64".to_string(),
+                )
+            })?;
+            return Ok(());
+        };
+        let values = columns.get(column_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex simple aggregate column index was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        if rows > values.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "local Vortex simple aggregate requested more rows than the materialized chunk contains; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        for value in values.iter().take(rows) {
+            self.count = self.count.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex simple aggregate count overflowed u64".to_string(),
+                )
+            })?;
+            match self.function {
+                SimpleAggregateFunction::Count => {}
+                SimpleAggregateFunction::CountDistinct => {
+                    self.distinct_values.insert(stat_value_group_key(value));
+                }
+                SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
+                    let numeric = self.aggregate_numeric_value(value)?;
+                    if !numeric.is_finite() {
+                        return Err(ShardLoomError::InvalidOperation(
+                            "local Vortex simple aggregate encountered non-finite numeric value; no fallback execution was attempted"
+                                .to_string(),
+                        ));
+                    }
+                    self.sum += numeric;
+                }
+                SimpleAggregateFunction::Min => {
+                    self.min = Some(simple_aggregate_min_value(self.min.take(), value)?);
+                }
+                SimpleAggregateFunction::Max => {
+                    self.max = Some(simple_aggregate_max_value(self.max.take(), value)?);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn update_row(&mut self, columns: &[Vec<StatValue>], row_index: usize) -> Result<()> {
+        let Some(column_index) = self.column_index else {
+            self.count = self.count.checked_add(1).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local Vortex simple aggregate count overflowed u64".to_string(),
+                )
+            })?;
+            return Ok(());
+        };
+        let values = columns.get(column_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex simple aggregate column index was missing; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        let value = values.get(row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex grouped aggregate row index exceeded materialized chunk rows; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+        self.count = self.count.checked_add(1).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex simple aggregate count overflowed u64".to_string(),
+            )
+        })?;
+        match self.function {
+            SimpleAggregateFunction::Count => {}
+            SimpleAggregateFunction::CountDistinct => {
+                self.distinct_values.insert(stat_value_group_key(value));
+            }
+            SimpleAggregateFunction::Sum | SimpleAggregateFunction::Avg => {
+                let numeric = self.aggregate_numeric_value(value)?;
+                if !numeric.is_finite() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "local Vortex simple aggregate encountered non-finite numeric value; no fallback execution was attempted"
+                            .to_string(),
+                    ));
+                }
+                self.sum += numeric;
+            }
+            SimpleAggregateFunction::Min => {
+                self.min = Some(simple_aggregate_min_value(self.min.take(), value)?);
+            }
+            SimpleAggregateFunction::Max => {
+                self.max = Some(simple_aggregate_max_value(self.max.take(), value)?);
+            }
+        }
+        Ok(())
+    }
+
+    fn result_json(&self) -> Result<serde_json::Value> {
+        match self.function {
+            SimpleAggregateFunction::Count => Ok(serde_json::Value::Number(self.count.into())),
+            SimpleAggregateFunction::CountDistinct => Ok(serde_json::Value::Number(
+                usize_to_u64(self.distinct_values.len())?.into(),
+            )),
+            SimpleAggregateFunction::Sum => json_number_from_f64(self.sum),
+            SimpleAggregateFunction::Avg => {
+                if self.count == 0 {
+                    Ok(serde_json::Value::Null)
+                } else {
+                    json_number_from_f64(self.sum / self.count as f64)
+                }
+            }
+            SimpleAggregateFunction::Min => self
+                .min
+                .as_ref()
+                .map_or(Ok(serde_json::Value::Null), stat_value_to_json_value),
+            SimpleAggregateFunction::Max => self
+                .max
+                .as_ref()
+                .map_or(Ok(serde_json::Value::Null), stat_value_to_json_value),
+        }
+    }
+
+    #[allow(clippy::cast_precision_loss)]
+    fn aggregate_numeric_value(&self, value: &StatValue) -> Result<f64> {
+        let numeric = stat_value_to_f64(value)?;
+        self.argument_offset.map_or(Ok(numeric), |offset| {
+            let adjusted = numeric + offset as f64;
+            if adjusted.is_finite() {
+                Ok(adjusted)
+            } else {
+                Err(ShardLoomError::InvalidOperation(
+                    "local Vortex simple aggregate argument offset produced a non-finite value; no fallback execution was attempted"
+                        .to_string(),
+                ))
+            }
+        })
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn simple_aggregate_min_value(current: Option<StatValue>, value: &StatValue) -> Result<StatValue> {
+    let Some(current) = current else {
+        return Ok(value.clone());
+    };
+    match stat_value_cmp(value, &current) {
+        Some(std::cmp::Ordering::Less) => Ok(value.clone()),
+        Some(_) => Ok(current),
+        None => Err(ShardLoomError::InvalidOperation(
+            "local Vortex simple aggregate min encountered incomparable values; no fallback execution was attempted"
+                .to_string(),
+        )),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn simple_aggregate_max_value(current: Option<StatValue>, value: &StatValue) -> Result<StatValue> {
+    let Some(current) = current else {
+        return Ok(value.clone());
+    };
+    match stat_value_cmp(value, &current) {
+        Some(std::cmp::Ordering::Greater) => Ok(value.clone()),
+        Some(_) => Ok(current),
+        None => Err(ShardLoomError::InvalidOperation(
+            "local Vortex simple aggregate max encountered incomparable values; no fallback execution was attempted"
+                .to_string(),
+        )),
+    }
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn json_number_from_f64(value: f64) -> Result<serde_json::Value> {
+    serde_json::Number::from_f64(value)
+        .map(serde_json::Value::Number)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local Vortex simple aggregate cannot serialize non-finite numeric result; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn deterministic_sample_score(seed: u64, row_index: usize) -> u64 {
     let row = u64::try_from(row_index).map_or(u64::MAX, |value| value);
     let mut value = seed ^ row.wrapping_mul(0x9e37_79b9_7f4a_7c15);
@@ -4273,11 +8375,28 @@ fn predicate_to_vortex_expr(
     dtype: &vortex::array::dtype::DType,
     primitive_kind: VortexQueryPrimitiveKind,
 ) -> Result<vortex::array::expr::Expression> {
-    use vortex::array::expr::{eq, gt, gt_eq, is_not_null, is_null, lit, lt, lt_eq, not_eq};
+    use vortex::array::expr::{
+        and_collect, eq, gt, gt_eq, is_not_null, is_null, lit, lt, lt_eq, not_eq,
+    };
 
     match predicate {
         PredicateExpr::AlwaysTrue => Ok(lit(true)),
         PredicateExpr::AlwaysFalse => Ok(lit(false)),
+        PredicateExpr::And(predicates) => {
+            if predicates.is_empty() {
+                return Ok(lit(true));
+            }
+            let expressions = predicates
+                .iter()
+                .map(|predicate| predicate_to_vortex_expr(predicate, dtype, primitive_kind))
+                .collect::<Result<Vec<_>>>()?;
+            and_collect(expressions).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "local primitive conjunction produced no predicate expressions; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })
+        }
         PredicateExpr::IsNull { column } => {
             let (lhs, _) = predicate_field_expr(dtype, column.as_str(), primitive_kind)?;
             Ok(is_null(lhs))
@@ -4453,8 +8572,10 @@ fn vortex_error(error: impl std::fmt::Display) -> ShardLoomError {
 mod tests {
     use super::*;
     use crate::{
-        VortexEncodedValuePredicateBatch, VortexReaderBackedEncodedExecutionStatus,
-        VortexReaderGeneratedPreparedBatchStatus, VortexSourceBackedEncodedValuePredicateBatch,
+        VortexEncodedValuePredicateBatch, VortexExplodeProjectionRequest,
+        VortexExpressionProjectionRequest, VortexExpressionRewrite,
+        VortexReaderBackedEncodedExecutionStatus, VortexReaderGeneratedPreparedBatchStatus,
+        VortexSourceBackedEncodedValuePredicateBatch,
         execute_vortex_reader_backed_filter_from_encoded_value_batches,
     };
     use shardloom_core::{
@@ -4532,6 +8653,97 @@ mod tests {
         write_array(path, &array.into_array())
     }
 
+    fn write_melt_struct_fixture(path: &std::path::Path) -> Result<()> {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{PrimitiveArray, StructArray};
+        use vortex::array::dtype::FieldNames;
+        use vortex::array::validity::Validity;
+
+        let array = StructArray::try_new(
+            FieldNames::from(["id", "amount_a", "amount_b"]),
+            vec![
+                [1_u32, 2, 3]
+                    .into_iter()
+                    .collect::<PrimitiveArray>()
+                    .into_array(),
+                [10_i64, 20, 30]
+                    .into_iter()
+                    .collect::<PrimitiveArray>()
+                    .into_array(),
+                [100_i64, 200, 300]
+                    .into_iter()
+                    .collect::<PrimitiveArray>()
+                    .into_array(),
+            ],
+            3,
+            Validity::NonNullable,
+        )
+        .map_err(vortex_error)?;
+        write_array(path, &array.into_array())
+    }
+
+    fn write_pivot_struct_fixture(path: &std::path::Path) -> Result<()> {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{PrimitiveArray, StructArray, VarBinViewArray};
+        use vortex::array::dtype::FieldNames;
+        use vortex::array::validity::Validity;
+
+        let array = StructArray::try_new(
+            FieldNames::from(["id", "label", "amount"]),
+            vec![
+                [1_u32, 1, 2]
+                    .into_iter()
+                    .collect::<PrimitiveArray>()
+                    .into_array(),
+                VarBinViewArray::from_iter_str(["paid", "paid", "trial"]).into_array(),
+                [10_i64, 5, 7]
+                    .into_iter()
+                    .collect::<PrimitiveArray>()
+                    .into_array(),
+            ],
+            3,
+            Validity::NonNullable,
+        )
+        .map_err(vortex_error)?;
+        write_array(path, &array.into_array())
+    }
+
+    fn write_explode_struct_fixture(path: &std::path::Path) -> Result<()> {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{ListViewArray, PrimitiveArray, StructArray};
+        use vortex::array::dtype::FieldNames;
+        use vortex::array::validity::Validity;
+
+        let elements = [7_i64, 8, 9]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let offsets = [0_u32, 2, 2]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let sizes = [2_u32, 0, 1]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let items =
+            ListViewArray::new(elements, offsets, sizes, Validity::NonNullable).into_array();
+        let array = StructArray::try_new(
+            FieldNames::from(["id", "items"]),
+            vec![
+                [1_u32, 2, 3]
+                    .into_iter()
+                    .collect::<PrimitiveArray>()
+                    .into_array(),
+                items,
+            ],
+            3,
+            Validity::NonNullable,
+        )
+        .map_err(vortex_error)?;
+        write_array(path, &array.into_array())
+    }
+
     fn write_duplicate_struct_fixture(path: &std::path::Path) -> Result<()> {
         use vortex::array::IntoArray as _;
         use vortex::array::arrays::{PrimitiveArray, StructArray};
@@ -4551,6 +8763,22 @@ mod tests {
                     .into_array(),
             ],
             5,
+            Validity::NonNullable,
+        )
+        .map_err(vortex_error)?;
+        write_array(path, &array.into_array())
+    }
+
+    fn write_string_struct_fixture(path: &std::path::Path) -> Result<()> {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{StructArray, VarBinViewArray};
+        use vortex::array::dtype::FieldNames;
+        use vortex::array::validity::Validity;
+
+        let array = StructArray::try_new(
+            FieldNames::from(["label"]),
+            vec![VarBinViewArray::from_iter_str(["bad", "good", "badly"]).into_array()],
+            3,
             Validity::NonNullable,
         )
         .map_err(vortex_error)?;
@@ -4635,6 +8863,117 @@ mod tests {
             SegmentLayout::new(EncodingKind::Constant, LayoutKind::Flat),
             SegmentStats::with_row_count(row_count),
         )
+    }
+
+    fn scoped_pivot_projection(aggregate: &str) -> VortexPivotProjectionRequest {
+        VortexPivotProjectionRequest::new(
+            ColumnRef::new("id").expect("index column"),
+            ColumnRef::new("label").expect("pivot column"),
+            ColumnRef::new("amount").expect("value column"),
+            aggregate,
+        )
+    }
+
+    #[test]
+    fn pivot_first_unique_blocks_conflicting_duplicate_cells() {
+        let projection = scoped_pivot_projection("first_unique");
+        let mut index_keys = std::collections::BTreeSet::new();
+        let mut pivot_columns = std::collections::BTreeMap::new();
+        let mut first_cells = std::collections::BTreeMap::new();
+        let mut aggregate_cells = std::collections::BTreeMap::new();
+
+        let result = update_pivot_state(
+            &projection,
+            "first_unique",
+            &[StatValue::UInt64(1), StatValue::UInt64(1)],
+            &[
+                StatValue::Utf8("paid".to_string()),
+                StatValue::Utf8("paid".to_string()),
+            ],
+            &[StatValue::Int64(10), StatValue::Int64(20)],
+            &mut index_keys,
+            &mut pivot_columns,
+            &mut first_cells,
+            &mut aggregate_cells,
+        );
+
+        let error = result.expect_err("conflicting duplicate pivot cells must fail closed");
+        assert!(error.to_string().contains("multiple values"), "{error:?}");
+    }
+
+    #[test]
+    fn pivot_table_sum_tracks_numeric_group_state() {
+        let projection = scoped_pivot_projection("sum");
+        let mut index_keys = std::collections::BTreeSet::new();
+        let mut pivot_columns = std::collections::BTreeMap::new();
+        let mut first_cells = std::collections::BTreeMap::new();
+        let mut aggregate_cells = std::collections::BTreeMap::new();
+
+        update_pivot_state(
+            &projection,
+            "sum",
+            &[
+                StatValue::UInt64(1),
+                StatValue::UInt64(1),
+                StatValue::UInt64(2),
+            ],
+            &[
+                StatValue::Utf8("paid".to_string()),
+                StatValue::Utf8("paid".to_string()),
+                StatValue::Utf8("trial".to_string()),
+            ],
+            &[
+                StatValue::Int64(10),
+                StatValue::Float64(5.5),
+                StatValue::UInt64(7),
+            ],
+            &mut index_keys,
+            &mut pivot_columns,
+            &mut first_cells,
+            &mut aggregate_cells,
+        )
+        .expect("numeric pivot_table aggregate");
+
+        let paid_cell = aggregate_cells
+            .get(&(
+                pivot_value_key(&StatValue::UInt64(1)),
+                pivot_value_key(&StatValue::Utf8("paid".to_string())),
+            ))
+            .expect("paid aggregate cell");
+        assert_eq!(paid_cell.count, 2);
+        assert_eq!(paid_cell.sum, 15.5);
+        assert_eq!(pivot_columns.len(), 2);
+        assert!(first_cells.is_empty());
+        assert_eq!(index_keys.len(), 2);
+    }
+
+    #[test]
+    fn pivot_table_sum_blocks_non_numeric_value_column() {
+        let projection = scoped_pivot_projection("sum");
+        let mut index_keys = std::collections::BTreeSet::new();
+        let mut pivot_columns = std::collections::BTreeMap::new();
+        let mut first_cells = std::collections::BTreeMap::new();
+        let mut aggregate_cells = std::collections::BTreeMap::new();
+
+        let result = update_pivot_state(
+            &projection,
+            "sum",
+            &[StatValue::UInt64(1)],
+            &[StatValue::Utf8("paid".to_string())],
+            &[StatValue::Utf8("ten".to_string())],
+            &mut index_keys,
+            &mut pivot_columns,
+            &mut first_cells,
+            &mut aggregate_cells,
+        );
+
+        let error = result.expect_err("non-numeric pivot_table values must fail closed");
+        assert!(
+            error
+                .to_string()
+                .contains("requires a numeric value column"),
+            "{error:?}"
+        );
     }
 
     #[test]
@@ -5834,6 +10173,220 @@ mod tests {
     }
 
     #[test]
+    fn expression_project_rows_materialize_typed_rewrites_without_fallback() {
+        let path = unique_vortex_path("expression-project-rows");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::expression_project_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+            VortexExpressionProjectionRequest::new(vec![VortexExpressionRewrite::MaskScalar {
+                target_column: ColumnRef::new("metric").expect("column"),
+                predicate: PredicateExpr::Compare {
+                    column: ColumnRef::new("metric").expect("column"),
+                    op: ComparisonOp::Lt,
+                    value: StatValue::Int64(30),
+                },
+                replacement: StatValue::Int64(0),
+            }]),
+        )
+        .with_source_order_limit(2);
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::ExpressionProjectRows
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(2));
+        assert_eq!(report.rows_projected, Some(2));
+        assert_eq!(report.projected_columns, vec!["metric".to_string()]);
+        assert_eq!(
+            report.result_summary.as_deref(),
+            Some(
+                "expression_project_rows=2 projected_columns=metric expression_rewrites=mask_scalar"
+            )
+        );
+        assert!(report.projection_pushdown_applied);
+        assert_eq!(report.source_order_limit_requested, Some(2));
+        assert!(report.source_order_limit_applied);
+        assert_eq!(report.source_order_limit_input_rows, Some(5));
+        assert_eq!(report.source_order_limit_rows_output, Some(2));
+        assert!(report.data_read);
+        assert!(report.streaming_scan_used);
+        assert!(!report.full_stream_collected);
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(report.row_read);
+        assert!(!report.arrow_converted);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.materialization_boundary_reported);
+        assert!(certificate.is_certified());
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .accepted_operation_order(),
+            "project,expression_project"
+        );
+        assert_eq!(
+            certificate.representation_transition_order(),
+            "vortex_encoded->decoded_columnar,decoded_columnar->materialized_rows"
+        );
+        assert_eq!(
+            certificate.materialization_boundary_order(),
+            "local_primitive.expression_project_rows.bounded_materialization"
+        );
+        assert!(!certificate.side_effects.fallback_attempted);
+    }
+
+    #[test]
+    fn rolling_window_rows_materialize_source_order_sums_without_fallback() {
+        let path = unique_vortex_path("rolling-window-rows");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::rolling_window_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexRollingWindowRequest::new(
+                ColumnRef::new("metric").expect("column"),
+                "rolling_metric".to_string(),
+                3,
+                3,
+                "sum".to_string(),
+            ),
+        )
+        .with_source_order_limit(2);
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::RollingWindowRows
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(2));
+        assert_eq!(report.rows_projected, Some(2));
+        assert_eq!(report.projected_columns, vec!["rolling_metric".to_string()]);
+        assert_eq!(
+            report.result_summary.as_deref(),
+            Some(
+                "rolling_window_rows=2 projected_columns=rolling_metric source_column=metric;output_column=rolling_metric;window_size=3;min_periods=3;aggregate=sum"
+            )
+        );
+        assert!(report.projection_pushdown_applied);
+        assert_eq!(report.source_order_limit_requested, Some(2));
+        assert!(report.source_order_limit_applied);
+        assert_eq!(report.source_order_limit_input_rows, Some(2));
+        assert_eq!(report.source_order_limit_rows_output, Some(2));
+        assert!(report.data_read);
+        assert!(report.streaming_scan_used);
+        assert!(!report.full_stream_collected);
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(report.row_read);
+        assert!(!report.arrow_converted);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.materialization_boundary_reported);
+        assert!(certificate.is_certified());
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .accepted_operation_order(),
+            "project,rolling_window"
+        );
+        assert_eq!(
+            certificate.representation_transition_order(),
+            "vortex_encoded->decoded_columnar,decoded_columnar->materialized_rows"
+        );
+        assert!(!certificate.side_effects.fallback_attempted);
+    }
+
+    #[test]
+    fn explode_rows_materialize_list_elements_without_fallback() {
+        let path = unique_vortex_path("explode-rows");
+        write_explode_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::explode_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![
+                ColumnRef::new("id").expect("column"),
+                ColumnRef::new("items").expect("column"),
+            ]),
+            VortexExplodeProjectionRequest::new(ColumnRef::new("items").expect("column")),
+        )
+        .with_source_order_limit(2);
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::ExplodeRows);
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_selected, Some(2));
+        assert_eq!(report.rows_projected, Some(2));
+        assert_eq!(
+            report.projected_columns,
+            vec!["id".to_string(), "items".to_string()]
+        );
+        assert_eq!(
+            report.result_summary.as_deref(),
+            Some("explode_rows=2 projected_columns=id,items column=items")
+        );
+        assert!(report.projection_pushdown_applied);
+        assert_eq!(report.source_order_limit_requested, Some(2));
+        assert!(report.source_order_limit_applied);
+        assert_eq!(report.source_order_limit_input_rows, Some(3));
+        assert_eq!(report.source_order_limit_rows_output, Some(2));
+        assert!(report.data_read);
+        assert!(report.streaming_scan_used);
+        assert!(!report.full_stream_collected);
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(report.row_read);
+        assert!(!report.arrow_converted);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        assert!(report.materialization_boundary_reported);
+        assert!(certificate.is_certified());
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .accepted_operation_order(),
+            "project,explode"
+        );
+        assert_eq!(
+            certificate.representation_transition_order(),
+            "vortex_encoded->decoded_columnar,decoded_columnar->materialized_rows"
+        );
+        assert_eq!(
+            certificate.materialization_boundary_order(),
+            "local_primitive.explode_rows.bounded_materialization"
+        );
+        assert!(!certificate.side_effects.fallback_attempted);
+    }
+
+    #[test]
     fn distinct_row_export_writes_unique_vortex_rows_with_materialization_evidence() {
         let path = unique_vortex_path("distinct-row-export");
         let output_path = unique_vortex_path("distinct-row-export-output").with_extension("jsonl");
@@ -5873,6 +10426,56 @@ mod tests {
         assert!(!report.evidence.pushdown.filter_pushdown_applied);
         assert!(report.evidence.pushdown.projection_pushdown_applied);
         assert!(report.evidence.pushdown.source_order_limit_applied);
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.materialization_boundary_reported);
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn duplicate_mask_row_export_writes_boolean_mask_without_fallback() {
+        let path = unique_vortex_path("duplicate-mask-row-export");
+        let output_path =
+            unique_vortex_path("duplicate-mask-row-export-output").with_extension("jsonl");
+        write_duplicate_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::duplicate_mask_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("value").expect("column")]),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::DuplicateMaskRows
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_written, 5);
+        assert_eq!(report.pre_limit_result_row_count, 5);
+        assert_eq!(report.projected_columns, vec!["duplicated".to_string()]);
+        assert_eq!(
+            rows,
+            "{\"duplicated\":false}\n{\"duplicated\":true}\n{\"duplicated\":false}\n{\"duplicated\":true}\n{\"duplicated\":false}\n"
+        );
+        assert!(report.evidence.pushdown.projection_pushdown_applied);
+        assert!(!report.evidence.pushdown.source_order_limit_applied);
         assert!(report.evidence.upstream_scan_called);
         assert!(report.evidence.materialization_boundary_reported);
         assert!(report.evidence.side_effects.data_read);
@@ -6045,6 +10648,351 @@ mod tests {
         assert!(report.evidence.side_effects.row_read);
         assert!(report.evidence.side_effects.write_io);
         assert!(!report.evidence.side_effects.fallback_attempted);
+    }
+
+    #[test]
+    fn expression_project_row_export_writes_rewritten_rows_without_fallback() {
+        let path = unique_vortex_path("expression-project-row-export");
+        let output_path =
+            unique_vortex_path("expression-project-row-export-output").with_extension("jsonl");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::expression_project_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+            VortexExpressionProjectionRequest::new(vec![VortexExpressionRewrite::ReplaceScalar {
+                target_column: ColumnRef::new("metric").expect("column"),
+                to_replace: StatValue::Int64(20),
+                replacement: StatValue::Int64(99),
+            }]),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::ExpressionProjectRows
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_written, 5);
+        assert_eq!(report.pre_limit_result_row_count, 5);
+        assert_eq!(report.projected_columns, vec!["metric".to_string()]);
+        assert_eq!(
+            rows,
+            "{\"metric\":10}\n{\"metric\":99}\n{\"metric\":30}\n{\"metric\":40}\n{\"metric\":50}\n"
+        );
+        assert!(report.evidence.pushdown.projection_pushdown_applied);
+        assert!(!report.evidence.pushdown.source_order_limit_applied);
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.materialization_boundary_reported);
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn expression_project_row_export_writes_string_replacement_rows_without_fallback() {
+        let path = unique_vortex_path("expression-project-string-replace");
+        let output_path =
+            unique_vortex_path("expression-project-string-replace-output").with_extension("jsonl");
+        write_string_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::expression_project_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("label").expect("column")]),
+            VortexExpressionProjectionRequest::new(vec![
+                VortexExpressionRewrite::StringReplaceScalar {
+                    target_column: ColumnRef::new("label").expect("column"),
+                    needle: "bad".to_string(),
+                    replacement: "ok".to_string(),
+                },
+            ]),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::ExpressionProjectRows
+        );
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_written, 3);
+        assert_eq!(report.pre_limit_result_row_count, 3);
+        assert_eq!(report.projected_columns, vec!["label".to_string()]);
+        assert_eq!(
+            rows,
+            "{\"label\":\"ok\"}\n{\"label\":\"good\"}\n{\"label\":\"okly\"}\n"
+        );
+        assert!(report.evidence.pushdown.projection_pushdown_applied);
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.materialization_boundary_reported);
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn expression_project_row_export_writes_numeric_scalar_assignment_without_fallback() {
+        let path = unique_vortex_path("expression-project-numeric-assignment");
+        let output_path = unique_vortex_path("expression-project-numeric-assignment-output")
+            .with_extension("jsonl");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::expression_project_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+            VortexExpressionProjectionRequest::new(vec![
+                VortexExpressionRewrite::NumericScalarArithmetic {
+                    target_column: ColumnRef::new("metric").expect("column"),
+                    operator: "+".to_string(),
+                    operand: StatValue::Int64(5),
+                },
+            ]),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::ExpressionProjectRows
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_written, 5);
+        assert_eq!(report.pre_limit_result_row_count, 5);
+        assert_eq!(report.projected_columns, vec!["metric".to_string()]);
+        assert_eq!(
+            rows,
+            "{\"metric\":15}\n{\"metric\":25}\n{\"metric\":35}\n{\"metric\":45}\n{\"metric\":55}\n"
+        );
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.materialization_boundary_reported);
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn melt_row_export_writes_expanded_rows_without_fallback() {
+        let path = unique_vortex_path("melt-row-export");
+        let output_path = unique_vortex_path("melt-row-export-output").with_extension("jsonl");
+        write_melt_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::melt_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexMeltProjectionRequest::new(
+                vec![ColumnRef::new("id").expect("column")],
+                vec![
+                    ColumnRef::new("amount_a").expect("column"),
+                    ColumnRef::new("amount_b").expect("column"),
+                ],
+                "measure".to_string(),
+                "amount".to_string(),
+            ),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::MeltRows);
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_written, 6);
+        assert_eq!(report.pre_limit_result_row_count, 6);
+        assert_eq!(
+            report.projected_columns,
+            vec![
+                "id".to_string(),
+                "measure".to_string(),
+                "amount".to_string()
+            ]
+        );
+        assert_eq!(
+            rows,
+            "{\"amount\":10,\"id\":1,\"measure\":\"amount_a\"}\n{\"amount\":100,\"id\":1,\"measure\":\"amount_b\"}\n{\"amount\":20,\"id\":2,\"measure\":\"amount_a\"}\n{\"amount\":200,\"id\":2,\"measure\":\"amount_b\"}\n{\"amount\":30,\"id\":3,\"measure\":\"amount_a\"}\n{\"amount\":300,\"id\":3,\"measure\":\"amount_b\"}\n"
+        );
+        assert!(report.evidence.pushdown.projection_pushdown_applied);
+        assert!(!report.evidence.pushdown.source_order_limit_applied);
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.materialization_boundary_reported);
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn pivot_row_export_writes_sparse_wide_rows_without_fallback() {
+        let path = unique_vortex_path("pivot-row-export");
+        let output_path = unique_vortex_path("pivot-row-export-output").with_extension("jsonl");
+        write_pivot_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::pivot_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexPivotProjectionRequest::new(
+                ColumnRef::new("id").expect("column"),
+                ColumnRef::new("label").expect("column"),
+                ColumnRef::new("amount").expect("column"),
+                "sum",
+            ),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let parsed_rows = rows
+            .lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("json row"))
+            .collect::<Vec<_>>();
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::PivotRows);
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_written, 2);
+        assert_eq!(report.pre_limit_result_row_count, 2);
+        assert_eq!(
+            report.projected_columns,
+            vec![
+                "id".to_string(),
+                "pivot_paid".to_string(),
+                "pivot_trial".to_string()
+            ]
+        );
+        assert_eq!(parsed_rows.len(), 2);
+        assert_eq!(parsed_rows[0]["id"], serde_json::json!(1));
+        assert_eq!(parsed_rows[0]["pivot_paid"].as_f64(), Some(15.0));
+        assert!(parsed_rows[0]["pivot_trial"].is_null());
+        assert_eq!(parsed_rows[1]["id"], serde_json::json!(2));
+        assert!(parsed_rows[1]["pivot_paid"].is_null());
+        assert_eq!(parsed_rows[1]["pivot_trial"].as_f64(), Some(7.0));
+        assert!(report.evidence.pushdown.projection_pushdown_applied);
+        assert!(!report.evidence.pushdown.source_order_limit_applied);
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.materialization_boundary_reported);
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn explode_row_export_writes_expanded_rows_without_fallback() {
+        let path = unique_vortex_path("explode-row-export");
+        let output_path = unique_vortex_path("explode-row-export-output").with_extension("jsonl");
+        write_explode_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::explode_rows(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            ProjectionRequest::columns(vec![
+                ColumnRef::new("id").expect("column"),
+                ColumnRef::new("items").expect("column"),
+            ]),
+            VortexExplodeProjectionRequest::new(ColumnRef::new("items").expect("column")),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.primitive_kind, VortexQueryPrimitiveKind::ExplodeRows);
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_written, 3);
+        assert_eq!(report.pre_limit_result_row_count, 3);
+        assert_eq!(
+            report.projected_columns,
+            vec!["id".to_string(), "items".to_string()]
+        );
+        assert_eq!(
+            rows,
+            "{\"id\":1,\"items\":7}\n{\"id\":1,\"items\":8}\n{\"id\":3,\"items\":9}\n"
+        );
+        assert!(report.evidence.pushdown.projection_pushdown_applied);
+        assert!(!report.evidence.pushdown.source_order_limit_applied);
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.materialization_boundary_reported);
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.fallback_execution_allowed);
     }
 
     #[test]
@@ -6435,6 +11383,393 @@ mod tests {
                 .canonicalize()
                 .expect("fixture canonical")
         );
+    }
+
+    #[test]
+    fn simple_aggregate_accumulates_scalar_measures_without_fallback() {
+        let path = unique_vortex_path("simple-aggregate");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::new(vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "sum",
+                    Some(ColumnRef::new("metric").expect("column")),
+                    "sum_metric".to_string(),
+                ),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "avg",
+                    Some(ColumnRef::new("metric").expect("column")),
+                    "avg_metric".to_string(),
+                ),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "min",
+                    Some(ColumnRef::new("value").expect("column")),
+                    "min_value".to_string(),
+                ),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "max",
+                    Some(ColumnRef::new("value").expect("column")),
+                    "max_value".to_string(),
+                ),
+            ]),
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::SimpleAggregate
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(5));
+        assert_eq!(report.rows_projected, Some(1));
+        assert!(report.upstream_scan_called);
+        assert!(report.data_read);
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(report.row_read);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        let summary = report.result_summary.expect("summary");
+        assert!(summary.contains("\"rows\":5"));
+        assert!(summary.contains("\"sum_metric\":150.0"));
+        assert!(summary.contains("\"avg_metric\":30.0"));
+        assert!(summary.contains("\"min_value\":1"));
+        assert!(summary.contains("\"max_value\":5"));
+    }
+
+    #[test]
+    fn simple_aggregate_applies_sum_argument_offsets_without_fallback() {
+        let path = unique_vortex_path("simple-aggregate-offset");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::new(vec![
+                crate::VortexSimpleAggregateMeasure::new(
+                    "sum",
+                    Some(ColumnRef::new("metric").expect("column")),
+                    "sum_metric_plus_2".to_string(),
+                )
+                .with_argument_offset(2),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "sum",
+                    Some(ColumnRef::new("metric").expect("column")),
+                    "sum_metric_minus_1".to_string(),
+                )
+                .with_argument_offset(-1),
+            ]),
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(5));
+        assert_eq!(report.rows_projected, Some(1));
+        assert!(report.upstream_scan_called);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        let summary = report.result_summary.expect("summary");
+        assert!(summary.contains("\"sum_metric_plus_2\":160.0"));
+        assert!(summary.contains("\"sum_metric_minus_1\":145.0"));
+    }
+
+    #[test]
+    fn grouped_aggregate_accumulates_group_rows_without_fallback() {
+        let path = unique_vortex_path("grouped-aggregate");
+        write_pivot_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("label").expect("column")],
+                vec![
+                    crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                    crate::VortexSimpleAggregateMeasure::new(
+                        "sum",
+                        Some(ColumnRef::new("amount").expect("column")),
+                        "total_amount".to_string(),
+                    ),
+                ],
+            ),
+        );
+
+        let report = execute_vortex_local_primitive(&request).expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::SimpleAggregate
+        );
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_selected, Some(3));
+        assert_eq!(report.rows_projected, Some(2));
+        assert!(report.upstream_scan_called);
+        assert!(report.data_read);
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        let summary = report.result_summary.expect("summary");
+        assert!(summary.contains("\"group_by\":\"label\""));
+        assert!(summary.contains("\"label\":\"paid\""));
+        assert!(summary.contains("\"label\":\"trial\""));
+        assert!(summary.contains("\"total_amount\":15.0"));
+        assert!(summary.contains("\"total_amount\":7.0"));
+    }
+
+    #[test]
+    fn grouped_aggregate_filters_orders_and_limits_rows_without_fallback() {
+        let path = unique_vortex_path("grouped-aggregate-filtered-topk");
+        write_pivot_struct_fixture(&path).expect("fixture");
+        let mut request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("label").expect("column")],
+                vec![
+                    crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                    crate::VortexSimpleAggregateMeasure::new(
+                        "sum",
+                        Some(ColumnRef::new("amount").expect("column")),
+                        "total_amount".to_string(),
+                    ),
+                ],
+            )
+            .with_order_by(vec![crate::VortexAggregateOrderExpr::new(
+                "total_amount",
+                true,
+            )]),
+        )
+        .with_source_order_limit(1);
+        request.predicate = Some(PredicateExpr::Compare {
+            column: ColumnRef::new("amount").expect("column"),
+            op: ComparisonOp::GtEq,
+            value: StatValue::Int64(7),
+        });
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::SimpleAggregate
+        );
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_selected, Some(2));
+        assert_eq!(report.rows_projected, Some(1));
+        assert_eq!(report.source_order_limit_requested, Some(1));
+        assert!(report.source_order_limit_applied);
+        assert_eq!(report.source_order_limit_input_rows, Some(2));
+        assert_eq!(report.source_order_limit_rows_output, Some(1));
+        assert!(report.filter_pushdown_applied);
+        assert!(report.upstream_filter_expression_used);
+        assert!(report.projection_pushdown_applied);
+        assert!(report.upstream_scan_called);
+        assert!(report.data_read);
+        assert!(report.data_decoded);
+        assert!(report.data_materialized);
+        assert!(report.row_read);
+        assert!(!report.external_effects_executed);
+        assert!(!report.fallback_execution_allowed);
+        let summary = report.result_summary.expect("summary");
+        assert!(summary.contains("\"rows\":1"));
+        assert!(summary.contains("\"label\":\"paid\""));
+        assert!(summary.contains("\"total_amount\":10.0"));
+        assert!(!summary.contains("\"label\":\"trial\""));
+    }
+
+    #[test]
+    fn aggregate_count_distinct_accumulates_scalar_and_grouped_state_without_fallback() {
+        let scalar_path = unique_vortex_path("count-distinct-scalar");
+        let grouped_path = unique_vortex_path("count-distinct-grouped");
+        write_duplicate_struct_fixture(&scalar_path).expect("scalar fixture");
+        write_pivot_struct_fixture(&grouped_path).expect("grouped fixture");
+        let scalar_request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(scalar_path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::new(vec![crate::VortexSimpleAggregateMeasure::new(
+                "count_distinct",
+                Some(ColumnRef::new("value").expect("column")),
+                "unique_values".to_string(),
+            )]),
+        );
+        let grouped_request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(grouped_path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("label").expect("column")],
+                vec![crate::VortexSimpleAggregateMeasure::new(
+                    "count_distinct",
+                    Some(ColumnRef::new("id").expect("column")),
+                    "unique_ids".to_string(),
+                )],
+            ),
+        );
+
+        let scalar_report = execute_vortex_local_primitive(&scalar_request).expect("scalar report");
+        let grouped_report =
+            execute_vortex_local_primitive(&grouped_request).expect("grouped report");
+        let _ = std::fs::remove_file(&scalar_path);
+        let _ = std::fs::remove_file(&grouped_path);
+
+        assert_eq!(
+            scalar_report.status,
+            VortexLocalPrimitiveExecutionStatus::Executed
+        );
+        assert_eq!(scalar_report.rows_scanned, 5);
+        assert_eq!(scalar_report.rows_projected, Some(1));
+        let scalar_summary = scalar_report.result_summary.expect("scalar summary");
+        assert!(scalar_summary.contains("\"unique_values\":3"));
+        assert!(!scalar_report.external_effects_executed);
+        assert!(!scalar_report.fallback_execution_allowed);
+
+        assert_eq!(
+            grouped_report.status,
+            VortexLocalPrimitiveExecutionStatus::Executed
+        );
+        assert_eq!(grouped_report.rows_scanned, 3);
+        assert_eq!(grouped_report.rows_projected, Some(2));
+        let grouped_summary = grouped_report.result_summary.expect("grouped summary");
+        assert!(grouped_summary.contains("\"label\":\"paid\""));
+        assert!(grouped_summary.contains("\"label\":\"trial\""));
+        assert!(grouped_summary.contains("\"unique_ids\":1"));
+        assert!(!grouped_report.external_effects_executed);
+        assert!(!grouped_report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn simple_aggregate_row_export_writes_scalar_result_without_fallback() {
+        let path = unique_vortex_path("simple-aggregate-row-export");
+        let output_path =
+            unique_vortex_path("simple-aggregate-row-export-output").with_extension("jsonl");
+        write_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::new(vec![
+                crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                crate::VortexSimpleAggregateMeasure::new(
+                    "sum",
+                    Some(ColumnRef::new("metric").expect("column")),
+                    "sum_metric".to_string(),
+                ),
+            ]),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let parsed = serde_json::from_str::<serde_json::Value>(rows.trim()).expect("json row");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::SimpleAggregate
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_written, 1);
+        assert_eq!(report.pre_limit_result_row_count, 1);
+        assert_eq!(
+            report.projected_columns,
+            vec!["rows".to_string(), "sum_metric".to_string()]
+        );
+        assert_eq!(parsed["rows"], serde_json::json!(5));
+        assert_eq!(parsed["sum_metric"].as_f64(), Some(150.0));
+        assert!(report.evidence.pushdown.projection_pushdown_applied);
+        assert!(!report.evidence.pushdown.source_order_limit_applied);
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.materialization_boundary_reported);
+        assert!(report.evidence.side_effects.data_read);
+        assert!(report.evidence.side_effects.data_decoded);
+        assert!(report.evidence.side_effects.data_materialized);
+        assert!(report.evidence.side_effects.row_read);
+        assert!(report.evidence.side_effects.write_io);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn grouped_aggregate_row_export_writes_group_rows_without_fallback() {
+        let path = unique_vortex_path("grouped-aggregate-row-export");
+        let output_path =
+            unique_vortex_path("grouped-aggregate-row-export-output").with_extension("jsonl");
+        write_pivot_struct_fixture(&path).expect("fixture");
+        let request = VortexQueryPrimitiveRequest::simple_aggregate(
+            DatasetUri::new(path.display().to_string()).expect("uri"),
+            VortexSimpleAggregateRequest::grouped(
+                vec![ColumnRef::new("label").expect("column")],
+                vec![
+                    crate::VortexSimpleAggregateMeasure::new("count", None, "rows".to_string()),
+                    crate::VortexSimpleAggregateMeasure::new(
+                        "sum",
+                        Some(ColumnRef::new("amount").expect("column")),
+                        "total_amount".to_string(),
+                    ),
+                ],
+            ),
+        );
+
+        let report = execute_vortex_local_primitive_row_export_with_policy(
+            &request,
+            &output_path,
+            VortexLocalPrimitiveRowExportFormat::Jsonl,
+            false,
+            VortexLocalPrimitiveExecutionPolicy::new(1).expect("policy"),
+        )
+        .expect("report");
+        let rows = std::fs::read_to_string(&output_path).expect("output");
+        let parsed_rows = rows
+            .lines()
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("json row"))
+            .collect::<Vec<_>>();
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(&output_path);
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.primitive_kind,
+            VortexQueryPrimitiveKind::SimpleAggregate
+        );
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_written, 2);
+        assert_eq!(report.pre_limit_result_row_count, 2);
+        assert_eq!(
+            report.projected_columns,
+            vec![
+                "label".to_string(),
+                "rows".to_string(),
+                "total_amount".to_string()
+            ]
+        );
+        assert_eq!(parsed_rows.len(), 2);
+        assert_eq!(parsed_rows[0]["label"], serde_json::json!("paid"));
+        assert_eq!(parsed_rows[0]["rows"], serde_json::json!(2));
+        assert_eq!(parsed_rows[0]["total_amount"].as_f64(), Some(15.0));
+        assert_eq!(parsed_rows[1]["label"], serde_json::json!("trial"));
+        assert_eq!(parsed_rows[1]["rows"], serde_json::json!(1));
+        assert_eq!(parsed_rows[1]["total_amount"].as_f64(), Some(7.0));
+        assert!(report.evidence.pushdown.projection_pushdown_applied);
+        assert!(report.evidence.upstream_scan_called);
+        assert!(report.evidence.materialization_boundary_reported);
+        assert!(!report.evidence.side_effects.external_effects_executed);
+        assert!(!report.evidence.side_effects.fallback_attempted);
+        assert!(!report.evidence.side_effects.fallback_execution_allowed);
     }
 
     #[test]

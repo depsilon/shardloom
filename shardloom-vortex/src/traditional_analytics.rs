@@ -36767,6 +36767,14 @@ fn predicate_matches_stat_value(
     match predicate {
         PredicateExpr::AlwaysTrue => Ok(true),
         PredicateExpr::AlwaysFalse => Ok(false),
+        PredicateExpr::And(predicates) => {
+            for predicate in predicates {
+                if !predicate_matches_stat_value(predicate, value)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
         PredicateExpr::IsNull { .. } => Ok(value.is_none()),
         PredicateExpr::IsNotNull { .. } => Ok(value.is_some()),
         PredicateExpr::Compare { op, value: rhs, .. } => {

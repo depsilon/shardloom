@@ -3950,22 +3950,28 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     ),
     _df_method(
         "explode",
-        "dataframe_transform_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="explode",
-        blocker_id="cg21.workflow.explode.nested_expansion_unsupported",
+        "dataframe_reshape_runtime",
+        "production_admitted_local_workflow",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         required_evidence=(
-            "nested_type_semantics",
-            "list_expansion_operator",
-            "semantic_conformance_suite",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_explode_primitive",
+            "typed_list_projection",
+            "list_element_scalar_contract",
+            "explicit_decode_materialization_boundary",
+            "decoded_reference_correctness",
             "execution_certificate",
             "native_io_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Explode is a deterministic unsupported report until nested/list expansion "
-            "semantics and runtime evidence are certified. No decode-to-external-engine "
-            "expansion, fallback, or broad nested DataFrame claim."
+            "Scoped `explode(\"list_column\")` lowers local compatibility sources through "
+            "prepared Vortex or native Vortex input, then expands one declared scalar list "
+            "column at an explicit ShardLoom materialization boundary. Multi-column explode, "
+            "nullable list rows/elements, nested element structs/lists, pandas index semantics, "
+            "and broad DataFrame parity variants remain deterministic blockers."
         ),
     ),
     _df_method(
@@ -4011,91 +4017,128 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     ),
     _df_method(
         "pivot",
-        "dataframe_reshape_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="pivot",
-        blocker_id="cg21.workflow.pivot.reshape_semantics_unsupported",
+        "dataframe_reshape_runtime",
+        "production_admitted_local_workflow",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         required_evidence=(
-            "reshape_semantics",
-            "grouping_key_contract",
-            "materialization_boundary",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_pivot_primitive",
+            "single_index_column_contract",
+            "single_pivot_column_contract",
+            "single_value_column_contract",
+            "duplicate_cell_fail_closed_policy",
+            "sparse_wide_jsonl_csv_export_contract",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Pivot is a deterministic unsupported report until reshape semantics, "
-            "key cardinality handling, and materialization boundaries are certified."
+            "Scoped pivot(index=..., columns=..., values=...) lowers to the native Vortex "
+            "pivot primitive for one index column, one pivot column, and one value column "
+            "with first-unique duplicate handling and scoped sparse JSONL/CSV wide export. "
+            "Multi-index/multi-value pivots, margins, fill_value/dropna/index parity, and "
+            "broader pandas reshape semantics remain outside this route and fail closed."
         ),
     ),
     _df_method(
         "pivot_table",
-        "dataframe_reshape_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="pivot_table",
-        blocker_id="cg21.workflow.pivot_table.aggregate_reshape_unsupported",
+        "dataframe_reshape_runtime",
+        "production_admitted_local_workflow",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         required_evidence=(
-            "aggregate_reshape_semantics",
-            "aggregate_operator_capability",
-            "grouping_key_contract",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_pivot_primitive",
+            "single_index_column_contract",
+            "single_pivot_column_contract",
+            "single_value_column_contract",
+            "explicit_aggregate_kernel",
+            "wide_reshape_state",
+            "sparse_wide_jsonl_csv_export_contract",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Pivot-table is a deterministic unsupported report until aggregate reshape "
-            "semantics and native aggregate evidence are certified."
+            "Scoped pivot_table(values=..., index=..., columns=..., aggfunc=sum/count/mean) "
+            "lowers to the native Vortex pivot primitive for one index column, one pivot "
+            "column, and one value column with scoped sparse JSONL/CSV wide export. "
+            "Multi-index, multiple values, custom callables, margins, "
+            "fill_value/dropna/index parity, and broader pandas reshape semantics remain "
+            "outside this route and fail closed."
         ),
     ),
     _df_method(
         "melt",
-        "dataframe_reshape_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="melt",
-        blocker_id="cg21.workflow.melt.reshape_semantics_unsupported",
+        "dataframe_reshape_runtime",
+        "production_admitted_local_workflow",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         required_evidence=(
-            "unpivot_semantics",
-            "schema_alignment_contract",
-            "materialization_boundary",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_melt_primitive",
+            "explicit_id_value_column_contract",
+            "same_typed_value_columns",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Melt is a deterministic unsupported report until unpivot semantics, schema "
-            "alignment, and materialization boundaries are certified."
+            "Scoped melt is admitted for explicit id/value columns with same-typed value "
+            "columns through the native/prepared Vortex melt primitive; broad heterogeneous "
+            "unpivot and dataframe parity variants remain deterministic blockers."
         ),
     ),
     _df_method(
         "rolling",
-        "dataframe_window_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="rolling",
-        blocker_id="cg21.workflow.rolling.window_semantics_unsupported",
+        "dataframe_window_runtime",
+        "production_admitted_local_workflow",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         required_evidence=(
-            "window_frame_semantics",
-            "ordering_contract",
-            "window_operator_capability",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_rolling_window_primitive",
+            "source_order_window_contract",
+            "bounded_window_state",
+            "complete_window_sum_semantics",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Rolling-window DataFrame operations are deterministic unsupported reports "
-            "until native frame semantics, ordering, and correctness evidence are certified."
+            "Scoped rolling is admitted for rolling(window=<positive int>, "
+            "min_periods<=window, center=False).sum(column, alias=...) over one scalar "
+            "numeric column through the native/prepared Vortex rolling-window primitive; "
+            "time/calendar windows, centered windows, Python callbacks, and broad pandas "
+            "rolling parity remain deterministic blockers."
         ),
     ),
     _df_method(
         "duplicated",
-        "dataframe_deduplication_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="duplicated",
-        blocker_id="cg21.workflow.duplicated.row_mask_unsupported",
+        "dataframe_deduplication_runtime",
+        "production_admitted_local_workflow",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         required_evidence=(
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_duplicate_mask_primitive",
             "duplicate_mask_semantics",
-            "stable_row_identity_policy",
+            "keep_first_subset_contract",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Duplicated row masks are deterministic unsupported reports until stable row identity, "
-            "subset/keep semantics, and native boolean-mask evidence are certified."
+            "`duplicated(subset=..., keep='first')` is admitted for declared/projection scalar "
+            "columns through Vortex preparation or native Vortex input and ShardLoom row-key "
+            "state. `keep='last'`, `keep=False`, nested equality, and nullable equality variants "
+            "remain deterministic blockers until their own evidence exists."
         ),
     ),
     _df_method(
@@ -4333,165 +4376,202 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     ),
     _df_method(
         "mask",
-        "dataframe_conditional_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="mask",
-        blocker_id="cg21.workflow.mask.conditional_replace_unsupported",
+        "dataframe_conditional_rewrite",
+        "production_admitted_local_workflow",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         required_evidence=(
             "conditional_update_semantics",
-            "mask_alignment_policy",
+            "native_vortex_expression_project_primitive",
+            "typed_scalar_rewrite_payload",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "DataFrame mask is a deterministic unsupported report until conditional replacement, "
-            "alignment, dtype, and native execution evidence are certified."
+            "Scoped `mask(predicate, scalar)` over declared/projection columns routes through the "
+            "native/prepared Vortex expression-project primitive with explicit materialization "
+            "evidence. Broad pandas alignment, null replacement, callable, axis, and nested mask "
+            "semantics still fail closed with deterministic diagnostics."
         ),
     ),
     _df_method(
         "replace",
-        "dataframe_conditional_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="replace",
-        blocker_id="cg21.workflow.replace.value_rewrite_unsupported",
+        "dataframe_conditional_rewrite",
+        "production_admitted_local_workflow",
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         required_evidence=(
             "value_rewrite_semantics",
+            "native_vortex_expression_project_primitive",
             "dtype_coercion_policy",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "DataFrame replace is a deterministic unsupported report until value matching, "
-            "dtype coercion, nested replacement, and native projection evidence are certified."
+            "Scoped full-cell scalar replacement for declared/projection columns routes through the "
+            "native/prepared Vortex expression-project primitive with no fallback. Regex, nested, "
+            "method/limit, broad DataFrame-wide mixed-dtype replacement, and null rewrite variants "
+            "still fail closed with deterministic diagnostics."
         ),
     ),
     _df_method(
         "apply",
-        "dataframe_callable_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="apply",
-        blocker_id="cg21.workflow.apply.python_callable_unsupported",
+        "dataframe_plan_transform",
+        "lazy_plan_supported",
         required_evidence=(
-            "python_callable_policy",
-            "udf_type_contract",
-            "sandbox_policy",
-            "execution_certificate",
+            "explicit_shardloom_plan_transform_wrapper",
+            "lazy_plan_return_type_contract",
+            "terminal_route_preserves_execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Python apply is a deterministic unsupported report until callable typing, sandbox, "
-            "effect, and no-fallback execution evidence are certified."
+            "Scoped apply support admits only explicit sl.plan_transform(...) wrappers that return "
+            "a ShardLoom LazyFrame during lazy plan construction. Arbitrary unwrapped Python "
+            "callables, row/column UDF execution, axis semantics, side effects, and non-LazyFrame "
+            "return values still fail closed or raise local validation errors; terminal execution "
+            "remains on the selected Vortex-prepared/native route with no fallback."
         ),
     ),
     _df_method(
         "pipe",
-        "dataframe_callable_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="pipe",
-        blocker_id="cg21.workflow.pipe.python_callable_unsupported",
+        "dataframe_plan_transform",
+        "lazy_plan_supported",
         required_evidence=(
-            "python_callable_policy",
-            "workflow_type_contract",
-            "sandbox_policy",
-            "execution_certificate",
+            "explicit_shardloom_plan_transform_wrapper",
+            "lazy_plan_return_type_contract",
+            "terminal_route_preserves_execution_certificate",
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Python pipe is a deterministic unsupported report until workflow-level callable "
-            "typing, sandbox, effect, and no-fallback execution evidence are certified."
+            "Scoped pipe support admits only explicit sl.plan_transform(...) wrappers that return "
+            "a ShardLoom LazyFrame during lazy plan construction. Arbitrary unwrapped Python "
+            "callables, data UDF execution, effectful row transforms, and non-LazyFrame return "
+            "values still fail closed or raise local validation errors; terminal execution remains "
+            "on the selected Vortex-prepared/native route with no fallback."
         ),
     ),
     _df_method(
         "transform",
-        "dataframe_callable_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="transform",
-        blocker_id="cg21.workflow.transform.python_callable_unsupported",
+        "dataframe_expression_runtime",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "python_callable_policy",
-            "transform_result_shape_contract",
-            "sandbox_policy",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_expression_project_primitive",
+            "numeric_scalar_assignment_contract",
+            "typed_expression_contract",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "DataFrame transform is a deterministic unsupported report until transform result "
-            "shape, callable typing, sandbox, effect, and no-fallback execution evidence are "
-            "certified."
+            "Scoped transform support admits mapping-style in-place numeric scalar assignments "
+            "such as transform({\"amount\": sl.col(\"amount\") + 5}) through the native/prepared "
+            "Vortex expression-project primitive. Arbitrary Python callables, shape-changing "
+            "transforms, row/cell UDFs, side effects, and DataFrame-library transform parity still "
+            "fail closed with deterministic diagnostics."
         ),
     ),
     _df_method(
         "applymap",
-        "dataframe_callable_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="applymap",
-        blocker_id="cg21.workflow.applymap.python_callable_unsupported",
+        "dataframe_expression_runtime",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "python_callable_policy",
-            "elementwise_type_contract",
-            "sandbox_policy",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_expression_project_primitive",
+            "numeric_scalar_assignment_contract",
+            "typed_expression_contract",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "DataFrame applymap is a deterministic unsupported report until element-wise callable "
-            "typing, sandbox, effect, and no-fallback execution evidence are certified."
+            "Scoped applymap support admits only explicit sl.column_transform(...) wrappers that "
+            "lower to native/prepared Vortex expression-project rewrites. Python cell callables, "
+            "DataFrame-library elementwise parity, arbitrary UDFs, side effects, and non-declarative "
+            "transforms still fail closed with deterministic diagnostics."
         ),
     ),
     _df_method(
         "map",
-        "dataframe_callable_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="map",
-        blocker_id="cg21.workflow.map.python_callable_unsupported",
+        "dataframe_expression_runtime",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "python_callable_policy",
-            "elementwise_type_contract",
-            "sandbox_policy",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_expression_project_primitive",
+            "numeric_scalar_assignment_contract",
+            "typed_expression_contract",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "Python map is a deterministic unsupported report until element-wise callable typing, "
-            "sandbox, effect, and no-fallback execution evidence are certified."
+            "Scoped map support admits only explicit sl.column_transform(...) wrappers that lower "
+            "to native/prepared Vortex expression-project rewrites. Python element callables, broad "
+            "Series/DataFrame map parity, arbitrary UDFs, side effects, and non-declarative "
+            "transforms still fail closed with deterministic diagnostics."
         ),
     ),
     _df_method(
         "map_rows",
-        "dataframe_callable_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="map_rows",
-        blocker_id="cg21.workflow.map_rows.python_callable_unsupported",
+        "dataframe_expression_runtime",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "python_callable_policy",
-            "row_udf_type_contract",
-            "sandbox_policy",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_expression_project_primitive",
+            "declarative_row_transform_contract",
+            "numeric_scalar_assignment_contract",
+            "typed_expression_contract",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "Row-wise Python maps are deterministic unsupported reports until row schema, "
-            "callable typing, sandbox, effect, and no-fallback execution evidence are certified."
+            "Scoped map_rows support admits only explicit sl.row_transform(...) wrappers that "
+            "lower declarative row-shaped column rewrites to the native/prepared Vortex "
+            "expression-project primitive. Arbitrary Python row callables, row UDFs, sandboxed "
+            "Python execution, side effects, and broad DataFrame map_rows parity still fail "
+            "closed with deterministic diagnostics."
         ),
     ),
     _df_method(
         "eval",
-        "dataframe_expression_blocker",
-        "deterministic_unsupported_diagnostic",
-        diagnostic_operation="eval",
-        blocker_id="cg21.workflow.eval.expression_engine_unsupported",
+        "dataframe_expression_runtime",
+        "production_admitted_local_workflow",
         required_evidence=(
-            "expression_engine_policy",
+            "vortex_prepared_state_or_native_vortex_input",
+            "native_vortex_expression_project_primitive",
+            "numeric_scalar_assignment_contract",
             "typed_expression_contract",
-            "semantic_conformance_suite",
+            "explicit_decode_materialization_boundary",
             "execution_certificate",
             "no_fallback_evidence",
         ),
+        runtime_execution=True,
+        data_read=True,
+        materialization_required=True,
         claim_boundary=(
-            "DataFrame eval is a deterministic unsupported report until typed expression "
-            "parsing, semantic conformance, and native no-fallback execution evidence are "
-            "certified. It never routes to pandas, numexpr, Python eval, or another hidden "
-            "expression engine."
+            "Scoped DataFrame eval support admits in-place numeric scalar assignment expressions "
+            "such as eval(\"amount = amount + 5\") through the native/prepared Vortex "
+            "expression-project primitive. Python/numexpr engines, arbitrary expression trees, "
+            "new-column assignment, multi-column assignment, callables, side effects, and "
+            "DataFrame-library eval parity still fail closed; no pandas, numexpr, or hidden "
+            "expression engine is invoked."
         ),
     ),
     _df_method(
@@ -5033,7 +5113,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         materialization_required=True,
         claim_boundary=(
             "write_jsonl is admitted only when JSONL output is derived from a native/prepared "
-            "Vortex primitive row stream or exact provider-backed native Vortex result summary "
+            "Vortex primitive row stream, scalar/grouped aggregate result rows, or exact provider-backed native Vortex result summary "
             "with explicit decode/materialization evidence. It must not execute direct decoded "
             "local-source sink code as the public runtime middle."
         ),
@@ -5054,7 +5134,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         materialization_required=True,
         claim_boundary=(
             "write_csv is admitted only when CSV output is derived from a native/prepared "
-            "Vortex primitive row stream or exact provider-backed native Vortex result summary "
+            "Vortex primitive row stream, scalar/grouped aggregate result rows, or exact provider-backed native Vortex result summary "
             "with explicit decode/materialization evidence. It must not execute direct decoded "
             "local-source sink code as the public runtime middle."
         ),
@@ -6171,18 +6251,18 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     ),
     _front_door_row(
         "local_vortex_primitive_runtime",
-        "local Vortex count, count-where, filter, project, filter-project, and JSONL/CSV row-export primitives",
+        "local Vortex count, count-where, filter, project, filter-project, scalar aggregate, and JSONL/CSV row-export primitives",
         "scoped_runtime_supported",
         sql_surface=(
-            "ctx.sql(\"SELECT COUNT(*)/columns FROM 'local.vortex' WHERE ... LIMIT ...\")"
+            "ctx.sql(\"SELECT COUNT(*)/SUM(...)/columns FROM 'local.vortex' WHERE ... LIMIT ...\")"
             ".collect/write_jsonl/write_csv/fanout"
         ),
         python_surface=(
-            "ctx.read_vortex(...).count/filter/select/collect/write_jsonl/write_csv/fanout "
+            "ctx.read_vortex(...).count/filter/select/agg/collect/write_jsonl/write_csv/fanout "
             "scoped primitive reports"
         ),
         dataframe_surface=(
-            "read_vortex(...).filter/select/count/collect/write_jsonl/write_csv/fanout "
+            "read_vortex(...).filter/select/count/agg/collect/write_jsonl/write_csv/fanout "
             "scoped primitive reports"
         ),
         shared_runtime_path=(
@@ -6205,8 +6285,8 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
         claim_boundary=(
             "Scoped SQL, Python, and DataFrame-style local Vortex primitive report workflows "
             "share ShardLoom's explicit Vortex primitive command family for count, count-where, "
-            "filter, project, filter-project, optional source-order limit, and scoped JSONL/CSV "
-            "row export/fanout with an explicit decode/materialization boundary. Native `.vortex` "
+            "filter, project, filter-project, scalar aggregate, optional source-order limit, and "
+            "scoped JSONL/CSV row export/fanout with an explicit decode/materialization boundary. Native `.vortex` "
             "input is already at the Vortex boundary, so this row is the direct Vortex-normalized "
             "case. This is not broad Vortex SQL/DataFrame parity, non-JSONL/CSV compatibility "
             "sinks, object-store runtime, or benchmark-backed performance equivalence."

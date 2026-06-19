@@ -6673,13 +6673,13 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertNotIn("astype", dataframe_methods.unsupported_methods)
         self.assertNotIn("dropna", dataframe_methods.unsupported_methods)
         self.assertNotIn("sample", dataframe_methods.unsupported_methods)
-        self.assertIn("explode", dataframe_methods.unsupported_methods)
+        self.assertNotIn("explode", dataframe_methods.unsupported_methods)
         self.assertNotIn("merge", dataframe_methods.unsupported_methods)
         self.assertNotIn("concat", dataframe_methods.unsupported_methods)
-        self.assertIn("pivot", dataframe_methods.unsupported_methods)
-        self.assertIn("pivot_table", dataframe_methods.unsupported_methods)
-        self.assertIn("melt", dataframe_methods.unsupported_methods)
-        self.assertIn("rolling", dataframe_methods.unsupported_methods)
+        self.assertNotIn("pivot", dataframe_methods.unsupported_methods)
+        self.assertNotIn("pivot_table", dataframe_methods.unsupported_methods)
+        self.assertNotIn("melt", dataframe_methods.unsupported_methods)
+        self.assertNotIn("rolling", dataframe_methods.unsupported_methods)
         self.assertNotIn("tail", dataframe_methods.unsupported_methods)
         self.assertNotIn("describe", dataframe_methods.unsupported_methods)
         self.assertNotIn("nunique", dataframe_methods.unsupported_methods)
@@ -6692,9 +6692,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertNotIn("isnull", dataframe_methods.unsupported_methods)
         self.assertNotIn("notna", dataframe_methods.unsupported_methods)
         self.assertNotIn("notnull", dataframe_methods.unsupported_methods)
-        self.assertIn("duplicated", dataframe_methods.unsupported_methods)
-        self.assertIn("mask", dataframe_methods.unsupported_methods)
-        self.assertIn("replace", dataframe_methods.unsupported_methods)
+        self.assertNotIn("duplicated", dataframe_methods.unsupported_methods)
+        self.assertNotIn("mask", dataframe_methods.unsupported_methods)
+        self.assertNotIn("replace", dataframe_methods.unsupported_methods)
+        self.assertNotIn("map_rows", dataframe_methods.unsupported_methods)
         self.assertNotIn("set_index", dataframe_methods.unsupported_methods)
         self.assertNotIn("reset_index", dataframe_methods.unsupported_methods)
         self.assertNotIn("sort_index", dataframe_methods.unsupported_methods)
@@ -7023,43 +7024,71 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("sample").required_evidence,
         )
         self.assertEqual(
-            dataframe_methods.row("explode").blocker_id,
-            "cg21.workflow.explode.nested_expansion_unsupported",
+            dataframe_methods.row("explode").support_status,
+            "production_admitted_local_workflow",
+        )
+        self.assertTrue(dataframe_methods.row("explode").runtime_execution)
+        self.assertTrue(dataframe_methods.row("explode").data_read)
+        self.assertTrue(dataframe_methods.row("explode").materialization_required)
+        self.assertIsNone(dataframe_methods.row("explode").blocker_id)
+        self.assertIn(
+            "native_vortex_explode_primitive",
+            dataframe_methods.row("explode").required_evidence,
         )
         self.assertIn(
-            "list_expansion_operator",
+            "typed_list_projection",
             dataframe_methods.row("explode").required_evidence,
         )
         self.assertEqual(
-            dataframe_methods.row("pivot").blocker_id,
-            "cg21.workflow.pivot.reshape_semantics_unsupported",
+            dataframe_methods.row("pivot").support_status,
+            "production_admitted_local_workflow",
         )
+        self.assertTrue(dataframe_methods.row("pivot").runtime_execution)
+        self.assertTrue(dataframe_methods.row("pivot").data_read)
+        self.assertTrue(dataframe_methods.row("pivot").materialization_required)
+        self.assertIsNone(dataframe_methods.row("pivot").blocker_id)
         self.assertFalse(dataframe_methods.row("pivot").write_io)
-        self.assertIn("reshape_semantics", dataframe_methods.row("pivot").required_evidence)
-        self.assertEqual(
-            dataframe_methods.row("pivot_table").diagnostic_operation,
-            "pivot_table",
-        )
-        self.assertEqual(
-            dataframe_methods.row("pivot_table").blocker_id,
-            "cg21.workflow.pivot_table.aggregate_reshape_unsupported",
+        self.assertIn(
+            "native_vortex_pivot_primitive",
+            dataframe_methods.row("pivot").required_evidence,
         )
         self.assertIn(
-            "aggregate_reshape_semantics",
+            "duplicate_cell_fail_closed_policy",
+            dataframe_methods.row("pivot").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("pivot_table").support_status,
+            "production_admitted_local_workflow",
+        )
+        self.assertTrue(dataframe_methods.row("pivot_table").runtime_execution)
+        self.assertTrue(dataframe_methods.row("pivot_table").data_read)
+        self.assertTrue(dataframe_methods.row("pivot_table").materialization_required)
+        self.assertIsNone(dataframe_methods.row("pivot_table").blocker_id)
+        self.assertIn(
+            "native_vortex_pivot_primitive",
             dataframe_methods.row("pivot_table").required_evidence,
         )
+        self.assertIn("explicit_aggregate_kernel", dataframe_methods.row("pivot_table").required_evidence)
         self.assertEqual(
-            dataframe_methods.row("melt").blocker_id,
-            "cg21.workflow.melt.reshape_semantics_unsupported",
+            dataframe_methods.row("melt").support_status,
+            "production_admitted_local_workflow",
         )
-        self.assertIn("unpivot_semantics", dataframe_methods.row("melt").required_evidence)
+        self.assertIn("native_vortex_melt_primitive", dataframe_methods.row("melt").required_evidence)
         self.assertEqual(
-            dataframe_methods.row("rolling").blocker_id,
-            "cg21.workflow.rolling.window_semantics_unsupported",
+            dataframe_methods.row("rolling").support_status,
+            "production_admitted_local_workflow",
         )
         self.assertIn(
-            "window_frame_semantics",
+            "native_vortex_rolling_window_primitive",
             dataframe_methods.row("rolling").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("map_rows").support_status,
+            "production_admitted_local_workflow",
+        )
+        self.assertIn(
+            "declarative_row_transform_contract",
+            dataframe_methods.row("map_rows").required_evidence,
         )
         self.assertEqual(
             dataframe_methods.row("describe").support_status,
@@ -7074,20 +7103,31 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("describe").required_evidence,
         )
         self.assertEqual(
-            dataframe_methods.row("duplicated").blocker_id,
-            "cg21.workflow.duplicated.row_mask_unsupported",
+            dataframe_methods.row("duplicated").support_status,
+            "production_admitted_local_workflow",
         )
+        self.assertIsNone(dataframe_methods.row("duplicated").blocker_id)
         self.assertIn(
-            "duplicate_mask_semantics",
+            "native_vortex_duplicate_mask_primitive",
             dataframe_methods.row("duplicated").required_evidence,
         )
         self.assertEqual(
-            dataframe_methods.row("mask").blocker_id,
-            "cg21.workflow.mask.conditional_replace_unsupported",
+            dataframe_methods.row("mask").support_status,
+            "production_admitted_local_workflow",
+        )
+        self.assertIsNone(dataframe_methods.row("mask").blocker_id)
+        self.assertIn(
+            "native_vortex_expression_project_primitive",
+            dataframe_methods.row("mask").required_evidence,
         )
         self.assertEqual(
-            dataframe_methods.row("replace").blocker_id,
-            "cg21.workflow.replace.value_rewrite_unsupported",
+            dataframe_methods.row("replace").support_status,
+            "production_admitted_local_workflow",
+        )
+        self.assertIsNone(dataframe_methods.row("replace").blocker_id)
+        self.assertIn(
+            "native_vortex_expression_project_primitive",
+            dataframe_methods.row("replace").required_evidence,
         )
         self.assertEqual(
             dataframe_methods.row("set_index").support_status,

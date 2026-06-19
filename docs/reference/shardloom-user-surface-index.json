@@ -140,6 +140,8 @@
       "distinct",
       "drop_duplicates",
       "unique",
+      "mask",
+      "replace",
       "with_column",
       "with_columns",
       "assign",
@@ -184,6 +186,7 @@
       "sl.row_not_in",
       "sl.row_in_source",
       "sl.row_not_in_source",
+      "sl.row_transform",
       "sl.any_source",
       "sl.all_source",
       "sl.exists_source",
@@ -216,22 +219,48 @@
       "sl.rank",
       "sl.dense_rank"
     ],
+    "scoped_conditional_rewrite_methods": {
+      "mask": "typed scalar mask(predicate, scalar) over declared/projection columns through native Vortex expression-project",
+      "replace": "typed full-cell scalar replace(old, new), column-mapped scalar replacement, and in-place UTF-8 with_column(\"col\", col(\"col\").replace(...)) through native Vortex expression-project"
+    },
+    "scoped_duplicate_mask_methods": {
+      "duplicated": "subset-aware duplicated(..., keep='first') boolean mask over declared/projection scalar columns through native/prepared Vortex duplicate-mask row-key state"
+    },
+    "scoped_plan_transform_methods": {
+      "apply": "explicit sl.plan_transform(...) wrappers that return a ShardLoom LazyFrame during lazy plan construction; terminal execution remains on the resulting native/prepared route",
+      "pipe": "explicit sl.plan_transform(...) wrappers that return a ShardLoom LazyFrame during lazy plan construction; terminal execution remains on the resulting native/prepared route"
+    },
+    "scoped_expression_runtime_methods": {
+      "applymap": "explicit sl.column_transform(...) wrappers for declarative native/prepared Vortex expression-project rewrites; Python cell callables remain blocked",
+      "eval": "in-place numeric scalar assignment such as eval(\"amount = amount + 5\") through the native/prepared Vortex expression-project primitive",
+      "map": "explicit sl.column_transform(...) wrappers for declarative native/prepared Vortex expression-project rewrites; Python element callables remain blocked",
+      "map_rows": "explicit sl.row_transform(...) wrappers for declarative native/prepared Vortex expression-project rewrites; Python row callables remain blocked",
+      "transform": "mapping-style in-place numeric scalar assignment such as transform({\"amount\": sl.col(\"amount\") + 5}) through the native/prepared Vortex expression-project primitive"
+    },
+    "scoped_reshape_runtime_methods": {
+      "melt": "explicit id_vars/value_vars flat scalar column-to-row expansion through the native/prepared Vortex melt primitive with same-typed value columns",
+      "explode": "single declared scalar list/fixed-size-list column row expansion through the native/prepared Vortex explode primitive with explicit decode/materialization evidence",
+      "pivot": "single index column, pivot column, and value column wide reshape through the native/prepared Vortex pivot primitive with first-unique duplicate-cell policy",
+      "pivot_table": "single index column, pivot column, and value column aggregate reshape through the native/prepared Vortex pivot primitive with sum/count/mean aggregate kernels"
+    },
+    "scoped_window_runtime_methods": {
+      "rolling": "rolling(window=<positive int>, min_periods<=window, center=false).sum(column, alias=...) over one scalar numeric column through the native/prepared Vortex rolling-window primitive"
+    },
     "deterministic_blocker_methods": [
-      "explode",
-      "pivot",
-      "pivot_table",
-      "melt",
-      "rolling",
-      "duplicated",
-      "mask",
-      "replace",
-      "apply",
-      "pipe",
-      "transform",
-      "applymap",
-      "map",
-      "map_rows",
-      "eval"
+      "broad_nullable_nested_or_multi_column_explode_variants",
+      "broad_multi_index_multi_value_or_custom_aggregate_pivot_variants",
+      "wide_schema_pivot_jsonl_csv_export_contract",
+      "broad_rolling_time_calendar_centered_or_callable_variants",
+      "duplicated_keep_last_or_false_variants",
+      "broad_mask_variants",
+      "broad_replace_variants",
+      "unwrapped_apply_callable_or_non_lazy_return",
+      "unwrapped_pipe_callable_or_non_lazy_return",
+      "broad_transform_callable_or_shape_changing_variants",
+      "broad_applymap_callable_variants",
+      "broad_map_callable_variants",
+      "map_rows_python_callable_or_row_udf_variants",
+      "broad_eval_python_numexpr_or_arbitrary_expression_variants"
     ],
     "capability_and_diagnostic_methods": [
       "ctx.smoke_check",

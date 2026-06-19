@@ -214,7 +214,7 @@ class V1FrontDoorRuntimeScopeTests(unittest.TestCase):
         ctx = context(repo_root=REPO_ROOT, binary=self.fake_cli())
         frame = ctx.read_csv("events.csv", schema={"id": "int64"})
         unsupported_reports = [
-            frame.explode("payload"),
+            frame.explode("payload", "other_payload"),
             frame.sql("SELECT * FROM remote_table"),
             frame.query("id > @threshold", threshold=10),
             frame.merge("remote.parquet", on="id", how="outer", indicator=True),

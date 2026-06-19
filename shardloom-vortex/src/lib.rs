@@ -375,8 +375,11 @@ pub use physical_operator_bridge::{
 };
 
 pub use query_primitive::{
+    VortexAggregateOrderExpr, VortexExplodeProjectionRequest, VortexExpressionProjectionRequest,
+    VortexExpressionRewrite, VortexMeltProjectionRequest, VortexPivotProjectionRequest,
     VortexQueryPrimitiveKind, VortexQueryPrimitiveMode, VortexQueryPrimitiveRequest,
     VortexQueryPrimitiveResult, VortexQueryPrimitiveStatus, VortexQueryPrimitiveValue,
+    VortexRollingWindowRequest, VortexSimpleAggregateMeasure, VortexSimpleAggregateRequest,
     evaluate_vortex_count_all_from_summary, evaluate_vortex_query_primitive,
 };
 pub use query_primitives::{
