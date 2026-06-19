@@ -46,11 +46,65 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertEqual(report["v1_expected_error_scenario_ids"], [])
         self.assertFalse(report["flexible_anything_claim_allowed"])
         self.assertFalse(report["performance_equivalence_claim_allowed"])
-        self.assertEqual(report["admitted_row_count"], 6)
+        self.assertEqual(report["admitted_row_count"], 7)
         self.assertGreaterEqual(report["remaining_gap_count"], 4)
         self.assertEqual(report["dataframe_method_blocker_count"], 0)
         self.assertEqual(report["dataframe_method_pending_or_unsupported_count"], 0)
         self.assertEqual(report["dataframe_named_runtime_surface_status"], "passed")
+        self.assertEqual(report["semantic_surface_status"], "passed")
+        self.assertEqual(
+            report["front_door_semantic_surface_schema_version"],
+            "shardloom.front_door_semantic_surface_matrix.v1",
+        )
+        self.assertGreaterEqual(report["semantic_surface_row_count"], 31)
+        self.assertFalse(report["pandas_compatible_claim_allowed"])
+        self.assertFalse(report["polars_compatible_claim_allowed"])
+        self.assertFalse(report["broad_dataframe_compatible_claim_allowed"])
+        self.assertFalse(report["ansi_sql_compliant_claim_allowed"])
+        self.assertTrue(report["semantic_surface_all_no_fallback_no_external_engine"])
+        self.assertTrue(report["semantic_surface_all_deterministic_blockers"])
+        self.assertIn(
+            "ShardLoom-native/Vortex-native routes",
+            report["dataframe_claim_statement"],
+        )
+        self.assertIn(
+            "documented subset of pandas/Polars-style DataFrame operations",
+            report["dataframe_subset_claim_statement"],
+        )
+        self.assertIn(
+            "documented SQL-standard-inspired SELECT-query subset",
+            report["sql_claim_statement"],
+        )
+        self.assertIn(
+            "dataframe_materialization",
+            report["dataframe_semantic_surface_row_ids"],
+        )
+        self.assertIn(
+            "dataframe_expression_callable_apis",
+            report["dataframe_semantic_surface_row_ids"],
+        )
+        self.assertIn("sql_null_semantics", report["sql_semantic_surface_row_ids"])
+        self.assertIn("sql_subqueries", report["sql_semantic_surface_row_ids"])
+        self.assertIn("sql_fallback_boundary", report["sql_semantic_surface_row_ids"])
+        self.assertIn(
+            "shared_claim_vocabulary",
+            report["shared_semantic_surface_row_ids"],
+        )
+        semantic_by_id = {
+            row["row_id"]: row for row in report["semantic_surface_rows"]
+        }
+        self.assertIn(
+            "No hidden pandas/Polars construction backend",
+            semantic_by_id["dataframe_construction_read_apis"]["unsupported_scope"],
+        )
+        self.assertIn(
+            "not broad SQL-standard/ANSI-style compliance",
+            semantic_by_id["sql_parser_grammar_scope"]["claim_boundary"],
+        )
+        self.assertIn(
+            "Do not claim broad pandas compatibility",
+            semantic_by_id["shared_claim_vocabulary"]["unsupported_scope"],
+        )
         self.assertIn("sample", report["dataframe_named_runtime_surface_ids"])
         self.assertIn("pivot_table", report["dataframe_named_runtime_surface_ids"])
         self.assertIn("rolling", report["dataframe_named_runtime_surface_ids"])
@@ -140,18 +194,9 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
             for row in report["rows"]
             if row["row_id"] == "typed_nested_compatibility_sink"
         )
-        self.assertEqual(
-            nested_sink["parity_status"],
-            "deterministic_blocker_until_native_export_contract",
-        )
-        self.assertEqual(
-            nested_sink["runtime_gap_status"],
-            "native_compatibility_export_contract_missing",
-        )
-        self.assertIn(
-            "certified native Vortex result/export contract",
-            nested_sink["claim_boundary"],
-        )
+        self.assertEqual(nested_sink["parity_status"], "equivalent_admitted_scope")
+        self.assertEqual(nested_sink["runtime_gap_status"], "admitted_scope")
+        self.assertIn("native Vortex structured row stream", nested_sink["claim_boundary"])
         native = next(
             row
             for row in report["rows"]

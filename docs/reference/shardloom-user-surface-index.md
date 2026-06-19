@@ -29,13 +29,35 @@ Use this order before executing or documenting a workflow:
    `shardloom help <command> --format json` for one CLI command.
 5. Run `shardloom agent-contract-pack --format json` for report-order and safety defaults.
 6. Use `ctx.capabilities()` / `ShardLoomClient.capabilities(...)` for Python capability posture.
-7. Use `ctx.user_surface_graduation_matrix()` and `ctx.front_door_parity_matrix()` before
-   treating a Python, SQL, DataFrame-style, or CLI surface as promoted user workflow support.
+7. Use `ctx.user_surface_graduation_matrix()`, `ctx.front_door_parity_matrix()`, and
+   `ctx.front_door_semantic_surface_matrix()` before treating a Python, SQL, DataFrame-style, or
+   CLI surface as promoted user workflow support.
 
 The CLI command list is intentionally not hand-copied here. The exhaustive registry has 213 rows
 and lives in `shardloom-cli/src/command_registry.rs`; the side-effect-free command
 `shardloom command-metadata --format json` renders those rows for agents without scraping Rust
 source or human text.
+
+## Semantic Claim Surface
+
+ShardLoom does not claim broad pandas, Polars, DataFrame, or SQL-standard/ANSI-style compatibility
+labels. The supported claim is narrower: ShardLoom exposes a familiar
+Python/DataFrame-style front door and a SQL-standard-inspired SELECT-query subset that lower
+admitted operations into ShardLoom-native/Vortex-native routes. Unsupported pandas/Polars-style or
+SQL behavior must return deterministic diagnostics with:
+
+```text
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Use `ctx.front_door_semantic_surface_matrix()` for the agent-facing semantic matrix. It covers the
+documented DataFrame-style families (construction/read APIs, projection, filtering, type system,
+casts, missing data, aggregation, joins, ordering/window-ish behavior, reshaping, materialization,
+index semantics, expression/callable APIs, determinism, errors, and fallback boundary) and SQL
+families (parser scope, binder/name resolution, type system, casts, NULL semantics, relational
+semantics, operators, aggregates, joins, subqueries, windows, ordering/collation, errors, and
+fallback boundary).
 
 ## Normal Python Entry Points
 
@@ -219,7 +241,7 @@ filter, group-by, having, order, limit, joins, set operations, bounded subquery 
 free `VALUES`, source-free literal `SELECT`, and generated range forms such as `generate_series`
 or `range` where the local runtime admits them.
 
-Not claimed in v0.1.0: arbitrary ANSI SQL, recursive CTEs, arbitrary dialect functions, arbitrary
+Not claimed in v0.1.0: broad SQL-standard/ANSI-style compliance, recursive CTEs, arbitrary dialect functions, arbitrary
 subqueries, broad optimizer parity, SQL UDFs, catalog-backed SQL, object-store/table SQL, JDBC/ODBC,
 Flight SQL, or SQL execution delegated to another engine.
 

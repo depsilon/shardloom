@@ -2,7 +2,7 @@ use std::fmt::Write as _;
 
 use shardloom_core::{
     ColumnRef, ComparisonOp, DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity,
-    PredicateExpr, Result, StatValue,
+    PredicateExpr, Result, ScalarValue, StatValue,
 };
 use shardloom_plan::ProjectionRequest;
 
@@ -163,6 +163,98 @@ impl VortexExpressionProjectionRequest {
             .map(VortexExpressionRewrite::family)
             .collect::<Vec<_>>()
             .join(",")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum VortexStructuredProjectionExpr {
+    SourceColumn(ColumnRef),
+    ArrayLiteral(Vec<ScalarValue>),
+    StructColumns(Vec<ColumnRef>),
+}
+impl VortexStructuredProjectionExpr {
+    #[must_use]
+    pub fn family(&self) -> &'static str {
+        match self {
+            Self::SourceColumn(_) => "source_column",
+            Self::ArrayLiteral(_) => "array_literal",
+            Self::StructColumns(_) => "struct_columns",
+        }
+    }
+
+    pub fn source_columns(&self, out: &mut Vec<ColumnRef>) {
+        match self {
+            Self::SourceColumn(column) => push_unique_column(out, column.clone()),
+            Self::ArrayLiteral(_) => {}
+            Self::StructColumns(columns) => {
+                for column in columns {
+                    push_unique_column(out, column.clone());
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexStructuredProjectionColumn {
+    pub output_column: String,
+    pub expr: VortexStructuredProjectionExpr,
+}
+impl VortexStructuredProjectionColumn {
+    #[must_use]
+    pub fn new(output_column: String, expr: VortexStructuredProjectionExpr) -> Self {
+        Self {
+            output_column,
+            expr,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexStructuredProjectionRequest {
+    pub columns: Vec<VortexStructuredProjectionColumn>,
+}
+impl VortexStructuredProjectionRequest {
+    #[must_use]
+    pub fn new(columns: Vec<VortexStructuredProjectionColumn>) -> Self {
+        Self { columns }
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.columns.is_empty()
+    }
+
+    #[must_use]
+    pub fn output_columns(&self) -> Vec<String> {
+        self.columns
+            .iter()
+            .map(|column| column.output_column.clone())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn source_columns(&self) -> Vec<ColumnRef> {
+        let mut out = Vec::new();
+        for column in &self.columns {
+            column.expr.source_columns(&mut out);
+        }
+        out
+    }
+
+    #[must_use]
+    pub fn family_summary(&self) -> String {
+        self.columns
+            .iter()
+            .map(|column| format!("{}:{}", column.output_column, column.expr.family()))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+}
+
+fn push_unique_column(out: &mut Vec<ColumnRef>, column: ColumnRef) {
+    if !out.iter().any(|existing| existing == &column) {
+        out.push(column);
     }
 }
 
@@ -825,6 +917,7 @@ pub struct VortexQueryPrimitiveRequest {
     pub rolling_window: Option<VortexRollingWindowRequest>,
     pub simple_aggregate: Option<VortexSimpleAggregateRequest>,
     pub sort_rows: Option<VortexSortRowsRequest>,
+    pub structured_projection: Option<VortexStructuredProjectionRequest>,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexQueryPrimitiveRequest {
@@ -847,6 +940,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -869,6 +963,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -891,6 +986,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -913,6 +1009,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -939,6 +1036,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -965,6 +1063,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -987,6 +1086,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -1009,6 +1109,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -1037,6 +1138,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -1065,6 +1167,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -1091,6 +1194,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -1114,6 +1218,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -1140,6 +1245,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -1163,6 +1269,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -1189,6 +1296,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: Some(rolling_window),
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -1215,6 +1323,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: Some(simple_aggregate),
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         }
     }
@@ -1243,6 +1352,34 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: Some(sort_rows),
+            structured_projection: None,
+            diagnostics: vec![],
+        }
+    }
+    #[must_use]
+    pub fn structured_project_rows(
+        uri: DatasetUri,
+        structured_projection: VortexStructuredProjectionRequest,
+    ) -> Self {
+        let projection = ProjectionRequest::columns(structured_projection.source_columns());
+        Self {
+            kind: VortexQueryPrimitiveKind::ExpressionProjectRows,
+            source_uri: Some(uri),
+            projection,
+            predicate: None,
+            source_order_limit: None,
+            sample_seed: None,
+            sample_fraction: None,
+            sample_with_replacement: false,
+            duplicate_keep: VortexDuplicateKeepPolicy::First,
+            expression_projection: None,
+            melt_projection: None,
+            explode_projection: None,
+            pivot_projection: None,
+            rolling_window: None,
+            simple_aggregate: None,
+            sort_rows: None,
+            structured_projection: Some(structured_projection),
             diagnostics: vec![],
         }
     }
@@ -1292,6 +1429,7 @@ impl VortexQueryPrimitiveRequest {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: vec![],
         };
         request.add_diagnostic(Diagnostic::unsupported(
@@ -1317,7 +1455,7 @@ impl VortexQueryPrimitiveRequest {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "kind={} uri={} projection={} predicate={} source_order_limit={} sample_seed={} sample_fraction={} sample_with_replacement={} duplicate_keep={} expression_projection={} melt_projection={} explode_projection={} pivot_projection={} rolling_window={} simple_aggregate={} sort_rows={} diagnostics={}",
+            "kind={} uri={} projection={} predicate={} source_order_limit={} sample_seed={} sample_fraction={} sample_with_replacement={} duplicate_keep={} expression_projection={} structured_projection={} melt_projection={} explode_projection={} pivot_projection={} rolling_window={} simple_aggregate={} sort_rows={} diagnostics={}",
             self.kind.as_str(),
             self.source_uri
                 .as_ref()
@@ -1337,6 +1475,10 @@ impl VortexQueryPrimitiveRequest {
             self.expression_projection.as_ref().map_or_else(
                 || "none".to_string(),
                 VortexExpressionProjectionRequest::family_summary,
+            ),
+            self.structured_projection.as_ref().map_or_else(
+                || "none".to_string(),
+                VortexStructuredProjectionRequest::family_summary,
             ),
             self.melt_projection
                 .as_ref()

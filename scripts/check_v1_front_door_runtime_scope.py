@@ -35,12 +35,11 @@ SUPPORTED_PARITY_ROWS = {
     "generated_source_output",
     "schema_quality_preview",
     "local_vortex_primitive_runtime",
+    "typed_nested_compatibility_sink",
     "decoded_materialization_interop",
 }
 
-EXPORT_PENDING_PARITY_ROWS = {
-    "typed_nested_compatibility_sink",
-}
+EXPORT_PENDING_PARITY_ROWS: set[str] = set()
 
 BROAD_PENDING_PARITY_ROWS = {
     "native_vortex_general_runtime",
@@ -66,6 +65,7 @@ EXPECTED_ERROR_SCENARIOS: set[str] = set()
 DOC_MARKERS = (
     "shardloom.v1_front_door_runtime_scope.v1",
     "ShardLoomContext.front_door_parity_matrix()",
+    "ShardLoomContext.front_door_semantic_surface_matrix()",
     "ShardLoomContext.user_route_capability_report()",
     "examples/local-python-benchmark-scenarios/run.py",
     "selective_filter",
@@ -85,6 +85,40 @@ DOC_MARKERS = (
     "front-door performance equivalence",
 )
 
+REQUIRED_SEMANTIC_ROWS = {
+    "dataframe_construction_read_apis",
+    "dataframe_selection_projection",
+    "dataframe_filtering",
+    "dataframe_type_system",
+    "dataframe_casts_coercion",
+    "dataframe_missing_data",
+    "dataframe_aggregation",
+    "dataframe_joins",
+    "dataframe_ordering_window",
+    "dataframe_reshaping",
+    "dataframe_materialization",
+    "dataframe_index_semantics",
+    "dataframe_expression_callable_apis",
+    "dataframe_determinism",
+    "dataframe_errors_blockers",
+    "dataframe_fallback_boundary",
+    "sql_parser_grammar_scope",
+    "sql_binder_name_resolution",
+    "sql_type_system",
+    "sql_casts_coercion",
+    "sql_null_semantics",
+    "sql_relational_semantics",
+    "sql_operator_semantics",
+    "sql_aggregates",
+    "sql_joins",
+    "sql_subqueries",
+    "sql_windows",
+    "sql_ordering_collation",
+    "sql_errors_edge_cases",
+    "sql_fallback_boundary",
+    "shared_claim_vocabulary",
+}
+
 PUBLIC_DOC_MARKERS = {
     "README.md": (
         DOC_PATH.as_posix(),
@@ -95,6 +129,7 @@ PUBLIC_DOC_MARKERS = {
     "python/README.md": (
         DOC_PATH.as_posix(),
         "front_door_parity_matrix",
+        "front_door_semantic_surface_matrix",
         "performance_equivalence_claim_allowed",
     ),
     "docs/release/public-status-matrix.md": (
@@ -120,14 +155,18 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_context_reports(repo_root: Path) -> tuple[Any, Any]:
+def load_context_reports(repo_root: Path) -> tuple[Any, Any, Any]:
     src = repo_root / "python" / "src"
     if str(src) not in sys.path:
         sys.path.insert(0, str(src))
     from shardloom import ShardLoomContext
 
     ctx = ShardLoomContext(client=None)
-    return ctx.front_door_parity_matrix(), ctx.user_route_capability_report()
+    return (
+        ctx.front_door_parity_matrix(),
+        ctx.front_door_semantic_surface_matrix(),
+        ctx.user_route_capability_report(),
+    )
 
 
 def load_scenario_support(repo_root: Path) -> Any:
@@ -232,6 +271,39 @@ def validate_parity_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]
     return rows, blockers
 
 
+def validate_semantic_surface(matrix: Any) -> tuple[list[dict[str, Any]], list[str]]:
+    blockers: list[str] = []
+    rows = [
+        {
+            "row_id": row.row_id,
+            "surface": row.surface,
+            "semantic_family": row.semantic_family,
+            "fallback_attempted": row.fallback_attempted,
+            "external_engine_invoked": row.external_engine_invoked,
+            "deterministic_blockers": row.deterministic_blockers,
+            "claim_boundary": row.claim_boundary,
+        }
+        for row in matrix.rows
+    ]
+    row_ids = {str(row["row_id"]) for row in rows}
+    missing = sorted(REQUIRED_SEMANTIC_ROWS - row_ids)
+    if missing:
+        blockers.append("front-door semantic matrix missing rows: " + ",".join(missing))
+    if matrix.pandas_compatible_claim_allowed is not False:
+        blockers.append("pandas compatibility label must not be claimable")
+    if matrix.polars_compatible_claim_allowed is not False:
+        blockers.append("Polars compatibility label must not be claimable")
+    if matrix.broad_dataframe_compatible_claim_allowed is not False:
+        blockers.append("broad DataFrame compatibility label must not be claimable")
+    if matrix.ansi_sql_compliant_claim_allowed is not False:
+        blockers.append("broad SQL-standard/ANSI-style compliance label must not be claimable")
+    if matrix.all_no_fallback_no_external_engine is not True:
+        blockers.append("semantic rows must preserve no fallback and no external engine")
+    if matrix.all_deterministic_blockers is not True:
+        blockers.append("semantic rows must require deterministic blockers")
+    return rows, blockers
+
+
 def validate_route_report(report: Any) -> tuple[list[dict[str, Any]], list[str]]:
     blockers: list[str] = []
     public_rows = [
@@ -331,10 +403,12 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         )
         checked_docs.append(rel_path)
 
-    parity, route_report = load_context_reports(repo_root)
+    parity, semantic_surface, route_report = load_context_reports(repo_root)
     parity_rows, parity_blockers = validate_parity_matrix(parity)
+    semantic_rows, semantic_blockers = validate_semantic_surface(semantic_surface)
     route_rows, route_blockers = validate_route_report(route_report)
     blockers.extend(parity_blockers)
+    blockers.extend(semantic_blockers)
     blockers.extend(route_blockers)
 
     scenario_module = load_scenario_support(repo_root)
@@ -350,6 +424,26 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "supported_parity_row_ids": sorted(SUPPORTED_PARITY_ROWS),
         "broad_pending_parity_row_ids": sorted(BROAD_PENDING_PARITY_ROWS),
         "parity_rows": parity_rows,
+        "front_door_semantic_surface_schema_version": semantic_surface.schema_version,
+        "semantic_surface_rows": semantic_rows,
+        "semantic_surface_row_ids": list(semantic_surface.row_order),
+        "dataframe_claim_statement": semantic_surface.dataframe_claim_statement,
+        "dataframe_subset_claim_statement": (
+            semantic_surface.dataframe_subset_claim_statement
+        ),
+        "sql_claim_statement": semantic_surface.sql_claim_statement,
+        "pandas_compatible_claim_allowed": (
+            semantic_surface.pandas_compatible_claim_allowed
+        ),
+        "polars_compatible_claim_allowed": (
+            semantic_surface.polars_compatible_claim_allowed
+        ),
+        "broad_dataframe_compatible_claim_allowed": (
+            semantic_surface.broad_dataframe_compatible_claim_allowed
+        ),
+        "ansi_sql_compliant_claim_allowed": (
+            semantic_surface.ansi_sql_compliant_claim_allowed
+        ),
         "public_front_door_rows": route_rows,
         "example_scenario_ids": scenario_names,
         "expected_error_scenario_ids": sorted(EXPECTED_ERROR_SCENARIOS),
@@ -360,6 +454,7 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         "performance_equivalence_claim_allowed": parity.performance_equivalence_claim_allowed,
         "all_no_fallback_no_external_engine": (
             parity.all_no_fallback_no_external_engine
+            and semantic_surface.all_no_fallback_no_external_engine
             and route_report.all_no_fallback_no_external_engine
         ),
         "claim_gate_status": "not_claim_grade",

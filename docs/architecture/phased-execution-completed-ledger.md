@@ -16,6 +16,114 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: RUNTIME-CLOSEOUT-claim-surface scoped semantic claim matrix
+  - Date: 2026-06-19
+  - Branch/PR: `codex/runtime-semantic-surface-closeout` / PR pending.
+  - Source:
+    - Maintainer request to include scoped Python/DataFrame and SQL semantic-claim cleanup in the
+      current PR and avoid broad pandas/Polars/DataFrame or SQL-standard compatibility claims.
+  - Scope:
+    - Added `ShardLoomContext.front_door_semantic_surface_matrix()` with schema
+      `shardloom.front_door_semantic_surface_matrix.v1`.
+    - Added agent-facing semantic-family rows for DataFrame-style construction/read APIs,
+      selection/projection, filtering, type system, casts/coercion, missing data, aggregation,
+      joins, ordering/window-ish behavior, reshaping, materialization, index semantics,
+      expression/callable APIs, determinism, errors/blockers, and fallback boundary.
+    - Added SQL semantic-family rows for parser grammar, binder/name resolution, type system,
+      casts/coercion, NULL semantics, relational semantics, operator semantics, aggregates, joins,
+      subqueries, windows, ordering/collation, errors/edge cases, and fallback boundary.
+    - Updated the front-door parity and v1 runtime-scope validators to require the semantic matrix,
+      broad-claim booleans set to false, deterministic blockers, and no-fallback/no-external-engine
+      evidence.
+    - Refreshed README, Python README, front-door runtime scope, parity architecture doc, user
+      surface index, admitted semantics status wording, and current architecture references so
+      current docs point at scoped semantic subsets instead of broad compatibility labels.
+  - Evidence:
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/context.py python/src/shardloom/__init__.py python/tests/test_cli_client.py python/tests/test_sql_python_dataframe_parity.py scripts/check_sql_python_dataframe_parity.py scripts/check_v1_front_door_runtime_scope.py scripts/check_user_surface_reference.py scripts/check_user_surface_runtime_gap_inventory.py`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-current.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_v1_front_door_runtime_scope.py --output target/v1-front-door-runtime-scope-current.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_reference.py` passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-current.json`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client python.tests.test_sql_python_dataframe_parity`
+      passed with 170 tests and 4 skips.
+    - `cargo fmt --all -- --check` passed.
+    - `cargo clippy -p shardloom-cli --features release-user-surfaces --all-targets -- -D warnings`
+      passed.
+    - `cargo test -p shardloom-cli --features release-user-surfaces --bin shardloom route_planner_infers_structured_binary_export_from_plan_summary -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-cli --features release-user-surfaces --bin shardloom route_planner_infers_structured_vortex_export_from_plan_summary -- --nocapture`
+      passed.
+  - Claim boundary:
+    - ShardLoom may describe a documented Python/DataFrame-style semantic subset and a documented
+      SQL-standard-inspired SELECT-query subset for admitted routes. Broad pandas, Polars,
+      DataFrame, SQL-standard/ANSI-style, production, performance, and engine-replacement claims
+      remain disallowed without separate evidence.
+  - Fallback boundary:
+    - The semantic matrix is side-effect-free metadata. It reports `fallback_attempted=false` and
+      `external_engine_invoked=false` and does not invoke pandas, Polars, DuckDB, Spark,
+      DataFusion, Velox, or Vortex query-engine integrations.
+
+- [x] Session label: RUNTIME-CLOSEOUT-1 native Vortex-derived structured exports
+  - Date: 2026-06-19
+  - Branch/PR: `codex/runtime-semantic-surface-closeout` / PR pending.
+  - Source:
+    - Phase-plan `RUNTIME-CLOSEOUT-1`, maintainer direction to remove feasible public-runtime
+      blockers, and a Vortex documentation/API inventory review for input/output conversion details.
+  - Scope:
+    - Added a reusable structured expression-project payload for native Vortex primitive row export
+      with scoped source-column, ARRAY literal, and STRUCT source-column projections.
+    - Promoted public local-file `write_vortex`, `write_parquet`, `write_arrow_ipc`, and
+      `write_avro` for admitted structured projections through compatibility-source Vortex
+      preparation plus native Vortex row export, instead of direct `sql-local-source-smoke`
+      product execution.
+    - Reused the existing upstream Vortex prepared-state writer/reopen path for structured
+      `write_vortex`, preserving Vortex as the highest-fidelity local sink and reporting
+      `native_vortex_structured_row_stream_to_vortex_sink`.
+    - Kept Parquet, Arrow IPC, and Avro as compatibility structured exports with explicit
+      decode/materialization evidence and no external engine invocation.
+    - Kept ORC nested output, unsupported sink formats, and broad/generalized nested execution as
+      deterministic provider/safety limitations; the in-tree ORC writer tests still block nested
+      output before unsafe conversion.
+    - Updated Python facade tests and route-planner evidence so the normal `ctx.read_csv(...).select(...).limit(...).write_*()`
+      shape prepares through Vortex and emits `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `output_io_performed=true`.
+  - Vortex-first provider check:
+    - Official Vortex Rust/Python docs expose Arrow-to-Vortex conversion and Vortex file
+      write/read/scan APIs; Vortex CLI conversion documents Parquet-to-Vortex row-group chunking.
+      ShardLoom now wraps those provider concepts through the existing `shardloom-vortex`
+      prepared-state writer rather than inventing a parallel Vortex sink stack.
+  - Evidence:
+    - `cargo check -p shardloom-cli --features release-user-surfaces` passed.
+    - `cargo test -p shardloom-cli --features release-user-surfaces --bin shardloom route_planner_infers_structured_binary_export_from_plan_summary -- --nocapture`
+      passed.
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives,vortex-write,universal-format-io structured_expression_project_row_export_writes_vortex_without_fallback -- --nocapture`
+      passed for the target runtime test.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_structured_binary_uses_vortex_export python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_vortex_uses_native_vortex_export python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_parquet_exposes_typed_nested_sink_boundary python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_orc_remains_structured_sink_blocked python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_parquet_blocks_unadmitted_expression_shape`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client python.tests.test_sql_python_dataframe_parity`
+      passed with 169 tests and 4 skips.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-current.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_v1_front_door_runtime_scope.py --output target/v1-front-door-runtime-scope-current.json`
+      passed.
+    - `PYTHONPATH=python/src python3 scripts/check_user_surface_runtime_gap_inventory.py --output target/user-surface-runtime-gap-inventory-current.json`
+      passed.
+    - `cargo fmt --all -- --check` passed.
+    - `PYTHONPATH=python/src python3 -m py_compile python/src/shardloom/query.py python/tests/test_query_builder.py`
+      passed.
+  - Claim boundary:
+    - Scoped local structured Vortex-derived export for admitted expression-project/source
+      projection shapes only. This does not claim arbitrary nested SQL/DataFrame parity,
+      object-store/table writes, production performance, or ORC nested output support.
+  - Fallback boundary:
+    - No DataFusion, DuckDB, Polars, pandas, Spark, Velox, or Vortex query-engine integration
+      executed residual work. Direct local SQL smoke remains an internal safeguard, not a public
+      product runtime middle.
+
 - [x] Session label: v0.1.7 release-prep version bump
   - Date: 2026-06-19
   - Branch/PR: `codex/v0.1.7-release-prep` / PR pending.

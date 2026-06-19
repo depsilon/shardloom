@@ -406,6 +406,10 @@ fn native_vortex_row_export_format_for_output_request(
     match request.requested_output.as_str() {
         "write_jsonl" => Ok(shardloom_vortex::VortexLocalPrimitiveRowExportFormat::Jsonl),
         "write_csv" => Ok(shardloom_vortex::VortexLocalPrimitiveRowExportFormat::Csv),
+        "write_vortex" => Ok(shardloom_vortex::VortexLocalPrimitiveRowExportFormat::Vortex),
+        "write_parquet" => Ok(shardloom_vortex::VortexLocalPrimitiveRowExportFormat::Parquet),
+        "write_arrow_ipc" => Ok(shardloom_vortex::VortexLocalPrimitiveRowExportFormat::ArrowIpc),
+        "write_avro" => Ok(shardloom_vortex::VortexLocalPrimitiveRowExportFormat::Avro),
         _ => Err(Box::new(native_vortex_sink_format_blocked_route(request))),
     }
 }
@@ -713,7 +717,7 @@ fn append_native_vortex_primitive_row_export_fields(
     push_field(
         fields,
         "typed_sink_contract",
-        "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink",
+        native_vortex_primitive_row_export_typed_sink_contract(report.output_format),
     );
     push_field(
         fields,
@@ -825,6 +829,16 @@ fn append_native_vortex_primitive_row_export_fields(
         &report.state_budget.diagnostic_code,
     );
     push_field(fields, "claim_gate_status", "not_claim_grade");
+}
+
+fn native_vortex_primitive_row_export_typed_sink_contract(output_format: &str) -> &'static str {
+    match output_format {
+        "vortex" => "native_vortex_structured_row_stream_to_vortex_sink",
+        "parquet" | "arrow-ipc" | "avro" => {
+            "native_vortex_structured_row_stream_to_parquet_arrow_avro_compatibility_sink"
+        }
+        _ => "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink",
+    }
 }
 
 fn append_native_vortex_primitive_row_export_target_fields(
@@ -1528,7 +1542,12 @@ fn execute_local_file_prepare_once_first_query_run(
     if is_write_request(request)
         && !matches!(
             request.requested_output.as_str(),
-            "write_vortex" | "write_jsonl" | "write_csv"
+            "write_vortex"
+                | "write_jsonl"
+                | "write_csv"
+                | "write_parquet"
+                | "write_arrow_ipc"
+                | "write_avro"
         )
     {
         let blocked = local_file_compatibility_sink_contract_missing_route(request);
@@ -3100,9 +3119,23 @@ fn native_vortex_primitive_row_export_route(
     }
     if !matches!(
         request.requested_output.as_str(),
-        "write_jsonl" | "write_csv"
+        "write_vortex"
+            | "write_jsonl"
+            | "write_csv"
+            | "write_parquet"
+            | "write_arrow_ipc"
+            | "write_avro"
     ) {
         return native_vortex_sink_format_blocked_route(request);
+    }
+    if native_vortex_row_export_requires_structured_payload(request)
+        && !(matches!(primitive, PublicVortexPrimitive::ExpressionProject)
+            && request
+                .vortex_expression_projection
+                .as_deref()
+                .is_some_and(native_vortex_expression_projection_is_structured))
+    {
+        return native_vortex_structured_sink_payload_blocked_route(request);
     }
     if !matches!(
         primitive,
@@ -3848,6 +3881,7 @@ struct InferredNativeVortexRoutePayload {
     sample_fraction: Option<String>,
     sample_replacement: bool,
     duplicate_keep: Option<String>,
+    expression_projection: Option<String>,
     explode_projection: Option<String>,
     pivot_projection: Option<String>,
     rolling_window: Option<String>,
@@ -3887,6 +3921,9 @@ impl InferredNativeVortexRoutePayload {
         request.vortex_sample_replacement |= self.sample_replacement;
         if request.vortex_duplicate_keep.is_none() {
             request.vortex_duplicate_keep = self.duplicate_keep;
+        }
+        if request.vortex_expression_projection.is_none() {
+            request.vortex_expression_projection = self.expression_projection;
         }
         if request.vortex_explode_projection.is_none() {
             request.vortex_explode_projection = self.explode_projection;
@@ -3999,6 +4036,7 @@ fn infer_native_vortex_provider_payload(
         sample_fraction: None,
         sample_replacement: false,
         duplicate_keep: None,
+        expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -4089,6 +4127,7 @@ fn infer_native_vortex_sql_provider_payload(
         sample_fraction: None,
         sample_replacement: false,
         duplicate_keep: None,
+        expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -4117,7 +4156,13 @@ fn infer_native_vortex_sql_primitive_payload(
 ) -> Option<InferredNativeVortexRoutePayload> {
     if !matches!(
         request.requested_output.as_str(),
-        "collect" | "write_jsonl" | "write_csv"
+        "collect"
+            | "write_vortex"
+            | "write_jsonl"
+            | "write_csv"
+            | "write_parquet"
+            | "write_arrow_ipc"
+            | "write_avro"
     ) {
         return None;
     }
@@ -4149,6 +4194,7 @@ fn infer_native_vortex_sql_primitive_payload(
                 sample_fraction: None,
                 sample_replacement: false,
                 duplicate_keep: None,
+                expression_projection: None,
                 explode_projection: None,
                 pivot_projection: None,
                 rolling_window: None,
@@ -4177,6 +4223,7 @@ fn infer_native_vortex_sql_primitive_payload(
             sample_fraction: None,
             sample_replacement: false,
             duplicate_keep: None,
+            expression_projection: None,
             explode_projection: None,
             pivot_projection: None,
             rolling_window: None,
@@ -4208,6 +4255,7 @@ fn infer_native_vortex_sql_primitive_payload(
             sample_fraction: None,
             sample_replacement: false,
             duplicate_keep: None,
+            expression_projection: None,
             explode_projection: None,
             pivot_projection: None,
             rolling_window: None,
@@ -4242,6 +4290,7 @@ fn infer_native_vortex_sql_primitive_payload(
             sample_fraction: None,
             sample_replacement: false,
             duplicate_keep: None,
+            expression_projection: None,
             explode_projection: None,
             pivot_projection: None,
             rolling_window: None,
@@ -4275,6 +4324,7 @@ fn infer_native_vortex_sql_primitive_payload(
         sample_fraction: None,
         sample_replacement: false,
         duplicate_keep: None,
+        expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -5336,7 +5386,13 @@ fn infer_native_vortex_primitive_payload(
 ) -> Option<InferredNativeVortexRoutePayload> {
     if !matches!(
         request.requested_output.as_str(),
-        "collect" | "write_jsonl" | "write_csv"
+        "collect"
+            | "write_vortex"
+            | "write_jsonl"
+            | "write_csv"
+            | "write_parquet"
+            | "write_arrow_ipc"
+            | "write_avro"
     ) {
         return None;
     }
@@ -5346,6 +5402,7 @@ fn infer_native_vortex_primitive_payload(
         return None;
     }
     infer_native_vortex_sample_primitive_payload(&operations)
+        .or_else(|| infer_native_vortex_structured_export_payload(request, &operations))
         .or_else(|| infer_native_vortex_explode_primitive_payload(&operations))
         .or_else(|| infer_native_vortex_rolling_window_primitive_payload(&operations))
         .or_else(|| infer_native_vortex_sort_rows_primitive_payload(&operations))
@@ -5388,6 +5445,33 @@ fn native_vortex_primitive_payload_with_seed(
         sample_fraction: None,
         sample_replacement: false,
         duplicate_keep: None,
+        expression_projection: None,
+        explode_projection: None,
+        pivot_projection: None,
+        rolling_window: None,
+        aggregate: None,
+        sort_rows: None,
+        right_input: None,
+    }
+}
+
+fn native_vortex_structured_export_payload(
+    source_columns: &[String],
+    structured_projection: &serde_json::Value,
+    source_order_limit: Option<String>,
+) -> InferredNativeVortexRoutePayload {
+    InferredNativeVortexRoutePayload {
+        family: NativeVortexOperationFamily::ExpressionProject,
+        provider_scenario: None,
+        primitive: Some(PublicVortexPrimitive::ExpressionProject),
+        predicate: None,
+        columns: Some(source_columns.join(",")),
+        source_order_limit,
+        sample_seed: None,
+        sample_fraction: None,
+        sample_replacement: false,
+        duplicate_keep: None,
+        expression_projection: Some(structured_projection.to_string()),
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -5413,6 +5497,7 @@ fn native_vortex_duplicate_mask_primitive_payload(
         sample_fraction: None,
         sample_replacement: false,
         duplicate_keep,
+        expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -5438,12 +5523,138 @@ fn native_vortex_sample_primitive_payload(
         sample_fraction: sample_shape.sample_fraction,
         sample_replacement: sample_shape.sample_replacement,
         duplicate_keep: None,
+        expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
         aggregate: None,
         sort_rows: None,
         right_input: None,
+    }
+}
+
+fn infer_native_vortex_structured_export_payload(
+    request: &PublicWorkflowRouteRequest,
+    operations: &[SummaryOperation<'_>],
+) -> Option<InferredNativeVortexRoutePayload> {
+    if !matches!(
+        request.requested_output.as_str(),
+        "write_vortex" | "write_parquet" | "write_arrow_ipc" | "write_avro"
+    ) {
+        return None;
+    }
+    if operations.len() < 2 {
+        return None;
+    }
+    let limit = operations
+        .last()
+        .filter(|operation| operation.kind == "limit" && summary_positive_limit(operation.arg))
+        .map(|operation| operation.arg.trim().to_string());
+    let end = if limit.is_some() {
+        operations.len().saturating_sub(1)
+    } else {
+        operations.len()
+    };
+    if operations.get(1)?.kind != "select" {
+        return None;
+    }
+    if operations[2..end]
+        .iter()
+        .any(|operation| operation.kind != "with_column")
+    {
+        return None;
+    }
+    let mut structured_columns = Vec::new();
+    let mut source_columns = Vec::new();
+    for column in split_sql_projection_list(operations[1].arg) {
+        if !is_summary_identifier(column) {
+            return None;
+        }
+        push_unique_string(&mut source_columns, column.to_string());
+        structured_columns.push(serde_json::json!({
+            "name": column,
+            "source": column
+        }));
+    }
+    for operation in &operations[2..end] {
+        let (name, expression) = operation.arg.split_once(',')?;
+        let name = name.trim();
+        if !is_summary_identifier(name) {
+            return None;
+        }
+        let expression = expression.trim();
+        let structured_column = if let Some(values) = parse_summary_array_literal(expression) {
+            serde_json::json!({
+                "name": name,
+                "array": values
+            })
+        } else if let Some(columns) = parse_summary_struct_columns(expression) {
+            for column in &columns {
+                push_unique_string(&mut source_columns, column.clone());
+            }
+            serde_json::json!({
+                "name": name,
+                "struct": columns
+            })
+        } else {
+            return None;
+        };
+        structured_columns.push(structured_column);
+    }
+    if structured_columns.is_empty() || source_columns.is_empty() {
+        return None;
+    }
+    let structured_projection = serde_json::json!({ "structured_columns": structured_columns });
+    Some(native_vortex_structured_export_payload(
+        &source_columns,
+        &structured_projection,
+        limit,
+    ))
+}
+
+fn parse_summary_array_literal(value: &str) -> Option<Vec<serde_json::Value>> {
+    let inner = value.trim().strip_prefix("ARRAY[")?.strip_suffix(']')?;
+    split_sql_projection_list(inner)
+        .into_iter()
+        .map(parse_summary_structured_literal)
+        .collect()
+}
+
+fn parse_summary_struct_columns(value: &str) -> Option<Vec<String>> {
+    let inner = value.trim().strip_prefix("STRUCT(")?.strip_suffix(')')?;
+    let columns = split_sql_projection_list(inner)
+        .into_iter()
+        .map(str::trim)
+        .map(|column| is_summary_identifier(column).then(|| column.to_string()))
+        .collect::<Option<Vec<_>>>()?;
+    (!columns.is_empty()).then_some(columns)
+}
+
+fn parse_summary_structured_literal(value: &str) -> Option<serde_json::Value> {
+    let trimmed = value.trim();
+    if trimmed.eq_ignore_ascii_case("NULL") {
+        return Some(serde_json::Value::Null);
+    }
+    if trimmed.eq_ignore_ascii_case("TRUE") {
+        return Some(serde_json::Value::Bool(true));
+    }
+    if trimmed.eq_ignore_ascii_case("FALSE") {
+        return Some(serde_json::Value::Bool(false));
+    }
+    if let Ok(value) = trimmed.parse::<i64>() {
+        return Some(serde_json::json!(value));
+    }
+    if let Ok(value) = trimmed.parse::<f64>()
+        && value.is_finite()
+    {
+        return Some(serde_json::json!(value));
+    }
+    parse_sql_single_quoted_literal(trimmed).map(serde_json::Value::String)
+}
+
+fn push_unique_string(out: &mut Vec<String>, value: String) {
+    if !out.iter().any(|existing| existing == &value) {
+        out.push(value);
     }
 }
 
@@ -5463,6 +5674,7 @@ fn native_vortex_explode_primitive_payload(
         sample_fraction: None,
         sample_replacement: false,
         duplicate_keep: None,
+        expression_projection: None,
         explode_projection: Some(payload),
         pivot_projection: None,
         rolling_window: None,
@@ -5521,6 +5733,7 @@ fn native_vortex_rolling_window_primitive_payload(
         sample_fraction: None,
         sample_replacement: false,
         duplicate_keep: None,
+        expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: Some(payload),
@@ -5589,6 +5802,7 @@ fn native_vortex_sort_rows_primitive_payload(
         sample_fraction: None,
         sample_replacement: false,
         duplicate_keep: None,
+        expression_projection: None,
         explode_projection: None,
         pivot_projection: None,
         rolling_window: None,
@@ -6361,7 +6575,12 @@ fn local_file_route(request: &PublicWorkflowRouteRequest) -> PublicWorkflowRoute
     if is_write_request(request)
         && !matches!(
             request.requested_output.as_str(),
-            "write_vortex" | "write_jsonl" | "write_csv"
+            "write_vortex"
+                | "write_jsonl"
+                | "write_csv"
+                | "write_parquet"
+                | "write_arrow_ipc"
+                | "write_avro"
         )
     {
         return local_file_compatibility_sink_contract_missing_route(request);
@@ -6565,7 +6784,7 @@ fn native_vortex_sink_format_blocked_route(
 ) -> PublicWorkflowRoutePlan {
     blocked_route(
         "py-vortex-route-unify-1.native_vortex_sink_format_missing",
-        "native Vortex result export supports Vortex, JSONL, and CSV result sinks in this runtime slice",
+        "native Vortex result export supports Vortex, JSONL, CSV, and scoped structured Vortex/Parquet/Arrow IPC/Avro result sinks in this runtime slice",
         Diagnostic::new(
             DiagnosticCode::NotImplemented,
             DiagnosticSeverity::Error,
@@ -6574,16 +6793,60 @@ fn native_vortex_sink_format_blocked_route(
                 .to_string(),
             Some("public_workflow_route.requested_output".to_string()),
             Some(format!(
-                "requested_output={} admitted_result_sink_formats=vortex,jsonl,csv",
+                "requested_output={} admitted_result_sink_formats=vortex,jsonl,csv,parquet,arrow-ipc,avro scoped_structured_export_requires=structured_columns_payload",
                 request.requested_output
             )),
             Some(
-                "use write_vortex, write_jsonl, or write_csv for admitted provider-backed native Vortex result sinks"
+                "use write_vortex, write_jsonl, write_csv, or a scoped structured Vortex/Parquet/Arrow IPC/Avro expression-project export"
                     .to_string(),
             ),
             FallbackStatus::disabled_by_policy(),
         ),
     )
+}
+
+fn native_vortex_structured_sink_payload_blocked_route(
+    request: &PublicWorkflowRouteRequest,
+) -> PublicWorkflowRoutePlan {
+    blocked_route(
+        "py-vortex-route-unify-1.native_vortex_structured_sink_payload_missing",
+        "native Vortex structured export requires a scoped structured expression-project payload",
+        Diagnostic::new(
+            DiagnosticCode::NotImplemented,
+            DiagnosticSeverity::Error,
+            DiagnosticCategory::UnsupportedFeature,
+            "native Vortex Vortex/Parquet/Arrow IPC/Avro row export requires structured_columns payload evidence"
+                .to_string(),
+            Some("public_workflow_route.vortex_expression_projection".to_string()),
+            Some(format!(
+                "requested_output={} admitted_structured_sink_formats=vortex,parquet,arrow-ipc,avro required_primitive=expression_project",
+                request.requested_output
+            )),
+            Some(
+                "use select(...) with scoped array/struct/source projections so ShardLoom can build a Vortex-derived structured export contract, or use write_jsonl/write_csv for scalar row streams"
+                    .to_string(),
+            ),
+            FallbackStatus::disabled_by_policy(),
+        ),
+    )
+}
+
+fn native_vortex_row_export_requires_structured_payload(
+    request: &PublicWorkflowRouteRequest,
+) -> bool {
+    matches!(
+        request.requested_output.as_str(),
+        "write_vortex" | "write_parquet" | "write_arrow_ipc" | "write_avro"
+    )
+}
+
+fn native_vortex_expression_projection_is_structured(value: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(value).is_ok_and(|payload| {
+        payload
+            .get("structured_columns")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|columns| !columns.is_empty())
+    })
 }
 
 fn is_write_request(request: &PublicWorkflowRouteRequest) -> bool {
@@ -7249,6 +7512,14 @@ fn native_vortex_required_feature_gate(
     if !is_native_vortex_route(request) {
         return "not_applicable";
     }
+    if matches!(plan.route_id, "native_vortex_primitive_row_export")
+        && native_vortex_row_export_requires_structured_payload(request)
+    {
+        if request.requested_output == "write_vortex" {
+            return "vortex-local-primitives,vortex-write,universal-format-io";
+        }
+        return "vortex-local-primitives,universal-format-io";
+    }
     if plan.route_id == "native_vortex_user_profile" {
         return "default";
     }
@@ -7519,6 +7790,15 @@ fn typed_sink_contract(
         }
         "native_vortex_user_sink" => {
             "native_vortex_provider_result_json_export_with_workspace_safe_sink"
+        }
+        "native_vortex_primitive_row_export"
+            if native_vortex_row_export_requires_structured_payload(request) =>
+        {
+            if request.requested_output == "write_vortex" {
+                "native_vortex_structured_row_stream_to_vortex_sink"
+            } else {
+                "native_vortex_structured_row_stream_to_parquet_arrow_avro_compatibility_sink"
+            }
         }
         "native_vortex_primitive_row_export" => {
             "native_vortex_primitive_row_stream_to_jsonl_csv_compatibility_sink"
@@ -10037,6 +10317,154 @@ mod tests {
         assert_eq!(field(&fields, "external_engine_invoked"), "false");
     }
 
+    fn structured_export_request(
+        request_output: &'static str,
+        output_path: &'static str,
+    ) -> PublicWorkflowRouteRequest {
+        PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "orders.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(orders.vortex) -> select(id) -> with_column(values,ARRAY[1,2,NULL]) -> with_column(payload,STRUCT(label, amount)) -> limit(2)",
+                "--request",
+                request_output,
+                "--output",
+                output_path,
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+                "--allow-overwrite",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("structured export route request")
+    }
+
+    fn assert_structured_export_route(
+        request_output: &'static str,
+        output_path: &'static str,
+        expected_contract: &str,
+        expected_feature_gate: &str,
+    ) {
+        let request = structured_export_request(request_output, output_path);
+
+        let effective = effective_public_workflow_request(&request);
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        assert_eq!(
+            effective.vortex_primitive.as_deref(),
+            Some("expression_project")
+        );
+        assert_eq!(
+            effective.native_vortex_operation_family.as_deref(),
+            Some("expression_project")
+        );
+        assert!(
+            effective
+                .vortex_expression_projection
+                .as_deref()
+                .is_some_and(native_vortex_expression_projection_is_structured)
+        );
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_primitive_row_export");
+            assert_eq!(field(&fields, "typed_sink_contract"), expected_contract);
+            assert_eq!(
+                field(&fields, "native_vortex_required_feature_gate"),
+                expected_feature_gate
+            );
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+            );
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "expression_project");
+        assert_eq!(
+            field(&fields, "vortex_expression_projection_present"),
+            "true"
+        );
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
+    #[test]
+    fn route_planner_infers_structured_binary_export_from_plan_summary() {
+        assert_structured_export_route(
+            "write_parquet",
+            "target/nested.parquet",
+            "native_vortex_structured_row_stream_to_parquet_arrow_avro_compatibility_sink",
+            "vortex-local-primitives,universal-format-io",
+        );
+    }
+
+    #[test]
+    fn route_planner_infers_structured_vortex_export_from_plan_summary() {
+        assert_structured_export_route(
+            "write_vortex",
+            "target/nested.vortex",
+            "native_vortex_structured_row_stream_to_vortex_sink",
+            "vortex-local-primitives,vortex-write,universal-format-io",
+        );
+    }
+
+    #[test]
+    fn route_planner_blocks_binary_export_without_structured_payload() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "orders.vortex",
+                "--input-format",
+                "vortex",
+                "--request",
+                "write_parquet",
+                "--output",
+                "target/out.parquet",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+                "--native-vortex-operation-family",
+                "sink",
+                "--vortex-primitive",
+                "project",
+                "--vortex-columns",
+                "id,label",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("plain binary export route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_structured_sink_payload_missing"
+            );
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(
+                plan.blocker_id,
+                "py-vortex-route-unify-1.native_vortex_primitive_row_export_feature_gated"
+            );
+        }
+        assert_eq!(field(&fields, "fallback_attempted"), "false");
+        assert_eq!(field(&fields, "external_engine_invoked"), "false");
+    }
+
     #[test]
     fn route_planner_attaches_native_vortex_rolling_window_route() {
         let rolling_window = r#"{"aggregate":"sum","min_periods":3,"output_column":"rolling_amount","source_column":"amount","window_size":3}"#;
@@ -10211,85 +10639,41 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-production-runtime")]
-    #[test]
-    fn route_planner_admits_native_vortex_provider_operator_routes() {
-        let aggregate = PublicWorkflowRouteRequest::parse(
-            [
-                "dataframe",
-                "--input",
-                "target/fact.vortex",
-                "--input-format",
-                "vortex",
-                "--request",
-                "collect",
-                "--bounded",
-                "true",
-                "--execution-policy",
-                "native_vortex",
-                "--native-vortex-operation-family",
-                "aggregate",
-                "--native-vortex-provider-scenario",
-                "group-by-aggregation",
-            ]
-            .into_iter()
-            .map(str::to_string),
-        )
-        .expect("aggregate provider route request");
-        let join = PublicWorkflowRouteRequest::parse(
-            [
-                "dataframe",
-                "--input",
-                "target/fact.vortex",
-                "--input-format",
-                "vortex",
-                "--request",
-                "collect",
-                "--bounded",
-                "true",
-                "--execution-policy",
-                "native_vortex",
-                "--native-vortex-operation-family",
-                "join",
-                "--native-vortex-provider-scenario",
-                "hash-join",
-                "--native-vortex-right-input",
-                "target/dim.vortex",
-            ]
-            .into_iter()
-            .map(str::to_string),
-        )
-        .expect("join provider route request");
-        let sink = PublicWorkflowRouteRequest::parse(
-            [
-                "dataframe",
-                "--input",
-                "target/fact.vortex",
-                "--input-format",
-                "vortex",
-                "--request",
-                "write_vortex",
-                "--output",
-                "target/out.vortex",
-                "--bounded",
-                "true",
-                "--execution-policy",
-                "native_vortex",
-                "--native-vortex-operation-family",
-                "sink",
-                "--native-vortex-provider-scenario",
-                "clean-cast-filter-write",
-            ]
-            .into_iter()
-            .map(str::to_string),
-        )
-        .expect("sink provider route request");
+    fn native_vortex_provider_request(
+        request_output: &'static str,
+        family: &'static str,
+        scenario: &'static str,
+        extra_args: &[&'static str],
+    ) -> PublicWorkflowRouteRequest {
+        let mut args = vec![
+            "dataframe",
+            "--input",
+            "target/fact.vortex",
+            "--input-format",
+            "vortex",
+            "--request",
+            request_output,
+            "--bounded",
+            "true",
+            "--execution-policy",
+            "native_vortex",
+            "--native-vortex-operation-family",
+            family,
+            "--native-vortex-provider-scenario",
+            scenario,
+        ];
+        args.extend_from_slice(extra_args);
+        PublicWorkflowRouteRequest::parse(args.into_iter().map(str::to_string))
+            .expect("provider route request")
+    }
 
+    #[cfg(feature = "vortex-production-runtime")]
+    #[test]
+    fn route_planner_admits_native_vortex_provider_aggregate_route() {
+        let aggregate =
+            native_vortex_provider_request("collect", "aggregate", "group-by-aggregation", &[]);
         let aggregate_plan = plan_public_workflow_route(&aggregate);
-        let join_plan = plan_public_workflow_route(&join);
-        let sink_plan = plan_public_workflow_route(&sink);
         let aggregate_fields = route_fields(&aggregate, &aggregate_plan);
-        let join_fields = route_fields(&join, &join_plan);
-        let sink_fields = route_fields(&sink, &sink_plan);
 
         assert_eq!(aggregate_plan.status, CommandStatus::Success);
         assert_eq!(aggregate_plan.route_id, "native_vortex_user_aggregate");
@@ -10313,12 +10697,40 @@ mod tests {
             field(&aggregate_fields, "typed_result_contract"),
             "provider_backed_native_vortex_result_summary_with_route_certificate"
         );
+    }
+
+    #[cfg(feature = "vortex-production-runtime")]
+    #[test]
+    fn route_planner_admits_native_vortex_provider_join_route() {
+        let join = native_vortex_provider_request(
+            "collect",
+            "join",
+            "hash-join",
+            &["--native-vortex-right-input", "target/dim.vortex"],
+        );
+        let join_plan = plan_public_workflow_route(&join);
+        let join_fields = route_fields(&join, &join_plan);
+
         assert_eq!(join_plan.status, CommandStatus::Success);
         assert_eq!(join_plan.route_id, "native_vortex_user_join");
         assert_eq!(
             field(&join_fields, "native_vortex_right_input"),
             "target/dim.vortex"
         );
+    }
+
+    #[cfg(feature = "vortex-production-runtime")]
+    #[test]
+    fn route_planner_admits_native_vortex_provider_sink_route() {
+        let sink = native_vortex_provider_request(
+            "write_vortex",
+            "sink",
+            "clean-cast-filter-write",
+            &["--output", "target/out.vortex"],
+        );
+        let sink_plan = plan_public_workflow_route(&sink);
+        let sink_fields = route_fields(&sink, &sink_plan);
+
         assert_eq!(sink_plan.status, CommandStatus::Success);
         assert_eq!(sink_plan.route_id, "native_vortex_user_sink");
         assert_eq!(

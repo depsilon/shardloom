@@ -42,12 +42,11 @@ REQUIRED_ADMITTED_ROWS = {
     "generated_source_output",
     "schema_quality_preview",
     "local_vortex_primitive_runtime",
+    "typed_nested_compatibility_sink",
     "decoded_materialization_interop",
 }
 
-REQUIRED_EXPORT_PENDING_ROWS = {
-    "typed_nested_compatibility_sink",
-}
+REQUIRED_EXPORT_PENDING_ROWS: set[str] = set()
 
 REQUIRED_GAP_ROWS = REQUIRED_ROWS - REQUIRED_ADMITTED_ROWS - REQUIRED_EXPORT_PENDING_ROWS
 ADMITTED_RUNTIME_GAP_STATUS = "admitted_scope"
@@ -63,11 +62,16 @@ GENERIC_GAP_TERMS = {"unsupported", "blocked", "not complete", "not_complete"}
 REQUIRED_SOURCE_MARKERS = {
     "python/src/shardloom/context.py": [
         "class FrontDoorParityMatrix",
+        "class FrontDoorSemanticSurfaceMatrix",
         "FRONT_DOOR_PARITY_ROWS",
+        "FRONT_DOOR_SEMANTIC_SURFACE_ROWS",
         "def front_door_parity_matrix(",
+        "def front_door_semantic_surface_matrix(",
         "typed_nested_compatibility_sink",
         "arbitrary_sql_python_dataframe_breadth",
         "performance_equivalence",
+        "pandas_compatible_claim_allowed",
+        "ansi_sql_compliant_claim_allowed",
     ],
     "python/src/shardloom/query.py": [
         "class SqlWorkflow",
@@ -219,6 +223,44 @@ REQUIRED_SOURCE_MARKERS = {
     ],
 }
 
+REQUIRED_DATAFRAME_SEMANTIC_ROW_IDS = {
+    "dataframe_construction_read_apis",
+    "dataframe_selection_projection",
+    "dataframe_filtering",
+    "dataframe_type_system",
+    "dataframe_casts_coercion",
+    "dataframe_missing_data",
+    "dataframe_aggregation",
+    "dataframe_joins",
+    "dataframe_ordering_window",
+    "dataframe_reshaping",
+    "dataframe_materialization",
+    "dataframe_index_semantics",
+    "dataframe_expression_callable_apis",
+    "dataframe_determinism",
+    "dataframe_errors_blockers",
+    "dataframe_fallback_boundary",
+}
+
+REQUIRED_SQL_SEMANTIC_ROW_IDS = {
+    "sql_parser_grammar_scope",
+    "sql_binder_name_resolution",
+    "sql_type_system",
+    "sql_casts_coercion",
+    "sql_null_semantics",
+    "sql_relational_semantics",
+    "sql_operator_semantics",
+    "sql_aggregates",
+    "sql_joins",
+    "sql_subqueries",
+    "sql_windows",
+    "sql_ordering_collation",
+    "sql_errors_edge_cases",
+    "sql_fallback_boundary",
+}
+
+REQUIRED_SHARED_SEMANTIC_ROW_IDS = {"shared_claim_vocabulary"}
+
 REQUIRED_DATAFRAME_METHOD_STATUSES = {
     "sample": {"production_admitted_local_workflow"},
     "set_index": {"scoped_runtime_supported"},
@@ -353,6 +395,15 @@ def load_dataframe_method_matrix(repo_root: Path) -> Any:
         return SimpleNamespace(rows=DATAFRAME_METHOD_CAPABILITY_ROWS)
 
 
+def load_semantic_surface_matrix(repo_root: Path) -> Any:
+    src = repo_root / "python" / "src"
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
+    from shardloom import ShardLoomContext
+
+    return ShardLoomContext(client=None).front_door_semantic_surface_matrix()
+
+
 def row_payload(row: Any) -> dict[str, Any]:
     return {
         "row_id": row.row_id,
@@ -389,6 +440,21 @@ def dataframe_method_payload(row: Any) -> dict[str, Any]:
         "diagnostic_operation": row.diagnostic_operation,
         "blocker_id": row.blocker_id,
         "future_contract_blocker_ids": list(row.future_contract_blocker_ids),
+        "required_evidence": list(row.required_evidence),
+        "claim_boundary": row.claim_boundary,
+    }
+
+
+def semantic_surface_payload(row: Any) -> dict[str, Any]:
+    return {
+        "row_id": row.row_id,
+        "surface": row.surface,
+        "semantic_family": row.semantic_family,
+        "admitted_scope": row.admitted_scope,
+        "unsupported_scope": row.unsupported_scope,
+        "deterministic_blockers": row.deterministic_blockers,
+        "fallback_attempted": row.fallback_attempted,
+        "external_engine_invoked": row.external_engine_invoked,
         "required_evidence": list(row.required_evidence),
         "claim_boundary": row.claim_boundary,
     }
@@ -439,6 +505,72 @@ def validate_dataframe_method_surface(
             blockers.append(f"{method}: claim_boundary is required")
 
     return rows, status_counts, blockers
+
+
+def validate_semantic_surface(matrix: Any) -> tuple[list[dict[str, Any]], list[str]]:
+    rows = [semantic_surface_payload(row) for row in matrix.rows]
+    blockers: list[str] = []
+    by_id = {str(row["row_id"]): row for row in rows}
+    required_ids = (
+        REQUIRED_DATAFRAME_SEMANTIC_ROW_IDS
+        | REQUIRED_SQL_SEMANTIC_ROW_IDS
+        | REQUIRED_SHARED_SEMANTIC_ROW_IDS
+    )
+
+    missing = sorted(required_ids - by_id.keys())
+    if missing:
+        blockers.append("semantic surface matrix missing rows: " + ",".join(missing))
+
+    extra = sorted(by_id.keys() - required_ids)
+    if extra:
+        blockers.append(
+            "semantic surface matrix has unclassified extra rows: " + ",".join(extra)
+        )
+
+    for row in rows:
+        row_id = str(row["row_id"])
+        if row["fallback_attempted"] is not False:
+            blockers.append(f"{row_id}: fallback_attempted must be false")
+        if row["external_engine_invoked"] is not False:
+            blockers.append(f"{row_id}: external_engine_invoked must be false")
+        if row["deterministic_blockers"] is not True:
+            blockers.append(f"{row_id}: deterministic_blockers must be true")
+        if not str(row["admitted_scope"]).strip():
+            blockers.append(f"{row_id}: admitted_scope is required")
+        if not str(row["unsupported_scope"]).strip():
+            blockers.append(f"{row_id}: unsupported_scope is required")
+        if not str(row["claim_boundary"]).strip():
+            blockers.append(f"{row_id}: claim_boundary is required")
+        if not row["required_evidence"]:
+            blockers.append(f"{row_id}: required_evidence is required")
+        surface = str(row["surface"])
+        if surface not in {"dataframe", "sql", "shared"}:
+            blockers.append(f"{row_id}: unknown semantic surface {surface!r}")
+        if row_id.startswith("dataframe_") and surface != "dataframe":
+            blockers.append(f"{row_id}: dataframe row must use surface=dataframe")
+        if row_id.startswith("sql_") and surface != "sql":
+            blockers.append(f"{row_id}: sql row must use surface=sql")
+
+    if matrix.pandas_compatible_claim_allowed is not False:
+        blockers.append("pandas_compatible_claim_allowed must remain false")
+    if matrix.polars_compatible_claim_allowed is not False:
+        blockers.append("polars_compatible_claim_allowed must remain false")
+    if matrix.broad_dataframe_compatible_claim_allowed is not False:
+        blockers.append("broad_dataframe_compatible_claim_allowed must remain false")
+    if matrix.ansi_sql_compliant_claim_allowed is not False:
+        blockers.append("ansi_sql_compliant_claim_allowed must remain false")
+    if matrix.all_no_fallback_no_external_engine is not True:
+        blockers.append("semantic all_no_fallback_no_external_engine must be true")
+    if matrix.all_deterministic_blockers is not True:
+        blockers.append("semantic all_deterministic_blockers must be true")
+    if set(matrix.dataframe_row_ids) != REQUIRED_DATAFRAME_SEMANTIC_ROW_IDS:
+        blockers.append("dataframe semantic row ids do not match required surface")
+    if set(matrix.sql_row_ids) != REQUIRED_SQL_SEMANTIC_ROW_IDS:
+        blockers.append("sql semantic row ids do not match required surface")
+    if set(matrix.shared_row_ids) != REQUIRED_SHARED_SEMANTIC_ROW_IDS:
+        blockers.append("shared semantic row ids do not match required surface")
+
+    return rows, blockers
 
 
 def validate_matrix(matrix: Any) -> tuple[list[dict[str, Any]], list[str]]:
@@ -530,8 +662,15 @@ def build_report(repo_root: Path) -> dict[str, Any]:
     dataframe_methods, dataframe_status_counts, dataframe_blockers = (
         validate_dataframe_method_surface(load_dataframe_method_matrix(repo_root))
     )
+    semantic_matrix = load_semantic_surface_matrix(repo_root)
+    semantic_rows, semantic_blockers = validate_semantic_surface(semantic_matrix)
     marker_blockers = missing_marker_blockers(repo_root)
-    blockers = [*matrix_blockers, *dataframe_blockers, *marker_blockers]
+    blockers = [
+        *matrix_blockers,
+        *dataframe_blockers,
+        *semantic_blockers,
+        *marker_blockers,
+    ]
     remaining_gaps = [
         row
         for row in rows
@@ -592,6 +731,36 @@ def build_report(repo_root: Path) -> dict[str, Any]:
         ],
         "dataframe_named_runtime_surface_rows": dataframe_named_surface_rows,
         "dataframe_plan_transform_only_method_ids": sorted(PLAN_TRANSFORM_ONLY_METHODS),
+        "semantic_surface_status": "passed" if not semantic_blockers else "blocked",
+        "front_door_semantic_surface_schema_version": semantic_matrix.schema_version,
+        "semantic_surface_row_count": len(semantic_rows),
+        "dataframe_semantic_surface_row_ids": list(semantic_matrix.dataframe_row_ids),
+        "sql_semantic_surface_row_ids": list(semantic_matrix.sql_row_ids),
+        "shared_semantic_surface_row_ids": list(semantic_matrix.shared_row_ids),
+        "dataframe_claim_statement": semantic_matrix.dataframe_claim_statement,
+        "dataframe_subset_claim_statement": (
+            semantic_matrix.dataframe_subset_claim_statement
+        ),
+        "sql_claim_statement": semantic_matrix.sql_claim_statement,
+        "pandas_compatible_claim_allowed": (
+            semantic_matrix.pandas_compatible_claim_allowed
+        ),
+        "polars_compatible_claim_allowed": (
+            semantic_matrix.polars_compatible_claim_allowed
+        ),
+        "broad_dataframe_compatible_claim_allowed": (
+            semantic_matrix.broad_dataframe_compatible_claim_allowed
+        ),
+        "ansi_sql_compliant_claim_allowed": (
+            semantic_matrix.ansi_sql_compliant_claim_allowed
+        ),
+        "semantic_surface_all_no_fallback_no_external_engine": (
+            semantic_matrix.all_no_fallback_no_external_engine
+        ),
+        "semantic_surface_all_deterministic_blockers": (
+            semantic_matrix.all_deterministic_blockers
+        ),
+        "semantic_surface_rows": semantic_rows,
         "runtime_gap_status_vocabulary": [
             ADMITTED_RUNTIME_GAP_STATUS,
             *sorted(PRECISE_RUNTIME_GAP_STATUSES),
@@ -611,12 +780,14 @@ def build_report(repo_root: Path) -> dict[str, Any]:
             "normalization or preparation boundary before broad runtime-ready claims."
         ),
         "claim_boundary": (
-            "ShardLoom has scoped local SQL/Python/DataFrame parity where rows declare "
-            "equivalent_admitted_scope and a shared ShardLoom runtime path. Broad arbitrary "
-            "SQL/Python/DataFrame flexibility and performance equivalence remain not-claim-grade "
-            "until the GAR-RUNTIME-IMPL-6D runtime-expansion checklist rows are closed with "
-            "explicit Vortex-normalization, correctness, execution-certificate, native-I/O, and "
-            "benchmark evidence."
+            "ShardLoom has scoped local SQL/Python/DataFrame-style parity where rows declare "
+            "equivalent_admitted_scope and a shared ShardLoom runtime path. It exposes a "
+            "documented subset of pandas/Polars-style DataFrame operations and a documented "
+            "SQL-standard-inspired SELECT-query subset for admitted routes. Broad arbitrary "
+            "DataFrame compatibility, broad pandas/Polars compatibility, broad SQL-standard/ANSI-style "
+            "compliance, and performance equivalence remain disallowed until the matching "
+            "runtime-expansion checklist rows are closed with explicit Vortex-normalization, "
+            "correctness, execution-certificate, native-I/O, and benchmark evidence."
         ),
         "blockers": blockers,
     }

@@ -63,7 +63,7 @@ FALSE_REPORT_FIELDS = (
 )
 
 EXPECTED_REMAINING_MATRIX_GAPS = (
-    "broad ANSI subquery parity beyond the admitted bounded local scalar/row-value IN/NOT IN, "
+    "broad SQL-standard subquery parity beyond the admitted bounded local scalar/row-value IN/NOT IN, "
     "EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN, projected joined/grouped "
     "scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified, source-qualified "
     "scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references, "

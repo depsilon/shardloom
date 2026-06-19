@@ -1229,6 +1229,142 @@ class FrontDoorParityMatrix:
 
 
 @dataclass(frozen=True, slots=True)
+class FrontDoorSemanticSurfaceRow:
+    """Semantic-family claim row for Python/DataFrame-style and SQL front doors."""
+
+    row_id: str
+    surface: str
+    semantic_family: str
+    admitted_scope: str
+    unsupported_scope: str
+    deterministic_blockers: bool
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    required_evidence: tuple[str, ...]
+    claim_boundary: str
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether this semantic row preserves the no-fallback boundary."""
+
+        return not self.fallback_attempted and not self.external_engine_invoked
+
+
+@dataclass(frozen=True, slots=True)
+class FrontDoorSemanticSurfaceMatrix:
+    """Scoped semantic-surface matrix for Python/DataFrame-style and SQL claims."""
+
+    rows: tuple[FrontDoorSemanticSurfaceRow, ...]
+
+    @property
+    def schema_version(self) -> str:
+        """Return the semantic-surface matrix schema version."""
+
+        return "shardloom.front_door_semantic_surface_matrix.v1"
+
+    @property
+    def dataframe_claim_statement(self) -> str:
+        """Return the allowed public Python/DataFrame-style claim statement."""
+
+        return (
+            "ShardLoom exposes a familiar Python/DataFrame-style front door that lowers admitted "
+            "operations into ShardLoom-native/Vortex-native routes. Non-admitted pandas/Polars-style "
+            "behavior returns deterministic diagnostics with fallback_attempted=false and "
+            "external_engine_invoked=false."
+        )
+
+    @property
+    def dataframe_subset_claim_statement(self) -> str:
+        """Return the scoped subset claim for pandas/Polars-style operations."""
+
+        return (
+            "ShardLoom supports a documented subset of pandas/Polars-style DataFrame operations "
+            "with equivalent semantics for admitted operations, deterministic blockers for "
+            "non-admitted operations, and no fallback execution into pandas, Polars, DuckDB, "
+            "Spark, DataFusion, or another engine."
+        )
+
+    @property
+    def sql_claim_statement(self) -> str:
+        """Return the allowed public SQL semantic claim statement."""
+
+        return (
+            "ShardLoom supports a documented SQL-standard-inspired SELECT-query subset for "
+            "admitted local and Vortex-native routes, with documented deviations, deterministic "
+            "blockers for non-admitted syntax or semantics, and no external query-engine fallback."
+        )
+
+    @property
+    def pandas_compatible_claim_allowed(self) -> bool:
+        """Whether broad pandas compatibility may be claimed."""
+
+        return False
+
+    @property
+    def polars_compatible_claim_allowed(self) -> bool:
+        """Whether broad Polars compatibility may be claimed."""
+
+        return False
+
+    @property
+    def broad_dataframe_compatible_claim_allowed(self) -> bool:
+        """Whether broad DataFrame compatibility may be claimed."""
+
+        return False
+
+    @property
+    def ansi_sql_compliant_claim_allowed(self) -> bool:
+        """Whether broad SQL-standard/ANSI-style compliance may be claimed."""
+
+        return False
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return semantic row ids in stable order."""
+
+        return tuple(row.row_id for row in self.rows)
+
+    @property
+    def dataframe_row_ids(self) -> tuple[str, ...]:
+        """Return Python/DataFrame-style semantic row ids."""
+
+        return tuple(row.row_id for row in self.rows if row.surface == "dataframe")
+
+    @property
+    def sql_row_ids(self) -> tuple[str, ...]:
+        """Return SQL semantic row ids."""
+
+        return tuple(row.row_id for row in self.rows if row.surface == "sql")
+
+    @property
+    def shared_row_ids(self) -> tuple[str, ...]:
+        """Return shared semantic row ids."""
+
+        return tuple(row.row_id for row in self.rows if row.surface == "shared")
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every semantic row preserves no fallback and no external engine."""
+
+        return all(row.no_fallback_no_external_engine for row in self.rows)
+
+    @property
+    def all_deterministic_blockers(self) -> bool:
+        """Whether every row requires deterministic blockers for unsupported shapes."""
+
+        return all(row.deterministic_blockers for row in self.rows)
+
+    def row(self, row_id: str) -> FrontDoorSemanticSurfaceRow:
+        """Return one semantic-surface row by id."""
+
+        normalized = row_id.strip()
+        for row in self.rows:
+            if row.row_id == normalized:
+                return row
+        raise KeyError(f"front-door semantic row {row_id!r} is not in the matrix")
+
+
+@dataclass(frozen=True, slots=True)
 class UserRouteCapabilityRow:
     """User/agent route-selection row for one input/output workflow family."""
 
@@ -2678,6 +2814,30 @@ def _front_door_row(
         fallback_attempted=False,
         external_engine_invoked=False,
         blocker_id=blocker_id,
+        required_evidence=tuple(required_evidence),
+        claim_boundary=claim_boundary,
+    )
+
+
+def _semantic_surface_row(
+    row_id: str,
+    surface: str,
+    semantic_family: str,
+    admitted_scope: str,
+    unsupported_scope: str,
+    *,
+    required_evidence: Sequence[str],
+    claim_boundary: str,
+) -> FrontDoorSemanticSurfaceRow:
+    return FrontDoorSemanticSurfaceRow(
+        row_id=row_id,
+        surface=surface,
+        semantic_family=semantic_family,
+        admitted_scope=admitted_scope,
+        unsupported_scope=unsupported_scope,
+        deterministic_blockers=True,
+        fallback_attempted=False,
+        external_engine_invoked=False,
         required_evidence=tuple(required_evidence),
         claim_boundary=claim_boundary,
     )
@@ -5769,6 +5929,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "sql_support",
             "dataframe_method_matrix",
             "front_door_parity_matrix",
+            "front_door_semantic_surface_matrix",
             "user_surface_graduation_matrix",
             "user_route_capability_report",
             "local_vortex_primitive_route_report",
@@ -5829,6 +5990,7 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
             "command_registry",
             "runs_today_support_matrix",
             "front_door_parity_matrix",
+            "front_door_semantic_surface_matrix",
             "user_route_capability_report",
             "source_prepared_state_scope_report",
             "local_output_sink_scope_report",
@@ -6278,6 +6440,293 @@ USER_SURFACE_GRADUATION_ROWS: tuple[UserSurfaceGraduationRow, ...] = (
 )
 
 
+FRONT_DOOR_SEMANTIC_SURFACE_ROWS: tuple[FrontDoorSemanticSurfaceRow, ...] = (
+    _semantic_surface_row(
+        "dataframe_construction_read_apis",
+        "dataframe",
+        "construction/read APIs",
+        "ctx.read/read_csv/read_parquet/read_json/read_vortex/from_rows/range declare ShardLoom sources; adapters normalize to the admitted source state before runtime.",
+        "No hidden pandas/Polars construction backend; feature-gated readers and remote/table sources return deterministic adapter or platform diagnostics.",
+        required_evidence=(
+            "dataframe_method_matrix",
+            "user_route_capability_report",
+            "v1_front_door_runtime_scope",
+        ),
+        claim_boundary="Scoped source declaration and adapter normalization, not broad DataFrame-library compatibility.",
+    ),
+    _semantic_surface_row(
+        "dataframe_selection_projection",
+        "dataframe",
+        "selection/projection",
+        "select/project/aliases/drop/rename and column expressions lower into ShardLoom plan nodes for admitted sources and sinks.",
+        "Unsupported nested selectors, ambiguous aliases, or unadmitted expression forms block before execution.",
+        required_evidence=("dataframe_method_matrix", "front_door_parity_matrix"),
+        claim_boundary="Equivalent semantics only for admitted projection and alias families.",
+    ),
+    _semantic_surface_row(
+        "dataframe_filtering",
+        "dataframe",
+        "filtering",
+        "Boolean masks, comparisons, SQL-null-aware predicate forms, and admitted expression filters lower into native routes.",
+        "Alignment-dependent masks, callable masks, and unsupported null behavior return stable diagnostics.",
+        required_evidence=("dataframe_method_matrix", "admitted_semantics_matrix"),
+        claim_boundary="Scoped predicate equivalence; no pandas/Polars mask alignment claim.",
+    ),
+    _semantic_surface_row(
+        "dataframe_type_system",
+        "dataframe",
+        "type system",
+        "Declared int, float, decimal, string, bool, date, timestamp, nullability, binary, and scoped nested dtypes are tracked in ShardLoom schemas.",
+        "Pandas extension dtype parity, locale/timezone policy gaps, variants, and broad nested dtype behavior are deterministic blockers.",
+        required_evidence=("dataframe_method_matrix", "admitted_semantics_matrix"),
+        claim_boundary="ShardLoom dtype semantics, not pandas extension dtype compatibility.",
+    ),
+    _semantic_surface_row(
+        "dataframe_casts_coercion",
+        "dataframe",
+        "casts/coercion",
+        "astype/cast/try-cast shapes lower to typed ShardLoom casts with invalid-cast, overflow, and nullable conversion evidence where admitted.",
+        "errors='ignore', non-exact decimal policy, and unadmitted coercions block with typed diagnostics.",
+        required_evidence=("dataframe_method_matrix", "admitted_semantics_matrix"),
+        claim_boundary="Scoped typed cast semantics only.",
+    ),
+    _semantic_surface_row(
+        "dataframe_missing_data",
+        "dataframe",
+        "missing data",
+        "isna/notna/dropna/fillna/fill_null use declared ShardLoom null semantics for admitted scalar and projection shapes.",
+        "Pandas-NA/index alignment differences, thresh/axis/inplace, and broad mixed-dtype null fill semantics remain outside the claim.",
+        required_evidence=("dataframe_method_matrix", "admitted_semantics_matrix"),
+        claim_boundary="SQL-null-aware ShardLoom semantics, not broad pandas missing-data parity.",
+    ),
+    _semantic_surface_row(
+        "dataframe_aggregation",
+        "dataframe",
+        "aggregation",
+        "count/sum/mean/min/max/group_by and null-heavy aggregate families lower to admitted native/provider routes with empty/all-null behavior documented by evidence rows.",
+        "Unadmitted aggregate functions, custom reductions, and shape-dependent pandas outputs block.",
+        required_evidence=("dataframe_method_matrix", "front_door_parity_matrix"),
+        claim_boundary="Scoped aggregate equivalence for admitted operators.",
+    ),
+    _semantic_surface_row(
+        "dataframe_joins",
+        "dataframe",
+        "joins",
+        "Explicit-key and admitted predicate joins lower to ShardLoom join routes with declared null and duplicate-key boundaries.",
+        "Implicit key inference, suffix reconciliation, complex keys, and unadmitted join types block deterministically.",
+        required_evidence=("dataframe_method_matrix", "front_door_parity_matrix"),
+        claim_boundary="Scoped join semantics only.",
+    ),
+    _semantic_surface_row(
+        "dataframe_ordering_window",
+        "dataframe",
+        "ordering/window-ish behavior",
+        "sort_values/order_by/head/tail/nlargest/nsmallest and scoped rolling/source-order windows lower to admitted order or window routes.",
+        "Broad window frames, centered windows, order instability, and implicit null-order assumptions remain outside the claim.",
+        required_evidence=("dataframe_method_matrix", "clickbench_olap_runtime_coverage"),
+        claim_boundary="Scoped ordering/window semantics with explicit boundedness.",
+    ),
+    _semantic_surface_row(
+        "dataframe_reshaping",
+        "dataframe",
+        "reshaping",
+        "Scoped melt/pivot/pivot_table/explode shapes are admitted only where cardinality expansion and output columns are explicit.",
+        "Broad reshape parity, nested explode variants, index-preserving reshapes, and ambiguous cardinality expansion block.",
+        required_evidence=("dataframe_method_matrix", "workflow_planning_diagnostics"),
+        claim_boundary="Scoped explicit-cardinality reshape semantics.",
+    ),
+    _semantic_surface_row(
+        "dataframe_materialization",
+        "dataframe",
+        "materialization",
+        "bounded collect/to_python_objects/to_pandas/to_arrow/to_numpy/write_* expose explicit decode/materialization or sink evidence.",
+        "Unbounded materialization, hidden decoded runtime, or sinks without native/export contracts fail closed.",
+        required_evidence=("dataframe_method_matrix", "local_output_sink_scope_report"),
+        claim_boundary="Decoded containers are output boundaries, not execution engines.",
+    ),
+    _semantic_surface_row(
+        "dataframe_index_semantics",
+        "dataframe",
+        "index semantics",
+        "Scoped set_index/reset_index/sort_index behavior is represented explicitly in the ShardLoom plan where admitted.",
+        "Hidden pandas-style index state, multi-index behavior, and implicit row identity are deterministic blockers.",
+        required_evidence=("dataframe_method_matrix", "workflow_planning_diagnostics"),
+        claim_boundary="Explicit ShardLoom row/order state only; no broad pandas index compatibility.",
+    ),
+    _semantic_surface_row(
+        "dataframe_expression_callable_apis",
+        "dataframe",
+        "expression/callable APIs",
+        "Declarative ShardLoom expressions, numeric eval/transform, and plan-only apply/pipe are admitted where typed and side-effect-free.",
+        "Python callable apply/map/pipe/eval and effectful UDFs require typed/sandboxed contracts and otherwise block before execution.",
+        required_evidence=("dataframe_method_matrix", "modular_extensibility_policy"),
+        claim_boundary="Typed declarative expressions only; no hidden Python callable execution.",
+    ),
+    _semantic_surface_row(
+        "dataframe_determinism",
+        "dataframe",
+        "determinism",
+        "sample/random_state/order-sensitive helpers require explicit boundedness and stable seeds or source-order evidence.",
+        "Unseeded, weighted, backend-dependent, or non-deterministic semantics block.",
+        required_evidence=("dataframe_method_matrix", "workflow_planning_diagnostics"),
+        claim_boundary="Deterministic ShardLoom semantics only.",
+    ),
+    _semantic_surface_row(
+        "dataframe_errors_blockers",
+        "dataframe",
+        "errors/blockers",
+        "Unsupported APIs fail before execution with stable blocker IDs, next_action text, and no-fallback evidence.",
+        "Generic unsupported prose, silent materialization, and post-read failures are validator gaps.",
+        required_evidence=("dataframe_method_matrix", "diagnostics_capabilities_policy"),
+        claim_boundary="Deterministic diagnostics are part of the public surface.",
+    ),
+    _semantic_surface_row(
+        "dataframe_fallback_boundary",
+        "dataframe",
+        "fallback boundary",
+        "pandas, Polars, DuckDB, Spark, DataFusion, and other engines may be optional containers, tests, or baselines only.",
+        "They must never execute unsupported ShardLoom runtime work as hidden fallback.",
+        required_evidence=("no_fallback_policy", "front_door_parity_matrix"),
+        claim_boundary="No external-engine fallback execution.",
+    ),
+    _semantic_surface_row(
+        "sql_parser_grammar_scope",
+        "sql",
+        "parser grammar",
+        "Admitted SELECT/local-source syntax, VALUES/literal output, joins, grouping, ordering, scoped subqueries, set ops, and Vortex primitive SQL shapes are parsed for scoped routes.",
+        "Broad dialect grammar, DDL/DML, recursive CTEs, arbitrary functions, and unadmitted syntax return deterministic parser or route diagnostics.",
+        required_evidence=("admitted_semantics_matrix", "sql_python_dataframe_parity_gate"),
+        claim_boundary="Scoped SQL-standard-inspired query grammar; not broad SQL-standard/ANSI-style compliance.",
+    ),
+    _semantic_surface_row(
+        "sql_binder_name_resolution",
+        "sql",
+        "binder/name resolution",
+        "Aliases, source-qualified subqueries, quoted local source refs, and ambiguity checks are admitted for documented routes.",
+        "Correlated or ambiguous references outside the admitted binder contract block with stable diagnostics.",
+        required_evidence=("admitted_semantics_matrix", "sql_local_source_runtime_tests"),
+        claim_boundary="Scoped binder semantics only.",
+    ),
+    _semantic_surface_row(
+        "sql_type_system",
+        "sql",
+        "type system",
+        "Integers, decimals, floats, strings, dates, timestamps, booleans, binary, nullability, and scoped nested dtypes are tracked where admitted.",
+        "Intervals, locale/timezone policy, variants, union dtypes, and broad nested accessors remain outside the claim unless explicitly admitted.",
+        required_evidence=("admitted_semantics_matrix", "semantic_conformance_suite"),
+        claim_boundary="Documented ShardLoom SQL dtype subset.",
+    ),
+    _semantic_surface_row(
+        "sql_casts_coercion",
+        "sql",
+        "type coercion/casts",
+        "Explicit casts and exact admitted decimal coercions preserve precision/scale evidence where supported.",
+        "Implicit cast breadth, overflow ambiguity, and non-exact decimal policy gaps block.",
+        required_evidence=("admitted_semantics_matrix", "semantic_conformance_suite"),
+        claim_boundary="Scoped explicit cast/coercion semantics.",
+    ),
+    _semantic_surface_row(
+        "sql_null_semantics",
+        "sql",
+        "NULL semantics",
+        "Three-valued predicate logic, IS NULL, null-safe comparisons, IN/NOT IN, EXISTS, and aggregate null handling are covered for admitted rows.",
+        "Unadmitted null ordering, nested null membership, or pandas-NA-style behavior block.",
+        required_evidence=("admitted_semantics_matrix", "semantic_conformance_suite"),
+        claim_boundary="Scoped SQL NULL semantics.",
+    ),
+    _semantic_surface_row(
+        "sql_relational_semantics",
+        "sql",
+        "relational semantics",
+        "Bag semantics, DISTINCT, grouping, HAVING, set operations, and duplicate handling are admitted for documented local-source and Vortex routes.",
+        "Broad relational algebra coverage or unsupported grouping/duplicate shapes block.",
+        required_evidence=("admitted_semantics_matrix", "front_door_parity_matrix"),
+        claim_boundary="Scoped relational semantics, not full database behavior.",
+    ),
+    _semantic_surface_row(
+        "sql_operator_semantics",
+        "sql",
+        "operator semantics",
+        "Comparison, arithmetic, LIKE, RLIKE/REGEXP, BETWEEN-style predicates, CASE, boolean precedence, binary helpers, and temporal helpers are admitted where covered by evidence rows.",
+        "Unsupported functions, locale/collation behavior, arbitrary interval arithmetic, and unadmitted operators block.",
+        required_evidence=("admitted_semantics_matrix", "semantic_conformance_suite"),
+        claim_boundary="Scoped operator semantics only.",
+    ),
+    _semantic_surface_row(
+        "sql_aggregates",
+        "sql",
+        "aggregates",
+        "COUNT(*), COUNT(col), SUM, AVG/mean, MIN, MAX, grouped/global aggregate behavior, and empty/all-null cases are admitted where evidence exists.",
+        "Unadmitted aggregate functions, hidden aggregate expressions, and unsupported result-shape variants block.",
+        required_evidence=("admitted_semantics_matrix", "clickbench_olap_runtime_coverage"),
+        claim_boundary="Scoped aggregate semantics.",
+    ),
+    _semantic_surface_row(
+        "sql_joins",
+        "sql",
+        "joins",
+        "Inner/left/right/full/cross or predicate joins are admitted only where the route evidence says the join type, null behavior, and duplicate-key behavior are implemented.",
+        "Natural/using joins, complex keys, implicit key inference, and unsupported outer semantics block.",
+        required_evidence=("admitted_semantics_matrix", "front_door_parity_matrix"),
+        claim_boundary="Documented join subset only.",
+    ),
+    _semantic_surface_row(
+        "sql_subqueries",
+        "sql",
+        "subqueries",
+        "Scalar, row-value, source-qualified, correlated, EXISTS/NOT EXISTS, IN/NOT IN, and quantified ANY/ALL variants are admitted only for the covered local-source families.",
+        "Arbitrary correlated plans, unbound source qualifiers, unsupported outer references, and complex subquery membership block.",
+        required_evidence=("admitted_semantics_matrix", "sql_local_source_runtime_tests"),
+        claim_boundary="Scoped subquery semantics.",
+    ),
+    _semantic_surface_row(
+        "sql_windows",
+        "sql",
+        "window functions",
+        "Rank/offset/distribution and scoped source-order rolling/window-ish routes are admitted only where explicit frame/order evidence exists.",
+        "Broad SQL window frames, peer-group variants, and unspecified order/null behavior block.",
+        required_evidence=("admitted_semantics_matrix", "clickbench_olap_runtime_coverage"),
+        claim_boundary="Scoped window semantics only.",
+    ),
+    _semantic_surface_row(
+        "sql_ordering_collation",
+        "sql",
+        "ordering/collation",
+        "ORDER BY, explicit NULLS FIRST/LAST, binary/string comparisons, and stable top-N routes are admitted where evidence exists.",
+        "Locale collation, case-insensitive locale policy, and implicit null/collation assumptions block.",
+        required_evidence=("admitted_semantics_matrix", "semantic_conformance_suite"),
+        claim_boundary="Scoped ordering semantics with documented deviations.",
+    ),
+    _semantic_surface_row(
+        "sql_errors_edge_cases",
+        "sql",
+        "errors and edge cases",
+        "Division by zero, invalid casts, ambiguous references, non-admitted syntax, non-admitted output policy, and overwrite policy emit deterministic diagnostics.",
+        "Errors must not be hidden by fallback execution or decoded compatibility paths.",
+        required_evidence=("admitted_semantics_matrix", "diagnostics_capabilities_policy"),
+        claim_boundary="Stable SQL diagnostics are part of the public surface.",
+    ),
+    _semantic_surface_row(
+        "sql_fallback_boundary",
+        "sql",
+        "fallback boundary",
+        "SQL is a frontend into ShardLoom planning and Vortex-native execution/provider routes.",
+        "DataFusion, DuckDB, Spark, Polars, pandas, and Vortex query-engine integrations must not execute unsupported SQL as fallback.",
+        required_evidence=("no_fallback_policy", "front_door_parity_matrix"),
+        claim_boundary="No external query-engine fallback execution.",
+    ),
+    _semantic_surface_row(
+        "shared_claim_vocabulary",
+        "shared",
+        "public claim vocabulary",
+        "Public copy may claim documented scoped semantic subsets, deterministic blockers, and no-fallback evidence for admitted routes.",
+        "Do not claim broad pandas compatibility, Polars compatibility, DataFrame compatibility, or SQL-standard/ANSI-style compliance.",
+        required_evidence=("front_door_semantic_surface_matrix", "release_docs_review"),
+        claim_boundary="Claim the selected surface and evidence tier, not broad ecosystem compatibility.",
+    ),
+)
+
+
 FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     _front_door_row(
         "local_file_filter_project_limit",
@@ -6393,7 +6842,7 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
     ),
     _front_door_row(
         "local_vortex_primitive_runtime",
-        "local Vortex count, count-where, filter, project, filter-project, scalar aggregate, and JSONL/CSV row-export primitives",
+        "local Vortex count, count-where, filter, project, filter-project, scalar aggregate, and primitive row-export sinks",
         "scoped_runtime_supported",
         sql_surface=(
             "ctx.sql(\"SELECT COUNT(*)/SUM(...)/columns FROM 'local.vortex' WHERE ... LIMIT ...\")"
@@ -6430,15 +6879,16 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "filter, project, filter-project, scalar aggregate, optional source-order limit, and "
             "scoped JSONL/CSV row export/fanout with an explicit decode/materialization boundary. Native `.vortex` "
             "input is already at the Vortex boundary, so this row is the direct Vortex-normalized "
-            "case. This is not broad Vortex SQL/DataFrame parity, non-JSONL/CSV compatibility "
-            "sinks, object-store runtime, or benchmark-backed performance equivalence."
+            "case. Structured Parquet/Arrow IPC/Avro compatibility exports for scoped ARRAY/STRUCT "
+            "projections are tracked in the typed nested compatibility sink row. This is not broad "
+            "Vortex SQL/DataFrame parity, object-store runtime, ORC/Vortex nested output, or "
+            "benchmark-backed performance equivalence."
         ),
     ),
     _front_door_row(
         "typed_nested_compatibility_sink",
         "computed typed nested compatibility sink output for scoped ARRAY/STRUCT projections",
-        "runtime_expansion_pending",
-        runtime_gap_status="native_compatibility_export_contract_missing",
+        "scoped_runtime_supported",
         sql_surface=(
             "ctx.sql(\"SELECT ARRAY[...] AS values, STRUCT(...) AS payload FROM 'local.csv'\")"
             ".write_parquet/write_arrow_ipc/write_avro"
@@ -6451,12 +6901,15 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "DataFrame-style with_columns(array/struct).write_parquet/write_arrow_ipc/write_avro"
         ),
         shared_runtime_path=(
-            "blocked until computed array/struct expressions lower through Vortex-prepared/native "
-            "execution and a native Vortex-derived structured compatibility export contract"
+            "compatibility input -> Vortex preparation -> native_vortex expression_project "
+            "structured row export -> Parquet/Arrow IPC/Avro compatibility sink"
         ),
-        parity_status="deterministic_blocker_until_native_export_contract",
-        performance_equivalence_status="not_claim_grade",
-        blocker_id="cg21.route.local_file_compatibility_sink_contract_missing",
+        parity_status="equivalent_admitted_scope",
+        performance_equivalence_status="same_vortex_middle_no_benchmark_claim",
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
         required_evidence=(
             "vortex_prepared_state_or_native_vortex_input",
             "typed_nested_expression_lowering",
@@ -6466,14 +6919,13 @@ FRONT_DOOR_PARITY_ROWS: tuple[FrontDoorParityRow, ...] = (
             "no_fallback_evidence",
         ),
         claim_boundary=(
-            "Computed ARRAY/STRUCT compatibility sinks remain blocked for public local-source "
-            "workflows until the expression is produced by a certified Vortex-prepared/native "
-            "route and exported through a certified native Vortex result/export contract with "
-            "structured Parquet/Arrow IPC/Avro evidence. Scoped primitive JSONL/CSV row-stream "
-            "exports and provider `write_vortex` result sinks are covered by separate admitted "
-            "rows. This does not claim full-fidelity nested output, all-null computed nested "
-            "columns without child-schema evidence, broad nested ordering, complex-key joins, "
-            "production SQL nested parity, or benchmarked performance equivalence."
+            "Scoped ARRAY literal and STRUCT-from-source-column projections over local CSV/JSONL "
+            "after Vortex preparation, or native `.vortex` input, can export through ShardLoom's "
+            "native Vortex structured row stream into Parquet, Arrow IPC, and Avro compatibility "
+            "sinks with explicit decode/materialization evidence. This does not claim ORC nested "
+            "output, Vortex nested output, all-null computed nested columns without child-schema "
+            "evidence, broad nested ordering, complex-key joins, production SQL nested parity, or "
+            "benchmarked performance equivalence."
         ),
     ),
     _front_door_row(
@@ -11763,6 +12215,16 @@ class ShardLoomContext:
 
         _ = check
         return FrontDoorParityMatrix(rows=FRONT_DOOR_PARITY_ROWS)
+
+    def front_door_semantic_surface_matrix(
+        self,
+        *,
+        check: bool | None = None,
+    ) -> FrontDoorSemanticSurfaceMatrix:
+        """Return scoped SQL and DataFrame-style semantic claim boundaries."""
+
+        _ = check
+        return FrontDoorSemanticSurfaceMatrix(rows=FRONT_DOOR_SEMANTIC_SURFACE_ROWS)
 
     def user_route_capability_report(
         self,

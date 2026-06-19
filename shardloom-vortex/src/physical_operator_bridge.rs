@@ -563,6 +563,7 @@ mod tests {
             rolling_window: None,
             simple_aggregate: None,
             sort_rows: None,
+            structured_projection: None,
             diagnostics: Vec::new(),
         };
 

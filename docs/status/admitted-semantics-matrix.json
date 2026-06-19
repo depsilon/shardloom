@@ -1,9 +1,9 @@
 {
-  "claim_boundary": "admitted SQL local-source expression/operator correctness evidence only; not ANSI SQL, production semantic parity, or performance evidence",
+  "claim_boundary": "admitted SQL local-source expression/operator correctness evidence only; not broad SQL-standard/ANSI-style compliance, production semantic parity, or performance evidence",
   "fallback_boundary": "external engines may be isolated test oracles or baselines only and are not invoked by this validator",
   "matrix_id": "review-runtime-2.admitted_semantics_fixture_matrix",
   "remaining_matrix_gaps": [
-    "broad ANSI subquery parity beyond the admitted bounded local scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN, projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified, source-qualified scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references, correlated outer.<column> subquery filter, subquery-backed predicate/CASE projection, HAVING-level scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and correlated quantified variants, and deterministic outer-reference diagnostics",
+    "broad SQL-standard subquery parity beyond the admitted bounded local scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, quantified ANY/ALL, nested scalar IN, projected joined/grouped scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS, projected quantified, source-qualified scalar/row-value IN/NOT IN/EXISTS/NOT EXISTS/quantified local subquery references, correlated outer.<column> subquery filter, subquery-backed predicate/CASE projection, HAVING-level scalar/row-value IN/NOT IN, EXISTS/NOT EXISTS, and correlated quantified variants, and deterministic outer-reference diagnostics",
     "external-oracle result artifact population",
     "general fuzz execution beyond the deterministic v1 property/fuzz lanes"
   ],
@@ -335,7 +335,7 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL IS DISTINCT FROM and IS NOT DISTINCT FROM local-source predicate and predicate-projection semantics only; no broad ANSI parity claim",
+      "claim_boundary": "scoped SQL IS DISTINCT FROM and IS NOT DISTINCT FROM local-source predicate and predicate-projection semantics only; no broad SQL-standard parity claim",
       "coercion_policy": "null-safe comparison operands must bind to admitted source columns or scalar literals and lower to ShardLoom-owned null/comparison/logical predicates",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
@@ -655,7 +655,7 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL ORDER BY over ARRAY/STRUCT projection outputs through canonical structural JSONL result-boundary sort keys and CSV JSON-text output; typed nested compatibility sink preservation is tracked separately; not broad ANSI nested ordering, joins, subquery membership equality, accessors, casts, ORC nested output or production nested parity",
+      "claim_boundary": "scoped SQL ORDER BY over ARRAY/STRUCT projection outputs through canonical structural JSONL result-boundary sort keys and CSV JSON-text output; typed nested compatibility sink preservation is tracked separately; not broad SQL-standard nested ordering, joins, subquery membership equality, accessors, casts, ORC nested output or production nested parity",
       "coercion_policy": "ORDER BY over admitted complex projection aliases uses ShardLoom-owned length-delimited structural keys over already-materialized ARRAY literal and STRUCT source-column projection values",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
@@ -695,7 +695,7 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL UNION ORDER BY over ARRAY/STRUCT projection outputs through canonical structural JSONL result-boundary sort keys and CSV JSON-text output; typed nested compatibility sink preservation is tracked separately; not broad ANSI nested ordering, joins, subquery membership equality, accessors, casts, ORC nested output or production nested parity",
+      "claim_boundary": "scoped SQL UNION ORDER BY over ARRAY/STRUCT projection outputs through canonical structural JSONL result-boundary sort keys and CSV JSON-text output; typed nested compatibility sink preservation is tracked separately; not broad SQL-standard nested ordering, joins, subquery membership equality, accessors, casts, ORC nested output or production nested parity",
       "coercion_policy": "UNION ORDER BY over admitted complex output columns uses ShardLoom-owned length-delimited structural keys after branch dtype checks and UNION composition",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
@@ -755,7 +755,7 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL/Python decimal128 cast projection and predicate semantics plus exact exponent-notation normalization, feature-gated Parquet/Arrow IPC/Avro typed decimal compatibility sink preservation, and scoped local Vortex flat scalar output preservation including nullable/all-null known flat scalar result columns with dtype/family evidence only; mixed-scale decimal arithmetic and exact division are tracked in the separate decimal_arithmetic_projection row; not broad ANSI coercion, ORC typed decimal sinks, performance, or production claim",
+      "claim_boundary": "scoped SQL/Python decimal128 cast projection and predicate semantics plus exact exponent-notation normalization, feature-gated Parquet/Arrow IPC/Avro typed decimal compatibility sink preservation, and scoped local Vortex flat scalar output preservation including nullable/all-null known flat scalar result columns with dtype/family evidence only; mixed-scale decimal arithmetic and exact division are tracked in the separate decimal_arithmetic_projection row; not broad SQL-standard coercion, ORC typed decimal sinks, performance, or production claim",
       "coercion_policy": "explicit CAST/TRY_CAST(column AS decimal128/decimal/numeric(p,s)) parses scoped fixed-scale decimal text, exact exponent notation that normalizes to the declared target scale, and numeric scalar inputs exactly into Decimal128 values; JSONL emits exact decimal strings, CSV emits exact decimal text, feature-gated Parquet/Arrow IPC/Avro compatibility sinks preserve scoped decimal128 precision/scale, and scoped local Vortex known flat scalar output preserves scoped decimal128 precision/scale through the feature-gated writer/reopen path, including nullable/all-null decimal result columns with dtype evidence",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
@@ -775,7 +775,7 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped SQL/Python decimal128 add/subtract/multiply projection semantics over same-scale and mixed-scale decimal128 operands, integer operands, mixed-scale decimal comparisons, exact fixed-scale decimal division, feature-gated Parquet/Arrow IPC/Avro typed decimal compatibility sink preservation, and scoped local Vortex flat scalar output preservation including nullable/all-null known flat scalar result columns with dtype/family evidence only; not broad ANSI decimal coercion, ORC typed decimal sinks, performance, or production claim",
+      "claim_boundary": "scoped SQL/Python decimal128 add/subtract/multiply projection semantics over same-scale and mixed-scale decimal128 operands, integer operands, mixed-scale decimal comparisons, exact fixed-scale decimal division, feature-gated Parquet/Arrow IPC/Avro typed decimal compatibility sink preservation, and scoped local Vortex flat scalar output preservation including nullable/all-null known flat scalar result columns with dtype/family evidence only; not broad SQL-standard decimal coercion, ORC typed decimal sinks, performance, or production claim",
       "coercion_policy": "explicit CAST(column-or-literal AS decimal128/decimal/numeric(p,s)) produces exact fixed-scale Decimal128 operands; add/subtract align operands to a common scale; multiply preserves exact fixed-scale output when precision and scale remain within decimal128 bounds; division emits decimal128(38,max(input_scales,6)) only when the quotient is exact at that scoped fixed output scale; feature-gated Parquet/Arrow IPC/Avro compatibility sinks and scoped local Vortex known flat scalar output preserve scoped decimal128 precision/scale, including nullable/all-null decimal result columns with dtype evidence",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
@@ -835,7 +835,7 @@
       "unsupported_diagnostic_message": "not_applicable_executable"
     },
     {
-      "claim_boundary": "scoped local-source SQL/Python BYTE_LENGTH/OCTET_LENGTH projection and predicate semantics over admitted binary helper and binary CAST expression routes only; not broad binary source byte length, arbitrary binary expressions, broad binary preservation, ORC nested output, ORC typed decimal sinks, broad ANSI decimal/subquery parity, production SQL/DataFrame completeness, or performance claims",
+      "claim_boundary": "scoped local-source SQL/Python BYTE_LENGTH/OCTET_LENGTH projection and predicate semantics over admitted binary helper and binary CAST expression routes only; not broad binary source byte length, arbitrary binary expressions, broad binary preservation, ORC nested output, ORC typed decimal sinks, broad SQL-standard decimal/subquery parity, production SQL/DataFrame completeness, or performance claims",
       "coercion_policy": "BYTE_LENGTH/OCTET_LENGTH accepts only admitted UNHEX, FROM_BASE64, CAST, or TRY_CAST binary helper/cast expressions over source-backed UTF-8 expressions; no bare binary source, source-free literal, or arbitrary binary expression byte-length route is admitted",
       "decoded_reference_kind": "jsonl_inline_reference",
       "external_engine_invoked": false,
@@ -902,7 +902,7 @@
       "fallback_attempted": false,
       "id": "row_value_in_subquery_semantics",
       "input_dtype": "int64,utf8,null,boolean",
-      "invalid_input_behavior": "scalar multi-column, arity-mismatched, unbound qualified, or remaining non-admitted broad ANSI subquery shapes block deterministically",
+      "invalid_input_behavior": "scalar multi-column, arity-mismatched, unbound qualified, or remaining non-admitted broad SQL-standard subquery shapes block deterministically",
       "null_policy": "materialized row-value IN subquery tuples containing NULL use SQL three-valued WHERE filtering",
       "operator_family": "row_value_in_subquery,in_subquery,row_value_in_predicate",
       "oracle_boundary": "decoded_reference_only",
@@ -922,7 +922,7 @@
       "fallback_attempted": false,
       "id": "not_in_subquery_semantics",
       "input_dtype": "int64,boolean",
-      "invalid_input_behavior": "missing subquery columns, oversized materialized lists, scalar-left multi-column subqueries, unbound qualified references, or remaining non-admitted broad ANSI subquery shapes block deterministically",
+      "invalid_input_behavior": "missing subquery columns, oversized materialized lists, scalar-left multi-column subqueries, unbound qualified references, or remaining non-admitted broad SQL-standard subquery shapes block deterministically",
       "null_policy": "NOT IN lowers to ShardLoom-native logical NOT over admitted IN-subquery SQL three-valued WHERE filtering",
       "operator_family": "logical_predicate,in_subquery,in_predicate",
       "oracle_boundary": "decoded_reference_only",
@@ -942,7 +942,7 @@
       "fallback_attempted": false,
       "id": "row_value_not_in_subquery_semantics",
       "input_dtype": "int64,utf8,boolean",
-      "invalid_input_behavior": "scalar multi-column, arity-mismatched, unbound qualified, oversized materialized tuple sets, or remaining non-admitted broad ANSI subquery shapes block deterministically",
+      "invalid_input_behavior": "scalar multi-column, arity-mismatched, unbound qualified, oversized materialized tuple sets, or remaining non-admitted broad SQL-standard subquery shapes block deterministically",
       "null_policy": "row-value NOT IN lowers to ShardLoom-native logical NOT over admitted row-value IN-subquery SQL three-valued WHERE filtering",
       "operator_family": "logical_predicate,row_value_in_subquery,in_subquery,row_value_in_predicate",
       "oracle_boundary": "decoded_reference_only",
@@ -962,7 +962,7 @@
       "fallback_attempted": false,
       "id": "exists_subquery_semantics",
       "input_dtype": "int64,utf8,boolean",
-      "invalid_input_behavior": "joined, grouped, HAVING-internal, unbound qualified, or remaining non-admitted broad ANSI subquery shapes block deterministically",
+      "invalid_input_behavior": "joined, grouped, HAVING-internal, unbound qualified, or remaining non-admitted broad SQL-standard subquery shapes block deterministically",
       "null_policy": "EXISTS uses a two-valued presence test over the bounded subquery output; NULL payload values do not make the presence test unknown",
       "operator_family": "exists_subquery",
       "oracle_boundary": "decoded_reference_only",
@@ -982,7 +982,7 @@
       "fallback_attempted": false,
       "id": "quantified_subquery_semantics",
       "input_dtype": "int64,boolean",
-      "invalid_input_behavior": "unbound qualified references, remaining non-admitted broad ANSI subquery shapes, scalar-left multi-column, or malformed quantified subquery shapes block deterministically",
+      "invalid_input_behavior": "unbound qualified references, remaining non-admitted broad SQL-standard subquery shapes, scalar-left multi-column, or malformed quantified subquery shapes block deterministically",
       "null_policy": "materialized ANY/ALL subquery values use SQL three-valued WHERE filtering; empty ANY is false and empty ALL is true",
       "operator_family": "quantified_subquery,subquery_filter,subquery_order_limit",
       "oracle_boundary": "decoded_reference_only",
@@ -1082,7 +1082,7 @@
       "fallback_attempted": false,
       "id": "in_subquery_filtered_ordered_limited_semantics",
       "input_dtype": "int64,boolean",
-      "invalid_input_behavior": "unsupported scalar multi-column, unbound qualified references, remaining non-admitted broad ANSI subquery shapes, joined, or grouped subquery shapes block deterministically",
+      "invalid_input_behavior": "unsupported scalar multi-column, unbound qualified references, remaining non-admitted broad SQL-standard subquery shapes, joined, or grouped subquery shapes block deterministically",
       "null_policy": "filtered bounded IN subquery values without NULL use ordinary scalar membership semantics",
       "operator_family": "in_subquery,in_predicate,subquery_filter,subquery_order_limit",
       "oracle_boundary": "decoded_reference_only",
