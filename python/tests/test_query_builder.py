@@ -20064,6 +20064,76 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(route.fallback_attempted)
         self.assertFalse(execution.fallback_attempted)
 
+    def test_vortex_query_builder_route_and_run_forward_distinct_payload(self) -> None:
+        expected_plan = (
+            "read_vortex(orders.vortex) -> select(metric,value) -> distinct() -> limit(5)"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[:2] in (["route", "dataframe"], ["run", "dataframe"]), args
+                assert args[args.index("--input") + 1] == "orders.vortex", args
+                assert args[args.index("--input-format") + 1] == "vortex", args
+                assert args[args.index("--plan") + 1] == {expected_plan!r}, args
+                assert args[args.index("--request") + 1] == "collect", args
+                assert args[args.index("--execution-policy") + 1] == "auto", args
+                assert args[args.index("--native-vortex-operation-family") + 1] == "distinct", args
+                assert args[args.index("--vortex-primitive") + 1] == "distinct", args
+                assert args[args.index("--vortex-columns") + 1] == "metric,value", args
+                assert args[args.index("--vortex-source-order-limit") + 1] == "5", args
+                assert args[-2:] == ["--format", "json"], args
+                command = args[0]
+                fields = [
+                    {{"key": "route_id", "value": "native_vortex_distinct"}},
+                    {{"key": "route_status", "value": "admitted"}},
+                    {{"key": "route_support_status", "value": "scoped_runtime_supported"}},
+                    {{"key": "route_runtime_status", "value": "production_admitted_local_workflow"}},
+                    {{"key": "resolved_internal_command", "value": "vortex-distinct"}},
+                    {{"key": "vortex_primitive", "value": "distinct"}},
+                    {{"key": "native_vortex_operation_family", "value": "distinct"}},
+                    {{"key": "public_workflow_route_attached", "value": "true"}},
+                    {{"key": "public_workflow_route_id", "value": "native_vortex_distinct"}},
+                    {{"key": "public_workflow_route_status", "value": "admitted"}},
+                    {{"key": "public_workflow_route_runtime_status", "value": "production_admitted_local_workflow"}},
+                    {{"key": "public_workflow_resolved_internal_command", "value": "vortex-distinct"}},
+                    {{"key": "public_workflow_vortex_primitive", "value": "distinct"}},
+                    {{"key": "public_workflow_native_vortex_operation_family", "value": "distinct"}},
+                    {{"key": "fallback_attempted", "value": "false"}},
+                    {{"key": "external_engine_invoked", "value": "false"}},
+                ]
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": fields,
+                }}))
+                """
+            )
+        )
+        workflow = (
+            sl.read_vortex("orders.vortex", client=ShardLoomClient(binary=binary))
+            .select("metric", "value")
+            .distinct()
+            .limit(5)
+        )
+
+        route = workflow.route()
+        execution = workflow.run()
+
+        self.assertEqual(route.route_id, "native_vortex_distinct")
+        self.assertEqual(route.vortex_primitive, "distinct")
+        self.assertEqual(execution.route_id, "native_vortex_distinct")
+        self.assertEqual(execution.vortex_primitive, "distinct")
+        self.assertFalse(route.fallback_attempted)
+        self.assertFalse(execution.fallback_attempted)
+
     def test_sql_vortex_collect_uses_local_filter_project_primitive(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

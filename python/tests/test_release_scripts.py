@@ -9543,6 +9543,34 @@ class ReleaseScriptTests(unittest.TestCase):
             required,
         )
 
+    def test_release_validation_evidence_skip_slow_status_is_not_passed(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            output = Path(tempdir) / "release-validation-evidence.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(REPO_ROOT / "scripts" / "run_release_validation_evidence.py"),
+                    "--skip-slow",
+                    "--output",
+                    str(output),
+                ],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(report["status"], "skipped_slow")
+            self.assertEqual(report["feature_build_matrix_status"], "skipped_slow")
+            self.assertEqual(report["required_validation_status"], "skipped_slow")
+            self.assertEqual(
+                report["supporting_security_dependency_status"],
+                "skipped_slow",
+            )
+            self.assertEqual(report["command_results"], [])
+
     def test_v1_security_ci_hardening_blocks_missing_pip_audit_and_requires_matrix_lanes(self) -> None:
         module = self._load_script_module(
             "check_v1_security_ci_hardening.py",

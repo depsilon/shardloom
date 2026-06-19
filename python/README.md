@@ -31,18 +31,17 @@ Foundry-style imports:
 python -m pip install -e python
 ```
 
-The source package exposes the v0.1.6 technical-preview version through
-`shardloom.__version__`. The selected published package channels are currently proof-backed at
-v0.1.4 until the next release pass advances the checked-in channel-proof contract. The PyPI package
-is published as `shardloom==0.1.4`; GitHub release assets and the `depsilon/tap/shardloom` Homebrew
-formula are also proof-backed for v0.1.4. These channels are install access only and do not imply
-production readiness, broad runtime support, or performance claims.
+The source package exposes the current technical-preview source version through
+`shardloom.__version__`. Public package channels can lag the source tree until the release contract
+is advanced, so source checkouts should use editable installs and published-channel users should
+install the latest released package from the selected channel. These channels are install access
+only and do not imply production readiness, broad runtime support, or performance claims.
 
 ```sh
-python -m pip install shardloom==0.1.4
+python -m pip install shardloom
 ```
 
-Published v0.1.4 supported-platform wheels resolve the packaged CLI before falling back to `PATH`.
+Published supported-platform wheels resolve the packaged CLI before falling back to `PATH`.
 Explicit binary/env/source configuration still wins. Use `SHARDLOOM_BIN` only when you want to pin a
 specific CLI binary or when installing from a source distribution without a bundled platform CLI:
 
@@ -1547,9 +1546,9 @@ report-only surfaces into runtime support.
 
 ## Package Build Smoke
 
-The current source package is v0.1.6; the latest selected published channel proof remains v0.1.4
-until the next release pass updates the release contract. It is a Python client surface over
-ShardLoom's CLI, with bundled CLI resources in supported platform wheels.
+The current source package version is owned by `shardloom.__version__` and the shared workspace
+version sources. It is a Python client surface over ShardLoom's CLI, with bundled CLI resources in
+supported platform wheels.
 Bundled platform-wheel readiness can be checked locally without publishing:
 
 ```powershell

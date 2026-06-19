@@ -16,9 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: PR #1297+ Codex review comment runtime polish
+  - Date: 2026-06-19
+  - Branch/PR: `codex/pr1297-comment-runtime-polish` / PR pending.
+  - Source:
+    - One-time Codex review-comment sweep across PRs #1297 and up after the runtime/user-surface
+      phase-plan closeout, focused on actionable correctness issues that still needed explicit
+      current-branch evidence or small code fixes.
+  - Scope:
+    - Confirmed later merged PRs had already resolved most reviewed comments across sampling,
+      explode, sort, expression-grouping, HAVING, encoded predicate validation, Vortex describe
+      projection checks, fractional sampling, integer sort ordering, and explicit-index
+      `sort_index` routing.
+    - Promoted native Vortex collect route payload construction to share the full primitive-shape
+      mapping used by row exports, so projected distinct and the rest of the post-shaped primitive
+      family carry deterministic `vortex_primitive`, operation-family, column, limit, sampling,
+      duplicate-keep, projection, rolling, and sort payload fields through `route()` and `run()`.
+    - Fixed payloadless duplicate-mask route inference so `keep=first|last|false` is treated as a
+      duplicate policy instead of a data column, while invalid or duplicated keep policies remain
+      unadmitted.
+    - Tightened release-validation evidence semantics: `--skip-slow` remains a successful local
+      inspection mode, but reports `status=skipped_slow` and does not represent itself as passed
+      hard release proof.
+    - Removed stale exact-channel version pins from the Python package README so source docs defer
+      to `shardloom.__version__` and shared workspace version sources while published-channel users
+      install the latest selected release.
+  - Evidence:
+    - `cargo fmt --all -- --check` passed after formatter application.
+    - `python3 -m py_compile scripts/run_release_validation_evidence.py python/src/shardloom/query.py python/tests/test_query_builder.py python/tests/test_release_scripts.py`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_release_validation_evidence_skip_slow_status_is_not_passed`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_vortex_query_builder_route_and_run_forward_distinct_payload`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_vortex_query_builder_route_and_run_forward_inferred_primitive_payload`
+      passed.
+    - `cargo test -p shardloom-cli --features vortex-local-primitives --bin shardloom route_planner_separates_payloadless_duplicate_keep_policy_from_columns`
+      passed.
+    - `cargo test -p shardloom-cli --bin shardloom route_planner_separates_payloadless_duplicate_keep_policy_from_columns`
+      passed.
+    - `python3 scripts/run_release_validation_evidence.py --skip-slow --output target/release-validation-evidence-skip-slow-debug.json`
+      completed with `status=skipped_slow` and zero command executions.
+    - `git diff --check` passed.
+  - Claim boundary:
+    - This is a targeted review-comment/runtime-polish closeout. It does not run the full workspace
+      suite, publish packages, refresh benchmarks, or make a new performance claim.
+  - Fallback boundary:
+    - The route changes preserve ShardLoom-native routing metadata and no-fallback evidence; no
+      external engine execution path was added.
+
 - [x] Session label: release evidence refresh and skip-slow hardening
   - Date: 2026-06-19
-  - Branch/PR: `codex/release-evidence-skip-slow-hardening` / PR pending.
+  - Branch/PR: `codex/release-evidence-skip-slow-hardening` / PR #1307, merged.
   - Source:
     - Goal-continuation audit for packaged/deployed/used readiness after v0.1.6 source release
       metadata, with broad workspace cargo/clippy/test runs intentionally deferred until the

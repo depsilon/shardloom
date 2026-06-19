@@ -471,10 +471,10 @@ def main() -> int:
             }
         )
 
-    feature_matrix_passed = args.skip_slow or all(
+    feature_matrix_passed = (not args.skip_slow) and all(
         not row["release_blocking"] for row in feature_rows
     )
-    required_validation_passed = args.skip_slow or all(
+    required_validation_passed = (not args.skip_slow) and all(
         not row["release_blocking"] for row in required_rows
     )
     supporting_passed = all(
@@ -486,7 +486,7 @@ def main() -> int:
 
     report = {
         "schema_version": SCHEMA_VERSION,
-        "status": "passed" if passed else "failed",
+        "status": SKIPPED_SLOW_STATUS if args.skip_slow else ("passed" if passed else "failed"),
         "python_executable": python_executable,
         "pip_audit_python": str(args.pip_audit_python) if args.pip_audit_python else None,
         "clean_conda_required": args.require_clean_conda,
@@ -512,7 +512,7 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     print(output)
-    return 0 if passed or args.continue_on_failure else 1
+    return 0 if passed or args.skip_slow or args.continue_on_failure else 1
 
 
 if __name__ == "__main__":

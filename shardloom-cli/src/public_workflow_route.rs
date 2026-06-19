@@ -5389,6 +5389,31 @@ fn native_vortex_primitive_payload_with_seed(
     }
 }
 
+fn native_vortex_duplicate_mask_primitive_payload(
+    columns: String,
+    source_order_limit: Option<String>,
+    duplicate_keep: Option<String>,
+) -> InferredNativeVortexRoutePayload {
+    InferredNativeVortexRoutePayload {
+        family: NativeVortexOperationFamily::DuplicateMask,
+        provider_scenario: None,
+        primitive: Some(PublicVortexPrimitive::DuplicateMask),
+        predicate: None,
+        columns: Some(columns),
+        source_order_limit,
+        sample_seed: None,
+        sample_fraction: None,
+        sample_replacement: false,
+        duplicate_keep,
+        explode_projection: None,
+        pivot_projection: None,
+        rolling_window: None,
+        aggregate: None,
+        sort_rows: None,
+        right_input: None,
+    }
+}
+
 fn native_vortex_sample_primitive_payload(
     predicate: Option<String>,
     columns: Option<String>,
@@ -5706,41 +5731,68 @@ fn infer_native_vortex_duplicate_mask_primitive_payload(
             &["read_vortex", "select", duplicate_kind, "limit"],
         ) && summary_positive_limit(operations[3].arg)
         {
-            return Some(native_vortex_primitive_payload(
-                PublicVortexPrimitive::DuplicateMask,
-                None,
-                Some(operations[2].arg.trim().to_string()),
+            let (columns, duplicate_keep) =
+                summary_duplicate_mask_columns_and_keep(operations[2].arg)?;
+            return Some(native_vortex_duplicate_mask_primitive_payload(
+                columns,
                 Some(operations[3].arg.trim().to_string()),
+                duplicate_keep,
             ));
         }
         if matches_summary_kinds(operations, &["read_vortex", "select", duplicate_kind]) {
-            return Some(native_vortex_primitive_payload(
-                PublicVortexPrimitive::DuplicateMask,
+            let (columns, duplicate_keep) =
+                summary_duplicate_mask_columns_and_keep(operations[2].arg)?;
+            return Some(native_vortex_duplicate_mask_primitive_payload(
+                columns,
                 None,
-                Some(operations[2].arg.trim().to_string()),
-                None,
+                duplicate_keep,
             ));
         }
         if matches_summary_kinds(operations, &["read_vortex", duplicate_kind, "limit"])
             && summary_positive_limit(operations[2].arg)
         {
-            return Some(native_vortex_primitive_payload(
-                PublicVortexPrimitive::DuplicateMask,
-                None,
-                Some(operations[1].arg.trim().to_string()),
+            let (columns, duplicate_keep) =
+                summary_duplicate_mask_columns_and_keep(operations[1].arg)?;
+            return Some(native_vortex_duplicate_mask_primitive_payload(
+                columns,
                 Some(operations[2].arg.trim().to_string()),
+                duplicate_keep,
             ));
         }
         if matches_summary_kinds(operations, &["read_vortex", duplicate_kind]) {
-            return Some(native_vortex_primitive_payload(
-                PublicVortexPrimitive::DuplicateMask,
+            let (columns, duplicate_keep) =
+                summary_duplicate_mask_columns_and_keep(operations[1].arg)?;
+            return Some(native_vortex_duplicate_mask_primitive_payload(
+                columns,
                 None,
-                Some(operations[1].arg.trim().to_string()),
-                None,
+                duplicate_keep,
             ));
         }
     }
     None
+}
+
+fn summary_duplicate_mask_columns_and_keep(value: &str) -> Option<(String, Option<String>)> {
+    let mut columns = Vec::new();
+    let mut duplicate_keep = None;
+    for part in value
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+    {
+        if let Some(keep) = part.strip_prefix("keep=") {
+            if duplicate_keep.is_some() || !matches!(keep, "first" | "last" | "false") {
+                return None;
+            }
+            duplicate_keep = Some(keep.to_string());
+        } else {
+            if !is_summary_identifier(part) {
+                return None;
+            }
+            columns.push(part.to_string());
+        }
+    }
+    (!columns.is_empty()).then(|| (columns.join(","), duplicate_keep))
 }
 
 fn infer_native_vortex_sample_primitive_payload(
@@ -9477,6 +9529,50 @@ mod tests {
         assert_eq!(
             field(&attachments, "public_workflow_vortex_source_order_limit"),
             "2"
+        );
+    }
+
+    #[test]
+    fn route_planner_separates_payloadless_duplicate_keep_policy_from_columns() {
+        let request = PublicWorkflowRouteRequest::parse(
+            [
+                "dataframe",
+                "--input",
+                "orders.vortex",
+                "--input-format",
+                "vortex",
+                "--plan",
+                "read_vortex(orders.vortex) -> select(id,label) -> duplicate_mask(id,keep=last) -> limit(2)",
+                "--request",
+                "collect",
+                "--bounded",
+                "true",
+                "--execution-policy",
+                "native_vortex",
+            ]
+            .into_iter()
+            .map(str::to_string),
+        )
+        .expect("payloadless native duplicate-mask keep route request");
+
+        let plan = plan_public_workflow_route(&request);
+        let fields = route_fields(&request, &plan);
+        let attachments = execution_attachment_fields("run", &request, &plan);
+
+        if cfg!(feature = "vortex-local-primitives") {
+            assert_eq!(plan.status, CommandStatus::Success);
+            assert_eq!(plan.route_id, "native_vortex_duplicate_mask");
+        } else {
+            assert_eq!(plan.status, CommandStatus::Unsupported);
+            assert_eq!(plan.route_id, "blocked");
+        }
+        assert_eq!(field(&fields, "vortex_primitive"), "duplicate_mask");
+        assert_eq!(field(&fields, "vortex_columns"), "id");
+        assert_eq!(field(&fields, "vortex_duplicate_keep"), "last");
+        assert_eq!(field(&attachments, "public_workflow_vortex_columns"), "id");
+        assert_eq!(
+            field(&attachments, "public_workflow_vortex_duplicate_keep"),
+            "last"
         );
     }
 
