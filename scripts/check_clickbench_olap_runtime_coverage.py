@@ -471,11 +471,13 @@ def coverage_report(queries: list[str]) -> dict[str, Any]:
     blocker_counts: dict[str, int] = {}
     tag_counts: dict[str, int] = {}
     state_family_counts: dict[str, int] = {}
+    route_family_counts: dict[str, int] = {}
     capillary_work_unit_counts: dict[str, int] = {}
     pulseweave_pressure_signal_counts: dict[str, int] = {}
     spill_policy_counts: dict[str, int] = {}
     for row in rows:
         status_counts[row["runtime_status"]] = status_counts.get(row["runtime_status"], 0) + 1
+        route_family_counts[row["route_family"]] = route_family_counts.get(row["route_family"], 0) + 1
         if row["blocker_id"] != "none":
             blocker_counts[row["blocker_id"]] = blocker_counts.get(row["blocker_id"], 0) + 1
         for tag in row["operator_tags"]:
@@ -496,7 +498,11 @@ def coverage_report(queries: list[str]) -> dict[str, Any]:
         "query_count": len(rows),
         "expected_query_count": EXPECTED_QUERY_COUNT,
         "runtime_status_counts": status_counts,
+        "admitted_query_count": status_counts.get("admitted_current_runtime", 0),
+        "implementation_required_count": status_counts.get("implementation_required", 0),
+        "feature_gated_query_count": status_counts.get("feature_gated", 0),
         "blocker_counts": blocker_counts,
+        "route_family_counts": route_family_counts,
         "operator_tag_counts": tag_counts,
         "state_budget_schema_version": STATE_BUDGET_SCHEMA_VERSION,
         "state_budget_required_count": sum(1 for row in rows if row["state_budget_required"]),
@@ -510,8 +516,14 @@ def coverage_report(queries: list[str]) -> dict[str, Any]:
             1 for row in rows if row["fail_closed_if_spill_required"]
         ),
         "scale_fixture_strategy": scale_fixture_strategy(),
+        "clickbench_olap_readiness_status": "all_queries_admitted_route_readiness",
         "benchmark_site_readiness_status": "ready_route_readiness_not_performance",
         "benchmark_site_readiness_fields_present": True,
+        "memory_spill_diagnostic_status": "state_budget_declared_spill_fail_closed_no_spill_io",
+        "site_readiness_claim_boundary": (
+            "route readiness only; not a timing, performance, production, spill-runtime, "
+            "larger-than-memory, or superiority claim"
+        ),
         "claim_gate_status": "not_claim_grade",
         "performance_claim_allowed": False,
         "fallback_attempted": False,
@@ -531,6 +543,23 @@ def validate(report: dict[str, Any]) -> list[str]:
         blockers.append(
             f"expected {EXPECTED_QUERY_COUNT} ClickBench queries, found {report['query_count']}"
         )
+    if report.get("admitted_query_count") != EXPECTED_QUERY_COUNT:
+        blockers.append("ClickBench route-readiness report must admit every canonical query")
+    if report.get("implementation_required_count") != 0:
+        blockers.append("ClickBench route-readiness report must have zero implementation-required rows")
+    if report.get("feature_gated_query_count") != 0:
+        blockers.append("ClickBench route-readiness report must have zero feature-gated rows")
+    if not report.get("route_family_counts"):
+        blockers.append("ClickBench report missing route_family_counts")
+    if report.get("clickbench_olap_readiness_status") != "all_queries_admitted_route_readiness":
+        blockers.append("ClickBench report missing all-query route-readiness status")
+    if (
+        report.get("memory_spill_diagnostic_status")
+        != "state_budget_declared_spill_fail_closed_no_spill_io"
+    ):
+        blockers.append("ClickBench report missing memory/spill diagnostic status")
+    if report.get("benchmark_site_readiness_fields_present") is not True:
+        blockers.append("ClickBench report missing benchmark/site readiness fields")
     ids = [row["query_id"] for row in rows]
     if ids != [f"CB-Q{index:02d}" for index in range(1, EXPECTED_QUERY_COUNT + 1)]:
         blockers.append("ClickBench query IDs are not contiguous CB-Q01..CB-Q43")
@@ -588,6 +617,8 @@ def main() -> int:
     blockers = validate(report)
     report["validation_passed"] = not blockers
     report["validation_blockers"] = blockers
+    report["status"] = "passed" if not blockers else "blocked"
+    report["blockers"] = blockers
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     if blockers:

@@ -11197,6 +11197,7 @@ class ShardLoomClient:
         vortex_explode_projection: str | None = None,
         vortex_pivot_projection: str | None = None,
         vortex_rolling_window: str | None = None,
+        vortex_sort_rows: str | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -11254,6 +11255,7 @@ class ShardLoomClient:
             vortex_explode_projection=vortex_explode_projection,
             vortex_pivot_projection=vortex_pivot_projection,
             vortex_rolling_window=vortex_rolling_window,
+            vortex_sort_rows=vortex_sort_rows,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -11298,6 +11300,7 @@ class ShardLoomClient:
         vortex_explode_projection: str | None = None,
         vortex_pivot_projection: str | None = None,
         vortex_rolling_window: str | None = None,
+        vortex_sort_rows: str | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -11342,6 +11345,7 @@ class ShardLoomClient:
             vortex_explode_projection=vortex_explode_projection,
             vortex_pivot_projection=vortex_pivot_projection,
             vortex_rolling_window=vortex_rolling_window,
+            vortex_sort_rows=vortex_sort_rows,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -11419,6 +11423,7 @@ class ShardLoomClient:
         vortex_explode_projection: str | None = None,
         vortex_pivot_projection: str | None = None,
         vortex_rolling_window: str | None = None,
+        vortex_sort_rows: str | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
     ) -> list[CommandPart]:
@@ -11475,6 +11480,7 @@ class ShardLoomClient:
             vortex_explode_projection=vortex_explode_projection,
             vortex_pivot_projection=vortex_pivot_projection,
             vortex_rolling_window=vortex_rolling_window,
+            vortex_sort_rows=vortex_sort_rows,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         )
@@ -13954,6 +13960,7 @@ def _append_public_vortex_payload_args(
     vortex_explode_projection: str | None,
     vortex_pivot_projection: str | None,
     vortex_rolling_window: str | None,
+    vortex_sort_rows: str | None,
     memory_gb: int | None,
     max_parallelism: int | None,
 ) -> None:
@@ -14019,6 +14026,11 @@ def _append_public_vortex_payload_args(
         if not payload:
             raise ValueError("vortex_rolling_window must not be empty")
         args.extend(["--vortex-rolling-window", payload])
+    if vortex_sort_rows is not None:
+        payload = str(vortex_sort_rows).strip()
+        if not payload:
+            raise ValueError("vortex_sort_rows must not be empty")
+        args.extend(["--vortex-sort-rows", payload])
     if memory_gb is not None:
         args.extend(["--memory-gb", str(_positive_int("memory_gb", memory_gb))])
     if max_parallelism is not None:

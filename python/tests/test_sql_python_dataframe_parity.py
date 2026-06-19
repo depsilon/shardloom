@@ -48,6 +48,29 @@ class SqlPythonDataFrameParityTests(unittest.TestCase):
         self.assertFalse(report["performance_equivalence_claim_allowed"])
         self.assertEqual(report["admitted_row_count"], 6)
         self.assertGreaterEqual(report["remaining_gap_count"], 4)
+        self.assertEqual(report["dataframe_method_blocker_count"], 0)
+        self.assertEqual(report["dataframe_method_pending_or_unsupported_count"], 0)
+        self.assertEqual(report["dataframe_named_runtime_surface_status"], "passed")
+        self.assertIn("sample", report["dataframe_named_runtime_surface_ids"])
+        self.assertIn("pivot_table", report["dataframe_named_runtime_surface_ids"])
+        self.assertIn("rolling", report["dataframe_named_runtime_surface_ids"])
+        self.assertIn("fillna", report["dataframe_named_runtime_surface_ids"])
+        self.assertIn("map_rows", report["dataframe_named_runtime_surface_ids"])
+        self.assertIn("apply", report["dataframe_plan_transform_only_method_ids"])
+        fillna = next(
+            row
+            for row in report["dataframe_named_runtime_surface_rows"]
+            if row["method"] == "fillna"
+        )
+        self.assertEqual(fillna["support_status"], "production_admitted_local_workflow")
+        self.assertTrue(fillna["runtime_execution"])
+        apply = next(
+            row
+            for row in report["dataframe_named_runtime_surface_rows"]
+            if row["method"] == "apply"
+        )
+        self.assertEqual(apply["support_status"], "lazy_plan_supported")
+        self.assertFalse(apply["runtime_execution"])
         self.assertTrue(report["all_broad_gaps_have_precise_runtime_status"])
         self.assertIn(
             "benchmark_publication_pending",

@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: ClickBench/DataFrame readiness-field closeout
+  - Date: 2026-06-19
+  - Branch/PR: `codex/clickbench-dataframe-runtime-polish` / PR pending.
+  - Source:
+    - Maintainer direction to finish ClickBench capillary/PulseWeave memory and spill diagnostics,
+      state budgeting, scale fixture strategy, benchmark/site readiness fields, ledger movement,
+      and remaining feasible Python/DataFrame surface polish before the next full workspace gate.
+  - Scope:
+    - Closed `CLICKBENCH-RUNTIME-POLISH-1` by promoting row-level ClickBench route-readiness
+      evidence to report-level fields consumed by site/release gates: `route_family_counts`,
+      `admitted_query_count`, `implementation_required_count`, `feature_gated_query_count`,
+      `clickbench_olap_readiness_status`, `memory_spill_diagnostic_status`, and
+      `site_readiness_claim_boundary`.
+    - Updated the benchmark-site manifest and README/architecture wording so ClickBench remains a
+      route-readiness map with capillary work units, PulseWeave pressure signals, state-budget
+      posture, scale-fixture tiers, fail-closed spill policy, and no timing/performance claim.
+    - Closed `PY-DATAFRAME-RUNTIME-POLISH-1` by adding a parity-gate audit for the requested
+      method families: sample, index metadata, reshape, rolling/window, mask/replace, null helpers,
+      declarative expression routes, writes/fanout, deduplication, and plan-transform callable
+      boundaries.
+    - Promoted schema-declared `dropna`, `fillna`/`fill_null`, and
+      `isna`/`isnull`/`notna`/`notnull` method capability rows from `fixture_smoke_supported` to
+      `production_admitted_local_workflow` because they lower to ShardLoom filter/projection
+      rewrites and route through the shared Vortex-normalized local workflow path.
+    - Preserved arbitrary Python callable/UDF execution as a future-contract boundary with precise
+      blocker IDs in `workflow-unsupported-plan`; no pandas, Polars, DuckDB, Spark, DataFusion, or
+      other external engine fallback was introduced.
+  - Evidence:
+    - `python3 scripts/check_clickbench_olap_runtime_coverage.py --output target/clickbench-olap-runtime-coverage.json`
+      passed with 43 admitted queries, 0 implementation-required rows, 0 feature-gated rows, and
+      report-level route-family/memory-spill/site-readiness fields.
+    - `PYTHONPATH=python/src python3 scripts/check_sql_python_dataframe_parity.py --output target/sql-python-dataframe-parity-gate.json`
+      passed with 113 DataFrame method rows, 64 `production_admitted_local_workflow` rows, 0 method
+      blockers, and 0 pending/unsupported method rows.
+    - `PYTHONPATH=python/src python3 scripts/check_python_user_surface_completion.py --output target/python-user-surface-completion-runtime-polish.json`
+      passed.
+    - `python3 -m py_compile scripts/check_clickbench_olap_runtime_coverage.py scripts/check_sql_python_dataframe_parity.py python/src/shardloom/context.py` passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_sql_python_dataframe_parity`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_clickbench_olap_coverage_accepts_relative_output_path`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+      passed.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_schema_declared_dataframe_fillna_lowers_to_coalesce_projection python.tests.test_query_builder.LazyWorkflowBuilderTests.test_schema_declared_dataframe_null_masks_lower_to_boolean_projections`
+      was discovered but skipped by the local test environment.
+  - Claim boundary:
+    - This is readiness, diagnostics, capability-surface, and documentation closeout. It does not
+      claim ClickBench timing, performance superiority, larger-than-memory runtime spill, arbitrary
+      pandas/DataFrame parity, arbitrary Python callable/UDF execution, object-store/table/Foundry
+      production support, or production platform proof.
+  - Fallback boundary:
+    - All admitted and blocked surfaces continue to preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`; no hidden pandas/Polars/DuckDB/Spark/DataFusion execution
+      path was added.
+
 - [x] Session label: Python/DataFrame deterministic blocker coverage closeout
   - Date: 2026-06-19
   - Branch/PR: `codex/clickbench-olap-polish` / PR #1303, with follow-up phase-plan cleanup in

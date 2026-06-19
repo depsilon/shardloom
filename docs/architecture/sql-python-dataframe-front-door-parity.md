@@ -261,11 +261,13 @@ runtime/user-surface expansion items that must be worked through in `GAR-RUNTIME
   to the same ShardLoom-owned null/comparison/logical predicate runtime for admitted filters and
   predicate projections over column-literal, date/timestamp/binary literal, NULL literal, and
   column-column operands.
-  Inferred-schema, broad pandas null-fill/mask result-shape, and unsafe shapes remain gated. Common
-  DataFrame inspection, summary, duplicate-mask, conditional-replacement, index-state, and
-  Python-callable methods now fail closed through `workflow-unsupported-plan` diagnostics instead
-  of missing attributes or hidden pandas/Polars execution. Arbitrary expression/DataFrame breadth
-  remains pending until its runtime evidence lands.
+  Inferred-schema, broad pandas null-fill/mask result-shape, and unsafe shapes remain gated. Scoped
+  duplicate-mask, conditional replacement, index metadata, sample, reshape, rolling, null, and
+  declarative expression routes are listed in the DataFrame method matrix with their current
+  runtime status. Broad inspection/summary variants and arbitrary Python callable/UDF execution
+  fail closed through `workflow-unsupported-plan` diagnostics instead of missing attributes or
+  hidden pandas/Polars execution. Arbitrary expression/DataFrame breadth remains pending until its
+  runtime evidence lands.
 - `performance_equivalence`
   (`runtime_gap_status=benchmark_publication_pending`): benchmark-backed performance equivalence
   across front doors.

@@ -149,12 +149,12 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         if _shardloom_take_flag(args, "--execution-policy") != "native_vortex":
             return
         input_uri = _shardloom_take_flag(args, "--input") or ""
-        if ".shardloom/prepared/" not in input_uri:
-            return
         surface = args[1]
         requested_output = _shardloom_take_flag(args, "--request") or "collect"
         output_ref = _shardloom_take_flag(args, "--output")
         primitive = _shardloom_take_flag(args, "--vortex-primitive")
+        if ".shardloom/prepared/" not in input_uri and primitive != "sort_rows":
+            return
         predicate = _shardloom_take_flag(args, "--vortex-predicate")
         columns = _shardloom_take_flag(args, "--vortex-columns")
         source_order_limit = _shardloom_take_flag(args, "--vortex-source-order-limit")
@@ -167,6 +167,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         explode_projection = _shardloom_take_flag(args, "--vortex-explode-projection")
         pivot_projection = _shardloom_take_flag(args, "--vortex-pivot-projection")
         rolling_window = _shardloom_take_flag(args, "--vortex-rolling-window")
+        sort_rows = _shardloom_take_flag(args, "--vortex-sort-rows")
         if requested_output == "collect" and primitive is not None:
             route_id = {
                 "count": "native_vortex_count_all",
@@ -183,8 +184,9 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 "explode": "native_vortex_explode",
                 "pivot": "native_vortex_pivot",
                 "rolling_window": "native_vortex_rolling_window",
+                "sort_rows": "native_vortex_sort_rows",
             }.get(primitive, "native_vortex_filter_project")
-            materializing_primitive = primitive in {"distinct", "duplicate_mask", "tail", "sample", "expression_project", "melt", "explode", "pivot", "rolling_window"}
+            materializing_primitive = primitive in {"distinct", "duplicate_mask", "tail", "sample", "expression_project", "melt", "explode", "pivot", "rolling_window", "sort_rows"}
             fields = [
                 ["public_workflow_facade_schema_version", "shardloom.public_workflow_execution_facade.v1"],
                 ["public_workflow_route_attached", "true"],
@@ -211,6 +213,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ["public_workflow_vortex_explode_projection_present", "true" if explode_projection else "false"],
                 ["public_workflow_vortex_pivot_projection_present", "true" if pivot_projection else "false"],
                 ["public_workflow_vortex_rolling_window_present", "true" if rolling_window else "false"],
+                ["public_workflow_vortex_sort_rows_present", "true" if sort_rows else "false"],
                 ["mode", "native_vortex_primitive"],
                 ["primitive", primitive],
                 ["execution", f"local_vortex_{primitive}_primitive_performed" if materializing_primitive else "local_vortex_primitive_performed"],
@@ -233,8 +236,8 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ["upstream_vortex_scan_called", "true"],
                 ["local_primitive_materialization_boundary_reported", "true" if materializing_primitive else "false"],
                 ["local_primitive_source_order_limit_requested", source_order_limit or "none"],
-                ["local_primitive_source_order_limit_applied", "true" if primitive in {"duplicate_mask", "tail", "sample", "expression_project", "melt", "explode", "pivot", "rolling_window"} and source_order_limit else "false"],
-                ["local_primitive_source_order_limit_rows_output", "2" if primitive in {"duplicate_mask", "tail", "sample", "expression_project", "melt", "explode", "pivot", "rolling_window"} and source_order_limit else "none"],
+                ["local_primitive_source_order_limit_applied", "true" if primitive in {"duplicate_mask", "tail", "sample", "expression_project", "melt", "explode", "pivot", "rolling_window", "sort_rows"} and source_order_limit else "false"],
+                ["local_primitive_source_order_limit_rows_output", "2" if primitive in {"duplicate_mask", "tail", "sample", "expression_project", "melt", "explode", "pivot", "rolling_window", "sort_rows"} and source_order_limit else "none"],
                 ["fallback_attempted", "false"],
                 ["external_engine_invoked", "false"],
                 ["public_workflow_fallback_attempted", "false"],
@@ -291,6 +294,7 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
                 ["public_workflow_vortex_explode_projection_present", "true" if explode_projection else "false"],
                 ["public_workflow_vortex_pivot_projection_present", "true" if pivot_projection else "false"],
                 ["public_workflow_vortex_rolling_window_present", "true" if rolling_window else "false"],
+                ["public_workflow_vortex_sort_rows_present", "true" if sort_rows else "false"],
                 ["mode", "native_vortex_primitive_row_export"],
                 ["execution", "native_vortex_primitive_row_export_performed"],
                 ["native_vortex_result_export_kind", "primitive_row_stream"],
@@ -18049,6 +18053,51 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "read_csv(events.csv) -> filter(id > 0) -> select(id,amount)",
         )
         self.assertFalse(dropped_index_column.fallback_attempted)
+
+    def test_native_vortex_sort_index_with_limit_routes_through_sort_rows(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import sys
+
+                raise AssertionError(f"unexpected fake CLI argv: {sys.argv[1:]}")
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_vortex("target/events.vortex")
+            .select("id", "amount")
+            .set_index("id", drop=False)
+            .sort_index(ascending=False)
+            .limit(5)
+            .collect()
+        )
+
+        self.assertIsInstance(report, sl.VortexWorkflowExecutionReport)
+        self.assertEqual(
+            report.envelope.field("public_workflow_route_id"),
+            "native_vortex_sort_rows",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_primitive"),
+            "sort_rows",
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_columns"), "id,amount"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_source_order_limit"), "5"
+        )
+        self.assertEqual(
+            report.envelope.field("public_workflow_vortex_sort_rows_present"),
+            "true",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_vortex_user_operator_shapes_route_to_native_provider(self) -> None:
         binary = self.fake_cli(

@@ -3483,6 +3483,7 @@ class _VortexPrimitiveWorkflowShape:
     explode_projection: str | None = None
     pivot_projection: str | None = None
     rolling_window: str | None = None
+    sort_rows: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -3654,6 +3655,8 @@ def _native_vortex_operation_family_for_primitive(primitive: str) -> str:
         return "duplicate_mask"
     if normalized in {"tail", "tail_rows", "source_order_tail"}:
         return "top_n"
+    if normalized in {"sort_rows", "sort", "order_by", "sort_index"}:
+        return "top_n"
     if normalized in {"sample", "sample_rows", "deterministic_sample"}:
         return "sample"
     if normalized in {"expression_project", "expression_project_rows", "mask", "replace"}:
@@ -3775,6 +3778,7 @@ def _native_vortex_row_export_payload_from_primitive_shape(
     explode_projection = getattr(shape, "explode_projection", None)
     pivot_projection = getattr(shape, "pivot_projection", None)
     rolling_window = getattr(shape, "rolling_window", None)
+    sort_rows = getattr(shape, "sort_rows", None)
     if expression_projection is not None:
         primitive = "expression_project"
         source_order_limit = getattr(shape, "limit", None)
@@ -3789,6 +3793,9 @@ def _native_vortex_row_export_payload_from_primitive_shape(
         source_order_limit = getattr(shape, "limit", None)
     elif rolling_window is not None:
         primitive = "rolling_window"
+        source_order_limit = getattr(shape, "limit", None)
+    elif sort_rows is not None:
+        primitive = "sort_rows"
         source_order_limit = getattr(shape, "limit", None)
     elif sample_count is not None or sample_fraction is not None:
         primitive = "sample"
@@ -3830,6 +3837,7 @@ def _native_vortex_row_export_payload_from_primitive_shape(
         "vortex_explode_projection": explode_projection,
         "vortex_pivot_projection": pivot_projection,
         "vortex_rolling_window": rolling_window,
+        "vortex_sort_rows": sort_rows,
     }
 
 
@@ -6076,13 +6084,13 @@ class LazyFrame:
                 memory_gb=memory_gb,
                 max_parallelism=max_parallelism,
             )
-        if report := self._vortex_local_primitive_collect_report(
+        if report := self._vortex_user_route_collect_report(
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
         ):
             return report
-        if report := self._vortex_user_route_collect_report(
+        if report := self._vortex_local_primitive_collect_report(
             check=check,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
@@ -7725,6 +7733,26 @@ class LazyFrame:
                 max_parallelism=max_parallelism,
                 check=check,
             )
+        elif shape.sort_rows is not None:
+            envelope = self._run_vortex_primitive_public_workflow(
+                primitive="sort_rows",
+                predicate=shape.predicate,
+                columns=shape.columns,
+                source_order_limit=shape.limit,
+                sample_seed=None,
+                sample_fraction=None,
+                sample_with_replacement=False,
+                duplicate_keep=None,
+                expression_projection=None,
+                melt_projection=None,
+                explode_projection=None,
+                pivot_projection=None,
+                rolling_window=None,
+                memory_gb=memory_gb,
+                max_parallelism=max_parallelism,
+                check=check,
+                sort_rows=shape.sort_rows,
+            )
         elif shape.sample_count is not None:
             envelope = self._run_vortex_primitive_public_workflow(
                 primitive="sample",
@@ -7907,6 +7935,7 @@ class LazyFrame:
             or shape.explode_projection is not None
             or shape.pivot_projection is not None
             or shape.rolling_window is not None
+            or shape.sort_rows is not None
         ):
             return None
         memory_gb = _normalize_positive_int("memory_gb", memory_gb)
@@ -8095,6 +8124,7 @@ class LazyFrame:
         memory_gb: int,
         max_parallelism: int,
         check: bool,
+        sort_rows: str | None = None,
     ) -> OutputEnvelope:
         return self.client.public_workflow_run(
             "dataframe",
@@ -8122,6 +8152,7 @@ class LazyFrame:
             vortex_explode_projection=explode_projection,
             vortex_pivot_projection=pivot_projection,
             vortex_rolling_window=rolling_window,
+            vortex_sort_rows=sort_rows,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
             check=check,
@@ -8146,9 +8177,12 @@ class LazyFrame:
         explode_projection: str | None = None
         pivot_projection: str | None = None
         rolling_window: str | None = None
+        sort_key: tuple[str, tuple[str, ...], str | None] | None = None
         for operation in self.operations:
             if operation.kind == "set_index":
                 continue
+            if sort_key is not None and operation.kind != "limit":
+                return None
             if operation.kind == "filter":
                 if (
                     predicate is not None
@@ -8439,6 +8473,32 @@ class LazyFrame:
                     return None
                 columns = parsed_columns
                 rolling_window = operation.values[0]
+            elif operation.kind == "sort":
+                if (
+                    limit is not None
+                    or distinct
+                    or duplicate_mask
+                    or tail_limit is not None
+                    or sample_count is not None
+                    or sample_fraction is not None
+                    or expression_projection is not None
+                    or melt_projection is not None
+                    or explode_projection is not None
+                    or pivot_projection is not None
+                    or rolling_window is not None
+                ):
+                    return None
+                direction, sort_columns, null_ordering = _parse_sort_operation_values(
+                    operation.values
+                )
+                if (
+                    direction not in {"asc", "desc"}
+                    or null_ordering is not None
+                    or not sort_columns
+                    or any(not _is_sql_identifier(column) for column in sort_columns)
+                ):
+                    return None
+                sort_key = (direction, sort_columns, null_ordering)
             elif operation.kind == "limit":
                 if (
                     limit is not None
@@ -8452,6 +8512,13 @@ class LazyFrame:
                     return None
                 limit = parsed_limit
             else:
+                return None
+        sort_rows = None
+        if sort_key is not None:
+            if limit is None:
+                return None
+            sort_rows = _vortex_sort_rows_payload(sort_key[0], sort_key[1], limit)
+            if sort_rows is None:
                 return None
         return _VortexPrimitiveWorkflowShape(
             predicate=predicate,
@@ -8470,6 +8537,7 @@ class LazyFrame:
             explode_projection=explode_projection,
             pivot_projection=pivot_projection,
             rolling_window=rolling_window,
+            sort_rows=sort_rows,
         )
 
     def _native_vortex_user_route_shape(self) -> _NativeVortexUserRouteShape | None:
@@ -8562,13 +8630,20 @@ class LazyFrame:
         return projection
 
     def _can_append_sort(self, columns: tuple[str, ...]) -> bool:
-        if not _is_query_builder_local_source(self.source) or not columns:
+        if not columns:
             return False
         if len(set(columns)) != len(columns):
             return False
         if any(operation.kind == "limit" for operation in self.operations):
             return False
-        return all(operation.kind != "sort" for operation in self.operations)
+        if _is_query_builder_local_source(self.source):
+            return all(operation.kind != "sort" for operation in self.operations)
+        if self.source.source_format == "vortex":
+            return all(
+                operation.kind in {"filter", "select", "set_index"}
+                for operation in self.operations
+            )
+        return False
 
     def _can_append_window(self, expressions: tuple[str, ...]) -> bool:
         if not _is_query_builder_local_source(self.source) or not expressions:
@@ -14842,6 +14917,27 @@ def _parse_sort_operation_values(
         null_ordering = values[1][len(_SORT_NULLS_TOKEN_PREFIX) :]
         return direction, values[2:], null_ordering
     return direction, values[1:], None
+
+
+def _vortex_sort_rows_payload(
+    direction: str,
+    columns: tuple[str, ...],
+    limit: int,
+) -> str | None:
+    if direction not in {"asc", "desc"} or limit <= 0:
+        return None
+    if not columns or any(not _is_sql_identifier(column) for column in columns):
+        return None
+    return json.dumps(
+        {
+            "order_by": [
+                {"column": column, "descending": direction == "desc"}
+                for column in columns
+            ],
+            "limit": limit,
+        },
+        separators=(",", ":"),
+    )
 
 
 def _format_order_by_clause(

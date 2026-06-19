@@ -6868,7 +6868,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("dropna").support_status,
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIn(
             "null_filter_semantics",
@@ -6956,7 +6956,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("fillna").support_status,
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertTrue(dataframe_methods.row("fillna").runtime_execution)
         self.assertTrue(dataframe_methods.row("fillna").data_read)
@@ -6972,11 +6972,11 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("fill_null").support_status,
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertEqual(
             dataframe_methods.row("isna").support_status,
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertTrue(dataframe_methods.row("isna").runtime_execution)
         self.assertTrue(dataframe_methods.row("isna").data_read)
@@ -6988,11 +6988,11 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("isnull").support_status,
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertEqual(
             dataframe_methods.row("notna").support_status,
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertTrue(dataframe_methods.row("notna").runtime_execution)
         self.assertTrue(dataframe_methods.row("notna").data_read)
@@ -7004,7 +7004,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("notnull").support_status,
-            "fixture_smoke_supported",
+            "production_admitted_local_workflow",
         )
         self.assertEqual(
             dataframe_methods.row("sample").support_status,
@@ -7149,7 +7149,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             dataframe_methods.row("sort_index").support_status,
-            "scoped_runtime_supported",
+            "production_admitted_local_workflow",
         )
         self.assertIsNone(dataframe_methods.row("sort_index").blocker_id)
         self.assertIn(

@@ -943,8 +943,10 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         row = by_method.get(method)
         if not row:
             continue
-        if row.get("support_status") != "fixture_smoke_supported":
-            blockers.append(f"{method}: scoped null support must be fixture_smoke_supported")
+        if row.get("support_status") != "production_admitted_local_workflow":
+            blockers.append(
+                f"{method}: scoped null support must be production_admitted_local_workflow"
+            )
         if row.get("runtime_execution") is not True:
             blockers.append(f"{method}: scoped null support requires runtime_execution true")
         if row.get("data_read") is not True:
@@ -1061,8 +1063,13 @@ def validate_method_matrix(rows: tuple[dict[str, Any], ...]) -> tuple[list[dict[
         if not row:
             continue
         support_status = str(row.get("support_status", ""))
-        if support_status != "scoped_runtime_supported":
-            blockers.append(f"{method}: index metadata row must be scoped_runtime_supported")
+        expected_status = (
+            "production_admitted_local_workflow"
+            if method == "sort_index"
+            else "scoped_runtime_supported"
+        )
+        if support_status != expected_status:
+            blockers.append(f"{method}: index metadata row must be {expected_status}")
         if row.get("blocker_id"):
             blockers.append(f"{method}: index metadata row must not carry blocker_id")
         required_evidence = set(row.get("required_evidence") or [])

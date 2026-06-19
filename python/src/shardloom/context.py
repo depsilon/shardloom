@@ -3904,7 +3904,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "dropna",
         "dataframe_null_cleanup",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4268,7 +4268,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "fillna",
         "dataframe_null_cleanup",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4288,7 +4288,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "fill_null",
         "dataframe_null_cleanup",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4306,7 +4306,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "isna",
         "dataframe_null_mask",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4326,7 +4326,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "isnull",
         "dataframe_null_mask",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4344,7 +4344,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "notna",
         "dataframe_null_mask",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4364,7 +4364,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "notnull",
         "dataframe_null_mask",
-        "fixture_smoke_supported",
+        "production_admitted_local_workflow",
         runtime_execution=True,
         data_read=True,
         required_evidence=(
@@ -4876,7 +4876,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "sort_index",
         "dataframe_index_metadata",
-        "scoped_runtime_supported",
+        "production_admitted_local_workflow",
         required_evidence=(
             "no_explicit_index_state_contract",
             "explicit_index_state_metadata",
