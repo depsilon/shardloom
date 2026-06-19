@@ -5,8 +5,8 @@ use std::fmt::Write as _;
 #[cfg(feature = "vortex-local-primitives")]
 use shardloom_core::{
     ColumnRef, EncodedSegment, EncodedValueBatch, EncodedValueRun, EncodingKind, LayoutKind,
-    LogicalDType, Nullability as ShardLoomNullability, SegmentId, SegmentLayout, SegmentStats,
-    UniversalInputSource, UriScheme,
+    LogicalDType, Nullability as ShardLoomNullability, ScalarValue, SegmentId, SegmentLayout,
+    SegmentStats, UniversalInputSource, UriScheme,
 };
 use shardloom_core::{
     ComparisonOp, CorrectnessFixture, CorrectnessValidationPlan, DatasetUri, Diagnostic,
@@ -14,8 +14,8 @@ use shardloom_core::{
     ExecutionProviderKind, ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoCertificate,
     NativeIoMaterializationBoundaryReport, NativeIoRepresentationTransition,
     NativeIoSideEffectReport, NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
-    NativeIoSourcePushdownReport, PredicateExpr, RepresentationState, Result, ScalarValue,
-    ShardLoomError, StatValue,
+    NativeIoSourcePushdownReport, PredicateExpr, RepresentationState, Result, ShardLoomError,
+    StatValue,
 };
 use shardloom_plan::ProjectionRequest;
 

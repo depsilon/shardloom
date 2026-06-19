@@ -153,7 +153,11 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
         requested_output = _shardloom_take_flag(args, "--request") or "collect"
         output_ref = _shardloom_take_flag(args, "--output")
         primitive = _shardloom_take_flag(args, "--vortex-primitive")
-        structured_export = requested_output in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro"}
+        structured_export = (
+            requested_output
+            in {"write_vortex", "write_parquet", "write_arrow_ipc", "write_avro"}
+            and ".shardloom/prepared/" in input_uri
+        )
         if ".shardloom/prepared/" not in input_uri and primitive != "sort_rows" and not structured_export:
             return
         if structured_export and primitive is None:

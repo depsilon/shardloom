@@ -199,7 +199,7 @@ Current autonomous execution order:
   `scripts/check_sql_python_dataframe_parity.py` and
   `scripts/check_user_surface_runtime_gap_inventory.py`.
 
-- [ ] `RUNTIME-CLOSEOUT-2`: General native Vortex front-door route unification.
+- [ ] `RUNTIME-CLOSEOUT-2` General native Vortex front-door route unification.
   - Source: `native_vortex_general_runtime` row in
     `target/sql-python-dataframe-parity-continuation.json`.
   - Current state: scoped local Vortex primitive/provider routes exist for count, filter/project,
@@ -238,7 +238,7 @@ Current autonomous execution order:
     integration may execute residual work.
   - Ledger rule: move completed detail after merge/session completion.
 
-- [ ] `RUNTIME-CLOSEOUT-3`: Broad SQL/Python/DataFrame language surface burn-down.
+- [ ] `RUNTIME-CLOSEOUT-3` Broad SQL/Python/DataFrame language surface burn-down.
   - Source: `arbitrary_sql_python_dataframe_breadth` row in
     `target/sql-python-dataframe-parity-continuation.json`.
   - Current state: method-level DataFrame blockers are at zero for the scoped matrix, but broad SQL
@@ -275,7 +275,7 @@ Current autonomous execution order:
     execution.
   - Ledger rule: move completed detail after merge/session completion.
 
-- [ ] `RUNTIME-CLOSEOUT-4`: Front-door performance-equivalence benchmark evidence.
+- [ ] `RUNTIME-CLOSEOUT-4` Front-door performance-equivalence benchmark evidence.
   - Source: `performance_equivalence` row in
     `target/sql-python-dataframe-parity-continuation.json`.
   - Current state: scoped front doors share runtime families, but no claim-grade benchmark artifact
@@ -305,7 +305,7 @@ Current autonomous execution order:
   - Fallback boundary: benchmark rows must execute ShardLoom runtime routes, not external engines.
   - Ledger rule: move completed detail after merge/session completion.
 
-- [ ] `RUNTIME-CLOSEOUT-5`: Object-store/lakehouse/catalog front-door runtime closure.
+- [ ] `RUNTIME-CLOSEOUT-5` Object-store/lakehouse/catalog front-door runtime closure.
   - Source: `object_store_lakehouse_catalog`, `input_object_store_cloud`, and production I/O rows
     in `target/user-surface-runtime-gap-inventory-continuation.json`.
   - Current state: local object-store/table/lakehouse fixture scopes exist, while real cloud,
