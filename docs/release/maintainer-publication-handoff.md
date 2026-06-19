@@ -49,6 +49,13 @@ Publication completion addendum, 2026-06-16:
 
 Patch train addendum, 2026-06-16:
 
+- v0.1.8 is prepared as the next compatible post-v0.1.7 patch train for ClickBench runtime
+  readiness fields, capillary/PulseWeave memory and spill diagnostics, DataFrame future-contract
+  blocker IDs, and native Vortex explode companion-column preservation after PRs #1311 and #1312.
+  It must receive its own GitHub, TestPyPI, PyPI, and Homebrew channel proofs before
+  package-channel matrices or public install docs mark v0.1.8 published.
+- Patch release notes live in `docs/release/v0.1.8-release-notes.md`.
+
 - v0.1.7 is prepared as the next compatible post-v0.1.6 patch train for release-evidence
   hardening and native Vortex runtime review polish after PRs #1307 and #1308. It must receive its
   own GitHub, TestPyPI, PyPI, and Homebrew channel proofs before package-channel matrices or public
