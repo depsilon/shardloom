@@ -1078,6 +1078,15 @@ fn append_native_vortex_primitive_row_export_target_fields(
     targets: &[NativeVortexPrimitiveRowExportTarget],
     reports: &[shardloom_vortex::VortexLocalPrimitiveRowExportReport],
 ) {
+    append_native_vortex_primitive_row_export_target_summary_fields(fields, targets, reports);
+    append_native_vortex_primitive_row_export_target_commit_fields(fields, targets, reports);
+}
+
+fn append_native_vortex_primitive_row_export_target_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    targets: &[NativeVortexPrimitiveRowExportTarget],
+    reports: &[shardloom_vortex::VortexLocalPrimitiveRowExportReport],
+) {
     push_field(
         fields,
         "native_vortex_result_export_target_count",
@@ -1129,6 +1138,13 @@ fn append_native_vortex_primitive_row_export_target_fields(
             .collect::<Vec<_>>()
             .join(","),
     );
+}
+
+fn append_native_vortex_primitive_row_export_target_commit_fields(
+    fields: &mut Vec<(String, String)>,
+    targets: &[NativeVortexPrimitiveRowExportTarget],
+    reports: &[shardloom_vortex::VortexLocalPrimitiveRowExportReport],
+) {
     let all_targets_committed =
         reports.len() == targets.len() && reports.iter().all(|report| !report.has_errors());
     let multi_target = targets.len() > 1;

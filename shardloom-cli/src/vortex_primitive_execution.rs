@@ -3861,120 +3861,159 @@ fn parse_expression_project_rewrite(
     let target = json_string_field_any(object, &["target_column", "target"])?;
     let target_column = ColumnRef::new(target)?;
     match kind.trim().to_ascii_lowercase().replace('-', "_").as_str() {
-        "mask_scalar" | "mask" => {
-            let predicate = json_string_field(object, "predicate")?;
-            let replacement = object.get("replacement").ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "mask_scalar rewrite requires a replacement scalar".to_string(),
-                )
-            })?;
-            Ok(VortexExpressionRewrite::MaskScalar {
-                target_column,
-                predicate: parse_tiny_predicate(predicate)?,
-                replacement: parse_expression_scalar(replacement, "replacement")?,
-            })
-        }
-        "replace_scalar" | "replace" => {
-            let to_replace = object
-                .get("to_replace")
-                .or_else(|| object.get("old"))
-                .ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "replace_scalar rewrite requires a to_replace scalar".to_string(),
-                    )
-                })?;
-            let replacement = object
-                .get("replacement")
-                .or_else(|| object.get("new"))
-                .ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(
-                        "replace_scalar rewrite requires a replacement scalar".to_string(),
-                    )
-                })?;
-            Ok(VortexExpressionRewrite::ReplaceScalar {
-                target_column,
-                to_replace: parse_expression_scalar(to_replace, "to_replace")?,
-                replacement: parse_expression_scalar(replacement, "replacement")?,
-            })
-        }
+        "mask_scalar" | "mask" => parse_mask_scalar_rewrite(object, target_column),
+        "replace_scalar" | "replace" => parse_replace_scalar_rewrite(object, target_column),
         "string_replace_scalar" | "string_replace" | "replace_substring" => {
-            let needle = json_string_field_any(object, &["needle", "to_replace", "old"])?;
-            if needle.is_empty() {
-                return Err(ShardLoomError::InvalidOperation(
-                    "string_replace_scalar rewrite requires a non-empty needle".to_string(),
-                ));
-            }
-            let replacement =
-                json_string_field_any(object, &["replacement", "new"]).map(str::to_string)?;
-            Ok(VortexExpressionRewrite::StringReplaceScalar {
-                target_column,
-                needle: needle.to_string(),
-                replacement,
-            })
+            parse_string_replace_scalar_rewrite(object, target_column)
         }
         "regex_replace_scalar" | "regex_replace" | "replace_regex" => {
-            let pattern = json_string_field_any(object, &["pattern", "regex", "to_replace"])?;
-            if pattern.is_empty() {
-                return Err(ShardLoomError::InvalidOperation(
-                    "regex_replace_scalar rewrite requires a non-empty pattern".to_string(),
-                ));
-            }
-            let replacement =
-                json_string_field_any(object, &["replacement", "new"]).map(str::to_string)?;
-            Ok(VortexExpressionRewrite::RegexReplaceScalar {
-                target_column,
-                pattern: pattern.to_string(),
-                replacement,
-            })
+            parse_regex_replace_scalar_rewrite(object, target_column)
         }
         "numeric_scalar_arithmetic" | "numeric_arithmetic" | "arithmetic_scalar" => {
-            let operator = json_string_field_any(object, &["operator", "op"])?.trim();
-            if !matches!(operator, "+" | "-" | "*" | "/") {
-                return Err(ShardLoomError::InvalidOperation(
-                    "numeric_scalar_arithmetic rewrite operator must be one of +, -, *, or /"
-                        .to_string(),
-                ));
-            }
-            let operand = object.get("operand").ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "numeric_scalar_arithmetic rewrite requires an operand scalar".to_string(),
-                )
-            })?;
-            Ok(VortexExpressionRewrite::NumericScalarArithmetic {
-                target_column,
-                operator: operator.to_string(),
-                operand: parse_expression_scalar(operand, "operand")?,
-            })
+            parse_numeric_scalar_arithmetic_rewrite(object, target_column)
         }
         "forward_fill_null" | "ffill_null" | "fill_forward_null" | "pad_null" => {
-            let limit = json_optional_usize_field_any(object, &["limit", "max_fill"])?;
-            if limit == Some(0) {
-                return Err(ShardLoomError::InvalidOperation(
-                    "forward_fill_null rewrite limit must be >= 1 when provided".to_string(),
-                ));
-            }
-            Ok(VortexExpressionRewrite::ForwardFillNull {
-                target_column,
-                limit,
-            })
+            parse_forward_fill_null_rewrite(object, target_column)
         }
         "row_number" | "source_order_row_number" | "ordinal" => {
-            let start =
-                json_optional_usize_field_any(object, &["start", "base", "offset"])?.unwrap_or(0);
-            Ok(VortexExpressionRewrite::RowNumber {
-                target_column,
-                start: u64::try_from(start).map_err(|_| {
-                    ShardLoomError::InvalidOperation(
-                        "row_number rewrite start exceeded u64".to_string(),
-                    )
-                })?,
-            })
+            parse_row_number_rewrite(object, target_column)
         }
         _ => Err(ShardLoomError::InvalidOperation(
             "expression-project rewrite kind must be mask_scalar, replace_scalar, string_replace_scalar, regex_replace_scalar, numeric_scalar_arithmetic, forward_fill_null, or row_number"
                 .to_string(),
         )),
     }
+}
+
+fn parse_mask_scalar_rewrite(
+    object: &serde_json::Map<String, serde_json::Value>,
+    target_column: ColumnRef,
+) -> Result<VortexExpressionRewrite, ShardLoomError> {
+    let predicate = json_string_field(object, "predicate")?;
+    let replacement = object.get("replacement").ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "mask_scalar rewrite requires a replacement scalar".to_string(),
+        )
+    })?;
+    Ok(VortexExpressionRewrite::MaskScalar {
+        target_column,
+        predicate: parse_tiny_predicate(predicate)?,
+        replacement: parse_expression_scalar(replacement, "replacement")?,
+    })
+}
+
+fn parse_replace_scalar_rewrite(
+    object: &serde_json::Map<String, serde_json::Value>,
+    target_column: ColumnRef,
+) -> Result<VortexExpressionRewrite, ShardLoomError> {
+    let to_replace = object
+        .get("to_replace")
+        .or_else(|| object.get("old"))
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "replace_scalar rewrite requires a to_replace scalar".to_string(),
+            )
+        })?;
+    let replacement = object
+        .get("replacement")
+        .or_else(|| object.get("new"))
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "replace_scalar rewrite requires a replacement scalar".to_string(),
+            )
+        })?;
+    Ok(VortexExpressionRewrite::ReplaceScalar {
+        target_column,
+        to_replace: parse_expression_scalar(to_replace, "to_replace")?,
+        replacement: parse_expression_scalar(replacement, "replacement")?,
+    })
+}
+
+fn parse_string_replace_scalar_rewrite(
+    object: &serde_json::Map<String, serde_json::Value>,
+    target_column: ColumnRef,
+) -> Result<VortexExpressionRewrite, ShardLoomError> {
+    let needle = json_string_field_any(object, &["needle", "to_replace", "old"])?;
+    if needle.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "string_replace_scalar rewrite requires a non-empty needle".to_string(),
+        ));
+    }
+    let replacement = json_string_field_any(object, &["replacement", "new"]).map(str::to_string)?;
+    Ok(VortexExpressionRewrite::StringReplaceScalar {
+        target_column,
+        needle: needle.to_string(),
+        replacement,
+    })
+}
+
+fn parse_regex_replace_scalar_rewrite(
+    object: &serde_json::Map<String, serde_json::Value>,
+    target_column: ColumnRef,
+) -> Result<VortexExpressionRewrite, ShardLoomError> {
+    let pattern = json_string_field_any(object, &["pattern", "regex", "to_replace"])?;
+    if pattern.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "regex_replace_scalar rewrite requires a non-empty pattern".to_string(),
+        ));
+    }
+    let replacement = json_string_field_any(object, &["replacement", "new"]).map(str::to_string)?;
+    Ok(VortexExpressionRewrite::RegexReplaceScalar {
+        target_column,
+        pattern: pattern.to_string(),
+        replacement,
+    })
+}
+
+fn parse_numeric_scalar_arithmetic_rewrite(
+    object: &serde_json::Map<String, serde_json::Value>,
+    target_column: ColumnRef,
+) -> Result<VortexExpressionRewrite, ShardLoomError> {
+    let operator = json_string_field_any(object, &["operator", "op"])?.trim();
+    if !matches!(operator, "+" | "-" | "*" | "/") {
+        return Err(ShardLoomError::InvalidOperation(
+            "numeric_scalar_arithmetic rewrite operator must be one of +, -, *, or /".to_string(),
+        ));
+    }
+    let operand = object.get("operand").ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "numeric_scalar_arithmetic rewrite requires an operand scalar".to_string(),
+        )
+    })?;
+    Ok(VortexExpressionRewrite::NumericScalarArithmetic {
+        target_column,
+        operator: operator.to_string(),
+        operand: parse_expression_scalar(operand, "operand")?,
+    })
+}
+
+fn parse_forward_fill_null_rewrite(
+    object: &serde_json::Map<String, serde_json::Value>,
+    target_column: ColumnRef,
+) -> Result<VortexExpressionRewrite, ShardLoomError> {
+    let limit = json_optional_usize_field_any(object, &["limit", "max_fill"])?;
+    if limit == Some(0) {
+        return Err(ShardLoomError::InvalidOperation(
+            "forward_fill_null rewrite limit must be >= 1 when provided".to_string(),
+        ));
+    }
+    Ok(VortexExpressionRewrite::ForwardFillNull {
+        target_column,
+        limit,
+    })
+}
+
+fn parse_row_number_rewrite(
+    object: &serde_json::Map<String, serde_json::Value>,
+    target_column: ColumnRef,
+) -> Result<VortexExpressionRewrite, ShardLoomError> {
+    let start = json_optional_usize_field_any(object, &["start", "base", "offset"])?.unwrap_or(0);
+    Ok(VortexExpressionRewrite::RowNumber {
+        target_column,
+        start: u64::try_from(start).map_err(|_| {
+            ShardLoomError::InvalidOperation("row_number rewrite start exceeded u64".to_string())
+        })?,
+    })
 }
 
 fn json_string_field<'a>(
