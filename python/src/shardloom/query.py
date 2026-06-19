@@ -7610,7 +7610,7 @@ class LazyFrame:
                 candidate.right_source_uri,
                 candidate.right_target,
                 input_format=candidate.right_source_format,
-                allow_overwrite=False,
+                allow_overwrite=True,
                 certification_level="ingest_certified",
                 check=check,
             )
@@ -7620,7 +7620,7 @@ class LazyFrame:
             self.source.uri,
             candidate.left_target,
             input_format=self.source.source_format,
-            allow_overwrite=False,
+            allow_overwrite=True,
             certification_level="ingest_certified",
             check=check,
         )

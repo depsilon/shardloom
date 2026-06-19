@@ -30,6 +30,13 @@ phase plan first.
     - Fixed `scripts/run_release_validation_evidence.py --skip-slow` so local inspection mode is
       metadata-only and does not launch Cargo workspace feature checks, package builds, full
       unittest discovery, or release proof commands.
+    - Updated the release user-surface CI lane to reuse the package-smoke `target/debug/shardloom`
+      artifact for downstream resource-safety, observability, and example-replay checks instead of
+      rebuilding the CLI in the Python-only evidence job.
+    - Fixed internal auto-prepared Vortex targets for normal Python `ctx.read(...).collect()`
+      reruns so stale `.shardloom/prepared/*.vortex` files are overwritten by the internal
+      lifecycle instead of surfacing as public quickstart/runtime blockers. Explicit user-managed
+      preparation overwrite policy remains separate.
     - Added a focused regression test for the skip-slow planner and documented that skip-slow
       cannot satisfy hard release proof because `required_validation_status=passed` still requires
       the full evidence runner.
@@ -54,6 +61,23 @@ phase plan first.
       completed with zero command executions and `feature_build_matrix_status=skipped_slow`,
       `required_validation_status=skipped_slow`, and
       `supporting_security_dependency_status=skipped_slow`.
+    - `PYTHONPATH=python/src python3 -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_auto_prepared_vortex_collect_overwrites_internal_target`
+      passed.
+    - `PYTHONPATH=python/src python3 examples/local-python-smoke/run.py --repo-root . --shardloom-bin target/debug/shardloom`
+      passed with `quickstart_local_file_runtime_execution=true`,
+      `quickstart_local_file_vortex_ingest_performed=true`, and no fallback/external-engine
+      invocation.
+    - `python3 scripts/check_v1_example_replay.py --profile-order debug,release --skip-build --output target/v1-example-replay-report-skip-build-debug.json --work-dir target/v1-example-replay-skip-build-debug`
+      passed.
+    - `python3 scripts/check_v1_local_resource_safety.py --skip-build --output target/v1-local-resource-safety-report-skip-build-debug.json`
+      passed.
+    - `python3 scripts/check_v1_observability_support.py --skip-build --output target/v1-observability-support-report-skip-build-debug.json`
+      passed.
+    - `python3 scripts/check_ci_gate_matrix.py --output target/ci-gate-matrix-report-debug.json`
+      passed.
+    - `python3 -m py_compile scripts/check_v1_example_replay.py scripts/check_v1_local_resource_safety.py scripts/check_v1_observability_support.py scripts/check_ci_gate_matrix.py python/src/shardloom/query.py python/tests/test_query_builder.py`
+      passed.
+    - `git diff --check` passed.
     - `python3 scripts/check_release_readiness.py --allow-blocked --output target/release-readiness-current-allow-blocked.json`
       now blocks only on clean-env proof skipped by request, publication/API/schema approval,
       per-claim evidence remaining not claim-grade, and full required-validation evidence not yet

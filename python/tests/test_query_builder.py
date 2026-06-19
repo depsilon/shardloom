@@ -701,6 +701,47 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         path.write_text(prefix + _FAKE_CLI_ENVELOPE_PRELUDE + "\n" + body, encoding="utf-8")
         return [sys.executable, str(path)]
 
+    def test_auto_prepared_vortex_collect_overwrites_internal_target(self) -> None:
+        class CapturingClient:
+            def __init__(self) -> None:
+                self.calls: list[dict[str, object]] = []
+
+            def vortex_ingest_smoke(self, *args: object, **kwargs: object) -> object:
+                self.calls.append({"args": args, "kwargs": kwargs})
+
+                class Report:
+                    class Envelope:
+                        status = "success"
+
+                    envelope = Envelope()
+
+                return Report()
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            source = Path(tempdir) / "orders.csv"
+            source.write_text(
+                "id,label,amount\n1,alpha,8\n2,beta,15\n",
+                encoding="utf-8",
+            )
+            client = CapturingClient()
+            frame = (
+                sl.read_csv(source, client=client)  # type: ignore[arg-type]
+                .filter(sl.col("amount") >= 10)
+                .select("id", "label", "amount")
+                .limit(2)
+            )
+
+            candidate = frame._prepared_vortex_candidate_for_admitted_runtime()
+            self.assertIsNotNone(candidate)
+            frame._prepare_vortex_candidate(candidate, check=False)  # type: ignore[arg-type]
+
+        self.assertEqual(len(client.calls), 1)
+        self.assertTrue(client.calls[0]["kwargs"]["allow_overwrite"])  # type: ignore[index]
+        self.assertEqual(
+            client.calls[0]["kwargs"]["certification_level"],  # type: ignore[index]
+            "ingest_certified",
+        )
+
     def assert_public_local_file_vortex_middle_blocked(
         self,
         envelope: sl.OutputEnvelope,
